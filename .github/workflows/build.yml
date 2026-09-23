@@ -1,16 +1,21 @@
-# 협회 앱 자동 짓기·올리기 (1.0.1판, 빌드 260923-2)
-# 깃허브가 빌려 주는 맥에서 Xcode 26 으로 프로젝트를 만들고, 앱스토어 커넥트 열쇠(관리자 권한)로 서명해 테스트플라이트에 올립니다.
+# 협회 앱·자봉 앱·배프 앱 자동 짓기·올리기 (1.0.3판, 빌드 260923-5)
+# 깃허브가 빌려 주는 맥에서 Xcode 26 으로 프로젝트를 만들고, 앱스토어 커넥트 열쇠(관리자 권한)로 서명해 올립니다.
 # 필요한 비밀값은 ★하나뿐입니다 (Settings → Secrets and variables → Actions):
 #   ASC_BUNDLE   아래 네 가지를 한 덩이로 넣습니다.
 #     KEY_ID=열쇠ID(열 자리)
 #     ISSUER_ID=발급자ID
 #     TEAM_ID=팀ID(열 자리)
 #     -----BEGIN PRIVATE KEY----- 부터 -----END PRIVATE KEY----- 까지 p8 파일 내용 그대로
-# 짓기는 Actions 화면의 「Run workflow」로 손수 돌립니다(올릴 때마다 저절로 돌지 않게).
+# 짓기는 Actions 화면의 「Run workflow」로 손수 돌립니다.
+#   eoneu   ada = 협회 앱(애플워치 포함) / jabong = 자봉 앱 / bfb = 배프 앱
+#   ollida  true = 앱스토어 커넥트에 올리기 / false = 짓기만 하고 파일로 남기기
 name: app-jitgi
 on:
   workflow_dispatch:
     inputs:
+      eoneu:
+        description: "어느 앱 (ada = 협회 앱, jabong = 자봉 앱, bfb = 배프 앱)"
+        default: "ada"
       ollida:
         description: "앱스토어 커넥트에 올리기 (true/false)"
         default: "true"
@@ -20,6 +25,20 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+
+      - name: 어느 앱인지 정하기
+        env:
+          EONEU: ${{ github.event.inputs.eoneu || 'ada' }}
+        run: |
+          case "$EONEU" in
+            jabong) SCH=JabongApp; NM=자봉앱 ;;
+            bfb)    SCH=BfbApp;    NM=배프앱 ;;
+            ada|"") SCH=AdaApp;    NM=협회앱 ;;
+            *) echo "eoneu 는 ada, jabong, bfb 중 하나여야 합니다 (받은 값: $EONEU)"; exit 1 ;;
+          esac
+          echo "SCHEME=$SCH" >> "$GITHUB_ENV"
+          echo "APPNAME=$NM" >> "$GITHUB_ENV"
+          echo "짓는 앱: $NM (스킴 $SCH)"
 
       - name: Xcode 26 고르기
         run: |
@@ -76,9 +95,9 @@ jobs:
         run: |
           mkdir -p build
           set -o pipefail
-          xcodebuild -project AdaApp.xcodeproj -scheme AdaApp -configuration Release \
+          xcodebuild -project AdaApp.xcodeproj -scheme "$SCHEME" -configuration Release \
             -destination 'generic/platform=iOS' \
-            -archivePath build/AdaApp.xcarchive archive \
+            -archivePath "build/$SCHEME.xcarchive" archive \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
             -authenticationKeyID "$ASC_KEY_ID" \
@@ -104,11 +123,12 @@ jobs:
             <key>manageAppVersionAndBuildNumber</key><false/>
           </dict></plist>
           EOF
+          echo "내보내기: $DEST"
 
       - name: 올리기(export / upload)
         run: |
           set -o pipefail
-          xcodebuild -exportArchive -archivePath build/AdaApp.xcarchive \
+          xcodebuild -exportArchive -archivePath "build/$SCHEME.xcarchive" \
             -exportOptionsPlist build/export.plist -exportPath build/out \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
@@ -120,7 +140,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: AdaApp-${{ steps.beonho.outputs.bn }}
+          name: ${{ env.SCHEME || 'AdaApp' }}-${{ steps.beonho.outputs.bn }}
           path: |
             build/*.log
             build/out
