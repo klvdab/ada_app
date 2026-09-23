@@ -37,7 +37,7 @@ jobs:
             bfb)       FL=bfb;    NM=배프 ;;
             *) echo "eoneu 는 gilnun, jabong, bfb 중 하나여야 합니다 (받은 값: $EONEU)"; exit 1 ;;
           esac
-          CAP=\$(echo "$FL" | sed 's/^./\U&/')
+                    CAP=$(echo "$FL" | sed 's/^./\U&/')
           echo "FLAVOR=$FL" >> "$GITHUB_ENV"
           echo "FLAVOR_CAP=$CAP" >> "$GITHUB_ENV"
           echo "APPNAME=$NM" >> "$GITHUB_ENV"
