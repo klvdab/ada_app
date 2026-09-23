@@ -1,0 +1,169 @@
+# 협회 앱 · 자봉 앱 · 배프 앱 — XcodeGen 설계도 (1.0.3판, 빌드 260923-6)
+# 한 저장소에 세 앱을 담습니다. 짓기 설정(build.yml)에서 어느 앱을 지을지 골라 씁니다.
+#   AdaApp     협회 앱  (kr.or.ada.app)     대문 https://lvd.ada.or.kr/app/     + 애플워치
+#   JabongApp  자봉 앱  (kr.or.ada.jabong)  대문 https://lvd.ada.or.kr/jabong/
+#   BfbApp     배프 앱  (kr.or.ada.bfb)     대문 https://lvd.ada.or.kr/bfb/
+# 두 앱은 App 폴더의 소스를 함께 씁니다. 대문 주소는 각자 Info.plist 의 AdaHomeURL 로 갈라집니다.
+name: AdaApp
+options:
+  bundleIdPrefix: kr.or.ada
+  deploymentTarget:
+    iOS: "16.4"
+    watchOS: "9.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "260923001"
+    DEVELOPMENT_TEAM: "${DEVELOPMENT_TEAM}"
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.0"
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+targets:
+  AdaApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    dependencies:
+      - target: AdaWatch
+        embed: true
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: 길눈
+        CFBundleName: AdaApp
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        AdaHomeURL: https://lvd.ada.or.kr/app/
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIBackgroundModes: [location, audio, remote-notification]
+        NSLocationWhenInUseUsageDescription: 길눈이 걷는 동안 방향과 남은 거리를 안내하려면 위치가 필요합니다.
+        NSLocationAlwaysAndWhenInUseUsageDescription: 폰이 주머니에 있어도 갈림길 안내를 이어 가려면 항상 위치가 필요합니다.
+        NSCameraUsageDescription: 라이브 현장영상해설 방송과 시지각 판독에 카메라를 씁니다.
+        NSMicrophoneUsageDescription: 라이브 현장영상해설 방송에 마이크를 씁니다.
+        NSBluetoothAlwaysUsageDescription: 길가의 음성유도기와 음향신호기를 켜는 데 블루투스를 씁니다.
+        NSMotionUsageDescription: 걸음 수와 보폭 재기에 움직임 정보를 씁니다.
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+    entitlements:
+      path: App/AdaApp.entitlements
+      properties:
+        aps-environment: production
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app
+        TARGETED_DEVICE_FAMILY: "1"
+  JabongApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+        excludes:
+          - Assets.xcassets
+          - Info.plist
+          - AdaApp.entitlements
+      - path: Jabong
+    info:
+      path: Jabong/Info.plist
+      properties:
+        CFBundleDisplayName: 자봉
+        CFBundleName: JabongApp
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        AdaHomeURL: https://lvd.ada.or.kr/jabong/
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIBackgroundModes: [location, audio, remote-notification]
+        NSLocationWhenInUseUsageDescription: 도움을 청한 분이 계신 곳까지 찾아가는 데 위치가 필요합니다.
+        NSLocationAlwaysAndWhenInUseUsageDescription: 봉사 가는 길에 안내를 이어 가려면 항상 위치가 필요합니다.
+        NSCameraUsageDescription: 도움을 청한 분과 화상으로 이어 현장을 살피는 데 카메라를 씁니다.
+        NSMicrophoneUsageDescription: 도움을 청한 분과 말을 주고받는 데 마이크를 씁니다.
+        NSMotionUsageDescription: 걸음 수 재기에 움직임 정보를 씁니다.
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+    entitlements:
+      path: Jabong/JabongApp.entitlements
+      properties:
+        aps-environment: production
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.jabong
+        TARGETED_DEVICE_FAMILY: "1"
+  BfbApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+        excludes:
+          - Assets.xcassets
+          - Info.plist
+          - AdaApp.entitlements
+      - path: Bfb
+    info:
+      path: Bfb/Info.plist
+      properties:
+        CFBundleDisplayName: 배프
+        CFBundleName: BfbApp
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        AdaHomeURL: https://lvd.ada.or.kr/bfb/
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIBackgroundModes: [audio, remote-notification]
+        NSCameraUsageDescription: 현장에서 라이브 방송을 내보내는 데 카메라를 씁니다.
+        NSMicrophoneUsageDescription: 현장에서 라이브 해설을 내보내는 데 마이크를 씁니다.
+        NSLocationWhenInUseUsageDescription: 현장 방송을 내보낼 때 어디서 하는 방송인지 알리는 데 위치를 씁니다.
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+    entitlements:
+      path: Bfb/BfbApp.entitlements
+      properties:
+        aps-environment: production
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.bfb
+        TARGETED_DEVICE_FAMILY: "1"
+  AdaWatch:
+    type: application
+    platform: watchOS
+    sources: [Watch]
+    info:
+      path: Watch/Info.plist
+      properties:
+        CFBundleDisplayName: 길눈
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: kr.or.ada.app
+        WKWatchOnly: false
+        NSLocationWhenInUseUsageDescription: 내 자리를 알려 드리는 데 위치를 씁니다.
+        NSBluetoothAlwaysUsageDescription: 음성유도기를 켜는 데 블루투스를 씁니다.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app.watchkitapp
+        TARGETED_DEVICE_FAMILY: "4"
+schemes:
+  AdaApp:
+    build:
+      targets:
+        AdaApp: all
+    archive:
+      config: Release
+  JabongApp:
+    build:
+      targets:
+        JabongApp: all
+    archive:
+      config: Release
+  BfbApp:
+    build:
+      targets:
+        BfbApp: all
+    archive:
+      config: Release
