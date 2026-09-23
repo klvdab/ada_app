@@ -1,0 +1,79 @@
+# 협회 앱 — XcodeGen 설계도 (1.0.0판, 빌드 260923-1)
+# 깃허브 액션스(빌린 맥, Xcode 26)에서 xcodegen 으로 Xcode 프로젝트를 만들어 짓습니다.
+name: AdaApp
+options:
+  bundleIdPrefix: kr.or.ada
+  deploymentTarget:
+    iOS: "16.4"
+    watchOS: "9.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "260923001"
+    DEVELOPMENT_TEAM: "${DEVELOPMENT_TEAM}"
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.0"
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+targets:
+  AdaApp:
+    type: application
+    platform: iOS
+    sources: [App]
+    dependencies:
+      - target: AdaWatch
+        embed: true
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: 현장영상해설
+        CFBundleName: AdaApp
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIBackgroundModes: [location, audio, remote-notification]
+        NSLocationWhenInUseUsageDescription: 길눈이 걷는 동안 방향과 남은 거리를 안내하려면 위치가 필요합니다.
+        NSLocationAlwaysAndWhenInUseUsageDescription: 폰이 주머니에 있어도 갈림길 안내를 이어 가려면 항상 위치가 필요합니다.
+        NSCameraUsageDescription: 라이브 현장영상해설 방송과 시지각 판독에 카메라를 씁니다.
+        NSMicrophoneUsageDescription: 라이브 현장영상해설 방송에 마이크를 씁니다.
+        NSBluetoothAlwaysUsageDescription: 길가의 음성유도기와 음향신호기를 켜는 데 블루투스를 씁니다.
+        NSMotionUsageDescription: 걸음 수와 보폭 재기에 움직임 정보를 씁니다.
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+    entitlements:
+      path: App/AdaApp.entitlements
+      properties:
+        aps-environment: production
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app
+        TARGETED_DEVICE_FAMILY: "1"
+  AdaWatch:
+    type: application
+    platform: watchOS
+    sources: [Watch]
+    info:
+      path: Watch/Info.plist
+      properties:
+        CFBundleDisplayName: 길눈
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: kr.or.ada.app
+        WKWatchOnly: false
+        NSLocationWhenInUseUsageDescription: 내 자리를 알려 드리는 데 위치를 씁니다.
+        NSBluetoothAlwaysUsageDescription: 음성유도기를 켜는 데 블루투스를 씁니다.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app.watchkitapp
+        TARGETED_DEVICE_FAMILY: "4"
+schemes:
+  AdaApp:
+    build:
+      targets:
+        AdaApp: all
+    archive:
+      config: Release
