@@ -59,7 +59,7 @@ jobs:
         run: |
           BN=$(TZ=Asia/Seoul date +%y%m%d%H%M)
           echo "bn=$BN" >> "$GITHUB_OUTPUT"
-          echo "BUILD_NUMBER=$((10#$BN))" >> "$GITHUB_ENV"
+                    echo "BUILD_NUMBER=$(( ($(date +%s) - 1767225600) / 60 ))" >> "$GITHUB_ENV"
 
       - name: 아이콘 만들기
         run: |
