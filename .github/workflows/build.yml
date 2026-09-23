@@ -1,0 +1,117 @@
+# 협회 앱 자동 짓기·올리기 (1.0.0판, 빌드 260923-1)
+# 깃허브가 빌려 주는 맥에서 Xcode 26 으로 프로젝트를 만들고, 앱스토어 커넥트 열쇠(관리자 권한)로 서명해 테스트플라이트에 올립니다.
+# 필요한 비밀값(Settings → Secrets and variables → Actions):
+#   ASC_KEY_ID      앱스토어 커넥트 열쇠 ID (열 자리)
+#   ASC_ISSUER_ID   발급자 ID
+#   ASC_KEY_P8      AuthKey_XXXXXXXXXX.p8 파일의 내용 전체
+#   TEAM_ID         개발자 팀 ID (열 자리)
+# 짓기는 Actions 화면의 「Run workflow」로 손수 돌립니다(올릴 때마다 저절로 돌지 않게).
+name: app-jitgi
+on:
+  workflow_dispatch:
+    inputs:
+      ollida:
+        description: "앱스토어 커넥트에 올리기 (true/false)"
+        default: "true"
+jobs:
+  jitgi:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode 26 고르기
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1)
+          if [ -z "$X" ]; then echo "Xcode 26 이 없습니다"; ls -d /Applications/Xcode*.app; exit 1; fi
+          sudo xcode-select -s "$X/Contents/Developer"
+          xcodebuild -version
+
+      - name: 도구 준비
+        run: |
+          brew install xcodegen
+          python3 -m venv /tmp/py
+          /tmp/py/bin/pip install --quiet pillow
+
+      - name: 아이콘 만들기
+        run: /tmp/py/bin/python tools/make_icon.py
+
+      - name: 열쇠 놓기
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          mkdir -p ~/private_keys
+          printf '%s\n' "$ASC_KEY_P8" > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          chmod 600 ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+      - name: 빌드 번호 매기기 (연월일시분)
+        id: beonho
+        run: echo "bn=$(TZ=Asia/Seoul date +%y%m%d%H%M)" >> "$GITHUB_OUTPUT"
+
+      - name: Xcode 프로젝트 만들기
+        env:
+          DEVELOPMENT_TEAM: ${{ secrets.TEAM_ID }}
+        run: xcodegen generate
+
+      - name: 짓기(archive)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+        run: |
+          mkdir -p build
+          set -o pipefail
+          xcodebuild -project AdaApp.xcodeproj -scheme AdaApp -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/AdaApp.xcarchive archive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            CURRENT_PROJECT_VERSION="${{ steps.beonho.outputs.bn }}" \
+            2>&1 | tee build/archive.log | tail -n 80 || { echo "===== 잘못된 곳 ====="; grep -E "error:|warning: .*signing|Provisioning" build/archive.log | head -n 60; exit 1; }
+
+      - name: 내보내기 설정
+        env:
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+          OLLIDA: ${{ github.event.inputs.ollida || 'true' }}
+        run: |
+          DEST=upload; if [ "$OLLIDA" != "true" ]; then DEST=export; fi
+          cat > build/export.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>${DEST}</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict></plist>
+          EOF
+
+      - name: 올리기(export / upload)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          xcodebuild -exportArchive -archivePath build/AdaApp.xcarchive \
+            -exportOptionsPlist build/export.plist -exportPath build/out \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            2>&1 | tee build/export.log | tail -n 60
+
+      - name: 기록 남기기
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AdaApp-${{ steps.beonho.outputs.bn }}
+          path: |
+            build/*.log
+            build/out
+          if-no-files-found: ignore
