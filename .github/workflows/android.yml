@@ -1,4 +1,4 @@
-# 안드로이드 앱 자동 짓기 (1.0.0판, 빌드 260923-1)
+# 안드로이드 앱 자동 짓기 (1.0.1판, 빌드 260923-2)
 # 깃허브가 빌려 주는 리눅스에서 안드로이드 앱을 짓습니다. 맥이 필요 없어 애플보다 빠릅니다.
 # 세 앱을 한 프로젝트에 담았습니다(갈래).
 #   gilnun  길눈 (kr.or.ada.app)
@@ -10,6 +10,7 @@
 #   KEY_PASSWORD=열쇠 비밀번호
 #   KEYSTORE_BASE64=열쇠집 파일(jks)을 base64 로 바꾼 글자
 # 비밀값이 없으면 서명 없이 시험용으로만 짓습니다.
+# 1.0.1판에서 고친 것: 그레들 판을 8.11.1 로 못박음(9판은 안드로이드 플러그인 8.7 과 맞지 않음), 잘못된 곳을 더 자세히 찍게 함
 name: android-jitgi
 on:
   workflow_dispatch:
@@ -32,12 +33,11 @@ jobs:
           EONEU: ${{ github.event.inputs.eoneu || 'gilnun' }}
         run: |
           case "$EONEU" in
-            gilnun|"") FL=gilnun; NM=길눈 ;;
-            jabong)    FL=jabong; NM=자봉 ;;
-            bfb)       FL=bfb;    NM=배프 ;;
+            gilnun|"") FL=gilnun; CAP=Gilnun; NM=길눈 ;;
+            jabong)    FL=jabong; CAP=Jabong; NM=자봉 ;;
+            bfb)       FL=bfb;    CAP=Bfb;    NM=배프 ;;
             *) echo "eoneu 는 gilnun, jabong, bfb 중 하나여야 합니다 (받은 값: $EONEU)"; exit 1 ;;
           esac
-                    CAP=$(echo "$FL" | sed 's/^./\U&/')
           echo "FLAVOR=$FL" >> "$GITHUB_ENV"
           echo "FLAVOR_CAP=$CAP" >> "$GITHUB_ENV"
           echo "APPNAME=$NM" >> "$GITHUB_ENV"
@@ -51,6 +51,8 @@ jobs:
 
       - name: 그레들 준비
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
 
       - name: 빌드 번호 매기기 (연월일시분)
         id: beonho
@@ -102,7 +104,14 @@ jobs:
       - name: 짓기
         run: |
           set -o pipefail
-          gradle "assemble${FLAVOR_CAP}Release" "bundle${FLAVOR_CAP}Release" --no-daemon --stacktrace 2>&1 | tee build.log | tail -n 60 || { echo "===== 잘못된 곳 ====="; grep -E "error:|FAILURE|Caused by" build.log | head -n 60; exit 1; }
+          gradle --version
+          gradle "assemble${FLAVOR_CAP}Release" "bundle${FLAVOR_CAP}Release" --no-daemon --stacktrace 2>&1 | tee build.log | tail -n 120 || true
+          if ! grep -q "BUILD SUCCESSFUL" build.log; then
+            echo "===== 잘못된 곳 ====="
+            sed -n '/What went wrong/,/^$/p' build.log | head -n 40
+            grep -nE "error:|^e: |Caused by|Unsupported|requires Gradle|Could not|No such|not found" build.log | head -n 40
+            exit 1
+          fi
 
       - name: 만들어진 것 살펴보기
         run: |
