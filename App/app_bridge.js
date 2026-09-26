@@ -1,4 +1,4 @@
-/* app_bridge.js — 앱이 웹에 심는 다리 (0.2.0판, 빌드 260926-1)
+/* app_bridge.js — 앱이 웹에 심는 다리 (0.2.1판, 빌드 260926-2)
    웹(gigi.js 등)은 window.adaApp 이 있으면 앱의 손발을 쓰고, 없으면 지금처럼 웹 방식으로 갑니다.
    ★0.2.0 (2026-09-26 이사장님 승인) — 웹의 음성 인식(SpeechRecognition)을 앱 받아쓰기(SttService)로 갈음합니다.
    모양은 웹 것과 같아서(start·stop·abort, onresult·onerror·onend 등) 길눈의 말로 시키기·말로 넣기가 고칠 것 없이 앱 받아쓰기를 씁니다.
@@ -7,7 +7,7 @@
   if (window.adaApp) return;
   var deul = {};
   window.adaApp = {
-    pan: "0.2.0",
+    pan: "0.2.1",
     isApp: true,
     /* 웹 → 앱 */
     bureugi: function(a, m){ try { var o = m || {}; o.a = a; window.webkit.messageHandlers.ada.postMessage(o); } catch(e){} },
@@ -88,6 +88,12 @@
       this._ssoda("audioend"); this._ssoda("end");
     }
   };
+  /* 0.2.1 (260926-2) — 웹 쪽(길눈 app.js)이 소리 설정(navigator.audioSession)을 "녹음 겸용"으로 바꾸면
+     아이폰이 소리를 귀 대는 쪽(수화기)으로 보내 작게 들렸습니다. 앱에서는 소리 설정을 앱(SttService)이 맡으므로 웹의 바꾸기는 받지 않습니다. */
+  try {
+    var AS = navigator.audioSession;
+    if (AS) Object.defineProperty(AS, "type", { configurable: true, get: function(){ return "auto"; }, set: function(v){} });
+  } catch(e){}
   try { window.SpeechRecognition = AppSR; } catch(e){}
   try { window.webkitSpeechRecognition = AppSR; } catch(e){}
 })();

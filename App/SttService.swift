@@ -1,5 +1,6 @@
 // 앱 받아쓰기 — 웹의 음성 인식(SpeechRecognition)을 아이폰 자체 받아쓰기로 갈음합니다.
 // 1.0판 빌드 260926-1 (2026-09-26 이사장님 승인)
+// 1.1판 빌드 260926-2 — 마이크가 열리면 소리가 귀 대는 쪽(수화기)으로 가서 작게 들리던 것을 고침: 스피커로 못박고, 음악 줄이기(duckOthers)는 뺌
 // 웹 방식 마이크는 켤 때마다 소리 장치를 새로 잡아 보이스오버와 다투고, 화면을 옮기면 끊겼습니다.
 // 앱에서는 듣는 동안만 "녹음·재생 겸용(보이스오버·음악과 함께, 음악은 잠깐 줄임)"으로 바꾸고,
 // 다 들으면 원래(재생 전용, 기기 단추 받기)로 되돌립니다. 마이크·받아쓰기 허락은 처음 한 번만 받습니다.
@@ -72,7 +73,7 @@ final class SttService: NSObject {
         let s = AVAudioSession.sharedInstance()
         do {
             try s.setCategory(.playAndRecord, mode: .default,
-                              options: [.mixWithOthers, .duckOthers, .defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP])
+                              options: [.mixWithOthers, .defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP])
             try s.setActive(true)
         } catch {
             finish(reason: "audio-capture"); return
@@ -87,6 +88,11 @@ final class SttService: NSObject {
         input.installTap(onBus: 0, bufferSize: 1024, format: fmt) { [weak r] buf, _ in r?.append(buf) }
         engine.prepare()
         do { try engine.start() } catch { finish(reason: "audio-capture"); return }
+        // 260926-2 듣는 동안에도 소리는 귀 대는 쪽이 아니라 폰 스피커(또는 이어폰)로 나오게 못박습니다
+        let bakkat: [AVAudioSession.Port] = [.headphones, .bluetoothA2DP, .bluetoothHFP, .bluetoothLE, .carAudio, .airPlay]
+        if !s.currentRoute.outputs.contains(where: { bakkat.contains($0.portType) }) {
+            try? s.overrideOutputAudioPort(.speaker)
+        }
 
         let myId = id
         emit("deutgiSijak", ["id": myId])
