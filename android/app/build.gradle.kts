@@ -45,7 +45,7 @@ android {
             dimension = "ap"
             applicationId = "kr.or.ada.app"
             resValue("string", "app_name", "길눈")
-            buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/app/\"")
+            buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/jeom/jeom.html\"")   // 260926-3 길눈 첫 화면으로 곧바로
         }
         create("jabong") {
             dimension = "ap"
