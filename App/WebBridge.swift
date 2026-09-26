@@ -55,7 +55,9 @@ final class WebBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
         case "allimHeorak":
             NotificationService.shared.requestPermission { ok in self.send("allimHeorak", ["ok": ok]) }
         case "jindong":                                 // 진동 무늬: left / right / arrive / short / long
-            HapticService.play((m["mu"] as? String) ?? "short")
+            let mu = (m["mu"] as? String) ?? "short"
+            HapticService.play(mu)
+            WatchLink.shared.jindongBonae(mu)           // 260927-2 워치도 같은 무늬로 (방향 진동)
         case "mal":                                     // 마지막 안내 — 워치로 넘김
             WatchLink.shared.push(["mal": (m["t"] as? String) ?? ""])
         case "daeum":                                   // 다음 갈림길 — 워치로 넘김

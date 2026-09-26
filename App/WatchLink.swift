@@ -1,4 +1,5 @@
 // 폰 ↔ 워치 — 마지막 안내와 다음 갈림길을 워치로 보내고, 워치가 누른 단추를 웹에 넘깁니다.
+// 1.1 (빌드 260927-2, 이사장님 승인) 방향 진동을 워치로도 보냄(jindongBonae)
 import WatchConnectivity
 
 final class WatchLink: NSObject, WCSessionDelegate {
@@ -19,6 +20,14 @@ final class WatchLink: NSObject, WCSessionDelegate {
         guard WCSession.isSupported(), WCSession.default.activationState == .activated else { return }
         try? WCSession.default.updateApplicationContext(last)
         if WCSession.default.isReachable { WCSession.default.sendMessage(last, replyHandler: nil, errorHandler: nil) }
+    }
+
+    /// 260927-2 방향 진동 — 워치의 길눈이 열려 있으면 지금 한 번 울립니다.
+    /// 지난 진동이 나중에 다시 울리지 않게 applicationContext 에는 넣지 않고 메시지로만 보냅니다.
+    func jindongBonae(_ mu: String) {
+        guard WCSession.isSupported(), WCSession.default.activationState == .activated,
+              WCSession.default.isReachable else { return }
+        WCSession.default.sendMessage(["jindong": mu], replyHandler: nil, errorHandler: nil)
     }
 
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {}
