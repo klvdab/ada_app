@@ -1,5 +1,6 @@
 // 앱 받아쓰기 — 웹의 음성 인식(SpeechRecognition)을 아이폰 자체 받아쓰기로 갈음합니다.
 // 1.0판 빌드 260926-1 (2026-09-26 이사장님 승인)
+// 1.2판 빌드 260926-3 — 반응 빠르게(이사장님): 말이 0.7초 멎으면 마무리, 화면의 단추 이름·자주 쓰는 명령을 미리 알려 주어 더 잘 알아듣게, 비슷한 후보 셋까지 넘김
 // 1.1판 빌드 260926-2 — 마이크가 열리면 소리가 귀 대는 쪽(수화기)으로 가서 작게 들리던 것을 고침: 스피커로 못박고, 음악 줄이기(duckOthers)는 뺌
 // 웹 방식 마이크는 켤 때마다 소리 장치를 새로 잡아 보이스오버와 다투고, 화면을 옮기면 끊겼습니다.
 // 앱에서는 듣는 동안만 "녹음·재생 겸용(보이스오버·음악과 함께, 음악은 잠깐 줄임)"으로 바꾸고,
@@ -23,6 +24,7 @@ final class SttService: NSObject {
     private var sawText = false
     private var lastText = ""
     private var finalSent = false
+    private var lastAlts: [String] = []
     private var quietTimer: Timer?
     private var capTimer: Timer?
 
@@ -31,7 +33,7 @@ final class SttService: NSObject {
     }
 
     /// 듣기 시작. continuous 여도 한 마디(말이 멎을 때까지)를 받고 끝냅니다 — 길눈 화면들이 끝나면 다시 켜는 방식이라 그대로 맞습니다.
-    func start(id newId: String, lang: String, continuous: Bool) {
+    func start(id newId: String, lang: String, continuous: Bool, hints: [String] = []) {
         DispatchQueue.main.async {
             if !self.done { self.finish(reason: nil) }
             self.id = newId
@@ -39,12 +41,13 @@ final class SttService: NSObject {
             self.sawText = false
             self.lastText = ""
             self.finalSent = false
+            self.lastAlts = []
             SFSpeechRecognizer.requestAuthorization { st in
                 AVAudioSession.sharedInstance().requestRecordPermission { mic in
                     DispatchQueue.main.async {
                         guard self.id == newId, !self.done else { return }
                         if st != .authorized || !mic { self.finish(reason: "not-allowed"); return }
-                        self.begin(lang: lang, continuous: continuous)
+                        self.begin(lang: lang, continuous: continuous, hints: hints)
                     }
                 }
             }
@@ -59,12 +62,12 @@ final class SttService: NSObject {
                 self.finish(reason: "aborted")
             } else {
                 self.req?.endAudio()
-                self.armCap(1.5)
+                self.armCap(0.6)
             }
         }
     }
 
-    private func begin(lang: String, continuous: Bool) {
+    private func begin(lang: String, continuous: Bool, hints: [String]) {
         let loc = Locale(identifier: lang.isEmpty ? "ko-KR" : lang)
         guard let rec = SFSpeechRecognizer(locale: loc), rec.isAvailable else {
             finish(reason: "service-not-allowed"); return
@@ -80,6 +83,8 @@ final class SttService: NSObject {
         }
         let r = SFSpeechAudioBufferRecognitionRequest()
         r.shouldReportPartialResults = true
+        r.taskHint = .search                     // 짧은 명령·이름에 맞춤
+        if !hints.isEmpty { r.contextualStrings = Array(hints.prefix(100)) }   // 이 화면 단추 이름·자주 쓰는 명령
         req = r
         let input = engine.inputNode
         input.removeTap(onBus: 0)
@@ -102,6 +107,7 @@ final class SttService: NSObject {
                 if let res = result {
                     let t = res.bestTranscription.formattedString
                     if !t.isEmpty { self.sawText = true; self.lastText = t }
+                    self.lastAlts = res.transcriptions.prefix(3).map { $0.formattedString }.filter { !$0.isEmpty }
                     if res.isFinal {
                         self.sendFinal(t.isEmpty ? self.lastText : t)
                         self.finish(reason: self.sawText ? nil : "no-speech")
@@ -122,16 +128,18 @@ final class SttService: NSObject {
     private func sendFinal(_ t: String) {
         guard !finalSent, !t.isEmpty else { return }
         finalSent = true
-        emit("deutgiGyeolgwa", ["id": id, "t": t, "final": true])
+        var alts = lastAlts
+        if alts.first != t { alts.insert(t, at: 0) }
+        emit("deutgiGyeolgwa", ["id": id, "t": t, "final": true, "alts": Array(alts.prefix(3))])
     }
 
-    /// 말이 1.2초 멎으면 그 말로 마무리합니다
+    /// 말이 0.7초 멎으면 그 말로 마무리합니다(260926-3: 1.2초 → 0.7초)
     private func armQuiet() {
         quietTimer?.invalidate()
-        quietTimer = Timer.scheduledTimer(withTimeInterval: 1.2, repeats: false) { [weak self] _ in
+        quietTimer = Timer.scheduledTimer(withTimeInterval: 0.7, repeats: false) { [weak self] _ in
             guard let self = self, !self.done else { return }
             self.req?.endAudio()
-            self.armCap(1.5)
+            self.armCap(0.6)
         }
     }
 

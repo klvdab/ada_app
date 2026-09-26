@@ -1,4 +1,4 @@
-/* app_bridge.js — 앱이 웹에 심는 다리 (0.2.1판, 빌드 260926-2)
+/* app_bridge.js — 앱이 웹에 심는 다리 (0.2.2판, 빌드 260926-3)
    웹(gigi.js 등)은 window.adaApp 이 있으면 앱의 손발을 쓰고, 없으면 지금처럼 웹 방식으로 갑니다.
    ★0.2.0 (2026-09-26 이사장님 승인) — 웹의 음성 인식(SpeechRecognition)을 앱 받아쓰기(SttService)로 갈음합니다.
    모양은 웹 것과 같아서(start·stop·abort, onresult·onerror·onend 등) 길눈의 말로 시키기·말로 넣기가 고칠 것 없이 앱 받아쓰기를 씁니다.
@@ -7,7 +7,7 @@
   if (window.adaApp) return;
   var deul = {};
   window.adaApp = {
-    pan: "0.2.1",
+    pan: "0.2.2",
     isApp: true,
     /* 웹 → 앱 */
     bureugi: function(a, m){ try { var o = m || {}; o.a = a; window.webkit.messageHandlers.ada.postMessage(o); } catch(e){} },
@@ -33,6 +33,19 @@
     });
   }
   var sun = 0;
+  /* 0.2.2 (260926-3) — 더 잘 알아듣게: 지금 화면에 보이는 단추 이름과 자주 쓰는 명령을 받아쓰기에 미리 알려 줍니다 */
+  var GIBON = ["뒤로", "첫 화면", "말로 하기", "무엇이 있어", "지금 어디야", "몇 정거장 남았어", "새로고침", "설정", "도움말",
+    "걸어갈까요", "차로갈까요", "즐겨찾기", "지하철", "버스", "택시", "기차", "여정 끝내기", "그만", "다시", "네", "아니요", "길 찾기", "둘러보기", "음악", "라디오", "TV", "지금 가는 길 알려 줘"];
+  function moaHints(){
+    var out = [], bon = {};
+    function neot(s){ s = String(s || "").split(/[—\-·(]/)[0].replace(/\s+/g, " ").trim(); if (s && s.length <= 20 && !bon[s]) { bon[s] = 1; out.push(s); } }
+    try {
+      var d = document, bs = d.querySelectorAll("button, a[href], [role=button], [role=tab]");
+      for (var i = 0; i < bs.length && out.length < 70; i++) { var b = bs[i]; if (b.offsetParent === null) continue; neot(b.getAttribute("aria-label") || b.textContent); }
+    } catch(e){}
+    for (var j = 0; j < GIBON.length; j++) neot(GIBON[j]);
+    return out.slice(0, 100);
+  }
   function AppSR(){
     this.lang = "ko-KR"; this.continuous = false; this.interimResults = false; this.maxAlternatives = 1;
     this.grammars = null;
@@ -61,7 +74,7 @@
     this._on = true; this._mal = false;
     this._id = "s" + Date.now() + "_" + (++sun) + "_" + Math.floor(Math.random() * 1e6);
     REG[this._id] = this;
-    window.adaApp.bureugi("deutgiSijak", { id: this._id, lang: this.lang || "ko-KR", continuous: !!this.continuous });
+    window.adaApp.bureugi("deutgiSijak", { id: this._id, lang: this.lang || "ko-KR", continuous: !!this.continuous, hints: moaHints() });
   };
   AppSR.prototype.stop = function(){ if (this._on) window.adaApp.bureugi("deutgiMeom", { id: this._id, abort: false }); };
   AppSR.prototype.abort = function(){
@@ -75,8 +88,10 @@
       var fin = !!d.final;
       if (!this._mal) { this._mal = true; this._ssoda("soundstart"); this._ssoda("speechstart"); }
       if (!fin && !this.interimResults) return;
-      var alt = { transcript: String(d.t || ""), confidence: fin ? 0.9 : 0.5 };
-      var res = [alt]; res.isFinal = fin; res.item = function(i){ return this[i]; };
+      var res = [], al = (fin && d.alts && d.alts.length) ? d.alts : [d.t];
+      for (var q = 0; q < al.length && q < Math.max(1, this.maxAlternatives || 1); q++) res.push({ transcript: String(al[q] || ""), confidence: q === 0 ? (fin ? 0.9 : 0.5) : 0.5 });
+      if (!res.length) res.push({ transcript: String(d.t || ""), confidence: 0.5 });
+      res.isFinal = fin; res.item = function(i){ return this[i]; };
       var all = [res]; all.item = function(i){ return this[i]; };
       this._ssoda("result", { resultIndex: 0, results: all });
       if (fin) { this._ssoda("speechend"); this._ssoda("soundend"); }

@@ -70,7 +70,8 @@ final class WebBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
         case "deutgiSijak":                             // 260926-1 앱 받아쓰기 시작 (웹 SpeechRecognition.start)
             SttService.shared.start(id: (m["id"] as? String) ?? "",
                                     lang: (m["lang"] as? String) ?? "ko-KR",
-                                    continuous: (m["continuous"] as? Bool) ?? false)
+                                    continuous: (m["continuous"] as? Bool) ?? false,
+                                    hints: (m["hints"] as? [String]) ?? [])
         case "deutgiMeom":                              // 앱 받아쓰기 멈춤 (stop / abort)
             SttService.shared.stop(id: (m["id"] as? String) ?? "", abort: (m["abort"] as? Bool) ?? false)
         case "dwiro":                                   // 뒤로 — 앱 밖으로는 절대 나가지 않음
