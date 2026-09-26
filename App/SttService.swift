@@ -1,5 +1,6 @@
 // 앱 받아쓰기 — 웹의 음성 인식(SpeechRecognition)을 아이폰 자체 받아쓰기로 갈음합니다.
 // 1.0판 빌드 260926-1 (2026-09-26 이사장님 승인)
+// 1.3판 빌드 260927-1 — 첫 말은 알아듣고 두 번째부터(「네」 대답 등) 계속 못 듣던 것을 고침: 소리 설정을 바꿀 때마다 마이크 틀(AVAudioEngine)을 새로 만들고, 다 쓰면 비움. 받아쓰기를 잠깐 못 쓸 때 '허락 없음'으로 알려 길눈이 말하기를 아예 멈추던 것도 고침
 // 1.2판 빌드 260926-3 — 반응 빠르게(이사장님): 말이 0.7초 멎으면 마무리, 화면의 단추 이름·자주 쓰는 명령을 미리 알려 주어 더 잘 알아듣게, 비슷한 후보 셋까지 넘김
 // 1.1판 빌드 260926-2 — 마이크가 열리면 소리가 귀 대는 쪽(수화기)으로 가서 작게 들리던 것을 고침: 스피커로 못박고, 음악 줄이기(duckOthers)는 뺌
 // 웹 방식 마이크는 켤 때마다 소리 장치를 새로 잡아 보이스오버와 다투고, 화면을 옮기면 끊겼습니다.
@@ -15,7 +16,7 @@ final class SttService: NSObject {
     /// 웹으로 보낼 일: deutgiSijak / deutgiGyeolgwa / deutgiOryu / deutgiKkeut
     var onEvent: ((String, [String: Any]) -> Void)?
 
-    private let engine = AVAudioEngine()
+    private var engine = AVAudioEngine()   // 260927-1 듣기마다 새로 만듭니다
     private var req: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
     private var recognizer: SFSpeechRecognizer?
@@ -70,7 +71,7 @@ final class SttService: NSObject {
     private func begin(lang: String, continuous: Bool, hints: [String]) {
         let loc = Locale(identifier: lang.isEmpty ? "ko-KR" : lang)
         guard let rec = SFSpeechRecognizer(locale: loc), rec.isAvailable else {
-            finish(reason: "service-not-allowed"); return
+            finish(reason: "network"); return   // 260927-1 잠깐 못 쓸 때를 '허락 없음'으로 알리면 길눈이 말하기를 아예 멈췄음
         }
         recognizer = rec
         let s = AVAudioSession.sharedInstance()
@@ -86,6 +87,7 @@ final class SttService: NSObject {
         r.taskHint = .search                     // 짧은 명령·이름에 맞춤
         if !hints.isEmpty { r.contextualStrings = Array(hints.prefix(100)) }   // 이 화면 단추 이름·자주 쓰는 명령
         req = r
+        engine = AVAudioEngine()   // ★260927-1 소리 설정(재생 전용 ↔ 녹음 겸용)이 바뀐 뒤 옛 마이크 틀을 다시 쓰면 소리가 안 들어와 「못 들었습니다」만 되풀이했음
         let input = engine.inputNode
         input.removeTap(onBus: 0)
         let fmt = input.outputFormat(forBus: 0)
@@ -159,6 +161,7 @@ final class SttService: NSObject {
         capTimer?.invalidate(); capTimer = nil
         if engine.isRunning { engine.stop() }
         engine.inputNode.removeTap(onBus: 0)
+        engine.reset()
         req?.endAudio()
         task?.cancel()
         req = nil
