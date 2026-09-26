@@ -13,6 +13,13 @@
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
+    <!-- 260926-1 앱 받아쓰기: 안드로이드 11 이상에서 받아쓰기 서비스를 찾으려면 적어 두어야 합니다 -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
