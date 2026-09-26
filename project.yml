@@ -39,7 +39,7 @@ targets:
         CFBundleLocalizations: [ko]
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        AdaHomeURL: https://lvd.ada.or.kr/app/
+        AdaHomeURL: https://lvd.ada.or.kr/jeom/jeom.html   # 260926-3 이사장님 — 길눈 앱은 곧바로 길눈 첫 화면(다른 앱 이름이 늘어선 대문을 거치지 않음)
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIBackgroundModes: [location, audio, remote-notification]
