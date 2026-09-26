@@ -1,4 +1,5 @@
-# 협회 앱·자봉 앱·배프 앱 자동 짓기·올리기 (1.0.3판, 빌드 260923-5)
+# 협회 앱·자봉 앱·배프 앱 자동 짓기·올리기 (1.0.4판, 빌드 260927-1)
+# 1.0.4 (260927-1, 이사장님 승인) 짓기 전에 두 시간 넘은 "Created via API" 개발용 인증서를 스스로 폐기(열 개 차서 막히는 것 막기)
 # 깃허브가 빌려 주는 맥에서 Xcode 26 으로 프로젝트를 만들고, 앱스토어 커넥트 열쇠(관리자 권한)로 서명해 올립니다.
 # 필요한 비밀값은 ★하나뿐입니다 (Settings → Secrets and variables → Actions):
 #   ASC_BUNDLE   아래 네 가지를 한 덩이로 넣습니다.
@@ -51,7 +52,7 @@ jobs:
         run: |
           brew install xcodegen
           python3 -m venv /tmp/py
-          /tmp/py/bin/pip install --quiet pillow
+          /tmp/py/bin/pip install --quiet pillow pyjwt cryptography
 
       - name: 아이콘 만들기
         run: /tmp/py/bin/python tools/make_icon.py
@@ -81,6 +82,10 @@ jobs:
           echo "ASC_ISSUER_ID=$IID" >> "$GITHUB_ENV"
           echo "TEAM_ID=$TID" >> "$GITHUB_ENV"
           echo "열쇠 놓았습니다 (열쇠 ID $KID)"
+
+      - name: 옛 개발용 인증서 정리
+        continue-on-error: true
+        run: /tmp/py/bin/python tools/cert_jeongri.py
 
       - name: 빌드 번호 매기기 (연월일시분)
         id: beonho
