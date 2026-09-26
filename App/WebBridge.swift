@@ -21,6 +21,10 @@ final class WebBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
         NotificationService.shared.onTap = { [weak self] url in
             self?.send("allimTap", ["url": url])
         }
+        // 260926-1 앱 받아쓰기 — 들은 말을 웹(app_bridge.js 의 SpeechRecognition 대리)에 돌려줍니다
+        SttService.shared.onEvent = { [weak self] name, data in
+            self?.send(name, data)
+        }
     }
 
     // 앱 → 웹
@@ -63,6 +67,12 @@ final class WebBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
             if let s = m["url"] as? String, let u = URL(string: s) { UIApplication.shared.open(u) }
         case "malhagi":                                 // 앱 음성으로 읽기(웹 음성이 끊길 때 대비)
             SpeechService.shared.speak((m["t"] as? String) ?? "", rate: (m["rate"] as? Double) ?? 0.55)
+        case "deutgiSijak":                             // 260926-1 앱 받아쓰기 시작 (웹 SpeechRecognition.start)
+            SttService.shared.start(id: (m["id"] as? String) ?? "",
+                                    lang: (m["lang"] as? String) ?? "ko-KR",
+                                    continuous: (m["continuous"] as? Bool) ?? false)
+        case "deutgiMeom":                              // 앱 받아쓰기 멈춤 (stop / abort)
+            SttService.shared.stop(id: (m["id"] as? String) ?? "", abort: (m["abort"] as? Bool) ?? false)
         case "dwiro":                                   // 뒤로 — 앱 밖으로는 절대 나가지 않음
             if let w = web, w.canGoBack { w.goBack() } else { web?.load(URLRequest(url: ADA_HOME)) }
         default: break

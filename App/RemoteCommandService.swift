@@ -7,6 +7,7 @@ final class RemoteCommandService {
     static let shared = RemoteCommandService()
     var onCommand: ((String) -> Void)?
     private var player: AVAudioPlayer?
+    private var on = false
     private var title = "길눈 안내 — 재생은 다시 듣기, 다음은 내 자리, 이전은 앞 안내"
 
     func setTitle(_ t: String) {
@@ -15,6 +16,7 @@ final class RemoteCommandService {
     }
 
     func activate() {
+        on = true
         let s = AVAudioSession.sharedInstance()
         try? s.setCategory(.playback, mode: .spokenAudio, options: [.mixWithOthers, .duckOthers])
         try? s.setActive(true)
@@ -42,8 +44,17 @@ final class RemoteCommandService {
     }
 
     func deactivate() {
+        on = false
         player?.pause()
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+    }
+
+    /// 260926-1 — 앱 받아쓰기(SttService)가 듣기를 마치면 소리 설정을 원래대로(재생 전용) 되돌립니다
+    func restoreSession() {
+        let s = AVAudioSession.sharedInstance()
+        try? s.setCategory(.playback, mode: .spokenAudio, options: [.mixWithOthers, .duckOthers])
+        try? s.setActive(true)
+        if on { player?.play() }
     }
 
     private func refreshInfo() {
