@@ -45,6 +45,19 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
         speak("다음 갈림길을 폰에서 받아 오는 중입니다.")
     }
 
+    // 260927-3 음향신호기 — 폰이 블루투스로 가까운 음향신호기를 울림 (1 위치안내 / 2 신호안내)
+    func sinhogi(_ cmd: Int) {
+        guard WCSession.isSupported(), WCSession.default.isReachable else {
+            speak("폰의 길눈과 이어져 있지 않습니다. 폰에서 길눈을 열어 주십시오.", jindong: .failure); return
+        }
+        WKInterfaceDevice.current().play(.start)
+        WCSession.default.sendMessage(["what": "sinhogi", "cmd": cmd], replyHandler: { [weak self] r in
+            DispatchQueue.main.async { self?.apply(r) }
+        }, errorHandler: { [weak self] _ in
+            DispatchQueue.main.async { self?.speak("폰에 요청을 보내지 못했습니다. 다시 눌러 주십시오.", jindong: .failure) }
+        })
+    }
+
     func jariDeutgi() {
         speak("내 자리를 찾는 중입니다.", jindong: .start)
         jariDone = { [weak self] s in self?.jari = s; self?.speak(s, jindong: .success) }
@@ -78,6 +91,10 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
         if let t = r["ttae"] as? Double { ttae = t }
         if let k = r["watchBeonho"] as? String { UserDefaults.standard.set(k, forKey: "watchBeonho") }
         if let mu = r["jindong"] as? String { jindongHagi(mu) }
+        if let s = r["sinhogiMal"] as? String, !s.isEmpty {
+            let ok = (r["sinhogiOk"] as? Bool) ?? true
+            speak(s, jindong: r["sinhogiOk"] == nil ? .click : (ok ? .success : .failure))
+        }
     }
 
     // 진동 무늬: 왼쪽 짧게 두 번, 오른쬭 길게 한 번, 도착 세 번

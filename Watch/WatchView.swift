@@ -15,6 +15,13 @@ struct WatchView: View {
                 Button { model.malDeutgi() } label: { Text("마지막 안내").frame(maxWidth: .infinity) }
                     .buttonStyle(.bordered)
                     .accessibilityHint("폰의 길눈이 마지막으로 말한 안내를 다시 읽어 줍니다")
+                // 260927-3 음향신호기 — 리모컨의 "유"(위치안내)와 "신"(신호안내)
+                Button { model.sinhogi(1) } label: { Text("음향신호기 위치").frame(maxWidth: .infinity) }
+                    .buttonStyle(.bordered)
+                    .accessibilityHint("가까운 블루투스 음향신호기가 위치 안내 소리를 내게 합니다. 리모컨의 유 단추와 같습니다")
+                Button { model.sinhogi(2) } label: { Text("음향신호기 신호").frame(maxWidth: .infinity) }
+                    .buttonStyle(.bordered)
+                    .accessibilityHint("가까운 블루투스 음향신호기가 지금 보행 신호를 알려 주게 합니다. 리모컨의 신 단추와 같습니다")
                 Text(model.mal)
                     .font(.footnote)
                     .accessibilityLabel("마지막 안내. \(model.mal)")
