@@ -7,6 +7,7 @@
 name: AdaApp
 options:
   bundleIdPrefix: kr.or.ada
+  developmentLanguage: ko   # 260926-2 허락 창·단추가 영어로 나오던 것 — 앱 기본 말을 한국어로
   deploymentTarget:
     iOS: "16.4"
     watchOS: "9.0"
@@ -34,6 +35,8 @@ targets:
       properties:
         CFBundleDisplayName: 길눈
         CFBundleName: AdaApp
+        CFBundleDevelopmentRegion: ko
+        CFBundleLocalizations: [ko]
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         AdaHomeURL: https://lvd.ada.or.kr/app/
@@ -72,6 +75,8 @@ targets:
       path: Jabong/Info.plist
       properties:
         CFBundleDisplayName: 자봉
+        CFBundleDevelopmentRegion: ko
+        CFBundleLocalizations: [ko]
         CFBundleName: JabongApp
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
@@ -110,6 +115,8 @@ targets:
       path: Bfb/Info.plist
       properties:
         CFBundleDisplayName: 배프
+        CFBundleDevelopmentRegion: ko
+        CFBundleLocalizations: [ko]
         CFBundleName: BfbApp
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
