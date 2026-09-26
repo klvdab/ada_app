@@ -18,6 +18,11 @@ final class WebBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
         WatchLink.shared.onRequest = { [weak self] what in
             self?.send("watch", ["what": what])
         }
+        // 260927-3 음향신호기 — 워치 단추로 울리기, 가까운 음향신호기 세기 알리기
+        WatchLink.shared.onSinhogi = { [weak self] cmd in self?.sinhogiUlligi(cmd) }
+        SignalService.shared.onNear = { [weak self] f, r in
+            self?.send("sinhogiGeunche", ["f": f, "rssi": r])
+        }
         NotificationService.shared.onTap = { [weak self] url in
             self?.send("allimTap", ["url": url])
         }
@@ -35,6 +40,15 @@ final class WebBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
         let esc = s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "'", with: "\\'")
         let js = "window.adaApp && window.adaApp.batda('\(name)', JSON.parse('\(esc)'));"
         DispatchQueue.main.async { web.evaluateJavaScript(js, completionHandler: nil) }
+    }
+
+    /// 260927-3 음향신호기 울리기 — 결과를 웹(길눈이 말함)과 워치에 함께 알림
+    func sinhogiUlligi(_ cmd: UInt8) {
+        SignalService.shared.send(cmd) { [weak self] ok, mal in
+            self?.send("sinhogiGyeolgwa", ["ok": ok, "mal": mal, "cmd": Int(cmd)])
+            HapticService.play(ok ? "arrive" : "long")
+            WatchLink.shared.sinhogiDap(ok, mal)
+        }
     }
 
     // 웹 → 앱
@@ -58,6 +72,11 @@ final class WebBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
             let mu = (m["mu"] as? String) ?? "short"
             HapticService.play(mu)
             WatchLink.shared.jindongBonae(mu)           // 260927-2 워치도 같은 무늬로 (방향 진동)
+        case "sinhogi":                                 // 260927-3 음향신호기: cmd 1 위치안내 / 2 신호안내 / 3 설치 위치 음성안내
+            let c = (m["cmd"] as? Int) ?? 1
+            sinhogiUlligi(UInt8(max(1, min(3, c))))
+        case "sinhogiChatgi":                           // 260927-3 가까운 음향신호기 찾기(이끌기) 켜기/끄기
+            SignalService.shared.watch((m["on"] as? Bool) ?? false)
         case "mal":                                     // 마지막 안내 — 워치로 넘김
             WatchLink.shared.push(["mal": (m["t"] as? String) ?? ""])
         case "daeum":                                   // 다음 갈림길 — 워치로 넘김
