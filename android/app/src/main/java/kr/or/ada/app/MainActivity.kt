@@ -1,4 +1,5 @@
-// 협회 안드로이드 앱 — 본 화면 (1.1.0판, 빌드 260926-1)
+// 협회 안드로이드 앱 — 본 화면 (1.1.1판, 빌드 260927-1)
+// ★1.1.1 (2026-09-27 이사장님 — 반응 빠르게) — 말이 0.7초 멎으면 마무리, 비슷한 후보 셋까지 넘김, 다리(BRIDGE_JS)를 아이폰 0.2.2와 같게
 // ★1.1.0 (2026-09-26 이사장님 승인) — 앱 받아쓰기: 안드로이드 앱 안의 웹에는 음성 인식이 없어 말로 시키기·말로 넣기가 안 되던 것을
 //   안드로이드 자체 받아쓰기(SpeechRecognizer)로 잇습니다. 다리(BRIDGE_JS)를 문서 맨 처음에 심어 웹의 SpeechRecognition 과 같은 모양으로 내줍니다.
 // 나스의 웹을 앱 안에 담고, 웹이 못 하는 손발(위치·알림·진동·뒤로 지킴)을 붙입니다.
@@ -34,6 +35,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import org.json.JSONArray
 import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
@@ -153,9 +155,10 @@ class MainActivity : AppCompatActivity() {
                 if (id == srId && t.isNotEmpty()) sttSend("deutgiGyeolgwa", JSONObject().put("id", id).put("t", t).put("final", false))
             }
             override fun onResults(b: Bundle?) {
-                val t = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull() ?: ""
+                val alts = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.filter { it.isNotEmpty() }?.take(3) ?: emptyList()
+                val t = alts.firstOrNull() ?: ""
                 if (id != srId) return
-                if (t.isNotEmpty()) { bonNal = true; sttSend("deutgiGyeolgwa", JSONObject().put("id", id).put("t", t).put("final", true)) }
+                if (t.isNotEmpty()) { bonNal = true; sttSend("deutgiGyeolgwa", JSONObject().put("id", id).put("t", t).put("final", true).put("alts", JSONArray(alts))) }
                 sttFinish(id, if (bonNal) null else "no-speech")
             }
             override fun onError(code: Int) {
@@ -178,7 +181,9 @@ class MainActivity : AppCompatActivity() {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (lang.isEmpty()) "ko-KR" else lang)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 700L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 700L)
         }
         try { r.startListening(sik) } catch (e: Exception) { sttFinish(id, "audio-capture") }
     }
@@ -271,7 +276,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
-        fun pan(): String = "1.1.0 / 260926-1 / android"
+        fun pan(): String = "1.1.1 / 260927-1 / android"
 
         // 웹 → 앱 (아이폰의 window.webkit.messageHandlers.ada 와 같은 자리). 받아쓰기는 여기로 옵니다
         @JavascriptInterface
@@ -322,6 +327,19 @@ class MainActivity : AppCompatActivity() {
     });
   }
   var sun = 0;
+  /* 0.2.2 (260926-3) — 더 잘 알아듣게: 지금 화면에 보이는 단추 이름과 자주 쓰는 명령을 받아쓰기에 미리 알려 줍니다 */
+  var GIBON = ["뒤로", "첫 화면", "말로 하기", "무엇이 있어", "지금 어디야", "몇 정거장 남았어", "새로고침", "설정", "도움말",
+    "걸어갈까요", "차로갈까요", "즐겨찾기", "지하철", "버스", "택시", "기차", "여정 끝내기", "그만", "다시", "네", "아니요", "길 찾기", "둘러보기", "음악", "라디오", "TV", "지금 가는 길 알려 줘"];
+  function moaHints(){
+    var out = [], bon = {};
+    function neot(s){ s = String(s || "").split(/[—\-·(]/)[0].replace(/\s+/g, " ").trim(); if (s && s.length <= 20 && !bon[s]) { bon[s] = 1; out.push(s); } }
+    try {
+      var d = document, bs = d.querySelectorAll("button, a[href], [role=button], [role=tab]");
+      for (var i = 0; i < bs.length && out.length < 70; i++) { var b = bs[i]; if (b.offsetParent === null) continue; neot(b.getAttribute("aria-label") || b.textContent); }
+    } catch(e){}
+    for (var j = 0; j < GIBON.length; j++) neot(GIBON[j]);
+    return out.slice(0, 100);
+  }
   function AppSR(){
     this.lang = "ko-KR"; this.continuous = false; this.interimResults = false; this.maxAlternatives = 1;
     this.grammars = null;
@@ -350,7 +368,7 @@ class MainActivity : AppCompatActivity() {
     this._on = true; this._mal = false;
     this._id = "s" + Date.now() + "_" + (++sun) + "_" + Math.floor(Math.random() * 1e6);
     REG[this._id] = this;
-    window.adaApp.bureugi("deutgiSijak", { id: this._id, lang: this.lang || "ko-KR", continuous: !!this.continuous });
+    window.adaApp.bureugi("deutgiSijak", { id: this._id, lang: this.lang || "ko-KR", continuous: !!this.continuous, hints: moaHints() });
   };
   AppSR.prototype.stop = function(){ if (this._on) window.adaApp.bureugi("deutgiMeom", { id: this._id, abort: false }); };
   AppSR.prototype.abort = function(){
@@ -364,8 +382,10 @@ class MainActivity : AppCompatActivity() {
       var fin = !!d.final;
       if (!this._mal) { this._mal = true; this._ssoda("soundstart"); this._ssoda("speechstart"); }
       if (!fin && !this.interimResults) return;
-      var alt = { transcript: String(d.t || ""), confidence: fin ? 0.9 : 0.5 };
-      var res = [alt]; res.isFinal = fin; res.item = function(i){ return this[i]; };
+      var res = [], al = (fin && d.alts && d.alts.length) ? d.alts : [d.t];
+      for (var q = 0; q < al.length && q < Math.max(1, this.maxAlternatives || 1); q++) res.push({ transcript: String(al[q] || ""), confidence: q === 0 ? (fin ? 0.9 : 0.5) : 0.5 });
+      if (!res.length) res.push({ transcript: String(d.t || ""), confidence: 0.5 });
+      res.isFinal = fin; res.item = function(i){ return this[i]; };
       var all = [res]; all.item = function(i){ return this[i]; };
       this._ssoda("result", { resultIndex: 0, results: all });
       if (fin) { this._ssoda("speechend"); this._ssoda("soundend"); }
@@ -377,6 +397,12 @@ class MainActivity : AppCompatActivity() {
       this._ssoda("audioend"); this._ssoda("end");
     }
   };
+  /* 0.2.1 (260926-2) — 웹 쪽(길눈 app.js)이 소리 설정(navigator.audioSession)을 "녹음 겸용"으로 바꾸면
+     아이폰이 소리를 귀 대는 쪽(수화기)으로 보내 작게 들렸습니다. 앱에서는 소리 설정을 앱(SttService)이 맡으므로 웹의 바꾸기는 받지 않습니다. */
+  try {
+    var AS = navigator.audioSession;
+    if (AS) Object.defineProperty(AS, "type", { configurable: true, get: function(){ return "auto"; }, set: function(v){} });
+  } catch(e){}
   try { window.SpeechRecognition = AppSR; } catch(e){}
   try { window.webkitSpeechRecognition = AppSR; } catch(e){}
             })();
