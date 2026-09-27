@@ -18,7 +18,7 @@ final class RemoteCommandService {
     func activate() {
         on = true
         let s = AVAudioSession.sharedInstance()
-        try? s.setCategory(.playback, mode: .spokenAudio, options: [.mixWithOthers, .duckOthers])
+        try? s.setCategory(.playback, mode: .spokenAudio, options: [.mixWithOthers])   // 260927-6 duckOthers 뺌 — 다른 소리를 늘 낮춰 두지 않게
         try? s.setActive(true)
         if player == nil, let data = silentWav() {
             player = try? AVAudioPlayer(data: data)
@@ -50,11 +50,19 @@ final class RemoteCommandService {
     }
 
     /// 260926-1 — 앱 받아쓰기(SttService)가 듣기를 마치면 소리 설정을 원래대로(재생 전용) 되돌립니다
+    /// 260927-6 (이사장님 승인) 마이크를 닫은 뒤 소리가 작게 남던 것을 고침 —
+    /// 녹음 겸용 설정을 한 번 완전히 내려놓았다가(다른 소리에게 알림) 재생 전용으로 다시 잡습니다. "다른 소리 낮추기"는 뺍니다.
     func restoreSession() {
         let s = AVAudioSession.sharedInstance()
-        try? s.setCategory(.playback, mode: .spokenAudio, options: [.mixWithOthers, .duckOthers])
-        try? s.setActive(true)
+        player?.pause()
+        var err = ""
+        do { try s.setActive(false, options: .notifyOthersOnDeactivation) } catch { err += "deact:" + (error as NSError).code.description + " " }
+        do { try s.setCategory(.playback, mode: .spokenAudio, options: [.mixWithOthers]) } catch { err += "cat:" + (error as NSError).code.description + " " }
+        do { try s.setActive(true) } catch { err += "act:" + (error as NSError).code.description }
         if on { player?.play() }
+        DiagLog.shared.log("soriDoerim", ["cat": s.category.rawValue, "vol": s.outputVolume,
+                                          "chul": s.currentRoute.outputs.map { $0.portType.rawValue }.joined(separator: ","),
+                                          "err": err])
     }
 
     private func refreshInfo() {

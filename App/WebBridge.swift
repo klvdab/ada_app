@@ -93,6 +93,9 @@ final class WebBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
                                     lang: (m["lang"] as? String) ?? "ko-KR",
                                     continuous: (m["continuous"] as? Bool) ?? false,
                                     hints: (m["hints"] as? [String]) ?? [])
+        case "jindan":                                  // 260927-6 진단 기록 — 웹이 알리는 때(마이크 청함 등)
+            var d = m; d.removeValue(forKey: "a")
+            DiagLog.shared.log((m["e"] as? String) ?? "web", d)
         case "deutgiMeom":                              // 앱 받아쓰기 멈춤 (stop / abort)
             SttService.shared.stop(id: (m["id"] as? String) ?? "", abort: (m["abort"] as? Bool) ?? false)
         case "dwiro":                                   // 뒤로 — 앱 밖으로는 절대 나가지 않음

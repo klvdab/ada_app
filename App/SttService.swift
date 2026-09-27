@@ -1,5 +1,6 @@
 // 앱 받아쓰기 — 웹의 음성 인식(SpeechRecognition)을 아이폰 자체 받아쓰기로 갈음합니다.
 // 1.0판 빌드 260926-1 (2026-09-26 이사장님 승인)
+// 1.4판 빌드 260927-6 — 진단 기록(DiagLog): 마이크를 연 때·닫은 때·연 시간·까닭·받아쓴 글자 수만 서버에 남김(내용은 남기지 않음)
 // 1.3판 빌드 260927-1 — 첫 말은 알아듣고 두 번째부터(「네」 대답 등) 계속 못 듣던 것을 고침: 소리 설정을 바꿀 때마다 마이크 틀(AVAudioEngine)을 새로 만들고, 다 쓰면 비움. 받아쓰기를 잠깐 못 쓸 때 '허락 없음'으로 알려 길눈이 말하기를 아예 멈추던 것도 고침
 // 1.2판 빌드 260926-3 — 반응 빠르게(이사장님): 말이 0.7초 멎으면 마무리, 화면의 단추 이름·자주 쓰는 명령을 미리 알려 주어 더 잘 알아듣게, 비슷한 후보 셋까지 넘김
 // 1.1판 빌드 260926-2 — 마이크가 열리면 소리가 귀 대는 쪽(수화기)으로 가서 작게 들리던 것을 고침: 스피커로 못박고, 음악 줄이기(duckOthers)는 뺌
@@ -28,6 +29,7 @@ final class SttService: NSObject {
     private var lastAlts: [String] = []
     private var quietTimer: Timer?
     private var capTimer: Timer?
+    private var yeollimT = Date()
 
     private func emit(_ name: String, _ data: [String: Any]) {
         onEvent?(name, data)
@@ -95,6 +97,8 @@ final class SttService: NSObject {
         input.installTap(onBus: 0, bufferSize: 1024, format: fmt) { [weak r] buf, _ in r?.append(buf) }
         engine.prepare()
         do { try engine.start() } catch { finish(reason: "audio-capture"); return }
+        yeollimT = Date()
+        DiagLog.shared.log("micYeollim", ["cat": s.category.rawValue, "vol": s.outputVolume, "continuous": continuous])
         // 260926-2 듣는 동안에도 소리는 귀 대는 쪽이 아니라 폰 스피커(또는 이어폰)로 나오게 못박습니다
         let bakkat: [AVAudioSession.Port] = [.headphones, .bluetoothA2DP, .bluetoothHFP, .bluetoothLE, .carAudio, .airPlay]
         if !s.currentRoute.outputs.contains(where: { bakkat.contains($0.portType) }) {
@@ -167,6 +171,7 @@ final class SttService: NSObject {
         req = nil
         task = nil
         recognizer = nil
+        DiagLog.shared.log("micDatim", ["why": reason ?? "ok", "ms": Int(Date().timeIntervalSince(yeollimT) * 1000), "geulsu": lastText.count])
         RemoteCommandService.shared.restoreSession()
         let myId = id
         if let why = reason, why != "aborted" { emit("deutgiOryu", ["id": myId, "error": why]) }
