@@ -10,6 +10,12 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <!-- 260927-8 음향신호기 울리기(블루투스). 안드로이드 12 이상은 주변 기기 허락, 그 아래는 옛 블루투스 허락 -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
