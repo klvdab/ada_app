@@ -1,5 +1,6 @@
 // 앱 받아쓰기 — 웹의 음성 인식(SpeechRecognition)을 아이폰 자체 받아쓰기로 갈음합니다.
 // 1.0판 빌드 260926-1 (2026-09-26 이사장님 승인)
+// 1.5판 빌드 260927-7 — 마이크 여는 시간 줄이기(이사장님 승인): 이미 허락되어 있으면 허락 확인을 건너뜀, 받아쓰기 부품을 미리 만들어 두고 다시 씀, 여는 단계마다 걸린 시간을 진단 기록에 남김
 // 1.4판 빌드 260927-6 — 진단 기록(DiagLog): 마이크를 연 때·닫은 때·연 시간·까닭·받아쓴 글자 수만 서버에 남김(내용은 남기지 않음)
 // 1.3판 빌드 260927-1 — 첫 말은 알아듣고 두 번째부터(「네」 대답 등) 계속 못 듣던 것을 고침: 소리 설정을 바꿀 때마다 마이크 틀(AVAudioEngine)을 새로 만들고, 다 쓰면 비움. 받아쓰기를 잠깐 못 쓸 때 '허락 없음'으로 알려 길눈이 말하기를 아예 멈추던 것도 고침
 // 1.2판 빌드 260926-3 — 반응 빠르게(이사장님): 말이 0.7초 멎으면 마무리, 화면의 단추 이름·자주 쓰는 명령을 미리 알려 주어 더 잘 알아듣게, 비슷한 후보 셋까지 넘김
@@ -30,6 +31,19 @@ final class SttService: NSObject {
     private var quietTimer: Timer?
     private var capTimer: Timer?
     private var yeollimT = Date()
+    private var cheongT = Date()          // 260927-7 웹이 마이크를 청한 때
+    private var heorakMs = 0              // 허락 확인에 걸린 시간
+    private var gotRec: SFSpeechRecognizer?   // 260927-7 미리 만들어 둔 받아쓰기 부품
+    private var gotRecLang = ""
+
+    /// 260927-7 앱이 켜질 때 받아쓰기 부품을 미리 만들어 둡니다(허락이 이미 있을 때만)
+    func junbi() {
+        DispatchQueue.main.async {
+            if SFSpeechRecognizer.authorizationStatus() == .authorized, self.gotRec == nil {
+                self.gotRec = SFSpeechRecognizer(locale: Locale(identifier: "ko-KR")); self.gotRecLang = "ko-KR"
+            }
+        }
+    }
 
     private func emit(_ name: String, _ data: [String: Any]) {
         onEvent?(name, data)
@@ -45,11 +59,20 @@ final class SttService: NSObject {
             self.lastText = ""
             self.finalSent = false
             self.lastAlts = []
+            self.cheongT = Date()
+            // 260927-7 이미 둘 다 허락되어 있으면 확인을 건너뛰고 곧바로 엽니다
+            if SFSpeechRecognizer.authorizationStatus() == .authorized,
+               AVAudioSession.sharedInstance().recordPermission == .granted {
+                self.heorakMs = 0
+                self.begin(lang: lang, continuous: continuous, hints: hints)
+                return
+            }
             SFSpeechRecognizer.requestAuthorization { st in
                 AVAudioSession.sharedInstance().requestRecordPermission { mic in
                     DispatchQueue.main.async {
                         guard self.id == newId, !self.done else { return }
                         if st != .authorized || !mic { self.finish(reason: "not-allowed"); return }
+                        self.heorakMs = Int(Date().timeIntervalSince(self.cheongT) * 1000)
                         self.begin(lang: lang, continuous: continuous, hints: hints)
                     }
                 }
@@ -71,8 +94,10 @@ final class SttService: NSObject {
     }
 
     private func begin(lang: String, continuous: Bool, hints: [String]) {
-        let loc = Locale(identifier: lang.isEmpty ? "ko-KR" : lang)
-        guard let rec = SFSpeechRecognizer(locale: loc), rec.isAvailable else {
+        let lid = lang.isEmpty ? "ko-KR" : lang
+        if gotRec == nil || gotRecLang != lid { gotRec = SFSpeechRecognizer(locale: Locale(identifier: lid)); gotRecLang = lid }   // 260927-7 한 번 만들어 다시 씀
+        let tRec = Date()
+        guard let rec = gotRec, rec.isAvailable else {
             finish(reason: "network"); return   // 260927-1 잠깐 못 쓸 때를 '허락 없음'으로 알리면 길눈이 말하기를 아예 멈췄음
         }
         recognizer = rec
@@ -84,6 +109,7 @@ final class SttService: NSObject {
         } catch {
             finish(reason: "audio-capture"); return
         }
+        let tSes = Date()
         let r = SFSpeechAudioBufferRecognitionRequest()
         r.shouldReportPartialResults = true
         r.taskHint = .search                     // 짧은 명령·이름에 맞춤
@@ -98,7 +124,11 @@ final class SttService: NSObject {
         engine.prepare()
         do { try engine.start() } catch { finish(reason: "audio-capture"); return }
         yeollimT = Date()
-        DiagLog.shared.log("micYeollim", ["cat": s.category.rawValue, "vol": s.outputVolume, "continuous": continuous])
+        DiagLog.shared.log("micYeollim", ["cat": s.category.rawValue, "vol": s.outputVolume, "continuous": continuous,
+                                          "heorakMs": heorakMs,
+                                          "sessionMs": Int(tSes.timeIntervalSince(tRec) * 1000),
+                                          "engineMs": Int(yeollimT.timeIntervalSince(tSes) * 1000),
+                                          "chongMs": Int(yeollimT.timeIntervalSince(cheongT) * 1000)])
         // 260926-2 듣는 동안에도 소리는 귀 대는 쪽이 아니라 폰 스피커(또는 이어폰)로 나오게 못박습니다
         let bakkat: [AVAudioSession.Port] = [.headphones, .bluetoothA2DP, .bluetoothHFP, .bluetoothLE, .carAudio, .airPlay]
         if !s.currentRoute.outputs.contains(where: { bakkat.contains($0.portType) }) {

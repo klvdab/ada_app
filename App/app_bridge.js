@@ -1,4 +1,5 @@
-/* app_bridge.js — 앱이 웹에 심는 다리 (0.3.0판, 빌드 260927-6)
+/* app_bridge.js — 앱이 웹에 심는 다리 (0.3.1판, 빌드 260927-7)
+   ★0.3.1 (260927-7, 이사장님 승인) 길눈 말이 끝난 뒤 쉬는 시간 0.3초 → 0.15초
    ★0.3.0 (260927-6, 이사장님 승인 — 음성비서 수정) 길눈이 말하는 중에는 마이크를 열지 않습니다.
       길눈 목소리(소리 문)가 말하고 있거나 말할 차례를 기다리는 말이 있으면 다 끝날 때까지(최대 8초) 기다렸다가 0.3초 쉬고 엽니다.
       마이크가 먼저 열리면 아이폰이 통화처럼 소리를 낮추고, 길눈이 제 목소리를 듣고 엉뚱하게 알아들었습니다.
@@ -11,7 +12,7 @@
   if (window.adaApp) return;
   var deul = {};
   window.adaApp = {
-    pan: "0.3.0",
+    pan: "0.3.1",
     isApp: true,
     /* 웹 → 앱 */
     bureugi: function(a, m){ try { var o = m || {}; o.a = a; window.webkit.messageHandlers.ada.postMessage(o); } catch(e){} },
@@ -93,7 +94,7 @@
       if (!me._on || me._id !== myId) return;
       var maljung = malJung();
       if (maljung && Date.now() - t0 < 8000) { swim = 0; setTimeout(gidarim, 100); return; }
-      if (swim === 0) { swim = 1; setTimeout(gidarim, 300); return; }   /* 말이 끝나고 0.3초 쉬고 */
+      if (swim === 0) { swim = 1; setTimeout(gidarim, 150); return; }   /* 말이 끝나고 0.15초 쉬고 (260927-7) */
       me._cheong = true;
       try { window.adaApp.bureugi("jindan", { e: "micCheong", gidarimMs: Date.now() - t0, maljung: maljung }); } catch(e){}
       window.adaApp.bureugi("deutgiSijak", { id: myId, lang: me.lang || "ko-KR", continuous: !!me.continuous, hints: moaHints() });

@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         NotificationService.shared.setup()
         WatchLink.shared.activate()
         RemoteCommandService.shared.activate()
+        SttService.shared.junbi()   // 260927-7 받아쓰기 부품 미리 만들기
         return true
     }
 }
