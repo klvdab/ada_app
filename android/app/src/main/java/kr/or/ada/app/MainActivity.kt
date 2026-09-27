@@ -1,4 +1,6 @@
-// 협회 안드로이드 앱 — 본 화면 (1.1.1판, 빌드 260927-1)
+// 협회 안드로이드 앱 — 본 화면 (1.2.0판, 빌드 260927-8)
+// ★1.2.0 (2026-09-27 이사장님 승인) — 음향신호기 울리기(SignalService.kt): 아이폰과 같이 건널목 단추·워치 없이 폰에서 블루투스 음향신호기를 울림.
+//   방향 진동 이름 맞춤: 길눈이 보내는 left·right·arrive 를 안드로이드 진동 무늬(왼쪽 짧게 둘·오른쪽 길게 하나·도착 셋)로 받음
 // ★1.1.1 (2026-09-27 이사장님 — 반응 빠르게) — 말이 0.7초 멎으면 마무리, 비슷한 후보 셋까지 넘김, 다리(BRIDGE_JS)를 아이폰 0.2.2와 같게
 // ★1.1.0 (2026-09-26 이사장님 승인) — 앱 받아쓰기: 안드로이드 앱 안의 웹에는 음성 인식이 없어 말로 시키기·말로 넣기가 안 되던 것을
 //   안드로이드 자체 받아쓰기(SpeechRecognizer)로 잇습니다. 다리(BRIDGE_JS)를 문서 맨 처음에 심어 웹의 SpeechRecognition 과 같은 모양으로 내줍니다.
@@ -44,6 +46,26 @@ class MainActivity : AppCompatActivity() {
     private var lastBackAt = 0L
     private var sr: SpeechRecognizer? = null
     private var srId = ""
+    // 260927-8 음향신호기
+    private val sig by lazy {
+        SignalService(this).also { s ->
+            s.onDone = { ok, mal, c ->
+                sttSend("sinhogiGyeolgwa", JSONObject().put("ok", ok).put("mal", mal).put("cmd", c))
+                Bridge().jindong(if (ok) "arrive" else "long")
+            }
+            s.onNear = { f, r -> sttSend("sinhogiGeunche", JSONObject().put("f", f).put("rssi", r)) }
+        }
+    }
+
+    private fun btHeorak(): Boolean {
+        val need = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+            listOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.ACCESS_FINE_LOCATION)
+        else listOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        val eopda = need.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
+        if (eopda.isEmpty()) return true
+        ActivityCompat.requestPermissions(this, eopda.toTypedArray(), 1002)
+        return false
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -244,9 +266,9 @@ class MainActivity : AppCompatActivity() {
                 getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
             }
             val pattern = when (kind) {
-                "waen" -> longArrayOf(0, 60, 90, 60)
-                "oren" -> longArrayOf(0, 250)
-                "dochak" -> longArrayOf(0, 80, 80, 80, 80, 80)
+                "waen", "left" -> longArrayOf(0, 60, 90, 60)             // 왼쪽 짧게 둘
+                "oren", "right", "long" -> longArrayOf(0, 250)           // 오른쪽 길게 하나
+                "dochak", "arrive" -> longArrayOf(0, 80, 80, 80, 80, 80) // 도착 셋
                 else -> longArrayOf(0, 100)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -276,7 +298,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
-        fun pan(): String = "1.1.1 / 260927-1 / android"
+        fun pan(): String = "1.2.0 / 260927-8 / android"
 
         // 웹 → 앱 (아이폰의 window.webkit.messageHandlers.ada 와 같은 자리). 받아쓰기는 여기로 옵니다
         @JavascriptInterface
@@ -287,6 +309,16 @@ class MainActivity : AppCompatActivity() {
                 "deutgiMeom" -> runOnUiThread { sttStop(m.optString("id"), m.optBoolean("abort", false)) }
                 "jindong" -> jindong(m.optString("mu", "short"))
                 "allim" -> allim(m.optString("title", "길눈"), m.optString("body"), m.optString("tag", "annae"))
+                "sinhogi" -> runOnUiThread {
+                    val c = m.optInt("cmd", 1).coerceIn(1, 3)
+                    if (btHeorak()) sig.send(c)
+                    else sttSend("sinhogiGyeolgwa", JSONObject().put("ok", false).put("cmd", c)
+                        .put("mal", "블루투스 주변 기기 허락이 필요합니다. 뜨는 창에서 허용을 누르신 뒤 다시 눌러 주십시오."))
+                }
+                "sinhogiChatgi" -> runOnUiThread {
+                    val on = m.optBoolean("on", false)
+                    if (!on) sig.watch(false) else if (btHeorak()) sig.watch(true)
+                }
             }
         }
     }
