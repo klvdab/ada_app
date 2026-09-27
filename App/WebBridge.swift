@@ -13,6 +13,8 @@ final class WebBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
             self?.send("wichi", ["lat": lat, "lon": lon, "acc": acc, "head": head, "speed": speed])
         }
         RemoteCommandService.shared.onCommand = { [weak self] name in
+            // 260927-9 음향신호기 앞에서 이어폰·워치 재생 단추를 누르면 신호 안내
+            if name == "play", SignalService.shared.apeIssna() { self?.sinhogiUlligi(2); return }
             self?.send("gigi", ["danchu": name])
         }
         WatchLink.shared.onRequest = { [weak self] what in
@@ -22,6 +24,14 @@ final class WebBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
         WatchLink.shared.onSinhogi = { [weak self] cmd in self?.sinhogiUlligi(cmd) }
         SignalService.shared.onNear = { [weak self] f, r in
             self?.send("sinhogiGeunche", ["f": f, "rssi": r])
+        }
+        // 260927-9 자동 울리기 결과(말은 하지 않고 짧게 진동) · 보행신호 음성안내 장치 알림
+        SignalService.shared.onAuto = { [weak self] ok, mal, c in
+            if ok { HapticService.play("short") }
+            self?.send("sinhogiGyeolgwa", ["ok": ok, "mal": mal, "cmd": Int(c), "auto": true])
+        }
+        SignalService.shared.onAllim = { [weak self] mal in
+            self?.send("sinhogiAllim", ["mal": mal])
         }
         NotificationService.shared.onTap = { [weak self] url in
             self?.send("allimTap", ["url": url])
@@ -44,7 +54,7 @@ final class WebBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
 
     /// 260927-3 음향신호기 울리기 — 결과를 웹(길눈이 말함)과 워치에 함께 알림
     func sinhogiUlligi(_ cmd: UInt8) {
-        SignalService.shared.send(cmd) { [weak self] ok, mal in
+        SignalService.shared.send(cmd) { [weak self] ok, mal, _, _ in
             self?.send("sinhogiGyeolgwa", ["ok": ok, "mal": mal, "cmd": Int(cmd)])
             HapticService.play(ok ? "arrive" : "long")
             WatchLink.shared.sinhogiDap(ok, mal)
@@ -75,6 +85,9 @@ final class WebBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
         case "sinhogi":                                 // 260927-3 음향신호기: cmd 1 위치안내 / 2 신호안내 / 3 설치 위치 음성안내
             let c = (m["cmd"] as? Int) ?? 1
             sinhogiUlligi(UInt8(max(1, min(3, c))))
+        case "sinhogiJadong":                           // 260927-9 음향신호기 자동 울리기 켜기/끄기 (on 없으면 지금 상태만 알림)
+            if let on = m["on"] as? Bool { SignalService.shared.setJadong(on) }
+            send("sinhogiJadong", ["on": (m["on"] as? Bool) ?? SignalService.shared.jadongKyeojim])
         case "sinhogiChatgi":                           // 260927-3 가까운 음향신호기 찾기(이끌기) 켜기/끄기
             SignalService.shared.watch((m["on"] as? Bool) ?? false)
         case "mal":                                     // 마지막 안내 — 워치로 넘김

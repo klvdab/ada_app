@@ -20,6 +20,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         WatchLink.shared.activate()
         RemoteCommandService.shared.activate()
         SttService.shared.junbi()   // 260927-7 받아쓰기 부품 미리 만들기
+        // 260927-9 음향신호기 자동 울리기 — 길눈(협회 앱)에서만, 처음부터 켜짐(설정에서 끌 수 있음)
+        if Bundle.main.bundleIdentifier == "kr.or.ada.app" { SignalService.shared.jadongSijak() }
         return true
     }
 }

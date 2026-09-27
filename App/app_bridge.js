@@ -1,4 +1,5 @@
-/* app_bridge.js — 앱이 웹에 심는 다리 (0.3.1판, 빌드 260927-7)
+/* app_bridge.js — 앱이 웹에 심는 다리 (0.3.2판, 빌드 260927-9)
+   ★0.3.2 (260927-9) 음향신호기 결과(손으로 누른 것)와 "음성안내 장치가 있는 횡단보도 앞입니다" 알림을 어느 화면에서든 길눈이 말함(맨 위 창 한 곳에서만)
    ★0.3.1 (260927-7, 이사장님 승인) 길눈 말이 끝난 뒤 쉬는 시간 0.3초 → 0.15초
    ★0.3.0 (260927-6, 이사장님 승인 — 음성비서 수정) 길눈이 말하는 중에는 마이크를 열지 않습니다.
       길눈 목소리(소리 문)가 말하고 있거나 말할 차례를 기다리는 말이 있으면 다 끝날 때까지(최대 8초) 기다렸다가 0.3초 쉬고 엽니다.
@@ -12,7 +13,7 @@
   if (window.adaApp) return;
   var deul = {};
   window.adaApp = {
-    pan: "0.3.1",
+    pan: "0.3.2",
     isApp: true,
     /* 웹 → 앱 */
     bureugi: function(a, m){ try { var o = m || {}; o.a = a; window.webkit.messageHandlers.ada.postMessage(o); } catch(e){} },
@@ -36,6 +37,13 @@
         try { var who = d && REG[d.id]; if (who) who._batda(n, d); } catch(e){}
       });
     });
+  }
+  /* 0.3.2 음향신호기 말 — 자동 울리기 결과는 신호기가 스스로 소리를 내므로 말하지 않음 */
+  if (TOP === window && !window.__adaSinhogiDal) {
+    window.__adaSinhogiDal = 1;
+    var sinMal = function(t){ try { var u = new SpeechSynthesisUtterance(String(t)); u.lang = "ko-KR"; window.speechSynthesis.speak(u); } catch(e){} };
+    window.adaApp.deutgi("sinhogiGyeolgwa", function(d){ if (d && d.mal && !d.auto) sinMal(d.mal); });
+    window.adaApp.deutgi("sinhogiAllim", function(d){ if (d && d.mal) sinMal(d.mal); });
   }
   var sun = 0;
   /* 0.2.2 (260926-3) — 더 잘 알아듣게: 지금 화면에 보이는 단추 이름과 자주 쓰는 명령을 받아쓰기에 미리 알려 줍니다 */
