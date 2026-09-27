@@ -1,4 +1,6 @@
-// 협회 안드로이드 앱 — 본 화면 (1.2.0판, 빌드 260927-8)
+// 협회 안드로이드 앱 — 본 화면 (1.2.1판, 빌드 260927-9)
+// ★1.2.1 (2026-09-27 이사장님 승인) — 음향신호기 자동 울리기(처음부터 켜짐, 설정에서 끔), 결과·알림 말은 다리(BRIDGE_JS)가 어느 화면에서든 함
+// 1.2.0판 (빌드 260927-8)
 // ★1.2.0 (2026-09-27 이사장님 승인) — 음향신호기 울리기(SignalService.kt): 아이폰과 같이 건널목 단추·워치 없이 폰에서 블루투스 음향신호기를 울림.
 //   방향 진동 이름 맞춤: 길눈이 보내는 left·right·arrive 를 안드로이드 진동 무늬(왼쪽 짧게 둘·오른쪽 길게 하나·도착 셋)로 받음
 // ★1.1.1 (2026-09-27 이사장님 — 반응 빠르게) — 말이 0.7초 멎으면 마무리, 비슷한 후보 셋까지 넘김, 다리(BRIDGE_JS)를 아이폰 0.2.2와 같게
@@ -54,7 +56,25 @@ class MainActivity : AppCompatActivity() {
                 Bridge().jindong(if (ok) "arrive" else "long")
             }
             s.onNear = { f, r -> sttSend("sinhogiGeunche", JSONObject().put("f", f).put("rssi", r)) }
+            s.onAuto = { ok, mal, c ->
+                if (ok) Bridge().jindong("short")
+                sttSend("sinhogiGyeolgwa", JSONObject().put("ok", ok).put("mal", mal).put("cmd", c).put("auto", true))
+            }
+            s.onAllim = { mal -> sttSend("sinhogiAllim", JSONObject().put("mal", mal)) }
         }
+    }
+
+    private fun btPerms(): List<String> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+        listOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.ACCESS_FINE_LOCATION)
+    else listOf(Manifest.permission.ACCESS_FINE_LOCATION)
+
+    /** 허락을 묻지 않고 있는지만 봅니다 */
+    private fun btIssna(): Boolean = btPerms().all { ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        // 260927-9 허락을 받은 뒤 자동 울리기를 곧바로 시작
+        if (BuildConfig.FLAVOR == "gilnun" && sig.jadongKyeojim && btIssna()) sig.jadongSijak()
     }
 
     private fun btHeorak(): Boolean {
@@ -133,6 +153,8 @@ class MainActivity : AppCompatActivity() {
 
         makeNotiChannel()
         askPermissions()
+        // 260927-9 음향신호기 자동 울리기 — 길눈에서만, 허락이 있으면 곧바로
+        if (BuildConfig.FLAVOR == "gilnun" && sig.jadongKyeojim && btIssna()) sig.jadongSijak()
         web.loadUrl(BuildConfig.ADA_HOME)
     }
 
@@ -247,6 +269,11 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             want.add(Manifest.permission.ACTIVITY_RECOGNITION)
         }
+        // 260927-9 음향신호기 자동 울리기 — 길눈은 처음 한 번 주변 기기(블루투스) 허락도 함께 여쭘
+        if (BuildConfig.FLAVOR == "gilnun" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            want.add(Manifest.permission.BLUETOOTH_SCAN)
+            want.add(Manifest.permission.BLUETOOTH_CONNECT)
+        }
         val need = want.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
@@ -298,7 +325,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
-        fun pan(): String = "1.2.0 / 260927-8 / android"
+        fun pan(): String = "1.2.1 / 260927-9 / android"
 
         // 웹 → 앱 (아이폰의 window.webkit.messageHandlers.ada 와 같은 자리). 받아쓰기는 여기로 옵니다
         @JavascriptInterface
@@ -314,6 +341,10 @@ class MainActivity : AppCompatActivity() {
                     if (btHeorak()) sig.send(c)
                     else sttSend("sinhogiGyeolgwa", JSONObject().put("ok", false).put("cmd", c)
                         .put("mal", "블루투스 주변 기기 허락이 필요합니다. 뜨는 창에서 허용을 누르신 뒤 다시 눌러 주십시오."))
+                }
+                "sinhogiJadong" -> runOnUiThread {
+                    if (m.has("on")) { val on = m.optBoolean("on", true); sig.setJadong(on); if (on) btHeorak() }
+                    sttSend("sinhogiJadong", JSONObject().put("on", if (m.has("on")) m.optBoolean("on", true) else sig.jadongKyeojim))
                 }
                 "sinhogiChatgi" -> runOnUiThread {
                     val on = m.optBoolean("on", false)
@@ -357,6 +388,13 @@ class MainActivity : AppCompatActivity() {
         try { var who = d && REG[d.id]; if (who) who._batda(n, d); } catch(e){}
       });
     });
+  }
+  /* 260927-9 음향신호기 말 — 자동 울리기 결과는 신호기가 스스로 소리를 내므로 말하지 않음 */
+  if (TOP === window && !window.__adaSinhogiDal) {
+    window.__adaSinhogiDal = 1;
+    var sinMal = function(t){ try { var u = new SpeechSynthesisUtterance(String(t)); u.lang = "ko-KR"; window.speechSynthesis.speak(u); } catch(e){} };
+    window.adaApp.deutgi("sinhogiGyeolgwa", function(d){ if (d && d.mal && !d.auto) sinMal(d.mal); });
+    window.adaApp.deutgi("sinhogiAllim", function(d){ if (d && d.mal) sinMal(d.mal); });
   }
   var sun = 0;
   /* 0.2.2 (260926-3) — 더 잘 알아듣게: 지금 화면에 보이는 단추 이름과 자주 쓰는 명령을 받아쓰기에 미리 알려 줍니다 */

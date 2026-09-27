@@ -1,4 +1,6 @@
-// 음향신호기 울리기 — 안드로이드 (1.0판, 빌드 260927-8, 이사장님 승인 2026-09-27)
+// 음향신호기 울리기 — 안드로이드 (1.1판, 빌드 260927-9, 이사장님 승인 2026-09-27)
+// ★1.1 (260927-9) 아이폰 1.1과 같게 — 무조건 자동으로 잡음(처음부터 켜짐, 설정에서 끔): 가까이(-80) 잡히면 위치 안내 한 번,
+//   그 앞에 4초 넘게 머무르면(-65) 신호 안내 한 번, 같은 기기는 3분에 한 번. 보행신호 음성안내 장치(KPOL01+)는 5분에 한 번 알림.
 // 아이폰 앱(SignalService.swift)과 같은 일을 합니다. 경찰청 「시각장애인용 음향신호기 규격서」(2022.4) 부가장치 공용 프로토콜:
 //   · 블루투스를 단 음향신호기 이름은 "AHG001+" 로 시작
 //   · UART 서비스 0003cdd0-0000-1000-8000-00805f9b0131 (특성 cdd1·cdd2)
@@ -32,6 +34,8 @@ class SignalService(private val ctx: Context) {
         val CHAR_B: UUID = UUID.fromString("0003cdd2-0000-1000-8000-00805f9b0131")
         val CCCD: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
         const val PREFIX = "AHG001"
+        const val BOJA = "KPOL01"
+        const val JADONG_KEY = "adaSinhogiJadong"
 
         fun boneMal(cmd: Int, hwakin: Boolean): String {
             val what = when (cmd) { 1 -> "위치 안내"; 2 -> "신호 안내"; else -> "설치 위치 안내" }
@@ -41,6 +45,10 @@ class SignalService(private val ctx: Context) {
 
     /** 결과: (받았는지, 말) */
     var onDone: ((Boolean, String, Int) -> Unit)? = null
+    /** 자동 울리기 결과 */
+    var onAuto: ((Boolean, String, Int) -> Unit)? = null
+    /** 알려 드릴 말 */
+    var onAllim: ((String) -> Unit)? = null
     /** 찾기(이끌기) 중 가장 가까운 음향신호기: (찾았는지, 세기) */
     var onNear: ((Boolean, Int) -> Unit)? = null
 
@@ -53,20 +61,52 @@ class SignalService(private val ctx: Context) {
     private var watching = false
     private var scanning = false
     private var capRun: Runnable? = null
+    private var pendingAuto = false
+    private var jadongOn = false
+    private val lastWichi = HashMap<String, Long>()
+    private val lastSinho = HashMap<String, Long>()
+    private val gakkaSince = HashMap<String, Long>()
+    private val lastBoja = HashMap<String, Long>()
+    private val prefs get() = ctx.getSharedPreferences("ada", Context.MODE_PRIVATE)
+    val jadongKyeojim: Boolean get() = prefs.getBoolean(JADONG_KEY, true)
+
+    fun jadongSijak() { h.post { if (jadongKyeojim) { jadongOn = true; startScan() } } }
+    fun setJadong(on: Boolean) {
+        prefs.edit().putBoolean(JADONG_KEY, on).apply()
+        h.post { jadongOn = on; if (on) startScan() else if (pendingCmd == 0 && !watching) stopScan() }
+    }
 
     private val adapter get() = (ctx.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
 
     private val scanCb = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, r: ScanResult) {
             val name = r.scanRecord?.deviceName ?: ""
-            if (!name.startsWith(PREFIX)) return
             if (r.rssi >= 0 || r.rssi <= -100) return
+            if (name.startsWith(BOJA)) {
+                h.post {
+                    val now = System.currentTimeMillis(); val id = r.device.address
+                    if (jadongOn && r.rssi >= -80 && now - (lastBoja[id] ?: 0L) > 300000) {
+                        lastBoja[id] = now; onAllim?.invoke("음성안내 장치가 있는 횡단보도 앞입니다.")
+                    }
+                }
+                return
+            }
+            if (!name.startsWith(PREFIX)) return
             h.post {
-                found[r.device.address] = Found(r.device, r.rssi, System.currentTimeMillis())
+                val now = System.currentTimeMillis(); val id = r.device.address
+                found[id] = Found(r.device, r.rssi, now)
                 if (watching) {
-                    val now = System.currentTimeMillis()
                     val near = found.values.filter { now - it.seen < 3000 }.maxByOrNull { it.rssi }
                     onNear?.invoke(near != null, near?.rssi ?: -100)
+                }
+                if (!jadongOn || pendingCmd != 0) return@post
+                val best = found.values.filter { now - it.seen < 3000 }.maxByOrNull { it.rssi }
+                if (best != null && best.dev.address != id) return@post
+                if (r.rssi >= -65) { if (gakkaSince[id] == null) gakkaSince[id] = now } else if (r.rssi < -72) gakkaSince.remove(id)
+                if (r.rssi >= -80 && now - (lastWichi[id] ?: 0L) > 180000) { lastWichi[id] = now; sendAuto(1, r.device); return@post }
+                val since = gakkaSince[id]
+                if (since != null && now - since >= 4000 && now - (lastSinho[id] ?: 0L) > 180000 && now - (lastWichi[id] ?: 0L) > 6000) {
+                    lastSinho[id] = now; sendAuto(2, r.device)
                 }
             }
         }
@@ -108,9 +148,18 @@ class SignalService(private val ctx: Context) {
         }
     }
 
+    private fun sendAuto(cmd: Int, dev: BluetoothDevice) {
+        if (pendingCmd != 0) return
+        pendingCmd = cmd; pendingAuto = true
+        cap(8000) { finish(false, "음향신호기의 답이 없습니다.") }
+        gatt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+            dev.connectGatt(ctx, false, gattCb, BluetoothDevice.TRANSPORT_LE)
+        else dev.connectGatt(ctx, false, gattCb)
+    }
+
     private fun pick() {
         if (pendingCmd == 0) return
-        if (!watching) stopScan()
+        if (!watching && !jadongOn) stopScan()
         val now = System.currentTimeMillis()
         val best = found.values.filter { now - it.seen < 4000 }.maxByOrNull { it.rssi }
         if (best == null) { finish(false, "가까이에 블루투스 음향신호기가 없습니다. 이 횡단보도는 리모컨으로만 울릴 수 있을지 모릅니다."); return }
@@ -123,17 +172,18 @@ class SignalService(private val ctx: Context) {
         capRun?.let { h.removeCallbacks(it) }; capRun = null
         try { gatt?.disconnect(); gatt?.close() } catch (e: Exception) {}
         gatt = null; writeChar = null
-        if (!watching) stopScan()
+        if (!watching && !jadongOn) stopScan()
         val c = pendingCmd
         if (c == 0) return
         pendingCmd = 0
-        onDone?.invoke(ok, mal, c)
+        val au = pendingAuto; pendingAuto = false
+        if (au) onAuto?.invoke(ok, mal, c) else onDone?.invoke(ok, mal, c)
     }
 
     fun watch(on: Boolean) {
         h.post {
             watching = on
-            if (on) startScan() else if (pendingCmd == 0) stopScan()
+            if (on) startScan() else if (pendingCmd == 0 && !jadongOn) stopScan()
         }
     }
 
