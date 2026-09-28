@@ -8,6 +8,7 @@ enum GilHwamyeon: Hashable {
     case mokjeok(Jangso)
     case jeulgyeo
     case gicho
+    case jiha(Jangso)
 }
 
 /// 길 찾기 탭의 길(화면 쌓임) — 목적지를 정하면 첫 화면으로 곧장 돌아가게
@@ -28,6 +29,7 @@ struct GilChatgiTab: View {
                     case .mokjeok(let j): MokjeokView(j: j)
                     case .jeulgyeo: JeulgyeoView()
                     case .gicho: GichoSiheomView()
+                    case .jiha(let j): JihacheolGilView(mok: j)
                     }
                 }
         }
@@ -86,6 +88,54 @@ struct YeojeongPan: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if let g = yj.jiha, yj.danggye == .taneunGotKkaji || yj.danggye == .taneunJung {
+                jihaDanchu(g)
+            } else {
+                gibonDanchu
+            }
+            if yj.danggye != .dochak {
+                DisclosureGroup("여정 다른 할 일 펼치기") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if yj.danggye == .namEunGil {
+                            Button("차에 탔습니다 — 차 안 안내로") { a.chaTatda() }.buttonStyle(KeunDanchu())
+                        }
+                        if yj.jiha != nil && yj.danggye == .taneunJung {
+                            Button("밖으로 나왔습니다 — 남은 길 걸어서 안내") { a.naeryeotda() }.buttonStyle(KeunDanchu())
+                        }
+                        Button("지금 내 자리 듣기") { a.jigeumJari() }.buttonStyle(KeunDanchu())
+                        Button("여정 끝내기 — 목적지를 바꾸실 때도") { a.kkeut() }.buttonStyle(KeunDanchu())
+                    }
+                }
+                .font(.title3)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func jihaDanchu(_ g: JihaGil) -> some View {
+        if yj.danggye == .taneunGotKkaji && !g.ipguDochak {
+            Button("\(g.ipgu.ireum)까지 걸어가는 중 — 지금 어떻게 가고 있습니까") { a.hyeonhwang() }
+                .buttonStyle(KeunDanchu())
+                .accessibilityFocused(chojeom)
+            Button("열차에 탔습니다 — 지나는 역 알려 주기") { JihacheolEngine.shared.tatda(jadong: false) }
+                .buttonStyle(KeunDanchu())
+        } else if yj.danggye == .taneunGotKkaji {
+            Button("\(g.ipgu.ireum)에 닿았습니다 — 열차에 탔습니다, 지나는 역 알려 주기") { JihacheolEngine.shared.tatda(jadong: false) }
+                .buttonStyle(KeunDanchu())
+                .accessibilityFocused(chojeom)
+        } else if g.kkeutnam {
+            Button("\(g.to)역에 닿았습니다 — 밖으로 나왔습니다, 남은 길 걸어서 안내") { a.naeryeotda() }
+                .buttonStyle(KeunDanchu())
+                .accessibilityFocused(chojeom)
+        } else {
+            Button("\(g.to)역까지 지하철로 가는 중 — 몇 정거장 남았습니까") { a.hyeonhwang() }
+                .buttonStyle(KeunDanchu())
+                .accessibilityFocused(chojeom)
+        }
+    }
+
+    @ViewBuilder
+    private var gibonDanchu: some View {
             switch yj.danggye {
             case .namEunGil:
                 Button("\(mok)까지 걸어가는 중 — 지금 어떻게 가고 있습니까") { a.hyeonhwang() }
@@ -110,19 +160,6 @@ struct YeojeongPan: View {
                 Button("차에 탔습니다 — 차 안 안내 시작") { a.chaTatda() }
                     .buttonStyle(KeunDanchu())
             }
-            if yj.danggye != .dochak {
-                DisclosureGroup("여정 다른 할 일 펼치기") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        if yj.danggye == .namEunGil {
-                            Button("차에 탔습니다 — 차 안 안내로") { a.chaTatda() }.buttonStyle(KeunDanchu())
-                        }
-                        Button("지금 내 자리 듣기") { a.jigeumJari() }.buttonStyle(KeunDanchu())
-                        Button("여정 끝내기 — 목적지를 바꾸실 때도") { a.kkeut() }.buttonStyle(KeunDanchu())
-                    }
-                }
-                .font(.title3)
-            }
-        }
     }
 }
 
@@ -194,6 +231,10 @@ struct MokjeokView: View {
                     jeul.sseum(j)
                     AnnaeEngine.shared.chaTagi(j)
                     GilGil.shared.cheotHwamyeon()
+                }
+                .buttonStyle(KeunDanchu())
+                NavigationLink(value: GilHwamyeon.jiha(j)) {
+                    Text("지하철로 가기 — 가까운 역, 갈아타기, 나갈 출구를 찾아 드립니다")
                 }
                 .buttonStyle(KeunDanchu())
                 if damam || jeul.itna(j) {

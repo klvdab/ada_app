@@ -28,7 +28,7 @@ enum Chatgi {
         return nil
     }
 
-    private static func json(_ pail: String, _ q: [String: String]) async -> [String: Any]? {
+    static func json(_ pail: String, _ q: [String: String]) async -> [String: Any]? {
         guard let d = try? await Tongsin.shared.get(pail, q),
               let o = try? JSONSerialization.jsonObject(with: d.data) as? [String: Any] else { return nil }
         return o
