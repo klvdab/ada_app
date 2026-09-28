@@ -5,6 +5,7 @@ import Foundation
 import UIKit
 import CoreMotion
 import UserNotifications
+import BackgroundTasks
 import Combine
 
 // MARK: 나스에 묻기 — 값은 글자·숫자 밖을 모두 퍼센트로
@@ -257,16 +258,36 @@ final class GongjiEngine: ObservableObject {
         NotificationCenter.default.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
             self?.batgi()
         }
+        // 2.11.2 뒤로 가거나 잠기면 다음 살핌을 아이폰에 맡겨 둠(15분 뒤부터, 언제 깨울지는 아이폰이 정함)
+        NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { _ in
+            GongjiEngine.yeyak()
+        }
     }
 
-    func batgi() {
-        guard !batneunJung else { return }
+    static let dwiId = "kr.or.ada.app.gongji"
+
+    static func yeyak() {
+        let r = BGAppRefreshTaskRequest(identifier: dwiId)
+        r.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
+        do { try BGTaskScheduler.shared.submit(r) } catch { Girok.shared.namgi("gongji_yeyak_oryu", ["e": String(String(describing: error).prefix(80))]) }
+    }
+
+    /// 아이폰이 앱을 잠깐 깨웠을 때 — 공지를 받아 새 긴급 공지면 폰 알림을 띄우고, 다음 살핌을 다시 맡김
+    func dwiSalpim(_ t: BGAppRefreshTask) {
+        GongjiEngine.yeyak()
+        t.expirationHandler = { t.setTaskCompleted(success: false) }
+        batgi { ok in t.setTaskCompleted(success: ok) }
+        Girok.shared.namgi("gongji_dwi", [:])
+    }
+
+    func batgi(_ kkeut: ((Bool) -> Void)? = nil) {
+        guard !batneunJung else { kkeut?(false); return }
         batneunJung = true
         Task {
             let j = await Nas.get("gongji.php", [("a", "mok"), ("app", "gilnun")])
             await MainActor.run {
                 self.batneunJung = false
-                guard let j = j, (j["ok"] as? Bool) == true else { self.mot = true; return }
+                guard let j = j, (j["ok"] as? Bool) == true else { self.mot = true; kkeut?(false); return }
                 self.mot = false
                 self.mok = ((j["gongji"] as? [[String: Any]]) ?? []).compactMap { g in
                     let id = Nas.gul(g["id"])
@@ -275,6 +296,7 @@ final class GongjiEngine: ObservableObject {
                                   gingeup: Nas.gul(g["deunggeup"]) == "gingeup", nalMal: Nas.gul(g["nalMal"]))
                 }
                 self.gingeupBoda()
+                kkeut?(true)
             }
         }
     }
