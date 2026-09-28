@@ -1,4 +1,5 @@
-# 협회 앱·자봉 앱·배프 앱 자동 짓기·올리기 (1.0.4판, 빌드 260927-1)
+# 협회 앱·자봉 앱·배프 앱 자동 짓기·올리기 (1.0.5판, 빌드 260928-6)
+# 1.0.5 (260928-6, 이사장님 지시) 화상통화 부품(WebRTC)의 해독표(dSYM)가 없다는 경고 — 짓고 나서 해독표를 만들어 넣음
 # 1.0.4 (260927-1, 이사장님 승인) 짓기 전에 두 시간 넘은 "Created via API" 개발용 인증서를 스스로 폐기(열 개 차서 막히는 것 막기)
 # 깃허브가 빌려 주는 맥에서 Xcode 26 으로 프로젝트를 만들고, 앱스토어 커넥트 열쇠(관리자 권한)로 서명해 올립니다.
 # 필요한 비밀값은 ★하나뿐입니다 (Settings → Secrets and variables → Actions):
@@ -110,6 +111,23 @@ jobs:
             DEVELOPMENT_TEAM="$TEAM_ID" \
             CURRENT_PROJECT_VERSION="${{ steps.beonho.outputs.bn }}" \
             2>&1 | tee build/archive.log | tail -n 80 || { echo "===== 잘못된 곳 ====="; grep -E "error:|warning: .*signing|Provisioning" build/archive.log | head -n 60; exit 1; }
+
+      - name: 해독표 넣기 (화상통화 부품)
+        run: |
+          A="build/$SCHEME.xcarchive"
+          FW=$(find "$A/Products/Applications" -maxdepth 4 -type d -path '*/Frameworks/WebRTC.framework' | head -n 1)
+          if [ -z "$FW" ]; then echo "이 앱에는 화상통화 부품이 없습니다 — 건너뜁니다"; exit 0; fi
+          mkdir -p "$A/dSYMs"
+          OUT="$A/dSYMs/WebRTC.framework.dSYM"
+          SRC=$(find "$HOME/Library/Developer/Xcode/DerivedData" -type d -path '*ios-arm64*/WebRTC.framework.dSYM' 2>/dev/null | head -n 1)
+          if [ -n "$SRC" ]; then
+            cp -R "$SRC" "$OUT"; echo "부품에 딸린 해독표를 넣었습니다: $SRC"
+          else
+            xcrun dsymutil "$FW/WebRTC" -o "$OUT" || true
+            echo "부품에서 해독표를 만들었습니다"
+          fi
+          echo "앱 속 부품 번호:"; xcrun dwarfdump --uuid "$FW/WebRTC"
+          echo "해독표 번호:"; xcrun dwarfdump --uuid "$OUT" || echo "해독표가 만들어지지 않았습니다"
 
       - name: 내보내기 설정
         env:
