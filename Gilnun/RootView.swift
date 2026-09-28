@@ -15,9 +15,7 @@ struct RootView: View {
             BangsongTab()
             .tabItem { Label("음악·방송", systemImage: "music.note") }
             .tag(2)
-            NavigationStack {
-                JunbiView(mal: "나눔 — 1단계 기초판입니다. 나눔 마당, 걸음 나눔과 게시판, 길 부탁하기가 2단계에서 이 자리에 들어옵니다.")
-            }
+            NanumTab()
             .tabItem { Label("나눔", systemImage: "person.2") }
             .tag(3)
             NavigationStack { SeoljeongView() }

@@ -4,15 +4,18 @@ import AVFoundation
 
 struct SeoljeongView: View {
     @ObservedObject private var g = GinGeup.shared
+    @ObservedObject private var gj = GongjiEngine.shared
     @State private var saerogochimMal = ""
     @AccessibilityFocusState private var malChojeom: Bool
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
+                NavigationLink { GongjiView() } label: { Text("알림" + (gj.gingeupSae != nil ? " — 읽지 않은 긴급 공지가 있습니다" : "")) }
+                    .buttonStyle(KeunDanchu())
                 NavigationLink { GichoSiheomView() } label: { Text("기초 시험") }
                     .buttonStyle(KeunDanchu())
-                NavigationLink { MalSeoljeongView() } label: { Text("말하기 설정 — 켜기와 끄기, 빠르기, 목소리") }
+                NavigationLink { MalSeoljeongView() } label: { Text("말하기 설정 — 켜기와 끄기, 빠르기, 목소리, 얼마나 자세히, 무엇을 말할지") }
                     .buttonStyle(KeunDanchu())
                 NavigationLink { MalHagiSeoljeongView() } label: { Text("말로 하기 설정 — 하이 길눈, 호칭") }
                     .buttonStyle(KeunDanchu())
@@ -38,6 +41,19 @@ struct SeoljeongView: View {
                 if !saerogochimMal.isEmpty {
                     Text(saerogochimMal).accessibilityFocused($malChojeom)
                 }
+                NavigationLink { YeogiJeomgeomView() } label: { Text("여기서 점검 — 지금 이 자리에서 무엇이 막혔는지 알아보기") }
+                    .buttonStyle(KeunDanchu())
+                NavigationLink { SeoryuhamView() } label: { Text("내 서류 보관함 — 복지카드와 신분증 담아 두기, 복지콜 등록") }
+                    .buttonStyle(KeunDanchu())
+                DisclosureGroup("폰 펼치기 — 흔들면 자리 번호, 현 위치정보 말할 내용") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        NavigationLink { HeundeulView() } label: { Text("흔들면 자리 번호 — 긴급통화 열기 또는 국가지점번호") }
+                            .buttonStyle(KeunDanchu())
+                        NavigationLink { JariSeoljeongView() } label: { Text("현 위치정보 말할 내용") }
+                            .buttonStyle(KeunDanchu())
+                    }
+                }
+                .font(.title3)
             }
             .padding()
         }
@@ -70,6 +86,7 @@ struct MalSeoljeongView: View {
                     SoriEngine.shared.mal("이 목소리로 말씀드립니다.")
                 }
                 .buttonStyle(KeunDanchu())
+                MalSeolDeoView()   // 2.9.0 얼마나 자세히, 무엇을 말할지
                 Text("경고는 안전을 위해 말소리를 꺼도 늘 말씀드립니다. 더 좋은 목소리는 아이폰 설정의 손쉬운 사용, 읽기 및 말하기, 음성에서 한국어 목소리를 내려받으시면 여기에 나타납니다.")
                     .font(.body)
             }

@@ -26,9 +26,29 @@ final class Seoljeong: ObservableObject {
     /// 2.8.0 기사 읽는 목소리와 빠르기(길 안내 목소리와 따로)
     @Published var gisaMoksoriId: String { didSet { d.set(gisaMoksoriId, forKey: "gn.gisaMoksori") } }
     @Published var gisaBbareugiDan: Int { didSet { d.set(gisaBbareugiDan, forKey: "gn.gisaBbareugi") } }
+    // 2.9.0 말하기 설정 — 얼마나, 무엇을 말할지(웹 길눈 malseol 과 같은 기본값)
+    /// 얼마나 자세히 — 0 짧게, 1 보통, 2 자세히
+    @Published var malSang: Int { didSet { d.set(malSang, forKey: "gn.malSang") } }
+    @Published var kkeokOn: Bool { didSet { d.set(kkeokOn, forKey: "gn.kkeokOn") } }
+    @Published var kkeokCho: Int { didSet { d.set(kkeokCho, forKey: "gn.kkeokCho") } }
+    @Published var doepul: Int { didSet { d.set(doepul, forKey: "gn.doepul") } }
+    @Published var gilOn: Bool { didSet { d.set(gilOn, forKey: "gn.gilOn") } }
+    @Published var gilGap: Int { didSet { d.set(gilGap, forKey: "gn.gilGap") } }
+    @Published var malJaru: Bool { didSet { d.set(malJaru, forKey: "gn.malJaru") } }
+    @Published var hwaksinEum: Bool { didSet { d.set(hwaksinEum, forKey: "gn.hwaksinEum") } }
+    // 2.9.0 현 위치정보 말할 내용
+    @Published var jariJuso: Bool { didSet { d.set(jariJuso, forKey: "gn.jariJuso") } }
+    @Published var jariGot: Bool { didSet { d.set(jariGot, forKey: "gn.jariGot") } }
+    @Published var jariJibeon: Bool { didSet { d.set(jariJibeon, forKey: "gn.jariJibeon") } }
+    @Published var jariJijeom: Bool { didSet { d.set(jariJijeom, forKey: "gn.jariJijeom") } }
+    @Published var jariOcha: Bool { didSet { d.set(jariOcha, forKey: "gn.jariOcha") } }
+    // 2.9.0 흔들면 — 처음에는 꺼 둠. 하는 일은 gingeup(긴급통화 열기) 또는 jari(자리 번호 말하기)
+    @Published var heundeulKyeojim: Bool { didSet { d.set(heundeulKyeojim, forKey: "gn.heundeul") } }
+    @Published var heundeulIl: String { didSet { d.set(heundeulIl, forKey: "gn.heundeulIl") } }
 
     static let bbareugiIreum = ["아주 느리게", "느리게", "보통", "빠르게", "아주 빠르게"]
     static let bbareugiGap: [Float] = [0.40, 0.46, 0.52, 0.58, 0.64]
+    static let sangIreum = ["짧게", "보통", "자세히"]
 
     init() {
         let ud = UserDefaults.standard
@@ -45,6 +65,21 @@ final class Seoljeong: ObservableObject {
         gojangJadong = (ud.object(forKey: "gn.gojangJadong") as? Bool) ?? true
         gisaMoksoriId = ud.string(forKey: "gn.gisaMoksori") ?? ""
         gisaBbareugiDan = (ud.object(forKey: "gn.gisaBbareugi") as? Int) ?? 2
+        malSang = (ud.object(forKey: "gn.malSang") as? Int) ?? 2
+        kkeokOn = (ud.object(forKey: "gn.kkeokOn") as? Bool) ?? true
+        kkeokCho = (ud.object(forKey: "gn.kkeokCho") as? Int) ?? 8
+        doepul = (ud.object(forKey: "gn.doepul") as? Int) ?? 6
+        gilOn = (ud.object(forKey: "gn.gilOn") as? Bool) ?? true
+        gilGap = (ud.object(forKey: "gn.gilGap") as? Int) ?? 60
+        malJaru = (ud.object(forKey: "gn.malJaru") as? Bool) ?? false
+        hwaksinEum = (ud.object(forKey: "gn.hwaksinEum") as? Bool) ?? true
+        jariJuso = (ud.object(forKey: "gn.jariJuso") as? Bool) ?? true
+        jariGot = (ud.object(forKey: "gn.jariGot") as? Bool) ?? true
+        jariJibeon = (ud.object(forKey: "gn.jariJibeon") as? Bool) ?? false
+        jariJijeom = (ud.object(forKey: "gn.jariJijeom") as? Bool) ?? true
+        jariOcha = (ud.object(forKey: "gn.jariOcha") as? Bool) ?? true
+        heundeulKyeojim = (ud.object(forKey: "gn.heundeul") as? Bool) ?? false
+        heundeulIl = ud.string(forKey: "gn.heundeulIl") ?? "gingeup"
     }
 
     var malBbareugi: Float {

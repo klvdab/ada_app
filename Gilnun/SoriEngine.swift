@@ -120,6 +120,11 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
                     self.synth.stopSpeaking(at: .word)   // 끊긴 뒤 didCancel 에서 경고부터 냄
                     return
                 }
+            } else if geup == .annae && Seoljeong.shared.malJaru && self.synth.isSpeaking && self.jigeumGeup != .gyeonggo {
+                // 2.9.0 말 자르고 새로 말하기(설정에서 켬) — 하던 말을 끊고 새 안내부터
+                self.jul.insert(m, at: 0)
+                self.synth.stopSpeaking(at: .word)
+                return
             } else {
                 if self.jul.count >= 4, let i = self.jul.firstIndex(where: { $0.geup == .jeongbo }) {
                     self.jul.remove(at: i)
