@@ -1,4 +1,4 @@
-# 협회 앱 · 자봉 앱 · 배프 앱 — XcodeGen 설계도 (1.1.3판, 빌드 260928-4 — 길눈 앱을 Gilnun 폴더 자체 코드로, 길눈 2.3.0)
+# 협회 앱 · 자봉 앱 · 배프 앱 — XcodeGen 설계도 (1.2.0판, 빌드 260928-5 — 길눈 앱을 Gilnun 폴더 자체 코드로, 길눈 2.4.0, WebRTC 부품)
 # 한 저장소에 세 앱을 담습니다. 짓기 설정(build.yml)에서 어느 앱을 지을지 골라 씁니다.
 #   AdaApp     협회 앱  (kr.or.ada.app)     대문 https://lvd.ada.or.kr/app/     + 애플워치
 #   JabongApp  자봉 앱  (kr.or.ada.jabong)  대문 https://lvd.ada.or.kr/jabong/
@@ -13,6 +13,10 @@ options:
     watchOS: "9.0"
   xcodeVersion: "16.0"
   createIntermediateGroups: true
+packages:
+  WebRTC:                       # 2.4.0 (260928-5) 길눈 긴급통화서비스의 앱 자체 화상통화 — 구글 WebRTC 공개 부품
+    url: https://github.com/stasel/WebRTC
+    exactVersion: "153.0.0"
 settings:
   base:
     MARKETING_VERSION: "1.0.0"
@@ -33,6 +37,7 @@ targets:
     dependencies:
       - target: AdaWatch
         embed: true
+      - package: WebRTC
     info:
       path: Gilnun/Info.plist
       properties:
@@ -63,7 +68,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "2.3.0"
+        MARKETING_VERSION: "2.4.0"
   JabongApp:
     type: application
     platform: iOS
@@ -161,7 +166,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app.watchkitapp
         TARGETED_DEVICE_FAMILY: "4"
-        MARKETING_VERSION: "2.3.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
+        MARKETING_VERSION: "2.4.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
 schemes:
   AdaApp:
     build:
