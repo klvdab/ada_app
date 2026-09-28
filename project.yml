@@ -1,4 +1,4 @@
-# 협회 앱 · 자봉 앱 · 배프 앱 — XcodeGen 설계도 (1.0.3판, 빌드 260923-6)
+# 협회 앱 · 자봉 앱 · 배프 앱 — XcodeGen 설계도 (1.1.0판, 빌드 260928-1 — 길눈 앱을 Gilnun 폴더 자체 코드로)
 # 한 저장소에 세 앱을 담습니다. 짓기 설정(build.yml)에서 어느 앱을 지을지 골라 씁니다.
 #   AdaApp     협회 앱  (kr.or.ada.app)     대문 https://lvd.ada.or.kr/app/     + 애플워치
 #   JabongApp  자봉 앱  (kr.or.ada.jabong)  대문 https://lvd.ada.or.kr/jabong/
@@ -23,15 +23,18 @@ settings:
     ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 targets:
   AdaApp:
+    # 2.0.0 (빌드 260928-1, 2026-09-28 이사장님 지시) 길눈은 속까지 앱으로 — 웹을 띄우던 App 폴더 대신 Gilnun 폴더의 자체 코드로 짓습니다.
+    # 자봉 앱·배프 앱은 App 폴더를 그대로 씁니다.
     type: application
     platform: iOS
     sources:
-      - path: App
+      - path: Gilnun
+      - path: App/Assets.xcassets
     dependencies:
       - target: AdaWatch
         embed: true
     info:
-      path: App/Info.plist
+      path: Gilnun/Info.plist
       properties:
         CFBundleDisplayName: 길눈
         CFBundleName: AdaApp
@@ -39,7 +42,6 @@ targets:
         CFBundleLocalizations: [ko]
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        AdaHomeURL: https://lvd.ada.or.kr/jeom/jeom.html   # 260926-3 이사장님 — 길눈 앱은 곧바로 길눈 첫 화면(다른 앱 이름이 늘어선 대문을 거치지 않음)
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIBackgroundModes: [location, audio, remote-notification]
@@ -61,6 +63,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app
         TARGETED_DEVICE_FAMILY: "1"
+        MARKETING_VERSION: "2.0.0"
   JabongApp:
     type: application
     platform: iOS
@@ -158,6 +161,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app.watchkitapp
         TARGETED_DEVICE_FAMILY: "4"
+        MARKETING_VERSION: "2.0.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
 schemes:
   AdaApp:
     build:
