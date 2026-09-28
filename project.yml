@@ -1,4 +1,4 @@
-# 협회 앱 · 자봉 앱 · 배프 앱 — XcodeGen 설계도 (1.2.5판, 빌드 260928-10 — 길눈 앱을 Gilnun 폴더 자체 코드로, 길눈 2.8.0 음악·방송 탭, WebRTC 부품)
+# 협회 앱 · 자봉 앱 · 배프 앱 — XcodeGen 설계도 (1.2.6판, 빌드 260928-11 — 길눈 앱을 Gilnun 폴더 자체 코드로, 길눈 2.9.0 나눔 탭과 나머지 설정, WebRTC 부품)
 # 한 저장소에 세 앱을 담습니다. 짓기 설정(build.yml)에서 어느 앱을 지을지 골라 씁니다.
 #   AdaApp     협회 앱  (kr.or.ada.app)     대문 https://lvd.ada.or.kr/app/     + 애플워치
 #   JabongApp  자봉 앱  (kr.or.ada.jabong)  대문 https://lvd.ada.or.kr/jabong/
@@ -56,7 +56,7 @@ targets:
         NSMicrophoneUsageDescription: 길눈을 말로 시키고 목적지·역 이름을 말로 넣는 데, 그리고 라이브 현장영상해설 방송에 마이크를 씁니다.
         NSSpeechRecognitionUsageDescription: 말씀하신 목적지와 명령을 글자로 알아듣는 데 아이폰 받아쓰기를 씁니다. 받아쓰기는 폰 안에서 합니다.
         NSBluetoothAlwaysUsageDescription: 길가의 음성유도기와 음향신호기를 켜는 데 블루투스를 씁니다.
-        NSMotionUsageDescription: 걸음 수와 보폭 재기에 움직임 정보를 씁니다.
+        NSMotionUsageDescription: 걸음 수와 보폭 재기, 폰을 흔들어 긴급통화 열기에 움직임 정보를 씁니다.
         ITSAppUsesNonExemptEncryption: false
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: false
@@ -68,7 +68,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "2.8.0"
+        MARKETING_VERSION: "2.9.0"
   JabongApp:
     type: application
     platform: iOS
@@ -166,7 +166,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app.watchkitapp
         TARGETED_DEVICE_FAMILY: "4"
-        MARKETING_VERSION: "2.8.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
+        MARKETING_VERSION: "2.9.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
 schemes:
   AdaApp:
     build:
