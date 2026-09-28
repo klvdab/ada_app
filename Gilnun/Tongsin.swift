@@ -93,6 +93,19 @@ final class Tongsin: ObservableObject {
         return d
     }
 
+    /// 보내기(POST) — 본문 모양을 밝혀서(사진 보내기 등, 2.7.0)
+    func postYangsik(_ pail: String, _ bonmun: Data, _ yangsik: String) async -> Data? {
+        guard let url = juso(pail, [:]) else { return nil }
+        var r = URLRequest(url: url)
+        r.httpMethod = "POST"
+        r.httpBody = bonmun
+        r.setValue(yangsik, forHTTPHeaderField: "Content-Type")
+        r.timeoutInterval = 60
+        r.cachePolicy = .reloadIgnoringLocalCacheData
+        guard let dap = try? await ses.data(for: r), (dap.1 as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return dap.0
+    }
+
     /// 보내기(POST) — 본문을 그대로
     func post(_ pail: String, _ q: [String: String], _ bonmun: Data) async -> Data? {
         guard let url = juso(pail, q) else { return nil }

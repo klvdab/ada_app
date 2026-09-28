@@ -2,16 +2,14 @@
 import SwiftUI
 
 struct RootView: View {
-    @State private var tab = 0
+    @ObservedObject private var tabGil = TabGil.shared   // 2.7.0 둘러보기에서 고른 곳으로 가면 길 찾기 탭으로
 
     var body: some View {
-        TabView(selection: $tab) {
+        TabView(selection: $tabGil.tab) {
             GilChatgiTab()
                 .tabItem { Label("길 찾기", systemImage: "figure.walk") }
                 .tag(0)
-            NavigationStack {
-                JunbiView(mal: "둘러보기 — 1단계 기초판입니다. 둘레 찾기, 가 볼 곳, 축제, 사진 읽어 주기 들이 2단계에서 이 자리에 들어옵니다.")
-            }
+            DulreoTab()
             .tabItem { Label("둘러보기", systemImage: "binoculars") }
             .tag(1)
             NavigationStack {

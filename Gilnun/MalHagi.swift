@@ -11,6 +11,7 @@ import Foundation
 import UIKit
 import AVFoundation
 import Combine
+import SwiftUI   // 2.7.0 둘러보기 화면 길(NavigationPath)
 
 final class MalHagi: ObservableObject {
     static let shared = MalHagi()
@@ -702,11 +703,58 @@ final class MalHagi: ObservableObject {
             }
             return true
         }
+        // 2.7.0 둘러보기 — 고장 이야기, 마실, 사진 읽어 주기, 안면인식, 축제, 둘레 찾기
+        if s.itda(alts, "gojang") {
+            Task {
+                let r = await Dulreo.gojang()
+                DispatchQueue.main.async {
+                    guard let r = r, !r.0.isEmpty else { dap("이 고장 이야기를 받지 못했습니다. 통신과 위치를 확인해 주십시오.", false); return }
+                    dap(r.0, false)
+                }
+            }
+            return true
+        }
+        if s.itda(alts, "masil") { dulreoYeolgi(.masil, "마실을 엽니다. 떠나실 고장을 고르십시오.", dap); return true }
+        if s.itda(alts, "sajin") { dulreoYeolgi(.sajin, "사진 읽어 주기를 엽니다. 사진 찍어 읽어 주기 단추를 두드리십시오.", dap); return true }
+        if z.contains("안면") || z.contains("얼굴인식") || z.contains("누가있") || z.contains("사람있") {
+            dulreoYeolgi(.anmyeon, "안면인식을 엽니다.", dap)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { AnmyeonEngine.shared.kyeogi() }
+            return true
+        }
+        if z.contains("축제") {
+            Task {
+                let r = await Dulreo.gabol("chukje")
+                DispatchQueue.main.async {
+                    guard let r = r else { dap("축제 소식을 받지 못했습니다. 통신과 위치를 확인해 주십시오.", false); return }
+                    if r.isEmpty { dap("10킬로미터 안에 지금 알려진 축제가 없습니다.", false); return }
+                    dap("가까운 축제 \(min(3, r.count))곳입니다. " + r.prefix(3).map { $0.julMal }.joined(separator: " ") + " 더 들으시려면 둘러보기 탭의 가는 김에에서 축제를 여십시오.", false)
+                }
+            }
+            return true
+        }
+        if let jong = DulleJong.malEseo(z),
+           ["근처", "가까운", "가까이", "주변", "제일가까", "찾아", "어디"].contains(where: { z.contains($0) }) || z.count <= 6 {
+            Task {
+                var r = await Dulreo.dulle(jong)
+                if jong.id == "sikdang" && (r ?? []).isEmpty {
+                    r = await Dulreo.dulle(DulleJong(id: "", ireum: "식당", natmal: "음식점", geot: true))
+                }
+                DispatchQueue.main.async {
+                    let nm = jong.ireum.components(separatedBy: " — ").first ?? jong.ireum
+                    guard let r = r else { dap("\(nm)\(MalHagi.eul(nm)) 찾지 못했습니다. 통신과 위치를 확인해 주십시오.", false); return }
+                    if r.isEmpty { dap("1킬로미터 안에 \(nm)\(MalHagi.i(nm)) 없습니다.", false); return }
+                    self.hubo = r.prefix(3).map { $0.jangso }
+                    self.huboI = 0
+                    self.huboTalgeot = tg
+                    self.huboAnnae(dap, hwagin: true)
+                }
+            }
+            return true
+        }
         // 아직 앱에 넣지 못한 기능 — 모르는 척하지 않고, 기록해 두었다가 그 기능을 넣을 때 말로도 되게
         let aJik: [(String, String)] = [("nyuseu", "지금 세상 이야기"), ("jangae", "장애·복지 소식"), ("eumak", "길 위의 음악"),
                                        ("gok_daeum", "길 위의 음악"), ("gok_ijeon", "길 위의 음악"), ("dasiteul", "길 위의 음악"),
-                                       ("musun_gok", "길 위의 음악"), ("masil", "마실"), ("gojang", "고장 이야기"),
-                                       ("sajin", "사진 읽어 주기"), ("mun_namgigi", "문 남기기"),
+                                       ("musun_gok", "길 위의 음악"), ("mun_namgigi", "문 남기기"),
                                        ("hwaksin_kkeum", "확신음 켜고 끄기"), ("hwaksin_kyeom", "확신음 켜고 끄기"),
                                        ("nopge", "목소리 높낮이"), ("natge", "목소리 높낮이")]
         for (k, nm) in aJik where s.itda(alts, k) {
@@ -747,6 +795,14 @@ final class MalHagi: ObservableObject {
             return true
         }
         return false
+    }
+
+    /// 2.7.0 둘러보기 탭의 화면을 열어 드림
+    private func dulreoYeolgi(_ h: DulreoHwamyeon, _ mal: String, _ dap: @escaping (String, Bool) -> Void) {
+        TabGil.shared.tab = 1
+        DulreoGil.shared.path = NavigationPath()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { DulreoGil.shared.path.append(h) }
+        dap(mal, false)
     }
 
     // MARK: 가기
@@ -1027,6 +1083,7 @@ final class MalHagi: ObservableObject {
     }
     static func eul(_ w: String) -> String { batchim(w).0 ? "을" : "를" }
     static func eun(_ w: String) -> String { batchim(w).0 ? "은" : "는" }
+    static func i(_ w: String) -> String { batchim(w).0 ? "이" : "가" }
     static func ro(_ w: String) -> String { let b = batchim(w); return b.0 && !b.1 ? "으로" : "로" }
     static func irago(_ w: String) -> String { batchim(w).0 ? "이라고" : "라고" }
 }
