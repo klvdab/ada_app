@@ -16,7 +16,7 @@ struct JeomMuleumPan: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Button("점지도로 걷기 — 권합니다. \(m.dwit ? "\(m.gil.to)에서 \(m.gil.from)까지 되돌아가기" : m.gil.julMal)") {
+            Button("점지도로 걷기 — 권합니다. \(m.julMal)") {
                 jeom.muleumDap(jeom: true)
             }
             .buttonStyle(KeunDanchu())
@@ -47,6 +47,10 @@ struct TtaraPan: View {
                 Button("\(jeom.dwit ? "되돌아가는 중" : "점지도 따라 걷는 중") — 지금 어디입니까") { jeom.jigeumEodi() }
                     .buttonStyle(KeunDanchu())
                     .accessibilityFocused(chojeom)
+                if jeom.munOn && jeom.munSu > 1 {
+                    Button("다른 문으로 — 문이 \(jeom.munSu)곳 있습니다") { jeom.dareunMun() }
+                        .buttonStyle(KeunDanchu())
+                }
                 Button("다음에 무엇이 있습니까") { jeom.daeumMuot() }
                     .buttonStyle(KeunDanchu())
                 NavigationLink(value: GilHwamyeon.munje) { Text("여기 문제 있어요 — 점자블록 없어짐, 공사 등 알리기") }
@@ -59,6 +63,10 @@ struct TtaraPan: View {
                             .buttonStyle(KeunDanchu())
                         Button("지금 내 자리 듣기") { AnnaeEngine.shared.jigeumJari() }
                             .buttonStyle(KeunDanchu())
+                        Button(jeom.hamkkeBunho.map { "함께 시험 끝내기 — 번호 " + $0.map { String($0) }.joined(separator: " ") } ?? "함께 시험 번호 받기 — 곁의 자봉과 함께 시험") {
+                            jeom.hamkkeNureum()
+                        }
+                        .buttonStyle(KeunDanchu())
                         Button("그만 걷기 — 따라 걷기와 여정을 마칩니다") { jeom.geuman() }
                             .buttonStyle(KeunDanchu())
                     }
@@ -83,6 +91,7 @@ struct TtaraPan: View {
 /// 가까운 점지도 — 다섯씩, 누르면 따라 걷기, 보이스오버 동작으로 되돌아가기
 struct GakkaunJeomView: View {
     @State private var mok: [JeomMok]?
+    @State private var ieum: [JeomIeum]?
     @State private var mot = false
 
     var body: some View {
@@ -111,11 +120,32 @@ struct GakkaunJeomView: View {
                 }
                 Text("누르시면 그 길을 따라 걷습니다. 거꾸로 걸으시려면 보이스오버로 위아래로 쓸어 되돌아가기로 걷기를 고르십시오.")
                     .font(.body)
+                // 2.11.0 여러 점지도를 이어 걷기 — 한 구간을 마치면 저절로 다음 구간
+                DisclosureGroup("이어서 갈 수 있는 곳 펼치기 — 점지도 여러 개를 이어 걷기") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if let ie = ieum {
+                            if ie.isEmpty {
+                                Text("이어 둔 길이 없습니다.").font(.title3)
+                            } else {
+                                Mokrok5(ie) { x in
+                                    Button(x.julMal) { JeomEngine.shared.ieumGeotgi(x.gugan, mok: nil) }
+                                        .buttonStyle(KeunDanchu())
+                                }
+                            }
+                        } else {
+                            Text("이어진 길을 찾는 중입니다.").font(.title3)
+                        }
+                    }
+                }
+                .font(.title3)
             }
             .padding()
         }
         .sokHwamyeon("가까운 점지도")
-        .task { if mok == nil { batgi() } }
+        .task {
+            if mok == nil { batgi() }
+            if ieum == nil { let r = await Jeomjido.ieumMok(); await MainActor.run { ieum = r ?? [] } }
+        }
     }
 
     private func batgi() {
@@ -181,6 +211,8 @@ struct JeomSeoljeongView: View {
                 }
                 .buttonStyle(KeunDanchu())
                 NavigationLink { JaegiView() } label: { Text("걸음 오차 재기 — 걸음으로 잰 거리와 실제 거리 견주기") }
+                    .buttonStyle(KeunDanchu())
+                NavigationLink { NaeMunView() } label: { Text("내 문 — 지금 선 자리를 내 문으로 담아 두기") }
                     .buttonStyle(KeunDanchu())
             }
             .padding()
@@ -792,6 +824,68 @@ struct RimoView: View {
                 SoriEngine.shared.mal("\(k) 단추는 익히지 않은 단추입니다.")
             }
         }
+    }
+
+    private func alrigi(_ t: String) {
+        allim = t
+        SoriEngine.shared.mal(t)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { allimChojeom = true }
+    }
+}
+
+// MARK: 2.11.0 내 문 — 문까지 안내에서 가장 먼저 씀(폰 안에만)
+
+struct NaeMunView: View {
+    @ObservedObject private var nae = NaeMun.shared
+    @State private var ireum = ""
+    @State private var allim = ""
+    @State private var jiulGeot: NaeMunHang?
+    @AccessibilityFocusState private var allimChojeom: Bool
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                if !allim.isEmpty { Text(allim).font(.title3).accessibilityFocused($allimChojeom) }
+                TextField("문 이름 — 예: 우리 집 현관, 사무실 정문", text: $ireum)
+                    .textFieldStyle(.roundedBorder).font(.title3)
+                Button("지금 자리를 내 문으로 담기 — 문 앞에서 문 쪽을 보고 누르십시오") { damgi() }
+                    .buttonStyle(KeunDanchu())
+                Text("담아 두신 문은 점지도 끝 60미터 안에 있으면 문까지 안내에서 가장 먼저 씁니다. 이 폰 안에만 담깁니다. 지우시려면 그 줄에서 보이스오버로 위아래로 쓸어 지우기를 고르십시오.")
+                    .font(.body)
+                if !nae.mokrok.isEmpty {
+                    Mokrok5(nae.mokrok) { h in
+                        Button("\(h.ireum) · \(h.made)") { SoriEngine.shared.mal("\(h.ireum), \(h.made)에 담은 문입니다.") }
+                            .buttonStyle(KeunDanchu())
+                            .accessibilityAction(named: "이 문 지우기") { jiulGeot = h }
+                            .contextMenu { Button("이 문 지우기") { jiulGeot = h } }
+                    }
+                }
+            }
+            .padding()
+        }
+        .sokHwamyeon("내 문")
+        .confirmationDialog("이 문을 지울까요?", isPresented: Binding(get: { jiulGeot != nil }, set: { if !$0 { jiulGeot = nil } }), titleVisibility: .visible) {
+            Button("지우기", role: .destructive) {
+                if let h = jiulGeot { nae.jiugi(h.id); alrigi("\(h.ireum)을 지웠습니다.") }
+                jiulGeot = nil
+            }
+            Button("그만두기", role: .cancel) { jiulGeot = nil }
+        }
+    }
+
+    private func damgi() {
+        WichiEngine.shared.sijak()
+        guard let w = WichiEngine.shared.jigeum, Date().timeIntervalSince(w.ttae) < 20 else { alrigi("아직 위치를 잡는 중입니다. 잠시 뒤에 다시 눌러 주십시오."); return }
+        if w.ochae > 20 { alrigi("지금은 위성이 흐려 자리가 \(Int(w.ochae))미터쯤 어긋날 수 있습니다. 문 바로 앞 밖에서 다시 눌러 주십시오."); return }
+        let nm = ireum.trimmingCharacters(in: .whitespaces)
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ko_KR")
+        f.dateFormat = "M월 d일"
+        let n = WichiEngine.shared.nachimban
+        nae.damgi(NaeMunHang(id: UUID().uuidString, ireum: nm.isEmpty ? "내 문" : nm, lat: w.lat, lon: w.lon,
+                             bang: n >= 0 ? n : nil, made: f.string(from: Date())))
+        ireum = ""
+        alrigi("\(nm.isEmpty ? "내 문" : nm)을 담았습니다." + (n >= 0 ? " 지금 보고 계신 쪽을 들어가는 쪽으로 적었습니다." : ""))
     }
 
     private func alrigi(_ t: String) {

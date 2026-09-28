@@ -109,6 +109,16 @@ struct JeomMok: Identifiable, Hashable {
     }
 }
 
+/// 이어진 길 한 줄(2.11.0)
+struct JeomIeum: Identifiable {
+    let from: String
+    let to: String
+    let dist: Double
+    let gugan: [JeomGugan]
+    var id: String { gugan.map { $0.id + ($0.dwit ? "|r" : "") }.joined(separator: ",") }
+    var julMal: String { "\(from)에서 \(to)까지 — 길 \(gugan.count)개 이어서, \(Annae.geoMal(dist))" }
+}
+
 enum Jeomjido {
     static let MUNJE = ["점자블록이 없어졌습니다", "공사 중입니다", "무엇인가 길을 막고 있습니다",
                         "소리 안내가 나지 않습니다", "바닥이 파였거나 턱이 생겼습니다", "그 밖의 문제"]
@@ -139,7 +149,7 @@ enum Jeomjido {
     }
 
     /// 걸어가실 곳에 맞는 점지도 — 시작이 가까이(50미터 안) 있고 끝이 목적지 가까이(80미터 안)인 길. 거꾸로 걸어도 맞으면 되돌아가기로.
-    static func matneunGil(_ me: Wichi, _ mok: Jangso) async -> (JeomMok, Bool)? {
+    static func matneunGil(_ me: Wichi, _ mok: Jangso) async -> (String, [JeomGugan])? {
         guard let r = await gakkaun(me.lat, me.lon) else { return nil }
         var best: (JeomMok, Bool, Double)?
         for m in r {
@@ -161,7 +171,37 @@ enum Jeomjido {
             if ap <= 80, best == nil || ap < best!.2 { best = (jm, false, ap) }
             if dw <= 80, best == nil || dw < best!.2 { best = (jm, true, dw) }
         }
-        return best.map { ($0.0, $0.1) }
+        if let b = best {
+            let g = b.0, dw = b.1
+            let nm = dw ? "\(g.to)에서 \(g.from)까지 되돌아가는 점지도" : (g.title.isEmpty ? "\(g.from)에서 \(g.to)까지 점지도" : "\(g.title) 점지도")
+            return (nm, [JeomGugan(id: g.id, dwit: dw)])
+        }
+        // 2.11.0 한 점지도로 닿지 않으면 이어진 길로 — 첫 구간이 가까이, 마지막 구간 끝이 목적지 가까이
+        guard let ie = await ieumMok() else { return nil }
+        let bm = Dictionary(r.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        var bi: (JeomIeum, Double)?
+        for x in ie {
+            guard let c = x.gugan.first, let k = x.gugan.last, let cm = bm[c.id], let km = bm[k.id] else { continue }
+            let eo = cm.near >= 0 ? cm.near : WichiEngine.geori(me.lat, me.lon, c.dwit ? cm.elat : cm.slat, c.dwit ? cm.elon : cm.slon)
+            guard eo <= 50 else { continue }
+            let kkeut = WichiEngine.geori(mok.lat, mok.lon, k.dwit ? km.slat : km.elat, k.dwit ? km.slon : km.elon)
+            if kkeut <= 80, bi == nil || kkeut < bi!.1 { bi = (x, kkeut) }
+        }
+        guard let x = bi?.0 else { return nil }
+        return ("\(x.from)에서 \(x.to)까지 이어진 점지도, 길 \(x.gugan.count)개", x.gugan)
+    }
+
+    /// 2.11.0 협회가 이어 둔 길(점지도 여러 개를 차례로) — jeom.php a=ieum
+    static func ieumMok() async -> [JeomIeum]? {
+        guard let o = await Nas.get("jeom.php", [("a", "ieum")]) else { return nil }
+        return ((o["rows"] as? [[String: Any]]) ?? []).compactMap { r in
+            let g: [JeomGugan] = ((r["gil"] as? [[String: Any]]) ?? []).compactMap { x in
+                let id = Nas.gul(x["id"])
+                return id.isEmpty ? nil : JeomGugan(id: id, dwit: (Chatgi.su(x["rev"]) ?? 0) > 0)
+            }
+            guard g.count >= 2 else { return nil }
+            return JeomIeum(from: Nas.gul(r["from"]), to: Nas.gul(r["to"]), dist: Chatgi.su(r["dist"]) ?? 0, gugan: g)
+        }
     }
 
     /// 좌표를 곳 이름으로(가까운 곳, 주소)
@@ -366,5 +406,40 @@ final class NaeGil: ObservableObject {
         jiugi(id)
         guard !lock.isEmpty else { return }
         Task { _ = await Nas.get("jeom.php", [("a", "naedel"), ("k", NaeGil.jimun(lock)), ("id", id)]) }
+    }
+}
+
+// MARK: 2.11.0 내 문 — 지금 선 자리를 내 문으로 담아 두면 문까지 안내에서 가장 먼저 씀(폰 안에만)
+
+struct NaeMunHang: Codable, Identifiable {
+    var id: String
+    var ireum: String
+    var lat: Double
+    var lon: Double
+    var bang: Double?
+    var made: String
+}
+
+final class NaeMun: ObservableObject {
+    static let shared = NaeMun()
+    @Published private(set) var mokrok: [NaeMunHang] = []
+    private let kiI = "gn.naeMun"
+
+    init() {
+        if let d = UserDefaults.standard.data(forKey: kiI), let l = try? JSONDecoder().decode([NaeMunHang].self, from: d) { mokrok = l }
+    }
+
+    private func jeojang() {
+        if let d = try? JSONEncoder().encode(mokrok) { UserDefaults.standard.set(d, forKey: kiI) }
+    }
+
+    func damgi(_ h: NaeMunHang) {
+        mokrok.insert(h, at: 0)
+        jeojang()
+    }
+
+    func jiugi(_ id: String) {
+        mokrok.removeAll { $0.id == id }
+        jeojang()
     }
 }

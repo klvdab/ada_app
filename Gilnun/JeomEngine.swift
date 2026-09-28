@@ -17,10 +17,27 @@ import CoreMotion
 import Combine
 import UIKit
 
+/// 걸을 길 한 구간(2.11.0 — 여러 점지도를 이어 걸을 때 구간이 여럿)
+struct JeomGugan: Hashable {
+    let id: String
+    let dwit: Bool
+}
+
 struct JeomMuleum {
     let mok: Jangso
-    let gil: JeomMok
-    let dwit: Bool
+    let julMal: String
+    let gugan: [JeomGugan]
+}
+
+/// 문까지 이어 안내할 문(2.11.0) — jarye 0 내 문, 1 여러 번 확인된 문, 2 한 번 찍힌 문
+struct JeomMun {
+    let lat: Double
+    let lon: Double
+    let ireum: String
+    let saengMal: String
+    let bang: Double?
+    let jarye: Int
+    let d: Double
 }
 
 final class JeomEngine: ObservableObject {
@@ -32,6 +49,26 @@ final class JeomEngine: ObservableObject {
     @Published private(set) var sangMal = ""
     @Published private(set) var muleum: JeomMuleum?
     @Published private(set) var bulleoneun = false
+    // 2.11.0 여러 점지도 이어 걷기(이사장님 나1 — 한 구간을 마치면 저절로 다음 구간)
+    @Published private(set) var ieum: [JeomGugan] = []
+    @Published private(set) var ieumIdx = 0
+    private var ieumMok: Jangso?
+    // 2.11.0 문까지 이어 안내(이사장님 가1 — 내 문 먼저)
+    @Published private(set) var munOn = false
+    @Published private(set) var munSu = 0
+    private var mun: JeomMun?
+    private var munList: [JeomMun] = []
+    private var munIdx = 0
+    private var munDasi = false
+    private var munT = Date.distantPast
+    private var munGakkaum: Double?
+    private var munBeon = 0
+    // 2.11.0 함께 시험하기
+    @Published private(set) var hamkkeBunho: String?
+    private var hamkkeT = Date.distantPast
+
+    /// 이어진 길의 가운데 구간을 걷는 중(끝이 목적지가 아님)
+    var jungganGugan: Bool { !ieum.isEmpty && ieumIdx < ieum.count - 1 }
 
     /// 점지도를 따라 걷는 중(도착 전)
     var georeoJung: Bool { gil != nil && !dochakHam }
@@ -143,10 +180,9 @@ final class JeomEngine: ObservableObject {
                     AnnaeEngine.shared.georeoGagi(j)
                     return
                 }
-                let g = mm.0, dw = mm.1
                 YeojeongEngine.shared.jeonghagi(Mokjeok(ireum: j.ireum, lat: j.lat, lon: j.lon, juso: j.juso))
-                self.muleum = JeomMuleum(mok: j, gil: g, dwit: dw)
-                let nm = dw ? "\(g.to)에서 \(g.from)까지 되돌아가는 점지도" : (g.title.isEmpty ? "\(g.from)에서 \(g.to)까지 점지도" : "\(g.title) 점지도")
+                self.muleum = JeomMuleum(mok: j, julMal: mm.0, gugan: mm.1)
+                let nm = mm.0
                 mutgi("이 길에는 \(nm)가 있습니다. 점지도로 걸을까요, 위성으로 걸을까요? 점지도가 더 정확합니다. 네 하시면 점지도로 걷습니다. 20초 안에 고르지 않으시면 점지도로 걷습니다.")
                 let jk = DispatchWorkItem { [weak self] in
                     guard let self = self, self.muleum != nil else { return }
@@ -164,7 +200,7 @@ final class JeomEngine: ObservableObject {
         guard let m = muleum else { return }
         muleumJiugi()
         if jeom {
-            bulleoGeotgi(m.gil.id, dwit: m.dwit, mok: m.mok)
+            ieumGeotgi(m.gugan, mok: m.mok)
         } else {
             AnnaeEngine.shared.georeoGagi(m.mok)
         }
@@ -178,8 +214,17 @@ final class JeomEngine: ObservableObject {
 
     // MARK: 시작과 끝
 
+    /// 2.11.0 여러 점지도를 차례로 이어 걷기 — 구간이 하나면 그냥 따라 걷기
+    func ieumGeotgi(_ g: [JeomGugan], mok: Jangso?) {
+        guard let cheot = g.first else { return }
+        ieum = g.count > 1 ? g : []
+        ieumIdx = 0
+        ieumMok = mok
+        bulleoGeotgi(cheot.id, dwit: cheot.dwit, mok: mok, ieumYuji: true)
+    }
+
     /// 점지도를 불러 따라 걷기 시작
-    func bulleoGeotgi(_ id: String, dwit dw: Bool, mok: Jangso? = nil) {
+    func bulleoGeotgi(_ id: String, dwit dw: Bool, mok: Jangso? = nil, ieumYuji: Bool = false) {
         bulleoneun = true
         mal(dw ? "되돌아가는 길을 불러오는 중입니다." : "길을 불러오는 중입니다.", .jeongbo)
         Task {
@@ -187,13 +232,14 @@ final class JeomEngine: ObservableObject {
             await MainActor.run {
                 self.bulleoneun = false
                 guard let g = g else { self.mal("길을 불러오지 못했습니다. 통신을 확인해 주십시오."); return }
-                self.sijak(g, dwit: dw, mok: mok)
+                self.sijak(g, dwit: dw, mok: mok, ieumYuji: ieumYuji)
             }
         }
     }
 
-    func sijak(_ g0: JeomGil, dwit dw: Bool, mok: Jangso? = nil) {
+    func sijak(_ g0: JeomGil, dwit dw: Bool, mok: Jangso? = nil, ieumYuji: Bool = false) {
         geumanSok(malHam: false)
+        if !ieumYuji { ieum = []; ieumIdx = 0; ieumMok = nil }
         let g = dw ? g0.dwit() : g0
         let p = g.pts.filter { $0.lat != 0 && $0.lon != 0 }
         guard p.count >= 3 else { mal("이 길에는 점이 너무 적습니다."); return }
@@ -212,6 +258,7 @@ final class JeomEngine: ObservableObject {
         idx = 0; firstFix = true; me = nil; spd = 0; lastP = nil; offSu = 0; beoseoSu = 0
         jeop30 = false; jeop20 = false; cheotBang = false; dolgiMok = nil; geonneolOn = false; geonneol = nil
         geoMode = false; geollimJari = nil; geollimHan = []
+        munOn = false; mun = nil; munList = []; munSu = 0; munIdx = 0; munDasi = false; munGakkaum = nil
         sijakT = Date()
         jariTtae = Date(); wiseongTtae = Date()
         S = HS()
@@ -231,16 +278,18 @@ final class JeomEngine: ObservableObject {
         Task {
             let hwakin = await JeomEngine.hwakinDoen(g0.id)
             await MainActor.run {
-                var t = "길눈은 보조 안내입니다. 지팡이와 주변 소리를 먼저 확인하십시오."
+                var t = self.ieumIdx > 0 ? "" : "길눈은 보조 안내입니다. 지팡이와 주변 소리를 먼저 확인하십시오."
                 if !hwakin { t += " 이 점지도는 아직 확인 중인 길입니다. 조심해서 걸으십시오." }
-                self.mal(t, .gyeonggo)
+                if !t.isEmpty { self.mal(t, .gyeonggo) }
                 let s = Seoljeong.shared
-                var m = (dw ? "되돌아가기를 시작합니다. " : "따라 걷기를 시작합니다. ") + "모두 \(Int((self.nu.last ?? 0).rounded()))미터입니다."
+                var m = self.ieum.isEmpty ? "" : "이어진 길 \(self.ieum.count)구간 가운데 \(self.ieumIdx + 1)번째 구간입니다. "
+                m += (dw ? "되돌아가기를 시작합니다. " : "따라 걷기를 시작합니다. ") + "모두 \(Int((self.nu.last ?? 0).rounded()))미터입니다."
                 m += s.bopokJaem ? " 걸음 수는 \(Seoljeong.bopokModeIreum(s.bopokMode)) 보폭으로 알려 드립니다." : " 보폭을 아직 재지 않으셔서 기본값으로 알려 드립니다."
                 if !self.kkeoks.isEmpty { m += " 이 길에 꺾이는 자리가 \(self.kkeoks.count)곳 있습니다. 미리 알려 드리겠습니다." }
                 self.mal(m)
             }
         }
+        munJunbi()
         umjikSijak()
         sigye?.invalidate()
         tikT = Date()
@@ -254,6 +303,8 @@ final class JeomEngine: ObservableObject {
     /// 그만 걷기
     func geuman() {
         guard gil != nil else { return }
+        ieum = []; ieumIdx = 0; ieumMok = nil
+        if let b = hamkkeBunho { hamkkeKkeut(b); hamkkeBunho = nil }
         let dochak = dochakHam
         geumanSok(malHam: !dochak)
         YeojeongEngine.shared.kkeut()
@@ -263,6 +314,8 @@ final class JeomEngine: ObservableObject {
     /// 여정을 끝낼 때 — 안내 엔진이 부름
     func yeojeongKkeut() {
         muleumJiugi()
+        ieum = []; ieumIdx = 0; ieumMok = nil
+        if let b = hamkkeBunho { hamkkeKkeut(b); hamkkeBunho = nil }
         if gil != nil { geumanSok(malHam: false) }
     }
 
@@ -272,6 +325,7 @@ final class JeomEngine: ObservableObject {
         sigye?.invalidate()
         sigye = nil
         umjik.stopAccelerometerUpdates()
+        munOn = false; mun = nil; munList = []; munSu = 0
         gil = nil
         dochakHam = false
         sangMal = ""
@@ -283,6 +337,7 @@ final class JeomEngine: ObservableObject {
         guard let g = gil else { return }
         let id = gilRaw.replacingOccurrences(of: "|r", with: "")
         let dw = !dwit
+        ieum = []; ieumIdx = 0; ieumMok = nil
         if id.hasPrefix("nae_"), let n = NaeGil.shared.chatgi(id) { sijak(n, dwit: dw); return }
         _ = g
         bulleoGeotgi(id, dwit: dw)
@@ -373,21 +428,47 @@ final class JeomEngine: ObservableObject {
             firstFix = false
             for i in pyo.indices where pyo[i].i < idx { pyo[i].said = true; pyo[i].near = true; pyo[i].said30 = true }
         }
+        hamkkeBonaegi()
         let rest = namEun
         sangMal = "남은 거리 \(Int(rest.rounded()))미터, 위치 오차 약 \(Int(ac.rounded()))미터."
         hwaksinGil(geori: bestD, ac: ac, rest: rest)
         bangHwagin()
         // 도착 접근 안내 — 30미터쯤 한 번, 20미터 안에서 한 번, 그 뒤 2.5초마다 남은 거리와 시 방향
         let e = pts[pts.count - 1]
-        if rest >= 5 && rest < 32 {
+        let kkeutMal = jungganGugan ? "이 구간 끝" : "목적지"
+        if rest >= 5 && rest < 32 && mun == nil {
             if rest > 20 {
-                if !jeop30 { jeop30 = true; mal("목적지까지 \(Int(rest.rounded()))미터입니다.") }
+                if !jeop30 { jeop30 = true; mal("\(kkeutMal)까지 \(Int(rest.rounded()))미터입니다.") }
             } else if !jeop20 {
                 jeop20 = true; jeopT = now
-                mal("목적지 \(Int(rest.rounded()))미터 앞\(siMal(e.lat, e.lon))입니다.")
+                mal("\(kkeutMal) \(Int(rest.rounded()))미터 앞\(siMal(e.lat, e.lon))입니다.")
             } else if now.timeIntervalSince(jeopT) > 2.5 {
                 jeopT = now
                 mal("남은 거리 \(georiMal(rest))\(siMal(e.lat, e.lon))입니다.")
+            }
+        }
+        // 2.11.0 문까지 — 길 끝 50미터 안에서 문을 다시 찾고, 30미터 안에서 문으로 이끌고, 문 5미터 안에서 도착
+        if rest < 50 && !munDasi && !munOn { munDasi = true; munJunbi() }
+        if let MU = mun {
+            let dm = WichiEngine.geori(la, lo, MU.lat, MU.lon)
+            if !munOn && rest < 30 {
+                munOn = true; munT = now; munGakkaum = dm
+                S.gyeol = ""; S.yeop = 0
+                mal("문까지 이어 안내합니다. 여기서부터 위성 안내입니다. " + munMal(MU) + (munList.count > 1 ? " 문이 \(munList.count)곳 있습니다." : ""))
+                return
+            }
+            if munOn {
+                if let g = munGakkaum {
+                    if g - dm >= 1.5 { munGakkaum = dm; eum(.hwaksin) } else if dm > g + 3 { munGakkaum = dm }
+                }
+                if dm < 5 {
+                    var t = "문 앞입니다. " + munMal(MU)
+                    if !MU.saengMal.isEmpty { t += " 문은 \(MU.saengMal)입니다." }
+                    dochak(munAp: t)
+                    return
+                }
+                if now.timeIntervalSince(munT) > 2.5 { munT = now; mal(munMal(MU)) }
+                return
             }
         }
         geollimSalpigi(la, lo)
@@ -495,7 +576,7 @@ final class JeomEngine: ObservableObject {
 
     /// 발을 한 번 디딜 때마다
     private func georeum() {
-        guard gil != nil, !dochakHam else { return }
+        guard gil != nil, !dochakHam, !munOn else { return }
         let now = Date()
         if now.timeIntervalSince(S.stepT) > 10 {
             S.yeop = 0
@@ -601,7 +682,7 @@ final class JeomEngine: ObservableObject {
 
     /// 자리가 올 때마다(위성이든 걸음이든) — 점지도 선 위에 앉혀 옆 거리와 나아간 거리를 봄
     private func hwaksinGil(geori g0: Double, ac: Double, rest: Double) {
-        guard let m = me else { return }
+        guard let m = me, !munOn else { return }
         let now = Date()
         var g = g0, jin = -rest
         var gy: Double?
@@ -988,18 +1069,142 @@ final class JeomEngine: ObservableObject {
 
     // MARK: 도착
 
-    private func dochak() {
+    private func dochak(munAp: String? = nil) {
         guard !dochakHam else { return }
+        // 2.11.0 이어진 길의 가운데 구간 끝 — 알리고 곧장 다음 구간으로(손을 쓰지 않게)
+        if jungganGugan {
+            sseumNamgigi(kkeut: true)
+            gilRaw = ""   // 다음 구간을 부르며 이 구간의 쓰임을 두 번 남기지 않게
+            let nam = ieum.count - ieumIdx - 1
+            ieumIdx += 1
+            let da = ieum[ieumIdx]
+            SoriEngine.shared.sori(.doraom)
+            mal("한 구간을 마쳤습니다. 남은 구간 \(nam)개, 이어서 안내합니다.")
+            Girok.shared.namgi("jeom_ieum", ["id": gilRaw, "idx": ieumIdx])
+            bulleoGeotgi(da.id, dwit: da.dwit, mok: ieumMok, ieumYuji: true)
+            return
+        }
         dochakHam = true
+        munOn = false
         sseumNamgigi(kkeut: true)
         sigye?.invalidate(); sigye = nil
         umjik.stopAccelerometerUpdates()
         SoriEngine.shared.sori(.dochak)
         Jindong.dochak()
         YeojeongEngine.shared.danggyeBakkugi(.dochak)
-        sangMal = "목적지에 닿았습니다."
-        mal("목적지에 닿았습니다. 따라 걷기를 마칩니다. 되돌아가시려면 되돌아가기 단추를 누르십시오.")
-        Girok.shared.namgi("jeom_dochak", ["id": gilRaw])
+        sangMal = munAp == nil ? "목적지에 닿았습니다." : "문 앞에 닿았습니다."
+        let ap = !ieum.isEmpty ? "이어진 길을 모두 걸었습니다. " : ""
+        if let t = munAp {
+            mal(ap + t + " 따라 걷기를 마칩니다. 되돌아가시려면 되돌아가기 단추를 누르십시오.")
+        } else {
+            mal(ap + "목적지에 닿았습니다. 따라 걷기를 마칩니다. 되돌아가시려면 되돌아가기 단추를 누르십시오.")
+        }
+        Girok.shared.namgi("jeom_dochak", ["id": gilRaw, "mun": munAp != nil])
+    }
+
+    // MARK: 2.11.0 문까지(웹 munJunbi — 내 문 → 여러 번 확인된 문 → 한 번 찍힌 문)
+
+    private func munJunbi() {
+        munList = []; munSu = 0
+        if !munOn { mun = nil; munIdx = 0 }
+        guard pts.count >= 2, !jungganGugan else { return }
+        let kk = pts[pts.count - 1]
+        let hubo: [JeomMun] = NaeMun.shared.mokrok.compactMap { m in
+            let d = WichiEngine.geori(kk.lat, kk.lon, m.lat, m.lon)
+            guard d <= 60 else { return nil }
+            return JeomMun(lat: m.lat, lon: m.lon, ireum: m.ireum.isEmpty ? "내 문" : m.ireum, saengMal: "", bang: m.bang, jarye: 0, d: d)
+        }
+        munSeugi(hubo)
+        munBeon += 1
+        let beon = munBeon
+        Task {
+            guard let o = await Nas.get("mun.php", [("a", "near")] + Jeomjido.jari(kk.lat, kk.lon) + [("r", "60")]) else { return }
+            let rows = (o["list"] as? [[String: Any]]) ?? (o["rows"] as? [[String: Any]]) ?? []
+            await MainActor.run {
+                guard beon == self.munBeon, self.gil != nil else { return }
+                var h = hubo
+                for x in rows {
+                    guard let la = Chatgi.su(x["lat"]), let lo = Chatgi.su(x["lon"]), la != 0 else { continue }
+                    if h.contains(where: { WichiEngine.geori($0.lat, $0.lon, la, lo) < 3 }) { continue }
+                    let nm = Nas.gul(x["ireum"]).trimmingCharacters(in: .whitespaces)
+                    h.append(JeomMun(lat: la, lon: lo, ireum: nm.isEmpty ? "문" : nm, saengMal: Nas.gul(x["saengMal"]),
+                                     bang: Chatgi.su(x["bang"]), jarye: (Chatgi.su(x["doo"]) ?? 0) > 0 ? 1 : 2,
+                                     d: WichiEngine.geori(kk.lat, kk.lon, la, lo)))
+                }
+                self.munSeugi(h)
+            }
+        }
+    }
+
+    private func munSeugi(_ h: [JeomMun]) {
+        let s = h.sorted { Double($0.jarye) * 1000 + $0.d < Double($1.jarye) * 1000 + $1.d }
+        munList = s
+        munSu = s.count
+        if !munOn { munIdx = 0; mun = s.first }
+    }
+
+    /// 문은 몇 시 방향, 몇 걸음 — 방향을 모르면 걸어 보시라고
+    private func munMal(_ MU: JeomMun) -> String {
+        guard let m = me else { return "" }
+        let nm = MU.ireum
+        let d = WichiEngine.geori(m.0, m.1, MU.lat, MU.lon)
+        guard let h = jigeumHead else {
+            return "\(nm)까지 \(georeum(d))입니다. 폰을 앞으로 든 채 한두 걸음 걸으시면 방향을 알려 드립니다."
+        }
+        var t = "\(nm)\(MalHagi.eun(nm)) \(sigyeGak(chai(WichiEngine.bangwi(m.0, m.1, MU.lat, MU.lon), h))), \(georeum(d))입니다."
+        if let b = MU.bang { t += " 들어가는 쪽은 \(sigyeGak(chai(b, h)))입니다." }
+        return t
+    }
+
+    /// 다른 문으로
+    func dareunMun() {
+        guard munOn, munList.count > 1 else { mal("다른 문이 없습니다."); return }
+        munIdx = (munIdx + 1) % munList.count
+        let MU = munList[munIdx]
+        mun = MU
+        munGakkaum = nil
+        mal("다른 문으로 바꿉니다. " + munMal(MU))
+    }
+
+    // MARK: 2.11.0 함께 시험하기(곁의 자봉이 번호로 따라 봄)
+
+    func hamkkeNureum() {
+        if let b = hamkkeBunho {
+            hamkkeKkeut(b)
+            hamkkeBunho = nil
+            mal("함께 시험을 마쳤습니다.")
+            return
+        }
+        guard gil != nil else { mal("먼저 걸으실 길을 골라 따라 걷기를 시작해 주십시오. 그 뒤에 번호를 받으실 수 있습니다."); return }
+        let id = gilRaw.replacingOccurrences(of: "|r", with: "")
+        let mok = YeojeongEngine.shared.jigeum?.mokjeok.ireum ?? (gil?.to ?? "")
+        let body: [String: Any] = ["gil": id, "dwit": dwit ? 1 : 0, "mok": mok]
+        Task {
+            let o = await Nas.postJson("hamkke.php", [("a", "yeol")], body)
+            await MainActor.run {
+                guard let o = o, (o["ok"] as? Bool) ?? false else { self.mal("번호를 받지 못했습니다. 잠시 뒤에 다시 눌러 주십시오."); return }
+                let b = Nas.gul(o["bunho"])
+                self.hamkkeBunho = b
+                self.hamkkeT = .distantPast
+                self.mal("함께 시험 번호는 \(b.map { String($0) }.joined(separator: " "))입니다. 곁의 자봉께 알려 주십시오.")
+            }
+        }
+    }
+
+    private func hamkkeKkeut(_ b: String) {
+        Task { _ = await Nas.postJson("hamkke.php", [("a", "kkeut")], ["bunho": b]) }
+    }
+
+    private func hamkkeBonaegi() {
+        guard let b = hamkkeBunho, Date().timeIntervalSince(hamkkeT) >= 2, !pts.isEmpty else { return }
+        hamkkeT = Date()
+        var mi = -1, mn = ""
+        for p in pyo where p.i >= idx && (mi < 0 || p.i < mi) { mi = p.i; mn = p.p.ireum }
+        if mi < 0 { mi = pts.count - 1; mn = "도착" }
+        let body: [String: Any] = ["bunho": b, "tc": Int(Date().timeIntervalSince1970 * 1000), "idx": idx, "mi": mi, "mn": mn,
+                                   "ws": ap(idx, mi), "su": S.stepSu, "bo": bocok, "acc": acc,
+                                   "mal": String(SoriEngine.shared.majimak.prefix(100))]
+        Task { _ = await Nas.postJson("hamkke.php", [("a", "sang")], body) }
     }
 
     // MARK: 걸린 자리(geollim.js)
