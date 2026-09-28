@@ -18,6 +18,9 @@ final class Bonche {
         WichiEngine.shared.sijak()
         _ = AnnaeEngine.shared       // 지난 여정이 있으면 안내를 곧장 이어 감
         _ = Jeulgyeo.shared
+        WatchLink.shared.sijak()     // 워치와 잇기
+        SinhogiEngine.shared.sijak() // 음향신호기 자동 울리기(설정에서 끔)
+        RemoteDanchu.shared.sijak()  // 안내 중 이어폰 단추
         MalHagi.shared.sijak()       // 말로 하기 — 사전 받기, 하이 길눈을 켜 두셨으면 부름 기다리기
         JihacheolEngine.shared.ieoGagi()   // 지하철 타고 가던 중이면 역 알림을 이어 감
         Girok.shared.namgi("app_sijak", ["pan": Pan.pan, "bild": Pan.bild, "appBild": Pan.appBild])

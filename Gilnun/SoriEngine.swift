@@ -49,6 +49,19 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
     /// 길눈이 막 말을 시작하려 할 때 — 말로 하기가 마이크를 잠시 닫음
     var malSijakHook: (() -> Void)?
     private var kkeutJul: [() -> Void] = []
+    /// 2.6.0 최근에 한 말(이어폰 이전 단추 — 앞 안내)
+    private var malGirok: [String] = []
+
+    /// 앞 안내 — 방금 한 말의 앞 말을 다시
+    func apDeutgi() {
+        DispatchQueue.main.async {
+            let t = self.malGirok.count >= 2 ? self.malGirok[self.malGirok.count - 2] : (self.malGirok.last ?? "")
+            guard !t.isEmpty else { return }
+            self.dunmal[t] = nil
+            self.jul.insert(Mal(t: "앞 안내. " + t, geup: .annae), at: 0)
+            self.naeboenda()
+        }
+    }
 
     /// 말하고 있거나 줄에 선 말이 있는가
     var bappeum: Bool { synth.isSpeaking || !jul.isEmpty }
@@ -145,6 +158,9 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
         u.preUtteranceDelay = 0.05
         jigeumGeup = m.geup
         majimak = m.t
+        malGirok.append(m.t)
+        if malGirok.count > 12 { malGirok.removeFirst(malGirok.count - 12) }
+        if m.t.count > 2 { WatchLink.shared.malBonae(m.t) }
         malHaneunSu += 1
         synth.speak(u)
     }
@@ -199,6 +215,8 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
 
     /// 말할 때만 다른 소리를 낮추고 켬
     private func sesyeonKyeogi() {
+        // 2.6.0 안내 중 이어폰 단추를 받을 때는 소리 자리를 섞지 않고 그대로 쥠
+        if RemoteDanchu.shared.kyeojim { RemoteDanchu.shared.sesyeonJapgi(); return }
         let s = AVAudioSession.sharedInstance()
         do {
             try s.setCategory(.playback, mode: .voicePrompt,
@@ -215,6 +233,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
             guard let self = self else { return }
             if self.synth.isSpeaking || !self.jul.isEmpty || (self.player?.isPlaying ?? false) { return }
             if self.deutgiKyeojim || self.myeongryeongDeutneunJung { return }   // 말로 하기가 이어서 씀
+            if RemoteDanchu.shared.kyeojim { return }   // 이어폰 단추를 받는 중
             do {
                 try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
             } catch {

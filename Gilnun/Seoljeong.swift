@@ -17,6 +17,10 @@ final class Seoljeong: ObservableObject {
     @Published var haiGilnun: Bool { didSet { d.set(haiGilnun, forKey: "gn.haiGilnun") } }
     /// 말로 하기가 이용자를 부르는 호칭
     @Published var hoching: String { didSet { d.set(hoching, forKey: "gn.hoching") } }
+    /// 음향신호기 자동 울리기(처음부터 켜짐)
+    @Published var sinhogiJadong: Bool { didSet { d.set(sinhogiJadong, forKey: "gn.sinhogiJadong") } }
+    /// 안내 중 이어폰 단추 받기(처음부터 켜짐)
+    @Published var ieoponDanchu: Bool { didSet { d.set(ieoponDanchu, forKey: "gn.ieoponDanchu") } }
 
     static let bbareugiIreum = ["아주 느리게", "느리게", "보통", "빠르게", "아주 빠르게"]
     static let bbareugiGap: [Float] = [0.40, 0.46, 0.52, 0.58, 0.64]
@@ -31,6 +35,8 @@ final class Seoljeong: ObservableObject {
         haiGilnun = (ud.object(forKey: "gn.haiGilnun") as? Bool) ?? false
         let h = (ud.string(forKey: "gn.hoching") ?? "").trimmingCharacters(in: .whitespaces)
         hoching = h.isEmpty ? "길손님" : h
+        sinhogiJadong = (ud.object(forKey: "gn.sinhogiJadong") as? Bool) ?? true
+        ieoponDanchu = (ud.object(forKey: "gn.ieoponDanchu") as? Bool) ?? true
     }
 
     var malBbareugi: Float {

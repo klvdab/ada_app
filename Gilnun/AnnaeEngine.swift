@@ -209,6 +209,38 @@ final class AnnaeEngine: ObservableObject {
         }
     }
 
+    // MARK: 워치·이어폰 (2.6.0)
+
+    /// 걸어서 가는 중인가 — 목적지까지 걷거나, 타는 곳까지 걷는 차례
+    var geonneunJung: Bool {
+        guard let y = yj.jigeum else { return false }
+        if y.danggye == .namEunGil { return true }
+        if y.danggye == .taneunGotKkaji { return true }
+        return false
+    }
+
+    /// 다음 갈림길 — 가는 쪽(앞쪽 10시~2시) 200미터 안에서 가장 가까운 사거리·갈림길
+    func daeumGalrimMal() -> String {
+        guard let w = WichiEngine.shared.jigeum else { return "아직 위치를 잡는 중입니다." }
+        neagoriBoda(w)
+        var gakka: (Double, Neagori)?
+        for n in neagori where !n.mal.isEmpty {
+            let d = WichiEngine.geori(w.lat, w.lon, n.lat, n.lon)
+            guard d > 8 && d < 200 else { continue }
+            if w.banghyang >= 0 {
+                let s = WichiEngine.sigyeBanghyang(jeongmyeon: w.banghyang, mokpyo: WichiEngine.bangwi(w.lat, w.lon, n.lat, n.lon))
+                guard s == 12 || s == 11 || s == 1 || s == 10 || s == 2 else { continue }
+            }
+            if gakka == nil || d < gakka!.0 { gakka = (d, n) }
+        }
+        if let g = gakka { return "다음 갈림길. \(Annae.geoMal(g.0)) 앞, \(g.1.mal)입니다." }
+        if let y = yj.jigeum {
+            let d = WichiEngine.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
+            return "앞쪽 가까이에는 갈림길 자료가 없습니다. \(y.mokjeok.ireum)까지 \(Annae.geoMal(d))\(Annae.sigyeMal(sigye(w, y)))."
+        }
+        return "앞쪽 가까이에는 갈림길 자료가 없습니다."
+    }
+
     // MARK: 속
 
     private func malHagi(_ t: String, _ g: MalGeup = .annae) {
@@ -321,6 +353,7 @@ final class AnnaeEngine: ObservableObject {
         neagoriBoda(w)
         if majimakGeoriMal == nil {
             malHagi("\(mok)까지 \(Annae.geoMal(d))\(Annae.sigyeMal(s)).")
+            Jindong.banghyang(s)
             majimakGeoriMal = d
             majimakSigye = s
             return
@@ -342,6 +375,7 @@ final class AnnaeEngine: ObservableObject {
             }
             if d - m >= 30 && jinan >= 10 {
                 malHagi("목적지에서 멀어지고 있습니다. \(mok) 쪽은\(s == 0 ? "" : " \(s)시 방향"), \(Annae.geoMal(d)).", .annae)
+                Jindong.banghyang(s)
                 majimakGeoriMal = d
                 majimakSigye = s
                 return
@@ -349,6 +383,7 @@ final class AnnaeEngine: ObservableObject {
         }
         if s != 0 && majimakSigye != 0 && Annae.sigyeCha(s, majimakSigye) >= 2 && jinan >= 8 {
             malHagi("\(mok) 쪽은 \(s)시 방향입니다.")
+            Jindong.banghyang(s)
             majimakSigye = s
             return
         }
@@ -359,6 +394,7 @@ final class AnnaeEngine: ObservableObject {
                 SoriEngine.shared.sori(.hwaksin)
             } else if s != 0 {
                 malHagi("\(mok) 쪽은 \(s)시 방향입니다.")
+                Jindong.banghyang(s)
                 majimakSigye = s
             }
         }
@@ -421,7 +457,7 @@ final class AnnaeEngine: ObservableObject {
     private func dochak(_ w: Wichi, _ d: Double, _ y: Yeojeong) {
         yj.danggyeBakkugi(.dochak)
         SoriEngine.shared.sori(.dochak)
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        Jindong.dochak()
         let s = sigye(w, y)
         malHagi("도착했습니다. \(y.mokjeok.ireum)입니다\(s == 0 ? "" : ". \(s)시 방향 가까이에 있습니다").")
         Girok.shared.namgi("dochak", ["m": Int(d), "ochae": Int(w.ochae)])

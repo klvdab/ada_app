@@ -80,6 +80,10 @@ struct GilChatgiView: View {
                 .buttonStyle(KeunDanchu())
                 DisclosureGroup("그 밖에 펼치기") {
                     VStack(alignment: .leading, spacing: 10) {
+                        Button("음향신호기 울리기 — 신호 안내") { SinhogiEngine.shared.ulligi(2) }
+                            .buttonStyle(KeunDanchu())
+                        Button("음향신호기 찾기 — 가까워질수록 소리가 빨라집니다") { SinhogiEngine.shared.chatgiKyeogi() }
+                            .buttonStyle(KeunDanchu())
                         NavigationLink(value: GilHwamyeon.gicho) { Text("기초 시험") }
                             .buttonStyle(KeunDanchu())
                     }

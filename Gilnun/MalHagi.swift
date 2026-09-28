@@ -306,6 +306,30 @@ final class MalHagi: ObservableObject {
         }
     }
 
+    // MARK: 워치에서 온 말 (2.6.0)
+
+    /// 손목(워치)에 말씀하신 글 — 폰 길눈이 알아듣고 폰에서 대답을 말하며, 대답 글을 워치에 돌려줌
+    func bakkatCheori(_ t: String, _ kkeut: @escaping (String) -> Void) {
+        DispatchQueue.main.async {
+            self.sijak()
+            let s = t.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !s.isEmpty else { kkeut("말씀이 들리지 않았습니다."); return }
+            if self.sangtae == .deutneun { self.myeongryeongChwiso() }
+            MalDeutgi.shared.meomchugi()
+            self.bureumDolgo = false
+            self.deureunMal = s
+            self.jadongYeolim = 1   // 워치에서 온 말에는 폰 마이크를 저절로 열지 않음
+            self.sangtae = .araboneun
+            var han = false
+            self.cheori([s]) { d, m in
+                guard !han else { return }
+                han = true
+                self.dapHagi(d, m)
+                kkeut(d.isEmpty ? "알겠습니다." : d)
+            }
+        }
+    }
+
     // MARK: 알아듣고 하기
 
     /// 알아들은 말들로 할 일을 하고, 대답(dap)을 꼭 한 번 부름 — (할 말, 묻는 말인가)
@@ -337,6 +361,7 @@ final class MalHagi: ObservableObject {
         // 3. 그만 — 어디서나
         if sajeon.itda(alts, "geuman") && z.count <= 8 {
             mureum = .eopseum
+            SinhogiEngine.shared.chatgiKkeugi()
             SoriEngine.shared.modu_geodugi()
             dap("", false)
             return
@@ -502,6 +527,18 @@ final class MalHagi: ObservableObject {
     private func myeongryeong(_ alts: [String], _ z: String, _ tg: Talgeot?, _ dap: @escaping (String, Bool) -> Void) -> Bool {
         let s = sajeon
         let y = YeojeongEngine.shared.jigeum
+        // 2.6.0 음향신호기 — "신호기 울려 줘", "신호 알려 줘", "신호기 어디", "신호기 찾아 줘"
+        if z.contains("신호기") || z.contains("신호알려") || z.contains("신호안내") || z.contains("신호등") {
+            if z.contains("찾") {
+                dap("음향신호기 찾기를 켭니다. 가까워질수록 소리가 빨라집니다. 그만이라고 하시면 멈춥니다.", false)
+                SinhogiEngine.shared.chatgiKyeogi()
+            } else {
+                let cmd: UInt8 = (z.contains("어디") || z.contains("위치")) ? 1 : 2
+                dap("", false)
+                SinhogiEngine.shared.ulligi(cmd)
+            }
+            return true
+        }
         if s.itda(alts, "doumal") {
             dap(MalHagi.doumalMal, false)
             return true
@@ -942,7 +979,7 @@ final class MalHagi: ObservableObject {
         return "지금은 \(f.string(from: Date()))입니다."
     }
 
-    static let doumalMal = "이렇게 말씀하시면 됩니다. 집으로 가자. 걸어서 가자. 지하철로 가자. 버스로 가자. 차에 탔어. 내렸어. 얼마나 남았어. 지금 어디야. 지금 가는 길 알려 줘. 즐겨찾기 목록. 즐겨찾기에 담아 줘. 복지콜에 전화해 줘. 콜 번호 알려 줘. 도와줘, 또는 가족 이름과 화상통화. 몇 시야. 말 빠르게, 말 느리게. 다시 말해. 그만. 여정 끝."
+    static let doumalMal = "이렇게 말씀하시면 됩니다. 집으로 가자. 걸어서 가자. 지하철로 가자. 버스로 가자. 차에 탔어. 내렸어. 얼마나 남았어. 지금 어디야. 지금 가는 길 알려 줘. 즐겨찾기 목록. 즐겨찾기에 담아 줘. 복지콜에 전화해 줘. 콜 번호 알려 줘. 신호기 울려 줘. 신호기 찾아 줘. 도와줘, 또는 가족 이름과 화상통화. 몇 시야. 말 빠르게, 말 느리게. 다시 말해. 그만. 여정 끝."
 
     private func motAradeureum(_ t: String) {
         Girok.shared.namgi("mal_motaradeureum", ["mal": String(t.prefix(60))])

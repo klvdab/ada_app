@@ -103,7 +103,8 @@ final class MalDeutgi: NSObject {
         let s = AVAudioSession.sharedInstance()
         var o: AVAudioSession.CategoryOptions = [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP]
         // 부름을 기다릴 때는 음악을 그대로 두고, 명령을 들을 때만 잠시 낮춤
-        o.insert(b == .bureum ? .mixWithOthers : .duckOthers)
+        // 2.6.0 안내 중 이어폰 단추를 받을 때는 섞지 않음(단추가 길눈으로 오게)
+        if !RemoteDanchu.shared.kyeojim { o.insert(b == .bureum ? .mixWithOthers : .duckOthers) }
         try s.setCategory(.playAndRecord, mode: .default, options: o)
         try s.setActive(true)
     }
