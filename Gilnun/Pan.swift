@@ -10,13 +10,18 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.11.0"
-    static let bild = "260928-13"
+    static let pan = "2.11.1"
+    static let bild = "260928-14"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.11.1", bild: "260928-14", nal: "2026-09-28", naeyong: [
+            "점지도 따라 걷기에 웹 기능 셋 더함 — 이 길목은 어떻게 생겼습니까, 가까운 버스 정류장, 지나는 곳 안내와 사거리 예고",
+            "앱이 꺼졌다 켜져도 3시간 안이면 하던 점지도 따라 걷기를 이어 감(이어진 길은 걷던 구간부터)",
+            "말로 하기에 길목, 정류장. 도움말 세 항목"
+        ]),
         Gochim(pan: "2.11.0", bild: "260928-13", nal: "2026-09-28", naeyong: [
             "점지도 따라 걷기에 남은 세 가지(이사장님 가1·나1)",
             "문까지 이어 안내 — 길 끝 50미터 안에서 문을 찾고, 30미터 안에서 문으로 이끌고, 문 5미터 안에서 문 앞과 들어가는 쪽, 문이 여럿이면 다른 문으로",

@@ -63,6 +63,10 @@ struct TtaraPan: View {
                             .buttonStyle(KeunDanchu())
                         Button("지금 내 자리 듣기") { AnnaeEngine.shared.jigeumJari() }
                             .buttonStyle(KeunDanchu())
+                        Button("이 길목은 어떻게 생겼습니까") { jeom.gilmok() }
+                            .buttonStyle(KeunDanchu())
+                        Button("가까운 버스 정류장") { jeom.beoseuJeongryujang() }
+                            .buttonStyle(KeunDanchu())
                         Button(jeom.hamkkeBunho.map { "함께 시험 끝내기 — 번호 " + $0.map { String($0) }.joined(separator: " ") } ?? "함께 시험 번호 받기 — 곁의 자봉과 함께 시험") {
                             jeom.hamkkeNureum()
                         }

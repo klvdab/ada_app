@@ -398,6 +398,16 @@ final class MalHagi: ObservableObject {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { GilGil.shared.path.append(GilHwamyeon.munje) }
                 return
             }
+            if z.contains("길목") {
+                dap("", false)
+                jm.gilmok()
+                return
+            }
+            if z.contains("정류장") && !z.contains("까지") {
+                dap("", false)
+                jm.beoseuJeongryujang()
+                return
+            }
             if z.contains("다른문") {
                 dap("", false)
                 jm.dareunMun()

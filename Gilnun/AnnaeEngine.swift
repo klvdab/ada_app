@@ -339,7 +339,7 @@ final class AnnaeEngine: ObservableObject {
         let d = WichiEngine.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
         namEunGeori = d
         // 2.10.0 점지도를 따라 걷는 동안(도착 뒤 포함)과 점지도로 걸을지 여쭙는 동안에는 점지도 엔진이 안내를 맡음
-        if JeomEngine.shared.gil != nil || JeomEngine.shared.muleum != nil { return }
+        if JeomEngine.shared.gil != nil || JeomEngine.shared.muleum != nil || JeomEngine.shared.bulleoneun { return }
         if let b = y.beoseu, y.danggye == .taneunGotKkaji {
             let jr = b.jeongryujang
             if !b.dochak { georeumAnnae(w, ireum: jr.ireum + " 정류장", lat: jr.lat, lon: jr.lon, jungan: true, y) }
@@ -436,6 +436,9 @@ final class AnnaeEngine: ObservableObject {
             }
         }
     }
+
+    /// 2.11.1 점지도를 따라 걷는 동안에도 사거리·갈림길을 알림(웹 ttara 의 Neagori.salpigi)
+    func neagoriBakkeseo(_ w: Wichi) { neagoriBoda(w) }
 
     private func neagoriBoda(_ w: Wichi) {
         let badeulTtae: Bool

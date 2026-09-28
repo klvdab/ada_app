@@ -18,6 +18,7 @@ final class Bonche {
         WichiEngine.shared.sijak()
         _ = AnnaeEngine.shared       // 지난 여정이 있으면 안내를 곧장 이어 감
         _ = JeomEngine.shared        // 2.10.0 점지도 따라 걷기
+        JeomEngine.shared.ieoGagi()  // 2.11.1 앱이 꺼졌다 켜져도 하던 점지도 따라 걷기를 이어 감
         _ = NaeGil.shared            // 2.10.0 나만의 점지도
         _ = Jeulgyeo.shared
         WatchLink.shared.sijak()     // 워치와 잇기
