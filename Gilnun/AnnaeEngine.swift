@@ -92,6 +92,35 @@ final class AnnaeEngine: ObservableObject {
         jigeumBoda()
     }
 
+    /// 목적지를 정하고 버스로 — 먼저 정류장까지 걷는 안내
+    func beoseuGagi(_ j: Jangso, _ jr: Jeongryujang) {
+        JihacheolEngine.shared.meomchugi()
+        yj.jeonghagi(Mokjeok(ireum: j.ireum, lat: j.lat, lon: j.lon, juso: j.juso))
+        yj.beoseuNoki(BeoseuGil(jeongryujang: jr, dochak: false))
+        yj.talgeotJeonghagi(.beoseu, barojabeum: true)
+        yj.danggyeBakkugi(.taneunGotKkaji)
+        dasiSijak()
+        malHagi("\(jr.ireum) 정류장까지 걷는 안내를 시작합니다.")
+        jigeumBoda()
+    }
+
+    /// 버스에 탔습니다
+    func beoseuTatda() {
+        guard yj.jigeum != nil else { return }
+        yj.talgeotJeonghagi(.beoseu, barojabeum: true)
+        yj.danggyeBakkugi(.taneunJung)
+        dasiSijak()
+        malHagi("버스 안 안내를 시작합니다.")
+        jigeumBoda()
+    }
+
+    /// 탈것 바로잡기 — 바로잡은 것이 가장 앞섬
+    func talgeotBarojapgi(_ t: Talgeot) {
+        guard yj.jigeum != nil else { return }
+        yj.talgeotBarojapgi(t)
+        malHagi("\(t.ireum)로 알겠습니다.")
+    }
+
     func georeoGagi() {
         guard yj.jigeum != nil else { return }
         yj.talgeotJeonghagi(.georeum, barojabeum: false)
@@ -105,6 +134,7 @@ final class AnnaeEngine: ObservableObject {
         guard yj.jigeum != nil else { return }
         JihacheolEngine.shared.meomchugi()
         yj.jihaNoki(nil)
+        yj.beoseuNoki(nil)
         yj.talgeotJeonghagi(.cha, barojabeum: true)
         yj.danggyeBakkugi(.taneunJung)
         dasiSijak()
@@ -137,6 +167,11 @@ final class AnnaeEngine: ObservableObject {
         let mok = y.mokjeok.ireum
         if y.danggye == .dochak {
             malHagi("\(mok)에 도착했습니다. 여정을 끝내시려면 여정 끝내기를 누르십시오.")
+            return
+        }
+        if let b = y.beoseu, y.danggye == .taneunGotKkaji {
+            malHagi(b.dochak ? "\(b.jeongryujang.ireum) 정류장에 닿았습니다. 버스에 타시면 저절로 버스 안 안내로 바뀝니다."
+                             : "\(b.jeongryujang.ireum) 정류장까지 걸어가는 중입니다.")
             return
         }
         if y.jiha != nil && (y.danggye == .taneunGotKkaji || y.danggye == .taneunJung) {
@@ -212,10 +247,22 @@ final class AnnaeEngine: ObservableObject {
     }
 
     private func talgeotBakkwim(_ t: Talgeot) {
-        guard let y = yj.jigeum, y.danggye == .namEunGil || y.danggye == .eotteoke else { return }
+        guard let y = yj.jigeum else { return }
         guard t == .cha || t == .gicha else { return }
+        // 버스 정류장에서 기다리다 빠르게 움직이면 버스에 타신 것
+        if y.beoseu != nil && y.danggye == .taneunGotKkaji {
+            yj.talgeotJeonghagi(.beoseu, barojabeum: true)
+            yj.danggyeBakkugi(.taneunJung)
+            dasiSijak()
+            malHagi("버스가 움직이는 것 같습니다. 버스 안 안내를 시작합니다.")
+            Girok.shared.namgi("jadong_beoseu", [:])
+            jigeumBoda()
+            return
+        }
+        guard y.danggye == .namEunGil || y.danggye == .eotteoke else { return }
         JihacheolEngine.shared.meomchugi()
         yj.jihaNoki(nil)
+        yj.beoseuNoki(nil)
         yj.talgeotJeonghagi(t, barojabeum: false)
         yj.danggyeBakkugi(.taneunJung)
         dasiSijak()
@@ -228,6 +275,11 @@ final class AnnaeEngine: ObservableObject {
         guard let y = yj.jigeum else { namEunGeori = nil; return }
         let d = WichiEngine.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
         namEunGeori = d
+        if let b = y.beoseu, y.danggye == .taneunGotKkaji {
+            let jr = b.jeongryujang
+            if !b.dochak { georeumAnnae(w, ireum: jr.ireum + " 정류장", lat: jr.lat, lon: jr.lon, jungan: true, y) }
+            return
+        }
         if let g = y.jiha {
             switch y.danggye {
             case .taneunGotKkaji:
@@ -257,7 +309,7 @@ final class AnnaeEngine: ObservableObject {
             if jungan {
                 SoriEngine.shared.sori(.dochak)
                 dasiSijak()
-                JihacheolEngine.shared.ipguDochak()
+                if y.beoseu != nil { jeongryujangDochak() } else { JihacheolEngine.shared.ipguDochak() }
             } else {
                 dochak(w, d, y)
             }
@@ -343,6 +395,20 @@ final class AnnaeEngine: ObservableObject {
         }
     }
 
+    /// 버스 정류장에 닿음 — 오는 버스를 알려 드리고, 버스가 움직이면 저절로 버스 안 안내로
+    private func jeongryujangDochak() {
+        guard var b = yj.jigeum?.beoseu else { return }
+        b.dochak = true
+        yj.beoseuNoki(b)
+        let jr = b.jeongryujang
+        malHagi("\(jr.ireum) 정류장입니다. 버스에 타시면 저절로 버스 안 안내로 바뀝니다.")
+        Girok.shared.namgi("beoseu_jeongryujang", [:])
+        Task {
+            let m = await Beoseu.douchak(jr)
+            await MainActor.run { self.malHagi(m, .jeongbo) }
+        }
+    }
+
     /// 지하철에서 내린 뒤 — 위성이 다시 잡히고 스무 걸음 넘게 걸으셨으면 밖으로 나오신 것
     private func naonGeotBoda(_ w: Wichi) {
         let georeum = WichiEngine.shared.oneulGeoreum
@@ -375,7 +441,12 @@ final class AnnaeEngine: ObservableObject {
             let saero = dan.filter { Double($0) >= d && !chaGeori.contains($0) }
             if let g = saero.min() {
                 for x in saero { chaGeori.insert(x) }
-                if g == 300 {
+                let beoseu = (yj.talgeot == .beoseu)
+                if beoseu && g == 500 {
+                    malHagi("\(mok)까지 \(Annae.geoMal(d)) 남았습니다. 버스 안내 방송을 잘 들으시고 내리실 준비를 하십시오.")
+                } else if beoseu && g == 300 {
+                    malHagi("곧 \(mok) 부근입니다. 다음 정류장에서 내리시면 됩니다. 남은 거리 \(Annae.geoMal(d)).")
+                } else if g == 300 {
                     malHagi("곧 \(mok) 부근입니다. 내리실 준비를 하십시오. 남은 거리 \(Annae.geoMal(d)).")
                 } else if g == 150 {
                     malHagi("\(mok) 부근입니다. 차에서 내려 걸으시면 저절로 걷는 안내로 이어 드립니다.")

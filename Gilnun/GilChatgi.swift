@@ -9,6 +9,9 @@ enum GilHwamyeon: Hashable {
     case jeulgyeo
     case gicho
     case jiha(Jangso)
+    case beoseu(Jangso)
+    case jeongryujang(Jangso, Jeongryujang)
+    case talgeot
 }
 
 /// 길 찾기 탭의 길(화면 쌓임) — 목적지를 정하면 첫 화면으로 곧장 돌아가게
@@ -30,6 +33,9 @@ struct GilChatgiTab: View {
                     case .jeulgyeo: JeulgyeoView()
                     case .gicho: GichoSiheomView()
                     case .jiha(let j): JihacheolGilView(mok: j)
+                    case .beoseu(let j): BeoseuChatgiView(mok: j)
+                    case .jeongryujang(let j, let jr): JeongryujangView(mok: j, j: jr)
+                    case .talgeot: TalgeotView()
                     }
                 }
         }
@@ -88,7 +94,9 @@ struct YeojeongPan: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if let g = yj.jiha, yj.danggye == .taneunGotKkaji || yj.danggye == .taneunJung {
+            if let b = yj.beoseu, yj.danggye == .taneunGotKkaji {
+                beoseuDanchu(b)
+            } else if let g = yj.jiha, yj.danggye == .taneunGotKkaji || yj.danggye == .taneunJung {
                 jihaDanchu(g)
             } else {
                 gibonDanchu
@@ -102,12 +110,40 @@ struct YeojeongPan: View {
                         if yj.jiha != nil && yj.danggye == .taneunJung {
                             Button("밖으로 나왔습니다 — 남은 길 걸어서 안내") { a.naeryeotda() }.buttonStyle(KeunDanchu())
                         }
+                        if yj.jiha == nil && yj.danggye == .taneunJung {
+                            NavigationLink(value: GilHwamyeon.talgeot) {
+                                Text("탈것 바로잡기 — 지금 \(YeojeongEngine.shared.talgeot.ireum)로 알고 있습니다")
+                            }
+                            .buttonStyle(KeunDanchu())
+                        }
                         Button("지금 내 자리 듣기") { a.jigeumJari() }.buttonStyle(KeunDanchu())
                         Button("여정 끝내기 — 목적지를 바꾸실 때도") { a.kkeut() }.buttonStyle(KeunDanchu())
                     }
                 }
                 .font(.title3)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func beoseuDanchu(_ b: BeoseuGil) -> some View {
+        if b.dochak {
+            Button("\(b.jeongryujang.ireum) 정류장에 닿았습니다 — 버스에 탔습니다, 버스 안 안내") { a.beoseuTatda() }
+                .buttonStyle(KeunDanchu())
+                .accessibilityFocused(chojeom)
+            Button("오는 버스 듣기") {
+                Task {
+                    let m = await Beoseu.douchak(b.jeongryujang)
+                    await MainActor.run { SoriEngine.shared.mal(m) }
+                }
+            }
+            .buttonStyle(KeunDanchu())
+        } else {
+            Button("\(b.jeongryujang.ireum) 정류장까지 걸어가는 중 — 지금 어떻게 가고 있습니까") { a.hyeonhwang() }
+                .buttonStyle(KeunDanchu())
+                .accessibilityFocused(chojeom)
+            Button("버스에 탔습니다 — 버스 안 안내") { a.beoseuTatda() }
+                .buttonStyle(KeunDanchu())
         }
     }
 
@@ -235,6 +271,10 @@ struct MokjeokView: View {
                 .buttonStyle(KeunDanchu())
                 NavigationLink(value: GilHwamyeon.jiha(j)) {
                     Text("지하철로 가기 — 가까운 역, 갈아타기, 나갈 출구를 찾아 드립니다")
+                }
+                .buttonStyle(KeunDanchu())
+                NavigationLink(value: GilHwamyeon.beoseu(j)) {
+                    Text("버스로 가기 — 가까운 정류장과 오는 버스")
                 }
                 .buttonStyle(KeunDanchu())
                 if damam || jeul.itna(j) {

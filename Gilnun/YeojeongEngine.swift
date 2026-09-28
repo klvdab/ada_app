@@ -47,6 +47,7 @@ struct Yeojeong: Codable {
     var sijak: Date
     var gaengsin: Date
     var jiha: JihaGil? = nil      // 지하철로 가는 여정이면 그 길
+    var beoseu: BeoseuGil? = nil  // 버스로 가는 여정이면 그 정류장
 }
 
 final class YeojeongEngine: ObservableObject {
@@ -95,6 +96,15 @@ final class YeojeongEngine: ObservableObject {
         y.gaengsin = Date()
         jigeum = y
         Girok.shared.namgi("yeojeong_danggye", ["d": d.rawValue])
+        jeojang()
+    }
+
+    /// 버스 정류장 담기(없애려면 nil)
+    func beoseuNoki(_ b: BeoseuGil?) {
+        guard var y = jigeum else { return }
+        y.beoseu = b
+        y.gaengsin = Date()
+        jigeum = y
         jeojang()
     }
 
