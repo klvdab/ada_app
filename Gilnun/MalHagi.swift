@@ -753,7 +753,7 @@ final class MalHagi: ObservableObject {
             return true
         }
         // 2.8.0 음악·방송 — 다음 곡, 무슨 곡이야, 음악 틀어 줘, 트롯 틀어 줘, 라디오 틀어 줘, 뉴스 들려줘, 음악 꺼
-        if bangsongMyeongryeong(alts, t, z, dap) { return true }
+        if bangsongMyeongryeong(alts, alts.first ?? "", z, dap) { return true }
         // 아직 앱에 넣지 못한 기능 — 모르는 척하지 않고, 기록해 두었다가 그 기능을 넣을 때 말로도 되게
         let aJik: [(String, String)] = [("mun_namgigi", "문 남기기"),
                                        ("hwaksin_kkeum", "확신음 켜고 끄기"), ("hwaksin_kyeom", "확신음 켜고 끄기"),
