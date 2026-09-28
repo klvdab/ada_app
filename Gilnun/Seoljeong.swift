@@ -45,6 +45,14 @@ final class Seoljeong: ObservableObject {
     // 2.9.0 흔들면 — 처음에는 꺼 둠. 하는 일은 gingeup(긴급통화 열기) 또는 jari(자리 번호 말하기)
     @Published var heundeulKyeojim: Bool { didSet { d.set(heundeulKyeojim, forKey: "gn.heundeul") } }
     @Published var heundeulIl: String { didSet { d.set(heundeulIl, forKey: "gn.heundeulIl") } }
+    // 2.10.0 점지도 따라 걷기 — "제대로 가고 있습니다"를 몇 미터마다(5·10·20, 처음 10)
+    @Published var hwaksinGan: Int { didSet { d.set(hwaksinGan, forKey: "gn.hwaksinGan") } }
+    // 2.10.0 보폭 — 혼자 걸을 때와 동반자와 걸을 때를 따로 재 둠(웹과 같음). 지금 쓰는 쪽이 bopok 에 들어감
+    @Published var bopokMode: String { didSet { d.set(bopokMode, forKey: "gn.bopokMode") } }
+    @Published var bopokHonja: Double { didSet { d.set(bopokHonja, forKey: "gn.bopokHonja") } }
+    @Published var bopokDongban: Double { didSet { d.set(bopokDongban, forKey: "gn.bopokDongban") } }
+    // 2.10.0 리모컨 배우기 — 자리("1" 지금 어디, "2" 다음에 무엇, "3" 다시 말해 주기)마다 익힌 단추
+    @Published var rimo: [String: String] { didSet { d.set(rimo, forKey: "gn.rimo") } }
 
     static let bbareugiIreum = ["아주 느리게", "느리게", "보통", "빠르게", "아주 빠르게"]
     static let bbareugiGap: [Float] = [0.40, 0.46, 0.52, 0.58, 0.64]
@@ -80,6 +88,23 @@ final class Seoljeong: ObservableObject {
         jariOcha = (ud.object(forKey: "gn.jariOcha") as? Bool) ?? true
         heundeulKyeojim = (ud.object(forKey: "gn.heundeul") as? Bool) ?? false
         heundeulIl = ud.string(forKey: "gn.heundeulIl") ?? "gingeup"
+        let hg = (ud.object(forKey: "gn.hwaksinGan") as? Int) ?? 10
+        hwaksinGan = [5, 10, 20].contains(hg) ? hg : 10
+        bopokMode = ud.string(forKey: "gn.bopokMode") == "dongban" ? "dongban" : "honja"
+        bopokHonja = ud.double(forKey: "gn.bopokHonja")
+        bopokDongban = ud.double(forKey: "gn.bopokDongban")
+        rimo = (ud.dictionary(forKey: "gn.rimo") as? [String: String]) ?? [:]
+    }
+
+    /// 보폭을 재 두셨는가(지금 쓰는 쪽)
+    var bopokJaem: Bool { (bopokMode == "dongban" ? bopokDongban : bopokHonja) > 0.2 }
+    static func bopokModeIreum(_ m: String) -> String { m == "dongban" ? "동반자와 걸을 때" : "혼자 걸을 때" }
+
+    /// 보폭 쪽 바꾸기 — 재 둔 값이 있으면 그것을 씀
+    func bopokModeBakkugi(_ m: String) {
+        bopokMode = m
+        let v = m == "dongban" ? bopokDongban : bopokHonja
+        if v > 0.2 { bopok = v }
     }
 
     var malBbareugi: Float {

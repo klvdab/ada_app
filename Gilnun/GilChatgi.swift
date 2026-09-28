@@ -15,6 +15,8 @@ enum GilHwamyeon: Hashable {
     case gingeup
     case jiinGoreugi
     case jiinMyeongdan
+    case jeomMok      // 2.10.0 가까운 점지도
+    case munje        // 2.10.0 여기 문제 있어요
 }
 
 /// 길 찾기 탭의 길(화면 쌓임) — 목적지를 정하면 첫 화면으로 곧장 돌아가게
@@ -42,6 +44,8 @@ struct GilChatgiTab: View {
                     case .gingeup: GinGeupView()
                     case .jiinGoreugi: JiinGoreugiView()
                     case .jiinMyeongdan: JiinMyeongdanView()
+                    case .jeomMok: GakkaunJeomView()
+                    case .munje: MunjeView()
                     }
                 }
         }
@@ -50,6 +54,7 @@ struct GilChatgiTab: View {
 
 struct GilChatgiView: View {
     @ObservedObject private var y = YeojeongEngine.shared
+    @ObservedObject private var jeom = JeomEngine.shared
     @State private var mal = ""
     @AccessibilityFocusState private var meoriChojeom: Bool
 
@@ -57,7 +62,11 @@ struct GilChatgiView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 GingeupGongjiJul()   // 2.9.0 읽지 않은 긴급 공지 — 맨 위
-                if let yj = y.jigeum {
+                if let m = jeom.muleum {
+                    JeomMuleumPan(m: m, chojeom: $meoriChojeom)   // 2.10.0 점지도로 걸을까요
+                } else if let g = jeom.gil {
+                    TtaraPan(g: g, chojeom: $meoriChojeom)        // 2.10.0 점지도 따라 걷는 중
+                } else if let yj = y.jigeum {
                     YeojeongPan(yj: yj, chojeom: $meoriChojeom)
                 } else {
                     TextField("어디로 가실까요 — 이름이나 주소를 넣고 엔터", text: $mal)
@@ -84,6 +93,8 @@ struct GilChatgiView: View {
                         Button("음향신호기 울리기 — 신호 안내") { SinhogiEngine.shared.ulligi(2) }
                             .buttonStyle(KeunDanchu())
                         Button("음향신호기 찾기 — 가까워질수록 소리가 빨라집니다") { SinhogiEngine.shared.chatgiKyeogi() }
+                            .buttonStyle(KeunDanchu())
+                        NavigationLink(value: GilHwamyeon.jeomMok) { Text("가까운 점지도 — 골라서 따라 걷기") }
                             .buttonStyle(KeunDanchu())
                         NavigationLink(value: GilHwamyeon.gicho) { Text("기초 시험") }
                             .buttonStyle(KeunDanchu())
@@ -206,7 +217,13 @@ struct YeojeongPan: View {
                     .buttonStyle(KeunDanchu())
                     .accessibilityFocused(chojeom)
             default:
-                Button("\(mok)까지 — 걸어가기, 걷는 안내 시작") { a.georeoGagi() }
+                Button("\(mok)까지 — 걸어가기, 걷는 안내 시작") {
+                    // 2.10.0 맞는 점지도가 있으면 한 번 여쭘
+                    let m = yj.mokjeok
+                    JeomEngine.shared.georeoGagiBoda(Jangso(ireum: m.ireum, juso: m.juso, lat: m.lat, lon: m.lon)) { q in
+                        if let q = q { SoriEngine.shared.mal(q) }
+                    }
+                }
                     .buttonStyle(KeunDanchu())
                     .accessibilityFocused(chojeom)
                 Button("차에 탔습니다 — 차 안 안내 시작") { a.chaTatda() }
@@ -275,7 +292,8 @@ struct MokjeokView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Button("\(j.ireum)\(geoMal) — 걸어가기, 걷는 안내 시작") {
                     jeul.sseum(j)
-                    AnnaeEngine.shared.georeoGagi(j)
+                    // 2.10.0 맞는 점지도가 있으면 "점지도로 걸을까요, 위성으로 걸을까요" 한 번 여쭘(점지도를 먼저 권함)
+                    JeomEngine.shared.georeoGagiBoda(j) { q in if let q = q { SoriEngine.shared.mal(q) } }
                     GilGil.shared.cheotHwamyeon()
                 }
                 .buttonStyle(KeunDanchu())

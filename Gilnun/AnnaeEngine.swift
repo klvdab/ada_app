@@ -155,6 +155,7 @@ final class AnnaeEngine: ObservableObject {
     }
 
     func kkeut() {
+        JeomEngine.shared.yeojeongKkeut()   // 2.10.0 점지도 따라 걷기도 함께 마침
         JihacheolEngine.shared.meomchugi()
         yj.kkeut()
         namEunGeori = nil
@@ -164,6 +165,8 @@ final class AnnaeEngine: ObservableObject {
 
     /// 지금 어떻게 가고 있습니까
     func hyeonhwang() {
+        // 2.10.0 점지도를 따라 걷는 중이면 점지도의 남은 거리
+        if JeomEngine.shared.georeoJung { JeomEngine.shared.jigeumEodi(); return }
         guard let y = yj.jigeum else { jigeumJari(); return }
         let mok = y.mokjeok.ireum
         if y.danggye == .dochak {
@@ -247,6 +250,8 @@ final class AnnaeEngine: ObservableObject {
 
     /// 다음 갈림길 — 가는 쪽(앞쪽 10시~2시) 200미터 안에서 가장 가까운 사거리·갈림길
     func daeumGalrimMal() -> String {
+        // 2.10.0 점지도를 따라 걷는 중이면 점지도의 다음 표시·꺾이는 곳
+        if JeomEngine.shared.georeoJung { return JeomEngine.shared.daeumMuotMal() }
         guard let w = WichiEngine.shared.jigeum else { return "아직 위치를 잡는 중입니다." }
         neagoriBoda(w)
         var gakka: (Double, Neagori)?
@@ -333,6 +338,8 @@ final class AnnaeEngine: ObservableObject {
         guard let y = yj.jigeum else { namEunGeori = nil; return }
         let d = WichiEngine.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
         namEunGeori = d
+        // 2.10.0 점지도를 따라 걷는 동안(도착 뒤 포함)과 점지도로 걸을지 여쭙는 동안에는 점지도 엔진이 안내를 맡음
+        if JeomEngine.shared.gil != nil || JeomEngine.shared.muleum != nil { return }
         if let b = y.beoseu, y.danggye == .taneunGotKkaji {
             let jr = b.jeongryujang
             if !b.dochak { georeumAnnae(w, ireum: jr.ireum + " 정류장", lat: jr.lat, lon: jr.lon, jungan: true, y) }

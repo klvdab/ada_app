@@ -21,7 +21,7 @@ final class MalHagi: ObservableObject {
     @Published private(set) var deureunMal = ""
     @Published private(set) var dapMal = ""
 
-    private enum Mureum { case eopseum, mokjeok, bangsik, chaYocheong, kol, galrae, hoching, hubo }
+    private enum Mureum { case eopseum, mokjeok, bangsik, chaYocheong, kol, galrae, hoching, hubo, jeom }
     private var mureum: Mureum = .eopseum
     private var mureumTtae = Date.distantPast
     private var mok: Jangso?
@@ -359,6 +359,58 @@ final class MalHagi: ObservableObject {
             GinGeup.shared.geumanhagi()
             return
         }
+        // 2.10.0 점지도 — 점지도로 걸을까요의 대답, 따라 걷는 중의 명령("그만 걷기"는 아래 "그만"보다 먼저)
+        let jm = JeomEngine.shared
+        if jm.muleum != nil {
+            let ye0 = sajeon.tteut(alts, "ye") != nil, ani0 = sajeon.tteut(alts, "ani") != nil
+            if z.contains("위성") || (mureum == .jeom && ani0 && !ye0 && z.count <= 10) {
+                mureum = .eopseum
+                dap("위성으로 걷습니다.", false)
+                jm.muleumDap(jeom: false)
+                return
+            }
+            if z.contains("점지도") || (mureum == .jeom && ye0 && !ani0 && z.count <= 10) {
+                mureum = .eopseum
+                dap("점지도로 걷습니다.", false)
+                jm.muleumDap(jeom: true)
+                return
+            }
+        }
+        if jm.gil != nil {
+            if z.contains("그만걷") || z.contains("따라걷기그만") || z.contains("따라걷기끝") || z.contains("걷기그만") {
+                dap("", false)
+                jm.geuman()
+                return
+            }
+            if z.contains("다음에무엇") || z.contains("다음에뭐") || z.contains("다음은뭐") || z.contains("다음표시") || z.contains("앞에뭐") {
+                dap(jm.daeumMuotMal(), false)
+                return
+            }
+            if jm.dochakHam && z.contains("되돌아") {
+                dap("", false)
+                jm.doedoragagi()
+                return
+            }
+            if z.contains("문제있") || z.contains("여기문제") {
+                dap("무슨 문제인지 고르시는 화면을 엽니다.", false)
+                TabGil.shared.tab = 0
+                GilGil.shared.cheotHwamyeon()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { GilGil.shared.path.append(GilHwamyeon.munje) }
+                return
+            }
+            if z.contains("여기걸렸") {
+                dap("", false)
+                jm.geollimNamgigi()
+                return
+            }
+        }
+        if z.contains("점지도") && (z.contains("가까운") || z.contains("근처") || z.contains("목록") || z.contains("찾아")) {
+            dap("가까운 점지도를 엽니다. 골라서 누르시면 따라 걷습니다.", false)
+            TabGil.shared.tab = 0
+            GilGil.shared.cheotHwamyeon()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { GilGil.shared.path.append(GilHwamyeon.jeomMok) }
+            return
+        }
         // 3. 그만 — 어디서나
         if sajeon.itda(alts, "geuman") && z.count <= 8 {
             mureum = .eopseum
@@ -447,7 +499,7 @@ final class MalHagi: ObservableObject {
                 daeumHubo(dap)
                 return
             }
-        case .mokjeok, .eopseum:
+        case .mokjeok, .eopseum, .jeom:
             break
         }
 
@@ -961,9 +1013,17 @@ final class MalHagi: ObservableObject {
         }
         switch g {
         case .georeum:
-            dap(apMal, false)
-            AnnaeEngine.shared.georeoGagi(j)
+            // 2.10.0 맞는 점지도가 있으면 "점지도로 걸을까요, 위성으로 걸을까요" 한 번 여쭘(네 하시면 점지도)
             GilGil.shared.cheotHwamyeon()
+            JeomEngine.shared.georeoGagiBoda(j) { [weak self] q in
+                if let q = q {
+                    self?.mureum = .jeom
+                    self?.mureumTtae = Date()
+                    dap(apMal + q, true)
+                } else {
+                    dap(apMal, false)
+                }
+            }
         case .cha, .gicha, .gosokbeoseu:
             if taneunJung {
                 dap(apMal + "타고 가시는 중이니 차 안 안내로 잇습니다.", false)
@@ -1131,7 +1191,7 @@ final class MalHagi: ObservableObject {
         return "지금은 \(f.string(from: Date()))입니다."
     }
 
-    static let doumalMal = "이렇게 말씀하시면 됩니다. 집으로 가자. 걸어서 가자. 지하철로 가자. 버스로 가자. 차에 탔어. 내렸어. 얼마나 남았어. 지금 어디야. 지금 가는 길 알려 줘. 즐겨찾기 목록. 즐겨찾기에 담아 줘. 복지콜에 전화해 줘. 콜 번호 알려 줘. 신호기 울려 줘. 신호기 찾아 줘. 근처 약국. 음악 틀어 줘. 트롯 틀어 줘. 다음 곡. 라디오 틀어 줘. 뉴스 들려줘. 음악 꺼. 도와줘, 또는 가족 이름과 화상통화. 몇 시야. 말 빠르게, 말 느리게. 다시 말해. 그만. 여정 끝."
+    static let doumalMal = "이렇게 말씀하시면 됩니다. 집으로 가자. 걸어서 가자. 지하철로 가자. 버스로 가자. 차에 탔어. 내렸어. 얼마나 남았어. 지금 어디야. 지금 가는 길 알려 줘. 즐겨찾기 목록. 즐겨찾기에 담아 줘. 복지콜에 전화해 줘. 콜 번호 알려 줘. 신호기 울려 줘. 신호기 찾아 줘. 근처 약국. 음악 틀어 줘. 트롯 틀어 줘. 다음 곡. 라디오 틀어 줘. 뉴스 들려줘. 음악 꺼. 도와줘, 또는 가족 이름과 화상통화. 몇 시야. 말 빠르게, 말 느리게. 다시 말해. 그만. 여정 끝. 점지도를 따라 걸을 때는 다음에 무엇, 그만 걷기, 여기 문제 있어, 여기 걸렸어. 가까운 점지도 찾아 줘."
 
     private func motAradeureum(_ t: String) {
         Girok.shared.namgi("mal_motaradeureum", ["mal": String(t.prefix(60))])

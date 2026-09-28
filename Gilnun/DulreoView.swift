@@ -68,7 +68,8 @@ func gotEuroGagi(_ j: Jangso) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { GilGil.shared.path.append(GilHwamyeon.mokjeok(j)) }
         SoriEngine.shared.mal("\(j.ireum). 걸어가시기에는 먼 곳이라 어떻게 가실지 고르시는 화면을 엽니다.")
     } else {
-        AnnaeEngine.shared.georeoGagi(j)
+        // 2.10.0 맞는 점지도가 있으면 한 번 여쭘
+        JeomEngine.shared.georeoGagiBoda(j) { q in if let q = q { SoriEngine.shared.mal(q) } }
         GilGil.shared.cheotHwamyeon()
     }
     Girok.shared.namgi("dulreo_gagi", ["meolda": meolda])

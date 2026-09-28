@@ -17,6 +17,8 @@ final class Bonche {
         YeojeongEngine.shared.bureogi()
         WichiEngine.shared.sijak()
         _ = AnnaeEngine.shared       // 지난 여정이 있으면 안내를 곧장 이어 감
+        _ = JeomEngine.shared        // 2.10.0 점지도 따라 걷기
+        _ = NaeGil.shared            // 2.10.0 나만의 점지도
         _ = Jeulgyeo.shared
         WatchLink.shared.sijak()     // 워치와 잇기
         SinhogiEngine.shared.sijak() // 음향신호기 자동 울리기(설정에서 끔)

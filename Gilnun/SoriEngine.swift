@@ -17,6 +17,11 @@ enum SoriJong {
     case dochak    // 도착
     case deutgi    // 말로 하기 — 이제 말씀하십시오
     case ttaeng    // 말로 하기 — 대답을 마치고 실행에 들어감
+    // 2.10.0 점지도 따라 걷기(웹 hwaksin.js 와 같은 소리)
+    case jeomOk    // 점지도 위를 제대로 디딤 — 맑고 높은 띵
+    case bikyeo    // 반 걸음 비켜남 — 가운데 소리
+    case beoseo    // 한 걸음 벗어남 — 낮은 두 소리
+    case doraom    // 점지도 위로 돌아옴 — 오르는 두 소리
 }
 
 final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
@@ -215,6 +220,10 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
         case .dochak: data = SoriEngine.wav([(660, 0.12), (0, 0.04), (880, 0.12), (0, 0.04), (1100, 0.22)]); gil = 0.6
         case .deutgi: data = SoriEngine.wav([(660, 0.07), (0, 0.03), (990, 0.1)])
         case .ttaeng: data = SoriEngine.wav([(1320, 0.2)])
+        case .jeomOk: data = SoriEngine.wav([(1320, 0.07)]); gil = 0.1
+        case .bikyeo: data = SoriEngine.wav([(700, 0.12)]); gil = 0.15
+        case .beoseo: data = SoriEngine.wav([(330, 0.2), (0, 0.07), (247, 0.26)]); gil = 0.55
+        case .doraom: data = SoriEngine.wav([(880, 0.08), (0, 0.04), (1320, 0.1)]); gil = 0.25
         }
         DispatchQueue.main.async {
             // 명령을 듣는 동안에는 걷는 안내의 작은 소리를 내지 않음(마이크를 지킴) — 경고는 냄
