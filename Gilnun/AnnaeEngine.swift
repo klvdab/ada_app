@@ -1,0 +1,373 @@
+// 안내 엔진 — 여정에 맞춰 길눈이 스스로 말합니다. 화면이 무엇이든, 폰이 잠겨도, 음악이 나와도 이 엔진이 돕니다.
+// 2026-09-28 아침 길에서 드러난 일(화면이 잠기며 안내가 멈춤, 음악을 틀자 도착을 알아챌 주인이 없어짐)을 뿌리부터 막으려고,
+// 안내는 화면이 아니라 이 엔진이 맡습니다.
+//   걷기: 남은 거리와 시계 방향, 가까워질수록 자주, 방향이 틀어지면 바로, 제대로 가면 확신음, 사거리 알림, 곧 도착, 도착
+//   차 안: 남은 거리 눈금(5·3·2·1킬로미터, 500·300·150미터), 지나는 길과 동네, 3분 넘게 말이 없으면 남은 거리
+//   저절로 바꾸기: 빠르게 움직이면 곧장 차 안 안내로(묻지 않음), 목적지 가까이서 멈추고 걷기 시작하면 걷는 안내로
+// 손을 쓰지 않아도 되게 하는 것이 원칙입니다(한 손에 지팡이, 한 손에 짐).
+import Foundation
+import Combine
+import UIKit
+
+enum Annae {
+    static func geoMal(_ d: Double) -> String {
+        if d >= 1000 {
+            let k = (d / 100).rounded() / 10
+            return k == k.rounded() ? "\(Int(k))킬로미터" : String(format: "%.1f킬로미터", k)
+        }
+        if d >= 100 { return "\(Int((d / 10).rounded()) * 10)미터" }
+        return "\(max(1, Int((d / 5).rounded()) * 5))미터"
+    }
+
+    static func sigyeMal(_ s: Int) -> String { s == 0 ? "" : ", \(s)시 방향" }
+
+    static func sigyeCha(_ a: Int, _ b: Int) -> Int {
+        let c = abs(a - b) % 12
+        return min(c, 12 - c)
+    }
+}
+
+final class AnnaeEngine: ObservableObject {
+    static let shared = AnnaeEngine()
+
+    @Published private(set) var namEunGeori: Double?
+
+    private var ssak = Set<AnyCancellable>()
+    private var majimakMal = Date.distantPast
+    private var majimakGeoriMal: Double?
+    private var majimakSigye = 0
+    private var gotMal = false
+    private var chaGeori = Set<Int>()
+    private(set) var majimakGil = ""
+    private var majimakDong = ""
+    private var gilMuleun = Date.distantPast
+    private var gilMutneunJung = false
+    private var neagori: [Neagori] = []
+    private var neagoriJari: (Double, Double)?
+    private var neagoriBatneunJung = false
+    private var malHanNeagori: [String: Date] = [:]
+    private var neurinSijak: Date?
+    private var neurinGeoreum = 0
+    private var hwaksinTtae = Date.distantPast
+
+    private var yj: YeojeongEngine { YeojeongEngine.shared }
+
+    init() {
+        WichiEngine.shared.saeWichi
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] w in self?.wichiBatda(w) }
+            .store(in: &ssak)
+        YeojeongEngine.shared.$sokdoChujeong
+            .removeDuplicates()
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] t in self?.talgeotBakkwim(t) }
+            .store(in: &ssak)
+    }
+
+    // MARK: 이용자가 누르는 일
+
+    /// 목적지를 정하고 걸어가기
+    func georeoGagi(_ j: Jangso) {
+        yj.jeonghagi(Mokjeok(ireum: j.ireum, lat: j.lat, lon: j.lon, juso: j.juso))
+        georeoGagi()
+    }
+
+    /// 목적지를 정하고 차에 탐
+    func chaTagi(_ j: Jangso) {
+        yj.jeonghagi(Mokjeok(ireum: j.ireum, lat: j.lat, lon: j.lon, juso: j.juso))
+        chaTatda()
+    }
+
+    func georeoGagi() {
+        guard yj.jigeum != nil else { return }
+        yj.talgeotJeonghagi(.georeum, barojabeum: false)
+        yj.danggyeBakkugi(.namEunGil)
+        dasiSijak()
+        malHagi("걷는 안내를 시작합니다.")
+        jigeumBoda()
+    }
+
+    func chaTatda() {
+        guard yj.jigeum != nil else { return }
+        yj.talgeotJeonghagi(.cha, barojabeum: true)
+        yj.danggyeBakkugi(.taneunJung)
+        dasiSijak()
+        malHagi("차 안 안내를 시작합니다.")
+        jigeumBoda()
+    }
+
+    func naeryeotda(jadong: Bool = false) {
+        guard yj.jigeum != nil else { return }
+        yj.talgeotJeonghagi(.georeum, barojabeum: false)
+        yj.danggyeBakkugi(.namEunGil)
+        dasiSijak()
+        malHagi(jadong ? "차에서 내리신 것 같습니다. 남은 길을 걸어서 안내합니다." : "남은 길을 걸어서 안내합니다.")
+        Girok.shared.namgi("naerim", ["jadong": jadong])
+        jigeumBoda()
+    }
+
+    func kkeut() {
+        yj.kkeut()
+        namEunGeori = nil
+        dasiSijak()
+        malHagi("여정을 끝냈습니다.")
+    }
+
+    /// 지금 어떻게 가고 있습니까
+    func hyeonhwang() {
+        guard let y = yj.jigeum else { jigeumJari(); return }
+        let mok = y.mokjeok.ireum
+        if y.danggye == .dochak {
+            malHagi("\(mok)에 도착했습니다. 여정을 끝내시려면 여정 끝내기를 누르십시오.")
+            return
+        }
+        let geotna = (y.danggye != .taneunJung)
+        var m = "\(mok)까지 " + (geotna ? "걸어서" : yj.talgeot.ireum + "로") + " 가는 중입니다."
+        if let w = WichiEngine.shared.jigeum {
+            let d = WichiEngine.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
+            m += " 남은 거리 \(Annae.geoMal(d))"
+            if geotna {
+                m += Annae.sigyeMal(sigye(w, y)) + "."
+            } else {
+                m += "."
+                if !majimakGil.isEmpty { m += " 지금 달리는 길은 \(majimakGil)입니다." }
+            }
+        } else {
+            m += " 아직 위치를 잡는 중입니다."
+        }
+        malHagi(m)
+    }
+
+    func jigeumJari() {
+        guard let w = WichiEngine.shared.jigeum else {
+            malHagi("아직 위치를 잡는 중입니다. 잡히면 다시 눌러 주십시오.")
+            return
+        }
+        malHagi("지금 자리를 알아보는 중입니다.", .jeongbo)
+        Task {
+            let s = await Chatgi.jarimal(w.lat, w.lon)
+            await MainActor.run {
+                self.malHagi(s ?? "지금 자리 이름을 받지 못했습니다. 통신이 끊겼을 수 있습니다.")
+            }
+        }
+    }
+
+    // MARK: 속
+
+    private func malHagi(_ t: String, _ g: MalGeup = .annae) {
+        SoriEngine.shared.mal(t, g)
+        majimakMal = Date()
+    }
+
+    private func dasiSijak() {
+        majimakGeoriMal = nil
+        majimakSigye = 0
+        gotMal = false
+        chaGeori = []
+        neurinSijak = nil
+        majimakMal = .distantPast
+        hwaksinTtae = Date()
+    }
+
+    private func jigeumBoda() {
+        WichiEngine.shared.sijak()
+        if let w = WichiEngine.shared.jigeum {
+            wichiBatda(w)
+        } else {
+            malHagi("위치를 잡는 중입니다. 잡히면 바로 안내합니다.", .jeongbo)
+        }
+    }
+
+    private func sigye(_ w: Wichi, _ y: Yeojeong) -> Int {
+        let bang = WichiEngine.bangwi(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
+        let apjjok = (w.banghyang >= 0 && w.sokdo > 0.8) ? w.banghyang : WichiEngine.shared.nachimban
+        return apjjok >= 0 ? WichiEngine.sigyeBanghyang(jeongmyeon: apjjok, mokpyo: bang) : 0
+    }
+
+    private func talgeotBakkwim(_ t: Talgeot) {
+        guard let y = yj.jigeum, y.danggye != .dochak, y.danggye != .taneunJung else { return }
+        guard t == .cha || t == .gicha else { return }
+        yj.talgeotJeonghagi(t, barojabeum: false)
+        yj.danggyeBakkugi(.taneunJung)
+        dasiSijak()
+        malHagi("빠르게 움직이고 계십니다. \(t == .gicha ? "기차" : "차") 안 안내로 바꿉니다.")
+        Girok.shared.namgi("jadong_cha", ["t": t.rawValue])
+        jigeumBoda()
+    }
+
+    private func wichiBatda(_ w: Wichi) {
+        guard let y = yj.jigeum else { namEunGeori = nil; return }
+        let d = WichiEngine.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
+        namEunGeori = d
+        switch y.danggye {
+        case .taneunJung: chaAnnae(w, d, y)
+        case .namEunGil: georeumAnnae(w, d, y)
+        default: break
+        }
+    }
+
+    // MARK: 걷기
+
+    private func georeumAnnae(_ w: Wichi, _ d: Double, _ y: Yeojeong) {
+        let mok = y.mokjeok.ireum
+        let beom = max(12, min(w.ochae, 25))
+        if d <= beom { dochak(w, d, y); return }
+        let s = sigye(w, y)
+        let now = Date()
+        let jinan = now.timeIntervalSince(majimakMal)
+        neagoriBoda(w)
+        if majimakGeoriMal == nil {
+            malHagi("\(mok)까지 \(Annae.geoMal(d))\(Annae.sigyeMal(s)).")
+            majimakGeoriMal = d
+            majimakSigye = s
+            return
+        }
+        if !gotMal && d <= 40 {
+            gotMal = true
+            malHagi("곧 도착합니다. \(mok)까지 \(Annae.geoMal(d))\(Annae.sigyeMal(s)).")
+            majimakGeoriMal = d
+            majimakSigye = s
+            return
+        }
+        let gan: Double = d > 300 ? 100 : (d > 100 ? 50 : 20)
+        if let m = majimakGeoriMal {
+            if m - d >= gan && jinan >= 10 {
+                malHagi("\(mok)까지 \(Annae.geoMal(d))\(Annae.sigyeMal(s)).")
+                majimakGeoriMal = d
+                majimakSigye = s
+                return
+            }
+            if d - m >= 30 && jinan >= 10 {
+                malHagi("목적지에서 멀어지고 있습니다. \(mok) 쪽은\(s == 0 ? "" : " \(s)시 방향"), \(Annae.geoMal(d)).", .annae)
+                majimakGeoriMal = d
+                majimakSigye = s
+                return
+            }
+        }
+        if s != 0 && majimakSigye != 0 && Annae.sigyeCha(s, majimakSigye) >= 2 && jinan >= 8 {
+            malHagi("\(mok) 쪽은 \(s)시 방향입니다.")
+            majimakSigye = s
+            return
+        }
+        // 걷는 중 입 다물지 않기 — 제대로 가면 25초마다 확신음, 틀어졌으면 방향
+        if jinan >= 25 && now.timeIntervalSince(hwaksinTtae) >= 25 {
+            hwaksinTtae = now
+            if s == 12 || s == 11 || s == 1 {
+                SoriEngine.shared.sori(.hwaksin)
+            } else if s != 0 {
+                malHagi("\(mok) 쪽은 \(s)시 방향입니다.")
+                majimakSigye = s
+            }
+        }
+    }
+
+    private func neagoriBoda(_ w: Wichi) {
+        let badeulTtae: Bool
+        if let j = neagoriJari {
+            badeulTtae = WichiEngine.geori(j.0, j.1, w.lat, w.lon) > 400
+        } else {
+            badeulTtae = true
+        }
+        if badeulTtae && !neagoriBatneunJung {
+            neagoriBatneunJung = true
+            neagoriJari = (w.lat, w.lon)
+            Task {
+                let r = await Chatgi.neagori(w.lat, w.lon)
+                await MainActor.run {
+                    self.neagoriBatneunJung = false
+                    if let r = r { self.neagori = r }
+                }
+            }
+        }
+        guard w.ochae <= 20, !w.georeumChu || w.ochae <= 15 else { return }
+        let now = Date()
+        for n in neagori {
+            guard !n.mal.isEmpty, WichiEngine.geori(w.lat, w.lon, n.lat, n.lon) <= 12 else { continue }
+            let k = String(format: "%.5f,%.5f", n.lat, n.lon)
+            if malHanNeagori[k].map({ now.timeIntervalSince($0) > 300 }) ?? true {
+                malHanNeagori[k] = now
+                malHagi("\(n.mal)입니다.", .jeongbo)
+                break
+            }
+        }
+    }
+
+    private func dochak(_ w: Wichi, _ d: Double, _ y: Yeojeong) {
+        yj.danggyeBakkugi(.dochak)
+        SoriEngine.shared.sori(.dochak)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        let s = sigye(w, y)
+        malHagi("도착했습니다. \(y.mokjeok.ireum)입니다\(s == 0 ? "" : ". \(s)시 방향 가까이에 있습니다").")
+        Girok.shared.namgi("dochak", ["m": Int(d), "ochae": Int(w.ochae)])
+    }
+
+    // MARK: 차 안
+
+    private func chaAnnae(_ w: Wichi, _ d: Double, _ y: Yeojeong) {
+        let mok = y.mokjeok.ireum
+        let now = Date()
+        let dan = [5000, 3000, 2000, 1000, 500, 300, 150]
+        if majimakGeoriMal == nil {
+            for g in dan where Double(g) >= d { chaGeori.insert(g) }
+            malHagi("\(mok)까지 \(Annae.geoMal(d)) 남았습니다.")
+            majimakGeoriMal = d
+        } else {
+            let saero = dan.filter { Double($0) >= d && !chaGeori.contains($0) }
+            if let g = saero.min() {
+                for x in saero { chaGeori.insert(x) }
+                if g == 300 {
+                    malHagi("곧 \(mok) 부근입니다. 내리실 준비를 하십시오. 남은 거리 \(Annae.geoMal(d)).")
+                } else if g == 150 {
+                    malHagi("\(mok) 부근입니다. 차에서 내려 걸으시면 저절로 걷는 안내로 이어 드립니다.")
+                } else {
+                    malHagi("\(mok)까지 \(Annae.geoMal(d)) 남았습니다.")
+                }
+            }
+        }
+        // 지나는 길과 동네
+        if w.sokdo > 3 && !w.georeumChu && now.timeIntervalSince(gilMuleun) >= 20 && !gilMutneunJung {
+            gilMuleun = now
+            gilMutneunJung = true
+            Task {
+                let r = await Chatgi.gil(w.lat, w.lon)
+                await MainActor.run {
+                    self.gilMutneunJung = false
+                    if let r = r { self.gilBoda(r.gil, r.dong) }
+                }
+            }
+        }
+        // 3분 넘게 말이 없으면 남은 거리 한 번
+        if now.timeIntervalSince(majimakMal) >= 180 {
+            malHagi("\(mok)까지 \(Annae.geoMal(d)) 남았습니다.", .jeongbo)
+        }
+        // 내림 알아채기 — 목적지 800미터 안에서 40초 넘게 멈추고, 그사이 열다섯 걸음 넘게 걸으셨으면
+        if !w.georeumChu && w.sokdo < 2 && d < 800 {
+            if neurinSijak == nil {
+                neurinSijak = now
+                neurinGeoreum = WichiEngine.shared.oneulGeoreum
+            }
+            if let t = neurinSijak, now.timeIntervalSince(t) >= 40,
+               WichiEngine.shared.oneulGeoreum - neurinGeoreum >= 15 {
+                naeryeotda(jadong: true)
+            }
+        } else if w.sokdo >= 3 {
+            neurinSijak = nil
+        }
+    }
+
+    private func gilBoda(_ gil: String, _ dong: String) {
+        if !gil.isEmpty && gil != majimakGil {
+            if majimakGil.isEmpty {
+                malHagi("지금 달리는 길은 \(gil)입니다.", .jeongbo)
+            } else {
+                malHagi("이제 \(gil)에 들어섰습니다.", .jeongbo)
+            }
+            majimakGil = gil
+        }
+        if !dong.isEmpty && dong != majimakDong {
+            if !majimakDong.isEmpty { malHagi("\(dong)에 들어왔습니다.", .jeongbo) }
+            majimakDong = dong
+        }
+    }
+}

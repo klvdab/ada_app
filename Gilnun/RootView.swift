@@ -6,7 +6,7 @@ struct RootView: View {
 
     var body: some View {
         TabView(selection: $tab) {
-            NavigationStack { GilChatgiView() }
+            GilChatgiTab()
                 .tabItem { Label("길 찾기", systemImage: "figure.walk") }
                 .tag(0)
             NavigationStack {
@@ -29,24 +29,6 @@ struct RootView: View {
                 .tag(4)
         }
         .tint(Saek.nam)
-    }
-}
-
-/// 길 찾기 첫 화면(1단계) — 단추가 하나뿐이므로 제목줄 없이 안내와 단추를 한 자리에
-struct GilChatgiView: View {
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                NavigationLink {
-                    GichoSiheomView()
-                } label: {
-                    Text("길눈 앱 1단계 기초판입니다. 길 찾기는 2단계에서 이 자리에 들어옵니다 — 기초 시험 하기")
-                }
-                .buttonStyle(KeunDanchu())
-            }
-            .padding()
-        }
-        .toolbar(.hidden, for: .navigationBar)
     }
 }
 

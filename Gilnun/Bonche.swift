@@ -16,6 +16,8 @@ final class Bonche {
         Tongsin.shared.sijak()
         YeojeongEngine.shared.bureogi()
         WichiEngine.shared.sijak()
+        _ = AnnaeEngine.shared       // 지난 여정이 있으면 안내를 곧장 이어 감
+        _ = Jeulgyeo.shared
         Girok.shared.namgi("app_sijak", ["pan": Pan.pan, "bild": Pan.bild, "appBild": Pan.appBild])
         // 현장에서는 늘 의외의 일이 생깁니다 — 1분마다 저절로 저장
         sigye = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.jeojang() }

@@ -97,6 +97,16 @@ final class YeojeongEngine: ObservableObject {
         jeojang()
     }
 
+    /// 탈것 정하기 — barojabeum 이 참이면 이용자가 바로잡은 것(가장 앞섬)
+    func talgeotJeonghagi(_ t: Talgeot, barojabeum: Bool) {
+        guard var y = jigeum else { return }
+        y.talgeot = t
+        y.barojabeum = barojabeum
+        y.gaengsin = Date()
+        jigeum = y
+        jeojang()
+    }
+
     /// 이용자가 탈것을 바로잡음 — 가장 앞섬
     func talgeotBarojapgi(_ t: Talgeot) {
         guard var y = jigeum else { return }
