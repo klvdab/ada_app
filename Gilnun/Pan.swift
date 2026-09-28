@@ -10,13 +10,20 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.4.0"
-    static let bild = "260928-5"
+    static let pan = "2.4.1"
+    static let bild = "260928-6"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.4.1", bild: "260928-6", nal: "2026-09-28", naeyong: [
+            "가족·지인 명단과 받는 분 화면에 뜰 내 이름을 설계도대로 설정 탭으로 옮김(이사장님 지적)",
+            "긴급통화서비스 화면의 명단 펼치기를 뺌 — 요청 세 단추와 한마디 칸만",
+            "명단이 비었을 때 가족·지인을 누르면 명단 화면이 곧장 열림",
+            "화상통화 부품의 해독표(앱이 멈췄을 때 원인을 읽는 파일)를 짓는 과정에서 만들어 넣음",
+            "도움말 긴급통화와 가족·지인 명단 항목을 설정 탭 기준으로 고침"
+        ]),
         Gochim(pan: "2.4.0", bild: "260928-5", nal: "2026-09-28", naeyong: [
             "2단계 넷째 묶음 — 긴급통화서비스와 가족·지인 명단",
             "세 갈래 화상통화 요청 — 가족·지인(고른 한 분께만), 자원봉사자, 현장영상해설사(받을 수 있는 모든 분께). 한마디 먼저 남기기, 지금 위치와 목적지를 함께 보냄",

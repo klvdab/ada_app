@@ -1,4 +1,5 @@
-// 긴급통화서비스 화면 — 세 갈래, 한마디 먼저 남기기, 가족·지인 고르기와 명단.
+// 긴급통화서비스 화면 — 세 갈래, 한마디 먼저 남기기, 가족·지인 고르기.
+// 2.4.1 (260928-6) 가족·지인 명단과 내 이름은 설계도대로 설정 탭에 둡니다(이사장님 지적). 명단이 비었을 때만 여기서 명단 화면을 곧장 엽니다.
 // 요청 중·통화 중에는 맨 위 한 줄에 지금 형편과 "그만두기" 단추를 한 자리에.
 import SwiftUI
 import UIKit
@@ -23,16 +24,6 @@ struct GinGeupView: View {
                         .textFieldStyle(.roundedBorder)
                         .font(.title3)
                     if !g.geul.isEmpty { Text(g.geul).font(.title3) }
-                    DisclosureGroup("명단과 내 이름 펼치기") {
-                        VStack(alignment: .leading, spacing: 10) {
-                            NavigationLink(value: GilHwamyeon.jiinMyeongdan) { Text("가족·지인 명단 — 등록하고 고치기") }
-                                .buttonStyle(KeunDanchu())
-                            TextField("받는 분 화면에 뜰 내 이름", text: $g.naIrum)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.title3)
-                        }
-                    }
-                    .font(.title3)
                 case .tonghwa:
                     Button("\(g.geul) — 끊기") { g.geumanhagi() }
                         .buttonStyle(KeunDanchu())
@@ -67,7 +58,7 @@ struct JiinGoreugiView: View {
                     Text("명단을 받는 중입니다.").font(.title3)
                 } else if jiin.mokrok.isEmpty {
                     NavigationLink(value: GilHwamyeon.jiinMyeongdan) {
-                        Text(mot ? "명단을 받지 못했습니다. 통신이 끊겼을 수 있습니다 — 명단 화면으로" : "명단이 비어 있습니다 — 등록하러 가기")
+                        Text(mot ? "명단을 받지 못했습니다. 통신이 끊겼을 수 있습니다 — 명단 화면 열기" : "명단이 비어 있습니다 — 명단 화면을 열어 등록하기. 설정 탭의 가족·지인 명단과 같은 화면입니다")
                     }
                     .buttonStyle(KeunDanchu())
                 } else {

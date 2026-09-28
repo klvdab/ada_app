@@ -3,6 +3,7 @@ import SwiftUI
 import AVFoundation
 
 struct SeoljeongView: View {
+    @ObservedObject private var g = GinGeup.shared
     @State private var saerogochimMal = ""
     @AccessibilityFocusState private var malChojeom: Bool
 
@@ -13,6 +14,12 @@ struct SeoljeongView: View {
                     .buttonStyle(KeunDanchu())
                 NavigationLink { MalSeoljeongView() } label: { Text("말하기 설정 — 켜기와 끄기, 빠르기, 목소리") }
                     .buttonStyle(KeunDanchu())
+                NavigationLink { JiinMyeongdanView() } label: { Text("가족·지인 명단 — 등록하고 초대 주소 보내기") }
+                    .buttonStyle(KeunDanchu())
+                TextField("받는 분 화면에 뜰 내 이름 — 긴급통화 때 보입니다", text: $g.naIrum)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.title3)
+                    .submitLabel(.done)
                 NavigationLink { DoumalView() } label: { Text("도움말") }
                     .buttonStyle(KeunDanchu())
                 NavigationLink { GilnunJeongboView() } label: { Text("길눈 정보 — 판과 빌드, 고친 기록") }
