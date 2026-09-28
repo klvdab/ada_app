@@ -11,6 +11,7 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
     @Published var daeum = ""
     @Published var ttae: Double = 0
     @Published var jari = ""
+    @Published var dapMal = ""
     private let synth = AVSpeechSynthesizer()
     private let loc = CLLocationManager()
     private var jariDone: ((String) -> Void)?
@@ -55,6 +56,25 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
             DispatchQueue.main.async { self?.apply(r) }
         }, errorHandler: { [weak self] _ in
             DispatchQueue.main.async { self?.speak("폰에 요청을 보내지 못했습니다. 다시 눌러 주십시오.", jindong: .failure) }
+        })
+    }
+
+    // 2.6.0 (빌드 260928-8) 말로 하기 — 손목에 말씀하신 글을 폰 길눈에 넘기고, 폰이 대답을 말함(워치는 진동과 글로)
+    func malhagi(_ t: String) {
+        let s = t.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !s.isEmpty else { return }
+        guard WCSession.isSupported(), WCSession.default.isReachable else {
+            speak("폰의 길눈과 이어져 있지 않습니다. 폰에서 길눈을 열어 주십시오.", jindong: .failure); return
+        }
+        WKInterfaceDevice.current().play(.start)
+        dapMal = "폰 길눈이 알아보는 중입니다."
+        WCSession.default.sendMessage(["what": "malhagi", "t": s], replyHandler: { [weak self] r in
+            DispatchQueue.main.async {
+                self?.dapMal = (r["dapMal"] as? String) ?? ""
+                WKInterfaceDevice.current().play(.success)
+            }
+        }, errorHandler: { [weak self] _ in
+            DispatchQueue.main.async { self?.speak("폰에 말씀을 보내지 못했습니다. 다시 해 주십시오.", jindong: .failure) }
         })
     }
 

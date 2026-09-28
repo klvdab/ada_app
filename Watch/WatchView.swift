@@ -6,6 +6,19 @@ struct WatchView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 10) {
+                // 2.6.0 말로 하기 — 두드리면 받아쓰기가 열리고, 말씀을 폰 길눈이 알아듣고 대답합니다
+                TextFieldLink(prompt: Text("말씀하십시오")) {
+                    Text("말로 하기").frame(maxWidth: .infinity)
+                } onSubmit: { s in
+                    model.malhagi(s)
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityHint("두드린 뒤 말씀하시면 폰의 길눈이 알아듣고 대답합니다")
+                if !model.dapMal.isEmpty {
+                    Text(model.dapMal)
+                        .font(.footnote)
+                        .accessibilityLabel("길눈의 대답. \(model.dapMal)")
+                }
                 Button { model.daeumDeutgi() } label: { Text("다음 갈림길").frame(maxWidth: .infinity) }
                     .buttonStyle(.borderedProminent)
                     .accessibilityHint("몇 미터 앞에서 어느 쪽으로 꺾는지 읽어 줍니다")
