@@ -722,8 +722,15 @@ struct ButakSangseView: View {
             VStack(alignment: .leading, spacing: 12) {
                 if let b = NanumGil.shared.butak[id] {
                     Text(b.jaseMal).font(.title3).accessibilityFocused($chojeom)
+                    if b.doen && !b.gil.isEmpty {
+                        // 2.10.0 그려진 점지도를 따라 걷기
+                        Button("그려졌습니다 — 이 길로 걷기, 점지도 따라 걷기") {
+                            JeomEngine.shared.bulleoGeotgi(b.gil, dwit: false, mok: b.mlat != 0 ? Jangso(ireum: b.min, juso: "", lat: b.mlat, lon: b.mlon) : nil)
+                        }
+                        .buttonStyle(KeunDanchu())
+                    }
                     if b.doen && b.mlat != 0 && b.mlon != 0 {
-                        Button("그려졌습니다 — 그곳까지 안내") {
+                        Button("그곳까지 안내 — 위성으로 방향 따라") {
                             gotEuroGagi(Jangso(ireum: b.min, juso: "", lat: b.mlat, lon: b.mlon))
                         }
                         .buttonStyle(KeunDanchu())

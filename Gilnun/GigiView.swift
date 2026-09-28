@@ -18,6 +18,8 @@ struct GigiSeoljeongView: View {
                     .buttonStyle(KeunDanchu())
                 Text("음향신호기 자동 울리기를 켜 두시면 블루투스 음향신호기가 가까이 잡힐 때 위치 안내를, 그 앞에 머무르시면 신호 안내를 스스로 울립니다. 이어폰 단추는 안내 중에만 길눈이 받습니다. 재생은 다시 듣기(신호기 앞이면 신호 안내), 다음은 다음 갈림길, 이전은 앞 안내입니다. 그동안 다른 앱의 음악은 멈춥니다.")
                     .font(.body)
+                NavigationLink { RimoView() } label: { Text("리모컨 배우기 — 블루투스 리모컨 단추를 익혀 두기") }
+                    .buttonStyle(KeunDanchu())
                 Text("워치는 폰과 저절로 이어집니다. 워치 번호 \(beonho)")
                     .font(.body)
             }

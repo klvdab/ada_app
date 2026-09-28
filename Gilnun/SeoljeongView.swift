@@ -19,7 +19,9 @@ struct SeoljeongView: View {
                     .buttonStyle(KeunDanchu())
                 NavigationLink { MalHagiSeoljeongView() } label: { Text("말로 하기 설정 — 하이 길눈, 호칭") }
                     .buttonStyle(KeunDanchu())
-                NavigationLink { GigiSeoljeongView() } label: { Text("기기 설정 — 음향신호기, 이어폰 단추, 워치") }
+                NavigationLink { JeomSeoljeongView() } label: { Text("점지도와 걸음 — 나만의 점지도, 보폭 재기, 걸음 오차 재기") }
+                    .buttonStyle(KeunDanchu())
+                NavigationLink { GigiSeoljeongView() } label: { Text("기기 설정 — 음향신호기, 이어폰 단추, 워치, 리모컨") }
                     .buttonStyle(KeunDanchu())
                 NavigationLink { JiinMyeongdanView() } label: { Text("가족·지인 명단 — 등록하고 초대 주소 보내기") }
                     .buttonStyle(KeunDanchu())

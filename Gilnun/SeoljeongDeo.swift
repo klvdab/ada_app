@@ -141,6 +141,12 @@ struct MalSeolDeoView: View {
                 SoriEngine.shared.mal(s.hwaksinEum ? "확신음을 켭니다. 제대로 가고 계시면 짧은 맑은 소리가 납니다." : "확신음을 끕니다. 방향이 틀어졌을 때의 말은 그대로 나옵니다.")
             }
             .buttonStyle(KeunDanchu())
+            // 2.10.0 점지도 따라 걷기 — "제대로 가고 있습니다"를 몇 미터마다
+            Button("제대로 가고 있다는 말 — 점지도에서 \(s.hwaksinGan)미터마다 (누르면 바뀝니다)") {
+                s.hwaksinGan = s.hwaksinGan == 5 ? 10 : (s.hwaksinGan == 10 ? 20 : 5)
+                SoriEngine.shared.mal("점지도를 따라 걸으실 때 \(s.hwaksinGan)미터마다 제대로 가고 있다고 말씀드립니다.")
+            }
+            .buttonStyle(KeunDanchu())
             Button("지금 설정으로 들어 보기") {
                 let m: String
                 switch s.malSang {
