@@ -50,6 +50,7 @@ final class AnnaeEngine: ObservableObject {
     private var neurinGeoreum = 0
     private var hwaksinTtae = Date.distantPast
     private var naonGijun: Int?
+    private var gilMalTtae = Date.distantPast
 
     private var yj: YeojeongEngine { YeojeongEngine.shared }
 
@@ -202,11 +203,36 @@ final class AnnaeEngine: ObservableObject {
         }
         malHagi("지금 자리를 알아보는 중입니다.", .jeongbo)
         Task {
-            let s = await Chatgi.jarimal(w.lat, w.lon)
+            let o = await Chatgi.json("jarimal.php", ["lat": String(format: "%.6f", w.lat), "lon": String(format: "%.6f", w.lon)])
             await MainActor.run {
-                self.malHagi(s ?? "지금 자리 이름을 받지 못했습니다. 통신이 끊겼을 수 있습니다.")
+                self.malHagi(AnnaeEngine.jariMalMandeulgi(o, w))
             }
         }
+    }
+
+    /// 2.9.0 현 위치정보 말할 내용 — 설정에서 고른 것만(주소, 가까운 곳, 지번, 국가지점번호, 위성 오차)
+    static func jariMalMandeulgi(_ o: [String: Any]?, _ w: Wichi) -> String {
+        let s = Seoljeong.shared
+        var t: [String] = []
+        if let o = o {
+            let juso = (o["juso"] as? String) ?? ""
+            if s.jariJuso && !juso.isEmpty { t.append(juso) }
+            if s.jariJibeon, let jb = o["jibeon"] as? String, !jb.isEmpty { t.append("지번 " + jb) }
+            if s.jariGot {
+                if let c = o["chulgu"] as? [String: Any], let nm = c["ireum"] as? String, !nm.isEmpty {
+                    t.append("\(nm)에서 \(Int(Chatgi.su(c["meter"]) ?? 0))미터")
+                } else if let c = o["gakkaun"] as? [String: Any], let nm = c["ireum"] as? String, !nm.isEmpty {
+                    t.append("\(nm)에서 \(Int(Chatgi.su(c["meter"]) ?? 0))미터")
+                }
+            }
+            if t.isEmpty && !s.jariJijeom && !s.jariOcha, let m = o["mal"] as? String, !m.isEmpty { t.append(m) }
+        } else if !s.jariJijeom {
+            t.append("지금 자리 이름을 받지 못했습니다. 통신이 끊겼을 수 있습니다")
+        }
+        if s.jariJijeom, let j = Jijeom.mal(w.lat, w.lon) { t.append(j) }
+        if s.jariOcha { t.append("위성 오차 약 \(max(1, Int(w.ochae)))미터") }
+        if t.isEmpty { t.append("말할 내용이 모두 꺼져 있습니다. 설정 탭의 현 위치정보 말할 내용에서 켜 주십시오") }
+        return t.joined(separator: ". ") + "."
     }
 
     // MARK: 워치·이어폰 (2.6.0)
@@ -365,15 +391,19 @@ final class AnnaeEngine: ObservableObject {
             majimakSigye = s
             return
         }
-        let gan: Double = d > 300 ? 100 : (d > 100 ? 50 : 20)
+        let st = Seoljeong.shared
+        // 2.9.0 얼마나 자세히 — 자세히 그대로, 보통 1.5배, 짧게 2배 간격으로 / 되풀이 사이 시간(기본 6초 → 지금과 같은 10초)
+        let bae: Double = st.malSang >= 2 ? 1 : (st.malSang == 1 ? 1.5 : 2)
+        let gan: Double = (d > 300 ? 100 : (d > 100 ? 50 : 20)) * bae
+        let doepul = Double(st.doepul)
         if let m = majimakGeoriMal {
-            if m - d >= gan && jinan >= 10 {
+            if m - d >= gan && jinan >= doepul + 4 {
                 malHagi("\(mok)까지 \(Annae.geoMal(d))\(Annae.sigyeMal(s)).")
                 majimakGeoriMal = d
                 majimakSigye = s
                 return
             }
-            if d - m >= 30 && jinan >= 10 {
+            if d - m >= 30 && jinan >= doepul + 4 {
                 malHagi("목적지에서 멀어지고 있습니다. \(mok) 쪽은\(s == 0 ? "" : " \(s)시 방향"), \(Annae.geoMal(d)).", .annae)
                 Jindong.banghyang(s)
                 majimakGeoriMal = d
@@ -381,7 +411,7 @@ final class AnnaeEngine: ObservableObject {
                 return
             }
         }
-        if s != 0 && majimakSigye != 0 && Annae.sigyeCha(s, majimakSigye) >= 2 && jinan >= 8 {
+        if s != 0 && majimakSigye != 0 && Annae.sigyeCha(s, majimakSigye) >= 2 && jinan >= doepul + 2 {
             malHagi("\(mok) 쪽은 \(s)시 방향입니다.")
             Jindong.banghyang(s)
             majimakSigye = s
@@ -391,7 +421,7 @@ final class AnnaeEngine: ObservableObject {
         if jinan >= 25 && now.timeIntervalSince(hwaksinTtae) >= 25 {
             hwaksinTtae = now
             if s == 12 || s == 11 || s == 1 {
-                SoriEngine.shared.sori(.hwaksin)
+                if st.hwaksinEum { SoriEngine.shared.sori(.hwaksin) }   // 2.9.0 설정에서 끔
             } else if s != 0 {
                 malHagi("\(mok) 쪽은 \(s)시 방향입니다.")
                 Jindong.banghyang(s)
@@ -419,9 +449,12 @@ final class AnnaeEngine: ObservableObject {
             }
         }
         guard w.ochae <= 20, !w.georeumChu || w.ochae <= 15 else { return }
+        // 2.9.0 꺾이는 곳 알리기(설정에서 끔), 몇 초 앞에서(걸음 초속 1.3미터로 셈, 기본 8초 → 10미터쯤)
+        guard Seoljeong.shared.kkeokOn else { return }
+        let ap = max(6, Double(Seoljeong.shared.kkeokCho) * 1.3)
         let now = Date()
         for n in neagori {
-            guard !n.mal.isEmpty, WichiEngine.geori(w.lat, w.lon, n.lat, n.lon) <= 12 else { continue }
+            guard !n.mal.isEmpty, WichiEngine.geori(w.lat, w.lon, n.lat, n.lon) <= ap else { continue }
             let k = String(format: "%.5f,%.5f", n.lat, n.lon)
             if malHanNeagori[k].map({ now.timeIntervalSince($0) > 300 }) ?? true {
                 malHanNeagori[k] = now
@@ -523,6 +556,11 @@ final class AnnaeEngine: ObservableObject {
     }
 
     private func gilBoda(_ gil: String, _ dong: String) {
+        // 2.9.0 지나는 곳 안내(설정에서 끔), 말하는 간격(기본 60초), 동네는 자세히에서만
+        let st = Seoljeong.shared
+        guard st.gilOn, Date().timeIntervalSince(gilMalTtae) >= Double(st.gilGap) else { return }
+        let jeon = (majimakGil, majimakDong)
+        defer { if (majimakGil, majimakDong) != jeon { gilMalTtae = Date() } }
         if !gil.isEmpty && gil != majimakGil {
             if majimakGil.isEmpty {
                 malHagi("지금 달리는 길은 \(gil)입니다.", .jeongbo)
@@ -532,7 +570,7 @@ final class AnnaeEngine: ObservableObject {
             majimakGil = gil
         }
         if !dong.isEmpty && dong != majimakDong {
-            if !majimakDong.isEmpty { malHagi("\(dong)에 들어왔습니다.", .jeongbo) }
+            if !majimakDong.isEmpty && st.malSang >= 2 { malHagi("\(dong)에 들어왔습니다.", .jeongbo) }
             majimakDong = dong
         }
     }

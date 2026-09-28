@@ -56,6 +56,7 @@ struct GilChatgiView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                GingeupGongjiJul()   // 2.9.0 읽지 않은 긴급 공지 — 맨 위
                 if let yj = y.jigeum {
                     YeojeongPan(yj: yj, chojeom: $meoriChojeom)
                 } else {
