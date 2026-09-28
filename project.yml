@@ -1,4 +1,4 @@
-# 협회 앱 · 자봉 앱 · 배프 앱 — XcodeGen 설계도 (1.2.2판, 빌드 260928-7 — 길눈 앱을 Gilnun 폴더 자체 코드로, 길눈 2.5.0 말로 하기, WebRTC 부품)
+# 협회 앱 · 자봉 앱 · 배프 앱 — XcodeGen 설계도 (1.2.3판, 빌드 260928-8 — 길눈 앱을 Gilnun 폴더 자체 코드로, 길눈 2.6.0 음향신호기·워치·이어폰 단추, WebRTC 부품)
 # 한 저장소에 세 앱을 담습니다. 짓기 설정(build.yml)에서 어느 앱을 지을지 골라 씁니다.
 #   AdaApp     협회 앱  (kr.or.ada.app)     대문 https://lvd.ada.or.kr/app/     + 애플워치
 #   JabongApp  자봉 앱  (kr.or.ada.jabong)  대문 https://lvd.ada.or.kr/jabong/
@@ -49,7 +49,7 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
-        UIBackgroundModes: [location, audio, remote-notification]
+        UIBackgroundModes: [location, audio, remote-notification, bluetooth-central]
         NSLocationWhenInUseUsageDescription: 길눈이 걷는 동안 방향과 남은 거리를 안내하려면 위치가 필요합니다.
         NSLocationAlwaysAndWhenInUseUsageDescription: 폰이 주머니에 있어도 갈림길 안내를 이어 가려면 항상 위치가 필요합니다.
         NSCameraUsageDescription: 라이브 현장영상해설 방송과 시지각 판독에 카메라를 씁니다.
@@ -68,7 +68,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "2.5.0"
+        MARKETING_VERSION: "2.6.0"
   JabongApp:
     type: application
     platform: iOS
@@ -166,7 +166,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app.watchkitapp
         TARGETED_DEVICE_FAMILY: "4"
-        MARKETING_VERSION: "2.5.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
+        MARKETING_VERSION: "2.6.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
 schemes:
   AdaApp:
     build:
