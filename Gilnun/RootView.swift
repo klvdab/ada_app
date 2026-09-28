@@ -29,6 +29,8 @@ struct RootView: View {
                 .tag(4)
         }
         .tint(Saek.nam)
+        // 보이스오버 두 손가락 두 번 두드리기 — 어느 화면에서나 말로 하기
+        .accessibilityAction(.magicTap) { MalHagi.shared.dudeurim() }
     }
 }
 

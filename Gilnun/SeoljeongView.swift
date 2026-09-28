@@ -14,6 +14,8 @@ struct SeoljeongView: View {
                     .buttonStyle(KeunDanchu())
                 NavigationLink { MalSeoljeongView() } label: { Text("말하기 설정 — 켜기와 끄기, 빠르기, 목소리") }
                     .buttonStyle(KeunDanchu())
+                NavigationLink { MalHagiSeoljeongView() } label: { Text("말로 하기 설정 — 하이 길눈, 호칭") }
+                    .buttonStyle(KeunDanchu())
                 NavigationLink { JiinMyeongdanView() } label: { Text("가족·지인 명단 — 등록하고 초대 주소 보내기") }
                     .buttonStyle(KeunDanchu())
                 TextField("받는 분 화면에 뜰 내 이름 — 긴급통화 때 보입니다", text: $g.naIrum)

@@ -73,6 +73,7 @@ struct GilChatgiView: View {
                     Button("지금 내 자리 듣기") { AnnaeEngine.shared.jigeumJari() }
                         .buttonStyle(KeunDanchu())
                 }
+                MalHagiDanchu()
                 NavigationLink(value: GilHwamyeon.gingeup) {
                     Text("긴급통화서비스 — 가족·지인, 자원봉사자, 해설사에게 화상통화")
                 }

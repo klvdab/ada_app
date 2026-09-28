@@ -15,6 +15,8 @@ enum SoriJong {
     case hwaksin   // 제대로 가고 있음
     case gyeonggo  // 조심
     case dochak    // 도착
+    case deutgi    // 말로 하기 — 이제 말씀하십시오
+    case ttaeng    // 말로 하기 — 대답을 마치고 실행에 들어감
 }
 
 final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
@@ -36,6 +38,38 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
     var tonghwaJung = false
     private(set) var majimak = ""
     private(set) var malHaneunSu = 0
+
+    // MARK: 말로 하기와 함께 쓰기 (2.5.0)
+    /// "하이 길눈"을 기다리는 중 — 말을 마친 뒤 소리 세션을 닫지 않음(말로 하기가 이어서 씀)
+    var deutgiKyeojim = false
+    /// 명령을 듣는 동안 — 다른 말은 줄에 세워 두고(경고만 빼고), 듣기가 끝나면 이어서 냄
+    var myeongryeongDeutneunJung = false {
+        didSet { if !myeongryeongDeutneunJung { DispatchQueue.main.async { self.naeboenda() } } }
+    }
+    /// 길눈이 막 말을 시작하려 할 때 — 말로 하기가 마이크를 잠시 닫음
+    var malSijakHook: (() -> Void)?
+    private var kkeutJul: [() -> Void] = []
+
+    /// 말하고 있거나 줄에 선 말이 있는가
+    var bappeum: Bool { synth.isSpeaking || !jul.isEmpty }
+
+    /// 지금 줄에 선 말까지 다 하고 나면 한 번 부름(말이 없으면 곧바로)
+    func kkeutnamyeon(_ f: @escaping () -> Void) {
+        DispatchQueue.main.async {
+            if !self.synth.isSpeaking && self.jul.isEmpty && !(self.player?.isPlaying ?? false) {
+                f()
+            } else {
+                self.kkeutJul.append(f)
+            }
+        }
+    }
+
+    private func kkeutBoda() {
+        guard !synth.isSpeaking, jul.isEmpty, !(player?.isPlaying ?? false), !kkeutJul.isEmpty else { return }
+        let fs = kkeutJul
+        kkeutJul = []
+        fs.forEach { $0() }
+    }
 
     override init() {
         super.init()
@@ -100,6 +134,8 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
 
     private func naeboenda() {
         guard !meomchum, !synth.isSpeaking, !jul.isEmpty else { return }
+        if myeongryeongDeutneunJung && jul.first?.geup != .gyeonggo { return }
+        malSijakHook?()
         let m = jul.removeFirst()
         naerigiJakeop?.cancel()
         sesyeonKyeogi()
@@ -123,7 +159,13 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
 
     private func daeum() {
         jigeumGeup = nil
-        if jul.isEmpty { sesyeonNaerigi(1.0) } else { naeboenda() }
+        if jul.isEmpty {
+            sesyeonNaerigi(1.0)
+            kkeutBoda()
+        } else {
+            naeboenda()
+            // 명령을 듣는 중이라 줄에 세워 둔 말은 나중에 — 기다리던 일은 그대로 둠
+        }
     }
 
     // MARK: 알림 소리
@@ -131,18 +173,25 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
     func sori(_ j: SoriJong) {
         if tonghwaJung { return }
         let data: Data
+        var gil = 0.3
         switch j {
         case .hwaksin: data = SoriEngine.wav([(880, 0.08)])
-        case .gyeonggo: data = SoriEngine.wav([(440, 0.15), (0, 0.08), (440, 0.15)])
-        case .dochak: data = SoriEngine.wav([(660, 0.12), (0, 0.04), (880, 0.12), (0, 0.04), (1100, 0.22)])
+        case .gyeonggo: data = SoriEngine.wav([(440, 0.15), (0, 0.08), (440, 0.15)]); gil = 0.4
+        case .dochak: data = SoriEngine.wav([(660, 0.12), (0, 0.04), (880, 0.12), (0, 0.04), (1100, 0.22)]); gil = 0.6
+        case .deutgi: data = SoriEngine.wav([(660, 0.07), (0, 0.03), (990, 0.1)])
+        case .ttaeng: data = SoriEngine.wav([(1320, 0.2)])
         }
         DispatchQueue.main.async {
+            // 명령을 듣는 동안에는 걷는 안내의 작은 소리를 내지 않음(마이크를 지킴) — 경고는 냄
+            if self.myeongryeongDeutneunJung && j != .gyeonggo { return }
+            if j != .deutgi && j != .ttaeng { self.malSijakHook?() }
             self.naerigiJakeop?.cancel()
             self.sesyeonKyeogi()
             self.player = try? AVAudioPlayer(data: data)
             self.player?.volume = 0.8
             self.player?.play()
             if !self.synth.isSpeaking && self.jul.isEmpty { self.sesyeonNaerigi(1.5) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + gil + 0.1) { self.kkeutBoda() }
         }
     }
 
@@ -165,6 +214,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
         let w = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
             if self.synth.isSpeaking || !self.jul.isEmpty || (self.player?.isPlaying ?? false) { return }
+            if self.deutgiKyeojim || self.myeongryeongDeutneunJung { return }   // 말로 하기가 이어서 씀
             do {
                 try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
             } catch {

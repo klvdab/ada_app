@@ -13,6 +13,10 @@ final class Seoljeong: ObservableObject {
     @Published var moksoriId: String { didSet { d.set(moksoriId, forKey: "gn.moksori") } }
     /// 보폭(미터) — 위성이 흐릴 때 걸음으로 이어 셈하는 데 씀
     @Published var bopok: Double { didSet { d.set(bopok, forKey: "gn.bopok") } }
+    /// 말로 하기 — "하이 길눈"으로 부르기(마이크를 계속 열어 둠, 처음에는 꺼 둠)
+    @Published var haiGilnun: Bool { didSet { d.set(haiGilnun, forKey: "gn.haiGilnun") } }
+    /// 말로 하기가 이용자를 부르는 호칭
+    @Published var hoching: String { didSet { d.set(hoching, forKey: "gn.hoching") } }
 
     static let bbareugiIreum = ["아주 느리게", "느리게", "보통", "빠르게", "아주 빠르게"]
     static let bbareugiGap: [Float] = [0.40, 0.46, 0.52, 0.58, 0.64]
@@ -24,9 +28,20 @@ final class Seoljeong: ObservableObject {
         moksoriId = ud.string(forKey: "gn.moksori") ?? ""
         let b = ud.double(forKey: "gn.bopok")
         bopok = b > 0.2 ? b : 0.65
+        haiGilnun = (ud.object(forKey: "gn.haiGilnun") as? Bool) ?? false
+        let h = (ud.string(forKey: "gn.hoching") ?? "").trimmingCharacters(in: .whitespaces)
+        hoching = h.isEmpty ? "길손님" : h
     }
 
     var malBbareugi: Float {
         Seoljeong.bbareugiGap[max(0, min(Seoljeong.bbareugiGap.count - 1, bbareugiDan))]
+    }
+}
+
+extension Seoljeong {
+    /// 호칭이 비어 있으면 길손님
+    var ho: String {
+        let h = hoching.trimmingCharacters(in: .whitespaces)
+        return h.isEmpty ? "길손님" : h
     }
 }
