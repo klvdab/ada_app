@@ -364,6 +364,7 @@ final class MalHagi: ObservableObject {
             mureum = .eopseum
             SinhogiEngine.shared.chatgiKkeugi()
             SoriEngine.shared.modu_geodugi()
+            if BangsongEngine.shared.naneunJung { BangsongEngine.shared.meomchumTogeul() }   // 2.8.0 방송도 멈춤(이어서 틀어로 다시)
             dap("", false)
             return
         }
@@ -751,10 +752,10 @@ final class MalHagi: ObservableObject {
             }
             return true
         }
+        // 2.8.0 음악·방송 — 다음 곡, 무슨 곡이야, 음악 틀어 줘, 트롯 틀어 줘, 라디오 틀어 줘, 뉴스 들려줘, 음악 꺼
+        if bangsongMyeongryeong(alts, t, z, dap) { return true }
         // 아직 앱에 넣지 못한 기능 — 모르는 척하지 않고, 기록해 두었다가 그 기능을 넣을 때 말로도 되게
-        let aJik: [(String, String)] = [("nyuseu", "지금 세상 이야기"), ("jangae", "장애·복지 소식"), ("eumak", "길 위의 음악"),
-                                       ("gok_daeum", "길 위의 음악"), ("gok_ijeon", "길 위의 음악"), ("dasiteul", "길 위의 음악"),
-                                       ("musun_gok", "길 위의 음악"), ("mun_namgigi", "문 남기기"),
+        let aJik: [(String, String)] = [("mun_namgigi", "문 남기기"),
                                        ("hwaksin_kkeum", "확신음 켜고 끄기"), ("hwaksin_kyeom", "확신음 켜고 끄기"),
                                        ("nopge", "목소리 높낮이"), ("natge", "목소리 높낮이")]
         for (k, nm) in aJik where s.itda(alts, k) {
@@ -792,6 +793,101 @@ final class MalHagi: ObservableObject {
         }
         if s.tteut(alts, "ani") == .gatda && z.count <= 4 {
             dap("알겠습니다.", false)
+            return true
+        }
+        return false
+    }
+
+    /// 2.8.0 음악·방송 명령 — 하면 참
+    private func bangsongMyeongryeong(_ alts: [String], _ t: String, _ z: String, _ dap: @escaping (String, Bool) -> Void) -> Bool {
+        let s = sajeon
+        let b = BangsongEngine.shared
+        let zl = z.lowercased()
+        if s.itda(alts, "gok_daeum") {
+            if b.itda { dap("", false); b.daeum() } else { dap("지금 틀고 있는 것이 없습니다.", false) }
+            return true
+        }
+        if s.itda(alts, "gok_ijeon") {
+            if b.itda { dap("", false); b.ijeon() } else { dap("지금 틀고 있는 것이 없습니다.", false) }
+            return true
+        }
+        if s.itda(alts, "musun_gok") {
+            dap(b.jigeumMal, false)
+            return true
+        }
+        if s.itda(alts, "dasiteul") && b.itda && b.meomchum {
+            dap("", false)
+            b.meomchumTogeul()
+            return true
+        }
+        let kkeugi = ["그만", "꺼", "끄기", "끄자", "멈춰", "중지"].contains { z.contains($0) }
+        let radio = z.contains("라디오") || zl.contains("fm") || z.contains("에프엠")
+        let tv = zl.contains("tv") || z.contains("티비") || z.contains("티브이") || z.contains("텔레비전") || z.contains("듣는방송")
+        let nyuseu = s.itda(alts, "nyuseu") || s.itda(alts, "jangae") || z.contains("뉴스") || z.contains("세상이야기") || z.contains("속보") || z.contains("기사읽") || z.contains("기사들려")
+        let eumak = s.itda(alts, "eumak") || z.contains("노래") || z.contains("음악") || z.contains("틀어")
+        if kkeugi {
+            guard b.itda, radio || tv || nyuseu || eumak || z.contains("방송") else { return false }
+            dap("", false)
+            b.geuman()
+            return true
+        }
+        if nyuseu {
+            var g = "all"
+            if z.contains("속보") || z.contains("특보") { g = "sokbo" }
+            else if z.contains("장애") || z.contains("복지") { g = "jangae" }
+            else if z.contains("정치") { g = "jeongchi" }
+            else if z.contains("경제") { g = "gyeongje" }
+            else if z.contains("국제") || z.contains("세계") { g = "gukje" }
+            else if z.contains("사회") { g = "sahoe" }
+            else if z.contains("스포츠") || z.contains("연예") { g = "spo" }
+            let nm = BangsongEngine.garae.first { $0.0 == g }?.1 ?? "두루 소식"
+            Task {
+                let ls = await b.gisaBatgi(g)
+                DispatchQueue.main.async {
+                    guard let ls = ls else { dap("소식을 받아 오지 못했습니다. 통신을 확인해 주십시오.", false); return }
+                    if ls.isEmpty { dap("지금 \(nm)에는 새 기사가 없습니다.", false); return }
+                    b.gisaYeolgi(0)
+                    TabGil.shared.tab = 2
+                    BangsongGil.shared.path = NavigationPath()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        BangsongGil.shared.path.append(BangsongHwamyeon.sesang)
+                        BangsongGil.shared.path.append(BangsongHwamyeon.gisa)
+                    }
+                    dap("\(nm), 최신 기사부터 읽어 드립니다. 다음 기사라고 하시면 넘어갑니다.", false)
+                }
+            }
+            return true
+        }
+        if tv || radio {
+            Task {
+                let m = await b.chaeneolMalro(zl, kind: tv ? "tv" : "radio")
+                DispatchQueue.main.async { dap(m, false) }
+            }
+            return true
+        }
+        if eumak {
+            var q = t
+            for w in ["틀어 주세요", "틀어 줘", "틀어줘", "틀어 봐", "틀어봐", "틀어", "들려 줘", "들려줘", "듣고 싶어", "듣자", "들을래",
+                      "음악", "노래", "좀", "곡", "줘"] {
+                q = q.replacingOccurrences(of: w, with: " ")
+            }
+            q = q.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+            for p in ["을", "를"] where q.hasSuffix(p) && q.count > 2 { q = String(q.dropLast()).trimmingCharacters(in: .whitespaces) }
+            if (Yeolsoe.ilgi("eumakTk") ?? "").isEmpty {
+                Task { await b.nugunaTeulgi("", "나스 음악 열쇠를 아직 넣지 않으셔서 누구나 음악을 틉니다.") }
+                dap("", false)
+                return true
+            }
+            if q.isEmpty {
+                if b.itda && b.meomchum { dap("", false); b.meomchumTogeul(); return true }
+                Task { await b.galraeTeulgi("가요", "") }
+                dap("", false)
+                return true
+            }
+            Task {
+                let m = await b.malChatgi(q)
+                DispatchQueue.main.async { dap(m, false) }
+            }
             return true
         }
         return false
@@ -1035,7 +1131,7 @@ final class MalHagi: ObservableObject {
         return "지금은 \(f.string(from: Date()))입니다."
     }
 
-    static let doumalMal = "이렇게 말씀하시면 됩니다. 집으로 가자. 걸어서 가자. 지하철로 가자. 버스로 가자. 차에 탔어. 내렸어. 얼마나 남았어. 지금 어디야. 지금 가는 길 알려 줘. 즐겨찾기 목록. 즐겨찾기에 담아 줘. 복지콜에 전화해 줘. 콜 번호 알려 줘. 신호기 울려 줘. 신호기 찾아 줘. 도와줘, 또는 가족 이름과 화상통화. 몇 시야. 말 빠르게, 말 느리게. 다시 말해. 그만. 여정 끝."
+    static let doumalMal = "이렇게 말씀하시면 됩니다. 집으로 가자. 걸어서 가자. 지하철로 가자. 버스로 가자. 차에 탔어. 내렸어. 얼마나 남았어. 지금 어디야. 지금 가는 길 알려 줘. 즐겨찾기 목록. 즐겨찾기에 담아 줘. 복지콜에 전화해 줘. 콜 번호 알려 줘. 신호기 울려 줘. 신호기 찾아 줘. 근처 약국. 음악 틀어 줘. 트롯 틀어 줘. 다음 곡. 라디오 틀어 줘. 뉴스 들려줘. 음악 꺼. 도와줘, 또는 가족 이름과 화상통화. 몇 시야. 말 빠르게, 말 느리게. 다시 말해. 그만. 여정 끝."
 
     private func motAradeureum(_ t: String) {
         Girok.shared.namgi("mal_motaradeureum", ["mal": String(t.prefix(60))])

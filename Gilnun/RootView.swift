@@ -12,9 +12,7 @@ struct RootView: View {
             DulreoTab()
             .tabItem { Label("둘러보기", systemImage: "binoculars") }
             .tag(1)
-            NavigationStack {
-                JunbiView(mal: "음악·방송 — 1단계 기초판입니다. 길 위의 음악, 라디오, TV, 지금 세상 이야기가 2단계에서 이 자리에 들어옵니다.")
-            }
+            BangsongTab()
             .tabItem { Label("음악·방송", systemImage: "music.note") }
             .tag(2)
             NavigationStack {

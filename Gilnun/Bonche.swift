@@ -23,6 +23,7 @@ final class Bonche {
         RemoteDanchu.shared.sijak()  // 안내 중 이어폰 단추
         MalHagi.shared.sijak()       // 말로 하기 — 사전 받기, 하이 길눈을 켜 두셨으면 부름 기다리기
         GojangEngine.shared.sijak()  // 2.7.0 탈것으로 지나는 고장 이야기(설정에서 끔)
+        BangsongEngine.shared.sijak()   // 2.8.0 음악·방송 — 멈춤 지킴이, 긴급통화 중 멈춤
         JihacheolEngine.shared.ieoGagi()   // 지하철 타고 가던 중이면 역 알림을 이어 감
         Girok.shared.namgi("app_sijak", ["pan": Pan.pan, "bild": Pan.bild, "appBild": Pan.appBild])
         // 현장에서는 늘 의외의 일이 생깁니다 — 1분마다 저절로 저장

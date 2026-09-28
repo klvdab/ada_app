@@ -1,6 +1,6 @@
 // 소리 엔진 — 길눈이 하는 모든 말과 알림 소리는 여기 한 곳을 거칩니다.
 // ① 말을 한 줄로 세워 차례대로 내보냄(겹치지 않음) ② 경고는 줄 맨 앞으로, 말소리를 꺼도 늘 말함
-// ③ 말하는 동안만 다른 소리(음악·라디오)를 잠시 낮추고, 끝나면 되돌림 ④ 폰이 잠겨도 말함(UIBackgroundModes audio)
+// ③ 말하는 동안만 다른 소리(음악·라디오)를 잠시 낮추고, 끝나면 되돌림 — 길눈 자체 방송은 소리를 줄이고 경고만 멈춤(2.8.0) ④ 폰이 잠겨도 말함(UIBackgroundModes audio)
 // ⑤ 전화가 오면 멈췄다가 끝나면 이어 말함 ⑥ 같은 말을 3초 안에 되풀이하지 않음
 import AVFoundation
 import UIKit
@@ -44,7 +44,11 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
     var deutgiKyeojim = false
     /// 명령을 듣는 동안 — 다른 말은 줄에 세워 두고(경고만 빼고), 듣기가 끝나면 이어서 냄
     var myeongryeongDeutneunJung = false {
-        didSet { if !myeongryeongDeutneunJung { DispatchQueue.main.async { self.naeboenda() } } }
+        didSet {
+            let t = myeongryeongDeutneunJung
+            DispatchQueue.main.async { BangsongEngine.shared.deutgiMeomchum(t) }   // 2.8.0 명령을 듣는 동안 방송 멈춤
+            if !t { DispatchQueue.main.async { self.naeboenda() } }
+        }
     }
     /// 길눈이 막 말을 시작하려 할 때 — 말로 하기가 마이크를 잠시 닫음
     var malSijakHook: (() -> Void)?
@@ -152,6 +156,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
         let m = jul.removeFirst()
         naerigiJakeop?.cancel()
         sesyeonKyeogi()
+        BangsongEngine.shared.malSijak(m.geup)   // 2.8.0 방송 소리를 작게(경고는 멈춤)
         let u = AVSpeechUtterance(string: m.t)
         u.voice = moksori()
         u.rate = Seoljeong.shared.malBbareugi
@@ -177,10 +182,19 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
         jigeumGeup = nil
         if jul.isEmpty {
             sesyeonNaerigi(1.0)
+            bangsongDoedollim()
             kkeutBoda()
         } else {
             naeboenda()
             // 명령을 듣는 중이라 줄에 세워 둔 말은 나중에 — 기다리던 일은 그대로 둠
+        }
+    }
+
+    /// 2.8.0 말을 다 마치면 방송 소리를 되돌림
+    private func bangsongDoedollim() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            if self.synth.isSpeaking || !self.jul.isEmpty || (self.player?.isPlaying ?? false) { return }
+            BangsongEngine.shared.malKkeut()
         }
     }
 
@@ -203,11 +217,12 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
             if j != .deutgi && j != .ttaeng { self.malSijakHook?() }
             self.naerigiJakeop?.cancel()
             self.sesyeonKyeogi()
+            BangsongEngine.shared.malSijak(j == .gyeonggo ? .gyeonggo : .annae)
             self.player = try? AVAudioPlayer(data: data)
             self.player?.volume = 0.8
             self.player?.play()
             if !self.synth.isSpeaking && self.jul.isEmpty { self.sesyeonNaerigi(1.5) }
-            DispatchQueue.main.asyncAfter(deadline: .now() + gil + 0.1) { self.kkeutBoda() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + gil + 0.1) { self.kkeutBoda(); self.bangsongDoedollim() }
         }
     }
 
@@ -217,6 +232,12 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
     private func sesyeonKyeogi() {
         // 2.6.0 안내 중 이어폰 단추를 받을 때는 소리 자리를 섞지 않고 그대로 쥠
         if RemoteDanchu.shared.kyeojim { RemoteDanchu.shared.sesyeonJapgi(); return }
+        // 2.8.0 길눈 방송(음악·라디오·TV·기사)이 소리 자리를 쥐고 있으면 그대로 두고 방송 소리만 줄임
+        if BangsongEngine.shared.itda {
+            let s0 = AVAudioSession.sharedInstance()
+            if s0.category != .playback && s0.category != .playAndRecord { BangsongEngine.shared.sesyeonJapgi() } else { try? s0.setActive(true) }
+            return
+        }
         let s = AVAudioSession.sharedInstance()
         do {
             try s.setCategory(.playback, mode: .voicePrompt,
@@ -234,6 +255,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
             if self.synth.isSpeaking || !self.jul.isEmpty || (self.player?.isPlaying ?? false) { return }
             if self.deutgiKyeojim || self.myeongryeongDeutneunJung { return }   // 말로 하기가 이어서 씀
             if RemoteDanchu.shared.kyeojim { return }   // 이어폰 단추를 받는 중
+            if BangsongEngine.shared.itda { return }     // 2.8.0 길눈 방송이 소리 자리를 씀
             do {
                 try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
             } catch {
