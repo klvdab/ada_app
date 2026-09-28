@@ -50,13 +50,7 @@ final class Tongsin: ObservableObject {
 
     /// 나스 자료 창고에서 받기. 예: get("yeok.php", ["a": "chatgi", "q": "약수"])
     func get(_ pail: String, _ q: [String: String] = [:]) async throws -> Dap {
-        guard var c = URLComponents(url: bon.appendingPathComponent(pail), resolvingAgainstBaseURL: false) else {
-            throw URLError(.badURL)
-        }
-        if !q.isEmpty {
-            c.queryItems = q.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) }
-        }
-        guard let url = c.url else { throw URLError(.badURL) }
+        guard let url = juso(pail, q) else { throw URLError(.badURL) }
         let k = Tongsin.kiMandeulgi(url.absoluteString)
         var majimakOryu: Error = URLError(.unknown)
         for beon in 0..<3 {
@@ -77,6 +71,37 @@ final class Tongsin: ObservableObject {
         }
         Girok.shared.namgi("tongsin_oryu", ["pail": pail])
         throw majimakOryu
+    }
+
+    /// 주소 만들기 — "/"로 시작하면 나스 뿌리에서(예: /eyec/rel.php), 아니면 /jeom/ 아래에서
+    private func juso(_ pail: String, _ q: [String: String]) -> URL? {
+        let bonUrl = pail.hasPrefix("/") ? URL(string: "https://lvd.ada.or.kr" + pail) : bon.appendingPathComponent(pail)
+        guard let b = bonUrl, var c = URLComponents(url: b, resolvingAgainstBaseURL: false) else { return nil }
+        if !q.isEmpty {
+            c.queryItems = q.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) }
+        }
+        return c.url
+    }
+
+    /// 지금 이 순간의 답만 — 받아 둔 것을 쓰지 않고 담지도 않음(통화·신호처럼 옛것이 해가 되는 것)
+    func getSae(_ pail: String, _ q: [String: String] = [:]) async throws -> Data {
+        guard let url = juso(pail, q) else { throw URLError(.badURL) }
+        var r = URLRequest(url: url)
+        r.cachePolicy = .reloadIgnoringLocalCacheData
+        let (d, res) = try await ses.data(for: r)
+        guard (res as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
+        return d
+    }
+
+    /// 보내기(POST) — 본문을 그대로
+    func post(_ pail: String, _ q: [String: String], _ bonmun: Data) async -> Data? {
+        guard let url = juso(pail, q) else { return nil }
+        var r = URLRequest(url: url)
+        r.httpMethod = "POST"
+        r.httpBody = bonmun
+        r.cachePolicy = .reloadIgnoringLocalCacheData
+        guard let dap = try? await ses.data(for: r), (dap.1 as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return dap.0
     }
 
     /// 새로고침 — 받아 둔 자료를 비움(설정과 여정은 그대로)

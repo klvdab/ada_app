@@ -12,6 +12,9 @@ enum GilHwamyeon: Hashable {
     case beoseu(Jangso)
     case jeongryujang(Jangso, Jeongryujang)
     case talgeot
+    case gingeup
+    case jiinGoreugi
+    case jiinMyeongdan
 }
 
 /// 길 찾기 탭의 길(화면 쌓임) — 목적지를 정하면 첫 화면으로 곧장 돌아가게
@@ -36,6 +39,9 @@ struct GilChatgiTab: View {
                     case .beoseu(let j): BeoseuChatgiView(mok: j)
                     case .jeongryujang(let j, let jr): JeongryujangView(mok: j, j: jr)
                     case .talgeot: TalgeotView()
+                    case .gingeup: GinGeupView()
+                    case .jiinGoreugi: JiinGoreugiView()
+                    case .jiinMyeongdan: JiinMyeongdanView()
                     }
                 }
         }
@@ -67,6 +73,10 @@ struct GilChatgiView: View {
                     Button("지금 내 자리 듣기") { AnnaeEngine.shared.jigeumJari() }
                         .buttonStyle(KeunDanchu())
                 }
+                NavigationLink(value: GilHwamyeon.gingeup) {
+                    Text("긴급통화서비스 — 가족·지인, 자원봉사자, 해설사에게 화상통화")
+                }
+                .buttonStyle(KeunDanchu())
                 DisclosureGroup("그 밖에 펼치기") {
                     VStack(alignment: .leading, spacing: 10) {
                         NavigationLink(value: GilHwamyeon.gicho) { Text("기초 시험") }

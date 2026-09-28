@@ -32,6 +32,8 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
     private var dunmal: [String: Date] = [:]
     private var player: AVAudioPlayer?
     private var meomchum = false
+    /// 화상통화 중 — 길눈 말소리를 내지 않음(통화 소리 보호, 2026-09-11 이사장님 지시: 통화 중에는 화면 글로만)
+    var tonghwaJung = false
     private(set) var majimak = ""
     private(set) var malHaneunSu = 0
 
@@ -49,6 +51,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
         let t = t.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty else { return }
         DispatchQueue.main.async {
+            if self.tonghwaJung { self.majimak = t; return }
             if geup != .gyeonggo && !Seoljeong.shared.malKyeojim {
                 self.majimak = t
                 return
@@ -126,6 +129,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
     // MARK: 알림 소리
 
     func sori(_ j: SoriJong) {
+        if tonghwaJung { return }
         let data: Data
         switch j {
         case .hwaksin: data = SoriEngine.wav([(880, 0.08)])
