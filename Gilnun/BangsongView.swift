@@ -77,6 +77,7 @@ struct BangsongCheot: View {
 
 struct EumakView: View {
     @ObservedObject private var b = BangsongEngine.shared
+    @ObservedObject private var s = Seoljeong.shared
     @State private var pw = ""
     @State private var galrae = "가요"
     @State private var tema = ""
@@ -120,6 +121,10 @@ struct EumakView: View {
                     }
                     .buttonStyle(KeunDanchu())
                     if !b.jadoJul.isEmpty { Text(b.jadoJul).font(.body) }
+                    // 2.12.7 차에 타면 저절로(이사장님 승인 1)
+                    Toggle(isOn: $s.gojangNorae) { Text("차에 타면 지나는 고장 노래 저절로 틀기").font(.title3.weight(.semibold)) }
+                        .padding(.horizontal, 4)
+                        .frame(minHeight: 60)
                     TextField("고장 이름으로 찾기", text: $gojangQ)
                         .textFieldStyle(.roundedBorder)
                         .font(.title3)

@@ -632,8 +632,31 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         jadoSigye = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.jadoBoda() }
     }
 
+    /// 2.12.7 차에 타면 지나는 고장 노래를 저절로(설정에서 끔) — 라디오·TV·기사를 듣고 계시면 건드리지 않음(이사장님 승인 1)
+    private var jadoChaRo = false
+    func chaTamGojangNorae() {
+        guard Seoljeong.shared.gojangNorae, !jadoKyeojim, !tk.isEmpty else { return }
+        guard jong == .eopseum || jong == .eumak else { return }
+        Task {
+            if !self.eumakDeureom { await self.eumakJunbi() }
+            await MainActor.run {
+                guard self.eumakDeureom, !self.jadoKyeojim, self.jong == .eopseum || self.jong == .eumak else { return }
+                self.jadoChaRo = true
+                self.jadoKyeogi()
+                Girok.shared.namgi("gojang_norae_cha", [:])
+            }
+        }
+    }
+    /// 차에서 내리시거나 여정을 마치시면 고장 따라 바꾸기만 멈춤(듣던 노래는 그대로)
+    func chaNaerimGojangNorae() {
+        guard jadoKyeojim, jadoChaRo else { return }
+        jadoChaRo = false
+        jadoKkeugi(malHagi: false)
+    }
+
     func jadoKkeugi(malHagi: Bool = true) {
         guard jadoKyeojim else { return }
+        jadoChaRo = false
         jadoKyeojim = false
         jadoSigye?.invalidate()
         jadoSigye = nil
@@ -765,34 +788,87 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         }
     }
 
-    /// 말로 — "KBS 1라디오 틀어 줘", "라디오 틀어 줘"(지난번 채널)
-    func chaeneolMalro(_ z: String, kind: String) async -> String {
+    /// 2.12.7 방송 이름을 한 가지 꼴로 — 영문·한글·띄어쓰기·말 순서가 달라도 같게(MBC·엠비씨·엠비시 → mbc)
+    static func bangsongPyojun(_ t: String) -> String {
+        var s = MalSajeon.ttuk(t).lowercased()
+        let bakkum: [(String, String)] = [
+            ("엠비씨", "mbc"), ("엠비시", "mbc"), ("앰비씨", "mbc"), ("앰비시", "mbc"), ("엠비", "mbc"), ("문화방송", "mbc"),
+            ("케이비에스", "kbs"), ("케이비애스", "kbs"), ("캐이비에스", "kbs"), ("한국방송", "kbs"),
+            ("이비에스", "ebs"), ("이비애스", "ebs"), ("교육방송", "ebs"),
+            ("오비에스", "obs"), ("티비에스", "tbs"), ("비비에스", "bbs"), ("불교방송", "bbs"), ("아리랑", "arirang"),
+            ("에프엠", "fm"), ("애프엠", "fm"), ("포유", "4u"),
+            ("티브이", "tv"), ("티비", "tv"), ("텔레비전", "tv"),
+            ("일라디오", "1라디오"), ("원라디오", "1라디오"), ("삼라디오", "3라디오"),
+            ("일tv", "1tv"), ("이tv", "2tv"), ("원tv", "1tv"), ("투tv", "2tv")
+        ]
+        for (a, b) in bakkum { s = s.replacingOccurrences(of: a, with: b) }
+        return s
+    }
+
+    /// 말 속의 방송사
+    private static func bangsongsa(_ s: String) -> String? {
+        for b in ["kbs", "mbc", "ebs", "obs", "tbs", "bbs", "arirang"] where s.contains(b) { return b }
+        return nil
+    }
+
+    /// 말로 — "MBC 라디오 틀어 줘", "라디오 엠비씨", "표준FM", "라디오 틀어 줘"(지난번 채널)
+    /// 돌려주는 것: (할 말, 되묻는 말인지). 모르는 이름이면 아무것도 틀지 않고 여쭘(2.12.7 이사장님 승인 1)
+    func chaeneolMalro(_ z: String, kind: String) async -> (String, Bool) {
         if chaeneolDeul.isEmpty { await chaeneolBatgi() }
         let ls = kindChaeneol(kind)
-        guard !ls.isEmpty else { return "채널 목록을 받지 못했습니다. 통신을 확인해 주십시오." }
-        let zz = z.lowercased()
-        var gorun: Chaeneol?
-        for c in ls {
-            let nm = MalSajeon.ttuk(c.name).lowercased()
-            let bu = nm.replacingOccurrences(of: "kbs", with: "").replacingOccurrences(of: "mbc", with: "").replacingOccurrences(of: "ebs", with: "")
-            if zz.contains(nm) || (bu.count >= 3 && zz.contains(bu)) { gorun = c; break }
+        guard !ls.isEmpty else { return ("채널 목록을 받지 못했습니다. 통신을 확인해 주십시오.", false) }
+        let zz = BangsongEngine.bangsongPyojun(z)
+        // 채널 이름 풀기: 방송사와 나머지(표준fm, 1라디오 따위)
+        let pul: [(Chaeneol, String?, String)] = ls.map { c in
+            let nm = BangsongEngine.bangsongPyojun(c.name)
+            let sa = BangsongEngine.bangsongsa(nm)
+            var bu = nm
+            if let sa = sa { bu = bu.replacingOccurrences(of: sa, with: "") }
+            bu = bu.replacingOccurrences(of: "(화면해설)", with: "")
+            return (c, sa, bu)
         }
+        let sa = BangsongEngine.bangsongsa(zz)
+        let hubo = sa == nil ? pul : pul.filter { $0.1 == sa }
+        // 1) 이름 통째로
+        var gorun = hubo.first { !$0.2.isEmpty && zz.contains(($0.1 ?? "") + $0.2) }?.0
+        // 2) 방송사를 뺀 나머지(표준fm, fm4u, 1라디오, 해피fm …)
+        let heunhan: Set<String> = ["tv", "fm", "라디오", "방송"]
+        if gorun == nil { gorun = hubo.first { $0.2.count >= 2 && !heunhan.contains($0.2) && zz.contains($0.2) }?.0 }
+        // 3) 줄여 부른 말
         if gorun == nil {
-            let hanguel: [(String, String)] = [("케이비에스", "kbs"), ("엠비씨", "mbc"), ("이비에스", "ebs"), ("해피", "해피fm"), ("클래식", "클래식fm"),
-                                               ("쿨", "쿨fm"), ("표준", "표준fm"), ("포유", "fm4u"), ("사랑의소리", "사랑의소리"), ("한민족", "한민족"),
-                                               ("듣는방송", "듣는방송"), ("화면해설", "듣는방송"), ("아리랑", "아리랑"), ("불교", "bbs"), ("경인", "obs")]
-            for (m, k) in hanguel where zz.contains(m) {
-                gorun = ls.first { MalSajeon.ttuk($0.name).lowercased().contains(k) }
+            let jjal: [(String, String)] = [("표준", "표준fm"), ("4u", "fm4u"), ("해피", "해피fm"), ("쿨", "쿨fm"), ("클래식", "클래식fm"),
+                                            ("사랑의소리", "3라디오"), ("3라디오", "3라디오"), ("1라디오", "1라디오"), ("한민족", "한민족"),
+                                            ("듣는방송", "듣는방송"), ("화면해설", "듣는방송"), ("1tv", "1tv"), ("2tv", "2tv"), ("플러스", "플러스")]
+            for (m, k) in jjal where zz.contains(m) {
+                gorun = hubo.first { $0.2.contains(k) }?.0
                 if gorun != nil { break }
             }
         }
-        if gorun == nil {
-            let id = UserDefaults.standard.string(forKey: kind == "radio" ? "gn.majimakRadio" : "gn.majimakTv") ?? ""
-            gorun = ls.first { $0.id == id } ?? ls.first
+        // 4) 방송사만 말씀하시면 그 방송사의 으뜸 채널(MBC → MBC 표준FM, KBS → KBS 1라디오)
+        if gorun == nil, sa != nil, !hubo.isEmpty {
+            let eutteum: [String: String] = kind == "radio"
+                ? ["mbc": "mbcsfm", "kbs": "kbs1r", "ebs": "ebsfm"]
+                : ["mbc": "mbcdeut", "kbs": "kbs1tv", "ebs": "ebs1tv"]
+            gorun = hubo.first { $0.0.id == eutteum[sa!] }?.0 ?? hubo.first?.0
         }
-        guard let c = gorun else { return "채널을 찾지 못했습니다." }
+        // 5) 아무 이름도 없이 "라디오 틀어 줘"면 지난번 채널
+        if gorun == nil {
+            var namun = zz
+            for w in ["라디오", "tv", "fm", "방송", "채널", "틀어", "틀자", "켜", "들려", "듣자", "들을래", "보자", "볼래", "주세요", "줘", "좀", "다시", "지금", "을", "를"] {
+                namun = namun.replacingOccurrences(of: w, with: "")
+            }
+            if namun.isEmpty {
+                let id = UserDefaults.standard.string(forKey: kind == "radio" ? "gn.majimakRadio" : "gn.majimakTv") ?? ""
+                gorun = ls.first { $0.id == id } ?? ls.first
+            }
+        }
+        guard let c = gorun else {
+            Girok.shared.namgi("bangsong_moreum", ["mal": String(z.prefix(40))])
+            let ireum = ls.prefix(8).map { $0.name }.joined(separator: ", ")
+            return ("어느 방송을 \(kind == "radio" ? "들으실까요" : "보실까요")? \(ireum) 가운데 말씀해 주십시오.", true)
+        }
         await MainActor.run { self.chaeneolTeulgi(c, malHagi: false) }
-        return "\(c.name)을 틉니다."
+        return ("\(c.name)을 틉니다.", false)
     }
 
     private func chaeneolBakkugi(_ d: Int) {

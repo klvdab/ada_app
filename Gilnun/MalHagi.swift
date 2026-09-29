@@ -476,6 +476,18 @@ final class MalHagi: ObservableObject {
             }
             return
         }
+        // 1-2. 2.12.7 도착 — "도착", "도착했어", "다 왔어"를 목적지 이름으로 찾지 않고 여정 끝내기로(이사장님 승인 1)
+        let dochakMal = ["도착", "도착했어", "도착했다", "도착했어요", "도착했습니다", "도착이야", "도착했네", "다왔어", "다왔다", "다왔어요", "다왔습니다", "다왔네", "도착완료", "여기도착"]
+        if dochakMal.contains(z) || (z.hasPrefix("도착") && z.count <= 6 && !z.contains("까지") && !z.contains("시간")) {
+            mureum = .eopseum
+            if y != nil {
+                dap("도착하셨습니다. 여정을 마칩니다.", false)
+                AnnaeEngine.shared.kkeut()
+            } else {
+                dap("지금 가시는 여정이 없습니다. 가실 곳을 말씀하시려면 어디로 가자라고 해 주십시오.", false)
+            }
+            return
+        }
         // 2. 긴급통화 중 그만·끊어
         if GinGeup.shared.sangtae != .eopseum && (sajeon.itda(alts, "geuman") || z.contains("끊어")) {
             dap("", false)
@@ -711,12 +723,34 @@ final class MalHagi: ObservableObject {
                     }
                     return
                 }
-                self.hubo = Array(r.prefix(3))
+                // 2.12.7 주소로 말씀하시면(동호로 7길 14) 그 건물 안 가게 이름(주전) 대신 주소를 이름으로(이사장님 승인 1)
+                var rr = Array(r.prefix(3))
+                if MalHagi.jusoMalinga(qA), let a = rr.first {
+                    let jj = a.juso.isEmpty ? qA : a.juso
+                    rr = [Jangso(ireum: MalHagi.jusoIreum(jj), juso: jj, lat: a.lat, lon: a.lon)]
+                    Girok.shared.namgi("juso_mokjeok", ["mal": String(qA.prefix(30)), "ireum": String(a.ireum.prefix(20))])
+                }
+                self.hubo = rr
                 self.huboI = 0
                 self.huboTalgeot = taltgeot
                 self.huboAnnae(dap, hwagin: hwagin)
             }
         }
+    }
+
+    /// 2.12.7 도로명 주소나 지번 주소로 말씀하셨는가 — 동호로 7길 14, 동호로7길 14번지, 신당동 432-1
+    static func jusoMalinga(_ q: String) -> Bool {
+        let t = q.trimmingCharacters(in: .whitespaces)
+        return t.range(of: "[가-힣0-9]+(로|길)\\s*[0-9]+(\\s*(번?길|가길))?\\s*[0-9-]*\\s*(번지|호)?\\s*$", options: .regularExpression) != nil
+            && t.range(of: "[0-9]", options: .regularExpression) != nil
+            || t.range(of: "[가-힣]+(동|리|가)\\s*[0-9]+(-[0-9]+)?\\s*(번지)?\\s*$", options: .regularExpression) != nil
+    }
+
+    /// 주소를 부를 이름으로 — "서울 중구 동호로7길 14" → "동호로7길 14"
+    static func jusoIreum(_ juso: String) -> String {
+        let t = juso.trimmingCharacters(in: .whitespaces)
+        if let r = t.range(of: "[가-힣0-9]+(로|길)[0-9가-힣]*\\s*[0-9-]+.*$", options: .regularExpression) { return String(t[r]) }
+        return t
     }
 
     /// 명령 — 하면 참
@@ -899,7 +933,7 @@ final class MalHagi: ObservableObject {
             return true
         }
         // 2.7.0 둘러보기 — 고장 이야기, 마실, 사진 읽어 주기, 안면인식, 축제, 둘레 찾기
-        if s.itda(alts, "gojang") {
+        if s.itda(alts, "gojang") && !(z.contains("노래") || z.contains("음악")) {   // 2.12.7 고장 노래는 음악으로
             Task {
                 let r = await Dulreo.gojang()
                 DispatchQueue.main.async {
@@ -1015,10 +1049,33 @@ final class MalHagi: ObservableObject {
             return true
         }
         let kkeugi = ["그만", "꺼", "끄기", "끄자", "멈춰", "중지"].contains { z.contains($0) }
-        let radio = z.contains("라디오") || zl.contains("fm") || z.contains("에프엠")
+        // 2.12.7 방송사 이름만 말씀하셔도(MBC 틀어 줘, 엠비시) 라디오로 — 음악 찾기로 새지 않게
+        let pj = BangsongEngine.bangsongPyojun(z)
+        let bangsongsaMal = ["kbs", "mbc", "ebs", "obs", "tbs", "bbs", "arirang", "표준fm", "fm4u", "4u", "해피fm", "쿨fm", "클래식fm", "사랑의소리", "한민족"].contains { pj.contains($0) }
+        let radio = z.contains("라디오") || zl.contains("fm") || z.contains("에프엠") || bangsongsaMal
         let tv = zl.contains("tv") || z.contains("티비") || z.contains("티브이") || z.contains("텔레비전") || z.contains("듣는방송")
         let nyuseu = s.itda(alts, "nyuseu") || s.itda(alts, "jangae") || z.contains("뉴스") || z.contains("세상이야기") || z.contains("속보") || z.contains("기사읽") || z.contains("기사들려")
         let eumak = s.itda(alts, "eumak") || z.contains("노래") || z.contains("음악") || z.contains("틀어")
+        // 2.12.7 지나는 고장 노래 — "고장 노래 틀어 줘", "지나는 고장 노래 꺼"(이사장님 승인 1)
+        if z.contains("고장노래") || z.contains("고장음악") || (z.contains("지나는고장") && (z.contains("노래") || z.contains("음악"))) {
+            if kkeugi {
+                if b.jadoKyeojim { dap("", false); b.jadoKkeugi() } else { dap("지나는 고장 노래는 켜져 있지 않습니다.", false) }
+                return true
+            }
+            if (Yeolsoe.ilgi("eumakTk") ?? "").isEmpty {
+                dap("지나는 고장 노래는 나스 음악 열쇠가 있어야 합니다. 음악·방송 탭의 길 위의 음악에서 열쇠를 한 번 넣어 주십시오.", false)
+                return true
+            }
+            if b.jadoKyeojim { dap("지나는 고장 노래가 이미 켜져 있습니다.", false); return true }
+            Task {
+                if !b.eumakDeureom { await b.eumakJunbi() }
+                DispatchQueue.main.async {
+                    if b.eumakDeureom { dap("", false); b.jadoKyeogi() }
+                    else { dap("나스 음악에 들어가지 못했습니다. 열쇠를 다시 넣어 주십시오.", false) }
+                }
+            }
+            return true
+        }
         if kkeugi {
             guard b.itda, radio || tv || nyuseu || eumak || z.contains("방송") else { return false }
             dap("", false)
@@ -1054,8 +1111,8 @@ final class MalHagi: ObservableObject {
         }
         if tv || radio {
             Task {
-                let m = await b.chaeneolMalro(zl, kind: tv ? "tv" : "radio")
-                DispatchQueue.main.async { dap(m, false) }
+                let (m, mutneun) = await b.chaeneolMalro(z, kind: tv ? "tv" : "radio")
+                DispatchQueue.main.async { dap(m, mutneun) }
             }
             return true
         }

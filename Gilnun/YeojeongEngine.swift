@@ -97,6 +97,12 @@ final class YeojeongEngine: ObservableObject {
         jigeum = y
         Girok.shared.namgi("yeojeong_danggye", ["d": d.rawValue])
         jeojang()
+        // 2.12.7 차·버스·기차에 타면 지나는 고장 노래, 내리면 멈춤(지하철은 땅속이라 빼냄)
+        let tg = talgeot
+        DispatchQueue.main.async {
+            if d == .taneunJung && [.cha, .gicha, .beoseu, .gosokbeoseu].contains(tg) { BangsongEngine.shared.chaTamGojangNorae() }
+            else if d != .taneunJung { BangsongEngine.shared.chaNaerimGojangNorae() }
+        }
     }
 
     /// 버스 정류장 담기(없애려면 nil)
@@ -140,6 +146,7 @@ final class YeojeongEngine: ObservableObject {
 
     func kkeut() {
         if jigeum != nil { Girok.shared.namgi("yeojeong_kkeut", [:]) }
+        DispatchQueue.main.async { BangsongEngine.shared.chaNaerimGojangNorae() }
         jigeum = nil
         try? FileManager.default.removeItem(at: pail)
     }

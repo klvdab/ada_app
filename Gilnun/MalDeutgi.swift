@@ -168,7 +168,7 @@ final class MalDeutgi: NSObject {
 
     // MARK: 속
 
-    private func sesyeon(_ b: Bangsik) throws {
+    private func sesyeon(_ b: Bangsik, seokgi: Bool = false) throws {
         let s = AVAudioSession.sharedInstance()
         var o: AVAudioSession.CategoryOptions = [.defaultToSpeaker, .allowBluetoothA2DP]
         // 2.12.0 부름을 기다릴 때는 이어폰을 통화 음질(HFP)로 바꾸지 않음 — 음악이 먹먹해지지 않게
@@ -176,6 +176,8 @@ final class MalDeutgi: NSObject {
         // 부름을 기다릴 때는 음악을 그대로 두고, 명령을 들을 때만 잠시 낮춤
         // 2.6.0 안내 중 이어폰 단추를 받을 때는 섞지 않음(단추가 길눈으로 오게)
         if !RemoteDanchu.shared.kyeojim { o.insert(b == .bureum ? .mixWithOthers : .duckOthers) }
+        // 2.12.7 폰이 잠겼거나 앱이 뒤에 있을 때 다른 소리를 끊고 들어가지 못하면(!int) 섞어서라도 엶
+        if seokgi { o.remove(.duckOthers); o.insert(.mixWithOthers) }
         try s.setCategory(.playAndRecord, mode: .default, options: o)
         try s.setActive(true)
     }
@@ -187,8 +189,16 @@ final class MalDeutgi: NSObject {
         do {
             try sesyeon(b)
         } catch {
-            Girok.shared.namgi("maldeutgi_mot", ["kkadak": "sesyeon", "code": (error as NSError).code])
-            return false
+            let code = (error as NSError).code
+            Girok.shared.namgi("maldeutgi_mot", ["kkadak": "sesyeon", "code": code])
+            // 2.12.7 앱을 켠 직후 마이크가 아홉 번 열리지 못하던 것(9/29 17시 7분) — 다른 소리를 끊지 못한다는 까닭이면 섞어서 한 번 더
+            do {
+                try sesyeon(b, seokgi: true)
+                Girok.shared.namgi("maik_seokgi", ["code": code])
+            } catch {
+                Girok.shared.namgi("maldeutgi_mot", ["kkadak": "sesyeon_seokgi", "code": (error as NSError).code])
+                return false
+            }
         }
         let inp = engine.inputNode
         // 2.12.2 걸러 듣기 — 하이 길눈과 "방송 중에도 하이 길눈 듣기"를 켜 두셨을 때
