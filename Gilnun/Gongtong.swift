@@ -1,6 +1,7 @@
 // 화면의 공통 틀 — 이사장님이 정해 두신 화면 규칙을 여기 한 곳에 담아, 모든 화면이 이 틀을 쓰게 합니다.
 // ① 속 화면의 뒤로 단추는 위에만(아래는 탭 바) ② 보이스오버 두 손가락 문지르기로 뒤로 ③ 손가락으로 왼쪽 끝을 밀어도 뒤로
 // ④ 목록은 다섯 개씩, 그 아래 더 보기, 그 아래 이전 보기, 목록이 나오면 초점을 첫 줄로
+// ⑥ 2.12.1 탭을 고르거나 속 화면이 열리면 커서를 그 화면 첫 줄로(매번)
 // ⑤ 큰 단추 — 저시력 이용자도 누르기 쉽게, 대비를 크게
 import SwiftUI
 import UIKit
@@ -35,6 +36,8 @@ struct KeunDanchu: ButtonStyle {
 struct SokHwamyeon: ViewModifier {
     @Environment(\.dismiss) private var dismiss
     let jemok: String
+    /// 2.12.1 속 화면이 열리면 커서를 내용 첫 줄로(이사장님 지시 2026-09-29)
+    @AccessibilityFocusState private var naeyong: Bool
 
     func body(content: Content) -> some View {
         content
@@ -47,7 +50,14 @@ struct SokHwamyeon: ViewModifier {
                 }
             }
             .accessibilityElement(children: .contain)
+            .accessibilityFocused($naeyong)
             .accessibilityAction(.escape) { dismiss() }
+            .onAppear {
+                naeyong = false
+                // 먼저 화면이 바뀌었다고 알려 커서를 탭 바에서 떼어 화면 맨 위로, 이어서 내용 첫 줄로
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { UIAccessibility.post(notification: .screenChanged, argument: nil) }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { naeyong = true }
+            }
     }
 }
 
@@ -102,6 +112,7 @@ struct Mokrok5<Hang: Identifiable, Jul: View>: View {
     }
 
     private func chojeom() {
+        cheotJul = false   // 2.12.1 두 번째부터도 첫 줄로 가게(이미 참이면 움직이지 않던 것)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { cheotJul = true }
     }
 }

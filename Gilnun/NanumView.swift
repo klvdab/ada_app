@@ -63,7 +63,7 @@ struct NanumCheot: View {
             .padding()
         }
         .toolbar(.hidden, for: .navigationBar)
-        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }
+        .onAppear { chojeom = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }   // 2.12.1 매번 첫 줄로
     }
 }
 
@@ -388,7 +388,7 @@ struct NanumSangseView: View {
             .padding()
         }
         .sokHwamyeon("걸음 나눔 글")
-        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }
+        .onAppear { chojeom = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }   // 2.12.1 매번 첫 줄로
     }
 
     private func datOlligi() {
@@ -765,7 +765,7 @@ struct ButakSangseView: View {
             .padding()
         }
         .sokHwamyeon("부탁해 둔 길")
-        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }
+        .onAppear { chojeom = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }   // 2.12.1 매번 첫 줄로
         .confirmationDialog("이 댓글을 지울까요?", isPresented: Binding(get: { jiulDat != nil }, set: { if !$0 { jiulDat = nil } }), titleVisibility: .visible) {
             Button("지우기", role: .destructive) {
                 if let d = jiulDat { hagi("daetjiugi", [("did", d.id)], "댓글을 지웠습니다.") }

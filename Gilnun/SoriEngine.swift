@@ -275,6 +275,11 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
 
     /// 말할 때만 다른 소리를 낮추고 켬
     private func sesyeonKyeogi() {
+        // 2.12.1 하이 길눈 마이크가 열려 있으면 소리 자리를 바꾸지 않음(바꾸면 마이크가 멎고, 잠긴 폰에서는 다시 못 엶)
+        if MalDeutgi.shared.dolgoItda && AVAudioSession.sharedInstance().category == .playAndRecord {
+            try? AVAudioSession.sharedInstance().setActive(true)
+            return
+        }
         // 2.6.0 안내 중 이어폰 단추를 받을 때는 소리 자리를 섞지 않고 그대로 쥠
         if RemoteDanchu.shared.kyeojim { RemoteDanchu.shared.sesyeonJapgi(); return }
         // 2.8.0 길눈 방송(음악·라디오·TV·기사)이 소리 자리를 쥐고 있으면 그대로 두고 방송 소리만 줄임
@@ -298,7 +303,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
         let w = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
             if self.synth.isSpeaking || !self.jul.isEmpty || (self.player?.isPlaying ?? false) { return }
-            if self.deutgiKyeojim || self.myeongryeongDeutneunJung { return }   // 말로 하기가 이어서 씀
+            if self.deutgiKyeojim || self.myeongryeongDeutneunJung || MalDeutgi.shared.dolgoItda { return }   // 말로 하기가 이어서 씀(2.12.1 마이크가 열려 있으면 그대로)
             if RemoteDanchu.shared.kyeojim { return }   // 이어폰 단추를 받는 중
             if BangsongEngine.shared.itda { return }     // 2.8.0 길눈 방송이 소리 자리를 씀
             do {

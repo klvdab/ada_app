@@ -355,7 +355,7 @@ struct AnmyeonView: View {
             .padding()
         }
         .sokHwamyeon("안면인식")
-        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }
+        .onAppear { chojeom = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }   // 2.12.1 매번 첫 줄로
         .onDisappear { e.kkeugi(malHagi: false) }
     }
 }

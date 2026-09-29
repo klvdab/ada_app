@@ -126,7 +126,7 @@ struct DulreoCheot: View {
             .padding()
         }
         .toolbar(.hidden, for: .navigationBar)
-        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }
+        .onAppear { chojeom = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }   // 2.12.1 매번 첫 줄로
     }
 }
 

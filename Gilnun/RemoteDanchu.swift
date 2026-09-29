@@ -157,6 +157,14 @@ final class RemoteDanchu {
     /// 재생 전용·다른 소리와 섞지 않음(그래야 이어폰 단추가 길눈으로 옴)
     func sesyeonJapgi() {
         let s = AVAudioSession.sharedInstance()
+        // 2.12.1 하이 길눈 마이크가 열려 있으면 재생 전용으로 바꾸지 않음(마이크가 멎음) — 섞기만 풀어 단추가 길눈으로 오게
+        if MalDeutgi.shared.dolgoItda && s.category == .playAndRecord {
+            if s.categoryOptions.contains(.mixWithOthers) {
+                try? s.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothA2DP])
+            }
+            try? s.setActive(true)
+            return
+        }
         try? s.setCategory(.playback, mode: .spokenAudio, options: [])
         try? s.setActive(true)
     }

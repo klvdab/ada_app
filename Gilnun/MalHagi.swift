@@ -1,4 +1,5 @@
 // 말로 하기 — 길눈을 말로 시킵니다(이사장님 발안 2026-09-17, 앱 2.5.0 빌드 260928-7).
+// 2.12.1 (빌드 260929-1) 하이 길눈 — 길눈이 말할 때 마이크를 닫지 않고 알아듣기만 쉼(잠긴 폰에서도 이어지게)
 // 웹 길눈에서 이사장님이 정하신 것을 앱의 알맹이로 옮겼습니다.
 //   부르기: 말로 하기 단추, 보이스오버 두 손가락 두 번 두드리기, "하이 길눈"(설정에서 켬), 화면이 잠긴 채 "시리야, 길눈"
 //   알아듣기: 아이폰 자체 받아쓰기(폰 안, 무료) + 웹과 같은 나스 알아듣기 사전
@@ -118,7 +119,7 @@ final class MalHagi: ObservableObject {
             }
             return
         }
-        MalDeutgi.shared.meomchugi()
+        MalDeutgi.shared.swigi()   // 2.12.1 마이크는 열어 둔 채 알아듣기만 바꿈
         bureumDolgo = false
         SoriEngine.shared.modu_geodugi()   // 명령 먼저 — 하던 말을 멈춤(경고는 남김)
         sangtae = .deutneun
@@ -142,7 +143,7 @@ final class MalHagi: ObservableObject {
     }
 
     private func myeongryeongChwiso() {
-        MalDeutgi.shared.meomchugi()
+        MalDeutgi.shared.swigi()
         SoriEngine.shared.myeongryeongDeutneunJung = false
         sangtae = .swim
     }
@@ -215,7 +216,7 @@ final class MalHagi: ObservableObject {
                 }
             }
         } else {
-            if bureumDolgo { MalDeutgi.shared.meomchugi() }
+            if sangtae != .deutneun { MalDeutgi.shared.meomchugi() }   // 2.12.1 마이크를 아주 닫음
             bureumDolgo = false
             SoriEngine.shared.deutgiKyeojim = false
         }
@@ -230,7 +231,11 @@ final class MalHagi: ObservableObject {
             self.bureumYeyak = false
             guard Seoljeong.shared.haiGilnun, self.sangtae == .swim, !self.bureumDolgo,
                   GinGeup.shared.sangtae == .eopseum, MalDeutgi.heorakItda else {
-                if !Seoljeong.shared.haiGilnun { SoriEngine.shared.deutgiKyeojim = false }
+                if !Seoljeong.shared.haiGilnun {
+                    SoriEngine.shared.deutgiKyeojim = false
+                    // 2.12.1 하이 길눈을 꺼 두셨으면 말로 하기를 마친 뒤 마이크를 닫음
+                    if self.sangtae == .swim && MalDeutgi.shared.dolgoItda { MalDeutgi.shared.meomchugi() }
+                }
                 return
             }
             if SoriEngine.shared.bappeum {
@@ -262,7 +267,7 @@ final class MalHagi: ObservableObject {
             return
         }
         if bureumDolgo {
-            MalDeutgi.shared.meomchugi()
+            MalDeutgi.shared.swigi()   // 2.12.1 마이크는 열어 둔 채 쉼 — 잠긴 폰에서도 다시 듣게
             bureumDolgo = false
             bureumDasi(0.6)
         }
@@ -325,7 +330,7 @@ final class MalHagi: ObservableObject {
             let s = t.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !s.isEmpty else { kkeut("말씀이 들리지 않았습니다."); return }
             if self.sangtae == .deutneun { self.myeongryeongChwiso() }
-            MalDeutgi.shared.meomchugi()
+            MalDeutgi.shared.swigi()
             self.bureumDolgo = false
             self.deureunMal = s
             self.jadongYeolim = 1   // 워치에서 온 말에는 폰 마이크를 저절로 열지 않음

@@ -7,12 +7,14 @@ struct SeoljeongView: View {
     @ObservedObject private var gj = GongjiEngine.shared
     @State private var saerogochimMal = ""
     @AccessibilityFocusState private var malChojeom: Bool
+    @AccessibilityFocusState private var cheotJul: Bool   // 2.12.1 설정 탭을 고르면 첫 줄로
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 NavigationLink { GongjiView() } label: { Text("알림" + (gj.gingeupSae != nil ? " — 읽지 않은 긴급 공지가 있습니다" : "")) }
                     .buttonStyle(KeunDanchu())
+                    .accessibilityFocused($cheotJul)
                 NavigationLink { GichoSiheomView() } label: { Text("기초 시험") }
                     .buttonStyle(KeunDanchu())
                 NavigationLink { MalSeoljeongView() } label: { Text("말하기 설정 — 켜기와 끄기, 빠르기, 목소리, 얼마나 자세히, 무엇을 말할지") }
@@ -61,6 +63,7 @@ struct SeoljeongView: View {
         }
         .navigationTitle("설정")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { cheotJul = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { cheotJul = true } }
     }
 }
 

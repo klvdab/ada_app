@@ -41,7 +41,7 @@ struct GinGeupView: View {
             .padding()
         }
         .sokHwamyeon("긴급통화서비스")
-        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }
+        .onAppear { chojeom = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }   // 2.12.1 매번 첫 줄로
     }
 }
 

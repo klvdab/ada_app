@@ -136,9 +136,9 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
 
     /// 방송이 쓸 소리 자리 — 재생 전용, 다른 앱과 섞지 않음(이어폰 단추가 길눈으로 오게)
     func sesyeonJapgi() {
-        if RemoteDanchu.shared.kyeojim { RemoteDanchu.shared.sesyeonJapgi(); return }
         let s = AVAudioSession.sharedInstance()
-        if MalDeutgi.shared.dolgoItda && s.category == .playAndRecord { return }   // 말로 하기가 듣는 중
+        if MalDeutgi.shared.dolgoItda && s.category == .playAndRecord { try? s.setActive(true); return }   // 말로 하기 마이크가 열려 있음(2.12.1 이어폰 단추보다 먼저)
+        if RemoteDanchu.shared.kyeojim { RemoteDanchu.shared.sesyeonJapgi(); return }
         do {
             if s.category != .playback { try s.setCategory(.playback, mode: .default, options: []) }
             try s.setActive(true)

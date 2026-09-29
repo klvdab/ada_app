@@ -46,6 +46,7 @@ struct GongjiView: View {
         .sokHwamyeon("알림")
         .onAppear {
             e.batgi()
+            chojeom = false   // 2.12.1 매번 첫 줄로
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true }
         }
     }
@@ -74,6 +75,7 @@ struct GongjiBonView: View {
         .sokHwamyeon("알림")
         .onAppear {
             GongjiEngine.shared.ilgeumPyosi(g)
+            chojeom = false   // 2.12.1 매번 첫 줄로
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true }
         }
     }

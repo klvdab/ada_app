@@ -10,13 +10,19 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.12.0"
-    static let bild = "260928-16"
+    static let pan = "2.12.1"
+    static let bild = "260929-1"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.12.1", bild: "260929-1", nal: "2026-09-29", naeyong: [
+            "하이 길눈이 작동하지 않던 것 — 길눈이 말할 때마다 마이크를 닫았다 열어 폰이 잠기면 다시 못 열던 것을, 마이크는 열어 둔 채 알아듣기만 쉬게 고침. 아이폰이 하이론·하이기론처럼 잘못 알아듣는 말도 받아들임(이사장님 승인 1)",
+            "기사 화면을 떠나면 기사 읽기를 멈춤(음악·라디오·TV는 그대로 이어짐)",
+            "탭을 고르거나 속 화면이 열리면 커서가 매번 그 화면 첫 줄로 감",
+            "도움말 세 항목 고침, 한 항목 더함"
+        ]),
         Gochim(pan: "2.12.0", bild: "260928-16", nal: "2026-09-29", naeyong: [
             "전체 정밀검사에서 찾은 39가지를 고침(이사장님 승인 1)",
             "점지도 따라 걷기 — 이어진 길의 구간 바꿈에서 헛도착·건너뜀, 그만둔 뒤 늦게 돌아온 불러오기, 점지도로 닿은 뒤 위성 안내가 조용하던 것, 되돌아가는 길의 계단·건널목 시작과 끝, 문 찾기가 끝나지 않던 것",

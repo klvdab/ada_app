@@ -1,4 +1,5 @@
 // 음악·방송 탭 — 앱 2.8.0 (빌드 260928-10), 이사장님 승인(가1·나1).
+// 2.12.1 (빌드 260929-1) 기사 화면을 떠나면 기사 읽기를 멈춤(음악·라디오·TV는 그대로 이어짐)
 // 첫 화면은 단추 넷(길 위의 음악, 라디오 듣기, TV 보기, 지금 세상 이야기). 무엇이 나오고 있으면 맨 위에 "그만 듣기" 한 줄.
 // 소리는 BangsongEngine 이 쥐고 있어 화면을 옮겨도 끊기지 않습니다.
 import SwiftUI
@@ -68,7 +69,7 @@ struct BangsongCheot: View {
             .padding()
         }
         .toolbar(.hidden, for: .navigationBar)
-        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }
+        .onAppear { chojeom = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }   // 2.12.1 매번 첫 줄로
     }
 }
 
@@ -407,6 +408,8 @@ struct GisaMokView: View {
 }
 
 struct GisaView: View {
+    /// 2.12.1 기사 화면이 떠 있는가 — 화면을 떠나면 기사 읽기를 멈추려고(이사장님 지시 2026-09-29)
+    static var boineunSu = 0
     @ObservedObject private var b = BangsongEngine.shared
     @ObservedObject private var s = Seoljeong.shared
     @Environment(\.dismiss) private var dismiss
@@ -442,7 +445,21 @@ struct GisaView: View {
             .padding()
         }
         .sokHwamyeon("기사")
-        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }
+        .onAppear {
+            GisaView.boineunSu += 1
+            chojeom = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true }
+        }
+        .onDisappear {
+            GisaView.boineunSu = max(0, GisaView.boineunSu - 1)
+            // 목록으로·뒤로·다른 탭으로 떠나시면 읽기를 멈춤. 폰을 잠그시는 것은 떠나는 것이 아님.
+            // 말로 하기가 화면을 새로 여는 틈에는 멈추지 않게 조금 기다렸다가 봄
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                if GisaView.boineunSu == 0 && BangsongEngine.shared.jong == .gisa {
+                    BangsongEngine.shared.geuman(malHagi: false)
+                }
+            }
+        }
         .onChange(of: b.gisaI) { _ in DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { chojeom = true } }
     }
 }

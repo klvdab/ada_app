@@ -106,6 +106,7 @@ struct GilChatgiView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
+            meoriChojeom = false   // 2.12.1 탭을 고를 때마다 첫 줄로
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { meoriChojeom = true }
         }
     }
