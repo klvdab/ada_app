@@ -19,6 +19,8 @@ enum GilHwamyeon: Hashable {
     case munje        // 2.10.0 여기 문제 있어요
     case doe          // 2.13.0 되짚어 나가기
     case qr           // 2.13.0 QR 찾기
+    case malgil       // 2.14.0 말로 그린 길(실내)
+    case yudo         // 2.14.0 음성유도기와 승강기
 }
 
 /// 길 찾기 탭의 길(화면 쌓임) — 목적지를 정하면 첫 화면으로 곧장 돌아가게
@@ -50,6 +52,8 @@ struct GilChatgiTab: View {
                     case .munje: MunjeView()
                     case .doe: DoeView()
                     case .qr: QrView()
+                    case .malgil: MalgilView()
+                    case .yudo: YudoView()
                     }
                 }
         }
@@ -59,6 +63,7 @@ struct GilChatgiTab: View {
 struct GilChatgiView: View {
     @ObservedObject private var y = YeojeongEngine.shared
     @ObservedObject private var doe = DoeEngine.shared
+    @ObservedObject private var malgil = MalgilEngine.shared
     @ObservedObject private var jeom = JeomEngine.shared
     @State private var mal = ""
     @AccessibilityFocusState private var meoriChojeom: Bool
@@ -75,6 +80,11 @@ struct GilChatgiView: View {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { meoriChojeom = true }
                     }
                     .buttonStyle(KeunDanchu())
+                }
+                if malgil.geotneun {
+                    // 2.14.0 말로 그린 길을 걷는 중이면 맨 위에
+                    NavigationLink(value: GilHwamyeon.malgil) { Text("말로 그린 길 — 따라 걷는 중, \(malgil.jemok)") }
+                        .buttonStyle(KeunDanchu())
                 }
                 if doe.sangtae != .swim {
                     // 2.13.0 되짚어 나가기 기억·안내 중이면 맨 위에(속 화면을 떠나도 찾기 쉽게)
@@ -120,6 +130,10 @@ struct GilChatgiView: View {
                         NavigationLink(value: GilHwamyeon.doe) { Text("되짚어 나가기 — 들어온 길로 혼자 나오기") }
                             .buttonStyle(KeunDanchu())
                         NavigationLink(value: GilHwamyeon.qr) { Text("QR 찾기 — 카메라로 둘레의 QR 저절로 찾기") }
+                            .buttonStyle(KeunDanchu())
+                        NavigationLink(value: GilHwamyeon.malgil) { Text("말로 그린 길 — 몸으로 익힌 실내 길을 손대지 않고 따라 걷기") }
+                            .buttonStyle(KeunDanchu())
+                        NavigationLink(value: GilHwamyeon.yudo) { Text("음성유도기와 승강기 — 가까운 역의 음성유도기, 엘리베이터") }
                             .buttonStyle(KeunDanchu())
                         NavigationLink(value: GilHwamyeon.gicho) { Text("기초 시험") }
                             .buttonStyle(KeunDanchu())

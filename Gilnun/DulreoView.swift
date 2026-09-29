@@ -17,6 +17,7 @@ enum DulreoHwamyeon: Hashable {
     case miri
     case masil
     case masilGo(String)
+    case haeseol      // 2.14.0 현장영상해설 받기
 }
 
 /// 목록을 어디서 받아 오는가
@@ -93,6 +94,7 @@ struct DulreoTab: View {
                     case .miri: MiriView()
                     case .masil: MasilView()
                     case .masilGo(let id): MasilGoView(id: id)
+                    case .haeseol: HaeseolView()
                     }
                 }
         }
@@ -110,6 +112,8 @@ struct DulreoCheot: View {
                 NavigationLink(value: DulreoHwamyeon.sajin) { Text("사진 읽어 주기") }
                     .buttonStyle(KeunDanchu())
                 NavigationLink(value: DulreoHwamyeon.anmyeon) { Text("안면인식 — 카메라 앞의 사람을 알려 드립니다") }
+                    .buttonStyle(KeunDanchu())
+                NavigationLink(value: DulreoHwamyeon.haeseol) { Text("현장영상해설 받기 — 현장영상해설사 화상통화, 현장영상해설 코스, 파견 신청") }
                     .buttonStyle(KeunDanchu())
                 DisclosureGroup("가는 김에 펼치기") {
                     VStack(alignment: .leading, spacing: 10) {
