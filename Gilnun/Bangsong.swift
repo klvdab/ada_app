@@ -504,6 +504,84 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         await MainActor.run { self.mokBadeum(j, apMal: "") }
     }
 
+    // MARK: 2.13.0 기분과 날씨에 맞춰 틀기(웹 길눈 음성비서와 같은 다섯 기분 + 날씨, 이사장님 지시)
+
+    enum Gibun: String, CaseIterable, Identifiable {
+        case jeonhwan, heung, chabun, jam, sseulsseul, seollem, nalssi
+        var id: String { rawValue }
+        /// 화면 단추 이름
+        var danchu: String {
+            switch self {
+            case .jeonhwan: return "기분 전환 — 가라앉을 때 신나는 곡"
+            case .heung: return "흥겹게 — 기분 좋을 때"
+            case .chabun: return "차분하게 — 쉬고 싶을 때"
+            case .jam: return "잠들기 전에 — 밤에 어울리는 곡"
+            case .sseulsseul: return "마음을 달래 — 쓸쓸할 때"
+            case .seollem: return "분위기 있게 — 설렐 때"
+            case .nalssi: return "지금 날씨에 맞게"
+            }
+        }
+        var apMal: String {
+            switch self {
+            case .jeonhwan: return "기분이 가라앉으셨군요. 기분을 바꿔 줄 신나는 곡으로 골라 드리겠습니다."
+            case .heung: return "기분이 좋으시군요. 흥을 돋울 곡으로 골라 드리겠습니다."
+            case .chabun: return "차분하게 쉬고 싶으시군요. 잔잔한 곡으로 골라 드리겠습니다."
+            case .jam: return "편히 주무시도록 밤에 어울리는 곡으로 골라 드리겠습니다."
+            case .sseulsseul: return "마음이 쓸쓸하시군요. 마음을 달래 줄 곡으로 골라 드리겠습니다."
+            case .seollem: return "설레는 기분이시군요. 분위기 있는 곡으로 골라 드리겠습니다."
+            case .nalssi: return ""
+            }
+        }
+        /// 열쇠가 없을 때 누구나 음악의 어느 쪽
+        var nugunaBun: String { (self == .jeonhwan || self == .heung) ? "bal" : "jan" }
+    }
+
+    /// 기분에 맞춰 틀기 — 돌려주는 말(빈 글이면 이미 말함)
+    func gibunTeulgi(_ g: Gibun) async -> String {
+        var juje = ""
+        var ap = g.apMal
+        if g == .nalssi {
+            let (j, haneul) = await Nalssi.shared.eumakJuje()
+            juje = j
+            ap = "지금 날씨는 \(haneul)입니다. \(j)에 어울리는 곡으로 골라 드리겠습니다."
+        }
+        Girok.shared.namgi("gibun_eumak", ["g": g.rawValue])
+        if tk.isEmpty {
+            await nugunaTeulgi(g.nugunaBun, ap + " 나스 음악 열쇠가 없어 누구나 음악의 \(g.nugunaBun == "bal" ? "밝은" : "잔잔한") 곡을 틉니다.")
+            return ""
+        }
+        if !eumakDeureom { await eumakJunbi() }
+        switch g {
+        case .jeonhwan, .heung: juje = "신나는 댄스"
+        case .chabun: juje = "잔잔한 음악"
+        case .jam: juje = "밤"
+        case .sseulsseul:
+            await galraeTeulgi("가곡·성악·합창", "")
+            return ap
+        case .seollem:
+            await galraeTeulgi("샹송", "")
+            return ap
+        case .nalssi: break
+        }
+        let m = await malChatgi(juje)
+        return ap + " " + m
+    }
+
+    /// 말 속의 기분(띄어쓰기를 뗀 말) — 없으면 nil
+    static func gibunChatgi(_ z: String) -> Gibun? {
+        let pyo: [(Gibun, [String])] = [
+            (.nalssi, ["날씨에맞", "날씨에어울", "날씨따라", "날씨맞춰", "날씨에따라"]),
+            (.jam, ["잠이안", "잠들", "잠잘", "자기전", "잘때"]),
+            (.jeonhwan, ["꿀꿀", "우울", "처지", "처져", "기운없", "힘들", "지쳐", "지친", "짜증", "답답", "기분전환", "기분바꿔"]),
+            (.heung, ["신나", "신난", "즐거", "흥겨", "흥나", "기분좋"]),
+            (.chabun, ["차분", "잔잔", "편안", "쉬고싶", "조용한", "쉬고파"]),
+            (.sseulsseul, ["슬퍼", "슬프", "외로", "쓸쓸", "그리워", "그립", "울적"]),
+            (.seollem, ["설레", "낭만", "분위기있", "분위기좋"])
+        ]
+        for (g, l) in pyo where l.contains(where: { z.contains($0) }) { return g }
+        return nil
+    }
+
     /// 고장 이름으로 찾기
     func gojangChatgi(_ q: String) async {
         await MainActor.run { SoriEngine.shared.mal("\(q) 노래를 찾고 있습니다.", .jeongbo) }

@@ -17,6 +17,8 @@ enum GilHwamyeon: Hashable {
     case jiinMyeongdan
     case jeomMok      // 2.10.0 가까운 점지도
     case munje        // 2.10.0 여기 문제 있어요
+    case doe          // 2.13.0 되짚어 나가기
+    case qr           // 2.13.0 QR 찾기
 }
 
 /// 길 찾기 탭의 길(화면 쌓임) — 목적지를 정하면 첫 화면으로 곧장 돌아가게
@@ -46,6 +48,8 @@ struct GilChatgiTab: View {
                     case .jiinMyeongdan: JiinMyeongdanView()
                     case .jeomMok: GakkaunJeomView()
                     case .munje: MunjeView()
+                    case .doe: DoeView()
+                    case .qr: QrView()
                     }
                 }
         }
@@ -54,6 +58,7 @@ struct GilChatgiTab: View {
 
 struct GilChatgiView: View {
     @ObservedObject private var y = YeojeongEngine.shared
+    @ObservedObject private var doe = DoeEngine.shared
     @ObservedObject private var jeom = JeomEngine.shared
     @State private var mal = ""
     @AccessibilityFocusState private var meoriChojeom: Bool
@@ -68,6 +73,13 @@ struct GilChatgiView: View {
                         AnnaeEngine.shared.haneunIlMeomchum()
                         meoriChojeom = false   // 멈춘 뒤 커서를 목적지 적는 칸으로
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { meoriChojeom = true }
+                    }
+                    .buttonStyle(KeunDanchu())
+                }
+                if doe.sangtae != .swim {
+                    // 2.13.0 되짚어 나가기 기억·안내 중이면 맨 위에(속 화면을 떠나도 찾기 쉽게)
+                    NavigationLink(value: GilHwamyeon.doe) {
+                        Text(doe.sangtae == .gieok ? "되짚어 나가기 — 길을 기억하는 중, 나가실 때 누르십시오" : "되짚어 나가기 — 나가는 길 안내 중")
                     }
                     .buttonStyle(KeunDanchu())
                 }
@@ -104,6 +116,10 @@ struct GilChatgiView: View {
                         Button("음향신호기 찾기 — 가까워질수록 소리가 빨라집니다") { SinhogiEngine.shared.chatgiKyeogi() }
                             .buttonStyle(KeunDanchu())
                         NavigationLink(value: GilHwamyeon.jeomMok) { Text("가까운 점지도 — 골라서 따라 걷기") }
+                            .buttonStyle(KeunDanchu())
+                        NavigationLink(value: GilHwamyeon.doe) { Text("되짚어 나가기 — 들어온 길로 혼자 나오기") }
+                            .buttonStyle(KeunDanchu())
+                        NavigationLink(value: GilHwamyeon.qr) { Text("QR 찾기 — 카메라로 둘레의 QR 저절로 찾기") }
                             .buttonStyle(KeunDanchu())
                         NavigationLink(value: GilHwamyeon.gicho) { Text("기초 시험") }
                             .buttonStyle(KeunDanchu())

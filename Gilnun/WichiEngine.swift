@@ -33,6 +33,8 @@ final class WichiEngine: NSObject, ObservableObject, CLLocationManagerDelegate {
     private(set) var nachimban: Double = -1
 
     private var georeumNujeok = 0     // 앱이 켜진 뒤 센 걸음
+    /// 2.13.0 앱이 켜진 뒤 센 걸음(되짚어 나가기가 씀)
+    var georeumSu: Int { georeumNujeok }
     private var georeumCheot: Int?
     private var iegoGijun = 0         // 마지막으로 자리를 셈한 때의 걸음
     private var sigye: Timer?

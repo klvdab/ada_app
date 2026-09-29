@@ -162,6 +162,21 @@ struct EumakView: View {
                     }
                 }
                 .font(.title3)
+                // 2.13.0 기분과 날씨에 맞춰 틀기(열쇠가 없으면 누구나 음악으로)
+                DisclosureGroup("기분과 날씨로 틀기 펼치기") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(BangsongEngine.Gibun.allCases) { g in
+                            Button(g.danchu) {
+                                Task {
+                                    let m = await b.gibunTeulgi(g)
+                                    if !m.isEmpty { await MainActor.run { SoriEngine.shared.mal(m, .jeongbo) } }
+                                }
+                            }
+                            .buttonStyle(KeunDanchu())
+                        }
+                    }
+                }
+                .font(.title3)
             }
             .padding()
         }

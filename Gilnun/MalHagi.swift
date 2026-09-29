@@ -769,6 +769,51 @@ final class MalHagi: ObservableObject {
             }
             return true
         }
+        // 2.13.0 기분과 날씨에 맞춰 음악 — "기분이 꿀꿀해", "잔잔한 음악 틀어 줘", "날씨에 맞게 틀어 줘"(이사장님 지시)
+        if let g = BangsongEngine.gibunChatgi(z),
+           g == .nalssi || ["음악", "노래", "틀어", "틀자", "들려", "추천", "곡", "기분"].contains(where: { z.contains($0) }),
+           !["그만", "꺼", "끄기", "멈춰", "중지"].contains(where: { z.contains($0) }) {
+            Task {
+                let m = await BangsongEngine.shared.gibunTeulgi(g)
+                DispatchQueue.main.async { dap(m, false) }
+            }
+            return true
+        }
+        // 2.13.0 날씨 — "날씨 어때", "오늘 날씨"(웹 길눈과 같은 자료)
+        if z.contains("날씨") || z.contains("미세먼지") {
+            Task {
+                let n = await Nalssi.shared.mal()
+                DispatchQueue.main.async { dap(n.isEmpty ? "날씨를 받아 오지 못했습니다. 통신과 위치를 확인해 주십시오." : "날씨는 " + n + ".", false) }
+            }
+            return true
+        }
+        // 2.13.0 되짚어 나가기 — "길 기억해 줘"(들어갈 때), "되짚어 나가자"(나올 때)
+        if z.contains("되짚") || z.contains("왔던길로나가") || z.contains("들어온길로나가") {
+            let d = DoeEngine.shared
+            if d.sangtae == .annae { dap("", false); d.jigeumMal() }
+            else if d.gieokItda || d.sangtae == .gieok { dap("", false); d.doejipgi() }
+            else { dap("기억해 둔 길이 없습니다. 들어가실 때 길 기억해 줘라고 말씀해 주십시오.", false) }
+            return true
+        }
+        if z.contains("길기억") || z.contains("길을기억") || z.contains("길좀기억") {
+            if z.contains("그만") || z.contains("멈춰") || z.contains("꺼") { dap("", false); DoeEngine.shared.gieokGeuman(); return true }
+            dap("", false)
+            DoeEngine.shared.gieokSijak()
+            return true
+        }
+        // 2.13.0 QR 찾기 — "QR 찾아 줘", "큐알"
+        if z.lowercased().contains("qr") || z.contains("큐알") || z.contains("큐아르") {
+            dap("QR 찾기를 엽니다.", false)
+            TabGil.shared.tab = 0
+            GilGil.shared.cheotHwamyeon()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { GilGil.shared.path.append(GilHwamyeon.qr) }
+            return true
+        }
+        // 2.13.0 배리어프리방송국은 앞으로 따로 앱으로 키우기로 함(이사장님 결정) — 길눈에서는 모르는 척하지 않고 그렇다고 말씀드림
+        if z.contains("배프") || z.contains("배리어프리") {
+            dap("죄송합니다. 배리어프리방송국은 앞으로 따로 앱으로 만들 예정이라 길눈에는 들어 있지 않습니다.", false)
+            return true
+        }
         if s.itda(alts, "doumal") {
             dap(MalHagi.doumalMal, false)
             return true
@@ -1463,7 +1508,7 @@ final class MalHagi: ObservableObject {
         huboHwagin = false
     }
 
-    static let doumalMal = "이렇게 말씀하시면 됩니다. 집으로 가자. 걸어서 가자. 지하철로 가자. 버스로 가자. 차에 탔어. 내렸어. 얼마나 남았어. 지금 어디야. 지금 가는 길 알려 줘. 즐겨찾기 목록. 즐겨찾기에 담아 줘. 복지콜에 전화해 줘. 콜 번호 알려 줘. 신호기 울려 줘. 신호기 찾아 줘. 근처 약국. 음악 틀어 줘. 트롯 틀어 줘. 다음 곡. 라디오 틀어 줘. 뉴스 들려줘. 음악 꺼. 도와줘, 또는 가족 이름과 화상통화. 몇 시야. 말 빠르게, 말 느리게. 다시 말해. 그만. 여정 끝. 하던 일 멈춰. 점지도를 따라 걸을 때는 다음에 무엇, 그만 걷기, 여기 문제 있어, 여기 걸렸어. 가까운 점지도 찾아 줘."
+    static let doumalMal = "이렇게 말씀하시면 됩니다. 집으로 가자. 걸어서 가자. 지하철로 가자. 버스로 가자. 차에 탔어. 내렸어. 얼마나 남았어. 지금 어디야. 지금 가는 길 알려 줘. 즐겨찾기 목록. 즐겨찾기에 담아 줘. 복지콜에 전화해 줘. 콜 번호 알려 줘. 신호기 울려 줘. 신호기 찾아 줘. 근처 약국. 음악 틀어 줘. 트롯 틀어 줘. 다음 곡. 라디오 틀어 줘. MBC 라디오. 뉴스 들려줘. 음악 꺼. 고장 노래 틀어 줘. 기분이 꿀꿀해. 날씨에 맞게 틀어 줘. 날씨 어때. 길 기억해 줘. 되짚어 나가자. QR 찾아 줘. 도착. 도와줘, 또는 가족 이름과 화상통화. 몇 시야. 말 빠르게, 말 느리게. 다시 말해. 그만. 여정 끝. 하던 일 멈춰. 점지도를 따라 걸을 때는 다음에 무엇, 그만 걷기, 여기 문제 있어, 여기 걸렸어. 가까운 점지도 찾아 줘."
 
     private func motAradeureum(_ t: String) {
         Girok.shared.namgi("mal_motaradeureum", ["mal": String(t.prefix(60))])

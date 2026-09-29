@@ -30,6 +30,8 @@ final class Bonche {
         GongjiEngine.shared.sijak()     // 2.9.0 알림 — 15분마다, 긴급 공지는 첫 화면 맨 위
         Heundeul.shared.sijak()         // 2.9.0 흔들면(설정에서 켬)
         JihacheolEngine.shared.ieoGagi()   // 지하철 타고 가던 중이면 역 알림을 이어 감
+        DoeEngine.shared.ieoGagi()         // 2.13.0 되짚어 나가기 — 기억하던 중이면 이어 기억
+        Nalssi.shared.cheotMal()           // 2.13.0 앱을 켠 뒤 날씨 한 번(웹 길눈과 같이)
         Girok.shared.namgi("app_sijak", ["pan": Pan.pan, "bild": Pan.bild, "appBild": Pan.appBild])
         // 현장에서는 늘 의외의 일이 생깁니다 — 1분마다 저절로 저장
         sigye = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.jeojang() }

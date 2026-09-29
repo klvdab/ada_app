@@ -78,6 +78,7 @@ final class AnnaeEngine: ObservableObject {
 
     /// 2.12.6 하던 일 멈추기 — 안내, 따라 걷기, 묻던 말, 신호기 찾기, 길눈의 말을 모두 멈추고 첫 화면으로(음악·방송은 그대로)
     func haneunIlMeomchum() {
+        if DoeEngine.shared.sangtae == .annae { DoeEngine.shared.annaeGeuman() }   // 2.13.0 되짚어 나가기 안내도 멈춤(기억한 길은 그대로)
         JeomEngine.shared.yeojeongKkeut()
         JihacheolEngine.shared.meomchugi()
         yj.kkeut()
@@ -236,8 +237,9 @@ final class AnnaeEngine: ObservableObject {
         malHagi("지금 자리를 알아보는 중입니다.", .jeongbo)
         Task {
             let o = await Chatgi.json("jarimal.php", ["lat": String(format: "%.6f", w.lat), "lon": String(format: "%.6f", w.lon)])
+            let n = await Nalssi.shared.mal()   // 2.13.0 날씨 한 마디를 끝에(웹 길눈과 같이)
             await MainActor.run {
-                self.malHagi(AnnaeEngine.jariMalMandeulgi(o, w))
+                self.malHagi(AnnaeEngine.jariMalMandeulgi(o, w) + (n.isEmpty ? "" : " 날씨는 " + n + "."))
             }
         }
     }
