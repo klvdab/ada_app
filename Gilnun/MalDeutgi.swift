@@ -6,6 +6,8 @@
 // 2.12.1 (빌드 260929-1, 이사장님 승인) 마이크를 한 번 열면 닫지 않고 알아듣기만 쉬었다가 새로 엽니다.
 //   폰이 잠기면 아이폰이 마이크를 새로 여는 것을 막아 하이 길눈이 멈추던 것(9/29 기록: 잠긴 채 세 번 실패)을 고침.
 //   마이크를 아주 닫는 것은 meomchugi() 하나뿐 — 하이 길눈을 끌 때, 긴급통화, 전화, 이어폰을 바꿀 때.
+// 2.12.2 (빌드 260929-2, 이사장님 승인 1) 걸러 듣기 — 폰이 내는 소리(방송·안내 말)를 마이크 소리에서 빼고 사람 목소리를 들음(통화 때 쓰는 아이폰 기능).
+//   라디오가 나오는 동안 하이 길눈을 못 알아듣던 것(9/29 12시 5분 뒤 기록)을 고침. 부름을 들으면 다른 앱 소리를 크게 낮춤.
 // 나중에 다른 받아쓰기(애저 등)로 바꿀 때는 이 파일만 바꿔 끼우면 됩니다.
 import Foundation
 import Speech
@@ -26,6 +28,8 @@ final class MalDeutgi: NSObject {
     var dolgoItda: Bool { engine.isRunning }
     /// 지금 알아듣는 중
     private(set) var aradeutneun = false
+    /// 2.12.2 걸러 듣기(폰이 내는 소리를 빼고 들음)로 마이크가 열려 있음
+    var georeunda: Bool { engine.isRunning && engine.inputNode.isVoiceProcessingEnabled }
 
     // 마이크 소리를 지금의 알아듣기에 넘기는 자리 — 소리 줄(오디오 스레드)과 함께 쓰므로 잠금
     private let jamgeum = NSLock()
@@ -121,6 +125,15 @@ final class MalDeutgi: NSObject {
         aradeutneun = false
     }
 
+    /// 2.12.2 부름을 들은 동안 다른 소리(다른 앱·방송)를 크게 낮추고, 끝나면 되돌림 — 걸러 듣기일 때만
+    func dareunSori(jurim: Bool) {
+        guard georeunda else { return }
+        if #available(iOS 17.0, *) {
+            engine.inputNode.voiceProcessingOtherAudioDuckingConfiguration =
+                AVAudioVoiceProcessingOtherAudioDuckingConfiguration(enableAdvancedDucking: false, duckingLevel: jurim ? .max : .min)
+        }
+    }
+
     /// 마이크까지 아주 닫음(넘길 것 없이)
     func meomchugi() {
         yeollyeoya = false
@@ -154,6 +167,23 @@ final class MalDeutgi: NSObject {
             return false
         }
         let inp = engine.inputNode
+        // 2.12.2 걸러 듣기 — 하이 길눈과 "방송 중에도 하이 길눈 듣기"를 켜 두셨을 때
+        let geureo = Seoljeong.shared.haiGilnun && Seoljeong.shared.haiBangsongDeutgi
+        if inp.isVoiceProcessingEnabled != geureo {
+            do {
+                try inp.setVoiceProcessingEnabled(geureo)
+            } catch {
+                Girok.shared.namgi("maldeutgi_mot", ["kkadak": "georeugi", "code": (error as NSError).code])
+            }
+        }
+        if inp.isVoiceProcessingEnabled {
+            if #available(iOS 17.0, *) {
+                // 기다리는 동안에는 다른 소리를 되도록 낮추지 않음
+                inp.voiceProcessingOtherAudioDuckingConfiguration =
+                    AVAudioVoiceProcessingOtherAudioDuckingConfiguration(enableAdvancedDucking: false, duckingLevel: .min)
+            }
+            _ = engine.mainMixerNode   // 걸러 듣기는 소리 내보내는 길도 함께 있어야 돌아감
+        }
         let fmt = inp.outputFormat(forBus: 0)
         guard fmt.sampleRate > 0, fmt.channelCount > 0 else {
             Girok.shared.namgi("maldeutgi_mot", ["kkadak": "mike_eopseum"])
@@ -217,7 +247,9 @@ final class MalDeutgi: NSObject {
     private func gyeolgwa(_ b0: Int, _ ls: [String], _ final: Bool, _ oryu: Bool) {
         guard b0 == beon else { return }
         if bangsik == .bureum {
-            if ls.contains(where: { MalDeutgi.bureumMal($0) }) {
+            // 2.12.2 길눈이 제 입으로 "길눈"을 말하는 중이면 부름으로 치지 않음
+            let jegaMalham = SoriEngine.shared.bappeum && SoriEngine.shared.hanunMal.contains("길눈")
+            if !jegaMalham, ls.contains(where: { MalDeutgi.bureumMal($0) }) {
                 swigi()
                 Girok.shared.namgi("hai_gilnun", [:])
                 bureumDeureum?()

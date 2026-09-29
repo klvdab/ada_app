@@ -175,6 +175,8 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
 
     /// 말로 하기가 명령을 듣는 동안 멈춤
     func deutgiMeomchum(_ t: Bool) { naebu("deutgi", t) }
+    /// 2.12.2 "하이 길눈"을 들은 때부터 명령을 마칠 때까지 멈춤
+    func bureumMeomchum(_ t: Bool) { naebu("bureum", t) }
 
     private func naebu(_ k: String, _ t: Bool) {
         let jeon = naebuMeomchum.isEmpty

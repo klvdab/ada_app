@@ -1,5 +1,6 @@
 // 말로 하기 — 길눈을 말로 시킵니다(이사장님 발안 2026-09-17, 앱 2.5.0 빌드 260928-7).
 // 2.12.1 (빌드 260929-1) 하이 길눈 — 길눈이 말할 때 마이크를 닫지 않고 알아듣기만 쉼(잠긴 폰에서도 이어지게)
+// 2.12.2 (빌드 260929-2) 걸러 듣기로 방송·안내 말 중에도 부름을 듣고, 부름을 들으면 길눈 소리를 멈추고 다른 소리를 낮춤
 // 웹 길눈에서 이사장님이 정하신 것을 앱의 알맹이로 옮겼습니다.
 //   부르기: 말로 하기 단추, 보이스오버 두 손가락 두 번 두드리기, "하이 길눈"(설정에서 켬), 화면이 잠긴 채 "시리야, 길눈"
 //   알아듣기: 아이폰 자체 받아쓰기(폰 안, 무료) + 웹과 같은 나스 알아듣기 사전
@@ -56,6 +57,18 @@ final class MalHagi: ObservableObject {
             .removeDuplicates()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] on in self?.haiGilnunBakkwim(on) }
+            .store(in: &ssak)
+        // 2.12.2 "방송 중에도 하이 길눈 듣기"를 바꾸시면 마이크를 새로 엶
+        Seoljeong.shared.$haiBangsongDeutgi
+            .dropFirst()
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self = self, self.sangtae == .swim, MalDeutgi.shared.dolgoItda else { return }
+                MalDeutgi.shared.meomchugi()
+                self.bureumDolgo = false
+                self.bureumDasi(0.5)
+            }
             .store(in: &ssak)
         // 긴급통화 중에는 마이크를 통화에 내어 줌
         GinGeup.shared.$sangtae
@@ -224,6 +237,7 @@ final class MalHagi: ObservableObject {
 
     /// 부름 기다리기를 다시 엶 — 길눈이 말하는 중이면 다 말한 뒤에
     private func bureumDasi(_ dwi: Double) {
+        if sangtae == .swim { bureumSoriDollim() }   // 2.12.2 명령을 마쳤으면 멈췄던 소리를 되돌림
         guard !bureumYeyak else { return }
         bureumYeyak = true
         DispatchQueue.main.asyncAfter(deadline: .now() + dwi) { [weak self] in
@@ -260,12 +274,23 @@ final class MalHagi: ObservableObject {
         }
     }
 
+    /// 2.12.2 "하이 길눈"을 들은 동안 멈추고 낮췄던 소리를 되돌림
+    private var bureumSoriJurim = false
+    private func bureumSoriDollim() {
+        guard bureumSoriJurim else { return }
+        bureumSoriJurim = false
+        BangsongEngine.shared.bureumMeomchum(false)
+        MalDeutgi.shared.dareunSori(jurim: false)
+    }
+
     /// 길눈이 막 말하려 함 — 부름 기다리기를 잠시 닫고 다 말한 뒤 다시 엶. 명령 듣는 중 경고가 오면 경고부터
     private func malSijakham() {
         if sangtae == .deutneun {
             myeongryeongChwiso()
             return
         }
+        // 2.12.2 걸러 듣기 중이면 길눈이 말하는 동안에도 부름을 들음(말에 "길눈"이 들면 그때만 쉼)
+        if bureumDolgo && MalDeutgi.shared.georeunda && !SoriEngine.shared.hanunMal.contains("길눈") { return }
         if bureumDolgo {
             MalDeutgi.shared.swigi()   // 2.12.1 마이크는 열어 둔 채 쉼 — 잠긴 폰에서도 다시 듣게
             bureumDolgo = false
@@ -279,6 +304,10 @@ final class MalHagi: ObservableObject {
         guard sangtae == .swim, GinGeup.shared.sangtae == .eopseum else { return }
         jadongYeolim = 0
         ijeonMal = SoriEngine.shared.majimak
+        // 2.12.2 부름을 들으면 곧바로 길눈 방송을 멈추고 다른 앱 소리를 크게 낮춤(명령을 마치면 되돌림)
+        bureumSoriJurim = true
+        BangsongEngine.shared.bureumMeomchum(true)
+        MalDeutgi.shared.dareunSori(jurim: true)
         SoriEngine.shared.modu_geodugi()
         sangtae = .deutneun
         let ne = { [weak self] in
@@ -295,6 +324,7 @@ final class MalHagi: ObservableObject {
     }
 
     private func moduMeomchum() {
+        bureumSoriDollim()
         MalDeutgi.shared.meomchugi()
         bureumDolgo = false
         SoriEngine.shared.myeongryeongDeutneunJung = false

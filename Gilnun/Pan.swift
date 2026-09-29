@@ -10,13 +10,19 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.12.1"
-    static let bild = "260929-1"
+    static let pan = "2.12.2"
+    static let bild = "260929-2"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.12.2", bild: "260929-2", nal: "2026-09-29", naeyong: [
+            "라디오가 나오는 동안 하이 길눈을 못 알아듣던 것 — 폰이 내는 소리를 마이크 소리에서 빼고 목소리만 듣는 걸러 듣기를 넣음. 길눈이 말하는 중에도 부름을 들음(이사장님 승인 1)",
+            "하이 길눈을 들으면 곧바로 길눈의 말과 방송을 멈추고 다른 앱 소리를 크게 낮추었다가, 명령을 마치면 되돌림",
+            "말로 하기 설정에 방송 중에도 하이 길눈 듣기 켜기와 끄기(처음부터 켜짐)",
+            "도움말 두 항목 고침"
+        ]),
         Gochim(pan: "2.12.1", bild: "260929-1", nal: "2026-09-29", naeyong: [
             "하이 길눈이 작동하지 않던 것 — 길눈이 말할 때마다 마이크를 닫았다 열어 폰이 잠기면 다시 못 열던 것을, 마이크는 열어 둔 채 알아듣기만 쉬게 고침. 아이폰이 하이론·하이기론처럼 잘못 알아듣는 말도 받아들임(이사장님 승인 1)",
             "기사 화면을 떠나면 기사 읽기를 멈춤(음악·라디오·TV는 그대로 이어짐)",

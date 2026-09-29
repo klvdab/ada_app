@@ -57,6 +57,8 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
     }
     /// 길눈이 막 말을 시작하려 할 때 — 말로 하기가 마이크를 잠시 닫음
     var malSijakHook: (() -> Void)?
+    /// 2.12.2 막 하려는 말(알림 소리면 빈칸) — 말로 하기가 들을지 쉴지 가르는 데 씀
+    private(set) var hanunMal = ""
     private var kkeutJul: [() -> Void] = []
     /// 2.6.0 최근에 한 말(이어폰 이전 단추 — 앞 안내)
     private var malGirok: [String] = []
@@ -181,6 +183,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
     private func naeboenda() {
         guard !meomchum, !synth.isSpeaking, !jul.isEmpty else { return }
         if myeongryeongDeutneunJung && jul.first?.geup != .gyeonggo { return }
+        hanunMal = jul.first?.t ?? ""
         malSijakHook?()
         let m = jul.removeFirst()
         naerigiJakeop?.cancel()
@@ -253,7 +256,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
             // 2.12.0 짧은 확신음은 하이 길눈 듣기를 닫지 않고, 듣는 중이면 소리 자리도 건드리지 않음
             let jjalbeun = (j == .jeomOk || j == .bikyeo || j == .hwaksin)
             let deutneun = jjalbeun && MalDeutgi.shared.dolgoItda
-            if j != .deutgi && j != .ttaeng && !jjalbeun { self.malSijakHook?() }
+            if j != .deutgi && j != .ttaeng && !jjalbeun { self.hanunMal = ""; self.malSijakHook?() }
             if deutneun {
                 self.player = try? AVAudioPlayer(data: data)
                 self.player?.volume = 0.8

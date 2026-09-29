@@ -15,6 +15,8 @@ final class Seoljeong: ObservableObject {
     @Published var bopok: Double { didSet { d.set(bopok, forKey: "gn.bopok") } }
     /// 말로 하기 — "하이 길눈"으로 부르기(마이크를 계속 열어 둠, 처음에는 꺼 둠)
     @Published var haiGilnun: Bool { didSet { d.set(haiGilnun, forKey: "gn.haiGilnun") } }
+    /// 2.12.2 방송 중에도 하이 길눈 듣기 — 폰이 내는 소리를 빼고 들음(처음부터 켜짐)
+    @Published var haiBangsongDeutgi: Bool { didSet { d.set(haiBangsongDeutgi, forKey: "gn.haiBangsong") } }
     /// 말로 하기가 이용자를 부르는 호칭
     @Published var hoching: String { didSet { d.set(hoching, forKey: "gn.hoching") } }
     /// 음향신호기 자동 울리기(처음부터 켜짐)
@@ -66,6 +68,7 @@ final class Seoljeong: ObservableObject {
         let b = ud.double(forKey: "gn.bopok")
         bopok = b > 0.2 ? b : 0.65
         haiGilnun = (ud.object(forKey: "gn.haiGilnun") as? Bool) ?? false
+        haiBangsongDeutgi = (ud.object(forKey: "gn.haiBangsong") as? Bool) ?? true
         let h = (ud.string(forKey: "gn.hoching") ?? "").trimmingCharacters(in: .whitespaces)
         hoching = h.isEmpty ? "길손님" : h
         sinhogiJadong = (ud.object(forKey: "gn.sinhogiJadong") as? Bool) ?? true
