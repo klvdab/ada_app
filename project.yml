@@ -1,4 +1,4 @@
-# 협회 앱 · 자봉 앱 · 배프 앱 — XcodeGen 설계도 (1.4.3판, 빌드 260930-3 — 길눈 2.17.0 가리키고 말하기(카메라 눈 묶음 3))
+# 협회 앱 · 자봉 앱 · 배프 앱 — XcodeGen 설계도 (1.4.4판, 빌드 260930-4 — 길눈 2.18.0 사람 감지(카메라 눈 묶음 4))
 # 한 저장소에 세 앱을 담습니다. 짓기 설정(build.yml)에서 어느 앱을 지을지 골라 씁니다.
 #   AdaApp     협회 앱  (kr.or.ada.app)     대문 https://lvd.ada.or.kr/app/     + 애플워치
 #   JabongApp  자봉 앱  (kr.or.ada.jabong)  대문 https://lvd.ada.or.kr/jabong/
@@ -53,7 +53,7 @@ targets:
         BGTaskSchedulerPermittedIdentifiers: [kr.or.ada.app.gongji]
         NSLocationWhenInUseUsageDescription: 길눈이 걷는 동안 방향과 남은 거리를 안내하려면 위치가 필요합니다.
         NSLocationAlwaysAndWhenInUseUsageDescription: 폰이 주머니에 있어도 갈림길 안내를 이어 가려면 항상 위치가 필요합니다.
-        NSCameraUsageDescription: 라이브 현장영상해설 방송과 시지각 판독, 사진 읽어 주기와 안면인식, QR 찾기, 문 찾기, 즉석 글자 읽기, 가리키고 말하기(폰 안에서만)에 카메라를 씁니다.
+        NSCameraUsageDescription: 라이브 현장영상해설 방송과 시지각 판독, 사진 읽어 주기와 안면인식, QR 찾기, 문 찾기, 즉석 글자 읽기, 가리키고 말하기, 사람 감지(폰 안에서만)에 카메라를 씁니다.
         NSMicrophoneUsageDescription: 길눈을 말로 시키고 목적지·역 이름을 말로 넣는 데, 그리고 라이브 현장영상해설 방송에 마이크를 씁니다.
         NSSpeechRecognitionUsageDescription: 말씀하신 목적지와 명령을 글자로 알아듣는 데 아이폰 받아쓰기를 씁니다. 받아쓰기는 폰 안에서 합니다.
         NSBluetoothAlwaysUsageDescription: 길가의 음성유도기와 음향신호기를 켜는 데 블루투스를 씁니다.
@@ -69,7 +69,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "2.17.0"
+        MARKETING_VERSION: "2.18.0"
   JabongApp:
     type: application
     platform: iOS
@@ -167,7 +167,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app.watchkitapp
         TARGETED_DEVICE_FAMILY: "4"
-        MARKETING_VERSION: "2.17.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
+        MARKETING_VERSION: "2.18.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
 schemes:
   AdaApp:
     build:
