@@ -1,4 +1,5 @@
-# 테스트플라이트 판 상태 살피기 (1.0판, 빌드 260929-1, 이사장님 승인 2026-09-29)
+# 테스트플라이트 판 상태 살피기 (1.1판, 빌드 260929-2, 이사장님 승인 2026-09-29)
+# 1.1 애플이 주는 시각의 시간대(-07:00 등)를 그대로 읽어 한국 시각으로 바꿈(1.0은 몇 시간 어긋났음)
 # 로그인 없이 앱스토어 커넥트 열쇠로 애플에 물어, 올린 판들이 시험 가능한지 알려 줍니다.
 # 읽기만 합니다. 아무것도 바꾸거나 지우지 않습니다.
 import os, time, json, datetime, urllib.request, urllib.parse
@@ -35,8 +36,10 @@ BAKKAT = {"PROCESSING": "처리 중", "PROCESSING_EXCEPTION": "처리 중 문제
 def kst(s):
     if not s:
         return "-"
-    t = datetime.datetime.strptime(s[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=datetime.timezone.utc)
-    return (t + datetime.timedelta(hours=9)).strftime("%m월 %d일 %H시 %M분")
+    t = datetime.datetime.fromisoformat(s.replace("Z", "+00:00"))
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=datetime.timezone.utc)
+    return t.astimezone(datetime.timezone(datetime.timedelta(hours=9))).strftime("%m월 %d일 %H시 %M분")
 
 
 def allim(jul):
