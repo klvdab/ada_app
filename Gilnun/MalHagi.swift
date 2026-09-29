@@ -3,6 +3,8 @@
 // 2.12.2 (빌드 260929-2) 걸러 듣기로 방송·안내 말 중에도 부름을 듣고, 부름을 들으면 길눈 소리를 멈추고 다른 소리를 낮춤
 // 2.12.3 (빌드 260929-3) 걸러 듣기·소리 낮추기를 뺌. 명령을 기다리는 중 "하이 길눈"만 들리면 "네" 하고 다시 기다림
 // 2.12.4 (빌드 260929-4) 멈춤 풀기(25초 넘게 한 자리에 멈추면 처음으로, 30초 넘게 부름을 못 기다리면 다시 엶)와 걸음마다 기록
+// 2.12.5 (빌드 260929-5, 이사장님 승인 1) 역 이름 찾기 — 한글 번호(오 번→5번), 줄인 역 이름(제기역→제기동역), 가까운 역·즐겨찾기를 받아쓰기에 미리 알림,
+//   되묻고 기다리는 시간 10초, 길거리 음악
 // 웹 길눈에서 이사장님이 정하신 것을 앱의 알맹이로 옮겼습니다.
 //   부르기: 말로 하기 단추, 보이스오버 두 손가락 두 번 두드리기, "하이 길눈"(설정에서 켬), 화면이 잠긴 채 "시리야, 길눈"
 //   알아듣기: 아이폰 자체 받아쓰기(폰 안, 무료) + 웹과 같은 나스 알아듣기 사전
@@ -147,7 +149,9 @@ final class MalHagi: ObservableObject {
         let yeolgi = { [weak self] in
             guard let self = self, self.sangtae == .deutneun else { return }
             SoriEngine.shared.myeongryeongDeutneunJung = true
-            let ok = MalDeutgi.shared.myeongryeong { [weak self] alts in self?.deureum(alts) }
+            MalDeutgi.shared.doumMal = self.doumMal()   // 2.12.5 가까운 역·즐겨찾기
+            let gidarim: Double = self.jadongYeolim > 0 ? 10 : 6   // 2.12.5 되물은 뒤에는 10초 기다림
+            let ok = MalDeutgi.shared.myeongryeong(gidarim: gidarim) { [weak self] alts in self?.deureum(alts) }
             Girok.shared.namgi("myeong_yeolgi", ["ok": ok])
             if !ok {
                 SoriEngine.shared.myeongryeongDeutneunJung = false
@@ -322,6 +326,7 @@ final class MalHagi: ObservableObject {
         guard sangtae == .swim, GinGeup.shared.sangtae == .eopseum else { return }
         jadongYeolim = 0
         ijeonMal = SoriEngine.shared.majimak
+        gakkaunYeokGaengsin()   // 2.12.5
         // 2.12.2 부름을 들으면 곧바로 길눈 방송을 멈추고 다른 앱 소리를 크게 낮춤(명령을 마치면 되돌림)
         bureumSoriJurim = true
         BangsongEngine.shared.bureumMeomchum(true)
@@ -442,7 +447,7 @@ final class MalHagi: ObservableObject {
 
     /// 알아들은 말들로 할 일을 하고, 대답(dap)을 꼭 한 번 부름 — (할 말, 묻는 말인가)
     func cheori(_ alts0: [String], _ dap: @escaping (String, Bool) -> Void) {
-        let alts = alts0.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        let alts = alts0.map { MalHagi.beonhoSutja($0.trimmingCharacters(in: .whitespacesAndNewlines)) }.filter { !$0.isEmpty }
         guard let t = alts.first else { dap("말씀이 들리지 않았습니다.", false); return }
         Girok.shared.namgi("malhagi", ["mal": String(t.prefix(60))])
         let z = MalSajeon.ttuk(t)
@@ -674,7 +679,11 @@ final class MalHagi: ObservableObject {
         let qA = q
         let qB0 = qB
         Task {
-            let (q, r) = await MalHagi.jangsoChatgi(qA, qB0)
+            // 2.12.5 "제기역 2번 출구", "제기 전철역" → 지하철역 목록의 바른 이름(제기동역)으로
+            let yk = await MalHagi.yeokBarojapgi(qA)
+            let res: (String, [Jangso]?)
+            if let y = yk { res = await MalHagi.jangsoChatgi(y, nil) } else { res = await MalHagi.jangsoChatgi(qA, qB0) }
+            let (q, r) = res
             DispatchQueue.main.async {
                 guard let r = r else {
                     dap("찾는 중에 연결이 끊겼습니다. 통신을 확인하시고 다시 말씀해 주십시오.", false)
@@ -1041,7 +1050,7 @@ final class MalHagi: ObservableObject {
         }
         if eumak {
             var q = t
-            for w in ["틀어 주세요", "틀어 줘", "틀어줘", "틀어 봐", "틀어봐", "틀어", "들려 줘", "들려줘", "듣고 싶어", "듣자", "들을래",
+            for w in ["길 위의", "길위의", "길 위", "길거리", "틀어 주세요", "틀어 줘", "틀어줘", "틀어 봐", "틀어봐", "틀어", "들려 줘", "들려줘", "듣고 싶어", "듣자", "들을래",
                       "음악", "노래", "좀", "곡", "줘"] {
                 q = q.replacingOccurrences(of: w, with: " ")
             }
@@ -1196,6 +1205,68 @@ final class MalHagi: ObservableObject {
                 }
             }
         }
+    }
+
+    // MARK: 2.12.5 역 이름과 번호
+
+    /// 한글로 적힌 번호를 숫자로 — "약수역 오 번출구" → "약수역 5번 출구"(번 뒤에 출구·출입구가 올 때만)
+    static func beonhoSutja(_ t: String) -> String {
+        let su: [String: String] = ["일": "1", "이": "2", "삼": "3", "사": "4", "오": "5", "육": "6", "륙": "6", "칠": "7", "팔": "8", "구": "9",
+                                    "십": "10", "십일": "11", "십이": "12", "십삼": "13", "십사": "14", "십오": "15", "십육": "16",
+                                    "십칠": "17", "십팔": "18", "십구": "19", "이십": "20"]
+        guard let re = try? NSRegularExpression(pattern: "(?<![가-힣0-9])(이십|십[일이삼사오육륙칠팔구]?|[일이삼사오육륙칠팔구])\\s*번\\s*(?=출)") else { return t }
+        var s = t
+        let ns = s as NSString
+        for m in re.matches(in: s, range: NSRange(location: 0, length: ns.length)).reversed() {
+            let w = ns.substring(with: m.range(at: 1))
+            guard let d = su[w], let r = Range(m.range, in: s) else { continue }
+            s.replaceSubrange(r, with: d + "번 ")
+        }
+        return s
+    }
+
+    /// 역 이름을 바로잡음 — 역을 찾는 말이 아니면 nil. "제기역 2번 출구" → "제기동역 2번 출구", "제기 전철역" → "제기동역"
+    static func yeokBarojapgi(_ q: String) async -> String? {
+        let t = q.trimmingCharacters(in: .whitespaces)
+        guard let re = try? NSRegularExpression(pattern: "^(.+?)\\s*(지하철역|전철역|지하철|전철|역)\\s*(?:(\\d{1,2})\\s*번\\s*(?:출구|출입구)?)?$") else { return nil }
+        let ns = t as NSString
+        guard let m = re.firstMatch(in: t, range: NSRange(location: 0, length: ns.length)) else { return nil }
+        let bon = ns.substring(with: m.range(at: 1)).trimmingCharacters(in: .whitespaces)
+        let beon = m.range(at: 3).location != NSNotFound ? ns.substring(with: m.range(at: 3)) : ""
+        guard !bon.isEmpty, bon.count <= 10 else { return nil }
+        var ireum = bon.replacingOccurrences(of: " ", with: "")
+        if let o = await Chatgi.json("yeok.php", ["a": "chatgi", "q": ireum]),
+           let rows = o["rows"] as? [[String: Any]] {
+            let nms = rows.compactMap { $0["nm"] as? String }
+            if let n = nms.first(where: { $0 == ireum }) ?? nms.first(where: { $0.hasPrefix(ireum) }) { ireum = n }
+        }
+        let bakkum = ireum + "역" + (beon.isEmpty ? "" : " \(beon)번 출구")
+        Girok.shared.namgi("yeok_barojapgi", ["jeon": String(t.prefix(30)), "hu": bakkum])
+        return bakkum
+    }
+
+    /// 가까운 역 이름(받아쓰기에 미리 알려 줄 것) — 자리가 300미터 넘게 바뀌면 새로 받음
+    private var gakkaunYeok: [String] = []
+    private var gakkaunYeokJari: (Double, Double)?
+    private func gakkaunYeokGaengsin() {
+        guard let w = WichiEngine.shared.jigeum else { return }
+        if let j = gakkaunYeokJari, WichiEngine.geori(j.0, j.1, w.lat, w.lon) < 300 { return }
+        gakkaunYeokJari = (w.lat, w.lon)
+        Task {
+            let q = ["a": "gakkaun", "lat": String(format: "%.6f", w.lat), "lon": String(format: "%.6f", w.lon)]
+            guard let o = await Chatgi.json("yeok.php", q), let rows = o["rows"] as? [[String: Any]] else { return }
+            var l: [String] = []
+            for r in rows { if let y = r["yeok"] as? String, !l.contains(y + "역") { l.append(y + "역") } }
+            DispatchQueue.main.async { self.gakkaunYeok = Array(l.prefix(12)) }
+        }
+    }
+
+    /// 명령을 들을 때 받아쓰기에 미리 알려 줄 말
+    private func doumMal() -> [String] {
+        var l = gakkaunYeok
+        l += Jeulgyeo.shared.mokrok.prefix(30).map { $0.ireum }
+        l += ["출구", "번 출구", "여기가 어디야", "길 위의 음악", "라디오 틀어 줘", "뉴스 들려줘", "집으로 가자"]
+        return Array(l.prefix(80))
     }
 
     /// 되살린 이름(qB)으로 찾아 첫 곳 이름에 그 말이 들어 있으면 그것을, 아니면 뗀 이름(qA)으로

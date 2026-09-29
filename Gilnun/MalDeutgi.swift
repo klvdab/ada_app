@@ -11,6 +11,7 @@
 // 2.12.3 (빌드 260929-3, 이사장님 승인 1) 걸러 듣기와 소리 낮추기를 뺌 — 아이폰이 스피커 소리를 통화처럼 줄이고
 //   길눈 대답("네")까지 낮춰 들리지 않았음. 소리 크기는 2.12.1처럼 그대로. 걸러 듣기는 길눈 소리를 같은 통로로 내는 방법을 따로 연구함.
 // 2.12.4 (빌드 260929-4, 이사장님 승인 1) 마이크 살피기 — 켜져 있는데 10초 넘게 소리가 안 들어오면 닫았다 다시 엶(기록 maik_meomchum)
+// 2.12.5 (빌드 260929-5) 명령 받아쓰기에 가까운 역·즐겨찾기 이름을 미리 알림, 되물은 뒤 10초 기다림, "하이길"까지만 들려도 알아들음
 // 나중에 다른 받아쓰기(애저 등)로 바꿀 때는 이 파일만 바꿔 끼우면 됩니다.
 import Foundation
 import Speech
@@ -62,6 +63,8 @@ final class MalDeutgi: NSObject {
     private var bureumDeureum: (() -> Void)?
     private var bureumKkeunkim: (() -> Void)?
     private var moreuneunMal = Date.distantPast
+    /// 2.12.5 명령을 들을 때 받아쓰기에 미리 알려 줄 말(가까운 역·즐겨찾기)
+    var doumMal: [String] = []
     /// 마이크를 열어 두어야 함(아주 닫으면 false) — 소리 자리가 바뀌어 멎었을 때만 다시 돌리려고
     private var yeollyeoya = false
 
@@ -96,7 +99,7 @@ final class MalDeutgi: NSObject {
     // MARK: 듣기 시작과 멈춤
 
     /// 명령 한 번 듣기 — 말이 1.3초 멈추면 끝, 아무 말이 없으면 6초, 길어도 12초
-    func myeongryeong(_ kkeut: @escaping ([String]) -> Void) -> Bool {
+    func myeongryeong(gidarim: Double = 6, _ kkeut: @escaping ([String]) -> Void) -> Bool {
         swigi()
         bangsik = .myeongryeong
         myeongryeongKkeut = kkeut
@@ -106,7 +109,7 @@ final class MalDeutgi: NSObject {
             myeongryeongKkeut = nil
             return false
         }
-        handoSigye = Timer.scheduledTimer(withTimeInterval: 6, repeats: false) { [weak self] _ in
+        handoSigye = Timer.scheduledTimer(withTimeInterval: gidarim, repeats: false) { [weak self] _ in
             guard let s = self, !s.malHam else { return }
             s.myeongryeongMaechim()
         }
@@ -265,7 +268,7 @@ final class MalDeutgi: NSObject {
         if r.supportsOnDeviceRecognition { q.requiresOnDeviceRecognition = true }
         q.addsPunctuation = false
         // 2.12.1 "하이 길눈"을 바르게 알아듣도록 받아쓰기에 미리 알려 줌
-        q.contextualStrings = ["하이 길눈", "길눈아", "길눈"]
+        q.contextualStrings = b == .myeongryeong ? (["하이 길눈"] + doumMal) : ["하이 길눈", "길눈아", "길눈"]
         req = q
         tapReq = q
         beon += 1
@@ -341,6 +344,8 @@ final class MalDeutgi: NSObject {
     static func bureumMal(_ t: String) -> Bool {
         let z = MalSajeon.ttuk(t)
         if z.isEmpty { return false }
+        // 2.12.5 "하이길"까지만 들려도 곧바로(기록상 0.3~0.5초 빨라짐)
+        if z.hasSuffix("하이길") || z.hasSuffix("헤이길") { return true }
         for m in ["하이길눈", "하이길는", "하이기룬", "하이길론", "헤이길눈", "길눈아",
                   "하이론", "하이기론", "하이기눈", "하이길룬", "하이길문", "하이길운", "아이길눈", "하이킬눈", "헤이기룬", "헤이론"] where z.contains(m) { return true }
         let kkori = MalSajeon.jamo(String(z.suffix(8)))
