@@ -2,6 +2,7 @@
 // 2.12.1 (빌드 260929-1) 하이 길눈 — 길눈이 말할 때 마이크를 닫지 않고 알아듣기만 쉼(잠긴 폰에서도 이어지게)
 // 2.12.2 (빌드 260929-2) 걸러 듣기로 방송·안내 말 중에도 부름을 듣고, 부름을 들으면 길눈 소리를 멈추고 다른 소리를 낮춤
 // 2.12.3 (빌드 260929-3) 걸러 듣기·소리 낮추기를 뺌. 명령을 기다리는 중 "하이 길눈"만 들리면 "네" 하고 다시 기다림
+// 2.12.4 (빌드 260929-4) 멈춤 풀기(25초 넘게 한 자리에 멈추면 처음으로, 30초 넘게 부름을 못 기다리면 다시 엶)와 걸음마다 기록
 // 웹 길눈에서 이사장님이 정하신 것을 앱의 알맹이로 옮겼습니다.
 //   부르기: 말로 하기 단추, 보이스오버 두 손가락 두 번 두드리기, "하이 길눈"(설정에서 켬), 화면이 잠긴 채 "시리야, 길눈"
 //   알아듣기: 아이폰 자체 받아쓰기(폰 안, 무료) + 웹과 같은 나스 알아듣기 사전
@@ -20,7 +21,11 @@ final class MalHagi: ObservableObject {
     static let shared = MalHagi()
 
     enum Sangtae { case swim, deutneun, araboneun }
-    @Published private(set) var sangtae: Sangtae = .swim
+    @Published private(set) var sangtae: Sangtae = .swim { didSet { sangtaeTtae = Date() } }
+    // 2.12.4 멈춤 풀기
+    private var sangtaeTtae = Date()
+    private var bureumEopseumTtae: Date?
+    private var gamsiSigye: Timer?
     @Published private(set) var deureunMal = ""
     @Published private(set) var dapMal = ""
 
@@ -53,6 +58,7 @@ final class MalHagi: ObservableObject {
         sijakham = true
         sajeon.bureogi()
         SoriEngine.shared.malSijakHook = { [weak self] in self?.malSijakham() }
+        gamsiSigye = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.gamsi() }
         Seoljeong.shared.$haiGilnun
             .dropFirst()
             .removeDuplicates()
@@ -142,6 +148,7 @@ final class MalHagi: ObservableObject {
             guard let self = self, self.sangtae == .deutneun else { return }
             SoriEngine.shared.myeongryeongDeutneunJung = true
             let ok = MalDeutgi.shared.myeongryeong { [weak self] alts in self?.deureum(alts) }
+            Girok.shared.namgi("myeong_yeolgi", ["ok": ok])
             if !ok {
                 SoriEngine.shared.myeongryeongDeutneunJung = false
                 self.sangtae = .swim
@@ -165,6 +172,7 @@ final class MalHagi: ObservableObject {
     /// 명령을 다 들었음
     private func deureum(_ alts0: [String]) {
         SoriEngine.shared.myeongryeongDeutneunJung = false
+        Girok.shared.namgi("myeong_deureum", ["su": alts0.count, "sangtae": sangtae == .deutneun])
         guard sangtae == .deutneun else { return }
         let alts = alts0.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
         if alts.isEmpty {
@@ -202,6 +210,7 @@ final class MalHagi: ObservableObject {
                 self.myeongryeongYeolgi(sori: true)
             } else {
                 self.jadongYeolim = 0
+                Girok.shared.namgi("dap_kkeut", [:])
                 SoriEngine.shared.sori(.ttaeng)
                 self.bureumDasi(0.8)
             }
@@ -272,6 +281,7 @@ final class MalHagi: ObservableObject {
                 self?.bureumDasi(0.3)
             })
             self.bureumDolgo = ok
+            Girok.shared.namgi("bureum_yeolgi", ["ok": ok])
             if ok { self.bureumSilpae = 0; return }
             self.bureumSilpae += 1
             if UIApplication.shared.applicationState == .background && self.bureumSilpae >= 3 {
@@ -318,8 +328,10 @@ final class MalHagi: ObservableObject {
         MalDeutgi.shared.dareunSori(jurim: true)
         SoriEngine.shared.modu_geodugi()
         sangtae = .deutneun
+        Girok.shared.namgi("ne_mal", ["malKyeojim": Seoljeong.shared.malKyeojim, "bappeum": SoriEngine.shared.bappeum])
         let ne = { [weak self] in
             guard let self = self else { return }
+            Girok.shared.namgi("ne_kkeut", [:])
             self.sangtae = .swim
             self.myeongryeongYeolgi(sori: !Seoljeong.shared.malKyeojim)
         }
@@ -329,6 +341,49 @@ final class MalHagi: ObservableObject {
         } else {
             ne()
         }
+    }
+
+    // MARK: 2.12.4 멈춤 풀기 — 어디서 막히든 하이 길눈이 영영 먹통이 되지 않게
+
+    private func gamsi() {
+        guard Seoljeong.shared.haiGilnun, GinGeup.shared.sangtae == .eopseum else { bureumEopseumTtae = nil; return }
+        let now = Date()
+        if sangtae != .swim {
+            bureumEopseumTtae = nil
+            guard now.timeIntervalSince(sangtaeTtae) > 25 else { return }
+            Girok.shared.namgi("malhagi_pulgi", ["sangtae": sangtae == .deutneun ? "deutneun" : "araboneun",
+                                                 "bappeum": SoriEngine.shared.bappeum])
+            MalDeutgi.shared.swigi()
+            SoriEngine.shared.myeongryeongDeutneunJung = false
+            jadongYeolim = 0
+            sangtae = .swim
+            bureumDolgo = false
+            bureumDasiGangje()
+            return
+        }
+        if bureumDolgo || bureumYeyak { bureumEopseumTtae = nil; return }
+        if UIApplication.shared.applicationState == .background && bureumSilpae >= 3 { return }
+        guard let t0 = bureumEopseumTtae else { bureumEopseumTtae = now; return }
+        guard now.timeIntervalSince(t0) > 30 else { return }
+        Girok.shared.namgi("bureum_gangje", ["bappeum": SoriEngine.shared.bappeum])
+        bureumEopseumTtae = nil
+        bureumDasiGangje()
+    }
+
+    /// 길눈이 말을 마치기를 기다리지 않고 곧바로 부름 기다리기를 엶
+    private func bureumDasiGangje() {
+        bureumYeyak = false
+        bureumSoriDollim()
+        guard sangtae == .swim, !bureumDolgo, MalDeutgi.heorakItda else { return }
+        SoriEngine.shared.deutgiKyeojim = true
+        let ok = MalDeutgi.shared.bureum(deureum: { [weak self] in
+            self?.bureumDeureum()
+        }, kkeunkim: { [weak self] in
+            self?.bureumDolgo = false
+            self?.bureumDasi(0.3)
+        })
+        bureumDolgo = ok
+        Girok.shared.namgi("bureum_yeolgi", ["ok": ok, "gangje": true])
     }
 
     private func moduMeomchum() {

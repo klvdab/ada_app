@@ -10,6 +10,7 @@
 //   라디오가 나오는 동안 하이 길눈을 못 알아듣던 것(9/29 12시 5분 뒤 기록)을 고침. 부름을 들으면 다른 앱 소리를 크게 낮춤.
 // 2.12.3 (빌드 260929-3, 이사장님 승인 1) 걸러 듣기와 소리 낮추기를 뺌 — 아이폰이 스피커 소리를 통화처럼 줄이고
 //   길눈 대답("네")까지 낮춰 들리지 않았음. 소리 크기는 2.12.1처럼 그대로. 걸러 듣기는 길눈 소리를 같은 통로로 내는 방법을 따로 연구함.
+// 2.12.4 (빌드 260929-4, 이사장님 승인 1) 마이크 살피기 — 켜져 있는데 10초 넘게 소리가 안 들어오면 닫았다 다시 엶(기록 maik_meomchum)
 // 나중에 다른 받아쓰기(애저 등)로 바꿀 때는 이 파일만 바꿔 끼우면 됩니다.
 import Foundation
 import Speech
@@ -40,6 +41,18 @@ final class MalDeutgi: NSObject {
         get { jamgeum.lock(); defer { jamgeum.unlock() }; return _tapReq }
         set { jamgeum.lock(); _tapReq = newValue; jamgeum.unlock() }
     }
+    // 2.12.4 마이크에서 소리 조각이 들어온 수 — 멎었는지 살피려고
+    private var _beopeoSu = 0
+    private var jijeomSu = -1
+    private var salpigiSigye: Timer?
+    private func tapBatgi(_ buf: AVAudioPCMBuffer) {
+        jamgeum.lock()
+        _beopeoSu &+= 1
+        let q = _tapReq
+        jamgeum.unlock()
+        q?.append(buf)
+    }
+    private func beopeoSuIlgi() -> Int { jamgeum.lock(); defer { jamgeum.unlock() }; return _beopeoSu }
 
     private var alts: [String] = []
     private var malHam = false
@@ -57,6 +70,10 @@ final class MalDeutgi: NSObject {
         // 다른 소리가 소리 자리를 바꿔 마이크가 멎으면 곧바로 다시 돌림
         NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main) { [weak self] _ in
             self?.dasiDollim()
+        }
+        // 2.12.4 10초마다 마이크가 살아 있는지 살핌
+        DispatchQueue.main.async { [weak self] in
+            self?.salpigiSigye = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in self?.maikSalpigi() }
         }
     }
 
@@ -193,7 +210,7 @@ final class MalDeutgi: NSObject {
             return false
         }
         inp.removeTap(onBus: 0)
-        inp.installTap(onBus: 0, bufferSize: 1024, format: fmt) { [weak self] buf, _ in self?.tapReq?.append(buf) }
+        inp.installTap(onBus: 0, bufferSize: 1024, format: fmt) { [weak self] buf, _ in self?.tapBatgi(buf) }
         engine.prepare()
         do {
             try engine.start()
@@ -206,6 +223,20 @@ final class MalDeutgi: NSObject {
         return true
     }
 
+    /// 2.12.4 마이크가 켜진 것으로 되어 있는데 소리가 들어오지 않으면 닫았다 다시 엶
+    private func maikSalpigi() {
+        guard yeollyeoya, engine.isRunning else { jijeomSu = -1; return }
+        let n = beopeoSuIlgi()
+        if n == jijeomSu {
+            Girok.shared.namgi("maik_meomchum", ["bangsik": bangsik == .bureum ? "bureum" : "myeongryeong", "aradeut": aradeutneun])
+            engine.stop()
+            jijeomSu = -1
+            dasiDollim()
+            return
+        }
+        jijeomSu = n
+    }
+
     /// 소리 자리가 바뀌어 마이크가 멎었을 때 — 듣던 대로 다시 돌림
     private func dasiDollim() {
         guard yeollyeoya, !engine.isRunning else { return }
@@ -213,7 +244,9 @@ final class MalDeutgi: NSObject {
         let dd = aradeutneun
         swigi()
         engine.inputNode.removeTap(onBus: 0)
-        guard maikYeolgi(b) else {
+        let ok = maikYeolgi(b)
+        Girok.shared.namgi("maik_dasi", ["ok": ok])
+        guard ok else {
             Girok.shared.namgi("maldeutgi_mot", ["kkadak": "dasi_dollim"])
             if b == .bureum { bureumKkeunkim?() } else { myeongryeongMaechim() }
             return
