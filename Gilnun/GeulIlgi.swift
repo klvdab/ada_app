@@ -57,6 +57,7 @@ final class GeulIlgi: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         AnmyeonEngine.shared.kkeugi(malHagi: false)
         QrEngine.shared.kkeugi(malHagi: false)
         MunChatgi.shared.kkeugi(malHagi: false)
+        GarikiIlgi.shared.kkeugi(malHagi: false)   // 2.17.0
         jul.async {
             if !self.junbiDoem {
                 guard self.junbi() else {

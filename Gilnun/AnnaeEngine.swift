@@ -88,6 +88,7 @@ final class AnnaeEngine: ObservableObject {
         SinhogiEngine.shared.chatgiKkeugi()
         MunChatgi.shared.kkeugi(malHagi: false)   // 2.15.0 문 찾기도 멈춤
         GeulIlgi.shared.kkeugi(malHagi: false)    // 2.16.0 즉석 글자 읽기도 멈춤
+        GarikiIlgi.shared.kkeugi(malHagi: false)  // 2.17.0 가리키고 말하기도 멈춤
         SoriEngine.shared.modu_geodugi()
         TabGil.shared.tab = 0
         GilGil.shared.cheotHwamyeon()

@@ -76,6 +76,7 @@ final class MunChatgi: NSObject, ObservableObject, ARSessionDelegate {
     private func sijak(_ e: String) {
         eodiseo = e
         GeulIlgi.shared.kkeugi(malHagi: false)   // 2.16.0 카메라는 한 곳만
+        GarikiIlgi.shared.kkeugi(malHagi: false)
         QrEngine.shared.kkeugi(malHagi: false)
         jjikgiNow = (e == "jjikgi")
         if gidae == nil && !jjikgiNow, let w = WichiEngine.shared.jigeum, let h = NaeMun.shared.geulMun(w.lat, w.lon, 40) {
