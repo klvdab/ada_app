@@ -4,7 +4,7 @@
 // 특허 확인(2026-09-29): 여러 감지기를 합친 실시간 지도·길 고르기, 사람·상황에 따라 기능을 스스로 고르기,
 // 지팡이·안경 묶음은 넣지 않음. 문을 알아보는 일은 애플 기능이 맡음.
 // 켜지는 때: ① 점지도 문까지 안내에서 문 10미터 안 ② 걸어서 목적지에 닿았을 때 ③ 문 찾기 화면, 말로 "문 찾아 줘"
-// 시험 중: 나스 음악 열쇠를 넣은 폰에서만 켜짐(말로 그린 길과 같은 문턱).
+// 2.16.0 바로잡음(이사장님 지시): 음악 열쇠 제한 없이 모든 폰에서 씀. 기종이 모자라면 그렇다고만 알림.
 // 두 번 찍기와 합침(이사장님 2): ① 내 문을 두 번 찍을 때 카메라가 문 둘레 글자를 함께 담음 ② 찾아갈 때 그 글자로
 // "찍어 두신 문"인지, 옆 문인지 가림 ③ 문 바로 앞을 알린 뒤 두 걸음 지나시면 손대지 않고 두 번 찍은 것으로 담음.
 import SwiftUI
@@ -19,8 +19,6 @@ final class MunChatgi: NSObject, ObservableObject, ARSessionDelegate {
     @Published private(set) var munBoim = false
     @Published private(set) var sangtae = ""
 
-    /// 시험 중 — 나스 음악 열쇠가 있는 폰에서만
-    static var sihomGaneung: Bool { !(Yeolsoe.ilgi("eumakTk") ?? "").isEmpty }
     /// 이 폰이 문 알아보기를 할 수 있는지(애플 평면 분류)
     static var gigiGaneung: Bool { ARWorldTrackingConfiguration.isSupported && ARPlaneAnchor.isClassificationSupported }
     static var lidar: Bool { ARWorldTrackingConfiguration.supportsSceneReconstruction(.meshWithClassification) }
@@ -77,6 +75,8 @@ final class MunChatgi: NSObject, ObservableObject, ARSessionDelegate {
 
     private func sijak(_ e: String) {
         eodiseo = e
+        GeulIlgi.shared.kkeugi(malHagi: false)   // 2.16.0 카메라는 한 곳만
+        QrEngine.shared.kkeugi(malHagi: false)
         jjikgiNow = (e == "jjikgi")
         if gidae == nil && !jjikgiNow, let w = WichiEngine.shared.jigeum, let h = NaeMun.shared.geulMun(w.lat, w.lon, 40) {
             gidae = (h.ireum, h.geul ?? [])
@@ -361,7 +361,7 @@ final class MunChatgi: NSObject, ObservableObject, ARSessionDelegate {
     }
 }
 
-// MARK: 화면 — 길 찾기 탭 그 밖에 펼치기(시험 중)
+// MARK: 화면 — 길 찾기 탭 그 밖에 펼치기
 
 struct MunChatgiView: View {
     @ObservedObject private var m = MunChatgi.shared
@@ -371,11 +371,7 @@ struct MunChatgiView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                if !MunChatgi.sihomGaneung {
-                    Text("문 찾기는 시험 중이라 나스 음악 열쇠를 넣은 폰에서만 쓰실 수 있습니다.")
-                        .font(.title3)
-                        .accessibilityFocused($chojeom)
-                } else if m.kyeojim {
+                if m.kyeojim {
                     Button("문 찾기 끄기 — \(m.sangtae)") { m.kkeugi() }
                         .buttonStyle(KeunDanchu())
                         .accessibilityFocused($chojeom)

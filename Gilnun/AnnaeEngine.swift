@@ -87,6 +87,7 @@ final class AnnaeEngine: ObservableObject {
         MalHagi.shared.mureumChoGihwa()
         SinhogiEngine.shared.chatgiKkeugi()
         MunChatgi.shared.kkeugi(malHagi: false)   // 2.15.0 문 찾기도 멈춤
+        GeulIlgi.shared.kkeugi(malHagi: false)    // 2.16.0 즉석 글자 읽기도 멈춤
         SoriEngine.shared.modu_geodugi()
         TabGil.shared.tab = 0
         GilGil.shared.cheotHwamyeon()
@@ -537,8 +538,8 @@ final class AnnaeEngine: ObservableObject {
         Jindong.dochak()
         let s = sigye(w, y)
         malHagi("도착했습니다. \(y.mokjeok.ireum)입니다\(s == 0 ? "" : ". \(s)시 방향 가까이에 있습니다").")
-        // 2.15.0 걸어서 닿으면 카메라로 문 찾기(시험 중인 폰만)
-        if MunChatgi.sihomGaneung && MunChatgi.gigiGaneung {
+        // 2.15.0 걸어서 닿으면 카메라로 문 찾기(2.16.0 모든 폰)
+        if MunChatgi.gigiGaneung {
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) { MunChatgi.shared.kyeogi("dochak") }
         }
         Girok.shared.namgi("dochak", ["m": Int(d), "ochae": Int(w.ochae)])

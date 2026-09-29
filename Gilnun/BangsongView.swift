@@ -144,17 +144,23 @@ struct EumakView: View {
                         .font(.title3)
                     }
                 } else {
-                    Text(b.cheoumIra ? "처음이십니다. 나스 음악에 쓰실 열쇠를 여섯 자 넘게 정해 주십시오."
-                                     : "나스 음악은 열쇠를 넣으신 분만 쓰실 수 있습니다. 한 번 넣으시면 폰에 담아 두어 다시 묻지 않습니다.")
+                    // 2.16.0 길 위의 음악은 열쇠 없이 모든 분께(이사장님 지시) — 나스 음악에 닿지 못할 때만 이 줄
+                    Text("나스 음악을 불러오는 중입니다. 오래 걸리면 통신을 확인하시고 이 화면을 다시 열어 주십시오.")
                         .font(.body)
-                    SecureField("나스 음악 열쇠", text: $pw)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.title3)
-                        .submitLabel(.go)
-                        .onSubmit { deureogagi() }
-                    Button(deureoganeun ? "들어가는 중입니다" : "들어가기") { deureogagi() }.buttonStyle(KeunDanchu())
                 }
-                DisclosureGroup("누구나 음악 펼치기 — 열쇠 없이") {
+                // 2.16.0 말로 그린 길(이사장님 개인 길)에 쓰는 열쇠만 여기서 넣음 — 음악에는 열쇠가 필요 없음
+                DisclosureGroup("말로 그린 길 열쇠 넣기 펼치기") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        SecureField("나스 열쇠", text: $pw)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.title3)
+                            .submitLabel(.go)
+                            .onSubmit { deureogagi() }
+                        Button(deureoganeun ? "넣는 중입니다" : "열쇠 넣기") { deureogagi() }.buttonStyle(KeunDanchu())
+                    }
+                }
+                .font(.title3)
+                DisclosureGroup("누구나 음악 펼치기 — 공유마당 곡") {
                     VStack(alignment: .leading, spacing: 10) {
                         Button("잔잔한 음악 틀기") { Task { await b.nugunaTeulgi("jan", "잔잔한 음악을 틉니다.") } }.buttonStyle(KeunDanchu())
                         Button("밝은 음악 틀기") { Task { await b.nugunaTeulgi("bal", "밝은 음악을 틉니다.") } }.buttonStyle(KeunDanchu())
@@ -162,7 +168,7 @@ struct EumakView: View {
                     }
                 }
                 .font(.title3)
-                // 2.13.0 기분과 날씨에 맞춰 틀기(열쇠가 없으면 누구나 음악으로)
+                // 2.13.0 기분과 날씨에 맞춰 틀기(나스 음악에 닿지 못할 때만 누구나 음악으로)
                 DisclosureGroup("기분과 날씨로 틀기 펼치기") {
                     VStack(alignment: .leading, spacing: 10) {
                         ForEach(BangsongEngine.Gibun.allCases) { g in
@@ -210,7 +216,7 @@ struct EumakView: View {
                 } else {
                     temaDeul = t
                     if let g = b.galraeDeul.first, !b.galraeDeul.contains(galrae) { galrae = g }
-                    SoriEngine.shared.mal("들어오셨습니다. 갈래와 테마를 고르고 이어서 틀기를 누르십시오.")
+                    SoriEngine.shared.mal("열쇠를 넣었습니다. 이제 말로 그린 길을 쓰실 수 있습니다.")
                 }
             }
         }

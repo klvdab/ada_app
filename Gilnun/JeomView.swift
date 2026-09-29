@@ -899,7 +899,7 @@ struct NaeMunView: View {
         if w.ochae > 20 { alrigi("지금은 위성이 흐려 자리가 \(Int(w.ochae))미터쯤 어긋날 수 있습니다. 문 바로 앞 밖에서 다시 눌러 주십시오."); return }
         cheot = (w, WichiEngine.shared.nachimban, Date())
         var t = "한 번 찍었습니다. 문을 지나 두 걸음 들어가신 뒤 한 번 더 찍어 주십시오."
-        if MunChatgi.sihomGaneung && MunChatgi.gigiGaneung {
+        if MunChatgi.gigiGaneung {
             MunChatgi.shared.kyeogi("jjikgi")
             t += " 그동안 카메라가 문 둘레 글자를 읽습니다. 폰을 문 쪽으로 들어 주십시오."
         }

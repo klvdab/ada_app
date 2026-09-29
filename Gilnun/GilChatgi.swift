@@ -137,10 +137,8 @@ struct GilChatgiView: View {
                             .buttonStyle(KeunDanchu())
                         NavigationLink(value: GilHwamyeon.yudo) { Text("음성유도기와 승강기 — 가까운 역의 음성유도기, 엘리베이터") }
                             .buttonStyle(KeunDanchu())
-                        if MunChatgi.sihomGaneung {
-                            NavigationLink(value: GilHwamyeon.munChatgi) { Text("문 찾기(시험 중) — 카메라로 앞의 문을 찾아 방향과 걸음 수로") }
-                                .buttonStyle(KeunDanchu())
-                        }
+                        NavigationLink(value: GilHwamyeon.munChatgi) { Text("문 찾기 — 카메라로 앞의 문을 찾아 방향과 걸음 수로") }
+                            .buttonStyle(KeunDanchu())
                         NavigationLink(value: GilHwamyeon.gicho) { Text("기초 시험") }
                             .buttonStyle(KeunDanchu())
                     }

@@ -525,10 +525,10 @@ final class JeomEngine: ObservableObject {
                 return
             }
             if munOn {
-                // 2.15.0 문 10미터 안 — 카메라 문 찾기를 저절로(시험 중인 폰만). 위성 안내는 그대로 이어 감
+                // 2.15.0 문 10미터 안 — 카메라 문 찾기를 저절로(2.16.0 모든 폰). 위성 안내는 그대로 이어 감
                 if dm < 10 && !munKamera {
                     munKamera = true
-                    if MunChatgi.sihomGaneung && MunChatgi.gigiGaneung {
+                    if MunChatgi.gigiGaneung {
                         if !MU.geul.isEmpty { MunChatgi.shared.gidae = (MU.ireum, MU.geul) }   // 찍어 두신 문의 글자로 맞는 문인지 가림
                         MunChatgi.shared.kyeogi("munkkaji")
                     }

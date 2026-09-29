@@ -462,12 +462,11 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
 
     // MARK: 길 위의 음악 — 나스 음악(열쇠)
 
-    /// 화면이 열릴 때 — 열쇠가 있으면 갈래를 받아 둠
+    /// 화면이 열릴 때 — 갈래를 받아 둠(2.16.0 이사장님 지시: 길 위의 음악은 열쇠 없이 모든 분께 선물로 엶)
     func eumakJunbi() async {
         let s = await eumakMutgi("sangtae")
         let cheoum = !((s?["jeonghaessna"] as? Bool) ?? true)
         await MainActor.run { self.cheoumIra = cheoum }
-        guard !tk.isEmpty else { await MainActor.run { self.eumakDeureom = false }; return }
         let g = await eumakMutgi("galrae")
         let ok = (g?["ok"] as? Bool) == true
         await MainActor.run {
@@ -546,11 +545,11 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
             ap = "지금 날씨는 \(haneul)입니다. \(j)에 어울리는 곡으로 골라 드리겠습니다."
         }
         Girok.shared.namgi("gibun_eumak", ["g": g.rawValue])
-        if tk.isEmpty {
-            await nugunaTeulgi(g.nugunaBun, ap + " 나스 음악 열쇠가 없어 누구나 음악의 \(g.nugunaBun == "bal" ? "밝은" : "잔잔한") 곡을 틉니다.")
+        if !eumakDeureom { await eumakJunbi() }
+        if !eumakDeureom {   // 나스 음악에 닿지 못할 때만 누구나 음악으로
+            await nugunaTeulgi(g.nugunaBun, ap + " 나스 음악에 닿지 못해 누구나 음악의 \(g.nugunaBun == "bal" ? "밝은" : "잔잔한") 곡을 틉니다.")
             return ""
         }
-        if !eumakDeureom { await eumakJunbi() }
         switch g {
         case .jeonhwan, .heung: juje = "신나는 댄스"
         case .chabun: juje = "잔잔한 음악"
@@ -679,7 +678,7 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
     }
 
     static func badaduki(_ f: String, _ tk: String) async {
-        guard batadun(f) == nil, !tk.isEmpty,
+        guard batadun(f) == nil,
               let u = juso("/jeom/eumak.php", [("a", "teul"), ("tk", tk), ("f", f), ("q", "g")]),
               let dr = try? await URLSession.shared.download(from: u),
               (dr.1 as? HTTPURLResponse)?.statusCode == 200 else { return }
@@ -701,7 +700,15 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
     // MARK: 지나는 고장 노래 저절로(1분마다)
 
     func jadoKyeogi() {
-        guard eumakDeureom else { SoriEngine.shared.mal("나스 음악 열쇠를 먼저 넣어 주십시오."); return }
+        guard eumakDeureom else {
+            Task {
+                await self.eumakJunbi()
+                await MainActor.run {
+                    if self.eumakDeureom { self.jadoKyeogi() } else { SoriEngine.shared.mal("나스 음악에 닿지 못했습니다. 통신을 확인해 주십시오.") }
+                }
+            }
+            return
+        }
         jadoKyeojim = true
         jadoKey = ""
         SoriEngine.shared.mal("지나는 고장 노래를 저절로 틀어 드립니다.")
@@ -713,7 +720,7 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
     /// 2.12.7 차에 타면 지나는 고장 노래를 저절로(설정에서 끔) — 라디오·TV·기사를 듣고 계시면 건드리지 않음(이사장님 승인 1)
     private var jadoChaRo = false
     func chaTamGojangNorae() {
-        guard Seoljeong.shared.gojangNorae, !jadoKyeojim, !tk.isEmpty else { return }
+        guard Seoljeong.shared.gojangNorae, !jadoKyeojim else { return }
         guard jong == .eopseum || jong == .eumak else { return }
         Task {
             if !self.eumakDeureom { await self.eumakJunbi() }
