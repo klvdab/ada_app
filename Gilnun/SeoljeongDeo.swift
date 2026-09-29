@@ -85,7 +85,9 @@ struct GingeupGongjiJul: View {
     var body: some View {
         if let g = e.gingeupSae {
             Button("긴급 공지 — \(g.jemok). 두드리면 읽어 드리고 내립니다") {
-                SoriEngine.shared.mal("긴급 공지. \(g.jemok). \(g.naeyong)")
+                // 2.12.0 길눈 말소리를 꺼 두셨어도 긴급 공지는 보이스오버로 읽어 드림
+                let t = "긴급 공지. \(g.jemok). \(g.naeyong)"
+                if Seoljeong.shared.malKyeojim { SoriEngine.shared.mal(t) } else { UIAccessibility.post(notification: .announcement, argument: t) }
                 e.ilgeumPyosi(g)
             }
             .buttonStyle(KeunDanchu())

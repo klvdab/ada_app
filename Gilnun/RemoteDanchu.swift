@@ -119,8 +119,18 @@ final class RemoteDanchu {
         mukgi(c.stopCommand, "play")
         mukgi(c.nextTrackCommand, "next")
         mukgi(c.previousTrackCommand, "prev")
-        mukgi(c.seekForwardCommand, "next")
-        mukgi(c.seekBackwardCommand, "prev")
+        // 2.12.0 길게 누름(앞뒤로 감기)은 누르기 시작할 때 한 번만 — 끝날 때 또 하지 않게
+        let gamgi: (MPRemoteCommand, String) -> Void = { cmd, ireum in
+            cmd.isEnabled = true
+            cmd.removeTarget(nil)
+            cmd.addTarget { [weak self] e in
+                if let se = e as? MPSeekCommandEvent, se.type != .beginSeeking { return .success }
+                DispatchQueue.main.async { self?.nulleum(ireum) }
+                return .success
+            }
+        }
+        gamgi(c.seekForwardCommand, "next")
+        gamgi(c.seekBackwardCommand, "prev")
         MPNowPlayingInfoCenter.default().nowPlayingInfo = [
             MPMediaItemPropertyTitle: jemok,
             MPMediaItemPropertyArtist: "길눈 — 한국시각장애인현장영상해설협회",

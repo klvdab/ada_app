@@ -7,15 +7,19 @@ import Security
 enum Yeolsoe {
     private static let seobiseu = "kr.or.ada.gilnun"
 
-    static func ilgi(_ k: String) -> String? {
+    static func ilgi(_ k: String) -> String? { ilgiSangtae(k).0 }
+
+    /// 2.12.0 읽은 값과 까닭 — 없어서 못 읽은 것(errSecItemNotFound)과 잠겨서 못 읽은 것을 가림
+    static func ilgiSangtae(_ k: String) -> (String?, OSStatus) {
         let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                 kSecAttrService as String: seobiseu,
                                 kSecAttrAccount as String: k,
                                 kSecReturnData as String: true,
                                 kSecMatchLimit as String: kSecMatchLimitOne]
         var r: AnyObject?
-        guard SecItemCopyMatching(q as CFDictionary, &r) == errSecSuccess, let d = r as? Data else { return nil }
-        return String(data: d, encoding: .utf8)
+        let st = SecItemCopyMatching(q as CFDictionary, &r)
+        guard st == errSecSuccess, let d = r as? Data else { return (nil, st) }
+        return (String(data: d, encoding: .utf8), st)
     }
 
     static func sseugi(_ k: String, _ v: String) {
@@ -31,11 +35,13 @@ enum Yeolsoe {
 
     /// 가족·지인 명단의 주인 열쇠(스물두 자) — 한 번 만들면 바뀌지 않음
     static var juin: String {
-        if let v = ilgi("juin"), v.count >= 16 { return v }
+        let (v0, st) = ilgiSangtae("juin")
+        if let v = v0, v.count >= 16 { return v }
         let ja = Array("abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789")
         var s = ""
         for _ in 0..<22 { s.append(ja[Int.random(in: 0..<ja.count)]) }
-        sseugi("juin", s)
+        // 2.12.0 정말 없을 때만 새로 적음 — 폰이 잠겨 잠시 못 읽은 것이면 있던 열쇠를 지우지 않음
+        if st == errSecItemNotFound || v0 != nil { sseugi("juin", s) }
         return s
     }
 }

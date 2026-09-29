@@ -197,7 +197,7 @@ final class JihacheolEngine {
     }
 
     /// 한 역 지났을 때
-    private func hanYeok() {
+    private func hanYeok(malHam: Bool = true) {
         guard dolgo, var g = gil, !g.kkeutnam, !g.jina.isEmpty else { return }
         g.i = min(g.i + 1, g.jina.count - 1)
         majimak = Date()
@@ -229,7 +229,7 @@ final class JihacheolEngine {
             mal = "\(ji)역입니다. 다음은 \(JihacheolEngine.ireum(g.jina[g.i + 1]))역입니다."
         }
         yj.jihaNoki(g)
-        SoriEngine.shared.mal(mal)
+        if malHam { SoriEngine.shared.mal(mal) }
         Girok.shared.namgi("jiha_yeok", ["i": g.i, "nam": nam])
         if g.kkeutnam {
             dolgo = false
@@ -292,9 +292,13 @@ final class JihacheolEngine {
         let yeok = JihacheolEngine.ireum((n["yeok"] as? String) ?? "")
         guard let ja = g.jina.lastIndex(where: { JihacheolEngine.ireum($0) == yeok }) else { return }
         var bon = 0
+        // 2.12.0 실시간으로 여러 역을 따라잡을 때는 조용히 넘기고 마지막 역(과 갈아타는 역)만 말함
         while (gil?.i ?? ja) < ja && !(gil?.kkeutnam ?? true) && bon < 12 {
-            hanYeok()
+            let daeum = (gil?.i ?? ja) + 1
+            let galaTa = hwanJa.contains(daeum)
+            hanYeok(malHam: daeum >= ja || galaTa)
             bon += 1
+            if galaTa { break }
         }
     }
 
@@ -342,7 +346,8 @@ final class JihacheolEngine {
             seonTtae = nil
         }
         // 타는 역에 닿은 뒤 — 흔들리며 움직이는데 걸음이 없으면 열차에 탄 것
-        if !dolgo && tabeumGamsi && dallim, let ds = dallimSijak, now.timeIntervalSince(ds) >= 15,
+        // 2.12.0 긴 에스컬레이터를 열차로 잘못 알지 않게 30초
+        if !dolgo && tabeumGamsi && dallim, let ds = dallimSijak, now.timeIntervalSince(ds) >= 30,
            WichiEngine.shared.oneulGeoreum - dallimGeoreum <= 3 {
             tabeumGamsi = false
             tatda(jadong: true)

@@ -51,6 +51,7 @@ final class SinhogiEngine: NSObject, CBCentralManagerDelegate, CBPeripheralDeleg
     // MARK: 세우기
 
     func sijak() {
+        dwi = UIApplication.shared.applicationState == .background   // 2.12.0 잠긴 채 켜졌으면 처음부터 뒤 살피기로
         let nc = NotificationCenter.default
         nc.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
             self?.dwi = true
@@ -283,7 +284,9 @@ final class SinhogiEngine: NSObject, CBCentralManagerDelegate, CBPeripheralDeleg
             jadongBonaegi(1, p)
             return
         }
-        if let since = gakkaSince[id], now.timeIntervalSince(since) >= 4,
+        // 2.12.0 잠겨 있으면 아이폰이 같은 기기를 한 번만 알려 주므로 — 가까이(-65 이상) 한 번 잡혀도 신호 안내
+        let meomum = gakkaSince[id].map { now.timeIntervalSince($0) >= 4 } ?? false
+        if meomum || (dwi && r >= -65),
            now.timeIntervalSince(lastSinho[id] ?? .distantPast) > 180,
            now.timeIntervalSince(lastWichi[id] ?? .distantPast) > 6 {
             lastSinho[id] = now

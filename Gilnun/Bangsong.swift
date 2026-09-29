@@ -361,7 +361,7 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
             return
         }
         let t = player.currentTime().seconds
-        if t.isFinite && t > majimakJari + 0.5 {
+        if t.isFinite && t > max(majimakJari, 0) + 0.5 {   // 2.12.0 새로 이은 흐름이 막 시작한 것은 움직임으로 치지 않음
             majimakJari = t
             majimakUmjik = Date()
             ieumSu = 0

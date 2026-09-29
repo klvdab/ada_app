@@ -4,6 +4,7 @@
 //   폰이 곁에 없을 때 워치가 받을 수 있게 마지막 안내를 나스(watch.php)에도 남김 — 워치 번호는 폰 키체인에
 import Foundation
 import WatchConnectivity
+import Security
 
 final class WatchLink: NSObject, WCSessionDelegate {
     static let shared = WatchLink()
@@ -12,9 +13,10 @@ final class WatchLink: NSObject, WCSessionDelegate {
 
     /// 워치 번호(여섯 자리) — 한 번 만들면 바뀌지 않음
     static var beonho: String {
-        if let v = Yeolsoe.ilgi("watchBeonho"), v.count == 6 { return v }
+        let (v0, st) = Yeolsoe.ilgiSangtae("watchBeonho")
+        if let v = v0, v.count == 6 { return v }
         let s = String((0..<6).map { _ in "0123456789".randomElement()! })
-        Yeolsoe.sseugi("watchBeonho", s)
+        if st == errSecItemNotFound || v0 != nil { Yeolsoe.sseugi("watchBeonho", s) }   // 2.12.0 잠겨 못 읽은 것이면 지우지 않음
         return s
     }
 
