@@ -1,4 +1,4 @@
-# 협회 앱 · 자봉 앱 · 배프 앱 — XcodeGen 설계도 (1.3.1판, 빌드 260928-16 — 길눈 앱을 Gilnun 폴더 자체 코드로, 길눈 2.12.0 정밀검사 39가지 고침, WebRTC 부품)
+# 협회 앱 · 자봉 앱 · 배프 앱 — XcodeGen 설계도 (1.3.2판, 빌드 260929-1 — 길눈 2.12.1 하이 길눈·기사 읽기 멈춤·탭 커서 첫 줄)
 # 한 저장소에 세 앱을 담습니다. 짓기 설정(build.yml)에서 어느 앱을 지을지 골라 씁니다.
 #   AdaApp     협회 앱  (kr.or.ada.app)     대문 https://lvd.ada.or.kr/app/     + 애플워치
 #   JabongApp  자봉 앱  (kr.or.ada.jabong)  대문 https://lvd.ada.or.kr/jabong/
@@ -69,7 +69,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "2.12.0"
+        MARKETING_VERSION: "2.12.1"
   JabongApp:
     type: application
     platform: iOS
@@ -167,7 +167,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app.watchkitapp
         TARGETED_DEVICE_FAMILY: "4"
-        MARKETING_VERSION: "2.12.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
+        MARKETING_VERSION: "2.12.1"   # 워치 판은 폰 길눈 판과 같아야 올라감
 schemes:
   AdaApp:
     build:
