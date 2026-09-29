@@ -473,6 +473,8 @@ struct NaeMunHang: Codable, Identifiable {
     var lon: Double
     var bang: Double?
     var made: String
+    var geul: [String]? = nil    // 2.15.0 두 번 찍을 때 카메라가 읽은 문 둘레 글자(호수 등) — 사진은 담지 않음
+    var jjak: Bool? = nil        // 2.15.0 두 번 찍어 담은 문(문 앞 한 번, 지나서 한 번)
 }
 
 final class NaeMun: ObservableObject {
@@ -496,5 +498,36 @@ final class NaeMun: ObservableObject {
     func jiugi(_ id: String) {
         mokrok.removeAll { $0.id == id }
         jeojang()
+    }
+
+    /// 2.15.0 두 번 찍어 담기 — 5미터 안에 이미 담은 문이 있으면 새로 담지 않고 글자와 자리를 보탬. 돌려주는 값: 알릴 말
+    @discardableResult
+    func jjakDamgi(ireum: String, lat: Double, lon: Double, bang: Double?, geul: [String]) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ko_KR")
+        f.dateFormat = "M월 d일"
+        if let i = mokrok.firstIndex(where: { WichiEngine.geori($0.lat, $0.lon, lat, lon) < 5 }) {
+            var h = mokrok[i]
+            var g = h.geul ?? []
+            for x in geul where !g.contains(x) { g.append(x) }
+            h.geul = g.isEmpty ? nil : Array(g.prefix(4))
+            if h.jjak != true { h.lat = lat; h.lon = lon }
+            if let b = bang { h.bang = b }
+            h.jjak = true
+            if !ireum.isEmpty && (h.ireum == "내 문" || h.ireum == "문") { h.ireum = ireum }
+            mokrok[i] = h
+            jeojang()
+            return "이미 담아 두신 \(h.ireum)입니다. 두 번 찍은 자리" + (geul.isEmpty ? "" : "와 문 둘레 글자") + "를 보탰습니다."
+        }
+        let nm = !ireum.isEmpty ? ireum : (geul.first ?? "내 문")
+        damgi(NaeMunHang(id: UUID().uuidString, ireum: nm, lat: lat, lon: lon, bang: bang,
+                         made: f.string(from: Date()), geul: geul.isEmpty ? nil : Array(geul.prefix(4)), jjak: true))
+        return "\(nm)을 내 문으로 담았습니다." + (geul.isEmpty ? "" : " 문 둘레 글자 \(geul.prefix(2).joined(separator: ", "))도 함께 담았습니다.")
+    }
+
+    /// 2.15.0 가까운 내 문 가운데 글자를 담아 둔 것(문 찾기가 "찍어 두신 문"인지 가릴 때 씀)
+    func geulMun(_ lat: Double, _ lon: Double, _ r: Double) -> NaeMunHang? {
+        mokrok.filter { !($0.geul ?? []).isEmpty && WichiEngine.geori($0.lat, $0.lon, lat, lon) <= r }
+            .min { WichiEngine.geori($0.lat, $0.lon, lat, lon) < WichiEngine.geori($1.lat, $1.lon, lat, lon) }
     }
 }

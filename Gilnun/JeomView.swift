@@ -844,6 +844,7 @@ struct NaeMunView: View {
     @State private var ireum = ""
     @State private var allim = ""
     @State private var jiulGeot: NaeMunHang?
+    @State private var cheot: (Wichi, Double, Date)?   // 2.15.0 두 번 찍기 — 문 앞에서 찍은 자리, 보던 쪽, 때
     @AccessibilityFocusState private var allimChojeom: Bool
 
     var body: some View {
@@ -852,13 +853,27 @@ struct NaeMunView: View {
                 if !allim.isEmpty { Text(allim).font(.title3).accessibilityFocused($allimChojeom) }
                 TextField("문 이름 — 예: 우리 집 현관, 사무실 정문", text: $ireum)
                     .textFieldStyle(.roundedBorder).font(.title3)
-                Button("지금 자리를 내 문으로 담기 — 문 앞에서 문 쪽을 보고 누르십시오") { damgi() }
+                // 2.15.0 두 번 찍기(이사장님 약속 — 문 두 걸음 앞에서 한 번, 문을 지나 두 걸음 들어가서 한 번)
+                if cheot == nil {
+                    Button("문 앞에서 한 번 찍기 — 문 두 걸음 앞에서 문 쪽을 보고") { cheotJjikgi() }
+                        .buttonStyle(KeunDanchu())
+                } else {
+                    Button("문을 지나 한 번 더 찍기 — 두 걸음 들어가서") { dulJjikgi() }
+                        .buttonStyle(KeunDanchu())
+                    Button("찍기 그만두기") {
+                        cheot = nil
+                        _ = MunChatgi.shared.jjikgiKkeut()
+                        alrigi("찍기를 그만두었습니다.")
+                    }
                     .buttonStyle(KeunDanchu())
-                Text("담아 두신 문은 점지도 끝 60미터 안에 있으면 문까지 안내에서 가장 먼저 씁니다. 이 폰 안에만 담깁니다. 지우시려면 그 줄에서 보이스오버로 위아래로 쓸어 지우기를 고르십시오.")
+                }
+                Text("문 두 걸음 앞에서 한 번, 문을 지나 두 걸음 들어가서 한 번 더 찍으시면 두 자리 사이를 문으로, 들어가신 쪽을 들어가는 쪽으로 담습니다. 문 찾기를 쓸 수 있는 폰은 첫 번째 찍을 때 카메라가 문 둘레 글자(호수, 출입구 같은 것)를 함께 읽어 담아 두었다가, 다음에 찾아가실 때 찍어 두신 문인지, 옆 문인지 알려 드립니다. 사진은 담지 않습니다. 담아 두신 문은 점지도 끝 60미터 안에 있으면 문까지 안내에서 가장 먼저 씁니다. 이 폰 안에만 담깁니다. 지우시려면 그 줄에서 보이스오버로 위아래로 쓸어 지우기를 고르십시오.")
                     .font(.body)
                 if !nae.mokrok.isEmpty {
                     Mokrok5(nae.mokrok) { h in
-                        Button("\(h.ireum) · \(h.made)") { SoriEngine.shared.mal("\(h.ireum), \(h.made)에 담은 문입니다.") }
+                        Button("\(h.ireum) · \(h.made)" + ((h.geul ?? []).isEmpty ? "" : " · 글자 \((h.geul ?? []).joined(separator: ", "))")) {
+                            SoriEngine.shared.mal("\(h.ireum), \(h.made)에 \(h.jjak == true ? "두 번 찍어 " : "")담은 문입니다." + ((h.geul ?? []).isEmpty ? "" : " 문 둘레 글자는 \((h.geul ?? []).joined(separator: ", "))입니다."))
+                        }
                             .buttonStyle(KeunDanchu())
                             .accessibilityAction(named: "이 문 지우기") { jiulGeot = h }
                             .contextMenu { Button("이 문 지우기") { jiulGeot = h } }
@@ -875,6 +890,39 @@ struct NaeMunView: View {
             }
             Button("그만두기", role: .cancel) { jiulGeot = nil }
         }
+    }
+
+    /// 2.15.0 첫 번째 찍기 — 문 두 걸음 앞. 문 찾기를 쓸 수 있는 폰은 카메라로 문 둘레 글자를 모으기 시작
+    private func cheotJjikgi() {
+        WichiEngine.shared.sijak()
+        guard let w = WichiEngine.shared.jigeum, Date().timeIntervalSince(w.ttae) < 20 else { alrigi("아직 위치를 잡는 중입니다. 잠시 뒤에 다시 눌러 주십시오."); return }
+        if w.ochae > 20 { alrigi("지금은 위성이 흐려 자리가 \(Int(w.ochae))미터쯤 어긋날 수 있습니다. 문 바로 앞 밖에서 다시 눌러 주십시오."); return }
+        cheot = (w, WichiEngine.shared.nachimban, Date())
+        var t = "한 번 찍었습니다. 문을 지나 두 걸음 들어가신 뒤 한 번 더 찍어 주십시오."
+        if MunChatgi.sihomGaneung && MunChatgi.gigiGaneung {
+            MunChatgi.shared.kyeogi("jjikgi")
+            t += " 그동안 카메라가 문 둘레 글자를 읽습니다. 폰을 문 쪽으로 들어 주십시오."
+        }
+        alrigi(t)
+    }
+
+    /// 2.15.0 두 번째 찍기 — 문을 지나 두 걸음. 두 자리 사이를 문으로
+    private func dulJjikgi() {
+        guard let c = cheot else { return }
+        let geul = MunChatgi.shared.jjikgiKkeut()
+        cheot = nil
+        if Date().timeIntervalSince(c.2) > 120 { alrigi("첫 번째 찍은 지 2분이 넘어 다시 찍어야 합니다. 문 두 걸음 앞에서 한 번 찍기부터 다시 해 주십시오."); return }
+        guard let w = WichiEngine.shared.jigeum, Date().timeIntervalSince(w.ttae) < 20 else { alrigi("위치를 받지 못해 담지 못했습니다. 다시 찍어 주십시오."); return }
+        let d = WichiEngine.geori(c.0.lat, c.0.lon, w.lat, w.lon)
+        if d > 8 { alrigi("두 자리가 \(Int(d))미터나 떨어져 문으로 보기 어렵습니다. 위성이 흔들린 것 같습니다. 다시 찍어 주십시오."); return }
+        let n = WichiEngine.shared.nachimban
+        var bang: Double? = n >= 0 ? n : (c.1 >= 0 ? c.1 : nil)
+        if bang == nil && d >= 1.5 { bang = WichiEngine.bangwi(c.0.lat, c.0.lon, w.lat, w.lon) }
+        let nm = ireum.trimmingCharacters(in: .whitespaces)
+        let m = nae.jjakDamgi(ireum: nm, lat: (c.0.lat + w.lat) / 2, lon: (c.0.lon + w.lon) / 2, bang: bang, geul: geul)
+        ireum = ""
+        Girok.shared.namgi("naemun_jjak", ["geul": geul.count])
+        alrigi(m + (bang != nil ? " 들어가신 쪽을 들어가는 쪽으로 적었습니다." : ""))
     }
 
     private func damgi() {

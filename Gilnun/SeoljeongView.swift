@@ -77,6 +77,10 @@ struct MalSeoljeongView: View {
                 Toggle(isOn: $s.malKyeojim) { Text("길눈 말소리").font(.title3.weight(.semibold)) }
                     .padding(.horizontal, 4)
                     .frame(minHeight: 60)
+                // 2.15.0 카메라 눈 말소리 — 끄면 문 찾기 등이 소리로만
+                Toggle(isOn: $s.kameraMal) { Text("카메라 눈 말소리").font(.title3.weight(.semibold)) }
+                    .padding(.horizontal, 4)
+                    .frame(minHeight: 60)
                 Button("빠르기 — \(Seoljeong.bbareugiIreum[s.bbareugiDan]). 누르면 바꿉니다") {
                     s.bbareugiDan = (s.bbareugiDan + 1) % Seoljeong.bbareugiIreum.count
                     SoriEngine.shared.mal("\(Seoljeong.bbareugiIreum[s.bbareugiDan]) 말씀드립니다.")

@@ -38,6 +38,7 @@ struct JeomMun {
     let bang: Double?
     let jarye: Int
     let d: Double
+    var geul: [String] = []   // 2.15.0 내 문에 담아 둔 문 둘레 글자
 }
 
 final class JeomEngine: ObservableObject {
@@ -56,6 +57,7 @@ final class JeomEngine: ObservableObject {
     // 2.11.0 문까지 이어 안내(이사장님 가1 — 내 문 먼저)
     @Published private(set) var munOn = false
     @Published private(set) var munSu = 0
+    private var munKamera = false   // 2.15.0 문 10미터 안에서 카메라 문 찾기를 켰는지
     private var mun: JeomMun?
     private var munList: [JeomMun] = []
     private var munIdx = 0
@@ -294,7 +296,7 @@ final class JeomEngine: ObservableObject {
         idx = 0; firstFix = true; me = nil; spd = 0; lastP = nil; offSu = 0; beoseoSu = 0
         jeop30 = false; jeop20 = false; cheotBang = false; dolgiMok = nil; geonneolOn = false; geonneol = nil
         geoMode = false; dwiNeolge = false; geollimJari = nil; geollimHan = []
-        munOn = false; mun = nil; munList = []; munSu = 0; munIdx = 0; munDasi = false; munGakkaum = nil
+        munOn = false; mun = nil; munList = []; munSu = 0; munIdx = 0; munDasi = false; munGakkaum = nil; munKamera = false
         juwiRows = []; juwiHan = []; juwiEonje = .distantPast; juwiJari = nil; juwiCenter = nil; juwiBatT = .distantPast
         sijakT = Date()
         jariTtae = Date(); wiseongTtae = Date()
@@ -373,7 +375,7 @@ final class JeomEngine: ObservableObject {
         sigye?.invalidate()
         sigye = nil
         umjik.stopAccelerometerUpdates()
-        munOn = false; mun = nil; munList = []; munSu = 0
+        munOn = false; mun = nil; munList = []; munSu = 0; munKamera = false
         gil = nil
         dochakHam = false
         sangMal = ""
@@ -523,6 +525,14 @@ final class JeomEngine: ObservableObject {
                 return
             }
             if munOn {
+                // 2.15.0 문 10미터 안 — 카메라 문 찾기를 저절로(시험 중인 폰만). 위성 안내는 그대로 이어 감
+                if dm < 10 && !munKamera {
+                    munKamera = true
+                    if MunChatgi.sihomGaneung && MunChatgi.gigiGaneung {
+                        if !MU.geul.isEmpty { MunChatgi.shared.gidae = (MU.ireum, MU.geul) }   // 찍어 두신 문의 글자로 맞는 문인지 가림
+                        MunChatgi.shared.kyeogi("munkkaji")
+                    }
+                }
                 if let g = munGakkaum {
                     if g - dm >= 1.5 { munGakkaum = dm; eum(.hwaksin) } else if dm > g + 3 { munGakkaum = dm }
                 }
@@ -532,7 +542,7 @@ final class JeomEngine: ObservableObject {
                     dochak(munAp: t)
                     return
                 }
-                if now.timeIntervalSince(munT) > 2.5 { munT = now; mal(munMal(MU)) }
+                if now.timeIntervalSince(munT) > 2.5 && !MunChatgi.shared.munBoim { munT = now; mal(munMal(MU)) }   // 2.15.0 카메라가 문을 보고 있으면 카메라 말에 맡김
                 return
             }
         }
@@ -1225,7 +1235,7 @@ final class JeomEngine: ObservableObject {
         let hubo: [JeomMun] = NaeMun.shared.mokrok.compactMap { m in
             let d = WichiEngine.geori(kk.lat, kk.lon, m.lat, m.lon)
             guard d <= 60 else { return nil }
-            return JeomMun(lat: m.lat, lon: m.lon, ireum: m.ireum.isEmpty ? "내 문" : m.ireum, saengMal: "", bang: m.bang, jarye: 0, d: d)
+            return JeomMun(lat: m.lat, lon: m.lon, ireum: m.ireum.isEmpty ? "내 문" : m.ireum, saengMal: "", bang: m.bang, jarye: 0, d: d, geul: m.geul ?? [])
         }
         munSeugi(hubo)
         munBeon += 1

@@ -27,6 +27,8 @@ final class Seoljeong: ObservableObject {
     @Published var gojangJadong: Bool { didSet { d.set(gojangJadong, forKey: "gn.gojangJadong") } }
     /// 2.12.7 차에 타면 지나는 고장 노래 저절로 틀기(처음부터 켜짐, 나스 음악 열쇠가 있을 때만)
     @Published var gojangNorae: Bool { didSet { d.set(gojangNorae, forKey: "gn.gojangNorae") } }
+    /// 2.15.0 카메라 눈 말소리 — 끄면 문 찾기 등 카메라 기능이 말 없이 소리로만(처음부터 켜짐)
+    @Published var kameraMal: Bool { didSet { d.set(kameraMal, forKey: "gn.kameraMal") } }
     /// 2.8.0 기사 읽는 목소리와 빠르기(길 안내 목소리와 따로)
     @Published var gisaMoksoriId: String { didSet { d.set(gisaMoksoriId, forKey: "gn.gisaMoksori") } }
     @Published var gisaBbareugiDan: Int { didSet { d.set(gisaBbareugiDan, forKey: "gn.gisaBbareugi") } }
@@ -77,6 +79,7 @@ final class Seoljeong: ObservableObject {
         ieoponDanchu = (ud.object(forKey: "gn.ieoponDanchu") as? Bool) ?? true
         gojangJadong = (ud.object(forKey: "gn.gojangJadong") as? Bool) ?? true
         gojangNorae = (ud.object(forKey: "gn.gojangNorae") as? Bool) ?? true
+        kameraMal = (ud.object(forKey: "gn.kameraMal") as? Bool) ?? true
         gisaMoksoriId = ud.string(forKey: "gn.gisaMoksori") ?? ""
         gisaBbareugiDan = (ud.object(forKey: "gn.gisaBbareugi") as? Int) ?? 2
         malSang = (ud.object(forKey: "gn.malSang") as? Int) ?? 2

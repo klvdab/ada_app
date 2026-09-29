@@ -21,6 +21,7 @@ enum GilHwamyeon: Hashable {
     case qr           // 2.13.0 QR 찾기
     case malgil       // 2.14.0 말로 그린 길(실내)
     case yudo         // 2.14.0 음성유도기와 승강기
+    case munChatgi    // 2.15.0 문 찾기(카메라 눈)
 }
 
 /// 길 찾기 탭의 길(화면 쌓임) — 목적지를 정하면 첫 화면으로 곧장 돌아가게
@@ -54,6 +55,7 @@ struct GilChatgiTab: View {
                     case .qr: QrView()
                     case .malgil: MalgilView()
                     case .yudo: YudoView()
+                    case .munChatgi: MunChatgiView()
                     }
                 }
         }
@@ -135,6 +137,10 @@ struct GilChatgiView: View {
                             .buttonStyle(KeunDanchu())
                         NavigationLink(value: GilHwamyeon.yudo) { Text("음성유도기와 승강기 — 가까운 역의 음성유도기, 엘리베이터") }
                             .buttonStyle(KeunDanchu())
+                        if MunChatgi.sihomGaneung {
+                            NavigationLink(value: GilHwamyeon.munChatgi) { Text("문 찾기(시험 중) — 카메라로 앞의 문을 찾아 방향과 걸음 수로") }
+                                .buttonStyle(KeunDanchu())
+                        }
                         NavigationLink(value: GilHwamyeon.gicho) { Text("기초 시험") }
                             .buttonStyle(KeunDanchu())
                     }
