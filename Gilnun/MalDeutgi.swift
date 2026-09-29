@@ -101,7 +101,9 @@ final class MalDeutgi: NSObject {
 
     private func sesyeon(_ b: Bangsik) throws {
         let s = AVAudioSession.sharedInstance()
-        var o: AVAudioSession.CategoryOptions = [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP]
+        var o: AVAudioSession.CategoryOptions = [.defaultToSpeaker, .allowBluetoothA2DP]
+        // 2.12.0 부름을 기다릴 때는 이어폰을 통화 음질(HFP)로 바꾸지 않음 — 음악이 먹먹해지지 않게
+        if b != .bureum { o.insert(.allowBluetooth) }
         // 부름을 기다릴 때는 음악을 그대로 두고, 명령을 들을 때만 잠시 낮춤
         // 2.6.0 안내 중 이어폰 단추를 받을 때는 섞지 않음(단추가 길눈으로 오게)
         if !RemoteDanchu.shared.kyeojim { o.insert(b == .bureum ? .mixWithOthers : .duckOthers) }

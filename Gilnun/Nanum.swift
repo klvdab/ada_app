@@ -242,16 +242,22 @@ final class GongjiEngine: ObservableObject {
     @Published private(set) var batneunJung = false
     @Published private(set) var mot = false
     private var sigye: Timer?
-    private var ilgeun: Set<String> {
-        get { Set(UserDefaults.standard.stringArray(forKey: "gn.gongjiIlgeum") ?? []) }
-        set { UserDefaults.standard.set(Array(newValue.suffix(300)), forKey: "gn.gongjiIlgeum") }
-    }
-    private var allin: Set<String> {
-        get { Set(UserDefaults.standard.stringArray(forKey: "gn.gongjiAllin") ?? []) }
-        set { UserDefaults.standard.set(Array(newValue.suffix(300)), forKey: "gn.gongjiAllin") }
+    private var sijakham = false
+    private var kkeutDeul: [(Bool) -> Void] = []
+    // 2.12.0 읽은 공지·알린 공지는 적은 차례대로 두고, 넘치면 가장 오래된 것부터 지움(읽은 공지가 다시 뜨지 않게)
+    private var ilgeun: Set<String> { Set(UserDefaults.standard.stringArray(forKey: "gn.gongjiIlgeum") ?? []) }
+    private var allin: Set<String> { Set(UserDefaults.standard.stringArray(forKey: "gn.gongjiAllin") ?? []) }
+    private func deohagi(_ ki: String, _ id: String) {
+        var l = UserDefaults.standard.stringArray(forKey: ki) ?? []
+        guard !l.contains(id) else { return }
+        l.append(id)
+        if l.count > 300 { l.removeFirst(l.count - 300) }
+        UserDefaults.standard.set(l, forKey: ki)
     }
 
     func sijak() {
+        guard !sijakham else { return }
+        sijakham = true
         batgi()
         sigye?.invalidate()
         sigye = Timer.scheduledTimer(withTimeInterval: 900, repeats: true) { [weak self] _ in self?.batgi() }
@@ -281,13 +287,16 @@ final class GongjiEngine: ObservableObject {
     }
 
     func batgi(_ kkeut: ((Bool) -> Void)? = nil) {
-        guard !batneunJung else { kkeut?(false); return }
+        if let k = kkeut { kkeutDeul.append(k) }   // 2.12.0 받는 중이면 끝날 때 함께 알림
+        guard !batneunJung else { return }
         batneunJung = true
         Task {
             let j = await Nas.get("gongji.php", [("a", "mok"), ("app", "gilnun")])
             await MainActor.run {
                 self.batneunJung = false
-                guard let j = j, (j["ok"] as? Bool) == true else { self.mot = true; kkeut?(false); return }
+                let kd = self.kkeutDeul
+                self.kkeutDeul = []
+                guard let j = j, (j["ok"] as? Bool) == true else { self.mot = true; kd.forEach { $0(false) }; return }
                 self.mot = false
                 self.mok = ((j["gongji"] as? [[String: Any]]) ?? []).compactMap { g in
                     let id = Nas.gul(g["id"])
@@ -296,7 +305,7 @@ final class GongjiEngine: ObservableObject {
                                   gingeup: Nas.gul(g["deunggeup"]) == "gingeup", nalMal: Nas.gul(g["nalMal"]))
                 }
                 self.gingeupBoda()
-                kkeut?(true)
+                kd.forEach { $0(true) }
             }
         }
     }
@@ -305,11 +314,10 @@ final class GongjiEngine: ObservableObject {
         let il = ilgeun
         gingeupSae = mok.first { $0.gingeup && !il.contains($0.id) }
         guard let g = gingeupSae, !allin.contains(g.id) else { return }
-        var a = allin
-        a.insert(g.id)
-        allin = a
+        deohagi("gn.gongjiAllin", g.id)
         if UIApplication.shared.applicationState == .active {
-            SoriEngine.shared.mal("긴급 공지. \(g.jemok). 길 찾기 첫 화면 맨 위에서 들으실 수 있습니다.")
+            let t = "긴급 공지. \(g.jemok). 길 찾기 첫 화면 맨 위에서 들으실 수 있습니다."
+            if Seoljeong.shared.malKyeojim { SoriEngine.shared.mal(t) } else { UIAccessibility.post(notification: .announcement, argument: t) }
         } else {
             let c = UNMutableNotificationContent()
             c.title = "길눈 긴급 공지"
@@ -322,9 +330,8 @@ final class GongjiEngine: ObservableObject {
 
     /// 읽음 — 긴급 공지는 읽으면 첫 화면에서 내려감
     func ilgeumPyosi(_ g: Gongji) {
-        var s = ilgeun
-        s.insert(g.id)
-        ilgeun = s
+        deohagi("gn.gongjiIlgeum", g.id)
+        let s = ilgeun
         if gingeupSae?.id == g.id { gingeupSae = mok.first { $0.gingeup && !s.contains($0.id) } }
     }
 

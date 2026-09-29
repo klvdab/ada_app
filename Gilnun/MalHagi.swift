@@ -35,6 +35,7 @@ final class MalHagi: ObservableObject {
     private var jadongYeolim = 0
     private var bureumDolgo = false
     private var bureumYeyak = false
+    private var bureumSilpae = 0   // 2.12.0 뒤에서 부름 기다리기를 거듭 못 열면 앱으로 돌아올 때까지 쉼
     private var ijeonMal = ""
     private var ssak = Set<AnyCancellable>()
     private var sijakham = false
@@ -81,6 +82,7 @@ final class MalHagi: ObservableObject {
             self.bureumDasi(0.8)
         }
         nc.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.bureumSilpae = 0
             self?.bureumDasi(1.0)
         }
     }
@@ -120,6 +122,7 @@ final class MalHagi: ObservableObject {
         bureumDolgo = false
         SoriEngine.shared.modu_geodugi()   // 명령 먼저 — 하던 말을 멈춤(경고는 남김)
         sangtae = .deutneun
+        SoriEngine.shared.myeongryeongDeutneunJung = true   // 2.12.0 마이크를 여는 틈에 다른 말이 끼어 닫지 않게
         let yeolgi = { [weak self] in
             guard let self = self, self.sangtae == .deutneun else { return }
             SoriEngine.shared.myeongryeongDeutneunJung = true
@@ -242,7 +245,13 @@ final class MalHagi: ObservableObject {
                 self?.bureumDasi(0.3)
             })
             self.bureumDolgo = ok
-            if !ok { self.bureumDasi(10) }
+            if ok { self.bureumSilpae = 0; return }
+            self.bureumSilpae += 1
+            if UIApplication.shared.applicationState == .background && self.bureumSilpae >= 3 {
+                Girok.shared.namgi("bureum_swim", [:])   // 앱으로 돌아오시면 다시 엶
+                return
+            }
+            self.bureumDasi(10)
         }
     }
 

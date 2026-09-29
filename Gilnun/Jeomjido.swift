@@ -68,11 +68,54 @@ struct JeomGil: Codable, Identifiable {
     func dwit() -> JeomGil {
         var g = self
         g.pts = pts.reversed()
-        g.marks = marks.map { m in
+        var out: [JeomPyo] = marks.map { m in
             var x = m
             if let n = m.name { x.name = JeomGil.DWIT[n] ?? n }
+            if let k = m.kind { x.kind = JeomGil.DWIT[k] ?? k }
             return x
         }
+        // 2.12.0 계단과 건널목은 시작과 끝을 짝지어 바꿈 — 거꾸로 걸으면 끝이 시작이 됨
+        func jari(_ m: JeomPyo) -> Int {
+            guard let la = m.lat, let lo = m.lon, la != 0 else { return -1 }
+            var b = -1, bd = 1e9
+            for (k, p) in pts.enumerated() {
+                let d = WichiEngine.geori(la, lo, p.lat, p.lon)
+                if d < bd { bd = d; b = k }
+            }
+            return b
+        }
+        let ix = marks.map(jari)
+        func gyedan(_ n: String) -> Bool { n.contains("계단") }
+        func geonneol(_ n: String) -> Bool { n.contains("횡단보도") || n.contains("건널목") }
+        var sseun = Set<Int>()
+        for (n, m) in marks.enumerated() {
+            let nm = m.ireum
+            let gy = gyedan(nm), gn = geonneol(nm)
+            guard (gy || gn), !nm.contains("끝"), ix[n] >= 0 else { continue }
+            var e: Int?
+            for (k, q) in marks.enumerated() where k != n && !sseun.contains(k) && ix[k] >= ix[n] && q.ireum.contains("끝") {
+                let qn = q.ireum
+                guard gy ? gyedan(qn) : geonneol(qn) else { continue }
+                if e == nil || ix[k] < ix[e!] { e = k }
+            }
+            guard let ek = e else { continue }
+            sseun.insert(ek); sseun.insert(n)
+            if gy {
+                out[ek].name = JeomGil.DWIT[nm] ?? nm
+                out[ek].cnt = m.cnt
+                out[n].name = "계단 끝"
+                out[n].cnt = nil
+            } else {
+                out[ek].name = nm
+                out[ek].dist = m.dist
+                out[n].name = marks[ek].ireum
+            }
+        }
+        // 짝이 없는 건널목 끝은 거꾸로 걸으면 건너기 시작
+        for (n, m) in marks.enumerated() where !sseun.contains(n) && geonneol(m.ireum) && m.ireum.contains("끝") {
+            out[n].name = m.ireum.replacingOccurrences(of: "끝", with: "시작")
+        }
+        g.marks = out.reversed()
         g.from = to
         g.to = from
         return g
@@ -180,11 +223,23 @@ enum Jeomjido {
         guard let ie = await ieumMok() else { return nil }
         let bm = Dictionary(r.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         var bi: (JeomIeum, Double)?
+        var bulleon = 0
         for x in ie {
-            guard let c = x.gugan.first, let k = x.gugan.last, let cm = bm[c.id], let km = bm[k.id] else { continue }
+            guard let c = x.gugan.first, let k = x.gugan.last, let cm = bm[c.id] else { continue }
             let eo = cm.near >= 0 ? cm.near : WichiEngine.geori(me.lat, me.lon, c.dwit ? cm.elat : cm.slat, c.dwit ? cm.elon : cm.slon)
             guard eo <= 50 else { continue }
-            let kkeut = WichiEngine.geori(mok.lat, mok.lon, k.dwit ? km.slat : km.elat, k.dwit ? km.slon : km.elon)
+            // 2.12.0 마지막 구간이 가까운 길 목록에 없으면(멀리 있으면) 불러와 끝을 봄 — 세 번까지
+            var kk: (Double, Double)?
+            if let km = bm[k.id] {
+                kk = k.dwit ? (km.slat, km.slon) : (km.elat, km.elon)
+            } else if bulleon < 3 {
+                bulleon += 1
+                if let kg = await bulleoogi(k.id), let s = kg.pts.first, let e = kg.pts.last {
+                    kk = k.dwit ? (s.lat, s.lon) : (e.lat, e.lon)
+                }
+            }
+            guard let kp = kk else { continue }
+            let kkeut = WichiEngine.geori(mok.lat, mok.lon, kp.0, kp.1)
             if kkeut <= 80, bi == nil || kkeut < bi!.1 { bi = (x, kkeut) }
         }
         guard let x = bi?.0 else { return nil }

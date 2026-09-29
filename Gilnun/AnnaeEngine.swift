@@ -83,6 +83,7 @@ final class AnnaeEngine: ObservableObject {
 
     /// 목적지를 정하고 지하철로 — 먼저 타는 역 출구까지 걷는 안내
     func jihacheolGagi(_ j: Jangso, _ g: JihaGil) {
+        JeomEngine.shared.yeojeongKkeut()
         JihacheolEngine.shared.meomchugi()
         yj.jeonghagi(Mokjeok(ireum: j.ireum, lat: j.lat, lon: j.lon, juso: j.juso))
         yj.jihaNoki(g)
@@ -95,6 +96,7 @@ final class AnnaeEngine: ObservableObject {
 
     /// 목적지를 정하고 버스로 — 먼저 정류장까지 걷는 안내
     func beoseuGagi(_ j: Jangso, _ jr: Jeongryujang) {
+        JeomEngine.shared.yeojeongKkeut()
         JihacheolEngine.shared.meomchugi()
         yj.jeonghagi(Mokjeok(ireum: j.ireum, lat: j.lat, lon: j.lon, juso: j.juso))
         yj.beoseuNoki(BeoseuGil(jeongryujang: jr, dochak: false))
@@ -124,6 +126,7 @@ final class AnnaeEngine: ObservableObject {
 
     func georeoGagi() {
         guard yj.jigeum != nil else { return }
+        if JeomEngine.shared.dochakHam { JeomEngine.shared.yeojeongKkeut() }   // 점지도로 닿은 뒤 다시 걸으시면 위성 안내로
         yj.talgeotJeonghagi(.georeum, barojabeum: false)
         yj.danggyeBakkugi(.namEunGil)
         dasiSijak()
@@ -133,6 +136,7 @@ final class AnnaeEngine: ObservableObject {
 
     func chaTatda() {
         guard yj.jigeum != nil else { return }
+        JeomEngine.shared.yeojeongKkeut()
         JihacheolEngine.shared.meomchugi()
         yj.jihaNoki(nil)
         yj.beoseuNoki(nil)
@@ -253,7 +257,7 @@ final class AnnaeEngine: ObservableObject {
         // 2.10.0 점지도를 따라 걷는 중이면 점지도의 다음 표시·꺾이는 곳
         if JeomEngine.shared.georeoJung { return JeomEngine.shared.daeumMuotMal() }
         guard let w = WichiEngine.shared.jigeum else { return "아직 위치를 잡는 중입니다." }
-        neagoriBoda(w)
+        neagoriBoda(w, malHam: false)   // 2.12.0 자료만 받고 따로 말하지 않음(대답과 겹치지 않게)
         var gakka: (Double, Neagori)?
         for n in neagori where !n.mal.isEmpty {
             let d = WichiEngine.geori(w.lat, w.lon, n.lat, n.lon)
@@ -323,6 +327,7 @@ final class AnnaeEngine: ObservableObject {
             return
         }
         guard y.danggye == .namEunGil || y.danggye == .eotteoke else { return }
+        JeomEngine.shared.yeojeongKkeut()
         JihacheolEngine.shared.meomchugi()
         yj.jihaNoki(nil)
         yj.beoseuNoki(nil)
@@ -339,7 +344,8 @@ final class AnnaeEngine: ObservableObject {
         let d = WichiEngine.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
         namEunGeori = d
         // 2.10.0 점지도를 따라 걷는 동안(도착 뒤 포함)과 점지도로 걸을지 여쭙는 동안에는 점지도 엔진이 안내를 맡음
-        if JeomEngine.shared.gil != nil || JeomEngine.shared.muleum != nil || JeomEngine.shared.bulleoneun { return }
+        // 2.12.0 점지도로 닿은 뒤에는 이 엔진이 다시 맡음(차를 타시거나 다시 걸으실 때 조용하지 않게)
+        if JeomEngine.shared.georeoJung || JeomEngine.shared.muleum != nil || JeomEngine.shared.bulleoneun { return }
         if let b = y.beoseu, y.danggye == .taneunGotKkaji {
             let jr = b.jeongryujang
             if !b.dochak { georeumAnnae(w, ireum: jr.ireum + " 정류장", lat: jr.lat, lon: jr.lon, jungan: true, y) }
@@ -440,7 +446,7 @@ final class AnnaeEngine: ObservableObject {
     /// 2.11.1 점지도를 따라 걷는 동안에도 사거리·갈림길을 알림(웹 ttara 의 Neagori.salpigi)
     func neagoriBakkeseo(_ w: Wichi) { neagoriBoda(w) }
 
-    private func neagoriBoda(_ w: Wichi) {
+    private func neagoriBoda(_ w: Wichi, malHam: Bool = true) {
         let badeulTtae: Bool
         if let j = neagoriJari {
             badeulTtae = WichiEngine.geori(j.0, j.1, w.lat, w.lon) > 400
@@ -458,7 +464,7 @@ final class AnnaeEngine: ObservableObject {
                 }
             }
         }
-        guard w.ochae <= 20, !w.georeumChu || w.ochae <= 15 else { return }
+        guard malHam, w.ochae <= 20, !w.georeumChu || w.ochae <= 15 else { return }
         // 2.9.0 꺾이는 곳 알리기(설정에서 끔), 몇 초 앞에서(걸음 초속 1.3미터로 셈, 기본 8초 → 10미터쯤)
         guard Seoljeong.shared.kkeokOn else { return }
         let ap = max(6, Double(Seoljeong.shared.kkeokCho) * 1.3)
@@ -560,8 +566,8 @@ final class AnnaeEngine: ObservableObject {
                WichiEngine.shared.oneulGeoreum - neurinGeoreum >= 15 {
                 naeryeotda(jadong: true)
             }
-        } else if w.sokdo >= 3 {
-            neurinSijak = nil
+        } else if w.sokdo >= 2 {
+            neurinSijak = nil   // 2.12.0 다시 달리면(초속 2미터 넘게) 내림 셈을 처음부터
         }
     }
 

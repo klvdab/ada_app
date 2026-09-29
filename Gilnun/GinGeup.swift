@@ -137,6 +137,12 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
 
     private func jindo() {
         guard sangtae == .yocheong, !room.isEmpty else { return }
+        // 2.12.0 나스가 답하지 않아도 폰 시계로 한도를 지킴 — 요청이 끝없이 걸려 있지 않게
+        if Date().timeIntervalSince(sijakTtae) >= GinGeup.HANDO + 10 {
+            hangup()
+            kkeut("연결되지 못했습니다. 통신이 약할 수 있습니다. 다시 요청하시거나 전화를 거실 수 있습니다.")
+            return
+        }
         let r = room
         Task {
             guard let d = try? await Tongsin.shared.getSae(REL, ["a": "jindo", "room": r]),
@@ -156,6 +162,12 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
             SoriEngine.shared.mal("\(t) 님이 받으셨습니다. 카메라와 마이크를 켭니다.")
             Girok.shared.namgi("gingeup_badeum", [:])
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.tonghwaSijak() }
+            // 2.12.0 받으신 뒤 40초 안에 통화가 이어지지 않으면 마침
+            DispatchQueue.main.asyncAfter(deadline: .now() + 40) {
+                guard self.sangtae == .yeongyeol, self.room == r else { return }
+                self.hangup()
+                self.kkeut("통화를 잇지 못했습니다. 다시 요청해 주십시오.")
+            }
             return
         }
         if galrae == .jiin {

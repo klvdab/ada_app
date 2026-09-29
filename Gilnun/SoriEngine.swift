@@ -60,11 +60,15 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
     private var kkeutJul: [() -> Void] = []
     /// 2.6.0 최근에 한 말(이어폰 이전 단추 — 앞 안내)
     private var malGirok: [String] = []
+    private var apJari: Int?   // 2.12.0 앞 안내를 거듭 누르면 한 말씩 더 앞으로
 
-    /// 앞 안내 — 방금 한 말의 앞 말을 다시
+    /// 앞 안내 — 방금 한 말의 앞 말을 다시(거듭 누르면 더 앞의 말)
     func apDeutgi() {
         DispatchQueue.main.async {
-            let t = self.malGirok.count >= 2 ? self.malGirok[self.malGirok.count - 2] : (self.malGirok.last ?? "")
+            guard !self.malGirok.isEmpty else { return }
+            let i = max(0, (self.apJari ?? (self.malGirok.count - 1)) - 1)
+            self.apJari = i
+            let t = self.malGirok[i]
             guard !t.isEmpty else { return }
             self.dunmal[t] = nil
             self.jul.insert(Mal(t: "앞 안내. " + t, geup: .annae), at: 0)
@@ -98,6 +102,13 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
         synth.delegate = self
         NotificationCenter.default.addObserver(self, selector: #selector(kkeunkim(_:)),
                                                name: AVAudioSession.interruptionNotification, object: nil)
+        // 2.12.0 끊김이 끝났다는 알림이 오지 않아도 앱으로 돌아오면 다시 말함
+        NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self = self, self.meomchum else { return }
+            self.meomchum = false
+            Girok.shared.namgi("sori_kkeunkim", ["dan": "dasi"])
+            self.naeboenda()
+        }
     }
 
     // MARK: 말하기
@@ -107,7 +118,11 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
         let t = t.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty else { return }
         DispatchQueue.main.async {
-            if self.tonghwaJung { self.majimak = t; return }
+            if self.tonghwaJung {
+                self.majimak = t
+                if geup == .gyeonggo { Jindong.hagi("long") }   // 2.12.0 통화 중 경고는 진동으로
+                return
+            }
             if geup != .gyeonggo && !Seoljeong.shared.malKyeojim {
                 self.majimak = t
                 return
@@ -120,6 +135,10 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
             }
             let m = Mal(t: t, geup: geup)
             if geup == .gyeonggo {
+                // 2.12.0 끊김이 끝났다는 알림을 못 받아 멈춰 있으면 — 경고는 소리 자리를 다시 잡아 봄
+                if self.meomchum {
+                    do { try AVAudioSession.sharedInstance().setActive(true); self.meomchum = false } catch {}
+                }
                 self.jul.insert(m, at: 0)
                 if self.synth.isSpeaking && self.jigeumGeup != .gyeonggo {
                     self.synth.stopSpeaking(at: .word)   // 끊긴 뒤 didCancel 에서 경고부터 냄
@@ -173,8 +192,11 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
         u.preUtteranceDelay = 0.05
         jigeumGeup = m.geup
         majimak = m.t
-        malGirok.append(m.t)
-        if malGirok.count > 12 { malGirok.removeFirst(malGirok.count - 12) }
+        if !m.t.hasPrefix("앞 안내. ") {   // 다시 들려 드린 앞 안내는 기록에 넣지 않음
+            malGirok.append(m.t)
+            if malGirok.count > 12 { malGirok.removeFirst(malGirok.count - 12) }
+            apJari = nil
+        }
         if m.t.count > 2 { WatchLink.shared.malBonae(m.t) }
         malHaneunSu += 1
         synth.speak(u)
@@ -226,9 +248,18 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
         case .doraom: data = SoriEngine.wav([(880, 0.08), (0, 0.04), (1320, 0.1)]); gil = 0.25
         }
         DispatchQueue.main.async {
-            // 명령을 듣는 동안에는 걷는 안내의 작은 소리를 내지 않음(마이크를 지킴) — 경고는 냄
-            if self.myeongryeongDeutneunJung && j != .gyeonggo { return }
-            if j != .deutgi && j != .ttaeng { self.malSijakHook?() }
+            // 명령을 듣는 동안에는 걷는 안내의 작은 소리를 내지 않음(마이크를 지킴) — 경고와 말로 하기 소리는 냄
+            if self.myeongryeongDeutneunJung && j != .gyeonggo && j != .deutgi && j != .ttaeng { return }
+            // 2.12.0 짧은 확신음은 하이 길눈 듣기를 닫지 않고, 듣는 중이면 소리 자리도 건드리지 않음
+            let jjalbeun = (j == .jeomOk || j == .bikyeo || j == .hwaksin)
+            let deutneun = jjalbeun && MalDeutgi.shared.dolgoItda
+            if j != .deutgi && j != .ttaeng && !jjalbeun { self.malSijakHook?() }
+            if deutneun {
+                self.player = try? AVAudioPlayer(data: data)
+                self.player?.volume = 0.8
+                self.player?.play()
+                return
+            }
             self.naerigiJakeop?.cancel()
             self.sesyeonKyeogi()
             BangsongEngine.shared.malSijak(j == .gyeonggo ? .gyeonggo : .annae)

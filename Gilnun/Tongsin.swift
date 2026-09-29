@@ -34,7 +34,11 @@ final class Tongsin: ObservableObject {
         try? FileManager.default.createDirectory(at: gamchum, withIntermediateDirectories: true)
     }
 
+    private var sijakham = false
+
     func sijak() {
+        guard !sijakham else { return }
+        sijakham = true
         mon.pathUpdateHandler = { [weak self] p in
             let ok = (p.status == .satisfied)
             DispatchQueue.main.async {

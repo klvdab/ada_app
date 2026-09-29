@@ -123,6 +123,11 @@ final class JeomEngine: ObservableObject {
     private var tikT = Date()
     private var kkeunMalT = Date.distantPast
     private var muleumJakeop: DispatchWorkItem?
+    private var sedae = 0                          // 2.12.0 그만두면 늦게 돌아온 일(불러오기 등)을 버리려는 세대 번호
+    private var munSijakT = Date()
+    private var geoAcc0: Double = 5
+    private var geoS0: Double = 0
+    private var dwiNeolge = false
 
     // 확신음(hwaksin.js 의 S)
     private struct HS {
@@ -176,6 +181,7 @@ final class JeomEngine: ObservableObject {
     /// 걸어가실 곳에 맞는 점지도가 있으면 여쭙고(mutgi 에 여쭐 말), 없으면 곧장 위성으로 걷는 안내(mutgi 에 nil)
     func georeoGagiBoda(_ j: Jangso, _ mutgi: @escaping (String?) -> Void) {
         muleumJiugi()
+        let sd = sedae
         guard let w = WichiEngine.shared.jigeum else {
             mutgi(nil)
             AnnaeEngine.shared.georeoGagi(j)
@@ -184,6 +190,7 @@ final class JeomEngine: ObservableObject {
         Task {
             let m = await Jeomjido.matneunGil(w, j)
             await MainActor.run {
+                guard sd == self.sedae else { return }
                 guard let mm = m else {
                     mutgi(nil)
                     AnnaeEngine.shared.georeoGagi(j)
@@ -216,6 +223,7 @@ final class JeomEngine: ObservableObject {
     }
 
     func muleumJiugi() {
+        sedae += 1
         muleumJakeop?.cancel()
         muleumJakeop = nil
         muleum = nil
@@ -234,24 +242,41 @@ final class JeomEngine: ObservableObject {
 
     /// 점지도를 불러 따라 걷기 시작
     func bulleoGeotgi(_ id: String, dwit dw: Bool, mok: Jangso? = nil, ieumYuji: Bool = false) {
+        muleumJiugi()
+        let sd = sedae
         bulleoneun = true
         mal(dw ? "되돌아가는 길을 불러오는 중입니다." : "길을 불러오는 중입니다.", .jeongbo)
         Task {
             let g = await Jeomjido.bulleoogi(id)
             await MainActor.run {
+                guard sd == self.sedae else { return }   // 그사이 그만두셨으면 버림
                 self.bulleoneun = false
-                guard let g = g else { self.mal("길을 불러오지 못했습니다. 통신을 확인해 주십시오."); return }
+                guard let g = g else {
+                    // 2.12.0 이어 걷던 길을 못 불러오면 멈추지 않고 위성 안내로 이어 감
+                    if ieumYuji && YeojeongEngine.shared.jigeum != nil {
+                        self.ieum = []; self.ieumIdx = 0; self.ieumMok = nil
+                        self.ieogaJiugi()
+                        self.mal("길을 불러오지 못했습니다. 위성 안내로 이어 갑니다.")
+                        AnnaeEngine.shared.georeoGagi()
+                    } else {
+                        self.mal("길을 불러오지 못했습니다. 통신을 확인해 주십시오.")
+                    }
+                    return
+                }
                 self.sijak(g, dwit: dw, mok: mok, ieumYuji: ieumYuji)
             }
         }
     }
 
     func sijak(_ g0: JeomGil, dwit dw: Bool, mok: Jangso? = nil, ieumYuji: Bool = false) {
+        muleumJiugi()
+        let sd = sedae
+        bulleoneun = false
         geumanSok(malHam: false)
         if !ieumYuji { ieum = []; ieumIdx = 0; ieumMok = nil }
         let g = dw ? g0.dwit() : g0
         let p = g.pts.filter { $0.lat != 0 && $0.lon != 0 }
-        guard p.count >= 3 else { mal("이 길에는 점이 너무 적습니다."); return }
+        guard p.count >= 3 else { ieogaJiugi(); mal("이 길에는 점이 너무 적습니다."); return }
         pts = p
         nu = [0]
         for i in 1..<p.count { nu.append(nu[i - 1] + WichiEngine.geori(p[i - 1].lat, p[i - 1].lon, p[i].lat, p[i].lon)) }
@@ -266,7 +291,7 @@ final class JeomEngine: ObservableObject {
         dochakHam = false
         idx = 0; firstFix = true; me = nil; spd = 0; lastP = nil; offSu = 0; beoseoSu = 0
         jeop30 = false; jeop20 = false; cheotBang = false; dolgiMok = nil; geonneolOn = false; geonneol = nil
-        geoMode = false; geollimJari = nil; geollimHan = []
+        geoMode = false; dwiNeolge = false; geollimJari = nil; geollimHan = []
         munOn = false; mun = nil; munList = []; munSu = 0; munIdx = 0; munDasi = false; munGakkaum = nil
         juwiRows = []; juwiHan = []; juwiEonje = .distantPast; juwiJari = nil; juwiCenter = nil; juwiBatT = .distantPast
         sijakT = Date()
@@ -288,6 +313,7 @@ final class JeomEngine: ObservableObject {
         Task {
             let hwakin = await JeomEngine.hwakinDoen(g0.id)
             await MainActor.run {
+                guard sd == self.sedae, self.gil != nil else { return }
                 var t = self.ieumIdx > 0 ? "" : "길눈은 보조 안내입니다. 지팡이와 주변 소리를 먼저 확인하십시오."
                 if !hwakin { t += " 이 점지도는 아직 확인 중인 길입니다. 조심해서 걸으십시오." }
                 if !t.isEmpty { self.mal(t, .gyeonggo) }
@@ -313,7 +339,13 @@ final class JeomEngine: ObservableObject {
 
     /// 그만 걷기
     func geuman() {
-        guard gil != nil else { return }
+        let bulleo = bulleoneun
+        sedae += 1
+        bulleoneun = false
+        guard gil != nil else {
+            if bulleo { ieum = []; ieumIdx = 0; ieumMok = nil; ieogaJiugi(); mal("따라 걷기를 그만두었습니다.") }
+            return
+        }
         ieum = []; ieumIdx = 0; ieumMok = nil
         ieogaJiugi()
         if let b = hamkkeBunho { hamkkeKkeut(b); hamkkeBunho = nil }
@@ -326,6 +358,7 @@ final class JeomEngine: ObservableObject {
     /// 여정을 끝낼 때 — 안내 엔진이 부름
     func yeojeongKkeut() {
         muleumJiugi()
+        bulleoneun = false
         ieum = []; ieumIdx = 0; ieumMok = nil
         ieogaJiugi()
         if let b = hamkkeBunho { hamkkeKkeut(b); hamkkeBunho = nil }
@@ -350,6 +383,12 @@ final class JeomEngine: ObservableObject {
         guard let g = gil else { return }
         let id = gilRaw.replacingOccurrences(of: "|r", with: "")
         let dw = !dwit
+        // 2.12.0 이어진 길을 다 걸은 뒤에는 이어진 길 전체를 거꾸로
+        if ieum.count > 1 {
+            let r = ieum.reversed().map { JeomGugan(id: $0.id, dwit: !$0.dwit) }
+            ieumGeotgi(Array(r), mok: nil)
+            return
+        }
         ieum = []; ieumIdx = 0; ieumMok = nil
         if id.hasPrefix("nae_"), let n = NaeGil.shared.chatgi(id) { sijak(n, dwit: dw); return }
         _ = g
@@ -406,7 +445,8 @@ final class JeomEngine: ObservableObject {
         guard gil != nil, !dochakHam else { return }
         if w.georeumChu { return }   // 위치 엔진이 곧게 이어 셈한 자리는 쓰지 않고, 점지도 위로 걸음을 셈(아래 jikim)
         if geoMode && w.ochae > 25 { return }   // 걸음으로 가는 동안 흐린 위성은 받지 않음
-        if w.ochae <= 25 || !geoMode { wiseongTtae = Date() }
+        if w.ochae <= 25 { wiseongTtae = Date() }
+        if geoMode { dwiNeolge = true }   // 걸음으로 가다 위성이 돌아온 첫 자리 — 뒤로도 넓게 찾음
         geoMode = false
         let hd: Double? = (w.banghyang >= 0 && w.sokdo > 0.3) ? w.banghyang : nil
         onMove(w.lat, w.lon, w.ochae, hd)
@@ -432,11 +472,19 @@ final class JeomEngine: ObservableObject {
         }
         // 길 위에서 가장 가까운 점(처음에는 길 전체에서, 그 뒤로는 앞쪽만)
         var best = idx, bestD = 1e9
-        let k0 = firstFix ? 0 : max(0, idx - 3)
+        let jeon = idx
+        let k0 = firstFix ? 0 : max(0, idx - (dwiNeolge ? 40 : 3))
         let k1 = firstFix ? pts.count : min(pts.count, idx + 40)
         for k in k0..<k1 {
             let d = WichiEngine.geori(la, lo, pts[k].lat, pts[k].lon)
             if d < bestD { bestD = d; best = k }
+        }
+        dwiNeolge = false
+        if firstFix {
+            // 되돌아오는 길(시작과 끝이 붙은 길)에서 처음 자리를 끝으로 잡지 않게 — 비슷하게 가까우면 앞쪽 점
+            for k in 0..<pts.count where WichiEngine.geori(la, lo, pts[k].lat, pts[k].lon) <= bestD + 5 { best = k; break }
+        } else if ac > 15 && best > jeon + 15 {
+            best = jeon + 15   // 흐린 위성이 크게 뛰면 한 번에 멀리 건너뛰지 않음(건널목·꺾임 알림을 놓치지 않게)
         }
         idx = best
         if firstFix {
@@ -467,7 +515,7 @@ final class JeomEngine: ObservableObject {
         if let MU = mun {
             let dm = WichiEngine.geori(la, lo, MU.lat, MU.lon)
             if !munOn && rest < 30 {
-                munOn = true; munT = now; munGakkaum = dm
+                munOn = true; munT = now; munSijakT = now; munGakkaum = dm
                 S.gyeol = ""; S.yeop = 0
                 mal("문까지 이어 안내합니다. 여기서부터 위성 안내입니다. " + munMal(MU) + (munList.count > 1 ? " 문이 \(munList.count)곳 있습니다." : ""))
                 return
@@ -476,7 +524,7 @@ final class JeomEngine: ObservableObject {
                 if let g = munGakkaum {
                     if g - dm >= 1.5 { munGakkaum = dm; eum(.hwaksin) } else if dm > g + 3 { munGakkaum = dm }
                 }
-                if dm < 5 {
+                if dm < max(5, min(acc, 10)) {
                     var t = "문 앞입니다. " + munMal(MU)
                     if !MU.saengMal.isEmpty { t += " 문은 \(MU.saengMal)입니다." }
                     dochak(munAp: t)
@@ -524,15 +572,22 @@ final class JeomEngine: ObservableObject {
                 geoMode = true
                 geoSu = S.stepSu
                 geoS = S.jin ?? (nu.isEmpty ? 0 : nu[min(idx, nu.count - 1)])
+                geoS0 = geoS
+                geoAcc0 = max(3, acc)
             } else if S.stepSu > geoSu {
                 geoS += Double(S.stepSu - geoSu) * bocok
                 geoSu = S.stepSu
                 let q = jeomAt(geoS)
-                onMove(q.0, q.1, 3, nil)
+                onMove(q.0, q.1, geoAcc0 + (geoS - geoS0) * 0.1, nil)   // 걸을수록 오차가 커짐
             }
         }
+        // 2.12.0 문을 90초 넘게 찾으면 — 끝없이 말하지 않고 마침
+        if munOn, let MU = mun, now.timeIntervalSince(munSijakT) > 90 {
+            dochak(munAp: "문을 찾는 시간이 길어져 안내를 마칩니다. " + munMal(MU))
+            return
+        }
         // 점지도를 확신할 수 없는 동안(폰 방향이 들쭉날쭉) 5초마다
-        if S.jumeoni && !S.pokgiMal && now.timeIntervalSince(S.hwakMalT) >= 5 {
+        if S.jumeoni && !munOn && !S.pokgiMal && now.timeIntervalSince(S.hwakMalT) >= 5 {
             S.hwakMalT = now
             mal("점지도 확인이 어렵습니다. 멈추고 주변을 확인하십시오.", .gyeonggo)
         }
@@ -688,13 +743,19 @@ final class JeomEngine: ObservableObject {
     private func beoseoMal(cheot: Bool) {
         let ap = cheot ? "점지도에서 벗어났습니다. 멈추고 방향을 다시 잡으십시오. " : ""
         let oreun = S.yeop > 0
+        // 2.12.0 돌아갈 방향은 몸이 향한 쪽 기준 — 점지도 방향과 벗어난 거리로 셈(모르면 11시·1시)
+        var bangM = oreun ? "11시 방향" : "1시 방향"
+        if let seg = S.segBang, let h = jigeumHead {
+            let mok = seg + atan2(-S.yeop, 3) / RAD
+            bangM = sigyeGak(chai(mok, h))
+        }
         if !georeumSalanna {
-            mal(ap + (oreun ? "오른쪽으로 " : "왼쪽으로 ") + "약 \(max(1, Int(abs(S.yeop).rounded())))미터 벗어났습니다. " + (oreun ? "11시" : "1시") + " 방향으로 돌아가십시오.", .gyeonggo)
+            mal(ap + (oreun ? "오른쪽으로 " : "왼쪽으로 ") + "약 \(max(1, Int(abs(S.yeop).rounded())))미터 벗어났습니다. " + bangM + "으로 돌아가십시오.", .gyeonggo)
             return
         }
         let n = max(1, Int((abs(S.yeop) / bocok).rounded()))
         let gm = JeomEngine.georeumSu(n)
-        mal(ap + (oreun ? "오른쪽으로 " : "왼쪽으로 ") + gm + " 벗어났습니다. " + (oreun ? "11시" : "1시") + " 방향으로 " + gm + " 옮기십시오.", .gyeonggo)
+        mal(ap + (oreun ? "오른쪽으로 " : "왼쪽으로 ") + gm + " 벗어났습니다. " + bangM + "으로 " + gm + " 옮기십시오.", .gyeonggo)
     }
 
     /// 자리가 올 때마다(위성이든 걸음이든) — 점지도 선 위에 앉혀 옆 거리와 나아간 거리를 봄
@@ -708,7 +769,15 @@ final class JeomEngine: ObservableObject {
         if let s = an.s {
             jin = s; g = min(g, an.d); gy = an.y; S.jin = s
             if S.jinSijak == nil { S.jinSijak = s }
-            let a = jeomAt(s - 10), b = jeomAt(s + 10)
+            // 2.12.0 구간 방향은 앞쪽 8미터로(꺾이는 곳에서 끊음), 꺾이는 곳이 2미터 안이면 뒤쪽 8미터로
+            var s0 = s, s1 = s + 8
+            if let nk = kkeoks.first(where: { $0.i < nu.count && nu[$0.i] > s }) { s1 = min(s1, nu[nk.i]) }
+            if s1 - s < 2 {
+                s0 = s - 8; s1 = s
+                if let pk = kkeoks.last(where: { $0.i < nu.count && nu[$0.i] <= s }) { s0 = max(s0, nu[pk.i]) }
+                if s1 - s0 < 1 { s0 = s - 2 }
+            }
+            let a = jeomAt(s0), b = jeomAt(s1)
             let bg = WichiEngine.bangwi(a.0, a.1, b.0, b.1)
             S.segBang = bg
             if let k = S.segKijun {
@@ -842,7 +911,7 @@ final class JeomEngine: ObservableObject {
             let b2 = WichiEngine.bangwi(p[i].lat, p[i].lon, p[b].lat, p[b].lon)
             let d = (b2 - b1 + 540).truncatingRemainder(dividingBy: 360) - 180
             if !d.isFinite || abs(d) < 35 { continue }
-            if let jeon = out.last, g(jeon.i, i) < 12 {
+            if let jeon = out.last, g(jeon.i, i) < 12, jeon.d * d > 0 {
                 if abs(d) > abs(jeon.d) { out[out.count - 1] = Kkeok(i: i, d: d, lat: p[i].lat, lon: p[i].lon) }
                 continue
             }
@@ -861,16 +930,38 @@ final class JeomEngine: ObservableObject {
         }
         for n in 1..<out.count {
             let jeon = mung[mung.count - 1], now = out[n]
-            if WichiEngine.geori(jeon.lat, jeon.lon, now.lat, now.lon) < 30 { mung.append(now) } else { mudda(mung); mung = [now] }
+            // 2.12.0 같은 쪽으로 꺾인 것끼리만 한 덩이로(왼쪽 뒤 오른쪽처럼 반대로 꺾인 두 모퉁이가 지워지지 않게)
+            if WichiEngine.geori(jeon.lat, jeon.lon, now.lat, now.lon) < 30 && jeon.d * now.d > 0 { mung.append(now) } else { mudda(mung); mung = [now] }
         }
         mudda(mung)
-        return res
+        // 15미터 안에서 반대로 살짝 꺾였다 돌아오는 것은 위성이 흔들린 자국으로 보아 뺌
+        var n2 = 0
+        var gyeol: [Kkeok] = []
+        while n2 < res.count {
+            if n2 + 1 < res.count {
+                let a = res[n2], b = res[n2 + 1]
+                if a.d * b.d < 0 && abs(a.d) < 60 && abs(b.d) < 60 && WichiEngine.geori(a.lat, a.lon, b.lat, b.lon) < 15 { n2 += 2; continue }
+            }
+            gyeol.append(res[n2]); n2 += 1
+        }
+        return gyeol
     }
 
     private func kkeokBoda(_ la: Double, _ lo: Double) {
-        guard let dk = kkeoks.first(where: { $0.i > idx }) else { return }
+        // 2.12.0 위성이 뛰어 모퉁이를 지나쳐도 가까이(오차만큼) 있으면 놓치지 않고 알림
+        let yeoyu = max(8, acc)
+        guard let dk = kkeoks.first(where: { k in
+            !kkeokHan.contains("k\(k.i)b") && (k.i >= idx - 1 || ap(k.i, idx) <= yeoyu)
+        }) else { return }
         let mi = WichiEngine.geori(la, lo, dk.lat, dk.lon)
         let key = "k\(dk.i)"
+        if dk.i < idx - 1 {
+            kkeokHan.insert(key + "a"); kkeokHan.insert(key + "c"); kkeokHan.insert(key + "b")
+            mal("지금 \(sigyeGak(dk.d))으로 도십시오.")
+            dolgi(8)
+            dolgiMok = (dk.i, nil, Date())
+            return
+        }
         let su = bocokSu(mi)
         if su <= 30 && su > 13 && !kkeokHan.contains(key + "a") {
             kkeokHan.insert(key + "a")
@@ -902,7 +993,7 @@ final class JeomEngine: ObservableObject {
     }
 
     private var jigeumHead: Double? {
-        if let n = nachimban { return n }
+        if let n = nachimban { return (n - S.dolrim + 720).truncatingRemainder(dividingBy: 360) }   // 폰을 돌려 넣으신 만큼 바로잡음
         if let w = WichiEngine.shared.jigeum, w.banghyang >= 0, w.sokdo > 0.3 { return w.banghyang }
         return nil
     }
@@ -910,6 +1001,7 @@ final class JeomEngine: ObservableObject {
     private func bangHwagin() {
         let hh = jigeumHead, now = Date()
         if !cheotBang {
+            guard now.timeIntervalSince(sijakT) >= 5 else { return }   // 첫 안전 경고가 끝난 뒤에
             cheotBang = true
             guard let gb = gilBang(idx, 6) else { return }
             guard let h = hh else { mal(daeumMalGil()); return }
@@ -1023,7 +1115,7 @@ final class JeomEngine: ObservableObject {
             var p = pyo[n]
             // 지나온 것은 말하지 않음 — 위성이 앞질러 표시를 지나쳐도 8미터 안이면 지금 말함
             if p.i < idx - 1 {
-                if !p.near && ap(p.i, idx) <= 8 { p.said = true } else { p.said = true; p.near = true; pyo[n] = p; continue }
+                if !p.near && ap(p.i, idx) <= max(8, acc) { p.said = true } else { p.said = true; p.near = true; pyo[n] = p; continue }
             }
             let ahead = ap(idx, p.i)
             if !p.said30 && !p.said && ahead > 0.7 * 13 && bocokSu(ahead) <= 30 {
@@ -1095,9 +1187,10 @@ final class JeomEngine: ObservableObject {
             let nam = ieum.count - ieumIdx - 1
             ieumIdx += 1
             let da = ieum[ieumIdx]
+            geumanSok(malHam: false)   // 2.12.0 이 구간을 닫아 다음 구간을 부르는 동안 헛도착·건너뜀이 없게
             SoriEngine.shared.sori(.doraom)
             mal("한 구간을 마쳤습니다. 남은 구간 \(nam)개, 이어서 안내합니다.")
-            Girok.shared.namgi("jeom_ieum", ["id": gilRaw, "idx": ieumIdx])
+            Girok.shared.namgi("jeom_ieum", ["id": da.id, "idx": ieumIdx])
             bulleoGeotgi(da.id, dwit: da.dwit, mok: ieumMok, ieumYuji: true)
             return
         }
@@ -1347,9 +1440,14 @@ final class JeomEngine: ObservableObject {
         let id = gilRaw.replacingOccurrences(of: "|r", with: "")
         let mok = YeojeongEngine.shared.jigeum?.mokjeok.ireum ?? (gil?.to ?? "")
         let body: [String: Any] = ["gil": id, "dwit": dwit ? 1 : 0, "mok": mok]
+        let sd = sedae
         Task {
             let o = await Nas.postJson("hamkke.php", [("a", "yeol")], body)
             await MainActor.run {
+                if sd != self.sedae || self.gil == nil {   // 그사이 그만두셨으면 받은 번호를 닫음
+                    if let o = o, (o["ok"] as? Bool) ?? false { self.hamkkeKkeut(Nas.gul(o["bunho"])) }
+                    return
+                }
                 guard let o = o, (o["ok"] as? Bool) ?? false else { self.mal("번호를 받지 못했습니다. 잠시 뒤에 다시 눌러 주십시오."); return }
                 let b = Nas.gul(o["bunho"])
                 self.hamkkeBunho = b
