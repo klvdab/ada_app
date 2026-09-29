@@ -41,17 +41,11 @@ struct MalHagiSeoljeongView: View {
                 Toggle(isOn: $s.haiGilnun) { Text("하이 길눈으로 부르기").font(.title3.weight(.semibold)) }
                     .padding(.horizontal, 4)
                     .frame(minHeight: 60)
-                if s.haiGilnun {
-                    // 2.12.2 걸러 듣기
-                    Toggle(isOn: $s.haiBangsongDeutgi) { Text("방송 중에도 하이 길눈 듣기 — 폰이 내는 소리를 빼고 목소리만 들음").font(.title3.weight(.semibold)) }
-                        .padding(.horizontal, 4)
-                        .frame(minHeight: 60)
-                }
                 TextField("길눈이 부르는 내 호칭 — 지금 \(s.ho)", text: $s.hoching)
                     .textFieldStyle(.roundedBorder)
                     .font(.title3)
                     .submitLabel(.done)
-                Text("하이 길눈을 켜 두시면 길눈이 켜져 있는 동안 부르는 말을 기다립니다. 음악은 그대로 나옵니다. 방송 중에도 하이 길눈 듣기를 켜 두시면 라디오나 음악, 길눈 안내 말이 나오는 중에도 부르는 말을 알아듣고, 부르시면 곧바로 길눈 소리를 멈추고 다른 앱 소리를 낮춥니다. 이때 방송 소리가 통화할 때처럼 조금 작아질 수 있으니, 거슬리시면 이것만 끄십시오. 블루투스 이어폰을 쓰시면 기다리는 동안 이어폰 소리가 전화 소리처럼 조금 낮아질 수 있으니, 그럴 때는 끄시고 말로 하기 단추나 시리로 부르십시오.")
+                Text("하이 길눈을 켜 두시면 길눈이 켜져 있는 동안 부르는 말을 기다립니다. 음악은 그대로 나옵니다. 부르시면 곧바로 길눈의 말과 방송을 멈추고, 명령을 마치면 되돌립니다. 스피커로 방송을 크게 틀어 두시면 방송 소리에 묻혀 부름을 잘 못 알아들을 수 있으니, 이어폰을 쓰시거나 소리를 조금 줄여 주십시오. 블루투스 이어폰을 쓰시면 기다리는 동안 이어폰 소리가 전화 소리처럼 조금 낮아질 수 있으니, 그럴 때는 끄시고 말로 하기 단추나 시리로 부르십시오.")
                     .font(.body)
                 Text("화면이 잠겨 있을 때는 시리야, 길눈에게 말하기라고 부르신 뒤 할 일을 말씀하십시오. 보이스오버를 쓰시면 어느 화면에서나 두 손가락으로 두 번 두드려 말로 하기를 여실 수 있습니다.")
                     .font(.body)

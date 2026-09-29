@@ -8,6 +8,8 @@
 //   마이크를 아주 닫는 것은 meomchugi() 하나뿐 — 하이 길눈을 끌 때, 긴급통화, 전화, 이어폰을 바꿀 때.
 // 2.12.2 (빌드 260929-2, 이사장님 승인 1) 걸러 듣기 — 폰이 내는 소리(방송·안내 말)를 마이크 소리에서 빼고 사람 목소리를 들음(통화 때 쓰는 아이폰 기능).
 //   라디오가 나오는 동안 하이 길눈을 못 알아듣던 것(9/29 12시 5분 뒤 기록)을 고침. 부름을 들으면 다른 앱 소리를 크게 낮춤.
+// 2.12.3 (빌드 260929-3, 이사장님 승인 1) 걸러 듣기와 소리 낮추기를 뺌 — 아이폰이 스피커 소리를 통화처럼 줄이고
+//   길눈 대답("네")까지 낮춰 들리지 않았음. 소리 크기는 2.12.1처럼 그대로. 걸러 듣기는 길눈 소리를 같은 통로로 내는 방법을 따로 연구함.
 // 나중에 다른 받아쓰기(애저 등)로 바꿀 때는 이 파일만 바꿔 끼우면 됩니다.
 import Foundation
 import Speech
@@ -128,6 +130,7 @@ final class MalDeutgi: NSObject {
     /// 2.12.2 부름을 들은 동안 다른 소리(다른 앱·방송)를 크게 낮추고, 끝나면 되돌림 — 걸러 듣기일 때만
     func dareunSori(jurim: Bool) {
         guard georeunda else { return }
+        if jurim { return }   // 2.12.3 크게 낮추지 않음 — 길눈 대답까지 낮아졌음
         if #available(iOS 17.0, *) {
             engine.inputNode.voiceProcessingOtherAudioDuckingConfiguration =
                 AVAudioVoiceProcessingOtherAudioDuckingConfiguration(enableAdvancedDucking: false, duckingLevel: jurim ? .max : .min)
@@ -168,7 +171,7 @@ final class MalDeutgi: NSObject {
         }
         let inp = engine.inputNode
         // 2.12.2 걸러 듣기 — 하이 길눈과 "방송 중에도 하이 길눈 듣기"를 켜 두셨을 때
-        let geureo = Seoljeong.shared.haiGilnun && Seoljeong.shared.haiBangsongDeutgi
+        let geureo = false   // 2.12.3 걸러 듣기를 쓰지 않음(켜져 있던 폰은 여기서 끔)
         if inp.isVoiceProcessingEnabled != geureo {
             do {
                 try inp.setVoiceProcessingEnabled(geureo)

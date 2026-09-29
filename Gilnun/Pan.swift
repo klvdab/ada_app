@@ -10,13 +10,19 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.12.2"
-    static let bild = "260929-2"
+    static let pan = "2.12.3"
+    static let bild = "260929-3"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.12.3", bild: "260929-3", nal: "2026-09-29", naeyong: [
+            "걸러 듣기와 부르면 소리 크게 낮추기를 뺌 — 스피커 소리가 작아지고 네 대답까지 들리지 않던 것(이사장님 승인 1). 소리 크기는 원래대로",
+            "명령을 기다리는 중에 하이 길눈만 들리면 네 하고 다시 기다림",
+            "부르면 길눈의 말과 방송을 멈추고 명령을 마치면 되돌리는 것은 그대로",
+            "도움말 두 항목, 말로 하기 설정 설명 고침"
+        ]),
         Gochim(pan: "2.12.2", bild: "260929-2", nal: "2026-09-29", naeyong: [
             "라디오가 나오는 동안 하이 길눈을 못 알아듣던 것 — 폰이 내는 소리를 마이크 소리에서 빼고 목소리만 듣는 걸러 듣기를 넣음. 길눈이 말하는 중에도 부름을 들음(이사장님 승인 1)",
             "하이 길눈을 들으면 곧바로 길눈의 말과 방송을 멈추고 다른 앱 소리를 크게 낮추었다가, 명령을 마치면 되돌림",
