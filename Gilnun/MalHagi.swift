@@ -108,6 +108,11 @@ final class MalHagi: ObservableObject {
             self?.bureumSilpae = 0
             self?.bureumDasi(1.0)
         }
+        // 2.12.6 폰 잠금을 풀면 듣기를 포기했던 것을 다시 셈하고 엶
+        nc.addObserver(forName: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.bureumSilpae = 0
+            self?.bureumDasi(1.0)
+        }
     }
 
     // MARK: 부르기
@@ -454,6 +459,12 @@ final class MalHagi: ObservableObject {
         let y = YeojeongEngine.shared.jigeum
         if Date().timeIntervalSince(mureumTtae) > 180 { mureum = .eopseum }
 
+        // 0. 2.12.6 하던 일 멈추기 — 안내·따라 걷기·묻던 말을 모두 멈춤(음악·방송은 그대로)
+        if sajeon.itda(alts, "hadeon_meomchum") && z.count <= 10 {
+            dap("", false)
+            AnnaeEngine.shared.haneunIlMeomchum()
+            return
+        }
         // 1. 여정 끝내기
         if sajeon.itda(alts, "yeojeong_kkeut") {
             mureum = .eopseum
@@ -1384,7 +1395,18 @@ final class MalHagi: ObservableObject {
         return "지금은 \(f.string(from: Date()))입니다."
     }
 
-    static let doumalMal = "이렇게 말씀하시면 됩니다. 집으로 가자. 걸어서 가자. 지하철로 가자. 버스로 가자. 차에 탔어. 내렸어. 얼마나 남았어. 지금 어디야. 지금 가는 길 알려 줘. 즐겨찾기 목록. 즐겨찾기에 담아 줘. 복지콜에 전화해 줘. 콜 번호 알려 줘. 신호기 울려 줘. 신호기 찾아 줘. 근처 약국. 음악 틀어 줘. 트롯 틀어 줘. 다음 곡. 라디오 틀어 줘. 뉴스 들려줘. 음악 꺼. 도와줘, 또는 가족 이름과 화상통화. 몇 시야. 말 빠르게, 말 느리게. 다시 말해. 그만. 여정 끝. 점지도를 따라 걸을 때는 다음에 무엇, 그만 걷기, 여기 문제 있어, 여기 걸렸어. 가까운 점지도 찾아 줘."
+    /// 2.12.6 하던 일 멈추기 때 — 묻던 말과 기다리던 목적지·탈것·후보를 모두 비움
+    func mureumChoGihwa() {
+        mureum = .eopseum
+        mok = nil
+        talgeotDaegi = nil
+        hubo = []
+        huboI = 0
+        huboTalgeot = nil
+        huboHwagin = false
+    }
+
+    static let doumalMal = "이렇게 말씀하시면 됩니다. 집으로 가자. 걸어서 가자. 지하철로 가자. 버스로 가자. 차에 탔어. 내렸어. 얼마나 남았어. 지금 어디야. 지금 가는 길 알려 줘. 즐겨찾기 목록. 즐겨찾기에 담아 줘. 복지콜에 전화해 줘. 콜 번호 알려 줘. 신호기 울려 줘. 신호기 찾아 줘. 근처 약국. 음악 틀어 줘. 트롯 틀어 줘. 다음 곡. 라디오 틀어 줘. 뉴스 들려줘. 음악 꺼. 도와줘, 또는 가족 이름과 화상통화. 몇 시야. 말 빠르게, 말 느리게. 다시 말해. 그만. 여정 끝. 하던 일 멈춰. 점지도를 따라 걸을 때는 다음에 무엇, 그만 걷기, 여기 문제 있어, 여기 걸렸어. 가까운 점지도 찾아 줘."
 
     private func motAradeureum(_ t: String) {
         Girok.shared.namgi("mal_motaradeureum", ["mal": String(t.prefix(60))])

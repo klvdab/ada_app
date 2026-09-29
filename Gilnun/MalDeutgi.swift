@@ -16,6 +16,7 @@
 import Foundation
 import Speech
 import AVFoundation
+import UIKit   // 2.12.6 앱이 뒤에 있는지 보려고
 
 final class MalDeutgi: NSObject {
     static let shared = MalDeutgi()
@@ -232,6 +233,11 @@ final class MalDeutgi: NSObject {
         let n = beopeoSuIlgi()
         if n == jijeomSu {
             Girok.shared.namgi("maik_meomchum", ["bangsik": bangsik == .bureum ? "bureum" : "myeongryeong", "aradeut": aradeutneun])
+            // 2.12.6 폰이 잠겨 앱이 뒤에 있으면 마이크를 끄지 않음 — 아이폰은 잠긴 채로는 다시 열어 주지 않아 아예 못 듣게 되던 것
+            if UIApplication.shared.applicationState != .active {
+                jijeomSu = -1
+                return
+            }
             engine.stop()
             jijeomSu = -1
             dasiDollim()
@@ -287,7 +293,7 @@ final class MalDeutgi: NSObject {
         guard b0 == beon else { return }
         if bangsik == .bureum {
             // 2.12.2 길눈이 제 입으로 "길눈"을 말하는 중이면 부름으로 치지 않음
-            let jegaMalham = SoriEngine.shared.bappeum && SoriEngine.shared.hanunMal.contains("길눈")
+            let jegaMalham = SoriEngine.shared.malhaneunJung && SoriEngine.shared.hanunMal.contains("길눈")   // 2.12.6 실제로 말하는 동안만
             if !jegaMalham, ls.contains(where: { MalDeutgi.bureumMal($0) }) {
                 swigi()
                 Girok.shared.namgi("hai_gilnun", [:])

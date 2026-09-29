@@ -69,14 +69,39 @@ final class AnnaeEngine: ObservableObject {
 
     // MARK: 이용자가 누르는 일
 
+    /// 2.12.6 새 목적지를 정하기 전에 하던 안내를 조용히 모두 끔 — 걷던 점지도, 지하철 안내, 이어 걷기 기록(이사장님 승인 1)
+    func saeMokjeokJunbi() {
+        JeomEngine.shared.yeojeongKkeut()
+        JihacheolEngine.shared.meomchugi()
+        namEunGeori = nil
+    }
+
+    /// 2.12.6 하던 일 멈추기 — 안내, 따라 걷기, 묻던 말, 신호기 찾기, 길눈의 말을 모두 멈추고 첫 화면으로(음악·방송은 그대로)
+    func haneunIlMeomchum() {
+        JeomEngine.shared.yeojeongKkeut()
+        JihacheolEngine.shared.meomchugi()
+        yj.kkeut()
+        namEunGeori = nil
+        dasiSijak()
+        MalHagi.shared.mureumChoGihwa()
+        SinhogiEngine.shared.chatgiKkeugi()
+        SoriEngine.shared.modu_geodugi()
+        TabGil.shared.tab = 0
+        GilGil.shared.cheotHwamyeon()
+        Girok.shared.namgi("haneunil_meomchum", [:])
+        SoriEngine.shared.mal("하던 일을 멈췄습니다. 어디로 가실까요?")
+    }
+
     /// 목적지를 정하고 걸어가기
     func georeoGagi(_ j: Jangso) {
+        saeMokjeokJunbi()
         yj.jeonghagi(Mokjeok(ireum: j.ireum, lat: j.lat, lon: j.lon, juso: j.juso))
         georeoGagi()
     }
 
     /// 목적지를 정하고 차에 탐
     func chaTagi(_ j: Jangso) {
+        saeMokjeokJunbi()
         yj.jeonghagi(Mokjeok(ireum: j.ireum, lat: j.lat, lon: j.lon, juso: j.juso))
         chaTatda()
     }

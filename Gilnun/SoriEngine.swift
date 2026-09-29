@@ -80,6 +80,8 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
 
     /// 말하고 있거나 줄에 선 말이 있는가
     var bappeum: Bool { synth.isSpeaking || !jul.isEmpty }
+    /// 2.12.6 지금 입으로 말하는 중인가(줄에 남은 말은 셈하지 않음 — 멈춘 줄이 남아 부름을 버리던 것)
+    var malhaneunJung: Bool { synth.isSpeaking }
 
     /// 지금 줄에 선 말까지 다 하고 나면 한 번 부름(말이 없으면 곧바로)
     func kkeutnamyeon(_ f: @escaping () -> Void) {
@@ -261,6 +263,9 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
                 self.player = try? AVAudioPlayer(data: data)
                 self.player?.volume = 0.8
                 self.player?.play()
+                // 2.12.6 짧은 소리가 끝나면 기다리던 일(하이 길눈 다시 열기 등)을 꼭 이어 줌 — 빠져서 30초 넘게 귀가 닫히던 것
+                let gil = self.player?.duration ?? 0.3
+                DispatchQueue.main.asyncAfter(deadline: .now() + gil + 0.1) { self.kkeutBoda() }
                 return
             }
             self.naerigiJakeop?.cancel()

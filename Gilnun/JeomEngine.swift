@@ -180,7 +180,9 @@ final class JeomEngine: ObservableObject {
 
     /// 걸어가실 곳에 맞는 점지도가 있으면 여쭙고(mutgi 에 여쭐 말), 없으면 곧장 위성으로 걷는 안내(mutgi 에 nil)
     func georeoGagiBoda(_ j: Jangso, _ mutgi: @escaping (String?) -> Void) {
-        muleumJiugi()
+        // 2.12.6 새 목적지면 걷던 점지도와 지하철 안내를 먼저 끔 — 옛 길이 계속 말하고 새 목적지를 덮어쓰던 것(이사장님 승인 1)
+        yeojeongKkeut()
+        JihacheolEngine.shared.meomchugi()
         let sd = sedae
         guard let w = WichiEngine.shared.jigeum else {
             mutgi(nil)
@@ -1419,6 +1421,12 @@ final class JeomEngine: ObservableObject {
               let g = try? JSONDecoder().decode(IeogaGirok.self, from: d) else { return }
         guard Date().timeIntervalSince(g.ttae) < 3 * 3600,
               let y = YeojeongEngine.shared.jigeum, y.danggye == .namEunGil else { ieogaJiugi(); return }
+        // 2.12.6 걷던 점지도의 목적지가 지금 여정의 목적지와 다르면 잇지 않음(옛 길이 새 목적지를 덮어쓰던 것)
+        if let m = g.mok, WichiEngine.geori(m.lat, m.lon, y.mokjeok.lat, y.mokjeok.lon) > 50 {
+            ieogaJiugi()
+            Girok.shared.namgi("jeom_ieoga_an", ["id": g.id])
+            return
+        }
         ieum = g.ieum
         ieumIdx = min(g.ieumIdx, max(0, g.ieum.count - 1))
         ieumMok = g.mok

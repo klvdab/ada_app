@@ -62,6 +62,15 @@ struct GilChatgiView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 GingeupGongjiJul()   // 2.9.0 읽지 않은 긴급 공지 — 맨 위
+                // 2.12.6 하던 일 멈추기 — 무엇이든 진행 중일 때만, 접지 않고 맨 위에(이사장님 승인 1)
+                if jeom.muleum != nil || jeom.gil != nil || y.jigeum != nil {
+                    Button("하던 일 멈추기 — 안내를 모두 멈추고 새 목적지 찾기") {
+                        AnnaeEngine.shared.haneunIlMeomchum()
+                        meoriChojeom = false   // 멈춘 뒤 커서를 목적지 적는 칸으로
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { meoriChojeom = true }
+                    }
+                    .buttonStyle(KeunDanchu())
+                }
                 if let m = jeom.muleum {
                     JeomMuleumPan(m: m, chojeom: $meoriChojeom)   // 2.10.0 점지도로 걸을까요
                 } else if let g = jeom.gil {
