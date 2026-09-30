@@ -8,12 +8,17 @@ struct LibApp: App {
     @StateObject private var store = Store.shared
     @StateObject private var reader = Reader.shared
     @StateObject private var offline = Offline.shared
+    @StateObject private var hoewon = Hoewon.shared
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .environmentObject(store)
-                .environmentObject(reader)
-                .environmentObject(offline)
+            if hoewon.deungrokdoem {
+                RootView()
+                    .environmentObject(store)
+                    .environmentObject(reader)
+                    .environmentObject(offline)
+            } else {
+                DeungrokView()   // 처음 켤 때 한 번만 나오는 회원 등록 화면
+            }
         }
     }
 }

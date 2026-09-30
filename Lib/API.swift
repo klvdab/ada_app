@@ -25,7 +25,8 @@ enum API {
     }
 
     static func get<T: Decodable>(_ file: String, _ q: [String: String], as type: T.Type) async throws -> T {
-        let (d, _) = try await URLSession.shared.data(for: request(url(file, q)))
+        let (d, resp) = try await URLSession.shared.data(for: request(url(file, q)))
+        if (resp as? HTTPURLResponse)?.statusCode == 403 { Hoewon.shared.ilheo() }   // 열쇠가 막히면 회원 등록 화면으로
         return try JSONDecoder().decode(T.self, from: d)
     }
 
