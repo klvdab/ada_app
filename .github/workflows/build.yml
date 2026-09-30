@@ -1,4 +1,5 @@
-# 협회 앱·자봉 앱·배프 앱 자동 짓기·올리기 (1.0.5판, 빌드 260928-6)
+# 협회 앱·자봉 앱·배프 앱·AI점자도서관 자동 짓기·올리기 (1.0.6판, 빌드 260930-6)
+# 1.0.6 (260930-6, 이사장님 승인) eoneu 에 lib(AI점자도서관 앱) 더함
 # 1.0.5 (260928-6, 이사장님 지시) 화상통화 부품(WebRTC)의 해독표(dSYM)가 없다는 경고 — 짓고 나서 해독표를 만들어 넣음
 # 1.0.4 (260927-1, 이사장님 승인) 짓기 전에 두 시간 넘은 "Created via API" 개발용 인증서를 스스로 폐기(열 개 차서 막히는 것 막기)
 # 깃허브가 빌려 주는 맥에서 Xcode 26 으로 프로젝트를 만들고, 앱스토어 커넥트 열쇠(관리자 권한)로 서명해 올립니다.
@@ -9,14 +10,14 @@
 #     TEAM_ID=팀ID(열 자리)
 #     -----BEGIN PRIVATE KEY----- 부터 -----END PRIVATE KEY----- 까지 p8 파일 내용 그대로
 # 짓기는 Actions 화면의 「Run workflow」로 손수 돌립니다.
-#   eoneu   ada = 협회 앱(애플워치 포함) / jabong = 자봉 앱 / bfb = 배프 앱
+#   eoneu   ada = 협회 앱(애플워치 포함) / jabong = 자봉 앱 / bfb = 배프 앱 / lib = AI점자도서관
 #   ollida  true = 앱스토어 커넥트에 올리기 / false = 짓기만 하고 파일로 남기기
 name: app-jitgi
 on:
   workflow_dispatch:
     inputs:
       eoneu:
-        description: "어느 앱 (ada = 협회 앱, jabong = 자봉 앱, bfb = 배프 앱)"
+        description: "어느 앱 (ada = 협회 앱, jabong = 자봉 앱, bfb = 배프 앱, lib = AI점자도서관)"
         default: "ada"
       ollida:
         description: "앱스토어 커넥트에 올리기 (true/false)"
@@ -35,8 +36,9 @@ jobs:
           case "$EONEU" in
             jabong) SCH=JabongApp; NM=자봉앱 ;;
             bfb)    SCH=BfbApp;    NM=배프앱 ;;
+            lib)    SCH=LibApp;    NM=도서관앱 ;;
             ada|"") SCH=AdaApp;    NM=협회앱 ;;
-            *) echo "eoneu 는 ada, jabong, bfb 중 하나여야 합니다 (받은 값: $EONEU)"; exit 1 ;;
+            *) echo "eoneu 는 ada, jabong, bfb, lib 중 하나여야 합니다 (받은 값: $EONEU)"; exit 1 ;;
           esac
           echo "SCHEME=$SCH" >> "$GITHUB_ENV"
           echo "APPNAME=$NM" >> "$GITHUB_ENV"
