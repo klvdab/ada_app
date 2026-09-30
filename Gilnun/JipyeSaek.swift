@@ -59,6 +59,7 @@ final class JipyeSaek: NSObject, ObservableObject, AVCaptureVideoDataOutputSampl
         GarikiIlgi.shared.kkeugi(malHagi: false)
         SaramGamji.shared.kkeugi(malHagi: false)
         SangpumIlgi.shared.kkeugi(malHagi: false)
+        BitAlgi.shared.kkeugi(malHagi: false)  // 2.22.0
         jul.async {
             if !self.junbiDoem {
                 guard self.junbi() else {
