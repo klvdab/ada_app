@@ -92,6 +92,7 @@ final class AnnaeEngine: ObservableObject {
         SaramGamji.shared.kkeugi(malHagi: false)  // 2.18.0 사람 감지도 멈춤
         SangpumIlgi.shared.kkeugi(malHagi: false) // 2.20.0 상품 바코드 읽기도 멈춤
         JipyeSaek.shared.kkeugi(malHagi: false)  // 2.21.0
+        BitAlgi.shared.kkeugi(malHagi: false)  // 2.22.0
         SoriEngine.shared.modu_geodugi()
         TabGil.shared.tab = 0
         GilGil.shared.cheotHwamyeon()
