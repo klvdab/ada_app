@@ -576,6 +576,7 @@ final class MalHagi: ObservableObject {
             JipyeSaek.shared.kkeugi()      // 2.21.0 지폐와 색깔 알아보기도 그만
             BitAlgi.shared.kkeugi()        // 2.22.0 빛 알아보기도 그만
             Hanmadi.shared.kkeugi()        // 2.23.0 한마디 설명도 그만
+            TeokAllim.shared.kkeugi()      // 2.24.0 발 앞 계단·턱 알림도 그만
             dap("", false)
             return
         }
