@@ -55,6 +55,7 @@ final class Hanmadi: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleB
         SangpumIlgi.shared.kkeugi(malHagi: false)
         JipyeSaek.shared.kkeugi(malHagi: false)
         BitAlgi.shared.kkeugi(malHagi: false)
+        TeokAllim.shared.kkeugi(malHagi: false)  // 2.24.0
         jul.async {
             if !self.junbiDoem {
                 guard self.junbi() else {
