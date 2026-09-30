@@ -47,12 +47,24 @@ final class MalDeutgi: NSObject {
     private var _beopeoSu = 0
     private var jijeomSu = -1
     private var salpigiSigye: Timer?
+    /// 2.27.0 새 알아듣기 부품에 소리 조각을 넘기는 자리
+    private var _saeGeup: ((AVAudioPCMBuffer) -> Void)?
     private func tapBatgi(_ buf: AVAudioPCMBuffer) {
         jamgeum.lock()
         _beopeoSu &+= 1
         let q = _tapReq
+        let sg = _saeGeup
         jamgeum.unlock()
         q?.append(buf)
+        sg?(buf)
+    }
+    /// 2.27.0 새 알아듣기 부품(iOS 26) — 이번 듣기에 쓰는 것, 잇달아 막힌 수
+    private var sae: AnyObject?
+    private var saeSilpae = 0
+    private var saeSseulSuItda: Bool {
+        guard Seoljeong.shared.saeDeutgi, saeSilpae < 3 else { return false }
+        if #available(iOS 26.0, *) { return SaeDeutgi.junbi }
+        return false
     }
     private func beopeoSuIlgi() -> Int { jamgeum.lock(); defer { jamgeum.unlock() }; return _beopeoSu }
 
@@ -77,6 +89,8 @@ final class MalDeutgi: NSObject {
         NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main) { [weak self] _ in
             self?.dasiDollim()
         }
+        // 2.27.0 새 알아듣기 부품의 한국어 모델을 미리 준비
+        if #available(iOS 26.0, *) { SaeDeutgi.junbiHagi() }
         // 2.12.4 10초마다 마이크가 살아 있는지 살핌
         DispatchQueue.main.async { [weak self] in
             self?.salpigiSigye = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in self?.maikSalpigi() }
@@ -143,6 +157,9 @@ final class MalDeutgi: NSObject {
         handoSigye?.invalidate()
         handoSigye = nil
         tapReq = nil
+        jamgeum.lock(); _saeGeup = nil; jamgeum.unlock()
+        if #available(iOS 26.0, *), let s = sae as? SaeDeutgi { s.kkeut() }
+        sae = nil
         task?.cancel()
         task = nil
         req?.endAudio()
@@ -311,6 +328,35 @@ final class MalDeutgi: NSObject {
     }
 
     private func sijak(_ b: Bangsik) -> Bool {
+        // 2.27.0 새 알아듣기 부품 — 준비된 iOS 26 폰에서
+        if saeSseulSuItda, MalDeutgi.heorakItda {
+            guard maikYeolgi(b) else { return false }
+            if #available(iOS 26.0, *) {
+                let s = SaeDeutgi()
+                sae = s
+                beon += 1
+                let b0 = beon
+                s.sijak(ttui: { [weak self] t in
+                    DispatchQueue.main.async {
+                        guard let self = self, b0 == self.beon else { return }
+                        self.saeSilpae = 0
+                        // 부름을 기다릴 때는 끝부분만 봄(오래 쌓인 말에 걸리지 않게)
+                        let tt = self.bangsik == .bureum ? String(t.suffix(30)) : t
+                        self.gyeolgwa(b0, [tt], false, false)
+                    }
+                }, oryu: { [weak self] in
+                    DispatchQueue.main.async {
+                        guard let self = self, b0 == self.beon else { return }
+                        self.saeSilpae += 1
+                        Girok.shared.namgi("sae_deutgi", ["oryu": self.saeSilpae])
+                        self.gyeolgwa(b0, [], true, true)
+                    }
+                })
+                jamgeum.lock(); _saeGeup = { [weak s] buf in s?.neoki(buf) }; jamgeum.unlock()
+                aradeutneun = true
+                return true
+            }
+        }
         guard MalDeutgi.heorakItda, let r = recog, r.isAvailable else {
             Girok.shared.namgi("maldeutgi_mot", ["kkadak": "heorak_ttoneun_bappeum"])
             return false
