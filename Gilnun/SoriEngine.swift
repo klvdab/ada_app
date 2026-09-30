@@ -3,6 +3,7 @@
 // ③ 말하는 동안만 다른 소리(음악·라디오)를 잠시 낮추고, 끝나면 되돌림 — 길눈 자체 방송은 소리를 줄이고 경고만 멈춤(2.8.0) ④ 폰이 잠겨도 말함(UIBackgroundModes audio)
 // ⑤ 전화가 오면 멈췄다가 끝나면 이어 말함 ⑥ 같은 말을 3초 안에 되풀이하지 않음
 import AVFoundation
+import CryptoKit
 import UIKit
 
 enum MalGeup: Int {
@@ -25,7 +26,7 @@ enum SoriJong {
     case doraom    // 점지도 위로 돌아옴 — 오르는 두 소리
 }
 
-final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
+final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDelegate {
     static let shared = SoriEngine()
 
     private struct Mal {
@@ -39,6 +40,14 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
     private var naerigiJakeop: DispatchWorkItem?
     private var dunmal: [String: Date] = [:]
     private var player: AVAudioPlayer?
+    // 2.28.0 길눈 목소리(마이크로소프트 선희, 나스 sori/mal.php) — 받아 틀기
+    private var msPlayer: AVAudioPlayer?
+    private var msJung = false          // 선희 목소리로 말하는 중(받는 중 포함)
+    private var msBeon = 0              // 받는 중에 멈추면 늦게 온 소리를 버리려고
+    private var msSilpae = 0            // 잇달아 못 받은 수 — 셋이면 5분 쉼
+    private var msSwimTtae = Date.distantPast
+    /// 말하는 중인가(폰 목소리든 선희 목소리든)
+    private var malJung: Bool { synth.isSpeaking || msJung }
     private var meomchum = false
     /// 화상통화 중 — 길눈 말소리를 내지 않음(통화 소리 보호, 2026-09-11 이사장님 지시: 통화 중에는 화면 글로만)
     var tonghwaJung = false
@@ -80,14 +89,14 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
     }
 
     /// 말하고 있거나 줄에 선 말이 있는가
-    var bappeum: Bool { synth.isSpeaking || !jul.isEmpty }
+    var bappeum: Bool { malJung || !jul.isEmpty }
     /// 2.12.6 지금 입으로 말하는 중인가(줄에 남은 말은 셈하지 않음 — 멈춘 줄이 남아 부름을 버리던 것)
-    var malhaneunJung: Bool { synth.isSpeaking }
+    var malhaneunJung: Bool { malJung }
 
     /// 지금 줄에 선 말까지 다 하고 나면 한 번 부름(말이 없으면 곧바로)
     func kkeutnamyeon(_ f: @escaping () -> Void) {
         DispatchQueue.main.async {
-            if !self.synth.isSpeaking && self.jul.isEmpty && !(self.player?.isPlaying ?? false) {
+            if !self.malJung && self.jul.isEmpty && !(self.player?.isPlaying ?? false) {
                 f()
             } else {
                 self.kkeutJul.append(f)
@@ -96,7 +105,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
     }
 
     private func kkeutBoda() {
-        guard !synth.isSpeaking, jul.isEmpty, !(player?.isPlaying ?? false), !kkeutJul.isEmpty else { return }
+        guard !malJung, jul.isEmpty, !(player?.isPlaying ?? false), !kkeutJul.isEmpty else { return }
         let fs = kkeutJul
         kkeutJul = []
         fs.forEach { $0() }
@@ -105,6 +114,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
     override init() {
         super.init()
         synth.delegate = self
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.msKkaeugi() }   // 2.28.0
         NotificationCenter.default.addObserver(self, selector: #selector(kkeunkim(_:)),
                                                name: AVAudioSession.interruptionNotification, object: nil)
         // 2.12.0 끊김이 끝났다는 알림이 오지 않아도 앱으로 돌아오면 다시 말함
@@ -145,14 +155,14 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
                     do { try AVAudioSession.sharedInstance().setActive(true); self.meomchum = false } catch {}
                 }
                 self.jul.insert(m, at: 0)
-                if self.synth.isSpeaking && self.jigeumGeup != .gyeonggo {
-                    self.synth.stopSpeaking(at: .word)   // 끊긴 뒤 didCancel 에서 경고부터 냄
+                if self.malJung && self.jigeumGeup != .gyeonggo {
+                    self.jigeumMalKkeunki(.word)   // 끊긴 뒤 didCancel 에서 경고부터 냄
                     return
                 }
-            } else if geup == .annae && Seoljeong.shared.malJaru && self.synth.isSpeaking && self.jigeumGeup != .gyeonggo {
+            } else if geup == .annae && Seoljeong.shared.malJaru && self.malJung && self.jigeumGeup != .gyeonggo {
                 // 2.9.0 말 자르고 새로 말하기(설정에서 켬) — 하던 말을 끊고 새 안내부터
                 self.jul.insert(m, at: 0)
-                self.synth.stopSpeaking(at: .word)
+                self.jigeumMalKkeunki(.word)
                 return
             } else {
                 if self.jul.count >= 4, let i = self.jul.firstIndex(where: { $0.geup == .jeongbo }) {
@@ -179,12 +189,12 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
     func modu_geodugi() {
         DispatchQueue.main.async {
             self.jul.removeAll { $0.geup != .gyeonggo }
-            if self.jigeumGeup != .gyeonggo { self.synth.stopSpeaking(at: .immediate) }
+            if self.jigeumGeup != .gyeonggo { self.jigeumMalKkeunki(.immediate) }
         }
     }
 
     private func naeboenda() {
-        guard !meomchum, !synth.isSpeaking, !jul.isEmpty else { return }
+        guard !meomchum, !malJung, !jul.isEmpty else { return }
         if myeongryeongDeutneunJung && jul.first?.geup != .gyeonggo { return }
         hanunMal = jul.first?.t ?? ""
         malSijakHook?()
@@ -205,7 +215,121 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
         }
         if m.t.count > 2 { WatchLink.shared.malBonae(m.t) }
         malHaneunSu += 1
+        // 2.28.0 길눈 목소리(선희) — 경고는 기다리지 않고 폰 목소리로 곧바로
+        if m.geup != .gyeonggo, msSseum(m.t) {
+            msMalhagi(m, u)
+            return
+        }
         synth.speak(u)
+    }
+
+    // MARK: 2.28.0 길눈 목소리(마이크로소프트 선희) — 대표님 승인 1
+
+    /// 선희 목소리를 쓸 수 있나 — 켜 두셨고, 애저 정식 열쇠 전에는 나스 음악 열쇠가 있는 폰에서만(약관 때문), 짧은 말만
+    private func msSseum(_ t: String) -> Bool {
+        guard Seoljeong.shared.msMoksori, SoriEngine.msYeollim, t.count <= 190, Tongsin.shared.yeongyeol else { return false }
+        if msSilpae >= 3 {
+            if Date().timeIntervalSince(msSwimTtae) < 300 { return false }
+            msSilpae = 0
+        }
+        return true
+    }
+
+    /// 애저 정식 열쇠를 넣기 전에는 대표님 폰(나스 음악 열쇠)에서만
+    static var msYeollim: Bool { !(Yeolsoe.ilgi("eumakTk") ?? "").isEmpty }
+
+    private static let msGotgan: URL = {
+        let u = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("gilnun_mal", isDirectory: true)
+        try? FileManager.default.createDirectory(at: u, withIntermediateDirectories: true)
+        return u
+    }()
+
+    private static func msJuso(_ t: String) -> (URL?, URL) {
+        let r = max(0, min(4, Seoljeong.shared.bbareugiDan))
+        var c = URLComponents(string: "https://lvd.ada.or.kr/jeom/sori/mal.php")
+        c?.queryItems = [URLQueryItem(name: "q", value: "2"), URLQueryItem(name: "v", value: "0"),
+                         URLQueryItem(name: "r", value: String(r)), URLQueryItem(name: "p", value: "1"),
+                         URLQueryItem(name: "t", value: t)]
+        let h = SHA256.hash(data: Data("0|\(r)|\(t)".utf8)).map { String(format: "%02x", $0) }.joined()
+        return (c?.url, msGotgan.appendingPathComponent(h + ".mp3"))
+    }
+
+    /// 받아 둔 소리가 있으면 곧바로, 없으면 나스에서 받아(기다림 한도 안에) 틂. 못 받으면 폰 목소리로
+    private func msMalhagi(_ m: Mal, _ u: AVSpeechUtterance) {
+        msJung = true
+        msBeon += 1
+        let b0 = msBeon
+        let (url, pail) = SoriEngine.msJuso(m.t)
+        if let d = try? Data(contentsOf: pail), d.count > 500 {
+            msTeulgi(d, b0, u)
+            return
+        }
+        guard let url = url else { msDaesin(b0, u); return }
+        let handO: Double = m.geup == .jeongbo ? 3.0 : 2.5
+        var rq = URLRequest(url: url, timeoutInterval: handO)
+        rq.cachePolicy = .reloadIgnoringLocalCacheData
+        URLSession.shared.dataTask(with: rq) { [weak self] d, res, _ in
+            let ok = (res as? HTTPURLResponse)?.statusCode == 200 && (d?.count ?? 0) > 500
+            if ok, let d = d { try? d.write(to: pail, options: .atomic) }
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if ok, let d = d {
+                    self.msSilpae = 0
+                    self.msTeulgi(d, b0, u)
+                } else {
+                    self.msSilpae += 1
+                    if self.msSilpae >= 3 { self.msSwimTtae = Date() }
+                    Girok.shared.namgi("ms_moksori_mot", ["silpae": self.msSilpae])
+                    self.msDaesin(b0, u)
+                }
+            }
+        }.resume()
+    }
+
+    private func msTeulgi(_ d: Data, _ b0: Int, _ u: AVSpeechUtterance) {
+        guard b0 == msBeon, msJung else { return }   // 그사이 멈췄으면 버림
+        guard let p = try? AVAudioPlayer(data: d) else { msDaesin(b0, u); return }
+        p.delegate = self
+        p.volume = 1.0
+        msPlayer = p
+        if !p.play() { msDaesin(b0, u) }
+    }
+
+    /// 못 받았으면 같은 말을 폰 목소리로
+    private func msDaesin(_ b0: Int, _ u: AVSpeechUtterance) {
+        guard b0 == msBeon, msJung else { return }
+        msJung = false
+        msPlayer = nil
+        synth.speak(u)
+    }
+
+    /// 하던 말을 멈춤(폰 목소리든 선희 목소리든)
+    private func jigeumMalKkeunki(_ ttae: AVSpeechBoundary) {
+        if msJung {
+            msBeon += 1
+            msPlayer?.stop()
+            msPlayer = nil
+            msJung = false
+            daeum()
+        } else {
+            synth.stopSpeaking(at: ttae)
+        }
+    }
+
+    func audioPlayerDidFinishPlaying(_ p: AVAudioPlayer, successfully flag: Bool) {
+        DispatchQueue.main.async {
+            guard p === self.msPlayer else { return }
+            self.msPlayer = nil
+            self.msJung = false
+            self.daeum()
+        }
+    }
+
+    /// 앱을 켤 때 한 번 — 한동안 쉬던 나스 소리 창고를 깨워 둠(첫 말이 늦지 않게)
+    func msKkaeugi() {
+        guard Seoljeong.shared.msMoksori, SoriEngine.msYeollim else { return }
+        let (url, _) = SoriEngine.msJuso("네")
+        if let url = url { URLSession.shared.dataTask(with: url).resume() }
     }
 
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
@@ -231,7 +355,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
     /// 2.8.0 말을 다 마치면 방송 소리를 되돌림
     private func bangsongDoedollim() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            if self.synth.isSpeaking || !self.jul.isEmpty || (self.player?.isPlaying ?? false) { return }
+            if self.malJung || !self.jul.isEmpty || (self.player?.isPlaying ?? false) { return }
             BangsongEngine.shared.malKkeut()
         }
     }
@@ -276,7 +400,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
             self.player = try? AVAudioPlayer(data: data)
             self.player?.volume = 0.8
             self.player?.play()
-            if !self.synth.isSpeaking && self.jul.isEmpty { self.sesyeonNaerigi(1.5) }
+            if !self.malJung && self.jul.isEmpty { self.sesyeonNaerigi(1.5) }
             DispatchQueue.main.asyncAfter(deadline: .now() + gil + 0.1) { self.kkeutBoda(); self.bangsongDoedollim() }
         }
     }
@@ -312,7 +436,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
     private func sesyeonNaerigi(_ dwi: Double) {
         let w = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
-            if self.synth.isSpeaking || !self.jul.isEmpty || (self.player?.isPlaying ?? false) { return }
+            if self.malJung || !self.jul.isEmpty || (self.player?.isPlaying ?? false) { return }
             if self.deutgiKyeojim || self.myeongryeongDeutneunJung || MalDeutgi.shared.dolgoItda { return }   // 말로 하기가 이어서 씀(2.12.1 마이크가 열려 있으면 그대로)
             if RemoteDanchu.shared.kyeojim { return }   // 이어폰 단추를 받는 중
             if BangsongEngine.shared.itda { return }     // 2.8.0 길눈 방송이 소리 자리를 씀
