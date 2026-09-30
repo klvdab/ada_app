@@ -1,8 +1,10 @@
-# 협회 앱 · 자봉 앱 · 배프 앱 — XcodeGen 설계도 (1.4.5판, 빌드 260930-5 — 길눈 2.19.0 고장 노래만 누구나, 음악 전체는 열쇠)
+# 협회 앱 · 자봉 앱 · 배프 앱 · AI점자도서관 — XcodeGen 설계도 (1.5.0판, 빌드 260930-6 — AI점자도서관 앱 0.1.0 더함)
+# 1.5.0 (260930-6, 이사장님 승인) AI점자도서관 앱(kr.or.ada.lib)을 한 저장소에 넣음. 소스는 Lib 폴더, 회원 열쇠로만 나스에 들어감.
 # 한 저장소에 세 앱을 담습니다. 짓기 설정(build.yml)에서 어느 앱을 지을지 골라 씁니다.
 #   AdaApp     협회 앱  (kr.or.ada.app)     대문 https://lvd.ada.or.kr/app/     + 애플워치
 #   JabongApp  자봉 앱  (kr.or.ada.jabong)  대문 https://lvd.ada.or.kr/jabong/
 #   BfbApp     배프 앱  (kr.or.ada.bfb)     대문 https://lvd.ada.or.kr/bfb/
+#   LibApp     AI점자도서관 (kr.or.ada.lib)  Lib 폴더의 자체 코드, iOS 17 이상
 # 두 앱은 App 폴더의 소스를 함께 씁니다. 대문 주소는 각자 Info.plist 의 AdaHomeURL 로 갈라집니다.
 name: AdaApp
 options:
@@ -148,6 +150,33 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.bfb
         TARGETED_DEVICE_FAMILY: "1"
+  LibApp:
+    # 0.1.0 (260930-6) AI점자도서관 앱 — 도서관, 내 서재, 설정·도움말 세 탭과 독서기
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Lib
+    info:
+      path: Lib/Info.plist
+      properties:
+        CFBundleDisplayName: AI점자도서관
+        CFBundleName: LibApp
+        CFBundleDevelopmentRegion: ko
+        CFBundleLocalizations: [ko]
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIBackgroundModes: [audio]
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.lib
+        TARGETED_DEVICE_FAMILY: "1"
+        MARKETING_VERSION: "0.1.0"
   AdaWatch:
     type: application
     platform: watchOS
@@ -185,5 +214,11 @@ schemes:
     build:
       targets:
         BfbApp: all
+    archive:
+      config: Release
+  LibApp:
+    build:
+      targets:
+        LibApp: all
     archive:
       config: Release
