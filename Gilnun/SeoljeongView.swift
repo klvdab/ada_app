@@ -17,6 +17,10 @@ struct SeoljeongView: View {
                     .accessibilityFocused($cheotJul)
                 NavigationLink { GichoSiheomView() } label: { Text("기초 시험") }
                     .buttonStyle(KeunDanchu())
+                if TeokAllim.boim {   // 2.24.0 관리자 시험 중 — 나스 음악 열쇠가 있는 폰에서만
+                    NavigationLink { TeokAllimView() } label: { Text("관리자 시험 — 발 앞 계단·턱 알림, 프로 모델 아이폰") }
+                        .buttonStyle(KeunDanchu())
+                }
                 NavigationLink { MalSeoljeongView() } label: { Text("말하기 설정 — 켜기와 끄기, 빠르기, 목소리, 얼마나 자세히, 무엇을 말할지") }
                     .buttonStyle(KeunDanchu())
                 NavigationLink { MalHagiSeoljeongView() } label: { Text("말로 하기 설정 — 하이 길눈, 호칭") }
