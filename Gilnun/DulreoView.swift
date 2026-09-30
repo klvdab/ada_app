@@ -23,6 +23,7 @@ enum DulreoHwamyeon: Hashable {
     case saram        // 2.18.0 사람 감지(카메라 눈)
     case sangpum      // 2.20.0 상품 바코드 읽기(카메라 눈)
     case jipye        // 2.21.0 지폐와 색깔 알아보기(카메라 눈)
+    case bit          // 2.22.0 빛 알아보기(카메라 눈)
 }
 
 /// 목록을 어디서 받아 오는가
@@ -105,6 +106,7 @@ struct DulreoTab: View {
                     case .saram: SaramGamjiView()
                     case .sangpum: SangpumIlgiView()
                     case .jipye: JipyeSaekView()
+                    case .bit: BitAlgiView()
                     }
                 }
         }
@@ -130,6 +132,8 @@ struct DulreoCheot: View {
                 NavigationLink(value: DulreoHwamyeon.sangpum) { Text("상품 바코드 읽기 — 상품을 카메라에 돌려 대면 이름을 읽어 드립니다") }   // 2.20.0
                     .buttonStyle(KeunDanchu())
                 NavigationLink(value: DulreoHwamyeon.jipye) { Text("지폐와 색깔 알아보기 — 옷과 물건의 색, 지폐가 얼마짜리인지 알려 드립니다") }   // 2.21.0
+                    .buttonStyle(KeunDanchu())
+                NavigationLink(value: DulreoHwamyeon.bit) { Text("빛 알아보기 — 불이 켜졌는지, 창이 어느 쪽인지 소리 높낮이로 알려 드립니다") }   // 2.22.0
                     .buttonStyle(KeunDanchu())
                 NavigationLink(value: DulreoHwamyeon.anmyeon) { Text("안면인식 — 카메라 앞의 사람을 알려 드립니다") }
                     .buttonStyle(KeunDanchu())
