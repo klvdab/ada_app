@@ -54,6 +54,7 @@ final class SangpumIlgi: NSObject, ObservableObject, AVCaptureVideoDataOutputSam
         GeulIlgi.shared.kkeugi(malHagi: false)
         GarikiIlgi.shared.kkeugi(malHagi: false)
         SaramGamji.shared.kkeugi(malHagi: false)
+        JipyeSaek.shared.kkeugi(malHagi: false)  // 2.21.0
         jul.async {
             if !self.junbiDoem {
                 guard self.junbi() else {
