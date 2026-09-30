@@ -66,6 +66,8 @@ final class MalDeutgi: NSObject {
     private var moreuneunMal = Date.distantPast
     /// 2.12.5 명령을 들을 때 받아쓰기에 미리 알려 줄 말(가까운 역·즐겨찾기)
     var doumMal: [String] = []
+    /// 2.26.0 하이 길눈을 들은 뒤 대화가 끝날 때까지 폰의 다른 소리(다른 앱 음악 등)를 멈춤
+    private(set) var moduMeomchumJung = false
     /// 마이크를 열어 두어야 함(아주 닫으면 false) — 소리 자리가 바뀌어 멎었을 때만 다시 돌리려고
     private var yeollyeoya = false
 
@@ -99,7 +101,7 @@ final class MalDeutgi: NSObject {
 
     // MARK: 듣기 시작과 멈춤
 
-    /// 명령 한 번 듣기 — 말이 1.3초 멈추면 끝, 아무 말이 없으면 6초, 길어도 12초
+    /// 명령 한 번 듣기 — 말이 1초 멈추면 끝, 아무 말이 없으면 6초, 길어도 12초
     func myeongryeong(gidarim: Double = 6, _ kkeut: @escaping ([String]) -> Void) -> Bool {
         swigi()
         bangsik = .myeongryeong
@@ -158,6 +160,39 @@ final class MalDeutgi: NSObject {
         }
     }
 
+    /// 2.26.0 폰의 모든 소리 멈춤(켬) / 되돌림(끔). 켤 때 다른 앱 소리가 멈추고, 끌 때 앱이 앞에 있으면 다른 앱이 이어 틀게 알림
+    func moduSoriMeomchum(_ on: Bool) {
+        guard on != moduMeomchumJung else { return }
+        moduMeomchumJung = on
+        let s = AVAudioSession.sharedInstance()
+        if on {
+            guard engine.isRunning, s.category == .playAndRecord else { return }
+            var o: AVAudioSession.CategoryOptions = [.defaultToSpeaker, .allowBluetoothA2DP]
+            if bangsik != .bureum { o.insert(.allowBluetooth) }
+            do {
+                try s.setCategory(.playAndRecord, mode: .default, options: o)
+                try s.setActive(true)
+                Girok.shared.namgi("modu_meomchum", ["ok": true])
+            } catch {
+                Girok.shared.namgi("modu_meomchum", ["ok": false, "code": (error as NSError).code])
+            }
+            return
+        }
+        // 되돌림 — 앱이 앞에 있으면 마이크를 잠깐 닫고 소리 자리를 내놓아 다른 앱이 이어 틀게 함(곧 부름 듣기로 다시 엶)
+        if UIApplication.shared.applicationState == .active && engine.isRunning {
+            yeollyeoya = false
+            swigi()
+            engine.stop()
+            engine.inputNode.removeTap(onBus: 0)
+            try? s.setActive(false, options: .notifyOthersOnDeactivation)
+            Girok.shared.namgi("modu_doedollim", ["dadeum": true])
+        } else if engine.isRunning {
+            // 잠긴 폰에서는 마이크를 닫으면 다시 못 여니 섞기로만 되돌림(다른 앱은 멈춘 그대로)
+            try? s.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothA2DP, .mixWithOthers])
+            Girok.shared.namgi("modu_doedollim", ["dadeum": false])
+        }
+    }
+
     /// 마이크까지 아주 닫음(넘길 것 없이)
     func meomchugi() {
         yeollyeoya = false
@@ -176,6 +211,8 @@ final class MalDeutgi: NSObject {
         // 부름을 기다릴 때는 음악을 그대로 두고, 명령을 들을 때만 잠시 낮춤
         // 2.6.0 안내 중 이어폰 단추를 받을 때는 섞지 않음(단추가 길눈으로 오게)
         if !RemoteDanchu.shared.kyeojim { o.insert(b == .bureum ? .mixWithOthers : .duckOthers) }
+        // 2.26.0 하이 길눈 대화 중에는 섞지도 낮추지도 않음 — 다른 앱 소리가 멈춤
+        if moduMeomchumJung && !seokgi { o.remove(.mixWithOthers); o.remove(.duckOthers) }
         // 2.12.7 폰이 잠겼거나 앱이 뒤에 있을 때 다른 소리를 끊고 들어가지 못하면(!int) 섞어서라도 엶
         if seokgi { o.remove(.duckOthers); o.insert(.mixWithOthers) }
         try s.setCategory(.playAndRecord, mode: .default, options: o)
@@ -333,7 +370,7 @@ final class MalDeutgi: NSObject {
             alts = ls
             malHam = true
             jamjamSigye?.invalidate()
-            jamjamSigye = Timer.scheduledTimer(withTimeInterval: 1.3, repeats: false) { [weak self] _ in
+            jamjamSigye = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: false) { [weak self] _ in   // 2.26.0 말이 1초 멈추면 끝
                 self?.myeongryeongMaechim()
             }
             if cheotMal {
