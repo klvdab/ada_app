@@ -573,6 +573,7 @@ final class MalHagi: ObservableObject {
             GarikiIlgi.shared.kkeugi()     // 2.17.0 가리키고 말하기도 그만
             SaramGamji.shared.kkeugi()     // 2.18.0 사람 감지도 그만
             SangpumIlgi.shared.kkeugi()    // 2.20.0 상품 바코드 읽기도 그만
+            JipyeSaek.shared.kkeugi()      // 2.21.0 지폐와 색깔 알아보기도 그만
             dap("", false)
             return
         }
@@ -805,6 +806,14 @@ final class MalHagi: ObservableObject {
             if z.contains("그만") || z.contains("멈춰") || z.contains("꺼") { dap("", false); DoeEngine.shared.gieokGeuman(); return true }
             dap("", false)
             DoeEngine.shared.gieokSijak()
+            return true
+        }
+        // 2.21.0 지폐와 색깔 알아보기(카메라 눈) — "무슨 색이야", "색깔 알려 줘", "지폐 알려 줘", "얼마짜리야"
+        if z.contains("무슨색") || z.contains("색깔") || z.contains("색알려") || z.contains("색이뭐") || z.contains("지폐") || z.contains("얼마짜리") {
+            dap("지폐와 색깔 알아보기를 엽니다.", false)
+            TabGil.shared.tab = 1
+            DulreoGil.shared.path = NavigationPath()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { DulreoGil.shared.path.append(DulreoHwamyeon.jipye) }
             return true
         }
         // 2.20.0 상품 바코드 읽기(카메라 눈) — "바코드 읽어 줘", "이 상품 뭐야", "무슨 상품이야"
@@ -1573,7 +1582,7 @@ final class MalHagi: ObservableObject {
         huboHwagin = false
     }
 
-    static let doumalMal = "이렇게 말씀하시면 됩니다. 집으로 가자. 걸어서 가자. 지하철로 가자. 버스로 가자. 차에 탔어. 내렸어. 얼마나 남았어. 지금 어디야. 지금 가는 길 알려 줘. 즐겨찾기 목록. 즐겨찾기에 담아 줘. 복지콜에 전화해 줘. 콜 번호 알려 줘. 신호기 울려 줘. 신호기 찾아 줘. 근처 약국. 음악 틀어 줘. 트롯 틀어 줘. 다음 곡. 라디오 틀어 줘. MBC 라디오. 뉴스 들려줘. 음악 꺼. 고장 노래 틀어 줘. 기분이 꿀꿀해. 날씨에 맞게 틀어 줘. 날씨 어때. 길 기억해 줘. 되짚어 나가자. QR 찾아 줘. 말로 그린 길. 음성유도기 어디 있어. 현장영상해설 받고 싶어. 문 찾아 줘. 글자 읽어 줘. 가리키는 거 읽어 줘. 사람 있어. 바코드 읽어 줘, 이 상품 뭐야. 도착. 도와줘, 또는 가족 이름과 화상통화. 몇 시야. 말 빠르게, 말 느리게. 다시 말해. 그만. 여정 끝. 하던 일 멈춰. 점지도를 따라 걸을 때는 다음에 무엇, 그만 걷기, 여기 문제 있어, 여기 걸렸어. 가까운 점지도 찾아 줘."
+    static let doumalMal = "이렇게 말씀하시면 됩니다. 집으로 가자. 걸어서 가자. 지하철로 가자. 버스로 가자. 차에 탔어. 내렸어. 얼마나 남았어. 지금 어디야. 지금 가는 길 알려 줘. 즐겨찾기 목록. 즐겨찾기에 담아 줘. 복지콜에 전화해 줘. 콜 번호 알려 줘. 신호기 울려 줘. 신호기 찾아 줘. 근처 약국. 음악 틀어 줘. 트롯 틀어 줘. 다음 곡. 라디오 틀어 줘. MBC 라디오. 뉴스 들려줘. 음악 꺼. 고장 노래 틀어 줘. 기분이 꿀꿀해. 날씨에 맞게 틀어 줘. 날씨 어때. 길 기억해 줘. 되짚어 나가자. QR 찾아 줘. 말로 그린 길. 음성유도기 어디 있어. 현장영상해설 받고 싶어. 문 찾아 줘. 글자 읽어 줘. 가리키는 거 읽어 줘. 사람 있어. 바코드 읽어 줘, 이 상품 뭐야. 무슨 색이야, 얼마짜리야. 도착. 도와줘, 또는 가족 이름과 화상통화. 몇 시야. 말 빠르게, 말 느리게. 다시 말해. 그만. 여정 끝. 하던 일 멈춰. 점지도를 따라 걸을 때는 다음에 무엇, 그만 걷기, 여기 문제 있어, 여기 걸렸어. 가까운 점지도 찾아 줘."
 
     private func motAradeureum(_ t: String) {
         Girok.shared.namgi("mal_motaradeureum", ["mal": String(t.prefix(60))])
