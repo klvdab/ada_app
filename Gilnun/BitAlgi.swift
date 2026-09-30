@@ -59,6 +59,7 @@ final class BitAlgi: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleB
         SaramGamji.shared.kkeugi(malHagi: false)
         SangpumIlgi.shared.kkeugi(malHagi: false)
         JipyeSaek.shared.kkeugi(malHagi: false)
+        Hanmadi.shared.kkeugi(malHagi: false)  // 2.23.0
         jul.async {
             if !self.junbiDoem {
                 guard self.junbi() else {
