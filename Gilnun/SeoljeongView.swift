@@ -85,6 +85,11 @@ struct MalSeoljeongView: View {
                 Toggle(isOn: $s.kameraMal) { Text("카메라 눈 말소리").font(.title3.weight(.semibold)) }
                     .padding(.horizontal, 4)
                     .frame(minHeight: 60)
+                if SoriEngine.msYeollim {   // 2.28.0 길눈 목소리(선희) — 애저 정식 열쇠 전에는 나스 음악 열쇠가 있는 폰에서만
+                    Toggle(isOn: $s.msMoksori) { Text("길눈 목소리 — 마이크로소프트 선희").font(.title3.weight(.semibold)) }
+                        .padding(.horizontal, 4)
+                        .frame(minHeight: 60)
+                }
                 Button("빠르기 — \(Seoljeong.bbareugiIreum[s.bbareugiDan]). 누르면 바꿉니다") {
                     s.bbareugiDan = (s.bbareugiDan + 1) % Seoljeong.bbareugiIreum.count
                     SoriEngine.shared.mal("\(Seoljeong.bbareugiIreum[s.bbareugiDan]) 말씀드립니다.")
