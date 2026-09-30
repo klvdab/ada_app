@@ -41,6 +41,10 @@ struct MalHagiSeoljeongView: View {
                 Toggle(isOn: $s.haiGilnun) { Text("하이 길눈으로 부르기").font(.title3.weight(.semibold)) }
                     .padding(.horizontal, 4)
                     .frame(minHeight: 60)
+                // 2.27.0 새 알아듣기 부품
+                Toggle(isOn: $s.saeDeutgi) { Text("새 알아듣기 부품 — iOS 26 폰에서 애플의 새 받아쓰기").font(.title3.weight(.semibold)) }
+                    .padding(.horizontal, 4)
+                    .frame(minHeight: 60)
                 TextField("길눈이 부르는 내 호칭 — 지금 \(s.ho)", text: $s.hoching)
                     .textFieldStyle(.roundedBorder)
                     .font(.title3)
