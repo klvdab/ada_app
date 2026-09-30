@@ -37,6 +37,14 @@ final class GeulIlgi: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
 
     // MARK: 켜기·끄기
 
+    /// 2.25.0 차 안 간판 알림이 켤 때 — 시작 말 없이 창밖 간판을 읽음
+    private var chaAnJung = false
+    func kyeogiChaAn() {
+        guard !kyeojim else { return }
+        chaAnJung = true
+        kyeogi()
+    }
+
     func kyeogi() {
         guard !kyeojim else { return }
         switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -78,7 +86,8 @@ final class GeulIlgi: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
                 self.kyeojim = true
                 self.saeT = Date()
                 UIApplication.shared.isIdleTimerDisabled = true
-                self.mal("글자 읽기를 시작합니다. 폰을 글자 쪽으로 세워 들고 천천히 움직여 주십시오.", sseuGi: true)
+                if !self.chaAnJung { self.mal("글자 읽기를 시작합니다. 폰을 글자 쪽으로 세워 들고 천천히 움직여 주십시오.", sseuGi: true) }
+                self.chaAnJung = false
                 Girok.shared.namgi("geulilgi", ["kyeogi": true])
                 self.sigye?.invalidate()
                 self.sigye = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in self?.salpigi() }
