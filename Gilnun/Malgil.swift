@@ -242,7 +242,7 @@ struct MalgilView: View {
                         .accessibilityFocused($chojeom)
                     Button("안내 그만 — \(e.jemok)") { e.geuman() }.buttonStyle(KeunDanchu())
                 } else if !e.yeolsoeItda {
-                    Text("말로 그린 길은 나스 열쇠를 넣은 폰에서만 쓰실 수 있습니다. 음악·방송 탭의 길 위의 음악 아래 말로 그린 길 열쇠 넣기 펼치기에서 열쇠를 한 번 넣어 주십시오.")
+                    Text("말로 그린 길은 나스 열쇠를 넣은 폰에서만 쓰실 수 있습니다. 음악·방송 탭의 길 위의 음악에서 열쇠를 한 번 넣어 주십시오.")
                         .font(.title3)
                         .accessibilityFocused($chojeom)
                 } else if sangtae == 0 {

@@ -1173,13 +1173,8 @@ final class MalHagi: ObservableObject {
                 return true
             }
             if b.jadoKyeojim { dap("지나는 고장 노래가 이미 켜져 있습니다.", false); return true }
-            Task {
-                if !b.eumakDeureom { await b.eumakJunbi() }
-                DispatchQueue.main.async {
-                    if b.eumakDeureom { dap("", false); b.jadoKyeogi() }
-                    else { dap("나스 음악에 닿지 못했습니다. 통신을 확인해 주십시오.", false) }
-                }
-            }
+            dap("", false)   // 2.19.0 고장 노래는 열쇠 없이 모든 분께
+            b.jadoKyeogi()
             return true
         }
         if kkeugi {
@@ -1230,6 +1225,11 @@ final class MalHagi: ObservableObject {
             }
             q = q.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
             for p in ["을", "를"] where q.hasSuffix(p) && q.count > 2 { q = String(q.dropLast()).trimmingCharacters(in: .whitespaces) }
+            if (Yeolsoe.ilgi("eumakTk") ?? "").isEmpty {   // 2.19.0 음악 전체는 다시 열쇠(이사장님 지시 2)
+                Task { await b.nugunaTeulgi("", "나스 음악 열쇠를 아직 넣지 않으셔서 누구나 음악을 틉니다. 지나는 고장 노래는 열쇠 없이 고장 노래 틀어 줘라고 하시면 됩니다.") }
+                dap("", false)
+                return true
+            }
             if q.isEmpty {
                 if b.itda && b.meomchum { dap("", false); b.meomchumTogeul(); return true }
                 Task { await b.galraeTeulgi("가요", "") }

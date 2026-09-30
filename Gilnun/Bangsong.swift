@@ -19,6 +19,7 @@ enum BangsongJong: String {
 struct EumakGok: Identifiable, Hashable {
     let f: String
     let ireum: String
+    var s: String = ""   // 2.19.0 고장 노래에 서버가 붙인 표 — 열쇠 없이 그 곡만 틀 수 있음
     var id: String { f }
 }
 
@@ -456,17 +457,18 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
     private static func gokDeul(_ o: [String: Any]?) -> [EumakGok] {
         ((o?["rows"] as? [[String: Any]]) ?? []).compactMap { r in
             guard let f = r["f"] as? String, !f.isEmpty else { return nil }
-            return EumakGok(f: f, ireum: (r["ireum"] as? String) ?? f)
+            return EumakGok(f: f, ireum: (r["ireum"] as? String) ?? f, s: (r["s"] as? String) ?? "")
         }
     }
 
     // MARK: 길 위의 음악 — 나스 음악(열쇠)
 
-    /// 화면이 열릴 때 — 갈래를 받아 둠(2.16.0 이사장님 지시: 길 위의 음악은 열쇠 없이 모든 분께 선물로 엶)
+    /// 화면이 열릴 때 — 열쇠가 있으면 갈래를 받아 둠(2.19.0 이사장님 지시 2: 음악 전체는 열쇠, 고장 노래만 모든 분께)
     func eumakJunbi() async {
         let s = await eumakMutgi("sangtae")
         let cheoum = !((s?["jeonghaessna"] as? Bool) ?? true)
         await MainActor.run { self.cheoumIra = cheoum }
+        guard !tk.isEmpty else { await MainActor.run { self.eumakDeureom = false }; return }
         let g = await eumakMutgi("galrae")
         let ok = (g?["ok"] as? Bool) == true
         await MainActor.run {
@@ -545,11 +547,11 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
             ap = "지금 날씨는 \(haneul)입니다. \(j)에 어울리는 곡으로 골라 드리겠습니다."
         }
         Girok.shared.namgi("gibun_eumak", ["g": g.rawValue])
-        if !eumakDeureom { await eumakJunbi() }
-        if !eumakDeureom {   // 나스 음악에 닿지 못할 때만 누구나 음악으로
-            await nugunaTeulgi(g.nugunaBun, ap + " 나스 음악에 닿지 못해 누구나 음악의 \(g.nugunaBun == "bal" ? "밝은" : "잔잔한") 곡을 틉니다.")
+        if tk.isEmpty {
+            await nugunaTeulgi(g.nugunaBun, ap + " 나스 음악 열쇠가 없어 누구나 음악의 \(g.nugunaBun == "bal" ? "밝은" : "잔잔한") 곡을 틉니다.")
             return ""
         }
+        if !eumakDeureom { await eumakJunbi() }
         switch g {
         case .jeonhwan, .heung: juje = "신나는 댄스"
         case .chabun: juje = "잔잔한 음악"
@@ -635,7 +637,7 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
 
     private func gokJuso(_ g: EumakGok) -> URL? {
         if let p = BangsongEngine.batadun(g.f) { return p }
-        return BangsongEngine.juso("/jeom/eumak.php", [("a", "teul"), ("tk", tk), ("f", g.f), ("q", "g")])
+        return BangsongEngine.juso("/jeom/eumak.php", [("a", "teul"), ("tk", tk), ("f", g.f), ("q", "g"), ("s", g.s)])
     }
 
     func gokTeulgi(_ i: Int, malHagi: Bool = true) {
@@ -653,10 +655,10 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
             let g = gokMok[nx]
             let tk0 = tk
             Task.detached {
-                if let ju = BangsongEngine.juso("/jeom/eumak.php", [("a", "junbi"), ("tk", tk0), ("f", g.f)]) {
+                if let ju = BangsongEngine.juso("/jeom/eumak.php", [("a", "junbi"), ("tk", tk0), ("f", g.f), ("s", g.s)]) {
                     _ = try? await URLSession.shared.data(from: ju)
                 }
-                await BangsongEngine.badaduki(g.f, tk0)
+                await BangsongEngine.badaduki(g.f, tk0, g.s)
             }
         }
     }
@@ -677,9 +679,9 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         return FileManager.default.fileExists(atPath: u.path) ? u : nil
     }
 
-    static func badaduki(_ f: String, _ tk: String) async {
-        guard batadun(f) == nil,
-              let u = juso("/jeom/eumak.php", [("a", "teul"), ("tk", tk), ("f", f), ("q", "g")]),
+    static func badaduki(_ f: String, _ tk: String, _ s: String = "") async {
+        guard batadun(f) == nil, !tk.isEmpty || !s.isEmpty,
+              let u = juso("/jeom/eumak.php", [("a", "teul"), ("tk", tk), ("f", f), ("q", "g"), ("s", s)]),
               let dr = try? await URLSession.shared.download(from: u),
               (dr.1 as? HTTPURLResponse)?.statusCode == 200 else { return }
         let tmp = dr.0
@@ -699,16 +701,8 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
 
     // MARK: 지나는 고장 노래 저절로(1분마다)
 
+    /// 2.19.0 고장 노래는 열쇠 없이 모든 분께(이사장님 지시 2 — 모든 시각장애인에게 드리는 선물)
     func jadoKyeogi() {
-        guard eumakDeureom else {
-            Task {
-                await self.eumakJunbi()
-                await MainActor.run {
-                    if self.eumakDeureom { self.jadoKyeogi() } else { SoriEngine.shared.mal("나스 음악에 닿지 못했습니다. 통신을 확인해 주십시오.") }
-                }
-            }
-            return
-        }
         jadoKyeojim = true
         jadoKey = ""
         SoriEngine.shared.mal("지나는 고장 노래를 저절로 틀어 드립니다.")
@@ -723,9 +717,8 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         guard Seoljeong.shared.gojangNorae, !jadoKyeojim else { return }
         guard jong == .eopseum || jong == .eumak else { return }
         Task {
-            if !self.eumakDeureom { await self.eumakJunbi() }
             await MainActor.run {
-                guard self.eumakDeureom, !self.jadoKyeojim, self.jong == .eopseum || self.jong == .eumak else { return }
+                guard !self.jadoKyeojim, self.jong == .eopseum || self.jong == .eumak else { return }
                 self.jadoChaRo = true
                 self.jadoKyeogi()
                 Girok.shared.namgi("gojang_norae_cha", [:])
