@@ -1,4 +1,4 @@
-# 시험 모임 만들기 (1.0판, 빌드 260930-1, 이사장님 승인 2026-09-30
+# 시험 모임 만들기 (1.0.1판, 빌드 260930-2 — 애플 답을 한 줄로 보이게, 이사장님 승인 2026-09-30
 #  "AI점자도서관 앱에 협회 안쪽 시험 모임을 만들고 길눈과 같은 사람들을 넣는 것을 허락한다.")
 # 앱스토어 커넥트 열쇠로, 대상 앱에 길눈 앱과 같은 이름의 내부 시험 모임을 만들고(이미 있으면 그대로 씀)
 # 길눈 모임에 있는 사람들을 그대로 넣습니다. 모임은 앞으로 올라오는 판을 모두 받게 해 둡니다.
@@ -33,7 +33,7 @@ def bureugi(gil, q=None, bon=None, bang="GET"):
             t = f.read()
             return json.loads(t) if t else {}
     except urllib.error.HTTPError as e:
-        allim("애플 답 %s: %s" % (e.code, e.read().decode("utf-8", "replace")[:400]))
+        allim("애플 답 %s: %s" % (e.code, " ".join(e.read().decode("utf-8", "replace").split())[:600]))
         raise
 
 
