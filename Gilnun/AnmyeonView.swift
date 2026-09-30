@@ -69,6 +69,7 @@ final class AnmyeonEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         JipyeSaek.shared.kkeugi(malHagi: false)  // 2.21.0
         BitAlgi.shared.kkeugi(malHagi: false)  // 2.22.0
         Hanmadi.shared.kkeugi(malHagi: false)  // 2.23.0
+        TeokAllim.shared.kkeugi(malHagi: false)  // 2.24.0
         jul.async {
             if !self.junbiDoem {
                 guard self.junbi() else {
