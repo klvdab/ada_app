@@ -59,6 +59,13 @@ final class AnmyeonEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     }
 
     private func sijak() {
+        // 2.20.0 카메라는 한 곳만 — QR 찾기와 다른 카메라 눈을 모두 끔
+        QrEngine.shared.kkeugi(malHagi: false)
+        MunChatgi.shared.kkeugi(malHagi: false)
+        GeulIlgi.shared.kkeugi(malHagi: false)
+        GarikiIlgi.shared.kkeugi(malHagi: false)
+        SaramGamji.shared.kkeugi(malHagi: false)
+        SangpumIlgi.shared.kkeugi(malHagi: false)
         jul.async {
             if !self.junbiDoem {
                 guard self.junbi() else {
