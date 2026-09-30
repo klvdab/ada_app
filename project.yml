@@ -1,4 +1,5 @@
-# 협회 앱 · 자봉 앱 · 배프 앱 · AI점자도서관 — XcodeGen 설계도 (1.5.5판, 빌드 261001-1 — 길눈 2.24.0 발 앞 계단·턱 알림(카메라 눈 묶음 9, 관리자 시험))
+# 협회 앱 · 자봉 앱 · 배프 앱 · AI점자도서관 — XcodeGen 설계도 (1.5.6판, 빌드 261001-2 — 길눈 2.25.0 차 안 간판 알림)
+# 1.5.6 (261001-2, 대표님 승인) 길눈 2.25.0 — 차 안 간판 알림
 # 1.5.5 (261001-1, 대표님 승인) 길눈 2.24.0 — 발 앞 계단·턱 알림(관리자 시험)
 # 1.5.4 (260930-10, 대표님 승인) 길눈 2.23.0 — 인터넷 없이 한마디 설명
 # 1.5.3 (260930-9, 대표님 승인) 길눈 2.22.0 — 빛 알아보기
@@ -76,7 +77,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "2.24.0"
+        MARKETING_VERSION: "2.25.0"
   JabongApp:
     type: application
     platform: iOS
@@ -201,7 +202,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app.watchkitapp
         TARGETED_DEVICE_FAMILY: "4"
-        MARKETING_VERSION: "2.24.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
+        MARKETING_VERSION: "2.25.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
 schemes:
   AdaApp:
     build:
