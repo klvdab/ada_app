@@ -95,6 +95,7 @@ final class AnnaeEngine: ObservableObject {
         BitAlgi.shared.kkeugi(malHagi: false)  // 2.22.0
         Hanmadi.shared.kkeugi(malHagi: false)  // 2.23.0
         TeokAllim.shared.kkeugi(malHagi: false)  // 2.24.0
+        GanpanAllim.shared.kkeut()  // 2.25.0
         SoriEngine.shared.modu_geodugi()
         TabGil.shared.tab = 0
         GilGil.shared.cheotHwamyeon()
@@ -185,6 +186,7 @@ final class AnnaeEngine: ObservableObject {
     func naeryeotda(jadong: Bool = false, mal: String? = nil) {
         guard yj.jigeum != nil else { return }
         JihacheolEngine.shared.meomchugi()
+        GanpanAllim.shared.kkeut()   // 2.25.0 창밖 간판 읽기 카메라 끔
         yj.talgeotJeonghagi(.georeum, barojabeum: false)
         yj.danggyeBakkugi(.namEunGil)
         dasiSijak()
@@ -555,6 +557,7 @@ final class AnnaeEngine: ObservableObject {
     // MARK: 차 안
 
     private func chaAnnae(_ w: Wichi, _ d: Double, _ y: Yeojeong) {
+        GanpanAllim.shared.chaAn(w)   // 2.25.0 차 안 간판 알림
         let mok = y.mokjeok.ireum
         let now = Date()
         let dan = [5000, 3000, 2000, 1000, 500, 300, 150]
