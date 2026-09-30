@@ -165,8 +165,8 @@ final class MalHagi: ObservableObject {
             }
         }
         if sori {
-            SoriEngine.shared.sori(.deutgi)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: yeolgi)
+            SoriEngine.shared.sori(.dingdong)   // 2.26.0 딩동 — 이제 말씀하십시오
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.55, execute: yeolgi)
         } else {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: yeolgi)
         }
@@ -193,7 +193,8 @@ final class MalHagi: ObservableObject {
                 bureumDasi(0.8)
                 return
             }
-            dapHagi("말씀이 들리지 않았습니다.", false)
+            SoriEngine.shared.sori(.ttaeng)   // 2.26.0 땡 — 그다음 대답
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in self?.dapHagi("말씀이 들리지 않았습니다.", false) }
             return
         }
         // 2.12.3 "하이 길눈"만 들렸으면(대답을 못 들어 한 번 더 부르심) 명령으로 치지 않고 "네" 하고 다시 기다림
@@ -205,7 +206,13 @@ final class MalHagi: ObservableObject {
         }
         deureunMal = alts[0]
         sangtae = .araboneun
-        cheori(alts) { [weak self] t, mutneun in self?.dapHagi(t, mutneun) }
+        // 2.26.0 (대표님 지시) 말씀을 다 들으면 땡 — 그때서야 길눈 목소리로 결과를 말함
+        SoriEngine.shared.sori(.ttaeng)
+        let ttaengT = Date()
+        cheori(alts) { [weak self] t, mutneun in
+            let nameun = max(0, 0.35 - Date().timeIntervalSince(ttaengT))
+            DispatchQueue.main.asyncAfter(deadline: .now() + nameun) { self?.dapHagi(t, mutneun) }
+        }
     }
 
     /// 대답하고, 묻는 말이면 마이크를 한 번만 저절로 엶. 아니면 땡 소리로 마침
@@ -220,8 +227,7 @@ final class MalHagi: ObservableObject {
             } else {
                 self.jadongYeolim = 0
                 Girok.shared.namgi("dap_kkeut", [:])
-                SoriEngine.shared.sori(.ttaeng)
-                self.bureumDasi(0.8)
+                self.bureumDasi(0.8)   // 2.26.0 땡은 대답 앞에서 이미 울림
             }
         }
     }
@@ -304,6 +310,7 @@ final class MalHagi: ObservableObject {
     /// 2.12.2 "하이 길눈"을 들은 동안 멈추고 낮췄던 소리를 되돌림
     private var bureumSoriJurim = false
     private func bureumSoriDollim() {
+        MalDeutgi.shared.moduSoriMeomchum(false)   // 2.26.0 멈췄던 다른 앱 소리도 되돌림
         guard bureumSoriJurim else { return }
         bureumSoriJurim = false
         BangsongEngine.shared.bureumMeomchum(false)
@@ -337,20 +344,10 @@ final class MalHagi: ObservableObject {
         BangsongEngine.shared.bureumMeomchum(true)
         MalDeutgi.shared.dareunSori(jurim: true)
         SoriEngine.shared.modu_geodugi()
-        sangtae = .deutneun
-        Girok.shared.namgi("ne_mal", ["malKyeojim": Seoljeong.shared.malKyeojim, "bappeum": SoriEngine.shared.bappeum])
-        let ne = { [weak self] in
-            guard let self = self else { return }
-            Girok.shared.namgi("ne_kkeut", [:])
-            self.sangtae = .swim
-            self.myeongryeongYeolgi(sori: !Seoljeong.shared.malKyeojim)
-        }
-        if Seoljeong.shared.malKyeojim {
-            SoriEngine.shared.mal("네", .annae)
-            SoriEngine.shared.kkeutnamyeon(ne)
-        } else {
-            ne()
-        }
+        // 2.26.0 (대표님 지시) "하이 길눈"하고 끊으시면 곧바로 딩동 — 폰의 모든 소리를 멈추고 다음 말씀을 기다림("네"는 말하지 않음)
+        MalDeutgi.shared.moduSoriMeomchum(true)
+        Girok.shared.namgi("dingdong", ["bappeum": SoriEngine.shared.bappeum])
+        myeongryeongYeolgi(sori: true)
     }
 
     // MARK: 2.12.4 멈춤 풀기 — 어디서 막히든 하이 길눈이 영영 먹통이 되지 않게
@@ -717,8 +714,40 @@ final class MalHagi: ObservableObject {
             let res: (String, [Jangso]?)
             if let y = yk { res = await MalHagi.jangsoChatgi(y, nil) } else { res = await MalHagi.jangsoChatgi(qA, qB0) }
             let (q, r) = res
+            // 2.26.0 (대표님 지시) "약수역 5번 출구"를 못 찾으면 그 역의 가까운 다른 출구를 권함
+            var daean: Jangso? = nil
+            var rMatjum = r
+            if let y = yk, let bn = MalHagi.chulguBeon(y) {
+                if let i = (r ?? []).prefix(5).firstIndex(where: { MalHagi.chulguBeon($0.ireum) == bn }), var rr0 = r {
+                    let a = rr0.remove(at: i); rr0.insert(a, at: 0); rMatjum = rr0   // 맞는 출구를 맨 앞으로
+                } else {
+                    let yeok = y.components(separatedBy: " ").first ?? y
+                    let w = await MainActor.run { WichiEngine.shared.jigeum }
+                    if let rs = await Chatgi.jangso(yeok + " 출구") {
+                        let chulgu = rs.filter { MalHagi.chulguBeon($0.ireum) != nil && MalHagi.chulguBeon($0.ireum) != bn }
+                        if let w = w {
+                            daean = chulgu.min { WichiEngine.geori(w.lat, w.lon, $0.lat, $0.lon) < WichiEngine.geori(w.lat, w.lon, $1.lat, $1.lon) }
+                        } else {
+                            daean = chulgu.first
+                        }
+                    }
+                }
+            }
+            let rFinal = rMatjum
+            let daeanFinal = daean
             DispatchQueue.main.async {
-                guard let r = r else {
+                if let dn = daeanFinal, let y = yk, let bn = MalHagi.chulguBeon(dn.ireum) {
+                    self.hubo = [dn]
+                    self.huboI = 0
+                    self.huboTalgeot = taltgeot
+                    self.huboHwagin = true
+                    self.mureum = .hubo
+                    self.mureumTtae = Date()
+                    Girok.shared.namgi("chulgu_daean", ["mal": String(y.prefix(30)), "daean": bn])
+                    dap("네, \(y)\(MalHagi.eul(y)) 찾지 못했습니다. 가까운 \(bn)번 출구로 안내해 드릴까요?", true)
+                    return
+                }
+                guard let r = rFinal else {
                     dap("찾는 중에 연결이 끊겼습니다. 통신을 확인하시고 다시 말씀해 주십시오.", false)
                     return
                 }
@@ -1296,10 +1325,18 @@ final class MalHagi: ObservableObject {
     private func huboAnnae(_ dap: @escaping (String, Bool) -> Void, hwagin: Bool) {
         guard huboI < hubo.count else { return }
         let h = hubo[huboI]
-        var m = h.ireum + "."
+        // 2.26.0 (대표님 지시) "네, 약수역 5번 출구는 1시 방향, 120미터에 있습니다."
+        var m = "네, " + h.ireum
         if let w = WichiEngine.shared.jigeum {
             let d = WichiEngine.geori(w.lat, w.lon, h.lat, h.lon)
-            m += d < 30 ? " 지금 계신 곳 바로 가까이입니다." : " 여기서 약 \(Annae.geoMal(d))."
+            if d < 30 {
+                m += MalHagi.eun(h.ireum) + " 지금 계신 곳 바로 가까이에 있습니다."
+            } else {
+                let bang = w.banghyang >= 0 ? "\(MunChatgi.sigye(GanpanAllim.bangwi(w.lat, w.lon, h.lat, h.lon) - w.banghyang))시 방향, " : ""
+                m += MalHagi.eun(h.ireum) + " \(bang)\(Annae.geoMal(d))에 있습니다."
+            }
+        } else {
+            m += "."
         }
         mureum = .hubo
         mureumTtae = Date()
@@ -1648,6 +1685,11 @@ final class MalHagi: ObservableObject {
         return (j != 0, j == 8)
     }
     static func eul(_ w: String) -> String { batchim(w).0 ? "을" : "를" }
+    /// 2.26.0 "약수역 5번 출구", "약수역 5번출구" → 5
+    static func chulguBeon(_ t: String) -> Int? {
+        guard let r = t.range(of: "([0-9]{1,2})\\s*번\\s*(출구|출입구)", options: .regularExpression) else { return nil }
+        return Int(t[r].prefix { $0.isNumber })
+    }
     static func eun(_ w: String) -> String { batchim(w).0 ? "은" : "는" }
     static func i(_ w: String) -> String { batchim(w).0 ? "이" : "가" }
     static func ro(_ w: String) -> String { let b = batchim(w); return b.0 && !b.1 ? "으로" : "로" }
