@@ -81,6 +81,7 @@ final class MunChatgi: NSObject, ObservableObject, ARSessionDelegate {
         SangpumIlgi.shared.kkeugi(malHagi: false)  // 2.20.0
         JipyeSaek.shared.kkeugi(malHagi: false)  // 2.21.0
         BitAlgi.shared.kkeugi(malHagi: false)  // 2.22.0
+        Hanmadi.shared.kkeugi(malHagi: false)  // 2.23.0
         QrEngine.shared.kkeugi(malHagi: false)
         jjikgiNow = (e == "jjikgi")
         if gidae == nil && !jjikgiNow, let w = WichiEngine.shared.jigeum, let h = NaeMun.shared.geulMun(w.lat, w.lon, 40) {
