@@ -1,0 +1,44 @@
+# 시험 모임 만들기 (1.0판, 빌드 260930-1, 이사장님 승인 2026-09-30)
+# 앱스토어 커넥트 열쇠(ASC_BUNDLE)로 대상 앱에 내부 시험 모임을 만들고 길눈 모임 사람들을 넣습니다.
+# 지우는 일은 없습니다. Actions 화면의 「Run workflow」로 돌리고, 결과는 실행 기록의 알림(Annotations)에 줄마다 남습니다.
+name: sihum-moim
+on:
+  workflow_dispatch:
+    inputs:
+      dae:
+        description: "대상 앱 번들 (kr.or.ada.lib = AI점자도서관)"
+        default: "kr.or.ada.lib"
+jobs:
+  moim:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 도구 준비
+        run: |
+          python3 -m venv /tmp/py
+          /tmp/py/bin/pip install --quiet pyjwt cryptography
+
+      - name: 열쇠 풀어 놓기
+        env:
+          ASC_BUNDLE: ${{ secrets.ASC_BUNDLE }}
+        run: |
+          umask 077
+          B="$RUNNER_TEMP/bundle.txt"
+          printf '%s\n' "$ASC_BUNDLE" | tr -d '\r' > "$B"
+          KID=$(grep -m1 '^KEY_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          IID=$(grep -m1 '^ISSUER_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          if [ -z "$KID" ] || [ -z "$IID" ]; then echo "ASC_BUNDLE 에 KEY_ID / ISSUER_ID 줄이 있어야 합니다"; rm -f "$B"; exit 1; fi
+          mkdir -p "$HOME/private_keys"
+          sed -n '/BEGIN PRIVATE KEY/,/END PRIVATE KEY/p' "$B" > "$HOME/private_keys/AuthKey_$KID.p8"
+          rm -f "$B"
+          chmod 600 "$HOME/private_keys/AuthKey_$KID.p8"
+          echo "::add-mask::$IID"
+          echo "ASC_KEY_ID=$KID" >> "$GITHUB_ENV"
+          echo "ASC_ISSUER_ID=$IID" >> "$GITHUB_ENV"
+
+      - name: 시험 모임 만들기
+        env:
+          DAE_BUNDLE: ${{ github.event.inputs.dae || 'kr.or.ada.lib' }}
+        run: /tmp/py/bin/python tools/sihum_moim.py
