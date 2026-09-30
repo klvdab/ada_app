@@ -61,6 +61,7 @@ final class SaramGamji: NSObject, ObservableObject, AVCaptureVideoDataOutputSamp
         GarikiIlgi.shared.kkeugi(malHagi: false)
         SangpumIlgi.shared.kkeugi(malHagi: false)  // 2.20.0
         JipyeSaek.shared.kkeugi(malHagi: false)  // 2.21.0
+        BitAlgi.shared.kkeugi(malHagi: false)  // 2.22.0
         jul.async {
             if !self.junbiDoem {
                 guard self.junbi() else {
