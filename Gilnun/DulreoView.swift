@@ -21,6 +21,7 @@ enum DulreoHwamyeon: Hashable {
     case geulIlgi     // 2.16.0 즉석 글자 읽기(카메라 눈)
     case gariki       // 2.17.0 가리키고 말하기(카메라 눈)
     case saram        // 2.18.0 사람 감지(카메라 눈)
+    case sangpum      // 2.20.0 상품 바코드 읽기(카메라 눈)
 }
 
 /// 목록을 어디서 받아 오는가
@@ -101,6 +102,7 @@ struct DulreoTab: View {
                     case .geulIlgi: GeulIlgiView()
                     case .gariki: GarikiIlgiView()
                     case .saram: SaramGamjiView()
+                    case .sangpum: SangpumIlgiView()
                     }
                 }
         }
@@ -122,6 +124,8 @@ struct DulreoCheot: View {
                 NavigationLink(value: DulreoHwamyeon.gariki) { Text("가리키고 말하기 — 손가락으로 가리킨 단추의 글자를 읽어 드립니다") }   // 2.17.0
                     .buttonStyle(KeunDanchu())
                 NavigationLink(value: DulreoHwamyeon.saram) { Text("사람 감지 — 앞의 사람을 방향과 걸음 수로 알려 드립니다") }   // 2.18.0
+                    .buttonStyle(KeunDanchu())
+                NavigationLink(value: DulreoHwamyeon.sangpum) { Text("상품 바코드 읽기 — 상품을 카메라에 돌려 대면 이름을 읽어 드립니다") }   // 2.20.0
                     .buttonStyle(KeunDanchu())
                 NavigationLink(value: DulreoHwamyeon.anmyeon) { Text("안면인식 — 카메라 앞의 사람을 알려 드립니다") }
                     .buttonStyle(KeunDanchu())
