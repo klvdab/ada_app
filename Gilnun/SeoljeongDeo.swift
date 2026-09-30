@@ -134,6 +134,17 @@ struct MalSeolDeoView: View {
                 SoriEngine.shared.mal("\(s.gilGap)초에 한 번까지 지금 달리는 길을 말씀드립니다.")
             }
             .buttonStyle(KeunDanchu())
+            // 2.25.0 차 안 간판 알림
+            Button("차 안 간판 알림 — " + (s.ganpanOn ? "켜져 있음 (누르면 끕니다)" : "꺼져 있음 (누르면 켭니다)")) {
+                s.ganpanOn.toggle()
+                SoriEngine.shared.mal(s.ganpanOn ? "달릴 때 지나는 가게와 건물을 왼쪽 오른쪽으로 알려 드립니다." : "지나는 가게와 건물을 알리지 않습니다.")
+            }
+            .buttonStyle(KeunDanchu())
+            Button("서 있을 때 창밖 간판 읽기(카메라) — " + (s.ganpanKamera ? "켜져 있음 (누르면 끕니다)" : "꺼져 있음 (누르면 켭니다)")) {
+                s.ganpanKamera.toggle()
+                SoriEngine.shared.mal(s.ganpanKamera ? "차가 서 있거나 천천히 갈 때 카메라로 창밖 간판을 읽어 드립니다. 폰 뒤쪽 카메라를 창밖으로 향해 주십시오." : "창밖 간판을 카메라로 읽지 않습니다.")
+            }
+            .buttonStyle(KeunDanchu())
             Button("말 자르고 새로 말하기 — " + (s.malJaru ? "켜져 있음 (누르면 끕니다)" : "꺼져 있음 (누르면 켭니다)")) {
                 s.malJaru.toggle()
                 SoriEngine.shared.mal(s.malJaru ? "새 안내가 하던 말을 끊고 바로 나옵니다." : "하던 말을 다 마친 뒤에 새 안내가 나옵니다.")
