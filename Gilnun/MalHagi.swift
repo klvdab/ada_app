@@ -752,14 +752,24 @@ final class MalHagi: ObservableObject {
                     return
                 }
                 if r.isEmpty {
-                    self.motAradeureum(t)
-                    self.mureum = .mokjeok
-                    self.mureumTtae = Date()
-                    if hwagin {
-                        dap(self.sagwa() + "다시 말씀해 주십시오.", true)
-                    } else {
-                        dap("죄송합니다. \(q)\(MalHagi.eul(q)) 찾지 못했습니다. 다른 이름으로 말씀해 주십시오.", true)
+                    // 2.29.0 사전으로 못 알아들은 말은 폰 안 인공지능에게 한 번 풀어 달라고 함(8초 안에 거듭 묻지 않음)
+                    if MalAI.sseulSuItda && Date().timeIntervalSince(self.aiTtae) > 8 {
+                        self.aiTtae = Date()
+                        Task {
+                            let s = await MalAI.puri(t)
+                            await MainActor.run {
+                                if let s = s, MalSajeon.ttuk(s) != MalSajeon.ttuk(t) {
+                                    Girok.shared.namgi("mal_ai", ["jeon": String(t.prefix(40)), "hu": String(s.prefix(40))])
+                                    self.cheori([s], dap)
+                                } else {
+                                    Girok.shared.namgi("mal_ai", ["jeon": String(t.prefix(40)), "hu": ""])
+                                    self.motChatgiDap(t, q, hwagin, dap)
+                                }
+                            }
+                        }
+                        return
                     }
+                    self.motChatgiDap(t, q, hwagin, dap)
                     return
                 }
                 // 2.12.7 주소로 말씀하시면(동호로 7길 14) 그 건물 안 가게 이름(주전) 대신 주소를 이름으로(이사장님 승인 1)
@@ -1639,6 +1649,21 @@ final class MalHagi: ObservableObject {
     }
 
     static let doumalMal = "이렇게 말씀하시면 됩니다. 집으로 가자. 걸어서 가자. 지하철로 가자. 버스로 가자. 차에 탔어. 내렸어. 얼마나 남았어. 지금 어디야. 지금 가는 길 알려 줘. 즐겨찾기 목록. 즐겨찾기에 담아 줘. 복지콜에 전화해 줘. 콜 번호 알려 줘. 신호기 울려 줘. 신호기 찾아 줘. 근처 약국. 음악 틀어 줘. 트롯 틀어 줘. 다음 곡. 라디오 틀어 줘. MBC 라디오. 뉴스 들려줘. 음악 꺼. 고장 노래 틀어 줘. 기분이 꿀꿀해. 날씨에 맞게 틀어 줘. 날씨 어때. 길 기억해 줘. 되짚어 나가자. QR 찾아 줘. 말로 그린 길. 음성유도기 어디 있어. 현장영상해설 받고 싶어. 문 찾아 줘. 글자 읽어 줘. 가리키는 거 읽어 줘. 사람 있어. 바코드 읽어 줘, 이 상품 뭐야. 무슨 색이야, 얼마짜리야. 불 켜져 있어, 밝은 쪽 찾아 줘. 이게 뭐야, 뭐가 보여. 도착. 도와줘, 또는 가족 이름과 화상통화. 몇 시야. 말 빠르게, 말 느리게. 다시 말해. 그만. 여정 끝. 하던 일 멈춰. 점지도를 따라 걸을 때는 다음에 무엇, 그만 걷기, 여기 문제 있어, 여기 걸렸어. 가까운 점지도 찾아 줘."
+
+    /// 2.29.0 인공지능이 풀어 본 때(거듭 묻지 않으려고)
+    private var aiTtae = Date.distantPast
+
+    /// 찾는 곳을 못 찾았을 때의 대답
+    private func motChatgiDap(_ t: String, _ q: String, _ hwagin: Bool, _ dap: @escaping (String, Bool) -> Void) {
+        motAradeureum(t)
+        mureum = .mokjeok
+        mureumTtae = Date()
+        if hwagin {
+            dap(sagwa() + "다시 말씀해 주십시오.", true)
+        } else {
+            dap("죄송합니다. \(q)\(MalHagi.eul(q)) 찾지 못했습니다. 다른 이름으로 말씀해 주십시오.", true)
+        }
+    }
 
     private func motAradeureum(_ t: String) {
         Girok.shared.namgi("mal_motaradeureum", ["mal": String(t.prefix(60))])
