@@ -17,6 +17,7 @@ enum SoriJong {
     case dochak    // 도착
     case deutgi    // 말로 하기 — 이제 말씀하십시오
     case ttaeng    // 말로 하기 — 대답을 마치고 실행에 들어감
+    case dingdong  // 2.26.0 하이 길눈 — 부름을 알아들음, 이제 말씀하십시오(또렷한 두 음)
     // 2.10.0 점지도 따라 걷기(웹 hwaksin.js 와 같은 소리)
     case jeomOk    // 점지도 위를 제대로 디딤 — 맑고 높은 띵
     case bikyeo    // 반 걸음 비켜남 — 가운데 소리
@@ -247,6 +248,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
         case .dochak: data = SoriEngine.wav([(660, 0.12), (0, 0.04), (880, 0.12), (0, 0.04), (1100, 0.22)]); gil = 0.6
         case .deutgi: data = SoriEngine.wav([(660, 0.07), (0, 0.03), (990, 0.1)])
         case .ttaeng: data = SoriEngine.wav([(1320, 0.2)])
+        case .dingdong: data = SoriEngine.wav([(1318.5, 0.14), (0, 0.03), (1046.5, 0.3)]); gil = 0.5
         case .jeomOk: data = SoriEngine.wav([(1320, 0.07)]); gil = 0.1
         case .bikyeo: data = SoriEngine.wav([(700, 0.12)]); gil = 0.15
         case .beoseo: data = SoriEngine.wav([(330, 0.2), (0, 0.07), (247, 0.26)]); gil = 0.55
@@ -254,11 +256,11 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate 
         }
         DispatchQueue.main.async {
             // 명령을 듣는 동안에는 걷는 안내의 작은 소리를 내지 않음(마이크를 지킴) — 경고와 말로 하기 소리는 냄
-            if self.myeongryeongDeutneunJung && j != .gyeonggo && j != .deutgi && j != .ttaeng { return }
+            if self.myeongryeongDeutneunJung && j != .gyeonggo && j != .deutgi && j != .ttaeng && j != .dingdong { return }
             // 2.12.0 짧은 확신음은 하이 길눈 듣기를 닫지 않고, 듣는 중이면 소리 자리도 건드리지 않음
             let jjalbeun = (j == .jeomOk || j == .bikyeo || j == .hwaksin)
             let deutneun = jjalbeun && MalDeutgi.shared.dolgoItda
-            if j != .deutgi && j != .ttaeng && !jjalbeun { self.hanunMal = ""; self.malSijakHook?() }
+            if j != .deutgi && j != .ttaeng && j != .dingdong && !jjalbeun { self.hanunMal = ""; self.malSijakHook?() }
             if deutneun {
                 self.player = try? AVAudioPlayer(data: data)
                 self.player?.volume = 0.8
