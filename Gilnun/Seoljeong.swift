@@ -17,6 +17,8 @@ final class Seoljeong: ObservableObject {
     @Published var haiGilnun: Bool { didSet { d.set(haiGilnun, forKey: "gn.haiGilnun") } }
     /// 2.27.0 새 알아듣기 부품(애플 SpeechAnalyzer, iOS 26) 쓰기 — 처음부터 켜짐
     @Published var saeDeutgi: Bool { didSet { d.set(saeDeutgi, forKey: "gn.saeDeutgi") } }
+    /// 2.29.0 못 알아들은 말을 폰 안 인공지능(애플 인텔리전스)으로 풀기 — 처음부터 켜짐
+    @Published var malAI: Bool { didSet { d.set(malAI, forKey: "gn.malAI") } }
     /// 2.12.2 방송 중에도 하이 길눈 듣기 — 폰이 내는 소리를 빼고 들음(처음부터 켜짐)
     @Published var haiBangsongDeutgi: Bool { didSet { d.set(haiBangsongDeutgi, forKey: "gn.haiBangsong") } }
     /// 말로 하기가 이용자를 부르는 호칭
@@ -80,6 +82,7 @@ final class Seoljeong: ObservableObject {
         bopok = b > 0.2 ? b : 0.65
         haiGilnun = (ud.object(forKey: "gn.haiGilnun") as? Bool) ?? false
         saeDeutgi = (ud.object(forKey: "gn.saeDeutgi") as? Bool) ?? true
+        malAI = (ud.object(forKey: "gn.malAI") as? Bool) ?? true
         haiBangsongDeutgi = (ud.object(forKey: "gn.haiBangsong") as? Bool) ?? true
         let h = (ud.string(forKey: "gn.hoching") ?? "").trimmingCharacters(in: .whitespaces)
         hoching = h.isEmpty ? "길손님" : h
