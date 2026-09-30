@@ -45,6 +45,10 @@ struct MalHagiSeoljeongView: View {
                 Toggle(isOn: $s.saeDeutgi) { Text("새 알아듣기 부품 — iOS 26 폰에서 애플의 새 받아쓰기").font(.title3.weight(.semibold)) }
                     .padding(.horizontal, 4)
                     .frame(minHeight: 60)
+                // 2.29.0 말뜻 풀이
+                Toggle(isOn: $s.malAI) { Text("말뜻 풀이 — 애플 인텔리전스가 켜진 폰에서 못 알아들은 말을 풀어 봄").font(.title3.weight(.semibold)) }
+                    .padding(.horizontal, 4)
+                    .frame(minHeight: 60)
                 TextField("길눈이 부르는 내 호칭 — 지금 \(s.ho)", text: $s.hoching)
                     .textFieldStyle(.roundedBorder)
                     .font(.title3)
