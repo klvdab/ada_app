@@ -59,7 +59,7 @@ struct BongsaTab: View {
     @ObservedObject private var s = Seoljeong.shared
     var body: some View {
         TabCheot(jemok: "봉사") {
-            NavigationLink { HamkkeView() } label: {
+            NavigationLink { JbHamkkeView() } label: {
                 Text(g.kyeojim ? "긴급통화 받기 — 받고 있음" : "긴급통화 받기 — 길손님이 도움을 청하면 전화처럼 울립니다")
             }.buttonStyle(KeunDanchu())
             Button("지금 상태 듣기") { jigeumSangtae() }.buttonStyle(KeunDanchu())
