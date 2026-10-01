@@ -1,4 +1,5 @@
-# 협회 앱 · 자봉 앱 · 배프 앱 · AI점자도서관 — XcodeGen 설계도 (1.6.2판, 빌드 261001-9 — 자봉 앱 2.1.0 긴급통화 받기)
+# 협회 앱 · 자봉 앱 · 배프 앱 · AI점자도서관 — XcodeGen 설계도 (1.6.3판, 빌드 261001-10 — 길눈 2.30.0 하이 길눈 고치기)
+# 1.6.3 (261001-10, 대표님 승인 1) 길눈 2.30.0 — 하이 길눈 귀를 하나로, 네·잠깐만 기다려 주세요
 # 1.6.2 (261001-9, 대표님 승인) 자봉 앱 2.1.0 — 긴급통화 받기(VoIP 알림·CallKit), 뒤에서 깨기 voip
 # 1.6.1 (261001-7, 대표님 승인) 자봉 앱 2.0.0 — 웹 껍데기 대신 길눈 부품 + Jabong 폴더 자체 코드
 # 1.6.0 (261001-6, 대표님 승인) 길눈 2.29.0 — 말뜻 풀이(Foundation Models, 약하게 잇기)
@@ -83,7 +84,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "2.29.0"
+        MARKETING_VERSION: "2.30.0"
         OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "FoundationModels"]   # 1.6.0 옛 폰에서도 앱이 열리게 약하게 잇기
   JabongApp:
     # 2.0.0 (빌드 261001-7, 2026-10-01 대표님 승인) 자봉 앱도 속까지 앱으로 — 웹을 띄우던 App 폴더 대신
@@ -216,7 +217,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app.watchkitapp
         TARGETED_DEVICE_FAMILY: "4"
-        MARKETING_VERSION: "2.29.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
+        MARKETING_VERSION: "2.30.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
 schemes:
   AdaApp:
     build:
