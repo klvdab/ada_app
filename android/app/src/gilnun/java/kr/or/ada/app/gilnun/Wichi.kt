@@ -1,4 +1,6 @@
-// 안드로이드 길눈 — 위치 엔진(2.0.0, 빌드 261001-A1)
+// 안드로이드 길눈 — 위치 엔진(2.1.0, 빌드 261001-A3 — 몸 센서를 함께, 대표님 지시)
+// 2.1.0 길눈 앱에서는 몸 센서(MomSensor)를 늘 켜 둠 — 폰 걸음 센서가 몇 초씩 몰아서 알려 주는 늦음을 몸 센서 걸음으로 메우고,
+//   방향은 자이로 합성 방향으로(쇠붙이·건물 옆에서도 틀어지지 않음). 자봉 앱에서는 켜지 않음(자봉은 그리기 때만 따로 켬).
 // 위성·방향(폰 방향 센서)·걸음(폰 걸음 센서)을 한 곳에서 받습니다. 화면들은 위성에 직접 붙지 않고 여기서만 받습니다.
 // 점지도의 바탕은 걸음 — 위성이 6초 넘게 끊기거나 오차가 25미터를 넘으면 걸음 수 × 보폭 × 방향으로 자리를 이어 셈(아이폰과 같음).
 // 화면이 꺼져도 이어 돌도록 WichiService(알림 칸의 길눈)가 붙들어 둡니다.
@@ -68,6 +70,11 @@ object Wichi : SensorEventListener, LocationListener {
     var oneulGeoreum = 0
         private set
     private var georeumCheot = -1
+    /** 2.1.0 몸 센서로 걸음 늦음 메우기 */
+    var momBbareum = false
+        private set
+    private var manboNujeok = 0
+    private var momManboTtae: Int? = null
     private var iegoGijun = 0
     private val deutneun = ArrayList<(Jari) -> Unit>()
 
@@ -86,6 +93,7 @@ object Wichi : SensorEventListener, LocationListener {
         sm = c.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
         sm?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)?.let { sm?.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
         georeumDolligi()
+        if (c.packageName == "kr.or.ada.app") momKyeogi(c)
         wiseongDolligi()
         val r = object : Runnable { override fun run() { iegoSem(); main.postDelayed(this, 1000) } }
         main.postDelayed(r, 1000)
@@ -109,6 +117,27 @@ object Wichi : SensorEventListener, LocationListener {
         georeumDolligi()
     }
 
+    /** 2.1.0 길눈 앱 — 몸 센서를 켜고 걸음마다 받음 */
+    private fun momKyeogi(c: Context) {
+        MomSensor.gilnunGeoreum = { momGeoreumNal() }
+        if (!MomSensor.dollyeo) MomSensor.kyeogi(c)
+        momBbareum = true
+        Girok.namgi("momsensor", mapOf("on" to true))
+    }
+
+    /** 몸 센서가 한 걸음을 잡을 때마다 — 폰 걸음 센서 값 + 그 뒤 몸 센서가 센 걸음(뒤로 줄지 않게) */
+    private fun momGeoreumNal() {
+        if (!momBbareum || !MomSensor.dollyeo) return
+        val ms = MomSensor.georeumSu
+        if (momManboTtae == null) { momManboTtae = ms - 1; manboNujeok = georeumSu }
+        val bbareun = manboNujeok + (ms - (momManboTtae ?: ms))
+        if (bbareun > georeumSu) georeumSu = bbareun
+    }
+
+    /** 2.1.0 방향 — 몸 센서를 쓰는 동안은 자이로 합성 방향, 아니면 폰 방향 센서 */
+    val hapBang: Double
+        get() = if (momBbareum && MomSensor.dollyeo) (MomSensor.hapseong ?: nachimban) else nachimban
+
     private var georeumDolgo = false
     private fun georeumDolligi() {
         if (georeumDolgo || !georeumHeorak) return
@@ -128,7 +157,7 @@ object Wichi : SensorEventListener, LocationListener {
         val j = jigeum
         if (heurim && j != null && j.georeumChu && now - j.ttae < 10000) return
         if (majimakWiseong == 0L) majimakWiseong = now
-        val bang = if (l.hasBearing() && l.speed > 1.5f) l.bearing.toDouble() else nachimban
+        val bang = if (l.hasBearing() && l.speed > 1.5f) l.bearing.toDouble() else hapBang
         iegoGijun = georeumSu
         naegi(Jari(l.latitude, l.longitude, if (l.hasAccuracy()) l.accuracy.toDouble() else 99.0, bang, l.speed.toDouble(), now, false))
     }
@@ -156,11 +185,15 @@ object Wichi : SensorEventListener, LocationListener {
                 var d = Math.toDegrees(ori[0].toDouble())
                 if (d < 0) d += 360.0
                 nachimban = d
+                MomSensor.nachimbanNeogi(d)   // 2.1.0 자이로 합성 방향이 나침반 쪽으로 천천히 맞춰지게
             }
             Sensor.TYPE_STEP_COUNTER -> {
                 val n = e.values[0].toInt()   // 폰을 켠 뒤 센 걸음
                 if (georeumCheot < 0) georeumCheot = n
-                georeumSu = n - georeumCheot
+                val m = n - georeumCheot
+                manboNujeok = m
+                momManboTtae = if (momBbareum && MomSensor.dollyeo) MomSensor.georeumSu else null
+                if (!momBbareum || m > georeumSu) georeumSu = m
                 val nal = SimpleDateFormat("yyyyMMdd", Locale.KOREA).format(Date())
                 var g = Seoljeong.georeumGijun(nal)
                 if (g < 0 || g > n) { g = n; Seoljeong.georeumGijunNoki(nal, n) }
@@ -178,11 +211,12 @@ object Wichi : SensorEventListener, LocationListener {
         val kkeunkim = majimakWiseong == 0L || now - majimakWiseong > 6000
         if (!kkeunkim && j.ochae <= 25) return
         val sae = georeumSu - iegoGijun
-        if (sae <= 0 || nachimban < 0) return
+        val bang = hapBang
+        if (sae <= 0 || bang < 0) return
         val geori = sae * Seoljeong.bopok
-        val (la, lo) = olgida(j.lat, j.lon, geori, nachimban)
+        val (la, lo) = olgida(j.lat, j.lon, geori, bang)
         iegoGijun = georeumSu
-        naegi(Jari(la, lo, j.ochae + geori * 0.1, nachimban, geori, now, true))
+        naegi(Jari(la, lo, j.ochae + geori * 0.1, bang, geori, now, true))
     }
 
     // MARK: 셈

@@ -374,6 +374,11 @@ class GichoSiheom : Hwamyeon("기초 시험") {
             Sori.mal(if (j == null) "아직 위치를 받지 못했습니다. 받은 횟수 ${Wichi.batunSu}번." else "오차 ${j.ochae.toInt()}미터, " + (if (j.georeumChu) "걸음으로 이어 센 자리" else "위성 자리") + ", 받은 횟수 ${Wichi.batunSu}번.")
         }
         t.danchu("방향 듣기") { Sori.mal("폰은 " + Wichi.bangwiMal(Wichi.nachimban) + (if (Wichi.nachimban >= 0) ", ${Wichi.nachimban.toInt()}도를 향합니다." else ".")) }
+        t.danchu("몸 센서 듣기") {
+            if (!MomSensor.dollyeo) { Sori.mal("몸 센서가 꺼져 있습니다."); return@danchu }
+            val h = MomSensor.hapseong
+            Sori.mal("몸 센서로 센 걸음 ${MomSensor.georeumSu}걸음, 안드로이드 걸음 감지 ${MomSensor.gamjiSu}걸음, 몸이 돈 각도 누계 ${MomSensor.nujeokDol.toInt()}도" + (if (h != null) ", 합성 방향 ${h.toInt()}도입니다." else "입니다."))
+        }
         t.danchu("걸음 듣기") { Sori.mal("앱을 켠 뒤 ${Wichi.georeumSu}걸음, 오늘 ${Wichi.oneulGeoreum}걸음입니다.") }
         t.danchu("말소리 시험") { Sori.mal("길눈 말소리 시험입니다. 이 말이 들리면 말소리가 잘 됩니다.") }
         t.danchu("기록 보내기") { Girok.bonaegi(); Sori.mal("기록을 나스로 보냅니다.") }
@@ -411,7 +416,8 @@ class DoumalHwamyeon : Hwamyeon("도움말") {
             "내 보폭 재기" to "설정 탭에서 엽니다. 잴 거리를 미터로 적고 보폭 재기 시작을 누른 뒤 평소대로 걸으시고, 다 걸었습니다를 누르시면 보폭을 셈해 폰이 기억합니다.",
             "새로고침" to "설정 탭에 하나 있습니다. 위치와 걸음을 다시 열고, 쌓인 기록을 나스로 보내고, 지금 판번호를 말씀드립니다.",
             "기초 시험" to "설정 탭의 더 보기 안에 있습니다. 허락 상태, 위성, 방향, 걸음, 말소리가 제대로 도는지 하나씩 들어 보실 수 있습니다.",
-            "판 기록" to "설정 탭의 더 보기 안에 있습니다. 판마다 무엇을 고쳤는지 적어 둡니다."
+            "판 기록" to "설정 탭의 더 보기 안에 있습니다. 판마다 무엇을 고쳤는지 적어 둡니다.",
+            "몸 센서 — 걸음과 방향을 더 정확하게" to "길눈을 켜 두시는 동안 폰의 가속도계와 자이로를 1초에 50번 읽어 걸음과 방향을 잽니다. 자봉 앱이 점지도를 그릴 때와 같은 센서, 같은 셈법이라 그린 분의 걸음과 걸으시는 분의 걸음이 같은 자로 맞습니다. 안드로이드 폰의 걸음 센서는 걸음을 몇 초씩 몰아서 알려 주는 일이 많은데, 몸 센서가 발이 땅에 닿을 때마다 곧바로 세어 그 늦음을 메웁니다. 방향은 몸이 몇 도 돌았는지 자이로로 재고 나침반 쪽으로 천천히 맞추므로 쇠붙이나 건물 옆에서도 틀어지지 않습니다. 위성이 끊겨 걸음으로 자리를 이어 셀 때도 이 방향을 씁니다. 설정 탭 더 보기 안의 기초 시험에서 몸 센서 듣기로 몸 센서가 센 걸음과 방향을 들어 보실 수 있습니다. 따로 켜실 것은 없습니다."
         )
     }
 }
