@@ -1,4 +1,5 @@
-# 하이 길눈 감지기 — 여러 사람 목소리로 바꾸기 (1.0판, 빌드 261001-H2, 대표님 승인 2026-10-01)
+# 하이 길눈 감지기 — 여러 사람 목소리로 바꾸기 (1.0.1판, 빌드 261001-H3, 대표님 승인 2026-10-01)
+# 1.0.1 토치 판을 2.5.1 로 못박음 — 새 판은 소리 파일 읽기에 다른 부품(torchcodec)을 요구해 목소리 바꾸기가 하나도 되지 않았음
 # hai-data 갈래의 "하이 길눈" 연습 소리를 공개 한국어 말소리 모음(제로스 한국어)의 실제 사람 목소리 100여 명으로 바꾸고,
 # 그 사람들의 평소 말을 틀린 소리로 모아 hai-mal 갈래(앱 소스와 따로)에 올립니다. 앱 짓기와는 상관이 없습니다.
 name: hai-mal
@@ -19,7 +20,7 @@ jobs:
       - name: 도구 준비
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-          pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install -q torch==2.5.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu
           pip install -q huggingface_hub pyarrow soundfile scipy numpy
       - name: 연습 소리 받기
         run: |
