@@ -5,6 +5,7 @@
 // ③ 다른 길눈님이 먼저 받으면 벨을 멈추고 "다른 분께 연결되었습니다. 감사합니다"
 // 대표님 약속: 별명만(실명·전화번호는 화면에 없음), 자원봉사자는 수료 번호로, 해설사는 협회에 등록한 전화번호로 확인만.
 import Foundation
+import SwiftUI
 import UIKit
 import PushKit
 import CallKit
@@ -232,7 +233,7 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
 
 // MARK: 화면 — 봉사 탭의 "긴급통화 받기"
 
-struct HamkkeView: View {
+struct JbHamkkeView: View {
     @ObservedObject private var g = JabongDaegi.shared
     @State private var kind = "haebong"
     @State private var byeol = ""
