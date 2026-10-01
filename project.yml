@@ -1,4 +1,5 @@
-# 협회 앱 · 자봉 앱 · 배프 앱 · AI점자도서관 — XcodeGen 설계도 (1.6.3판, 빌드 261001-10 — 길눈 2.30.0 하이 길눈 고치기)
+# 협회 앱 · 자봉 앱 · 배프 앱 · AI점자도서관 — XcodeGen 설계도 (1.6.4판, 빌드 261001-11 — 자봉 앱 2.2.0 점지도 그리기)
+# 1.6.4 (261001-11, 대표님 승인) 자봉 앱 2.2.0 — 점지도 그리기(속까지 앱), 기압계 높이
 # 1.6.3 (261001-10, 대표님 승인 1) 길눈 2.30.0 — 하이 길눈 귀를 하나로, 네·잠깐만 기다려 주세요
 # 1.6.2 (261001-9, 대표님 승인) 자봉 앱 2.1.0 — 긴급통화 받기(VoIP 알림·CallKit), 뒤에서 깨기 voip
 # 1.6.1 (261001-7, 대표님 승인) 자봉 앱 2.0.0 — 웹 껍데기 대신 길눈 부품 + Jabong 폴더 자체 코드
@@ -131,7 +132,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.jabong
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "2.1.0"
+        MARKETING_VERSION: "2.2.0"
         OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "FoundationModels"]   # 길눈 부품과 같이 옛 폰에서도 열리게
   BfbApp:
     type: application
