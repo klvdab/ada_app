@@ -248,18 +248,24 @@ final class MalHagi: ObservableObject {
         deureunMal = alts[0]
         sangtae = .araboneun
         if Seoljeong.shared.malKyeojim {
-            // 2.30.0 (대표님 지시) 땡 대신 「잠깐만 기다려 주세요」 — 귀는 이미 닫음. 일을 하는 동안 말하고, 다 말한 뒤 결과를 말씀드림
+            // 2.30.0 (대표님 지시) 땡 대신 「잠깐만 기다려 주세요」 — 귀는 이미 닫음
+            // 2.31.0 (대표님 승인) 결과가 1초 안에 나오면 곧바로 말씀드리고, 1초 넘게 걸릴 때만 「잠깐만 기다려 주세요」
+            var malSijak = false   // 잠깐만을 말하기 시작했나
             var malKkeut = false
             var dap: (String, Bool)?
-            SoriEngine.shared.daehwaMal("잠깐만 기다려 주세요") { [weak self] in
-                malKkeut = true
-                if let d = dap { self?.dapHagi(d.0, d.1) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                guard dap == nil else { return }
+                malSijak = true
+                SoriEngine.shared.daehwaMal("잠깐만 기다려 주세요") {
+                    malKkeut = true
+                    if let d = dap { self?.dapHagi(d.0, d.1) }
+                }
             }
             cheori(alts) { [weak self] t, mutneun in
                 DispatchQueue.main.async {
                     guard dap == nil else { return }
                     dap = (t, mutneun)
-                    if malKkeut { self?.dapHagi(t, mutneun) }
+                    if !malSijak || malKkeut { self?.dapHagi(t, mutneun) }
                 }
             }
             return
