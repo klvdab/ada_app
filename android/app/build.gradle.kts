@@ -1,4 +1,5 @@
-// 협회 안드로이드 앱 — 앱 설정 (1.1.0판, 빌드 261001-A1 — 길눈 갈래 속까지 앱)
+// 협회 안드로이드 앱 — 앱 설정 (1.2.0판, 빌드 261001-A2 — 자봉 갈래 점지도 그리기 속까지 앱, 몸 센서 극대화)
+// 1.1.0판(261001-A1) 길눈 갈래 속까지 앱
 // 한 프로젝트에 세 앱을 담습니다(갈래=flavor).
 //   gilnun  길눈 (kr.or.ada.app)     대문 https://lvd.ada.or.kr/app/
 //   jabong  자봉 (kr.or.ada.jabong)  대문 https://lvd.ada.or.kr/jabong/
@@ -52,6 +53,7 @@ android {
             dimension = "ap"
             applicationId = "kr.or.ada.jabong"
             resValue("string", "app_name", "자봉")
+            versionName = "2.3.0"   // 261001-A2 점지도 그리기를 속까지 앱(JabongActivity, src/jabong) — 몸 센서 극대화. 나머지는 웹 자봉
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/jabong/\"")
         }
         create("bfb") {
@@ -59,6 +61,13 @@ android {
             applicationId = "kr.or.ada.bfb"
             resValue("string", "app_name", "배프")
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/bfb/\"")
+        }
+    }
+
+    // 261001-A2 자봉 갈래도 길눈 부품(말소리·위치·설정·기록·나스 통신)을 함께 씀 — 아이폰에서 Gilnun 폴더를 함께 싣는 것과 같음
+    sourceSets {
+        getByName("jabong") {
+            java.srcDirs("src/jabong/java", "src/gilnun/java")
         }
     }
 
