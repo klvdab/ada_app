@@ -38,6 +38,7 @@ import androidx.core.content.ContextCompat
 import kr.or.ada.app.MainActivity
 import kr.or.ada.app.gilnun.Girok
 import kr.or.ada.app.gilnun.MalGeup
+import kr.or.ada.app.gilnun.MomSensor
 import kr.or.ada.app.gilnun.Seoljeong
 import kr.or.ada.app.gilnun.Sori
 import kr.or.ada.app.gilnun.Wichi

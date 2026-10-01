@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import kr.or.ada.app.gilnun.Girok
 import kr.or.ada.app.gilnun.MalGeup
+import kr.or.ada.app.gilnun.MomSensor
 import kr.or.ada.app.gilnun.Seoljeong
 import kr.or.ada.app.gilnun.Sori
 import kr.or.ada.app.gilnun.Wichi
