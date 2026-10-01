@@ -2,12 +2,21 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.2.0"
-    static let bild = "261001-11"
+    static let pan = "2.3.0"
+    static let bild = "261001-13"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.3.0", bild: "261001-13", nal: "2026-10-01", naeyong: [
+            "몸 센서 극대화(대표님 지시 — 가장 중요한 것은 걸으면서 찍는 점지도, 몸이 움직이는 상황을 담는 센서를 최대한 끌어낼 것)",
+            "가속도계·자이로·나침반을 1초에 50번 읽음. 발이 닿을 때마다 걸음을 바로 잡고(가속도), 몸이 돈 각도를 자이로로 재며, 나침반으로 천천히 바로잡은 합성 방향을 씀",
+            "걸음마다 한 줄 기록(걸음 번호, 천분의 1초 시각, 합성 방향, 돈 각도, 위아래 충격, 높이, 움직임 상태) — 안드로이드와 함께 따를 센서 기록 규격 1.0",
+            "아이폰이 가려 주는 멈춤·걷기·탈것 상태와 만보기 걸음 빠르기를 1초 줄에 함께 남김. 기종·센서 유무를 길마다 적음",
+            "꺾이셨습니까 여쭙기를 나침반 대신 자이로 각도로 가름 — 쇠붙이·건물 옆에서도 바르게, 다 돈 뒤에 여쭘",
+            "다 걸었습니다에서 만보기 걸음과 몸 센서 걸음을 견주어 차이가 크면 알려 드림",
+            "도움말 몸 센서 항목 더함"
+        ]),
         Gochim(pan: "2.2.0", bild: "261001-11", nal: "2026-10-01", naeyong: [
             "점지도 그리기(설계도 진행 차례 3, 대표님 승인) — 봉사 탭 긴급통화 받기 바로 아래. 웹 jeom_rec.js 와 같은 기록 모양으로 속까지 앱에서 그림",
             "걸음 센서·방향 센서·위성·기압계 높이를 1초마다 기록. 화면이 잠기거나 다른 앱을 써도 이어 감. 1분마다·표시마다·앱이 뒤로 갈 때 저절로 저장, 앱이 꺼졌다 켜지면 멈춤으로 되살려 이어 그리기",

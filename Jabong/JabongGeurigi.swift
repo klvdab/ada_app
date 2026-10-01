@@ -1,4 +1,7 @@
-// 자봉 앱 점지도 그리기 — 속까지 앱 (2.2.0, 빌드 261001-11, 설계도 자봉앱_설계도_261001 진행 차례 3)
+// 자봉 앱 점지도 그리기 — 속까지 앱 (2.3.0, 빌드 261001-13, 설계도 자봉앱_설계도_261001 진행 차례 3)
+// ★2.3.0 (대표님 지시) 몸 센서 극대화 — MomSensor.swift 가 가속도·자이로·나침반 합성 방향·움직임 상태·만보기 빠르기를 1초에 50번 읽어
+//   걸음마다 한 줄(gs)을 남기고, 1초 줄(pts)에도 합성 방향(hy)·가속도 걸음(st2)·돈 각도 누계(dg)·걸음 빠르기(cad)·상태(sa)를 붙임.
+//   꺾임 여쭙기는 나침반 대신 자이로 각도로 가름. 기존 걸음(st, 아이폰 만보기)은 그대로 두어 두 걸음을 견줌(1미터 원칙 점검·연구용).
 // 웹 jeom_rec.js 의 기록 모양(자리 t·st·h·lat·lon·acc, 표시 이름과 짝·칸수·거리)을 그대로 따라, 앞으로 올리기에서 웹과 한곳에 모입니다.
 // 점지도의 바탕은 폰 걸음 센서, 방향은 폰 방향 센서, 위성은 거듦. 높이는 폰 기압계(상대 높이, ralt)로 재어 계단을 여쭙니다.
 // 화면이 잠기거나 다른 앱을 써도 이어 갑니다(위치 바탕 실행). 1분마다, 표시를 남길 때마다, 앱이 뒤로 갈 때 저절로 저장합니다.
@@ -20,6 +23,12 @@ struct GrJari: Codable {
     var ralt: Double?
     var m: String?
     var cut: Int?
+    // 2.3.0 몸 센서
+    var hy: Double? = nil     // 합성 방향(자이로+나침반)
+    var st2: Int? = nil       // 가속도로 센 걸음
+    var dg: Double? = nil     // 시작부터 돈 각도 누계(자이로, 오른쪽 +)
+    var cad: Double? = nil    // 만보기 걸음 빠르기(1초에 몇 걸음)
+    var sa: String? = nil     // 움직임 상태
 }
 
 struct GrPyosi: Codable {
@@ -55,6 +64,9 @@ struct GrGil: Codable, Identifiable {
     var georeum: Int
     var olim: Bool
     var meomchum: Bool   // 그리다가 멈춘 채 저장됨
+    // 2.3.0 몸 센서 — 걸음마다 한 줄과 기기 정보(센서 기록 규격)
+    var gs: [GrGeoreum]? = nil
+    var gigi: GrGigi? = nil
 }
 
 // MARK: 그리기 엔진
@@ -164,7 +176,31 @@ final class JeomGeurigi: ObservableObject {
         }
         if let r = ralt { p.ralt = (r * 10).rounded() / 10 }
         if !rideMode.isEmpty { p.m = rideMode }
+        // 2.3.0 몸 센서
+        let ms = MomSensor.shared
+        if ms.dollyeo {
+            if let h = ms.hapseong { p.hy = (h * 10).rounded() / 10 }
+            p.st2 = ms.georeumSu
+            p.dg = (ms.nujeokDol * 10).rounded() / 10
+            p.cad = ms.cadence
+            p.sa = ms.sangtae
+        }
         return p
+    }
+
+    /// 2.3.0 몸 센서 켜기 — 이어 그리기면 앞에서 센 걸음과 돈 각도에 이어 셈
+    private func momKyeogi() {
+        let ms = MomSensor.shared
+        ms.nopiMutgi = { [weak self] in self?.ralt }
+        ms.georeumNal = { [weak self] g in
+            guard let self = self, self.sangtae == .georeum, self.gil != nil else { return }
+            if self.gil?.gs == nil { self.gil?.gs = [] }
+            self.gil?.gs?.append(g)
+        }
+        ms.nachimbanNeogi(WichiEngine.shared.nachimban)
+        let n0 = gil?.gs?.last?.n ?? 0
+        let dol0 = gil?.pts.last(where: { $0.dg != nil })?.dg ?? 0
+        ms.kyeogi(n0: n0, dol0: dol0, heureun: Date().timeIntervalSince(gil?.sijak ?? Date()))
     }
 
     // MARK: 시작·멈춤·끝
@@ -178,7 +214,7 @@ final class JeomGeurigi: ObservableObject {
         let s = Seoljeong.shared
         gil = GrGil(id: "JB" + String(Int(Date().timeIntervalSince1970)), sijak: Date(), kkeut: nil, from: "", to: "",
                     bopok: s.bopok, bopokMode: s.bopokMode, beonho: JabongNae.shared.beonho, pts: [], marks: [],
-                    georeum: 0, olim: false, meomchum: false)
+                    georeum: 0, olim: false, meomchum: false, gs: [], gigi: MomSensor.gigiJeongbo())
         stGijun = WichiEngine.shared.georeumSu
         openPair = nil
         rideMode = ""
@@ -187,6 +223,7 @@ final class JeomGeurigi: ObservableObject {
         mureum = nil
         sangtae = .georeum
         dolligi()
+        momKyeogi()
         Girok.shared.namgi("jb_geurigi_sijak", ["id": gil?.id ?? ""])
         alrigi("걷기 시작했습니다. 평소 걸음으로 걸으시고, 꺾이는 곳과 계단, 건널목, 문에 닿는 순간 표시를 남겨 주십시오.")
         // 출발한 자리 주소를 저절로 적음
@@ -209,6 +246,7 @@ final class JeomGeurigi: ObservableObject {
         meomchumSt0 = WichiEngine.shared.georeumSu
         mureum = nil
         meomchugi()
+        MomSensor.shared.kkeugi()
         gil?.meomchum = true
         jeojang()
         alrigi("잠깐 멈췄습니다. 이어 걸으실 때 다시 걷기를 눌러 주십시오. 멈춘 동안의 걸음은 세지 않습니다.")
@@ -229,6 +267,7 @@ final class JeomGeurigi: ObservableObject {
         p.cut = 1   // 멈췄다 이은 자리 — 이 사이는 이어 그리지 않음(웹과 같음)
         gil?.pts.append(p)
         dolligi()
+        momKyeogi()
         alrigi("다시 걷습니다. 지금까지 \(georeum)걸음입니다.")
     }
 
@@ -237,6 +276,7 @@ final class JeomGeurigi: ObservableObject {
         guard var g = gil else { return }
         meomchugi()
         if sangtae == .georeum { g.pts.append(jigeumJari()) }
+        MomSensor.shared.kkeugi()
         g.georeum = sangtae == .georeum ? georeum : g.georeum
         g.kkeut = Date()
         g.meomchum = false
@@ -244,6 +284,12 @@ final class JeomGeurigi: ObservableObject {
         mureum = nil
         let geori = Int(Double(g.georeum) * g.bopok)
         var mal = "걷기를 마쳤습니다. \(g.georeum)걸음, 약 \(geori)미터, 표시 \(g.marks.count)개입니다."
+        // 2.3.0 두 걸음 견주기 — 만보기 걸음과 가속도 걸음이 많이 다르면 알림(1미터 원칙)
+        if let n2 = g.gs?.last?.n, g.georeum > 20 {
+            let cha = abs(Double(n2 - g.georeum)) / Double(g.georeum)
+            mal += cha <= 0.1 ? " 몸 센서로 센 걸음도 \(n2)걸음으로 잘 맞습니다."
+                              : " 몸 센서로 센 걸음은 \(n2)걸음이라 차이가 큽니다. 올리기 전 점검에서 살펴보겠습니다."
+        }
         if let o = openPair {
             mal += " \(o.name)의 짝인 \(JeomGeurigi.PAIR[o.name]?.end ?? "끝") 표시가 없습니다. 올리기 전 점검에서 다시 여쭙겠습니다."
         }
@@ -299,6 +345,7 @@ final class JeomGeurigi: ObservableObject {
     /// 1초마다 한 자리
     private func tick() {
         guard sangtae == .georeum, gil != nil else { return }
+        MomSensor.shared.nachimbanNeogi(WichiEngine.shared.nachimban)
         let p = jigeumJari()
         gil?.pts.append(p)
         gil?.georeum = p.st
@@ -318,12 +365,20 @@ final class JeomGeurigi: ObservableObject {
         guard let ps = gil?.pts, ps.count >= 10, mureum == nil,
               Date().timeIntervalSince(majimakMureum) > 15, Date().timeIntervalSince(majimakKkeokim) > 10 else { return }
         let n = ps.count
-        let ap = ps[(n - 10)..<(n - 6)].compactMap { $0.h }
-        let dwi = ps[(n - 3)..<n].compactMap { $0.h }
-        guard ap.count >= 3, dwi.count >= 2 else { return }
         let georeumSai = ps[n - 1].st - ps[n - 10].st
         guard georeumSai >= 5 else { return }
-        let d = JeomGeurigi.gakCha(JeomGeurigi.pyeonggyun(ap), JeomGeurigi.pyeonggyun(dwi))
+        var d: Double
+        // 2.3.0 자이로가 있으면 몸이 실제로 돈 각도로 가름(나침반은 쇠붙이 옆에서 틀어짐)
+        if let d0 = ps[n - 8].dg, let d1 = ps[n - 1].dg, let dm = ps[n - 4].dg {
+            d = d1 - d0
+            // 이미 돌고 난 뒤 4초 동안 또 돌고 있으면 아직 도는 중 — 다 돈 뒤에 여쭘
+            guard abs(d1 - dm) < abs(d) * 0.7 else { return }
+        } else {
+            let ap = ps[(n - 10)..<(n - 6)].compactMap { $0.h }
+            let dwi = ps[(n - 3)..<n].compactMap { $0.h }
+            guard ap.count >= 3, dwi.count >= 2 else { return }
+            d = JeomGeurigi.gakCha(JeomGeurigi.pyeonggyun(ap), JeomGeurigi.pyeonggyun(dwi))
+        }
         guard abs(d) >= 55 else { return }
         let ireum = d > 0 ? "오른쪽으로 꺾임" : "왼쪽으로 꺾임"
         yeojjum(d > 0 ? "오른쪽으로 꺾이셨습니까?" : "왼쪽으로 꺾이셨습니까?", ireum, n - 6)
@@ -572,6 +627,7 @@ final class JeomGeurigi: ObservableObject {
             var m = "그리는 중입니다. \(chobun / 60)분 \(chobun % 60)초 동안 \(georeum)걸음, 약 \(Int(Double(georeum) * Seoljeong.shared.bopok))미터, 표시 \(gil?.marks.count ?? 0)개입니다."
             if let o = openPair { m += " \(o.name) 뒤에 \(JeomGeurigi.PAIR[o.name]?.end ?? "끝")을 아직 남기지 않으셨습니다." }
             if let w = WichiEngine.shared.jigeum { m += w.ochae <= 15 ? " 위성이 잘 잡혀 있습니다." : " 위성이 흐려 걸음으로 이어 셉니다." }
+            if MomSensor.shared.dollyeo { m += " 몸 센서로 센 걸음은 \(MomSensor.shared.georeumSu)걸음입니다." }
             return m
         }
     }
