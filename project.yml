@@ -1,4 +1,5 @@
-# 협회 앱 · 자봉 앱 · 배프 앱 · AI점자도서관 — XcodeGen 설계도 (1.6.1판, 빌드 261001-7 — 자봉 앱 2.0.0 속까지 앱으로)
+# 협회 앱 · 자봉 앱 · 배프 앱 · AI점자도서관 — XcodeGen 설계도 (1.6.2판, 빌드 261001-9 — 자봉 앱 2.1.0 긴급통화 받기)
+# 1.6.2 (261001-9, 대표님 승인) 자봉 앱 2.1.0 — 긴급통화 받기(VoIP 알림·CallKit), 뒤에서 깨기 voip
 # 1.6.1 (261001-7, 대표님 승인) 자봉 앱 2.0.0 — 웹 껍데기 대신 길눈 부품 + Jabong 폴더 자체 코드
 # 1.6.0 (261001-6, 대표님 승인) 길눈 2.29.0 — 말뜻 풀이(Foundation Models, 약하게 잇기)
 # 1.5.9 (261001-5, 대표님 승인) 길눈 2.28.0 — 길눈 목소리(마이크로소프트 선희)
@@ -110,7 +111,7 @@ targets:
         AdaHomeURL: https://lvd.ada.or.kr/jabong/
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
-        UIBackgroundModes: [location, audio, remote-notification]
+        UIBackgroundModes: [location, audio, remote-notification, voip]   # 2.1.0 긴급통화가 전화처럼 울리게
         NSLocationWhenInUseUsageDescription: 도움을 청한 분이 계신 곳까지 찾아가는 데 위치가 필요합니다.
         NSLocationAlwaysAndWhenInUseUsageDescription: 봉사 가는 길에 안내를 이어 가려면 항상 위치가 필요합니다.
         NSCameraUsageDescription: 도움을 청한 분과 화상으로 이어 현장을 살피는 데 카메라를 씁니다.
@@ -129,7 +130,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.jabong
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "2.0.0"
+        MARKETING_VERSION: "2.1.0"
         OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "FoundationModels"]   # 길눈 부품과 같이 옛 폰에서도 열리게
   BfbApp:
     type: application
