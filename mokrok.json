@@ -1,0 +1,4762 @@
+[
+{
+"gal": "maja",
+"t": "하이 길눈!",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "-15Hz",
+"f": "00000.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "-5Hz",
+"f": "00001.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "-15Hz",
+"f": "00002.wav"
+},
+{
+"gal": "maja",
+"t": "하이길눈",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "+25Hz",
+"f": "00003.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈!",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "+5Hz",
+"f": "00004.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+30%",
+"p": "+15Hz",
+"f": "00005.wav"
+},
+{
+"gal": "maja",
+"t": "하이길눈",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-30%",
+"p": "+25Hz",
+"f": "00006.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈!",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "+5Hz",
+"f": "00007.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "+25Hz",
+"f": "00008.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00009.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈!",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+20%",
+"p": "+5Hz",
+"f": "00010.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈?",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-30%",
+"p": "+25Hz",
+"f": "00011.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈?",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+0%",
+"p": "+5Hz",
+"f": "00012.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+0%",
+"p": "+15Hz",
+"f": "00013.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "+15Hz",
+"f": "00014.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "+25Hz",
+"f": "00015.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-30%",
+"p": "+15Hz",
+"f": "00016.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "-5Hz",
+"f": "00017.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+0%",
+"p": "+5Hz",
+"f": "00018.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+30%",
+"p": "-25Hz",
+"f": "00019.wav"
+},
+{
+"gal": "maja",
+"t": "하이길눈",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+30%",
+"p": "-5Hz",
+"f": "00020.wav"
+},
+{
+"gal": "maja",
+"t": "하이길눈",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "-5Hz",
+"f": "00021.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈?",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+0%",
+"p": "+0Hz",
+"f": "00022.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈?",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-30%",
+"p": "-5Hz",
+"f": "00023.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "-15Hz",
+"f": "00024.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "-30%",
+"p": "-15Hz",
+"f": "00025.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈?",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "-25Hz",
+"f": "00026.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "+20%",
+"p": "+0Hz",
+"f": "00027.wav"
+},
+{
+"gal": "maja",
+"t": "하이길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "+5Hz",
+"f": "00028.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "+10%",
+"p": "+5Hz",
+"f": "00029.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈?",
+"v": "ko-KR-InJoonNeural",
+"r": "-20%",
+"p": "-5Hz",
+"f": "00030.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "-25Hz",
+"f": "00031.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "+20%",
+"p": "+25Hz",
+"f": "00032.wav"
+},
+{
+"gal": "maja",
+"t": "하이~ 길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "-5Hz",
+"f": "00033.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "-20%",
+"p": "+25Hz",
+"f": "00034.wav"
+},
+{
+"gal": "maja",
+"t": "하이길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "+30%",
+"p": "-25Hz",
+"f": "00035.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "-20%",
+"p": "-5Hz",
+"f": "00036.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "+30%",
+"p": "+25Hz",
+"f": "00037.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "-25Hz",
+"f": "00038.wav"
+},
+{
+"gal": "maja",
+"t": "하이~ 길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "-20%",
+"p": "-5Hz",
+"f": "00039.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "+30%",
+"p": "+0Hz",
+"f": "00040.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "+10%",
+"p": "+15Hz",
+"f": "00041.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "+15Hz",
+"f": "00042.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "-15Hz",
+"f": "00043.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00044.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "ko-KR-InJoonNeural",
+"r": "+30%",
+"p": "+25Hz",
+"f": "00045.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "+5Hz",
+"f": "00046.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "ko-KR-InJoonNeural",
+"r": "-20%",
+"p": "+15Hz",
+"f": "00047.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "+0Hz",
+"f": "00048.wav"
+},
+{
+"gal": "maja",
+"t": "하이~ 길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "-10%",
+"p": "+25Hz",
+"f": "00049.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "+0Hz",
+"f": "00050.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "-5Hz",
+"f": "00051.wav"
+},
+{
+"gal": "maja",
+"t": "하이길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "+20%",
+"p": "-5Hz",
+"f": "00052.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈!",
+"v": "ko-KR-SunHiNeural",
+"r": "+0%",
+"p": "+0Hz",
+"f": "00053.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈?",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "-5Hz",
+"f": "00054.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "-5Hz",
+"f": "00055.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈?",
+"v": "ko-KR-SunHiNeural",
+"r": "+0%",
+"p": "-25Hz",
+"f": "00056.wav"
+},
+{
+"gal": "maja",
+"t": "하이길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "-10%",
+"p": "+15Hz",
+"f": "00057.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "-30%",
+"p": "-25Hz",
+"f": "00058.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "+5Hz",
+"f": "00059.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "+20%",
+"p": "+15Hz",
+"f": "00060.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "-5Hz",
+"f": "00061.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "-30%",
+"p": "+15Hz",
+"f": "00062.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "-5Hz",
+"f": "00063.wav"
+},
+{
+"gal": "maja",
+"t": "하이길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "+0Hz",
+"f": "00064.wav"
+},
+{
+"gal": "maja",
+"t": "하이~ 길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "-15Hz",
+"f": "00065.wav"
+},
+{
+"gal": "maja",
+"t": "하이~ 길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "+30%",
+"p": "-15Hz",
+"f": "00066.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "+0%",
+"p": "-25Hz",
+"f": "00067.wav"
+},
+{
+"gal": "maja",
+"t": "하이길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "+5Hz",
+"f": "00068.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "+25Hz",
+"f": "00069.wav"
+},
+{
+"gal": "maja",
+"t": "하이~ 길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "-10%",
+"p": "-25Hz",
+"f": "00070.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈!",
+"v": "ko-KR-SunHiNeural",
+"r": "-30%",
+"p": "+0Hz",
+"f": "00071.wav"
+},
+{
+"gal": "maja",
+"t": "하이길눈",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "-10%",
+"p": "+25Hz",
+"f": "00072.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "+30%",
+"p": "-5Hz",
+"f": "00073.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "+0%",
+"p": "-25Hz",
+"f": "00074.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "+0%",
+"p": "-5Hz",
+"f": "00075.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "+10%",
+"p": "-15Hz",
+"f": "00076.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈!",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "-20%",
+"p": "-25Hz",
+"f": "00077.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "+20%",
+"p": "-25Hz",
+"f": "00078.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "+0%",
+"p": "+5Hz",
+"f": "00079.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈?",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "+20%",
+"p": "+5Hz",
+"f": "00080.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "-30%",
+"p": "-25Hz",
+"f": "00081.wav"
+},
+{
+"gal": "maja",
+"t": "하이길눈",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "+10%",
+"p": "+25Hz",
+"f": "00082.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "-10%",
+"p": "-15Hz",
+"f": "00083.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "+0%",
+"p": "+25Hz",
+"f": "00084.wav"
+},
+{
+"gal": "maja",
+"t": "하이길눈",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "+0%",
+"p": "+25Hz",
+"f": "00085.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "-10%",
+"p": "+15Hz",
+"f": "00086.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "-30%",
+"p": "+0Hz",
+"f": "00087.wav"
+},
+{
+"gal": "maja",
+"t": "하이~ 길눈",
+"v": "en-US-AvaMultilingualNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00088.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "en-US-AvaMultilingualNeural",
+"r": "+20%",
+"p": "-25Hz",
+"f": "00089.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈?",
+"v": "en-US-AvaMultilingualNeural",
+"r": "-20%",
+"p": "+0Hz",
+"f": "00090.wav"
+},
+{
+"gal": "maja",
+"t": "하이길눈",
+"v": "en-US-AvaMultilingualNeural",
+"r": "-10%",
+"p": "-25Hz",
+"f": "00091.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "en-US-AvaMultilingualNeural",
+"r": "+0%",
+"p": "+5Hz",
+"f": "00092.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "en-US-AvaMultilingualNeural",
+"r": "+30%",
+"p": "+0Hz",
+"f": "00093.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈",
+"v": "en-US-AvaMultilingualNeural",
+"r": "+10%",
+"p": "-15Hz",
+"f": "00094.wav"
+},
+{
+"gal": "maja",
+"t": "하이~ 길눈",
+"v": "en-US-AvaMultilingualNeural",
+"r": "-10%",
+"p": "+0Hz",
+"f": "00095.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈",
+"v": "en-US-BrianMultilingualNeural",
+"r": "-30%",
+"p": "+15Hz",
+"f": "00096.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈!",
+"v": "en-US-BrianMultilingualNeural",
+"r": "+20%",
+"p": "-5Hz",
+"f": "00097.wav"
+},
+{
+"gal": "maja",
+"t": "하이~ 길눈",
+"v": "en-US-BrianMultilingualNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00098.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "en-US-BrianMultilingualNeural",
+"r": "+0%",
+"p": "+25Hz",
+"f": "00099.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "en-US-BrianMultilingualNeural",
+"r": "+10%",
+"p": "+0Hz",
+"f": "00100.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "en-US-BrianMultilingualNeural",
+"r": "+30%",
+"p": "-5Hz",
+"f": "00101.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈?",
+"v": "en-US-BrianMultilingualNeural",
+"r": "-30%",
+"p": "-5Hz",
+"f": "00102.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "en-US-BrianMultilingualNeural",
+"r": "+30%",
+"p": "-15Hz",
+"f": "00103.wav"
+},
+{
+"gal": "maja",
+"t": "하이길눈",
+"v": "en-US-EmmaMultilingualNeural",
+"r": "+10%",
+"p": "+0Hz",
+"f": "00104.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "en-US-EmmaMultilingualNeural",
+"r": "+10%",
+"p": "+25Hz",
+"f": "00105.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "en-US-EmmaMultilingualNeural",
+"r": "-10%",
+"p": "+15Hz",
+"f": "00106.wav"
+},
+{
+"gal": "maja",
+"t": "하이길눈",
+"v": "en-US-EmmaMultilingualNeural",
+"r": "+10%",
+"p": "+5Hz",
+"f": "00107.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "en-US-EmmaMultilingualNeural",
+"r": "+10%",
+"p": "+15Hz",
+"f": "00108.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "en-US-EmmaMultilingualNeural",
+"r": "+20%",
+"p": "-25Hz",
+"f": "00109.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈?",
+"v": "en-US-EmmaMultilingualNeural",
+"r": "-30%",
+"p": "+25Hz",
+"f": "00110.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈!",
+"v": "en-US-EmmaMultilingualNeural",
+"r": "+0%",
+"p": "+25Hz",
+"f": "00111.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "-10%",
+"p": "+15Hz",
+"f": "00112.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "-10%",
+"p": "-5Hz",
+"f": "00113.wav"
+},
+{
+"gal": "maja",
+"t": "하이~ 길눈",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "+30%",
+"p": "+15Hz",
+"f": "00114.wav"
+},
+{
+"gal": "maja",
+"t": "하이길눈",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "-20%",
+"p": "-25Hz",
+"f": "00115.wav"
+},
+{
+"gal": "maja",
+"t": "하이~ 길눈",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "-20%",
+"p": "-25Hz",
+"f": "00116.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈!",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "-30%",
+"p": "+5Hz",
+"f": "00117.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "+10%",
+"p": "+5Hz",
+"f": "00118.wav"
+},
+{
+"gal": "maja",
+"t": "하이~ 길눈",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "-30%",
+"p": "+5Hz",
+"f": "00119.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈?",
+"v": "fr-FR-RemyMultilingualNeural",
+"r": "+20%",
+"p": "+15Hz",
+"f": "00120.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈!",
+"v": "fr-FR-RemyMultilingualNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00121.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "fr-FR-RemyMultilingualNeural",
+"r": "+30%",
+"p": "+25Hz",
+"f": "00122.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈!",
+"v": "fr-FR-RemyMultilingualNeural",
+"r": "+20%",
+"p": "+25Hz",
+"f": "00123.wav"
+},
+{
+"gal": "maja",
+"t": "하이~ 길눈",
+"v": "fr-FR-RemyMultilingualNeural",
+"r": "-10%",
+"p": "+25Hz",
+"f": "00124.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈",
+"v": "fr-FR-RemyMultilingualNeural",
+"r": "-20%",
+"p": "+5Hz",
+"f": "00125.wav"
+},
+{
+"gal": "maja",
+"t": "하이~ 길눈",
+"v": "fr-FR-RemyMultilingualNeural",
+"r": "+30%",
+"p": "+15Hz",
+"f": "00126.wav"
+},
+{
+"gal": "maja",
+"t": "하이~ 길눈",
+"v": "fr-FR-RemyMultilingualNeural",
+"r": "-20%",
+"p": "-5Hz",
+"f": "00127.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "+10%",
+"p": "-15Hz",
+"f": "00128.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "+0%",
+"p": "-15Hz",
+"f": "00129.wav"
+},
+{
+"gal": "maja",
+"t": "하이~ 길눈",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "+0%",
+"p": "+5Hz",
+"f": "00130.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "-10%",
+"p": "+5Hz",
+"f": "00131.wav"
+},
+{
+"gal": "maja",
+"t": "하이길눈",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "+20%",
+"p": "+5Hz",
+"f": "00132.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈!",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "+0%",
+"p": "+15Hz",
+"f": "00133.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈?",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "+0%",
+"p": "+0Hz",
+"f": "00134.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈!",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "+30%",
+"p": "+15Hz",
+"f": "00135.wav"
+},
+{
+"gal": "maja",
+"t": "하이길눈",
+"v": "de-DE-FlorianMultilingualNeural",
+"r": "-20%",
+"p": "+25Hz",
+"f": "00136.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈",
+"v": "de-DE-FlorianMultilingualNeural",
+"r": "+10%",
+"p": "-5Hz",
+"f": "00137.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈?",
+"v": "de-DE-FlorianMultilingualNeural",
+"r": "+20%",
+"p": "+15Hz",
+"f": "00138.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "de-DE-FlorianMultilingualNeural",
+"r": "+30%",
+"p": "+0Hz",
+"f": "00139.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "de-DE-FlorianMultilingualNeural",
+"r": "+30%",
+"p": "+5Hz",
+"f": "00140.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈?",
+"v": "de-DE-FlorianMultilingualNeural",
+"r": "+20%",
+"p": "-15Hz",
+"f": "00141.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "de-DE-FlorianMultilingualNeural",
+"r": "+30%",
+"p": "+25Hz",
+"f": "00142.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "de-DE-FlorianMultilingualNeural",
+"r": "+30%",
+"p": "-5Hz",
+"f": "00143.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "it-IT-GiuseppeMultilingualNeural",
+"r": "+0%",
+"p": "-5Hz",
+"f": "00144.wav"
+},
+{
+"gal": "maja",
+"t": "하이~ 길눈",
+"v": "it-IT-GiuseppeMultilingualNeural",
+"r": "+10%",
+"p": "+5Hz",
+"f": "00145.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈!",
+"v": "it-IT-GiuseppeMultilingualNeural",
+"r": "-30%",
+"p": "+5Hz",
+"f": "00146.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈?",
+"v": "it-IT-GiuseppeMultilingualNeural",
+"r": "-20%",
+"p": "-5Hz",
+"f": "00147.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈!",
+"v": "it-IT-GiuseppeMultilingualNeural",
+"r": "+10%",
+"p": "+5Hz",
+"f": "00148.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈!",
+"v": "it-IT-GiuseppeMultilingualNeural",
+"r": "-10%",
+"p": "-25Hz",
+"f": "00149.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈?",
+"v": "it-IT-GiuseppeMultilingualNeural",
+"r": "+0%",
+"p": "+0Hz",
+"f": "00150.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "it-IT-GiuseppeMultilingualNeural",
+"r": "+20%",
+"p": "+15Hz",
+"f": "00151.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "pt-BR-ThalitaMultilingualNeural",
+"r": "+20%",
+"p": "+5Hz",
+"f": "00152.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "pt-BR-ThalitaMultilingualNeural",
+"r": "+10%",
+"p": "+5Hz",
+"f": "00153.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈!",
+"v": "pt-BR-ThalitaMultilingualNeural",
+"r": "+0%",
+"p": "-15Hz",
+"f": "00154.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈 하이 길눈",
+"v": "pt-BR-ThalitaMultilingualNeural",
+"r": "-20%",
+"p": "+15Hz",
+"f": "00155.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈!",
+"v": "pt-BR-ThalitaMultilingualNeural",
+"r": "+0%",
+"p": "-5Hz",
+"f": "00156.wav"
+},
+{
+"gal": "maja",
+"t": "하이~ 길눈",
+"v": "pt-BR-ThalitaMultilingualNeural",
+"r": "+20%",
+"p": "-15Hz",
+"f": "00157.wav"
+},
+{
+"gal": "maja",
+"t": "하이 길눈.",
+"v": "pt-BR-ThalitaMultilingualNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00158.wav"
+},
+{
+"gal": "maja",
+"t": "하이, 길눈",
+"v": "pt-BR-ThalitaMultilingualNeural",
+"r": "+0%",
+"p": "-5Hz",
+"f": "00159.wav"
+},
+{
+"gal": "teullim",
+"t": "하이",
+"v": "ko-KR-SunHiNeural",
+"r": "+0%",
+"p": "+15Hz",
+"f": "00160.wav"
+},
+{
+"gal": "teullim",
+"t": "하이",
+"v": "ko-KR-InJoonNeural",
+"r": "+10%",
+"p": "-25Hz",
+"f": "00161.wav"
+},
+{
+"gal": "teullim",
+"t": "하이",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "-15Hz",
+"f": "00162.wav"
+},
+{
+"gal": "teullim",
+"t": "하이",
+"v": "en-US-AvaMultilingualNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00163.wav"
+},
+{
+"gal": "teullim",
+"t": "하이",
+"v": "en-US-EmmaMultilingualNeural",
+"r": "-10%",
+"p": "-15Hz",
+"f": "00164.wav"
+},
+{
+"gal": "teullim",
+"t": "길눈",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "+25Hz",
+"f": "00165.wav"
+},
+{
+"gal": "teullim",
+"t": "길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "+30%",
+"p": "-25Hz",
+"f": "00166.wav"
+},
+{
+"gal": "teullim",
+"t": "길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "+20%",
+"p": "-25Hz",
+"f": "00167.wav"
+},
+{
+"gal": "teullim",
+"t": "길눈",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "+30%",
+"p": "+0Hz",
+"f": "00168.wav"
+},
+{
+"gal": "teullim",
+"t": "길눈",
+"v": "en-US-AvaMultilingualNeural",
+"r": "-20%",
+"p": "-5Hz",
+"f": "00169.wav"
+},
+{
+"gal": "teullim",
+"t": "하이킹",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "-25Hz",
+"f": "00170.wav"
+},
+{
+"gal": "teullim",
+"t": "하이킹",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "-5Hz",
+"f": "00171.wav"
+},
+{
+"gal": "teullim",
+"t": "하이킹",
+"v": "ko-KR-SunHiNeural",
+"r": "+0%",
+"p": "+25Hz",
+"f": "00172.wav"
+},
+{
+"gal": "teullim",
+"t": "하이킹",
+"v": "en-US-BrianMultilingualNeural",
+"r": "+0%",
+"p": "+15Hz",
+"f": "00173.wav"
+},
+{
+"gal": "teullim",
+"t": "하이킹",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "-10%",
+"p": "-15Hz",
+"f": "00174.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기분",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-30%",
+"p": "+25Hz",
+"f": "00175.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기분",
+"v": "ko-KR-InJoonNeural",
+"r": "+20%",
+"p": "+5Hz",
+"f": "00176.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기분",
+"v": "ko-KR-SunHiNeural",
+"r": "+30%",
+"p": "+25Hz",
+"f": "00177.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기분",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "-30%",
+"p": "-15Hz",
+"f": "00178.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기분",
+"v": "en-US-BrianMultilingualNeural",
+"r": "+0%",
+"p": "-15Hz",
+"f": "00179.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기름",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "+5Hz",
+"f": "00180.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기름",
+"v": "ko-KR-InJoonNeural",
+"r": "-30%",
+"p": "+25Hz",
+"f": "00181.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기름",
+"v": "ko-KR-SunHiNeural",
+"r": "+30%",
+"p": "-15Hz",
+"f": "00182.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기름",
+"v": "fr-FR-RemyMultilingualNeural",
+"r": "-20%",
+"p": "+25Hz",
+"f": "00183.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기름",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "-10%",
+"p": "+0Hz",
+"f": "00184.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기린",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "-25Hz",
+"f": "00185.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기린",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00186.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기린",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "-5Hz",
+"f": "00187.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기린",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "-10%",
+"p": "+0Hz",
+"f": "00188.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기린",
+"v": "it-IT-GiuseppeMultilingualNeural",
+"r": "+30%",
+"p": "-25Hz",
+"f": "00189.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 누나",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "+0Hz",
+"f": "00190.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 누나",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "+0Hz",
+"f": "00191.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 누나",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "-25Hz",
+"f": "00192.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 누나",
+"v": "it-IT-GiuseppeMultilingualNeural",
+"r": "-30%",
+"p": "-5Hz",
+"f": "00193.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 누나",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "+0%",
+"p": "+25Hz",
+"f": "00194.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 그늘",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "+15Hz",
+"f": "00195.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 그늘",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "+5Hz",
+"f": "00196.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 그늘",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "+25Hz",
+"f": "00197.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 그늘",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "-10%",
+"p": "+0Hz",
+"f": "00198.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 그늘",
+"v": "en-US-BrianMultilingualNeural",
+"r": "+10%",
+"p": "+0Hz",
+"f": "00199.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길동",
+"v": "ko-KR-InJoonNeural",
+"r": "+20%",
+"p": "-25Hz",
+"f": "00200.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길동",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "+15Hz",
+"f": "00201.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길동",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "+15Hz",
+"f": "00202.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길동",
+"v": "en-US-AvaMultilingualNeural",
+"r": "+20%",
+"p": "-25Hz",
+"f": "00203.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길동",
+"v": "en-US-BrianMultilingualNeural",
+"r": "+20%",
+"p": "-25Hz",
+"f": "00204.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 김군",
+"v": "ko-KR-SunHiNeural",
+"r": "+20%",
+"p": "-5Hz",
+"f": "00205.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 김군",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "-5Hz",
+"f": "00206.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 김군",
+"v": "ko-KR-InJoonNeural",
+"r": "+30%",
+"p": "+5Hz",
+"f": "00207.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 김군",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "-30%",
+"p": "-15Hz",
+"f": "00208.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 김군",
+"v": "en-US-BrianMultilingualNeural",
+"r": "+30%",
+"p": "+25Hz",
+"f": "00209.wav"
+},
+{
+"gal": "teullim",
+"t": "아이 기분 좋아",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "+0Hz",
+"f": "00210.wav"
+},
+{
+"gal": "teullim",
+"t": "아이 기분 좋아",
+"v": "ko-KR-InJoonNeural",
+"r": "+20%",
+"p": "-25Hz",
+"f": "00211.wav"
+},
+{
+"gal": "teullim",
+"t": "아이 기분 좋아",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "+25Hz",
+"f": "00212.wav"
+},
+{
+"gal": "teullim",
+"t": "아이 기분 좋아",
+"v": "en-US-EmmaMultilingualNeural",
+"r": "-10%",
+"p": "-25Hz",
+"f": "00213.wav"
+},
+{
+"gal": "teullim",
+"t": "아이 기분 좋아",
+"v": "en-US-BrianMultilingualNeural",
+"r": "+0%",
+"p": "+0Hz",
+"f": "00214.wav"
+},
+{
+"gal": "teullim",
+"t": "아이 귀여워",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+30%",
+"p": "+25Hz",
+"f": "00215.wav"
+},
+{
+"gal": "teullim",
+"t": "아이 귀여워",
+"v": "ko-KR-SunHiNeural",
+"r": "+20%",
+"p": "-25Hz",
+"f": "00216.wav"
+},
+{
+"gal": "teullim",
+"t": "아이 귀여워",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "+5Hz",
+"f": "00217.wav"
+},
+{
+"gal": "teullim",
+"t": "아이 귀여워",
+"v": "it-IT-GiuseppeMultilingualNeural",
+"r": "-30%",
+"p": "-15Hz",
+"f": "00218.wav"
+},
+{
+"gal": "teullim",
+"t": "아이 귀여워",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "+10%",
+"p": "+15Hz",
+"f": "00219.wav"
+},
+{
+"gal": "teullim",
+"t": "해 길어",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "-5Hz",
+"f": "00220.wav"
+},
+{
+"gal": "teullim",
+"t": "해 길어",
+"v": "ko-KR-InJoonNeural",
+"r": "+20%",
+"p": "+5Hz",
+"f": "00221.wav"
+},
+{
+"gal": "teullim",
+"t": "해 길어",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "+25Hz",
+"f": "00222.wav"
+},
+{
+"gal": "teullim",
+"t": "해 길어",
+"v": "en-US-AvaMultilingualNeural",
+"r": "-10%",
+"p": "-5Hz",
+"f": "00223.wav"
+},
+{
+"gal": "teullim",
+"t": "해 길어",
+"v": "pt-BR-ThalitaMultilingualNeural",
+"r": "-30%",
+"p": "+5Hz",
+"f": "00224.wav"
+},
+{
+"gal": "teullim",
+"t": "흰 눈",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "+15Hz",
+"f": "00225.wav"
+},
+{
+"gal": "teullim",
+"t": "흰 눈",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+0%",
+"p": "-15Hz",
+"f": "00226.wav"
+},
+{
+"gal": "teullim",
+"t": "흰 눈",
+"v": "ko-KR-InJoonNeural",
+"r": "+10%",
+"p": "+25Hz",
+"f": "00227.wav"
+},
+{
+"gal": "teullim",
+"t": "흰 눈",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "+30%",
+"p": "-5Hz",
+"f": "00228.wav"
+},
+{
+"gal": "teullim",
+"t": "흰 눈",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "+30%",
+"p": "+25Hz",
+"f": "00229.wav"
+},
+{
+"gal": "teullim",
+"t": "길눈이 밝다",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "+15Hz",
+"f": "00230.wav"
+},
+{
+"gal": "teullim",
+"t": "길눈이 밝다",
+"v": "ko-KR-InJoonNeural",
+"r": "+20%",
+"p": "-5Hz",
+"f": "00231.wav"
+},
+{
+"gal": "teullim",
+"t": "길눈이 밝다",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "+0Hz",
+"f": "00232.wav"
+},
+{
+"gal": "teullim",
+"t": "길눈이 밝다",
+"v": "en-US-AvaMultilingualNeural",
+"r": "-30%",
+"p": "+0Hz",
+"f": "00233.wav"
+},
+{
+"gal": "teullim",
+"t": "길눈이 밝다",
+"v": "fr-FR-RemyMultilingualNeural",
+"r": "-20%",
+"p": "+5Hz",
+"f": "00234.wav"
+},
+{
+"gal": "teullim",
+"t": "길 눈치",
+"v": "ko-KR-InJoonNeural",
+"r": "-20%",
+"p": "-5Hz",
+"f": "00235.wav"
+},
+{
+"gal": "teullim",
+"t": "길 눈치",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+30%",
+"p": "-5Hz",
+"f": "00236.wav"
+},
+{
+"gal": "teullim",
+"t": "길 눈치",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00237.wav"
+},
+{
+"gal": "teullim",
+"t": "길 눈치",
+"v": "en-US-AvaMultilingualNeural",
+"r": "+10%",
+"p": "-25Hz",
+"f": "00238.wav"
+},
+{
+"gal": "teullim",
+"t": "길 눈치",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "-10%",
+"p": "-5Hz",
+"f": "00239.wav"
+},
+{
+"gal": "teullim",
+"t": "기름 넣어",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "-25Hz",
+"f": "00240.wav"
+},
+{
+"gal": "teullim",
+"t": "기름 넣어",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "-5Hz",
+"f": "00241.wav"
+},
+{
+"gal": "teullim",
+"t": "기름 넣어",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "-25Hz",
+"f": "00242.wav"
+},
+{
+"gal": "teullim",
+"t": "기름 넣어",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "-30%",
+"p": "-5Hz",
+"f": "00243.wav"
+},
+{
+"gal": "teullim",
+"t": "기름 넣어",
+"v": "en-US-AvaMultilingualNeural",
+"r": "+20%",
+"p": "-15Hz",
+"f": "00244.wav"
+},
+{
+"gal": "teullim",
+"t": "기분이 좋네",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "-5Hz",
+"f": "00245.wav"
+},
+{
+"gal": "teullim",
+"t": "기분이 좋네",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+30%",
+"p": "+5Hz",
+"f": "00246.wav"
+},
+{
+"gal": "teullim",
+"t": "기분이 좋네",
+"v": "ko-KR-InJoonNeural",
+"r": "-20%",
+"p": "+0Hz",
+"f": "00247.wav"
+},
+{
+"gal": "teullim",
+"t": "기분이 좋네",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "+20%",
+"p": "+25Hz",
+"f": "00248.wav"
+},
+{
+"gal": "teullim",
+"t": "기분이 좋네",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "+20%",
+"p": "-15Hz",
+"f": "00249.wav"
+},
+{
+"gal": "teullim",
+"t": "하이파이브",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "-25Hz",
+"f": "00250.wav"
+},
+{
+"gal": "teullim",
+"t": "하이파이브",
+"v": "ko-KR-InJoonNeural",
+"r": "+30%",
+"p": "+15Hz",
+"f": "00251.wav"
+},
+{
+"gal": "teullim",
+"t": "하이파이브",
+"v": "ko-KR-SunHiNeural",
+"r": "-30%",
+"p": "-5Hz",
+"f": "00252.wav"
+},
+{
+"gal": "teullim",
+"t": "하이파이브",
+"v": "it-IT-GiuseppeMultilingualNeural",
+"r": "+20%",
+"p": "-25Hz",
+"f": "00253.wav"
+},
+{
+"gal": "teullim",
+"t": "하이파이브",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "-20%",
+"p": "-25Hz",
+"f": "00254.wav"
+},
+{
+"gal": "teullim",
+"t": "하이마트",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "+15Hz",
+"f": "00255.wav"
+},
+{
+"gal": "teullim",
+"t": "하이마트",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "+15Hz",
+"f": "00256.wav"
+},
+{
+"gal": "teullim",
+"t": "하이마트",
+"v": "ko-KR-InJoonNeural",
+"r": "-30%",
+"p": "-25Hz",
+"f": "00257.wav"
+},
+{
+"gal": "teullim",
+"t": "하이마트",
+"v": "it-IT-GiuseppeMultilingualNeural",
+"r": "-10%",
+"p": "+5Hz",
+"f": "00258.wav"
+},
+{
+"gal": "teullim",
+"t": "하이마트",
+"v": "pt-BR-ThalitaMultilingualNeural",
+"r": "+0%",
+"p": "-25Hz",
+"f": "00259.wav"
+},
+{
+"gal": "teullim",
+"t": "하이볼",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+0%",
+"p": "-5Hz",
+"f": "00260.wav"
+},
+{
+"gal": "teullim",
+"t": "하이볼",
+"v": "ko-KR-SunHiNeural",
+"r": "+0%",
+"p": "-5Hz",
+"f": "00261.wav"
+},
+{
+"gal": "teullim",
+"t": "하이볼",
+"v": "ko-KR-InJoonNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00262.wav"
+},
+{
+"gal": "teullim",
+"t": "하이볼",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "-30%",
+"p": "+25Hz",
+"f": "00263.wav"
+},
+{
+"gal": "teullim",
+"t": "하이볼",
+"v": "it-IT-GiuseppeMultilingualNeural",
+"r": "-10%",
+"p": "+0Hz",
+"f": "00264.wav"
+},
+{
+"gal": "teullim",
+"t": "하이힐",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "+5Hz",
+"f": "00265.wav"
+},
+{
+"gal": "teullim",
+"t": "하이힐",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+0%",
+"p": "-15Hz",
+"f": "00266.wav"
+},
+{
+"gal": "teullim",
+"t": "하이힐",
+"v": "ko-KR-SunHiNeural",
+"r": "+20%",
+"p": "-25Hz",
+"f": "00267.wav"
+},
+{
+"gal": "teullim",
+"t": "하이힐",
+"v": "en-US-EmmaMultilingualNeural",
+"r": "+0%",
+"p": "+5Hz",
+"f": "00268.wav"
+},
+{
+"gal": "teullim",
+"t": "하이힐",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "+20%",
+"p": "-25Hz",
+"f": "00269.wav"
+},
+{
+"gal": "teullim",
+"t": "하이라이트",
+"v": "ko-KR-SunHiNeural",
+"r": "+20%",
+"p": "-5Hz",
+"f": "00270.wav"
+},
+{
+"gal": "teullim",
+"t": "하이라이트",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "+25Hz",
+"f": "00271.wav"
+},
+{
+"gal": "teullim",
+"t": "하이라이트",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "+0Hz",
+"f": "00272.wav"
+},
+{
+"gal": "teullim",
+"t": "하이라이트",
+"v": "de-DE-FlorianMultilingualNeural",
+"r": "-10%",
+"p": "-15Hz",
+"f": "00273.wav"
+},
+{
+"gal": "teullim",
+"t": "하이라이트",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "+30%",
+"p": "-15Hz",
+"f": "00274.wav"
+},
+{
+"gal": "teullim",
+"t": "하이브리드",
+"v": "ko-KR-SunHiNeural",
+"r": "+0%",
+"p": "+15Hz",
+"f": "00275.wav"
+},
+{
+"gal": "teullim",
+"t": "하이브리드",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "-25Hz",
+"f": "00276.wav"
+},
+{
+"gal": "teullim",
+"t": "하이브리드",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+30%",
+"p": "+5Hz",
+"f": "00277.wav"
+},
+{
+"gal": "teullim",
+"t": "하이브리드",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "-30%",
+"p": "+15Hz",
+"f": "00278.wav"
+},
+{
+"gal": "teullim",
+"t": "하이브리드",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "+0%",
+"p": "+5Hz",
+"f": "00279.wav"
+},
+{
+"gal": "teullim",
+"t": "헤이 구글",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "+5Hz",
+"f": "00280.wav"
+},
+{
+"gal": "teullim",
+"t": "헤이 구글",
+"v": "ko-KR-InJoonNeural",
+"r": "-30%",
+"p": "+25Hz",
+"f": "00281.wav"
+},
+{
+"gal": "teullim",
+"t": "헤이 구글",
+"v": "ko-KR-SunHiNeural",
+"r": "+0%",
+"p": "-25Hz",
+"f": "00282.wav"
+},
+{
+"gal": "teullim",
+"t": "헤이 구글",
+"v": "en-US-BrianMultilingualNeural",
+"r": "-20%",
+"p": "-25Hz",
+"f": "00283.wav"
+},
+{
+"gal": "teullim",
+"t": "헤이 구글",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "+20%",
+"p": "+5Hz",
+"f": "00284.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 빅스비",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "+5Hz",
+"f": "00285.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 빅스비",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "+25Hz",
+"f": "00286.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 빅스비",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "-5Hz",
+"f": "00287.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 빅스비",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "+30%",
+"p": "+25Hz",
+"f": "00288.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 빅스비",
+"v": "en-US-EmmaMultilingualNeural",
+"r": "+0%",
+"p": "+0Hz",
+"f": "00289.wav"
+},
+{
+"gal": "teullim",
+"t": "시리야",
+"v": "ko-KR-SunHiNeural",
+"r": "-30%",
+"p": "-15Hz",
+"f": "00290.wav"
+},
+{
+"gal": "teullim",
+"t": "시리야",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-30%",
+"p": "+5Hz",
+"f": "00291.wav"
+},
+{
+"gal": "teullim",
+"t": "시리야",
+"v": "ko-KR-InJoonNeural",
+"r": "+30%",
+"p": "+15Hz",
+"f": "00292.wav"
+},
+{
+"gal": "teullim",
+"t": "시리야",
+"v": "fr-FR-RemyMultilingualNeural",
+"r": "+30%",
+"p": "+25Hz",
+"f": "00293.wav"
+},
+{
+"gal": "teullim",
+"t": "시리야",
+"v": "en-US-BrianMultilingualNeural",
+"r": "+0%",
+"p": "+5Hz",
+"f": "00294.wav"
+},
+{
+"gal": "teullim",
+"t": "헤이 카카오",
+"v": "ko-KR-InJoonNeural",
+"r": "-20%",
+"p": "+15Hz",
+"f": "00295.wav"
+},
+{
+"gal": "teullim",
+"t": "헤이 카카오",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "+5Hz",
+"f": "00296.wav"
+},
+{
+"gal": "teullim",
+"t": "헤이 카카오",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-30%",
+"p": "-25Hz",
+"f": "00297.wav"
+},
+{
+"gal": "teullim",
+"t": "헤이 카카오",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "-10%",
+"p": "+25Hz",
+"f": "00298.wav"
+},
+{
+"gal": "teullim",
+"t": "헤이 카카오",
+"v": "en-US-AvaMultilingualNeural",
+"r": "+30%",
+"p": "+15Hz",
+"f": "00299.wav"
+},
+{
+"gal": "teullim",
+"t": "지니야",
+"v": "ko-KR-InJoonNeural",
+"r": "+30%",
+"p": "-5Hz",
+"f": "00300.wav"
+},
+{
+"gal": "teullim",
+"t": "지니야",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+20%",
+"p": "-25Hz",
+"f": "00301.wav"
+},
+{
+"gal": "teullim",
+"t": "지니야",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "+5Hz",
+"f": "00302.wav"
+},
+{
+"gal": "teullim",
+"t": "지니야",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "-30%",
+"p": "-25Hz",
+"f": "00303.wav"
+},
+{
+"gal": "teullim",
+"t": "지니야",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "-30%",
+"p": "-15Hz",
+"f": "00304.wav"
+},
+{
+"gal": "teullim",
+"t": "아리아",
+"v": "ko-KR-InJoonNeural",
+"r": "+30%",
+"p": "+0Hz",
+"f": "00305.wav"
+},
+{
+"gal": "teullim",
+"t": "아리아",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "+25Hz",
+"f": "00306.wav"
+},
+{
+"gal": "teullim",
+"t": "아리아",
+"v": "ko-KR-SunHiNeural",
+"r": "-30%",
+"p": "+15Hz",
+"f": "00307.wav"
+},
+{
+"gal": "teullim",
+"t": "아리아",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "-20%",
+"p": "+25Hz",
+"f": "00308.wav"
+},
+{
+"gal": "teullim",
+"t": "아리아",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "-30%",
+"p": "+15Hz",
+"f": "00309.wav"
+},
+{
+"gal": "teullim",
+"t": "오케이 구글",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "+0Hz",
+"f": "00310.wav"
+},
+{
+"gal": "teullim",
+"t": "오케이 구글",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "+15Hz",
+"f": "00311.wav"
+},
+{
+"gal": "teullim",
+"t": "오케이 구글",
+"v": "ko-KR-SunHiNeural",
+"r": "+20%",
+"p": "+5Hz",
+"f": "00312.wav"
+},
+{
+"gal": "teullim",
+"t": "오케이 구글",
+"v": "en-US-BrianMultilingualNeural",
+"r": "+30%",
+"p": "+5Hz",
+"f": "00313.wav"
+},
+{
+"gal": "teullim",
+"t": "오케이 구글",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "-20%",
+"p": "+5Hz",
+"f": "00314.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 클로바",
+"v": "ko-KR-InJoonNeural",
+"r": "+20%",
+"p": "+15Hz",
+"f": "00315.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 클로바",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "-15Hz",
+"f": "00316.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 클로바",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "-25Hz",
+"f": "00317.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 클로바",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "-30%",
+"p": "+25Hz",
+"f": "00318.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 클로바",
+"v": "de-DE-FlorianMultilingualNeural",
+"r": "+0%",
+"p": "+5Hz",
+"f": "00319.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 브라우니",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "-15Hz",
+"f": "00320.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 브라우니",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "+25Hz",
+"f": "00321.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 브라우니",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00322.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 브라우니",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "+0%",
+"p": "+25Hz",
+"f": "00323.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 브라우니",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "-30%",
+"p": "-5Hz",
+"f": "00324.wav"
+},
+{
+"gal": "teullim",
+"t": "길 건너",
+"v": "ko-KR-SunHiNeural",
+"r": "+20%",
+"p": "+15Hz",
+"f": "00325.wav"
+},
+{
+"gal": "teullim",
+"t": "길 건너",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+0%",
+"p": "-25Hz",
+"f": "00326.wav"
+},
+{
+"gal": "teullim",
+"t": "길 건너",
+"v": "ko-KR-InJoonNeural",
+"r": "+30%",
+"p": "+25Hz",
+"f": "00327.wav"
+},
+{
+"gal": "teullim",
+"t": "길 건너",
+"v": "en-US-BrianMultilingualNeural",
+"r": "-30%",
+"p": "+15Hz",
+"f": "00328.wav"
+},
+{
+"gal": "teullim",
+"t": "길 건너",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "+30%",
+"p": "+5Hz",
+"f": "00329.wav"
+},
+{
+"gal": "teullim",
+"t": "길 잃었어",
+"v": "ko-KR-InJoonNeural",
+"r": "+30%",
+"p": "-5Hz",
+"f": "00330.wav"
+},
+{
+"gal": "teullim",
+"t": "길 잃었어",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "+0Hz",
+"f": "00331.wav"
+},
+{
+"gal": "teullim",
+"t": "길 잃었어",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "-5Hz",
+"f": "00332.wav"
+},
+{
+"gal": "teullim",
+"t": "길 잃었어",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "-30%",
+"p": "+15Hz",
+"f": "00333.wav"
+},
+{
+"gal": "teullim",
+"t": "길 잃었어",
+"v": "de-DE-FlorianMultilingualNeural",
+"r": "+20%",
+"p": "+0Hz",
+"f": "00334.wav"
+},
+{
+"gal": "teullim",
+"t": "이 길이 맞아",
+"v": "ko-KR-SunHiNeural",
+"r": "+30%",
+"p": "-15Hz",
+"f": "00335.wav"
+},
+{
+"gal": "teullim",
+"t": "이 길이 맞아",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "+15Hz",
+"f": "00336.wav"
+},
+{
+"gal": "teullim",
+"t": "이 길이 맞아",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "-5Hz",
+"f": "00337.wav"
+},
+{
+"gal": "teullim",
+"t": "이 길이 맞아",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "-30%",
+"p": "+15Hz",
+"f": "00338.wav"
+},
+{
+"gal": "teullim",
+"t": "이 길이 맞아",
+"v": "de-DE-FlorianMultilingualNeural",
+"r": "+30%",
+"p": "+15Hz",
+"f": "00339.wav"
+},
+{
+"gal": "teullim",
+"t": "길눈 켜",
+"v": "ko-KR-InJoonNeural",
+"r": "-30%",
+"p": "+5Hz",
+"f": "00340.wav"
+},
+{
+"gal": "teullim",
+"t": "길눈 켜",
+"v": "ko-KR-SunHiNeural",
+"r": "+0%",
+"p": "-5Hz",
+"f": "00341.wav"
+},
+{
+"gal": "teullim",
+"t": "길눈 켜",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "+0Hz",
+"f": "00342.wav"
+},
+{
+"gal": "teullim",
+"t": "길눈 켜",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "-20%",
+"p": "+0Hz",
+"f": "00343.wav"
+},
+{
+"gal": "teullim",
+"t": "길눈 켜",
+"v": "pt-BR-ThalitaMultilingualNeural",
+"r": "+10%",
+"p": "+5Hz",
+"f": "00344.wav"
+},
+{
+"gal": "teullim",
+"t": "어 길눈",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "+25Hz",
+"f": "00345.wav"
+},
+{
+"gal": "teullim",
+"t": "어 길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "+0%",
+"p": "-25Hz",
+"f": "00346.wav"
+},
+{
+"gal": "teullim",
+"t": "어 길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "+10%",
+"p": "-15Hz",
+"f": "00347.wav"
+},
+{
+"gal": "teullim",
+"t": "어 길눈",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "-30%",
+"p": "-5Hz",
+"f": "00348.wav"
+},
+{
+"gal": "teullim",
+"t": "어 길눈",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "+20%",
+"p": "+15Hz",
+"f": "00349.wav"
+},
+{
+"gal": "teullim",
+"t": "가자 길눈",
+"v": "ko-KR-SunHiNeural",
+"r": "-10%",
+"p": "-5Hz",
+"f": "00350.wav"
+},
+{
+"gal": "teullim",
+"t": "가자 길눈",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+30%",
+"p": "-25Hz",
+"f": "00351.wav"
+},
+{
+"gal": "teullim",
+"t": "가자 길눈",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "+15Hz",
+"f": "00352.wav"
+},
+{
+"gal": "teullim",
+"t": "가자 길눈",
+"v": "en-US-EmmaMultilingualNeural",
+"r": "+10%",
+"p": "+0Hz",
+"f": "00353.wav"
+},
+{
+"gal": "teullim",
+"t": "가자 길눈",
+"v": "it-IT-GiuseppeMultilingualNeural",
+"r": "+20%",
+"p": "+0Hz",
+"f": "00354.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "-5Hz",
+"f": "00355.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+20%",
+"p": "+5Hz",
+"f": "00356.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길",
+"v": "ko-KR-SunHiNeural",
+"r": "+30%",
+"p": "-15Hz",
+"f": "00357.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길",
+"v": "pt-BR-ThalitaMultilingualNeural",
+"r": "+0%",
+"p": "+15Hz",
+"f": "00358.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길",
+"v": "en-US-BrianMultilingualNeural",
+"r": "-20%",
+"p": "+25Hz",
+"f": "00359.wav"
+},
+{
+"gal": "teullim",
+"t": "하이, 기",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "+0Hz",
+"f": "00360.wav"
+},
+{
+"gal": "teullim",
+"t": "하이, 기",
+"v": "ko-KR-SunHiNeural",
+"r": "+20%",
+"p": "-5Hz",
+"f": "00361.wav"
+},
+{
+"gal": "teullim",
+"t": "하이, 기",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00362.wav"
+},
+{
+"gal": "teullim",
+"t": "하이, 기",
+"v": "en-US-AvaMultilingualNeural",
+"r": "+10%",
+"p": "+15Hz",
+"f": "00363.wav"
+},
+{
+"gal": "teullim",
+"t": "하이, 기",
+"v": "pt-BR-ThalitaMultilingualNeural",
+"r": "+0%",
+"p": "+15Hz",
+"f": "00364.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길이",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "+15Hz",
+"f": "00365.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길이",
+"v": "ko-KR-InJoonNeural",
+"r": "-30%",
+"p": "+5Hz",
+"f": "00366.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길이",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "-15Hz",
+"f": "00367.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길이",
+"v": "en-US-BrianMultilingualNeural",
+"r": "+10%",
+"p": "+5Hz",
+"f": "00368.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길이",
+"v": "de-DE-FlorianMultilingualNeural",
+"r": "-30%",
+"p": "+0Hz",
+"f": "00369.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기운",
+"v": "ko-KR-SunHiNeural",
+"r": "-30%",
+"p": "+15Hz",
+"f": "00370.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기운",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+20%",
+"p": "-25Hz",
+"f": "00371.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기운",
+"v": "ko-KR-InJoonNeural",
+"r": "-20%",
+"p": "+0Hz",
+"f": "00372.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기운",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "+0%",
+"p": "+0Hz",
+"f": "00373.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기운",
+"v": "en-US-AvaMultilingualNeural",
+"r": "+20%",
+"p": "+25Hz",
+"f": "00374.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기능",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-30%",
+"p": "+25Hz",
+"f": "00375.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기능",
+"v": "ko-KR-SunHiNeural",
+"r": "+30%",
+"p": "+5Hz",
+"f": "00376.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기능",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "+25Hz",
+"f": "00377.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기능",
+"v": "en-US-BrianMultilingualNeural",
+"r": "+10%",
+"p": "+0Hz",
+"f": "00378.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기능",
+"v": "en-US-AvaMultilingualNeural",
+"r": "-10%",
+"p": "+25Hz",
+"f": "00379.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길목",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "+0Hz",
+"f": "00380.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길목",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+30%",
+"p": "-15Hz",
+"f": "00381.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길목",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "-5Hz",
+"f": "00382.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길목",
+"v": "de-DE-FlorianMultilingualNeural",
+"r": "+10%",
+"p": "-15Hz",
+"f": "00383.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 길목",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "-30%",
+"p": "-25Hz",
+"f": "00384.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기념",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "+25Hz",
+"f": "00385.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기념",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-30%",
+"p": "-15Hz",
+"f": "00386.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기념",
+"v": "ko-KR-InJoonNeural",
+"r": "-20%",
+"p": "+0Hz",
+"f": "00387.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기념",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "+30%",
+"p": "+15Hz",
+"f": "00388.wav"
+},
+{
+"gal": "teullim",
+"t": "하이 기념",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "-30%",
+"p": "-5Hz",
+"f": "00389.wav"
+},
+{
+"gal": "teullim",
+"t": "하이고 귀찮아",
+"v": "ko-KR-InJoonNeural",
+"r": "+30%",
+"p": "-25Hz",
+"f": "00390.wav"
+},
+{
+"gal": "teullim",
+"t": "하이고 귀찮아",
+"v": "ko-KR-SunHiNeural",
+"r": "+30%",
+"p": "+25Hz",
+"f": "00391.wav"
+},
+{
+"gal": "teullim",
+"t": "하이고 귀찮아",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+20%",
+"p": "-5Hz",
+"f": "00392.wav"
+},
+{
+"gal": "teullim",
+"t": "하이고 귀찮아",
+"v": "fr-FR-RemyMultilingualNeural",
+"r": "-20%",
+"p": "-5Hz",
+"f": "00393.wav"
+},
+{
+"gal": "teullim",
+"t": "하이고 귀찮아",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "+30%",
+"p": "+15Hz",
+"f": "00394.wav"
+},
+{
+"gal": "teullim",
+"t": "아이고 길이 멀다",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "-15Hz",
+"f": "00395.wav"
+},
+{
+"gal": "teullim",
+"t": "아이고 길이 멀다",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "+5Hz",
+"f": "00396.wav"
+},
+{
+"gal": "teullim",
+"t": "아이고 길이 멀다",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "+15Hz",
+"f": "00397.wav"
+},
+{
+"gal": "teullim",
+"t": "아이고 길이 멀다",
+"v": "en-US-AvaMultilingualNeural",
+"r": "-20%",
+"p": "+25Hz",
+"f": "00398.wav"
+},
+{
+"gal": "teullim",
+"t": "아이고 길이 멀다",
+"v": "de-DE-FlorianMultilingualNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00399.wav"
+},
+{
+"gal": "teullim",
+"t": "안녕하세요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "+25Hz",
+"f": "00400.wav"
+},
+{
+"gal": "teullim",
+"t": "안녕하세요",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "-25Hz",
+"f": "00401.wav"
+},
+{
+"gal": "teullim",
+"t": "안녕하세요",
+"v": "en-US-EmmaMultilingualNeural",
+"r": "-20%",
+"p": "+0Hz",
+"f": "00402.wav"
+},
+{
+"gal": "teullim",
+"t": "다음 역은 제기동역입니다",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "-25Hz",
+"f": "00403.wav"
+},
+{
+"gal": "teullim",
+"t": "다음 역은 제기동역입니다",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "+5Hz",
+"f": "00404.wav"
+},
+{
+"gal": "teullim",
+"t": "다음 역은 제기동역입니다",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "+30%",
+"p": "-15Hz",
+"f": "00405.wav"
+},
+{
+"gal": "teullim",
+"t": "내리실 문은 오른쪽입니다",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "-25Hz",
+"f": "00406.wav"
+},
+{
+"gal": "teullim",
+"t": "내리실 문은 오른쪽입니다",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+20%",
+"p": "-25Hz",
+"f": "00407.wav"
+},
+{
+"gal": "teullim",
+"t": "내리실 문은 오른쪽입니다",
+"v": "en-US-AvaMultilingualNeural",
+"r": "+30%",
+"p": "+0Hz",
+"f": "00408.wav"
+},
+{
+"gal": "teullim",
+"t": "문이 닫힙니다",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+30%",
+"p": "+25Hz",
+"f": "00409.wav"
+},
+{
+"gal": "teullim",
+"t": "문이 닫힙니다",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "-5Hz",
+"f": "00410.wav"
+},
+{
+"gal": "teullim",
+"t": "문이 닫힙니다",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "-10%",
+"p": "+15Hz",
+"f": "00411.wav"
+},
+{
+"gal": "teullim",
+"t": "잠시만요",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "+5Hz",
+"f": "00412.wav"
+},
+{
+"gal": "teullim",
+"t": "잠시만요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "-25Hz",
+"f": "00413.wav"
+},
+{
+"gal": "teullim",
+"t": "잠시만요",
+"v": "en-US-BrianMultilingualNeural",
+"r": "-20%",
+"p": "+25Hz",
+"f": "00414.wav"
+},
+{
+"gal": "teullim",
+"t": "감사합니다",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-30%",
+"p": "-15Hz",
+"f": "00415.wav"
+},
+{
+"gal": "teullim",
+"t": "감사합니다",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "-5Hz",
+"f": "00416.wav"
+},
+{
+"gal": "teullim",
+"t": "감사합니다",
+"v": "pt-BR-ThalitaMultilingualNeural",
+"r": "-30%",
+"p": "-25Hz",
+"f": "00417.wav"
+},
+{
+"gal": "teullim",
+"t": "지금 몇 시예요",
+"v": "ko-KR-SunHiNeural",
+"r": "+30%",
+"p": "+15Hz",
+"f": "00418.wav"
+},
+{
+"gal": "teullim",
+"t": "지금 몇 시예요",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "-15Hz",
+"f": "00419.wav"
+},
+{
+"gal": "teullim",
+"t": "지금 몇 시예요",
+"v": "en-US-BrianMultilingualNeural",
+"r": "+30%",
+"p": "-15Hz",
+"f": "00420.wav"
+},
+{
+"gal": "teullim",
+"t": "버스 왔어요",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "+25Hz",
+"f": "00421.wav"
+},
+{
+"gal": "teullim",
+"t": "버스 왔어요",
+"v": "ko-KR-SunHiNeural",
+"r": "+0%",
+"p": "+15Hz",
+"f": "00422.wav"
+},
+{
+"gal": "teullim",
+"t": "버스 왔어요",
+"v": "de-DE-FlorianMultilingualNeural",
+"r": "+0%",
+"p": "+15Hz",
+"f": "00423.wav"
+},
+{
+"gal": "teullim",
+"t": "어디 가세요",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00424.wav"
+},
+{
+"gal": "teullim",
+"t": "어디 가세요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "+5Hz",
+"f": "00425.wav"
+},
+{
+"gal": "teullim",
+"t": "어디 가세요",
+"v": "en-US-AvaMultilingualNeural",
+"r": "+30%",
+"p": "-25Hz",
+"f": "00426.wav"
+},
+{
+"gal": "teullim",
+"t": "조심하세요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+30%",
+"p": "+25Hz",
+"f": "00427.wav"
+},
+{
+"gal": "teullim",
+"t": "조심하세요",
+"v": "ko-KR-SunHiNeural",
+"r": "+0%",
+"p": "+5Hz",
+"f": "00428.wav"
+},
+{
+"gal": "teullim",
+"t": "조심하세요",
+"v": "en-US-AvaMultilingualNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00429.wav"
+},
+{
+"gal": "teullim",
+"t": "횡단보도를 건너세요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-30%",
+"p": "+25Hz",
+"f": "00430.wav"
+},
+{
+"gal": "teullim",
+"t": "횡단보도를 건너세요",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "-5Hz",
+"f": "00431.wav"
+},
+{
+"gal": "teullim",
+"t": "횡단보도를 건너세요",
+"v": "fr-FR-RemyMultilingualNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00432.wav"
+},
+{
+"gal": "teullim",
+"t": "초록불입니다",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "+0Hz",
+"f": "00433.wav"
+},
+{
+"gal": "teullim",
+"t": "초록불입니다",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "-5Hz",
+"f": "00434.wav"
+},
+{
+"gal": "teullim",
+"t": "초록불입니다",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "+30%",
+"p": "+15Hz",
+"f": "00435.wav"
+},
+{
+"gal": "teullim",
+"t": "빨간불입니다",
+"v": "ko-KR-InJoonNeural",
+"r": "+10%",
+"p": "+5Hz",
+"f": "00436.wav"
+},
+{
+"gal": "teullim",
+"t": "빨간불입니다",
+"v": "ko-KR-SunHiNeural",
+"r": "+20%",
+"p": "+5Hz",
+"f": "00437.wav"
+},
+{
+"gal": "teullim",
+"t": "빨간불입니다",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "-30%",
+"p": "-15Hz",
+"f": "00438.wav"
+},
+{
+"gal": "teullim",
+"t": "이번 정류장은 안암역입니다",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "+15Hz",
+"f": "00439.wav"
+},
+{
+"gal": "teullim",
+"t": "이번 정류장은 안암역입니다",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "+5Hz",
+"f": "00440.wav"
+},
+{
+"gal": "teullim",
+"t": "이번 정류장은 안암역입니다",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "+10%",
+"p": "+15Hz",
+"f": "00441.wav"
+},
+{
+"gal": "teullim",
+"t": "여기 앉으세요",
+"v": "ko-KR-InJoonNeural",
+"r": "-20%",
+"p": "-25Hz",
+"f": "00442.wav"
+},
+{
+"gal": "teullim",
+"t": "여기 앉으세요",
+"v": "ko-KR-SunHiNeural",
+"r": "-30%",
+"p": "-25Hz",
+"f": "00443.wav"
+},
+{
+"gal": "teullim",
+"t": "여기 앉으세요",
+"v": "fr-FR-RemyMultilingualNeural",
+"r": "+0%",
+"p": "+15Hz",
+"f": "00444.wav"
+},
+{
+"gal": "teullim",
+"t": "카드를 대 주세요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00445.wav"
+},
+{
+"gal": "teullim",
+"t": "카드를 대 주세요",
+"v": "ko-KR-InJoonNeural",
+"r": "+20%",
+"p": "+25Hz",
+"f": "00446.wav"
+},
+{
+"gal": "teullim",
+"t": "카드를 대 주세요",
+"v": "pt-BR-ThalitaMultilingualNeural",
+"r": "+0%",
+"p": "-5Hz",
+"f": "00447.wav"
+},
+{
+"gal": "teullim",
+"t": "환승입니다",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+0%",
+"p": "+5Hz",
+"f": "00448.wav"
+},
+{
+"gal": "teullim",
+"t": "환승입니다",
+"v": "ko-KR-InJoonNeural",
+"r": "-20%",
+"p": "+5Hz",
+"f": "00449.wav"
+},
+{
+"gal": "teullim",
+"t": "환승입니다",
+"v": "fr-FR-RemyMultilingualNeural",
+"r": "-20%",
+"p": "-5Hz",
+"f": "00450.wav"
+},
+{
+"gal": "teullim",
+"t": "어서 오세요",
+"v": "ko-KR-InJoonNeural",
+"r": "+10%",
+"p": "+0Hz",
+"f": "00451.wav"
+},
+{
+"gal": "teullim",
+"t": "어서 오세요",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "+15Hz",
+"f": "00452.wav"
+},
+{
+"gal": "teullim",
+"t": "어서 오세요",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "-20%",
+"p": "+15Hz",
+"f": "00453.wav"
+},
+{
+"gal": "teullim",
+"t": "주문하시겠어요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "+0Hz",
+"f": "00454.wav"
+},
+{
+"gal": "teullim",
+"t": "주문하시겠어요",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "+25Hz",
+"f": "00455.wav"
+},
+{
+"gal": "teullim",
+"t": "주문하시겠어요",
+"v": "en-US-BrianMultilingualNeural",
+"r": "+30%",
+"p": "-5Hz",
+"f": "00456.wav"
+},
+{
+"gal": "teullim",
+"t": "계단 조심하세요",
+"v": "ko-KR-SunHiNeural",
+"r": "+20%",
+"p": "-15Hz",
+"f": "00457.wav"
+},
+{
+"gal": "teullim",
+"t": "계단 조심하세요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "+15Hz",
+"f": "00458.wav"
+},
+{
+"gal": "teullim",
+"t": "계단 조심하세요",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "+30%",
+"p": "-15Hz",
+"f": "00459.wav"
+},
+{
+"gal": "teullim",
+"t": "엘리베이터 어디 있어요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+30%",
+"p": "-15Hz",
+"f": "00460.wav"
+},
+{
+"gal": "teullim",
+"t": "엘리베이터 어디 있어요",
+"v": "ko-KR-SunHiNeural",
+"r": "+30%",
+"p": "+15Hz",
+"f": "00461.wav"
+},
+{
+"gal": "teullim",
+"t": "엘리베이터 어디 있어요",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "+20%",
+"p": "+5Hz",
+"f": "00462.wav"
+},
+{
+"gal": "teullim",
+"t": "출구는 3번입니다",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "-5Hz",
+"f": "00463.wav"
+},
+{
+"gal": "teullim",
+"t": "출구는 3번입니다",
+"v": "ko-KR-SunHiNeural",
+"r": "+30%",
+"p": "+0Hz",
+"f": "00464.wav"
+},
+{
+"gal": "teullim",
+"t": "출구는 3번입니다",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "+20%",
+"p": "+5Hz",
+"f": "00465.wav"
+},
+{
+"gal": "teullim",
+"t": "약수역 5번 출구",
+"v": "ko-KR-SunHiNeural",
+"r": "-10%",
+"p": "+0Hz",
+"f": "00466.wav"
+},
+{
+"gal": "teullim",
+"t": "약수역 5번 출구",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "-25Hz",
+"f": "00467.wav"
+},
+{
+"gal": "teullim",
+"t": "약수역 5번 출구",
+"v": "fr-FR-RemyMultilingualNeural",
+"r": "-30%",
+"p": "+15Hz",
+"f": "00468.wav"
+},
+{
+"gal": "teullim",
+"t": "오늘 날씨 좋네요",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "-15Hz",
+"f": "00469.wav"
+},
+{
+"gal": "teullim",
+"t": "오늘 날씨 좋네요",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "-5Hz",
+"f": "00470.wav"
+},
+{
+"gal": "teullim",
+"t": "오늘 날씨 좋네요",
+"v": "en-US-EmmaMultilingualNeural",
+"r": "+10%",
+"p": "+5Hz",
+"f": "00471.wav"
+},
+{
+"gal": "teullim",
+"t": "비가 오네요",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "+5Hz",
+"f": "00472.wav"
+},
+{
+"gal": "teullim",
+"t": "비가 오네요",
+"v": "ko-KR-SunHiNeural",
+"r": "-10%",
+"p": "-15Hz",
+"f": "00473.wav"
+},
+{
+"gal": "teullim",
+"t": "비가 오네요",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "+30%",
+"p": "-25Hz",
+"f": "00474.wav"
+},
+{
+"gal": "teullim",
+"t": "점심 뭐 먹을까",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+20%",
+"p": "+0Hz",
+"f": "00475.wav"
+},
+{
+"gal": "teullim",
+"t": "점심 뭐 먹을까",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "+5Hz",
+"f": "00476.wav"
+},
+{
+"gal": "teullim",
+"t": "점심 뭐 먹을까",
+"v": "en-US-AvaMultilingualNeural",
+"r": "-30%",
+"p": "-15Hz",
+"f": "00477.wav"
+},
+{
+"gal": "teullim",
+"t": "전화 왔어요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+30%",
+"p": "+5Hz",
+"f": "00478.wav"
+},
+{
+"gal": "teullim",
+"t": "전화 왔어요",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "+5Hz",
+"f": "00479.wav"
+},
+{
+"gal": "teullim",
+"t": "전화 왔어요",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "-10%",
+"p": "+25Hz",
+"f": "00480.wav"
+},
+{
+"gal": "teullim",
+"t": "여보세요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "+0Hz",
+"f": "00481.wav"
+},
+{
+"gal": "teullim",
+"t": "여보세요",
+"v": "ko-KR-SunHiNeural",
+"r": "+20%",
+"p": "-5Hz",
+"f": "00482.wav"
+},
+{
+"gal": "teullim",
+"t": "여보세요",
+"v": "pt-BR-ThalitaMultilingualNeural",
+"r": "+10%",
+"p": "+25Hz",
+"f": "00483.wav"
+},
+{
+"gal": "teullim",
+"t": "네 알겠습니다",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+20%",
+"p": "+25Hz",
+"f": "00484.wav"
+},
+{
+"gal": "teullim",
+"t": "네 알겠습니다",
+"v": "ko-KR-SunHiNeural",
+"r": "+30%",
+"p": "+5Hz",
+"f": "00485.wav"
+},
+{
+"gal": "teullim",
+"t": "네 알겠습니다",
+"v": "en-US-AvaMultilingualNeural",
+"r": "-30%",
+"p": "+15Hz",
+"f": "00486.wav"
+},
+{
+"gal": "teullim",
+"t": "아니요 괜찮아요",
+"v": "ko-KR-SunHiNeural",
+"r": "-30%",
+"p": "+15Hz",
+"f": "00487.wav"
+},
+{
+"gal": "teullim",
+"t": "아니요 괜찮아요",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "+5Hz",
+"f": "00488.wav"
+},
+{
+"gal": "teullim",
+"t": "아니요 괜찮아요",
+"v": "en-US-AvaMultilingualNeural",
+"r": "-10%",
+"p": "-5Hz",
+"f": "00489.wav"
+},
+{
+"gal": "teullim",
+"t": "천천히 가세요",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "+25Hz",
+"f": "00490.wav"
+},
+{
+"gal": "teullim",
+"t": "천천히 가세요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+0%",
+"p": "-25Hz",
+"f": "00491.wav"
+},
+{
+"gal": "teullim",
+"t": "천천히 가세요",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "+30%",
+"p": "-15Hz",
+"f": "00492.wav"
+},
+{
+"gal": "teullim",
+"t": "길 좀 물어볼게요",
+"v": "ko-KR-InJoonNeural",
+"r": "+10%",
+"p": "+5Hz",
+"f": "00493.wav"
+},
+{
+"gal": "teullim",
+"t": "길 좀 물어볼게요",
+"v": "ko-KR-SunHiNeural",
+"r": "-10%",
+"p": "+5Hz",
+"f": "00494.wav"
+},
+{
+"gal": "teullim",
+"t": "길 좀 물어볼게요",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "+20%",
+"p": "+15Hz",
+"f": "00495.wav"
+},
+{
+"gal": "teullim",
+"t": "이쪽으로 오세요",
+"v": "ko-KR-SunHiNeural",
+"r": "-30%",
+"p": "-25Hz",
+"f": "00496.wav"
+},
+{
+"gal": "teullim",
+"t": "이쪽으로 오세요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "+5Hz",
+"f": "00497.wav"
+},
+{
+"gal": "teullim",
+"t": "이쪽으로 오세요",
+"v": "it-IT-GiuseppeMultilingualNeural",
+"r": "+30%",
+"p": "+5Hz",
+"f": "00498.wav"
+},
+{
+"gal": "teullim",
+"t": "저쪽이에요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "+0Hz",
+"f": "00499.wav"
+},
+{
+"gal": "teullim",
+"t": "저쪽이에요",
+"v": "ko-KR-InJoonNeural",
+"r": "-30%",
+"p": "+15Hz",
+"f": "00500.wav"
+},
+{
+"gal": "teullim",
+"t": "저쪽이에요",
+"v": "en-US-BrianMultilingualNeural",
+"r": "-30%",
+"p": "+5Hz",
+"f": "00501.wav"
+},
+{
+"gal": "teullim",
+"t": "앞으로 쭉 가세요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+30%",
+"p": "+25Hz",
+"f": "00502.wav"
+},
+{
+"gal": "teullim",
+"t": "앞으로 쭉 가세요",
+"v": "ko-KR-InJoonNeural",
+"r": "+10%",
+"p": "-5Hz",
+"f": "00503.wav"
+},
+{
+"gal": "teullim",
+"t": "앞으로 쭉 가세요",
+"v": "de-DE-FlorianMultilingualNeural",
+"r": "-20%",
+"p": "+15Hz",
+"f": "00504.wav"
+},
+{
+"gal": "teullim",
+"t": "왼쪽으로 도세요",
+"v": "ko-KR-SunHiNeural",
+"r": "-10%",
+"p": "+0Hz",
+"f": "00505.wav"
+},
+{
+"gal": "teullim",
+"t": "왼쪽으로 도세요",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "+15Hz",
+"f": "00506.wav"
+},
+{
+"gal": "teullim",
+"t": "왼쪽으로 도세요",
+"v": "en-US-EmmaMultilingualNeural",
+"r": "-20%",
+"p": "-5Hz",
+"f": "00507.wav"
+},
+{
+"gal": "teullim",
+"t": "오른쪽으로 도세요",
+"v": "ko-KR-SunHiNeural",
+"r": "+20%",
+"p": "-15Hz",
+"f": "00508.wav"
+},
+{
+"gal": "teullim",
+"t": "오른쪽으로 도세요",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "-25Hz",
+"f": "00509.wav"
+},
+{
+"gal": "teullim",
+"t": "오른쪽으로 도세요",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "+30%",
+"p": "-25Hz",
+"f": "00510.wav"
+},
+{
+"gal": "teullim",
+"t": "다 왔습니다",
+"v": "ko-KR-SunHiNeural",
+"r": "+0%",
+"p": "-25Hz",
+"f": "00511.wav"
+},
+{
+"gal": "teullim",
+"t": "다 왔습니다",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+0%",
+"p": "+5Hz",
+"f": "00512.wav"
+},
+{
+"gal": "teullim",
+"t": "다 왔습니다",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "-10%",
+"p": "-25Hz",
+"f": "00513.wav"
+},
+{
+"gal": "teullim",
+"t": "도착했습니다",
+"v": "ko-KR-SunHiNeural",
+"r": "-10%",
+"p": "+25Hz",
+"f": "00514.wav"
+},
+{
+"gal": "teullim",
+"t": "도착했습니다",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+30%",
+"p": "-15Hz",
+"f": "00515.wav"
+},
+{
+"gal": "teullim",
+"t": "도착했습니다",
+"v": "it-IT-GiuseppeMultilingualNeural",
+"r": "+20%",
+"p": "+0Hz",
+"f": "00516.wav"
+},
+{
+"gal": "teullim",
+"t": "음악 틀어 줘",
+"v": "ko-KR-SunHiNeural",
+"r": "+0%",
+"p": "-15Hz",
+"f": "00517.wav"
+},
+{
+"gal": "teullim",
+"t": "음악 틀어 줘",
+"v": "ko-KR-InJoonNeural",
+"r": "-20%",
+"p": "+25Hz",
+"f": "00518.wav"
+},
+{
+"gal": "teullim",
+"t": "음악 틀어 줘",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "+20%",
+"p": "-5Hz",
+"f": "00519.wav"
+},
+{
+"gal": "teullim",
+"t": "라디오 꺼 줘",
+"v": "ko-KR-InJoonNeural",
+"r": "+20%",
+"p": "-25Hz",
+"f": "00520.wav"
+},
+{
+"gal": "teullim",
+"t": "라디오 꺼 줘",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "-25Hz",
+"f": "00521.wav"
+},
+{
+"gal": "teullim",
+"t": "라디오 꺼 줘",
+"v": "de-DE-FlorianMultilingualNeural",
+"r": "+30%",
+"p": "-5Hz",
+"f": "00522.wav"
+},
+{
+"gal": "teullim",
+"t": "뉴스 들려줘",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "-5Hz",
+"f": "00523.wav"
+},
+{
+"gal": "teullim",
+"t": "뉴스 들려줘",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "-25Hz",
+"f": "00524.wav"
+},
+{
+"gal": "teullim",
+"t": "뉴스 들려줘",
+"v": "pt-BR-ThalitaMultilingualNeural",
+"r": "+0%",
+"p": "+5Hz",
+"f": "00525.wav"
+},
+{
+"gal": "teullim",
+"t": "날씨 알려 줘",
+"v": "ko-KR-InJoonNeural",
+"r": "-10%",
+"p": "+15Hz",
+"f": "00526.wav"
+},
+{
+"gal": "teullim",
+"t": "날씨 알려 줘",
+"v": "ko-KR-SunHiNeural",
+"r": "+0%",
+"p": "-5Hz",
+"f": "00527.wav"
+},
+{
+"gal": "teullim",
+"t": "날씨 알려 줘",
+"v": "en-US-BrianMultilingualNeural",
+"r": "+30%",
+"p": "+5Hz",
+"f": "00528.wav"
+},
+{
+"gal": "teullim",
+"t": "집으로 가자",
+"v": "ko-KR-SunHiNeural",
+"r": "-10%",
+"p": "-25Hz",
+"f": "00529.wav"
+},
+{
+"gal": "teullim",
+"t": "집으로 가자",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "-25Hz",
+"f": "00530.wav"
+},
+{
+"gal": "teullim",
+"t": "집으로 가자",
+"v": "pt-BR-ThalitaMultilingualNeural",
+"r": "+0%",
+"p": "+0Hz",
+"f": "00531.wav"
+},
+{
+"gal": "teullim",
+"t": "택시 불러 줘",
+"v": "ko-KR-InJoonNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00532.wav"
+},
+{
+"gal": "teullim",
+"t": "택시 불러 줘",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "-25Hz",
+"f": "00533.wav"
+},
+{
+"gal": "teullim",
+"t": "택시 불러 줘",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "+30%",
+"p": "+25Hz",
+"f": "00534.wav"
+},
+{
+"gal": "teullim",
+"t": "복지콜에 전화해 줘",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+30%",
+"p": "-25Hz",
+"f": "00535.wav"
+},
+{
+"gal": "teullim",
+"t": "복지콜에 전화해 줘",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "+15Hz",
+"f": "00536.wav"
+},
+{
+"gal": "teullim",
+"t": "복지콜에 전화해 줘",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "-10%",
+"p": "+5Hz",
+"f": "00537.wav"
+},
+{
+"gal": "teullim",
+"t": "지하철 몇 분 남았어",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "-25Hz",
+"f": "00538.wav"
+},
+{
+"gal": "teullim",
+"t": "지하철 몇 분 남았어",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "-5Hz",
+"f": "00539.wav"
+},
+{
+"gal": "teullim",
+"t": "지하철 몇 분 남았어",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "+0%",
+"p": "-15Hz",
+"f": "00540.wav"
+},
+{
+"gal": "teullim",
+"t": "버스 언제 와",
+"v": "ko-KR-InJoonNeural",
+"r": "-30%",
+"p": "+15Hz",
+"f": "00541.wav"
+},
+{
+"gal": "teullim",
+"t": "버스 언제 와",
+"v": "ko-KR-SunHiNeural",
+"r": "+0%",
+"p": "+5Hz",
+"f": "00542.wav"
+},
+{
+"gal": "teullim",
+"t": "버스 언제 와",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "+10%",
+"p": "-15Hz",
+"f": "00543.wav"
+},
+{
+"gal": "teullim",
+"t": "편의점 어디야",
+"v": "ko-KR-SunHiNeural",
+"r": "-20%",
+"p": "+5Hz",
+"f": "00544.wav"
+},
+{
+"gal": "teullim",
+"t": "편의점 어디야",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "+5Hz",
+"f": "00545.wav"
+},
+{
+"gal": "teullim",
+"t": "편의점 어디야",
+"v": "en-US-EmmaMultilingualNeural",
+"r": "+30%",
+"p": "+15Hz",
+"f": "00546.wav"
+},
+{
+"gal": "teullim",
+"t": "화장실 어디예요",
+"v": "ko-KR-SunHiNeural",
+"r": "+20%",
+"p": "-25Hz",
+"f": "00547.wav"
+},
+{
+"gal": "teullim",
+"t": "화장실 어디예요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+30%",
+"p": "-15Hz",
+"f": "00548.wav"
+},
+{
+"gal": "teullim",
+"t": "화장실 어디예요",
+"v": "en-US-AndrewMultilingualNeural",
+"r": "-10%",
+"p": "+0Hz",
+"f": "00549.wav"
+},
+{
+"gal": "teullim",
+"t": "하나 둘 셋",
+"v": "ko-KR-SunHiNeural",
+"r": "-30%",
+"p": "+0Hz",
+"f": "00550.wav"
+},
+{
+"gal": "teullim",
+"t": "하나 둘 셋",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-30%",
+"p": "+15Hz",
+"f": "00551.wav"
+},
+{
+"gal": "teullim",
+"t": "하나 둘 셋",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "+30%",
+"p": "+0Hz",
+"f": "00552.wav"
+},
+{
+"gal": "teullim",
+"t": "그래 그래",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "-25Hz",
+"f": "00553.wav"
+},
+{
+"gal": "teullim",
+"t": "그래 그래",
+"v": "ko-KR-SunHiNeural",
+"r": "+30%",
+"p": "-25Hz",
+"f": "00554.wav"
+},
+{
+"gal": "teullim",
+"t": "그래 그래",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "-10%",
+"p": "+5Hz",
+"f": "00555.wav"
+},
+{
+"gal": "teullim",
+"t": "알았어",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+30%",
+"p": "-15Hz",
+"f": "00556.wav"
+},
+{
+"gal": "teullim",
+"t": "알았어",
+"v": "ko-KR-SunHiNeural",
+"r": "-10%",
+"p": "+15Hz",
+"f": "00557.wav"
+},
+{
+"gal": "teullim",
+"t": "알았어",
+"v": "fr-FR-RemyMultilingualNeural",
+"r": "-30%",
+"p": "+0Hz",
+"f": "00558.wav"
+},
+{
+"gal": "teullim",
+"t": "이사장님 안녕하세요",
+"v": "ko-KR-InJoonNeural",
+"r": "+30%",
+"p": "-5Hz",
+"f": "00559.wav"
+},
+{
+"gal": "teullim",
+"t": "이사장님 안녕하세요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "+15Hz",
+"f": "00560.wav"
+},
+{
+"gal": "teullim",
+"t": "이사장님 안녕하세요",
+"v": "en-US-EmmaMultilingualNeural",
+"r": "+20%",
+"p": "-15Hz",
+"f": "00561.wav"
+},
+{
+"gal": "teullim",
+"t": "대표님 회의 들어가세요",
+"v": "ko-KR-SunHiNeural",
+"r": "+10%",
+"p": "-15Hz",
+"f": "00562.wav"
+},
+{
+"gal": "teullim",
+"t": "대표님 회의 들어가세요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "+5Hz",
+"f": "00563.wav"
+},
+{
+"gal": "teullim",
+"t": "대표님 회의 들어가세요",
+"v": "en-US-BrianMultilingualNeural",
+"r": "-30%",
+"p": "+0Hz",
+"f": "00564.wav"
+},
+{
+"gal": "teullim",
+"t": "선생님 이쪽입니다",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+10%",
+"p": "+15Hz",
+"f": "00565.wav"
+},
+{
+"gal": "teullim",
+"t": "선생님 이쪽입니다",
+"v": "ko-KR-InJoonNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00566.wav"
+},
+{
+"gal": "teullim",
+"t": "선생님 이쪽입니다",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "+10%",
+"p": "+25Hz",
+"f": "00567.wav"
+},
+{
+"gal": "teullim",
+"t": "현장영상해설사입니다",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+0%",
+"p": "+25Hz",
+"f": "00568.wav"
+},
+{
+"gal": "teullim",
+"t": "현장영상해설사입니다",
+"v": "ko-KR-SunHiNeural",
+"r": "+20%",
+"p": "+0Hz",
+"f": "00569.wav"
+},
+{
+"gal": "teullim",
+"t": "현장영상해설사입니다",
+"v": "en-US-EmmaMultilingualNeural",
+"r": "+10%",
+"p": "+15Hz",
+"f": "00570.wav"
+},
+{
+"gal": "teullim",
+"t": "시각장애인 안내",
+"v": "ko-KR-InJoonNeural",
+"r": "-30%",
+"p": "+25Hz",
+"f": "00571.wav"
+},
+{
+"gal": "teullim",
+"t": "시각장애인 안내",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+30%",
+"p": "+25Hz",
+"f": "00572.wav"
+},
+{
+"gal": "teullim",
+"t": "시각장애인 안내",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "-30%",
+"p": "+0Hz",
+"f": "00573.wav"
+},
+{
+"gal": "teullim",
+"t": "지팡이 조심",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "+20%",
+"p": "-5Hz",
+"f": "00574.wav"
+},
+{
+"gal": "teullim",
+"t": "지팡이 조심",
+"v": "ko-KR-InJoonNeural",
+"r": "+20%",
+"p": "+0Hz",
+"f": "00575.wav"
+},
+{
+"gal": "teullim",
+"t": "지팡이 조심",
+"v": "fr-FR-VivienneMultilingualNeural",
+"r": "-10%",
+"p": "+0Hz",
+"f": "00576.wav"
+},
+{
+"gal": "teullim",
+"t": "개가 짖어요",
+"v": "ko-KR-SunHiNeural",
+"r": "+30%",
+"p": "+5Hz",
+"f": "00577.wav"
+},
+{
+"gal": "teullim",
+"t": "개가 짖어요",
+"v": "ko-KR-InJoonNeural",
+"r": "-30%",
+"p": "+0Hz",
+"f": "00578.wav"
+},
+{
+"gal": "teullim",
+"t": "개가 짖어요",
+"v": "en-US-AvaMultilingualNeural",
+"r": "-30%",
+"p": "-15Hz",
+"f": "00579.wav"
+},
+{
+"gal": "teullim",
+"t": "차가 와요",
+"v": "ko-KR-InJoonNeural",
+"r": "+10%",
+"p": "+0Hz",
+"f": "00580.wav"
+},
+{
+"gal": "teullim",
+"t": "차가 와요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "+25Hz",
+"f": "00581.wav"
+},
+{
+"gal": "teullim",
+"t": "차가 와요",
+"v": "de-DE-SeraphinaMultilingualNeural",
+"r": "+30%",
+"p": "+25Hz",
+"f": "00582.wav"
+},
+{
+"gal": "teullim",
+"t": "자전거 지나갑니다",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "-15Hz",
+"f": "00583.wav"
+},
+{
+"gal": "teullim",
+"t": "자전거 지나갑니다",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-20%",
+"p": "+15Hz",
+"f": "00584.wav"
+},
+{
+"gal": "teullim",
+"t": "자전거 지나갑니다",
+"v": "pt-BR-ThalitaMultilingualNeural",
+"r": "+0%",
+"p": "+0Hz",
+"f": "00585.wav"
+},
+{
+"gal": "teullim",
+"t": "실례합니다",
+"v": "ko-KR-SunHiNeural",
+"r": "+20%",
+"p": "-25Hz",
+"f": "00586.wav"
+},
+{
+"gal": "teullim",
+"t": "실례합니다",
+"v": "ko-KR-InJoonNeural",
+"r": "+0%",
+"p": "+25Hz",
+"f": "00587.wav"
+},
+{
+"gal": "teullim",
+"t": "실례합니다",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00588.wav"
+},
+{
+"gal": "teullim",
+"t": "죄송합니다",
+"v": "ko-KR-SunHiNeural",
+"r": "-30%",
+"p": "-5Hz",
+"f": "00589.wav"
+},
+{
+"gal": "teullim",
+"t": "죄송합니다",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "+25Hz",
+"f": "00590.wav"
+},
+{
+"gal": "teullim",
+"t": "죄송합니다",
+"v": "it-IT-GiuseppeMultilingualNeural",
+"r": "-30%",
+"p": "-5Hz",
+"f": "00591.wav"
+},
+{
+"gal": "teullim",
+"t": "괜찮으세요",
+"v": "ko-KR-HyunsuMultilingualNeural",
+"r": "-10%",
+"p": "+0Hz",
+"f": "00592.wav"
+},
+{
+"gal": "teullim",
+"t": "괜찮으세요",
+"v": "ko-KR-SunHiNeural",
+"r": "-30%",
+"p": "-25Hz",
+"f": "00593.wav"
+},
+{
+"gal": "teullim",
+"t": "괜찮으세요",
+"v": "en-AU-WilliamMultilingualNeural",
+"r": "-20%",
+"p": "-15Hz",
+"f": "00594.wav"
+}
+]
