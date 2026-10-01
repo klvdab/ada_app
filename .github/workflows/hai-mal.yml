@@ -1,4 +1,5 @@
-# 하이 길눈 감지기 — 여러 사람 목소리로 바꾸기 (1.0.2판, 빌드 261001-H4, 대표님 승인 2026-10-01)
+# 하이 길눈 감지기 — 여러 사람 목소리로 바꾸기 (1.0.3판, 빌드 261001-H5, 대표님 승인 2026-10-01)
+# 1.0.3 목소리 바꾸기 부품을 받을 때 깃허브 열쇠를 함께 내밀어, 여덟 갈래가 한꺼번에 받다가 막히던(받기 횟수 넘침) 것을 고침
 # 1.0.2 묶기에서 빈 조각(사람이 없는 조각)을 만나면 멈추던 것을 고침
 # 1.0.1 토치 판을 2.5.1 로 못박음 — 새 판은 소리 파일 읽기에 다른 부품(torchcodec)을 요구해 목소리 바꾸기가 하나도 되지 않았음
 # hai-data 갈래의 "하이 길눈" 연습 소리를 공개 한국어 말소리 모음(제로스 한국어)의 실제 사람 목소리 100여 명으로 바꾸고,
@@ -30,6 +31,8 @@ jobs:
           for f in /tmp/hai_sori/maja/*.flac; do ffmpeg -loglevel error -y -i "$f" -ar 16000 -ac 1 "/tmp/maja/$(basename "${f%.flac}").wav"; done
           ls /tmp/maja | wc -l
       - name: 목소리 바꾸기
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 tools/hai/byeonhwan.py ${{ matrix.jo }} 8 /tmp/maja /tmp/out
       - uses: actions/upload-artifact@v4
         with:
