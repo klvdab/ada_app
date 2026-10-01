@@ -1,4 +1,5 @@
-# 하이 길눈 감지기 — 여러 사람 목소리로 바꾸기 (1.0.1판, 빌드 261001-H3, 대표님 승인 2026-10-01)
+# 하이 길눈 감지기 — 여러 사람 목소리로 바꾸기 (1.0.2판, 빌드 261001-H4, 대표님 승인 2026-10-01)
+# 1.0.2 묶기에서 빈 조각(사람이 없는 조각)을 만나면 멈추던 것을 고침
 # 1.0.1 토치 판을 2.5.1 로 못박음 — 새 판은 소리 파일 읽기에 다른 부품(torchcodec)을 요구해 목소리 바꾸기가 하나도 되지 않았음
 # hai-data 갈래의 "하이 길눈" 연습 소리를 공개 한국어 말소리 모음(제로스 한국어)의 실제 사람 목소리 100여 명으로 바꾸고,
 # 그 사람들의 평소 말을 틀린 소리로 모아 hai-mal 갈래(앱 소스와 따로)에 올립니다. 앱 짓기와는 상관이 없습니다.
@@ -46,7 +47,7 @@ jobs:
         run: |
           sudo apt-get install -y -qq flac
           mkdir -p /tmp/hai_mal/maja_vc /tmp/hai_mal/teul_saram
-          for d in /tmp/jo/*; do cp $d/maja_vc/*.wav /tmp/hai_mal/maja_vc/ 2>/dev/null; cp $d/teul_saram/*.wav /tmp/hai_mal/teul_saram/ 2>/dev/null; cp $d/mokrok_*.json /tmp/hai_mal/ 2>/dev/null; done
+          for d in /tmp/jo/*; do cp $d/maja_vc/*.wav /tmp/hai_mal/maja_vc/ 2>/dev/null || true; cp $d/teul_saram/*.wav /tmp/hai_mal/teul_saram/ 2>/dev/null || true; cp $d/mokrok_*.json /tmp/hai_mal/ 2>/dev/null || true; done
           cd /tmp/hai_mal && for f in maja_vc/*.wav teul_saram/*.wav; do flac -s -8 --delete-input-file "$f"; done
           ls maja_vc | wc -l; ls teul_saram | wc -l
           cd /tmp && tar cf hai_mal.tar hai_mal && ls -la hai_mal.tar
