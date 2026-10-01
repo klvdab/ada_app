@@ -1,4 +1,5 @@
-# 협회 앱 · 자봉 앱 · 배프 앱 · AI점자도서관 — XcodeGen 설계도 (1.6.6판, 빌드 261001-13 — 자봉 2.3.0 몸 센서 극대화)
+# 협회 앱 · 자봉 앱 · 배프 앱 · AI점자도서관 — XcodeGen 설계도 (1.6.7판, 빌드 261001-14 — 길눈 2.32.0 몸 센서)
+# 1.6.7 (261001-14, 대표님 지시) 길눈 2.32.0 — 몸 센서를 길눈 따라 걷기에도(MomSensor.swift 를 Gilnun 폴더로 옮겨 두 앱이 함께 씀)
 # 1.6.6 (261001-13, 대표님 지시) 자봉 앱 2.3.0 — 몸 센서 극대화(Jabong/MomSensor.swift 새로), 움직임 쓰임 안내 문구 고침
 # 1.6.5 (261001-12, 대표님 승인) 길눈 2.31.0 — 하이 길눈 빠르게
 # 1.6.4 (261001-11, 대표님 승인) 자봉 앱 2.2.0 — 점지도 그리기(속까지 앱), 기압계 높이
@@ -75,7 +76,7 @@ targets:
         NSMicrophoneUsageDescription: 길눈을 말로 시키고 목적지·역 이름을 말로 넣는 데, 그리고 라이브 현장영상해설 방송에 마이크를 씁니다.
         NSSpeechRecognitionUsageDescription: 말씀하신 목적지와 명령을 글자로 알아듣는 데 아이폰 받아쓰기를 씁니다. 받아쓰기는 폰 안에서 합니다.
         NSBluetoothAlwaysUsageDescription: 길가의 음성유도기와 음향신호기를 켜는 데 블루투스를 씁니다.
-        NSMotionUsageDescription: 점지도를 따라 걸을 때 걸음마다 확신음을 내고 위성이 끊겨도 걸음으로 안내를 이어 가는 데, 되짚어 나가기로 건물 안에서 걸은 길을 기억하는 데, 말로 그린 길에서 걸음을 곧바로 세는 데, 보폭 재기와 폰을 흔들어 긴급통화 열기에 움직임 정보를 씁니다.
+        NSMotionUsageDescription: 점지도를 따라 걸을 때 걸음과 몸이 돈 방향을 재어 걸음마다 확신음을 내고 위성이 끊겨도 걸음으로 안내를 이어 가는 데, 되짚어 나가기로 건물 안에서 걸은 길을 기억하는 데, 말로 그린 길에서 걸음을 곧바로 세는 데, 보폭 재기와 폰을 흔들어 긴급통화 열기에 움직임 정보를 씁니다.
         ITSAppUsesNonExemptEncryption: false
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: false
@@ -87,7 +88,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "2.31.0"
+        MARKETING_VERSION: "2.32.0"
         OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "FoundationModels"]   # 1.6.0 옛 폰에서도 앱이 열리게 약하게 잇기
   JabongApp:
     # 2.0.0 (빌드 261001-7, 2026-10-01 대표님 승인) 자봉 앱도 속까지 앱으로 — 웹을 띄우던 App 폴더 대신
@@ -220,7 +221,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app.watchkitapp
         TARGETED_DEVICE_FAMILY: "4"
-        MARKETING_VERSION: "2.31.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
+        MARKETING_VERSION: "2.32.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
 schemes:
   AdaApp:
     build:
