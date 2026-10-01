@@ -162,7 +162,13 @@ final class JeomEngine: ObservableObject {
     }
     private var S = HS()
 
-    // 걸음 감지(웹과 같은 잣대 — 중력을 뺀 흔들림이 1.3을 넘으면 한 걸음, 0.3초 안에는 다시 세지 않음)
+    // 2.32.0 걸음 감지는 몸 센서(자봉이 점지도를 그릴 때와 같은 센서·같은 셈법). 몸 센서를 쓸 수 없는 폰만 옛 잣대로
+    // 옛 잣대(웹과 같음 — 중력을 뺀 흔들림이 1.3을 넘으면 한 걸음, 0.3초 안에는 다시 세지 않음)
+    private var momNaega = false        // 몸 센서를 따라 걷기가 켰는가(그만둘 때 끄려고)
+    private var momSseum = false        // 걸음과 방향을 몸 센서로 받는 중
+    private var dolgiDg0: Double?       // 도시라고 말씀드린 때 몸이 돈 각도의 누계
+    private var dolgiWant: Double?      // 돌아야 할 쪽과 크기(오른쪽 +)
+    private var bandaeMal = false
     private let umjik = CMMotionManager()
     private var moG: Double = 9.8
     private var moWi = false
@@ -375,6 +381,10 @@ final class JeomEngine: ObservableObject {
         sigye?.invalidate()
         sigye = nil
         umjik.stopAccelerometerUpdates()
+        MomSensor.shared.gilnunGeoreum = nil
+        if momNaega { MomSensor.shared.kkeugi(); momNaega = false }
+        momSseum = false
+        WichiEngine.shared.momBbareum = false
         munOn = false; mun = nil; munList = []; munSu = 0; munKamera = false
         gil = nil
         dochakHam = false
@@ -629,6 +639,22 @@ final class JeomEngine: ObservableObject {
     // MARK: 걸음
 
     private func umjikSijak() {
+        // 2.32.0 몸 센서 — 1초에 50번, 발이 땅에 닿을 때마다 한 걸음, 자이로로 돈 각도
+        if CMMotionManager().isDeviceMotionAvailable {
+            let ms = MomSensor.shared
+            ms.nachimbanNeogi(WichiEngine.shared.nachimban)
+            if !ms.dollyeo { ms.kyeogi(); momNaega = true }
+            momSseum = true
+            WichiEngine.shared.momBbareum = true
+            ms.gilnunGeoreum = { [weak self] in
+                guard let self = self else { return }
+                WichiEngine.shared.momGeoreumNal()
+                if self.S.gidarim { self.S.gidarimSu += 1; if self.S.gidarimSu >= 3 { self.S.gidarim = false } }
+                self.georeum()
+            }
+            Girok.shared.namgi("jeom_momsensor", ["on": true])
+            return
+        }
         guard umjik.isAccelerometerAvailable else { return }
         umjik.accelerometerUpdateInterval = 1.0 / 50
         moG = 9.8; moWi = false
@@ -650,6 +676,8 @@ final class JeomEngine: ObservableObject {
     }
 
     private var nachimban: Double? {
+        // 2.32.0 몸 센서를 쓰는 동안은 자이로 합성 방향 — 쇠붙이·건물 옆에서 나침반이 흔들려도 틀어지지 않음
+        if momSseum, MomSensor.shared.dollyeo, let h = MomSensor.shared.hapseong { return h }
         let n = WichiEngine.shared.nachimban
         return n >= 0 ? n : nil
     }
@@ -971,7 +999,7 @@ final class JeomEngine: ObservableObject {
             kkeokHan.insert(key + "a"); kkeokHan.insert(key + "c"); kkeokHan.insert(key + "b")
             mal("지금 \(sigyeGak(dk.d))으로 도십시오.")
             dolgi(8)
-            dolgiMok = (dk.i, nil, Date())
+            dolgiMok = (dk.i, nil, Date()); dolgiGijun()
             return
         }
         let su = bocokSu(mi)
@@ -985,7 +1013,7 @@ final class JeomEngine: ObservableObject {
             kkeokHan.insert(key + "b")
             mal("지금 \(sigyeGak(dk.d))으로 도십시오.")
             dolgi(8)
-            dolgiMok = (dk.i, nil, Date())
+            dolgiMok = (dk.i, nil, Date()); dolgiGijun()
         }
     }
 
@@ -1010,6 +1038,13 @@ final class JeomEngine: ObservableObject {
         return nil
     }
 
+    /// 2.32.0 도시라고 말씀드린 순간의 몸 돈 각도를 기준으로 잡음
+    private func dolgiGijun() {
+        dolgiDg0 = (momSseum && MomSensor.shared.dollyeo) ? MomSensor.shared.nujeokDol : nil
+        dolgiWant = nil
+        bandaeMal = false
+    }
+
     private func bangHwagin() {
         let hh = jigeumHead, now = Date()
         if !cheotBang {
@@ -1021,7 +1056,7 @@ final class JeomEngine: ObservableObject {
             if abs(df) > 25 {
                 mal("지금 몸을 \(sigyeGak(df))으로 돌리십시오.")
                 dolgi(8)
-                dolgiMok = (nil, gb, now)
+                dolgiMok = (nil, gb, now); dolgiGijun()
             } else {
                 mal("12시 방향 맞습니다. " + daeumMalGil())
             }
@@ -1035,6 +1070,18 @@ final class JeomEngine: ObservableObject {
             dolgiMok = dm
         }
         guard let mok = dm.bang else { return }
+        // 2.32.0 몸 센서 — 도셔야 할 쪽과 반대로 크게 도시면 곧바로 알려 드림(자이로로 잰 돈 각도)
+        if let h = hh, momSseum, MomSensor.shared.dollyeo, let d0 = dolgiDg0, !bandaeMal {
+            if dolgiWant == nil { dolgiWant = chai(mok, h) }
+            if let w = dolgiWant, abs(w) >= 45 {
+                let dd = MomSensor.shared.nujeokDol - d0
+                if dd * w < 0 && abs(dd) >= 45 {
+                    bandaeMal = true
+                    mal("반대쪽으로 도셨습니다. 몸을 \(sigyeGak(chai(mok, h)))으로 돌리십시오.")
+                    Girok.shared.namgi("jeom_bandae", ["dd": Int(dd), "w": Int(w)])
+                }
+            }
+        }
         if let h = hh {
             if now.timeIntervalSince(dm.t) > 1.5 && abs(chai(mok, h)) <= 25 {
                 dolgiMok = nil

@@ -36,6 +36,10 @@ final class WichiEngine: NSObject, ObservableObject, CLLocationManagerDelegate {
     /// 2.13.0 앱이 켜진 뒤 센 걸음(되짚어 나가기가 씀)
     var georeumSu: Int { georeumNujeok }
     private var georeumCheot: Int?
+    /// 2.32.0 따라 걷기 중에는 몸 센서 걸음으로 만보기의 늦음(1~2초)을 메움 — 만보기 값이 올 때마다 그 값에 다시 맞춤
+    var momBbareum = false
+    private var manboNujeok = 0
+    private var momManboTtae: Int?
     private var iegoGijun = 0         // 마지막으로 자리를 셈한 때의 걸음
     private var sigye: Timer?
     private var dolgo = false
@@ -105,6 +109,7 @@ final class WichiEngine: NSObject, ObservableObject, CLLocationManagerDelegate {
 
     func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
         nachimban = newHeading.trueHeading >= 0 ? newHeading.trueHeading : newHeading.magneticHeading
+        MomSensor.shared.nachimbanNeogi(nachimban)   // 2.32.0 자이로 합성 방향이 나침반 쪽으로 천천히 맞춰지게
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
@@ -144,9 +149,21 @@ final class WichiEngine: NSObject, ObservableObject, CLLocationManagerDelegate {
             DispatchQueue.main.async {
                 if self.georeumCheot == nil { self.georeumCheot = n }
                 self.oneulGeoreum = n
-                self.georeumNujeok = n - (self.georeumCheot ?? n)
+                let m = n - (self.georeumCheot ?? n)
+                self.manboNujeok = m
+                self.momManboTtae = (self.momBbareum && MomSensor.shared.dollyeo) ? MomSensor.shared.georeumSu : nil
+                if !self.momBbareum || m > self.georeumNujeok { self.georeumNujeok = m }   // 따라 걷기 중에는 뒤로 줄지 않게
             }
         }
+    }
+
+    /// 2.32.0 몸 센서가 한 걸음을 잡을 때마다(따라 걷기 중) — 만보기 값 + 그 뒤 몸 센서가 센 걸음
+    func momGeoreumNal() {
+        guard momBbareum, MomSensor.shared.dollyeo else { return }
+        let ms = MomSensor.shared.georeumSu
+        if momManboTtae == nil { momManboTtae = ms - 1; manboNujeok = georeumNujeok }
+        let bbareun = manboNujeok + (ms - (momManboTtae ?? ms))
+        if bbareun > georeumNujeok { georeumNujeok = bbareun }
     }
 
     /// 1초마다 — 위성이 끊기거나 흐리면 걸음으로 자리를 이어 셈
