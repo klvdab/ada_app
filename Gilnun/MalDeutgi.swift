@@ -12,6 +12,10 @@
 //   길눈 대답("네")까지 낮춰 들리지 않았음. 소리 크기는 2.12.1처럼 그대로. 걸러 듣기는 길눈 소리를 같은 통로로 내는 방법을 따로 연구함.
 // 2.12.4 (빌드 260929-4, 이사장님 승인 1) 마이크 살피기 — 켜져 있는데 10초 넘게 소리가 안 들어오면 닫았다 다시 엶(기록 maik_meomchum)
 // 2.12.5 (빌드 260929-5) 명령 받아쓰기에 가까운 역·즐겨찾기 이름을 미리 알림, 되물은 뒤 10초 기다림, "하이길"까지만 들려도 알아들음
+// 2.30.0 (빌드 261001-10, 대표님 승인 1) 귀를 하나로 — 새 알아듣기 부품이 하이 길눈을 알아들으면 그 귀를 끄지 않고 그대로 명령을 들음.
+//   10월 1일 새벽 기록: 딩동 뒤 귀를 끄고 새 귀를 여는 데서 열 번 모두 명령 글자 0. 이제 귀를 넘기지 않음.
+//   길눈이 「네」를 말하는 동안은 귀를 잠시 닫고(소리 조각을 넘기지 않음), 다 말한 뒤 엶. 받아 적은 말에서 하이 길눈 앞부분은 떼어 냄.
+//   모든 소리 멈춤 뒤 0.4초 안에 마이크 소리가 안 들어오면 곧바로 마이크만 다시 엶(귀는 그대로). 소리 자리가 바뀌어 마이크가 멎어도 귀는 그대로.
 // 나중에 다른 받아쓰기(애저 등)로 바꿀 때는 이 파일만 바꿔 끼우면 됩니다.
 import Foundation
 import Speech
@@ -49,11 +53,13 @@ final class MalDeutgi: NSObject {
     private var salpigiSigye: Timer?
     /// 2.27.0 새 알아듣기 부품에 소리 조각을 넘기는 자리
     private var _saeGeup: ((AVAudioPCMBuffer) -> Void)?
+    /// 2.30.0 귀 닫음 — 길눈이 「네」를 말하는 동안 새 부품에 소리 조각을 넘기지 않음(마이크는 그대로)
+    private var _gwiDatim = false
     private func tapBatgi(_ buf: AVAudioPCMBuffer) {
         jamgeum.lock()
         _beopeoSu &+= 1
         let q = _tapReq
-        let sg = _saeGeup
+        let sg = _gwiDatim ? nil : _saeGeup
         jamgeum.unlock()
         q?.append(buf)
         sg?(buf)
@@ -67,6 +73,46 @@ final class MalDeutgi: NSObject {
         return false
     }
     private func beopeoSuIlgi() -> Int { jamgeum.lock(); defer { jamgeum.unlock() }; return _beopeoSu }
+
+    // MARK: 2.30.0 귀를 하나로
+    /// 하이 길눈을 알아들은 새 부품 귀를 끄지 않고 명령 듣기로 이어 쓰는 중
+    private(set) var saeIeum = false
+    /// 새 부품이 지금까지 받아 적은 말 전부, 명령이 시작되는 자리(글자 수)
+    private var saeModu = ""
+    private var saeKijun = 0
+    /// 명령을 듣는 동안 마이크에서 들어온 소리 조각 수(0이면 마이크가 막힌 것) — 기록용
+    private var myeongBeopeo0 = 0
+    private(set) var majimakBeopeo = -1
+    /// 이번 명령을 새 부품으로 들었나 — 기록용
+    var saeSseumJung: Bool { sae != nil }
+
+    /// 귀를 잠시 닫거나 엶 — 마이크는 그대로 열어 둠
+    func gwiDatgi(_ on: Bool) {
+        jamgeum.lock(); _gwiDatim = on; jamgeum.unlock()
+    }
+
+    /// 새 부품이 받아 적은 말에서 명령 부분만 — 하이 길눈 앞부분을 떼어 냄
+    private func myeongMal(_ t: String) -> String {
+        let ch = Array(t)
+        guard ch.count > saeKijun else { return "" }
+        // 받아 적은 말이 고쳐져 하이 길눈 꼬리가 기준 뒤로 밀렸을 수 있어, 기준 앞 여섯 글자부터 다시 살핌
+        let k0 = max(0, saeKijun - 6)
+        let kc = Array(ch[k0...])
+        var kkeut = -1
+        if !kc.isEmpty {
+            for k in 1...min(kc.count, 14) where MalDeutgi.bureumMal(String(kc[0..<k])) { kkeut = k; break }
+        }
+        var nam: String
+        if kkeut > 0 {
+            var k = kkeut
+            if k < kc.count, "눈는룬론문운아".contains(kc[k]) { k += 1 }
+            nam = k < kc.count ? String(kc[k...]) : ""
+        } else {
+            nam = String(ch[saeKijun...])
+        }
+        nam = nam.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters))
+        return nam
+    }
 
     private var alts: [String] = []
     private var malHam = false
@@ -117,6 +163,25 @@ final class MalDeutgi: NSObject {
 
     /// 명령 한 번 듣기 — 말이 1초 멈추면 끝, 아무 말이 없으면 6초, 길어도 12초
     func myeongryeong(gidarim: Double = 6, _ kkeut: @escaping ([String]) -> Void) -> Bool {
+        // 2.30.0 귀를 하나로 — 하이 길눈을 알아들은 귀로 그대로 명령을 들음
+        if saeIeum, sae != nil, engine.isRunning || maikYeolgi(.myeongryeong) {
+            jamjamSigye?.invalidate(); jamjamSigye = nil
+            handoSigye?.invalidate(); handoSigye = nil
+            bangsik = .myeongryeong
+            myeongryeongKkeut = kkeut
+            alts = []
+            malHam = false
+            saeKijun = saeModu.count
+            myeongBeopeo0 = beopeoSuIlgi()
+            majimakBeopeo = -1
+            aradeutneun = true
+            gwiDatgi(false)
+            handoSigye = Timer.scheduledTimer(withTimeInterval: gidarim, repeats: false) { [weak self] _ in
+                guard let s = self, !s.malHam else { return }
+                s.myeongryeongMaechim()
+            }
+            return true
+        }
         swigi()
         bangsik = .myeongryeong
         myeongryeongKkeut = kkeut
@@ -126,6 +191,8 @@ final class MalDeutgi: NSObject {
             myeongryeongKkeut = nil
             return false
         }
+        myeongBeopeo0 = beopeoSuIlgi()
+        majimakBeopeo = -1
         handoSigye = Timer.scheduledTimer(withTimeInterval: gidarim, repeats: false) { [weak self] _ in
             guard let s = self, !s.malHam else { return }
             s.myeongryeongMaechim()
@@ -157,7 +224,10 @@ final class MalDeutgi: NSObject {
         handoSigye?.invalidate()
         handoSigye = nil
         tapReq = nil
-        jamgeum.lock(); _saeGeup = nil; jamgeum.unlock()
+        jamgeum.lock(); _saeGeup = nil; _gwiDatim = false; jamgeum.unlock()
+        saeIeum = false
+        saeModu = ""
+        saeKijun = 0
         if #available(iOS 26.0, *), let s = sae as? SaeDeutgi { s.kkeut() }
         sae = nil
         task?.cancel()
@@ -187,9 +257,19 @@ final class MalDeutgi: NSObject {
             var o: AVAudioSession.CategoryOptions = [.defaultToSpeaker, .allowBluetoothA2DP]
             if bangsik != .bureum { o.insert(.allowBluetooth) }
             do {
+                let n0 = beopeoSuIlgi()
                 try s.setCategory(.playAndRecord, mode: .default, options: o)
                 try s.setActive(true)
                 Girok.shared.namgi("modu_meomchum", ["ok": true])
+                // 2.30.0 소리 자리를 바꾼 뒤 마이크 소리가 끊겼으면 마이크만 곧바로 다시 엶(귀는 그대로)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+                    guard let self = self, self.yeollyeoya, self.beopeoSuIlgi() == n0 else { return }
+                    Girok.shared.namgi("maik_makhim", ["dan": "modu_meomchum"])
+                    self.engine.stop()
+                    self.engine.inputNode.removeTap(onBus: 0)
+                    let ok = self.maikYeolgi(self.bangsik)
+                    Girok.shared.namgi("maik_dasi", ["ok": ok, "gwi": "geudaero"])
+                }
             } catch {
                 Girok.shared.namgi("modu_meomchum", ["ok": false, "code": (error as NSError).code])
             }
@@ -313,6 +393,14 @@ final class MalDeutgi: NSObject {
     /// 소리 자리가 바뀌어 마이크가 멎었을 때 — 듣던 대로 다시 돌림
     private func dasiDollim() {
         guard yeollyeoya, !engine.isRunning else { return }
+        // 2.30.0 새 부품 귀는 마이크와 따로 돌므로 끄지 않고 마이크만 다시 엶
+        if sae != nil {
+            engine.inputNode.removeTap(onBus: 0)
+            if maikYeolgi(bangsik) {
+                Girok.shared.namgi("maik_dasi", ["ok": true, "gwi": "geudaero"])
+                return
+            }
+        }
         let b = bangsik
         let dd = aradeutneun
         swigi()
@@ -340,15 +428,18 @@ final class MalDeutgi: NSObject {
                     DispatchQueue.main.async {
                         guard let self = self, b0 == self.beon else { return }
                         self.saeSilpae = 0
+                        self.saeModu = t
                         // 부름을 기다릴 때는 끝부분만 봄(오래 쌓인 말에 걸리지 않게)
-                        let tt = self.bangsik == .bureum ? String(t.suffix(30)) : t
-                        self.gyeolgwa(b0, [tt], false, false)
+                        // 2.30.0 하이 길눈에 이어 듣는 명령은 하이 길눈 뒤의 말만
+                        let tt = self.bangsik == .bureum ? String(t.suffix(30)) : (self.saeIeum ? self.myeongMal(t) : t)
+                        self.gyeolgwa(b0, tt.isEmpty ? [] : [tt], false, false)
                     }
                 }, oryu: { [weak self] in
                     DispatchQueue.main.async {
                         guard let self = self, b0 == self.beon else { return }
                         self.saeSilpae += 1
                         Girok.shared.namgi("sae_deutgi", ["oryu": self.saeSilpae])
+                        self.saeIeum = false   // 2.30.0 막힌 귀는 이어 쓰지 않음
                         self.gyeolgwa(b0, [], true, true)
                     }
                 })
@@ -384,12 +475,28 @@ final class MalDeutgi: NSObject {
 
     private func gyeolgwa(_ b0: Int, _ ls: [String], _ final: Bool, _ oryu: Bool) {
         guard b0 == beon else { return }
+        // 2.30.0 하이 길눈을 알아듣고 「네」를 말하는 동안 — 명령 듣기를 열 때까지 기다림
+        if saeIeum && myeongryeongKkeut == nil {
+            if oryu { swigi() }
+            return
+        }
         if bangsik == .bureum {
             // 2.12.2 길눈이 제 입으로 "길눈"을 말하는 중이면 부름으로 치지 않음
             let jegaMalham = SoriEngine.shared.malhaneunJung && SoriEngine.shared.hanunMal.contains("길눈")   // 2.12.6 실제로 말하는 동안만
             if !jegaMalham, ls.contains(where: { MalDeutgi.bureumMal($0) }) {
-                swigi()
-                Girok.shared.namgi("hai_gilnun", [:])
+                if sae != nil {
+                    // 2.30.0 귀를 하나로 — 이 귀를 끄지 않고 명령 듣기로 이어 씀(「네」를 말하는 동안은 닫아 둠)
+                    jamjamSigye?.invalidate(); jamjamSigye = nil
+                    handoSigye?.invalidate(); handoSigye = nil
+                    saeIeum = true
+                    bangsik = .myeongryeong
+                    myeongryeongKkeut = nil
+                    gwiDatgi(true)
+                    Girok.shared.namgi("hai_gilnun", ["gwi": "hana"])
+                } else {
+                    swigi()
+                    Girok.shared.namgi("hai_gilnun", [:])
+                }
                 bureumDeureum?()
                 return
             }
@@ -434,7 +541,16 @@ final class MalDeutgi: NSObject {
         guard bangsik == .myeongryeong, let f = myeongryeongKkeut else { return }
         myeongryeongKkeut = nil
         let a = alts
-        swigi()
+        majimakBeopeo = beopeoSuIlgi() - myeongBeopeo0
+        if a.isEmpty && saeIeum && sae != nil {
+            // 2.30.0 못 들었으면 귀를 끄지 않고 닫아만 둠 — 「다시 한번 말씀해 주세요」 뒤 같은 귀로 한 번 더 들음
+            jamjamSigye?.invalidate(); jamjamSigye = nil
+            handoSigye?.invalidate(); handoSigye = nil
+            aradeutneun = false
+            gwiDatgi(true)
+        } else {
+            swigi()
+        }
         f(a)
     }
 
