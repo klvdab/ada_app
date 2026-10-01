@@ -1,4 +1,5 @@
-// 협회 안드로이드 앱 — 앱 설정 (1.2.0판, 빌드 261001-A2 — 자봉 갈래 점지도 그리기 속까지 앱, 몸 센서 극대화)
+// 협회 안드로이드 앱 — 앱 설정 (1.3.0판, 빌드 261001-A3 — 길눈 2.1.0 몸 센서를 길눈에도)
+// 1.2.0판(261001-A2) 자봉 갈래 점지도 그리기 속까지 앱, 몸 센서 극대화
 // 1.1.0판(261001-A1) 길눈 갈래 속까지 앱
 // 한 프로젝트에 세 앱을 담습니다(갈래=flavor).
 //   gilnun  길눈 (kr.or.ada.app)     대문 https://lvd.ada.or.kr/app/
@@ -46,7 +47,7 @@ android {
             dimension = "ap"
             applicationId = "kr.or.ada.app"
             resValue("string", "app_name", "길눈")
-            versionName = "2.0.0"   // 261001-A1 길눈은 속까지 앱(GilnunActivity, src/gilnun)으로 새로 지음 — 자봉·배프는 웹 판 그대로
+            versionName = "2.1.0"   // 261001-A3 몸 센서를 길눈에도(MomSensor.kt 를 src/gilnun 으로). 261001-A1 길눈은 속까지 앱(GilnunActivity, src/gilnun)으로 새로 지음 — 자봉·배프는 웹 판 그대로
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/jeom/jeom.html\"")   // 260926-3 길눈 첫 화면으로 곧바로
         }
         create("jabong") {
