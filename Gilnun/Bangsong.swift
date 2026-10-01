@@ -379,6 +379,21 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         ieumSu += 1
         majimakUmjik = Date()
         Girok.shared.namgi("bangsong_ieum", ["jong": jong.rawValue, "su": ieumSu])
+        // 2.30.0 헛돌기 막기 — 여섯 번 잇달아 잇지 못하면(10월 1일 새벽 곡 불러오기 실패를 4초마다 421번 되풀이) 멈추고 한 번만 알림
+        if ieumSu > 5 {
+            Girok.shared.namgi("bangsong_meomchum", ["jong": jong.rawValue, "su": ieumSu])
+            let ireum: String
+            switch jong {
+            case .radio: ireum = "라디오"
+            case .tv: ireum = "TV"
+            default: ireum = "길 위의 음악"
+            }
+            ieumSu = 0
+            sangtaeMal = ""
+            geuman(malHagi: false)
+            SoriEngine.shared.mal("\(ireum) 연결이 거듭 끊겨 멈췄습니다. 잠시 뒤 다시 틀어 주십시오.", .annae)
+            return
+        }
         if ieumSu == 2 {
             sangtaeMal = "끊겨서 다시 잇는 중입니다."
             SoriEngine.shared.mal("끊겨서 다시 잇는 중입니다.", .jeongbo)
