@@ -46,11 +46,15 @@ final class SaeDeutgi {
     private var dollimTask: Task<Void, Never>?
     private var kkeutnam = false
     private var hwakjeong = ""   // 굳은 말(앞 마디들)
+    /// 2.30.0 앞 귀가 다 닫히기를 기다린 뒤 새 귀를 엶(닫히는 중에 새로 열어 소리를 못 받던 일을 막음)
+    private static var apKkeut: Task<Void, Never>?
 
     /// 듣기 시작 — 알아들은 말(굳은 말 + 지금 말)을 ttui 로, 막히면 oryu 로
     func sijak(ttui: @escaping (String) -> Void, oryu: @escaping () -> Void) {
         guard let loc = SaeDeutgi.locale else { oryu(); return }
+        let ap = SaeDeutgi.apKkeut
         dollimTask = Task { [weak self] in
+            if let ap = ap { await ap.value }
             let tr = SpeechTranscriber(locale: loc, transcriptionOptions: [], reportingOptions: [.volatileResults], attributeOptions: [])
             let an = SpeechAnalyzer(modules: [tr])
             let fmt = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [tr])
@@ -129,6 +133,6 @@ final class SaeDeutgi {
         jamgeum.unlock()
         bd?.finish()
         dollimTask?.cancel()
-        if let an = an { Task { try? await an.cancelAndFinishNow() } }
+        if let an = an { SaeDeutgi.apKkeut = Task { try? await an.cancelAndFinishNow() } }
     }
 }
