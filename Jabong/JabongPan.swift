@@ -2,12 +2,20 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.1.0"
-    static let bild = "261001-9"
+    static let pan = "2.2.0"
+    static let bild = "261001-11"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.2.0", bild: "261001-11", nal: "2026-10-01", naeyong: [
+            "점지도 그리기(설계도 진행 차례 3, 대표님 승인) — 봉사 탭 긴급통화 받기 바로 아래. 웹 jeom_rec.js 와 같은 기록 모양으로 속까지 앱에서 그림",
+            "걸음 센서·방향 센서·위성·기압계 높이를 1초마다 기록. 화면이 잠기거나 다른 앱을 써도 이어 감. 1분마다·표시마다·앱이 뒤로 갈 때 저절로 저장, 앱이 꺼졌다 켜지면 멈춤으로 되살려 이어 그리기",
+            "표시 스물두 가지(자주 쓰는 여덟은 겉에, 나머지는 펼치기 안에). 계단·횡단보도 짝 셈, 탈것 구간은 걸음으로 재지 않음, 문은 두 걸음 사이 두 번, 계단 칸수 고치기",
+            "말로 표시 — 누른 순간의 자리에 말씀하신 표시를 남김. 폰이 먼저 여쭘 — 방향이 크게 바뀌면 꺾이셨습니까, 높이가 바뀌면 계단입니까, 계단 끝. 네(말 또는 단추)라고 하셔야 표시",
+            "출발·도착 자리 주소를 저절로 적고, 길을 접어들면 무슨 길인지 알려 드림. 그린 길은 폰에 담아 다섯 개씩 봄. 올리기 전 점검과 올리기는 다음 판",
+            "도움말 점지도 그리기·표시 남기기·말로 표시·폰이 먼저 여쭘 항목 더함"
+        ]),
         Gochim(pan: "2.1.0", bild: "261001-9", nal: "2026-10-01", naeyong: [
             "긴급통화 받기(대표님 승인 1) — 자봉 앱을 길눈님 전화기로. 봉사 탭 맨 위",
             "함께하겠습니다 한 번에: 나스 rel.php 대기 등록(늘 켜 둠, 자원봉사자는 수료 번호·해설사는 협회 전화번호로 확인), 카메라·마이크 허락, 폰 알림 주소를 나스 apns.php 에",
