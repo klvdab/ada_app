@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 길눈 갈래 얼개 (안드로이드 길눈 2.0.0, 빌드 261001-A1, 대표님 승인) — 껍데기 웹 대신 속까지 앱.
+     자봉·배프 갈래는 main 의 MainActivity(웹)를 그대로 쓰고, 길눈 갈래만 GilnunActivity 로 엽니다. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <application>
+        <activity android:name="kr.or.ada.app.MainActivity" tools:node="remove" />
+
+        <activity
+            android:name="kr.or.ada.app.gilnun.GilnunActivity"
+            android:exported="true"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name="kr.or.ada.app.gilnun.WichiService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+    </application>
+</manifest>
