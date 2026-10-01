@@ -1,4 +1,4 @@
-// 협회 안드로이드 앱 — 앱 설정 (1.0.0판, 빌드 260923-1)
+// 협회 안드로이드 앱 — 앱 설정 (1.1.0판, 빌드 261001-A1 — 길눈 갈래 속까지 앱)
 // 한 프로젝트에 세 앱을 담습니다(갈래=flavor).
 //   gilnun  길눈 (kr.or.ada.app)     대문 https://lvd.ada.or.kr/app/
 //   jabong  자봉 (kr.or.ada.jabong)  대문 https://lvd.ada.or.kr/jabong/
@@ -45,6 +45,7 @@ android {
             dimension = "ap"
             applicationId = "kr.or.ada.app"
             resValue("string", "app_name", "길눈")
+            versionName = "2.0.0"   // 261001-A1 길눈은 속까지 앱(GilnunActivity, src/gilnun)으로 새로 지음 — 자봉·배프는 웹 판 그대로
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/jeom/jeom.html\"")   // 260926-3 길눈 첫 화면으로 곧바로
         }
         create("jabong") {
