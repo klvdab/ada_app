@@ -13,6 +13,9 @@
 //   "그만"은 어디서나, 급한 순서는 긴급통화 > 경고 > 길 안내
 //   대답을 마치면 땡 소리, 묻는 말에는 마이크를 한 번만 저절로 엶
 //   모르는 말은 사과하고 기록해 두었다가 사전을 키움
+// 2.30.0 (빌드 261001-10, 대표님 승인 1) 딩동 대신 또렷한 목소리 「네」, 땡 대신 「잠깐만 기다려 주세요」(말소리를 끈 분께는 딩동·땡 그대로).
+//   하이 길눈을 알아들은 귀가 그대로 명령을 들음(귀를 하나로). 못 들으면 「다시 한번 말씀해 주세요」 한 번만, 그래도 못 들으면 조용히 물러남.
+//   명령 글자가 0이면 마이크 막힘(maik_makhim)을 따로 남김.
 import Foundation
 import UIKit
 import AVFoundation
@@ -47,6 +50,8 @@ final class MalHagi: ObservableObject {
     private var bureumYeyak = false
     private var bureumSilpae = 0   // 2.12.0 뒤에서 부름 기다리기를 거듭 못 열면 앱으로 돌아올 때까지 쉼
     private var ijeonMal = ""
+    /// 2.30.0 「다시 한번 말씀해 주세요」를 이미 했음(한 번만)
+    private var dasiHanbeon = false
     private var ssak = Set<AnyCancellable>()
     private var sijakham = false
 
@@ -128,6 +133,7 @@ final class MalHagi: ObservableObject {
                 return
             }
             self.jadongYeolim = 0
+            self.dasiHanbeon = false
             self.ijeonMal = SoriEngine.shared.majimak
             self.myeongryeongYeolgi(sori: true)
         }
@@ -146,7 +152,8 @@ final class MalHagi: ObservableObject {
             }
             return
         }
-        MalDeutgi.shared.swigi()   // 2.12.1 마이크는 열어 둔 채 알아듣기만 바꿈
+        // 2.30.0 하이 길눈을 알아들은 귀가 이어 들을 때는 끄지 않음(귀를 하나로)
+        if !MalDeutgi.shared.saeIeum { MalDeutgi.shared.swigi() }   // 2.12.1 마이크는 열어 둔 채 알아듣기만 바꿈
         bureumDolgo = false
         SoriEngine.shared.modu_geodugi()   // 명령 먼저 — 하던 말을 멈춤(경고는 남김)
         sangtae = .deutneun
@@ -164,8 +171,15 @@ final class MalHagi: ObservableObject {
                 self.malHam("지금은 마이크를 열지 못했습니다. 잠시 뒤 다시 해 주십시오.") { [weak self] in self?.bureumDasi(1.0) }
             }
         }
-        if sori {
-            SoriEngine.shared.sori(.dingdong)   // 2.26.0 딩동 — 이제 말씀하십시오
+        if sori && Seoljeong.shared.malKyeojim && jadongYeolim == 0 {
+            // 2.30.0 딩동 대신 또렷한 「네」 — 말하는 동안 귀를 닫고, 다 말한 뒤 곧바로 엶
+            MalDeutgi.shared.gwiDatgi(true)
+            Girok.shared.namgi("ne", ["gwi": MalDeutgi.shared.saeIeum ? "hana" : "sae"])
+            SoriEngine.shared.daehwaMal("네") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: yeolgi)
+            }
+        } else if sori {
+            SoriEngine.shared.sori(.dingdong)   // 2.26.0 딩동 — 이제 말씀하십시오(말소리를 끈 분, 되물은 뒤)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.55, execute: yeolgi)
         } else {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: yeolgi)
@@ -181,22 +195,49 @@ final class MalHagi: ObservableObject {
     /// 명령을 다 들었음
     private func deureum(_ alts0: [String]) {
         SoriEngine.shared.myeongryeongDeutneunJung = false
-        Girok.shared.namgi("myeong_deureum", ["su": alts0.count, "sangtae": sangtae == .deutneun])
+        let beopeo = MalDeutgi.shared.majimakBeopeo
+        Girok.shared.namgi("myeong_deureum", ["su": alts0.count, "sangtae": sangtae == .deutneun, "beopeo": beopeo,
+                                              "sae": MalDeutgi.shared.saeSseumJung])
         guard sangtae == .deutneun else { return }
         let alts = alts0.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
         if alts.isEmpty {
+            // 2.30.0 명령 글자가 0 — 마이크 막힘을 따로 남김(beopeo 0이면 마이크에 소리가 안 들어옴, 아니면 알아듣기가 못 적음)
+            Girok.shared.namgi("maik_makhim", ["dan": "myeongryeong", "beopeo": beopeo, "dasi": dasiHanbeon,
+                                               "sae": MalDeutgi.shared.saeSseumJung])
             sangtae = .swim
             if jadongYeolim > 0 {
                 // 저절로 연 마이크에 말씀이 없으면 조용히 닫음
                 jadongYeolim = 0
-                SoriEngine.shared.sori(.ttaeng)
+                MalDeutgi.shared.swigi()
+                if !Seoljeong.shared.malKyeojim { SoriEngine.shared.sori(.ttaeng) }
                 bureumDasi(0.8)
                 return
             }
-            SoriEngine.shared.sori(.ttaeng)   // 2.26.0 땡 — 그다음 대답
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in self?.dapHagi("말씀이 들리지 않았습니다.", false) }
+            if !dasiHanbeon && GinGeup.shared.sangtae == .eopseum {
+                // 2.30.0 한 번만 「다시 한번 말씀해 주세요」 하고 같은 귀로 한 번 더 들음
+                dasiHanbeon = true
+                if Seoljeong.shared.malKyeojim {
+                    sangtae = .deutneun
+                    SoriEngine.shared.myeongryeongDeutneunJung = true
+                    MalDeutgi.shared.gwiDatgi(true)
+                    SoriEngine.shared.daehwaMal("다시 한번 말씀해 주세요") { [weak self] in
+                        guard let self = self, self.sangtae == .deutneun else { return }
+                        self.myeongryeongYeolgi(sori: false)
+                    }
+                } else {
+                    myeongryeongYeolgi(sori: true)   // 말소리를 끄셨으면 딩동으로 다시 말씀하실 차례를 알림
+                }
+                return
+            }
+            // 그래도 못 들으면 조용히 물러남
+            dasiHanbeon = false
+            MalDeutgi.shared.swigi()
+            if !Seoljeong.shared.malKyeojim { SoriEngine.shared.sori(.ttaeng) }
+            Girok.shared.namgi("dap_kkeut", ["mureoNam": true])
+            bureumDasi(0.8)
             return
         }
+        dasiHanbeon = false
         // 2.12.3 "하이 길눈"만 들렸으면(대답을 못 들어 한 번 더 부르심) 명령으로 치지 않고 "네" 하고 다시 기다림
         if alts.contains(where: { MalDeutgi.bureumMal($0) && MalSajeon.ttuk($0).count <= 6 }) {
             Girok.shared.namgi("hai_dasi", [:])
@@ -206,7 +247,24 @@ final class MalHagi: ObservableObject {
         }
         deureunMal = alts[0]
         sangtae = .araboneun
-        // 2.26.0 (대표님 지시) 말씀을 다 들으면 땡 — 그때서야 길눈 목소리로 결과를 말함
+        if Seoljeong.shared.malKyeojim {
+            // 2.30.0 (대표님 지시) 땡 대신 「잠깐만 기다려 주세요」 — 귀는 이미 닫음. 일을 하는 동안 말하고, 다 말한 뒤 결과를 말씀드림
+            var malKkeut = false
+            var dap: (String, Bool)?
+            SoriEngine.shared.daehwaMal("잠깐만 기다려 주세요") { [weak self] in
+                malKkeut = true
+                if let d = dap { self?.dapHagi(d.0, d.1) }
+            }
+            cheori(alts) { [weak self] t, mutneun in
+                DispatchQueue.main.async {
+                    guard dap == nil else { return }
+                    dap = (t, mutneun)
+                    if malKkeut { self?.dapHagi(t, mutneun) }
+                }
+            }
+            return
+        }
+        // 2.26.0 (대표님 지시) 말씀을 다 들으면 땡 — 그때서야 길눈 목소리로 결과를 말함(말소리를 끄신 분)
         SoriEngine.shared.sori(.ttaeng)
         let ttaengT = Date()
         cheori(alts) { [weak self] t, mutneun in
@@ -337,6 +395,7 @@ final class MalHagi: ObservableObject {
         bureumDolgo = false
         guard sangtae == .swim, GinGeup.shared.sangtae == .eopseum else { return }
         jadongYeolim = 0
+        dasiHanbeon = false
         ijeonMal = SoriEngine.shared.majimak
         gakkaunYeokGaengsin()   // 2.12.5
         // 2.12.2 부름을 들으면 곧바로 길눈 방송을 멈추고 다른 앱 소리를 크게 낮춤(명령을 마치면 되돌림)
@@ -344,9 +403,10 @@ final class MalHagi: ObservableObject {
         BangsongEngine.shared.bureumMeomchum(true)
         MalDeutgi.shared.dareunSori(jurim: true)
         SoriEngine.shared.modu_geodugi()
-        // 2.26.0 (대표님 지시) "하이 길눈"하고 끊으시면 곧바로 딩동 — 폰의 모든 소리를 멈추고 다음 말씀을 기다림("네"는 말하지 않음)
+        // 2.26.0 (대표님 지시) "하이 길눈"하고 끊으시면 곧바로 — 폰의 모든 소리를 멈추고 다음 말씀을 기다림
+        // 2.30.0 말소리를 켜 두셨으면 딩동 대신 또렷한 「네」(myeongryeongYeolgi 에서)
         MalDeutgi.shared.moduSoriMeomchum(true)
-        Girok.shared.namgi("dingdong", ["bappeum": SoriEngine.shared.bappeum])
+        if !Seoljeong.shared.malKyeojim { Girok.shared.namgi("dingdong", ["bappeum": SoriEngine.shared.bappeum]) }
         myeongryeongYeolgi(sori: true)
     }
 
@@ -394,6 +454,7 @@ final class MalHagi: ObservableObject {
     }
 
     private func moduMeomchum() {
+        SoriEngine.shared.daehwaGeuman()   // 2.30.0
         bureumSoriDollim()
         MalDeutgi.shared.meomchugi()
         bureumDolgo = false
