@@ -16,6 +16,7 @@ struct JabongRoot: View {
 // MARK: 탭 넷
 
 struct JabongTab: View {
+    @ObservedObject private var t = JabongTonghwa.shared
     @State private var tab = 0
     var body: some View {
         TabView(selection: $tab) {
@@ -29,6 +30,7 @@ struct JabongTab: View {
                 .tabItem { Label("알림·설정", systemImage: "gearshape") }.tag(3)
         }
         .tint(Saek.nam)
+        .fullScreenCover(isPresented: $t.boim) { TonghwaView() }   // 2.1.0 긴급통화 통화 화면
     }
 }
 
@@ -52,10 +54,14 @@ struct TabCheot<Naeyong: View>: View {
 }
 
 struct BongsaTab: View {
+    @ObservedObject private var g = JabongDaegi.shared
     @ObservedObject private var nae = JabongNae.shared
     @ObservedObject private var s = Seoljeong.shared
     var body: some View {
         TabCheot(jemok: "봉사") {
+            NavigationLink { HamkkeView() } label: {
+                Text(g.kyeojim ? "긴급통화 받기 — 받고 있음" : "긴급통화 받기 — 길손님이 도움을 청하면 전화처럼 울립니다")
+            }.buttonStyle(KeunDanchu())
             Button("지금 상태 듣기") { jigeumSangtae() }.buttonStyle(KeunDanchu())
             NavigationLink { BopokView() } label: {
                 Text(s.bopok > 0.2 ? "내 보폭 다시 재기 — 지금 \(Int((s.bopok * 100).rounded()))센티미터" : "내 보폭 재기 — 점지도를 그리기 전에 한 번")
@@ -66,6 +72,7 @@ struct BongsaTab: View {
 
     private func jigeumSangtae() {
         var m = "자봉 번호 \(nae.beonho), \(nae.ireum)님."
+        m += g.kyeojim ? " 긴급통화를 받고 있습니다." : " 긴급통화는 받지 않는 중입니다."
         m += s.bopok > 0.2 ? " 보폭은 \(Int((s.bopok * 100).rounded()))센티미터입니다." : " 아직 보폭을 재지 않으셨습니다. 점지도를 그리기 전에 한 번 재 주십시오."
         if let w = WichiEngine.shared.jigeum {
             m += w.ochae <= 15 ? " 위성이 잘 잡혀 있습니다." : " 위성이 아직 흐립니다. 하늘이 트인 곳에서 잠시 기다려 주십시오."
@@ -152,7 +159,8 @@ struct JabongDoumalView: View {
     static let hangmok: [(String, String)] = [
         ("처음 등록", "자봉 앱을 처음 여시면 한 번만 등록합니다. 이름, 연락처, 주로 활동하실 지역, 네 자리 숫자를 적고, 1365 아이디는 비워 두었다가 나중에 넣으셔도 됩니다. 점지도 그리기 요령 다섯 가지를 듣고 확인 문제 세 개를 풀면 자봉 번호가 나옵니다. 웹 자봉에서 이미 등록하셨으면 자봉 번호와 네 자리 숫자로 이어서 쓰십시오."),
         ("탭 넷", "화면 아래에 봉사, 나눔, 내 기록, 알림·설정 탭이 있고, 속 화면에서도 늘 보입니다. 속 화면의 뒤로 단추는 위에 하나 있고, 두 손가락으로 문질러도 뒤로 갑니다."),
-        ("지금 상태 듣기", "봉사 탭에서 누르시면 자봉 번호, 보폭, 위성이 잘 잡혔는지를 말씀드립니다."),
+        ("긴급통화 받기", "봉사 탭 맨 위에 있습니다. 자원봉사자나 현장영상해설사 가운데 받으실 역할을 고르고, 별명과 수료 번호(해설사는 협회에 등록한 전화번호)를 적은 뒤 함께하겠습니다를 한 번 누르시면 됩니다. 이때 카메라와 마이크 허락도 한 번에 받아 둡니다. 그 뒤로는 길손님이 도움을 청하면 폰이 잠겨 있어도 일반 전화처럼 울리고, 받으시면 곧바로 길손님 카메라 화면과 말소리가 이어집니다. 다른 길눈님이 먼저 받으시면 벨이 멈추고 다른 분께 연결되었다고 알려 드립니다. 실명과 전화번호는 화면에 나오지 않고 별명만 씁니다. 잠시 쉬기를 누르시면 울리지 않습니다."),
+        ("지금 상태 듣기", "봉사 탭에서 누르시면 자봉 번호, 긴급통화를 받는지, 보폭, 위성이 잘 잡혔는지를 말씀드립니다."),
         ("내 보폭 재기", "봉사 탭에서 엽니다. 정해진 거리를 걸으면 보폭을 셈해 폰이 기억합니다. 한 번 재면 다시 재지 않아도 되고, 원하실 때 다시 잴 수 있습니다."),
         ("새로고침", "알림·설정 탭에서 누르시면 등록 정보와 그려 주신 길 수를 나스에서 다시 받습니다."),
         ("저절로 저장", "현장에서는 늘 의외의 일이 생기므로 1분마다 저절로 저장합니다.")
