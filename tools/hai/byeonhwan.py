@@ -1,4 +1,5 @@
-# 하이 길눈 감지기 기르기 — 여러 사람 목소리로 바꾸기 (판 1.0, 빌드 261001-H2, 대표님 승인 2026-10-01)
+# 하이 길눈 감지기 기르기 — 여러 사람 목소리로 바꾸기 (판 1.0.1, 빌드 261001-H6, 대표님 승인 2026-10-01)
+# 1.0.1 부품 받기가 잠깐 막혀도 여러 번 다시 받음
 # 마이크로소프트 목소리 셋만으로는 실제 사람들(어르신, 낮은 목소리, 높은 목소리)을 다 담지 못합니다.
 # 그래서 공개된 한국어 말소리 모음(제로스 한국어, 크리에이티브 커먼즈 저작자 표시)에 담긴 실제 사람 100여 명의 목소리를 빌려
 #   ① "하이 길눈" 연습 소리를 그 사람들 목소리로 바꾸고(kNN-VC, MIT 공개 부품 — 말은 그대로, 목소리 빛깔만 바꿈)
@@ -51,7 +52,14 @@ for f in mine:
         saram.setdefault(str(spk), []).append(x)
 print("사람 수", len(saram))
 
-knn = torch.hub.load("bshall/knn-vc", "knn_vc", prematched=True, trust_repo=True, pretrained=True, device="cpu")
+import time
+knn = None
+for _ in range(8):   # 1.0.1 부품 받기가 깃허브 쪽 사정(504 등)으로 잠깐 막혀도 몇 번 더 받아 봄
+    try:
+        knn = torch.hub.load("bshall/knn-vc", "knn_vc", prematched=True, trust_repo=True, pretrained=True, device="cpu"); break
+    except Exception as e:
+        print("부품 받기 다시", e, flush=True); time.sleep(20)
+if knn is None: raise SystemExit("부품을 받지 못함")
 majas = sorted(os.listdir(MAJA))
 mok = []
 for spk, xs in sorted(saram.items()):
