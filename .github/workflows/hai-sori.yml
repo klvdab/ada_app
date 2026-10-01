@@ -1,0 +1,34 @@
+# 하이 길눈 감지기 — 연습 소리 만들기 (1.0판, 빌드 261001-H1, 대표님 승인 2026-10-01)
+# "하이 길눈" 한 마디만 알아듣는 작은 감지기를 기를 연습 소리를 깃허브가 빌려 주는 리눅스에서 만듭니다.
+# 마이크로소프트 무료 목소리(한국어 목소리 전부 + 여러 말 목소리)로 맞는 소리와 틀린 소리를 만들고,
+# flac 으로 묶어 hai-data 갈래(앱 소스와 따로)에 올립니다. 앱 짓기와는 상관이 없습니다.
+name: hai-sori
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  mandeulgi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: 도구 준비
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg flac
+          pip install -q edge-tts
+      - name: 소리 만들기
+        run: python3 tools/hai/saeng.py /tmp/hai_sori
+      - name: 묶기
+        run: |
+          cd /tmp/hai_sori
+          for f in maja/*.wav teullim/*.wav; do flac -s -8 --delete-input-file "$f"; done
+          cd /tmp && tar cf hai_sori.tar hai_sori && ls -la hai_sori.tar
+      - name: hai-data 갈래에 올리기
+        run: |
+          mkdir /tmp/gal && cd /tmp/gal
+          git init -q && git checkout -q -b hai-data
+          cp /tmp/hai_sori.tar /tmp/hai_sori/mokrok.json .
+          printf '하이 길눈 감지기 연습 소리 (빌드 261001-H1). 만든 곳: tools/hai/saeng.py\n' > README.txt
+          git add . && git -c user.name=hai-sori -c user.email=noreply@ada.or.kr commit -qm "하이 길눈 연습 소리 (261001-H1)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" hai-data
