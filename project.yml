@@ -1,4 +1,5 @@
-# 협회 앱 · 자봉 앱 · 배프 앱 · AI점자도서관 — XcodeGen 설계도 (1.6.5판, 빌드 261001-12 — 길눈 2.31.0 하이 길눈 빠르게)
+# 협회 앱 · 자봉 앱 · 배프 앱 · AI점자도서관 — XcodeGen 설계도 (1.6.6판, 빌드 261001-13 — 자봉 2.3.0 몸 센서 극대화)
+# 1.6.6 (261001-13, 대표님 지시) 자봉 앱 2.3.0 — 몸 센서 극대화(Jabong/MomSensor.swift 새로), 움직임 쓰임 안내 문구 고침
 # 1.6.5 (261001-12, 대표님 승인) 길눈 2.31.0 — 하이 길눈 빠르게
 # 1.6.4 (261001-11, 대표님 승인) 자봉 앱 2.2.0 — 점지도 그리기(속까지 앱), 기압계 높이
 # 1.6.3 (261001-10, 대표님 승인 1) 길눈 2.30.0 — 하이 길눈 귀를 하나로, 네·잠깐만 기다려 주세요
@@ -120,7 +121,7 @@ targets:
         NSCameraUsageDescription: 도움을 청한 분과 화상으로 이어 현장을 살피는 데 카메라를 씁니다.
         NSMicrophoneUsageDescription: 도움을 청한 분과 말을 주고받는 데 마이크를 씁니다.
         NSSpeechRecognitionUsageDescription: 말로 하시는 명령을 글자로 알아듣는 데 아이폰 받아쓰기를 씁니다.
-        NSMotionUsageDescription: 점지도를 그릴 때 걸음 수와 보폭을 재는 데 움직임 정보를 씁니다.
+        NSMotionUsageDescription: 점지도를 그릴 때 걸음, 몸이 돈 방향, 오르내림과 멈춤을 재는 데 움직임 정보를 씁니다.
         NSBluetoothAlwaysUsageDescription: 길가의 음성유도기와 음향신호기를 켜는 데 블루투스를 씁니다.
         ITSAppUsesNonExemptEncryption: false
         NSAppTransportSecurity:
@@ -133,7 +134,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.jabong
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "2.2.0"
+        MARKETING_VERSION: "2.3.0"
         OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "FoundationModels"]   # 길눈 부품과 같이 옛 폰에서도 열리게
   BfbApp:
     type: application
