@@ -16,6 +16,9 @@
 //   10월 1일 새벽 기록: 딩동 뒤 귀를 끄고 새 귀를 여는 데서 열 번 모두 명령 글자 0. 이제 귀를 넘기지 않음.
 //   길눈이 「네」를 말하는 동안은 귀를 잠시 닫고(소리 조각을 넘기지 않음), 다 말한 뒤 엶. 받아 적은 말에서 하이 길눈 앞부분은 떼어 냄.
 //   모든 소리 멈춤 뒤 0.4초 안에 마이크 소리가 안 들어오면 곧바로 마이크만 다시 엶(귀는 그대로). 소리 자리가 바뀌어 마이크가 멎어도 귀는 그대로.
+// 2.31.0 (빌드 261001-12, 대표님 승인) 빠르게 — 10월 1일 낮 기록에서 귀를 하나로 이은 명령 듣기가 마이크 소리는 받는데(소리 조각 60) 글자를 한 번도 내지 못했고,
+//   새로 연 옛 받아쓰기는 바로 알아들었음. 그래서 하이 길눈 부르기는 새 부품으로 듣고, 명령은 옛 받아쓰기로 곧바로 듣게 함(귀를 하나로는 꺼 둠, gwiHana).
+//   말이 멈춘 것을 알아채는 기다림 1초 → 0.8초.
 // 나중에 다른 받아쓰기(애저 등)로 바꿀 때는 이 파일만 바꿔 끼우면 됩니다.
 import Foundation
 import Speech
@@ -75,6 +78,8 @@ final class MalDeutgi: NSObject {
     private func beopeoSuIlgi() -> Int { jamgeum.lock(); defer { jamgeum.unlock() }; return _beopeoSu }
 
     // MARK: 2.30.0 귀를 하나로
+    /// 2.31.0 귀를 하나로 이어 듣기 — 기록상 글자를 내지 못해 꺼 둠(원인을 밝히면 다시 켬)
+    static let gwiHana = false
     /// 하이 길눈을 알아들은 새 부품 귀를 끄지 않고 명령 듣기로 이어 쓰는 중
     private(set) var saeIeum = false
     /// 새 부품이 지금까지 받아 적은 말 전부, 명령이 시작되는 자리(글자 수)
@@ -417,7 +422,8 @@ final class MalDeutgi: NSObject {
 
     private func sijak(_ b: Bangsik) -> Bool {
         // 2.27.0 새 알아듣기 부품 — 준비된 iOS 26 폰에서
-        if saeSseulSuItda, MalDeutgi.heorakItda {
+        // 2.31.0 새 부품은 하이 길눈 부르기에만 씀 — 명령은 옛 받아쓰기가 곧바로 알아들음(10월 1일 기록)
+        if b == .bureum, saeSseulSuItda, MalDeutgi.heorakItda {
             guard maikYeolgi(b) else { return false }
             if #available(iOS 26.0, *) {
                 let s = SaeDeutgi()
@@ -484,7 +490,7 @@ final class MalDeutgi: NSObject {
             // 2.12.2 길눈이 제 입으로 "길눈"을 말하는 중이면 부름으로 치지 않음
             let jegaMalham = SoriEngine.shared.malhaneunJung && SoriEngine.shared.hanunMal.contains("길눈")   // 2.12.6 실제로 말하는 동안만
             if !jegaMalham, ls.contains(where: { MalDeutgi.bureumMal($0) }) {
-                if sae != nil {
+                if MalDeutgi.gwiHana && sae != nil {
                     // 2.30.0 귀를 하나로 — 이 귀를 끄지 않고 명령 듣기로 이어 씀(「네」를 말하는 동안은 닫아 둠)
                     jamjamSigye?.invalidate(); jamjamSigye = nil
                     handoSigye?.invalidate(); handoSigye = nil
@@ -523,7 +529,7 @@ final class MalDeutgi: NSObject {
             alts = ls
             malHam = true
             jamjamSigye?.invalidate()
-            jamjamSigye = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: false) { [weak self] _ in   // 2.26.0 말이 1초 멈추면 끝
+            jamjamSigye = Timer.scheduledTimer(withTimeInterval: 0.8, repeats: false) { [weak self] _ in   // 2.31.0 말이 0.8초 멈추면 끝(전에는 1초)
                 self?.myeongryeongMaechim()
             }
             if cheotMal {
