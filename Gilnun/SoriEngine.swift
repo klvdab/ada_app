@@ -364,7 +364,10 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
             self.daehwaBeon += 1
             let b0 = self.daehwaBeon
             self.daehwaIhu = ihu
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.6 + Double(t.count) * 0.3) { [weak self] in
+            // 2.31.0 말이 끝났다는 신호가 늦게 오거나 안 와도 말 길이만큼만 기다림(전에는 「네」 하나에 2초를 기다렸음)
+            let bae = [1.6, 1.3, 1.0, 0.85, 0.75][max(0, min(4, Seoljeong.shared.bbareugiDan))]   // 말 빠르기에 맞춤
+            let gidarim = 0.5 + Double(t.count) * 0.17 * bae
+            DispatchQueue.main.asyncAfter(deadline: .now() + gidarim) { [weak self] in
                 guard let self = self, b0 == self.daehwaBeon else { return }
                 self.daehwaKkeut()
             }
@@ -378,7 +381,14 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
                 p.delegate = self
                 p.volume = 1.0
                 self.daehwaPlayer = p
-                if p.play() { return }
+                if p.play() {
+                    // 2.31.0 받아 둔 소리는 길이를 알므로 그 길이가 지나면 곧바로 넘어감
+                    DispatchQueue.main.asyncAfter(deadline: .now() + p.duration + 0.1) { [weak self] in
+                        guard let self = self, b0 == self.daehwaBeon else { return }
+                        self.daehwaKkeut()
+                    }
+                    return
+                }
                 self.daehwaPlayer = nil
             }
             let u = AVSpeechUtterance(string: t)
