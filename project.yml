@@ -1,4 +1,5 @@
-# 협회 앱 · 자봉 앱 · 배프 앱 · AI점자도서관 — XcodeGen 설계도 (1.6.9판, 빌드 261002-2 — 길눈 2.34.0 동영상 받아 틀기)
+# 협회 앱 · 자봉 앱 · 배프 앱 · AI점자도서관 — XcodeGen 설계도 (1.7.0판, 빌드 261002-3 — 길눈 2.35.0 워치 걷는 동안 깨어 있기)
+# 1.7.0 (261002-3, 대표님 승인) 길눈 2.35.0 — 워치 깨어 있기(WKBackgroundModes physical-therapy), 워치 걸음 세기(NSMotionUsageDescription)
 # 1.6.9 (261002-2, 대표님 승인) 길눈 2.34.0 — 공유 목록에서 동영상을 길눈으로 받기(CFBundleDocumentTypes), 워치에서 틀기
 # 1.6.8 (261002-1, 대표님 승인) 길눈 2.33.0 — 애플워치 손가락 두 번 집기 횟수로 다음 갈림길·내 자리·말하기
 # 1.6.7 (261001-14, 대표님 지시) 길눈 2.32.0 — 몸 센서를 길눈 따라 걷기에도(MomSensor.swift 를 Gilnun 폴더로 옮겨 두 앱이 함께 씀)
@@ -96,7 +97,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "2.34.0"
+        MARKETING_VERSION: "2.35.0"
         OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "FoundationModels"]   # 1.6.0 옛 폰에서도 앱이 열리게 약하게 잇기
   JabongApp:
     # 2.0.0 (빌드 261001-7, 2026-10-01 대표님 승인) 자봉 앱도 속까지 앱으로 — 웹을 띄우던 App 폴더 대신
@@ -227,11 +228,13 @@ targets:
         WKWatchOnly: false
         NSLocationWhenInUseUsageDescription: 내 자리를 알려 드리는 데 위치를 씁니다.
         NSBluetoothAlwaysUsageDescription: 음성유도기를 켜는 데 블루투스를 씁니다.
+        NSMotionUsageDescription: 점지도를 따라 걸을 때 팔 흔들림으로 걸음을 세어 폰 길눈에 보내는 데 움직임 정보를 씁니다.
+        WKBackgroundModes: [physical-therapy]   # 1.7.0 걷는 동안 손목을 내려도 깨어 있기
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app.watchkitapp
         TARGETED_DEVICE_FAMILY: "4"
-        MARKETING_VERSION: "2.34.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
+        MARKETING_VERSION: "2.35.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
 schemes:
   AdaApp:
     build:
