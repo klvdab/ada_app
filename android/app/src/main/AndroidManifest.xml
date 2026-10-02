@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- 261002-A9 길눈 2.6.0 긴급통화서비스 — 통화 소리 자리(통화 모드·스피커)를 바꿈 -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <!-- 260927-8 음향신호기 울리기(블루투스). 안드로이드 12 이상은 주변 기기 허락, 그 아래는 옛 블루투스 허락 -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
