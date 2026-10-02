@@ -12,6 +12,8 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
     @Published var ttae: Double = 0
     @Published var jari = ""
     @Published var dapMal = ""
+    /// 2.34.0 폰 길눈이 보낸 동영상 — 오면 워치에서 곧바로 틂
+    @Published var dongyeong: WatchDongyeong?
     private let synth = AVSpeechSynthesizer()
     private let loc = CLLocationManager()
     private var jariDone: ((String) -> Void)?
@@ -150,6 +152,7 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
         if let t = r["ttae"] as? Double { ttae = t }
         if let k = r["watchBeonho"] as? String { UserDefaults.standard.set(k, forKey: "watchBeonho") }
         if let mu = r["jindong"] as? String { jindongHagi(mu) }
+        if (r["what"] as? String) == "dongyeongJuso", let s = r["u"] as? String, let u = URL(string: s) { dongyeongTeulgi(u) }
         if let s = r["sinhogiMal"] as? String, !s.isEmpty {
             let ok = (r["sinhogiOk"] as? Bool) ?? true
             speak(s, jindong: r["sinhogiOk"] == nil ? .click : (ok ? .success : .failure))
@@ -180,6 +183,27 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
     }
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         DispatchQueue.main.async { self.apply(message) }
+    }
+
+    // 2.34.0 (빌드 261002-2, 대표님 승인) 동영상 — 폰이 보낸 파일·주소를 워치에서 틂
+    func session(_ session: WCSession, didReceive file: WCSessionFile) {
+        guard (file.metadata?["what"] as? String) == "dongyeong" else { return }
+        // 받은 파일은 이 함수가 끝나면 지워지므로 곧바로 옮김. 앞서 받은 동영상은 지움(워치 저장 공간이 작음)
+        let d = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("dongyeong", isDirectory: true)
+        try? FileManager.default.removeItem(at: d)
+        try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
+        let ext = file.fileURL.pathExtension.isEmpty ? "mp4" : file.fileURL.pathExtension
+        let mok = d.appendingPathComponent("dongyeong_\(Int(Date().timeIntervalSince1970)).\(ext)")
+        do { try FileManager.default.moveItem(at: file.fileURL, to: mok) } catch { return }
+        DispatchQueue.main.async { self.dongyeongTeulgi(mok) }
+    }
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        DispatchQueue.main.async { self.apply(userInfo) }
+    }
+
+    func dongyeongTeulgi(_ u: URL) {
+        WKInterfaceDevice.current().play(.notification)
+        dongyeong = WatchDongyeong(url: u)
     }
 
     // 내 자리 — 워치 GPS 로 서버에 물음
