@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 협회 안드로이드 앱 — 얼개 (1.0.0판, 빌드 260923-1) -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 261002-B1 마실(javascriptengine)은 안드로이드 8 이상에서만 부르고 아래는 웹뷰로 대신함(Dulreo.kt) — 부품의 최소 판이 높아도 짓기가 막히지 않게 -->
+    <uses-sdk tools:overrideLibrary="androidx.javascriptengine" />
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
