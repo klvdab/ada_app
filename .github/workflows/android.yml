@@ -1,4 +1,5 @@
-# 안드로이드 앱 자동 짓기 (1.0.1판, 빌드 260923-2)
+# 안드로이드 앱 자동 짓기 (1.1.0판, 빌드 261002-A5)
+# 1.1.0 (261002-A5, 대표님 승인) 지은 시험판 APK 를 sihum-apk-<갈래> 갈래에 올려, 클이 협회 시험판 받기 화면(나스)으로 곧바로 옮김
 # 깃허브가 빌려 주는 리눅스에서 안드로이드 앱을 짓습니다. 맥이 필요 없어 애플보다 빠릅니다.
 # 세 앱을 한 프로젝트에 담았습니다(갈래).
 #   gilnun  길눈 (kr.or.ada.app)
@@ -12,6 +13,8 @@
 # 비밀값이 없으면 서명 없이 시험용으로만 짓습니다.
 # 1.0.1판에서 고친 것: 그레들 판을 8.11.1 로 못박음(9판은 안드로이드 플러그인 8.7 과 맞지 않음), 잘못된 곳을 더 자세히 찍게 함
 name: android-jitgi
+permissions:
+  contents: write
 on:
   workflow_dispatch:
     inputs:
@@ -118,6 +121,22 @@ jobs:
           echo "--- APK ---"; find app/build/outputs/apk -name "*.apk" -print 2>/dev/null || true
           echo "--- AAB ---"; find app/build/outputs/bundle -name "*.aab" -print 2>/dev/null || true
           echo "서명 여부: $SEOMYEONG"
+
+      - name: 시험판 갈래에 올리기
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          A=$(find app/build/outputs/apk -name "*release*.apk" | head -n1)
+          [ -z "$A" ] && A=$(find app/build/outputs/apk -name "*.apk" | head -n1)
+          [ -z "$A" ] && { echo "APK 없음"; exit 0; }
+          cp "$A" "/tmp/$FLAVOR.apk"
+          mkdir -p /tmp/sihum && cd /tmp/sihum
+          git init -q && git checkout -q -b "sihum-apk-$FLAVOR"
+          mv "/tmp/$FLAVOR.apk" .
+          echo "$APPNAME 시험판 $(TZ=Asia/Seoul date +%y%m%d%H%M) $GITHUB_SHA" > README.txt
+          git add . && git -c user.name=android-jitgi -c user.email=noreply@ada.or.kr commit -qm "$APPNAME 시험판"
+          git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "sihum-apk-$FLAVOR"
+          echo "올림: sihum-apk-$FLAVOR/$FLAVOR.apk"
 
       - name: 기록 남기기
         if: always()
