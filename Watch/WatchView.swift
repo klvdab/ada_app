@@ -4,6 +4,7 @@
 // 2.35.0 (빌드 261002-3, 대표님 승인) 처음 열 때 한 번만 "지팡이를 어느 손으로 쥐십니까", "워치는 어느 손목에 차셨습니까"를 여쭘
 //   워치는 지팡이를 쥐지 않은 손에 차는 것이 기본(손목 가리키기에 알맞음). 지팡이 쥔 손에 차시면 나중에 지팡이 떨림 읽기를 씀.
 //   "걷는 동안 깨어 있기" 단추 — 폰이 걷기를 시작하면 저절로 켜짐
+// 2.37.0 (빌드 261002-5, 대표님 승인) 지팡이 떨림 기록(연구 1단계) — 지팡이 쥔 손에 차셨을 때만 보임
 // 2.36.0 (빌드 261002-4, 대표님 승인) 손목 가리키기 켜고 끄기, 가리키기 방향 맞추기 — 지팡이를 쥐지 않은 손에 차셨을 때만 보임
 //   애플은 앱에 두 번 집기 하나만 내어 주므로(워치 시리즈 9·울트라 2 이후, watchOS 11 이후), 두 번 집기를 몇 번 잇달아 했는지 셈
 import SwiftUI
@@ -56,6 +57,7 @@ struct SonMureumView: View {
 struct WatchView: View {
     @EnvironmentObject var model: WatchModel
     @ObservedObject private var gariki = SonmokGariki.shared
+    @State private var tteollimBogi = false
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("jipangiSon") private var jipangiSon = ""
     @AppStorage("watchSonmok") private var watchSonmok = ""
@@ -126,6 +128,13 @@ struct WatchView: View {
                     .buttonStyle(.bordered)
                     .accessibilityHint("폰 길눈으로 걷는 중에 서서, 두드린 뒤 이 팔을 몸 정면으로 곧게 뻗고 기다리시면 한 번 맞춰 둡니다")
                 }
+                // 2.37.0 지팡이 떨림 기록 — 지팡이 쥔 손에 차셨을 때만
+                if jipangiSon == watchSonmok {
+                    Button { tteollimBogi = true } label: { Text("지팡이 떨림 기록").frame(maxWidth: .infinity) }
+                        .buttonStyle(.bordered)
+                        .accessibilityHint("바닥 종류를 고르고 지팡이를 쓰며 걸으면 떨림을 담아 협회 연구용으로 보냅니다. 나중에 점자블록을 알려 드리는 데 씁니다")
+                        .sheet(isPresented: $tteollimBogi) { TteollimView() }
+                }
                 // 2.35.0 손 바꾸기
                 Button("지팡이 \(Son.mal(jipangiSon))손, 워치 \(Son.mal(watchSonmok))쪽 손목 — 바꾸기") {
                     jipangiSon = ""; watchSonmok = ""
@@ -195,5 +204,33 @@ struct DongyeongWatchView: View {
     private func olgigi(_ cho: Double) {
         guard let p = player else { return }
         p.seek(to: CMTime(seconds: max(0, p.currentTime().seconds + cho), preferredTimescale: 600))
+    }
+}
+
+// MARK: 2.37.0 (빌드 261002-5, 대표님 승인) 지팡이 떨림 기록 화면 — 바닥을 고르면 곧바로 담기, 담는 중에는 그만 단추 하나(두 번 집기로도)
+
+struct TteollimView: View {
+    @ObservedObject private var t = JipangiTteollim.shared
+    @Environment(\.dismiss) private var dwiro
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 8) {
+                if t.damneunJung {
+                    Button { t.geuman() } label: { Text("그만 — \(t.pyo) 기록 보내기").frame(maxWidth: .infinity) }
+                        .buttonStyle(.borderedProminent)
+                        .modifier(JipgiIeum())
+                        .accessibilityHint("두 번 집기로도 멈춥니다. 5분이 되면 저절로 멈춥니다")
+                    Text("\(t.cho / 60)분 \(t.cho % 60)초째").font(.footnote)
+                        .accessibilityHidden(true)
+                } else {
+                    Button("뒤로") { dwiro() }
+                    ForEach(JipangiTteollim.badakdeul, id: \.self) { b in
+                        Button { t.sijak(b) } label: { Text(b).frame(maxWidth: .infinity) }
+                            .buttonStyle(.bordered)
+                            .accessibilityHint("지금 걷는 바닥이 \(b)이면 두드리십시오. 곧바로 기록을 시작합니다")
+                    }
+                }
+            }
+        }
     }
 }

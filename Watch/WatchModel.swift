@@ -30,6 +30,7 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
     private var gilSession: WKExtendedRuntimeSession?
     private var majimakBonaen = -1
     private var ponGeotneun = false   // 폰이 알린 걷는 중 — 바뀔 때만 따름
+    private var tteollimKyeom = false  // 2.37.0 지팡이 떨림 기록이 깨어 있기를 켰는가
 
     override init() {
         super.init()
@@ -213,6 +214,11 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
         do { try FileManager.default.moveItem(at: file.fileURL, to: mok) } catch { return }
         DispatchQueue.main.async { self.dongyeongTeulgi(mok) }
     }
+    // 2.37.0 지팡이 떨림 기록이 폰에 다 넘어가면 워치에서 지움
+    func session(_ session: WCSession, didFinish fileTransfer: WCSessionFileTransfer, error: Error?) {
+        guard error == nil, (fileTransfer.file.metadata?["what"] as? String) == "tteollim" else { return }
+        JipangiTteollim.shared.neomeoganGeotJiugi(fileTransfer.file.fileURL)
+    }
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
         DispatchQueue.main.async { self.apply(userInfo) }
     }
@@ -247,6 +253,21 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
         gilSession = nil
         manbo.stopUpdates()
         kkaeeoItda = false
+    }
+
+    /// 2.37.0 지팡이 떨림 기록 중에는 손목을 내려도 멈추지 않게 — 걸음 세기는 건드리지 않음
+    func kkaeeoBojang(_ on: Bool) {
+        if on {
+            guard gilSession == nil else { return }
+            let s = WKExtendedRuntimeSession()
+            s.delegate = self
+            s.start()
+            gilSession = s
+            tteollimKyeom = true
+        } else if tteollimKyeom {
+            tteollimKyeom = false
+            if !ponGeotneun { gilSession?.invalidate(); gilSession = nil; kkaeeoItda = false }
+        }
     }
 
     /// 손목의 단추 — 켜져 있으면 끄고, 꺼져 있으면 켬
