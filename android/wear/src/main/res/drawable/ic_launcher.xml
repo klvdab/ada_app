@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 갤럭시 워치 길눈 아이콘 (2.5.0판, 빌드 261002-A8) — 폰 길눈과 같은 꼴: 짙은 남색 바탕, 흰 점 길, 아래 노란 줄. 짓기 단계의 아이콘 만들기에 기대지 않음 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#12346E"
+        android:pathData="M24,0A24,24 0,1 1,24 48A24,24 0,1 1,24 0Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M14,30m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M21,24m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,18m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M35,12m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
+    <path
+        android:fillColor="#FFCC00"
+        android:pathData="M12,36h24v4h-24z" />
+</vector>
