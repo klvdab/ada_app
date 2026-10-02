@@ -10,13 +10,17 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.37.1"
-    static let bild = "261002-6"
+    static let pan = "2.38.0"
+    static let bild = "261002-7"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.38.0", bild: "261002-7", nal: "2026-10-02", naeyong: [
+            "안드로이드 길눈과 맞춤(대표님 승인) — 점지도 따라 걷기에서 \"지금 ○시 방향으로 도십시오\" 할 때 폰과 워치에 방향 진동(오른쪽 길게 한 번, 왼쪽 짧게 두 번)",
+            "남산 점검 — 음향신호기·음성안내 장치가 잡히면 종류·세기·자리를 기록(기기 주소는 그대로 남기지 않음). 도움말 더함"
+        ]),
         Gochim(pan: "2.37.1", bild: "261002-6", nal: "2026-10-02", naeyong: [
             "워치에서 보이스오버가 켜져 있으면 길눈 워치의 말을 보이스오버가 읽어 드림(대표님 시험에서 두 번 집기는 떨리는데 말이 안 나오던 것을 고침)",
             "다음 갈림길·마지막 안내는 폰에서 답이 온 뒤 그 답을 말함. 폰과 이어지지 않으면 이어져 있지 않다고 알려 드림",

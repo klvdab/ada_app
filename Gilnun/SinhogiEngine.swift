@@ -13,6 +13,7 @@ import Foundation
 import CoreBluetooth
 import UIKit
 import Combine
+import CryptoKit
 
 final class SinhogiEngine: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     static let shared = SinhogiEngine()
@@ -38,6 +39,7 @@ final class SinhogiEngine: NSObject, CBCentralManagerDelegate, CBPeripheralDeleg
     private var lastSinho: [UUID: Date] = [:]
     private var gakkaSince: [UUID: Date] = [:]
     private var lastBoja: [UUID: Date] = [:]
+    private var girokHan = Set<UUID>()   // 2.38.0 잡힌 기기 기록 — 앱을 켤 때마다 기기 하나에 한 번
     private var ssak = Set<AnyCancellable>()
 
     // 찾기(이끌기)
@@ -189,7 +191,7 @@ final class SinhogiEngine: NSObject, CBCentralManagerDelegate, CBPeripheralDeleg
             self.withCentral { self.dasiSalpim() }
             self.chatgiSigye?.invalidate()
             self.chatgiSigye = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in self?.chatgiBoda() }
-            Girok.shared.namgi("sinhogi_chatgi", [:])
+            Girok.shared.namgi("sinhogi_chatgi_kyeogi", [:])   // 2.38.0 이름 바꿈 — sinhogi_chatgi 는 잡힌 기기 기록으로(안드로이드와 같게)
         }
     }
 
@@ -259,6 +261,7 @@ final class SinhogiEngine: NSObject, CBCentralManagerDelegate, CBPeripheralDeleg
         guard r < 0 && r > -100 else { return }
         let now = Date()
         if name.hasPrefix(SinhogiEngine.bojaApMal) {
+            girokNamgi(p, name, r, "boja")
             if jadongOn, r >= -80, now.timeIntervalSince(lastBoja[p.identifier] ?? .distantPast) > 300 {
                 lastBoja[p.identifier] = now
                 SoriEngine.shared.mal("음성안내 장치가 있는 횡단보도 앞입니다.", .annae)
@@ -268,6 +271,7 @@ final class SinhogiEngine: NSObject, CBCentralManagerDelegate, CBPeripheralDeleg
         }
         let gongyong = ((ad[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID]) ?? []).contains(SinhogiEngine.serviceUUID)
         guard name.hasPrefix(SinhogiEngine.apMal) || gongyong else { return }
+        girokNamgi(p, name, r, "sinhogi")
         chajeun[p.identifier] = (p, r, now)
         guard jadongOn, pending == nil, !chatneunJung else { return }
         // 가장 센 것 하나에만
@@ -292,6 +296,21 @@ final class SinhogiEngine: NSObject, CBCentralManagerDelegate, CBPeripheralDeleg
             lastSinho[id] = now
             jadongBonaegi(2, p)
         }
+    }
+
+    /// 2.38.0 (빌드 261002-7, 대표님 승인) 남산 점검 — 음향신호기·음성안내 장치가 잡히면 종류·세기·자리를 한 번 남김(안드로이드 길눈 2.3.0과 같은 기록 sinhogi_chatgi)
+    ///   기기 주소는 그대로 남기지 않고 sha256 앞 10자리만
+    private func girokNamgi(_ p: CBPeripheral, _ name: String, _ r: Int, _ jong: String) {
+        guard !girokHan.contains(p.identifier) else { return }
+        girokHan.insert(p.identifier)
+        let ju = SHA256.hash(data: Data(p.identifier.uuidString.utf8)).map { String(format: "%02x", $0) }.joined().prefix(10)
+        var d: [String: Any] = ["jong": jong, "ireum": name, "ju": String(ju), "rssi": r]
+        if let w = WichiEngine.shared.jigeum {
+            d["lat"] = (w.lat * 1e6).rounded() / 1e6
+            d["lon"] = (w.lon * 1e6).rounded() / 1e6
+            d["ochae"] = Int(w.ochae)
+        }
+        Girok.shared.namgi("sinhogi_chatgi", d)
     }
 
     func centralManager(_ c: CBCentralManager, didConnect p: CBPeripheral) {

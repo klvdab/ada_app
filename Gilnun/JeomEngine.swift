@@ -1036,6 +1036,7 @@ final class JeomEngine: ObservableObject {
         if dk.i < idx - 1 {
             kkeokHan.insert(key + "a"); kkeokHan.insert(key + "c"); kkeokHan.insert(key + "b")
             mal("지금 \(sigyeGak(dk.d))으로 도십시오.")
+            Jindong.banghyang(sigyeSu(dk.d))   // 2.38.0 꺾는 곳에서 폰과 워치에 방향 진동(안드로이드 길눈 2.5.0과 맞춤)
             dolgi(8)
             dolgiMok = (dk.i, nil, Date()); dolgiGijun()
             return
@@ -1050,6 +1051,7 @@ final class JeomEngine: ObservableObject {
         } else if mi <= 5 && !kkeokHan.contains(key + "b") {
             kkeokHan.insert(key + "b")
             mal("지금 \(sigyeGak(dk.d))으로 도십시오.")
+            Jindong.banghyang(sigyeSu(dk.d))   // 2.38.0 꺾는 곳에서 폰과 워치에 방향 진동(안드로이드 길눈 2.5.0과 맞춤)
             dolgi(8)
             dolgiMok = (dk.i, nil, Date()); dolgiGijun()
         }
@@ -1696,6 +1698,15 @@ final class JeomEngine: ObservableObject {
     }
 
     /// 꺾는 각도(오른쪽이 +) → "3시 방향"
+    /// 2.38.0 돌 쪽 각도를 시계 숫자로(진동 무늬 고르기)
+    private func sigyeSu(_ d: Double) -> Int {
+        var h = Int((d / 30).rounded())
+        if h <= 0 { h += 12 }
+        if h > 12 { h -= 12 }
+        if abs(d) > 150 { h = 6 }
+        return h
+    }
+
     private func sigyeGak(_ d: Double) -> String {
         var h = Int((d / 30).rounded())
         if h <= 0 { h += 12 }
