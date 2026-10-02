@@ -12,15 +12,13 @@
 //   안전 경고는 끌 수 없음 — 걷기 시작 한마디, 확인 중인 길, 안내 끊김(10초)
 // 한 걸음 어긋남 재기 — 위성은 몇 미터씩 흔들리므로, 몸 센서로 발 디딤을 잡고(아이폰 2.32.0과 같음)
 // 자이로 합성 방향으로 디딘 방향을 읽어 점지도 구간 방향과 견주어 옆으로 비켜난 거리를 걸음마다 쌓아 셉니다.
-// 아직 옮기지 않은 것(다음 판):
-//   TODO(아이폰 ieumGeotgi·JeomGugan) 여러 점지도 이어 걷기
-//   TODO(아이폰 munJunbi·munOn·MunChatgi) 문까지 이어 안내와 카메라 문 찾기
-//   TODO(아이폰 juwiMalhagi) 지나는 곳 안내
-//   TODO(아이폰 hamkkeNureum·hamkkeBonaegi) 함께 시험하기
-//   TODO(아이폰 georeoGagiBoda·muleum, YeojeongEngine, AnnaeEngine.neagoriBakkeseo) 걸어가기에서 점지도 여쭘, 여정, 사거리 알림
-//   TODO(아이폰 ieoGagi) 앱이 꺼졌다 켜져도 이어 걷기
-//   TODO(아이폰 gilmok·beoseuJeongryujang·geollimNamgigi) 길목 살펴보기, 가까운 정류장, 여기 걸렸어요
-//   TODO(아이폰 Jindong.dochak) 폰 도착 진동(워치 도착 진동은 2.5.0에서 옮김)
+// 2.7.0(묶음 b2 점지도 마저, 대표님 지시) 아이폰 2.11.0~2.38.0과 같이
+//   여러 점지도 이어 걷기(ieumGeotgi — 한 구간을 마치면 손대지 않고 다음 구간), 문까지 이어 안내(mun.php, 내 문 먼저),
+//   지나는 곳 안내(juwi2.php, 25미터 둘레, 뒤쪽은 말하지 않음), 함께 시험하기(hamkke.php), 길목(ppyeodae.php)·가까운 정류장(beoseu.php),
+//   여기 걸렸어요, 앱이 꺼졌다 켜져도 이어 걷기(3시간 안), 걸어가기에서 점지도로 걸을지 여쭘(georeoGagiBoda — 20초 뒤 점지도로),
+//   꺾는 곳에서 폰·워치 방향 진동과 도착 진동(Jindong), 확신음 끄기·"제대로 가고 있습니다" 간격(JeomSeol)
+//   여정·위성 걷기·사거리 알림은 다른 묶음(b1)의 몫 — 아래 "다른 묶음과 잇는 자리"로 이어 붙임
+//   카메라 문 찾기는 묶음 3의 몫 — JeomMunKamera 로 이어 붙임
 // 2.5.0(빌드 261002-A8, 대표님 지시) 갤럭시 워치 — 아이폰 2.35.0·2.36.0과 같이
 //   따라 걷기 시작·그만을 워치에 알림(워치가 깨어 있기와 팔 흔들림 걸음 세기를 켜고 끔), 워치가 센 걸음으로 폰 걸음이 끊긴 때를 메움(watchGeoreum),
 //   손목 가리키기에 가야 할 쪽을 보냄(garikiAllim, 5도·10초), 가리키기 방향 맞추기에 몸 방향(momBang),
@@ -34,6 +32,8 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Handler
 import android.os.Looper
+import org.json.JSONArray
+import org.json.JSONObject
 import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.abs
@@ -68,6 +68,65 @@ object JeomEngine {
     val georeoJung: Boolean get() = gil != null && !dochakHam
     /** 시작·도착·그만·불러오기 실패처럼 화면이 바뀌어야 할 때 한 번 부름(화면이 채움) */
     var byeonhwa: (() -> Unit)? = null
+
+    // 2.7.0 다른 묶음과 잇는 자리(채우지 않으면 하지 않음)
+    /** 여정 — 이 길의 끝(또는 걸어가실 곳)을 목적지로, 걸어서 가는 중으로(아이폰 YeojeongEngine.jeonghagi·talgeotJeonghagi·danggyeBakkugi) */
+    var yeojeongJeonghagi: ((JeomMokjeok) -> Unit)? = null
+    /** 여정 — 도착(아이폰 danggyeBakkugi(.dochak)) */
+    var yeojeongDochak: (() -> Unit)? = null
+    /** 여정 — 그만 걷기로 여정을 끝냄(아이폰 YeojeongEngine.kkeut) */
+    var yeojeongKkeut: (() -> Unit)? = null
+    /** 지금 여정의 목적지(앱이 다시 켜질 때 옛 길이 새 목적지를 덮어쓰지 않게 견줌) */
+    var yeojeongMok: (() -> JeomMokjeok?)? = null
+    /** 위성으로 걷기(아이폰 AnnaeEngine.georeoGagi) — 점지도가 없거나 위성을 고르셨을 때 */
+    var wiseongGeotgi: ((JeomMokjeok?) -> Unit)? = null
+    /** 사거리·갈림길 알림(아이폰 AnnaeEngine.neagoriBakkeseo) — 문까지 가는 동안은 쉼 */
+    var neagoriBakkeseo: ((Jari) -> Unit)? = null
+
+    // 2.7.0 여쭘(걸어가기에서 점지도로 걸을까요)
+    var muleum: JeomYeojjum? = null
+        private set
+    private val muleumJakeop = Runnable {
+        if (muleum != null) { Sori.mal("고르지 않으셔서 점지도로 걷습니다."); muleumDap(true) }
+    }
+    // 2.7.0 여러 점지도 이어 걷기
+    var ieum: List<JeomGugan> = emptyList()
+        private set
+    var ieumIdx = 0
+        private set
+    private var ieumMok: JeomMokjeok? = null
+    /** 이어진 길의 가운데 구간을 걷는 중(끝이 목적지가 아님) */
+    val jungganGugan: Boolean get() = ieum.isNotEmpty() && ieumIdx < ieum.size - 1
+    // 2.7.0 문까지 이어 안내(내 문 먼저)
+    private class JeomMun(val lat: Double, val lon: Double, val ireum: String, val saengMal: String, val bang: Double?,
+                          val jarye: Int, val d: Double, val geul: List<String> = emptyList())
+    var munOn = false
+        private set
+    var munSu = 0
+        private set
+    private var munKamera = false
+    private var mun: JeomMun? = null
+    private var munList: List<JeomMun> = emptyList()
+    private var munIdx = 0
+    private var munDasi = false
+    private var munT = 0L
+    private var munGakkaum: Double? = null
+    private var munBeon = 0
+    private var munSijakT = 0L
+    // 2.7.0 지나는 곳 안내(웹 juwi.js)
+    private class JuwiJul(val ireum: String, val jong: String, val lat: Double, val lon: Double, val wi: Boolean)
+    private var juwiRows: List<JuwiJul> = emptyList()
+    private val juwiHan = HashSet<String>()
+    private var juwiEonje = 0L
+    private var juwiJari: Pair<Double, Double>? = null
+    private var juwiCenter: Pair<Double, Double>? = null
+    private var juwiBan = 0.0
+    private var juwiBadneun = false
+    private var juwiBatT = 0L
+    // 2.7.0 함께 시험하기
+    var hamkkeBunho: String? = null
+        private set
+    private var hamkkeT = 0L
 
     // 길
     private var pts: List<JeomJeom> = emptyList()
@@ -179,12 +238,15 @@ object JeomEngine {
     private var moT = 0L
 
     private const val RAD = PI / 180
-    /** "제대로 가고 있습니다" 간격(미터) — TODO(아이폰 Seoljeong.hwaksinGan 5·10·20): 설정은 다음 판, 지금은 기본 10 */
-    private const val HWAKSIN_GAN = 10.0
+    /** "제대로 가고 있습니다" 간격(미터) — 2.7.0 설정(JeomSeol.hwaksinGan 5·10·20, 처음 10) */
+    private val HWAKSIN_GAN: Double get() = JeomSeol.hwaksinGan.toDouble()
     private val bocok: Double get() { val b = Seoljeong.bopok; return if (b > 0.3 && b < 1.2) b else 0.7 }
 
     private fun junbi(c: Context) {
         ctx = c.applicationContext
+        JeomSeol.sijak(c)
+        NaeGil.sijak(c)
+        Jindong.sijak(c)
         if (deutgiDoem) return
         deutgiDoem = true
         Wichi.deutgi { w -> wichiBatda(w) }
@@ -200,10 +262,69 @@ object JeomEngine {
 
     // MARK: 시작과 끝
 
-    /** 점지도를 불러 따라 걷기 시작(dw 참이면 되돌아가기 — 끝에서 처음으로) */
-    fun bulleoGeotgi(c: Context, id: String, dw: Boolean) {
+    /** 2.7.0 앱이 켜질 때 한 번(GilnunActivity.onCreate, 여정 엔진을 세운 뒤) — 점지도 묶음의 부품을 켜고,
+     *  되짚어 나가기를 이어 기억하고, 3시간 안에 걷던 점지도가 있으면 이어 걸음. 이어 걸으면 참(걷는 화면을 열도록) */
+    fun appSijak(c: Context): Boolean {
         junbi(c)
+        MalgilEngine.sijak(c)
+        Heundeul.sijak(c)
+        RemoteDanchu.sijak(c)
+        DoeEngine.ieoGagi(c)
+        return ieoGagi(c)
+    }
+
+    // MARK: 2.7.0 걸어가기 — 점지도가 있으면 한 번 여쭘(이사장님 결정 나2, 점지도를 먼저 권함)
+
+    /** 걸어가실 곳에 맞는 점지도가 있으면 여쭙고(mutgi 에 여쭐 말), 없으면 곧장 위성으로 걷는 안내(mutgi 에 null) */
+    fun georeoGagiBoda(c: Context, j: JeomMokjeok, mutgi: (String?) -> Unit) {
+        junbi(c)
+        // 새 목적지면 걷던 점지도를 먼저 끔 — 옛 길이 계속 말하고 새 목적지를 덮어쓰던 것(아이폰 2.12.6)
+        yeojeongKkeutJeom()
+        val sd = sedae
+        val w = Wichi.jigeum
+        if (w == null) { mutgi(null); wiseongGeotgi?.invoke(j); return }
+        Jeomjido.matneunGil(w.lat, w.lon, j) { m ->
+            if (sd != sedae) return@matneunGil
+            if (m == null) { mutgi(null); wiseongGeotgi?.invoke(j); return@matneunGil }
+            yeojeongJeonghagi?.invoke(j)
+            muleum = JeomYeojjum(j, m.first, m.second)
+            byeonhwa?.invoke()
+            mutgi("이 길에는 ${m.first}가 있습니다. 점지도로 걸을까요, 위성으로 걸을까요? 점지도가 더 정확합니다. 네 하시면 점지도로 걷습니다. 20초 안에 고르지 않으시면 점지도로 걷습니다.")
+            main.removeCallbacks(muleumJakeop)
+            main.postDelayed(muleumJakeop, 20000)
+        }
+    }
+
+    /** 여쭌 말의 대답 — 참이면 점지도, 거짓이면 위성 */
+    fun muleumDap(jeom: Boolean) {
+        val m = muleum ?: return
+        muleumJiugi()
+        val c = ctx
+        if (jeom && c != null) ieumGeotgi(c, m.gugan, m.mok) else wiseongGeotgi?.invoke(m.mok)
+        byeonhwa?.invoke()
+    }
+
+    fun muleumJiugi() {
         sedae += 1
+        main.removeCallbacks(muleumJakeop)
+        muleum = null
+    }
+
+    // MARK: 시작과 끝
+
+    /** 2.7.0 여러 점지도를 차례로 이어 걷기 — 구간이 하나면 그냥 따라 걷기 */
+    fun ieumGeotgi(c: Context, g: List<JeomGugan>, mok: JeomMokjeok?) {
+        val cheot = g.firstOrNull() ?: return
+        ieum = if (g.size > 1) g else emptyList()
+        ieumIdx = 0
+        ieumMok = mok
+        bulleoGeotgi(c, cheot.id, cheot.dwit, mok, true)
+    }
+
+    /** 점지도를 불러 따라 걷기 시작(dw 참이면 되돌아가기 — 끝에서 처음으로) */
+    fun bulleoGeotgi(c: Context, id: String, dw: Boolean, mok: JeomMokjeok? = null, ieumYuji: Boolean = false) {
+        junbi(c)
+        muleumJiugi()
         val sd = sedae
         bulleoneun = true
         byeonhwa?.invoke()
@@ -212,23 +333,34 @@ object JeomEngine {
             if (sd != sedae) return@bulleoogi   // 그사이 그만두셨으면 버림
             bulleoneun = false
             if (g == null) {
-                mal("길을 불러오지 못했습니다. 통신을 확인해 주십시오.")
+                // 아이폰 2.12.0 이어 걷던 길을 못 불러오면 멈추지 않고 위성 안내로 이어 감
+                val ws = wiseongGeotgi
+                if (ieumYuji && ws != null) {
+                    val mk = ieumMok ?: mok
+                    ieum = emptyList(); ieumIdx = 0; ieumMok = null
+                    ieogaJiugi()
+                    mal("길을 불러오지 못했습니다. 위성 안내로 이어 갑니다.")
+                    ws(mk)
+                } else {
+                    mal("길을 불러오지 못했습니다. 통신을 확인해 주십시오.")
+                }
                 byeonhwa?.invoke()
                 return@bulleoogi
             }
-            sijak(c, g, dw)
+            sijak(c, g, dw, mok, ieumYuji)
         }
     }
 
-    fun sijak(c: Context, g0: JeomGil, dw: Boolean) {
+    fun sijak(c: Context, g0: JeomGil, dw: Boolean, mok: JeomMokjeok? = null, ieumYuji: Boolean = false) {
         junbi(c)
-        sedae += 1
+        muleumJiugi()
         val sd = sedae
         bulleoneun = false
         geumanSok(false)
+        if (!ieumYuji) { ieum = emptyList(); ieumIdx = 0; ieumMok = null }
         val g = if (dw) g0.dwit() else g0
         val p = g.pts.filter { it.lat != 0.0 && it.lon != 0.0 }
-        if (p.size < 3) { mal("이 길에는 점이 너무 적습니다."); byeonhwa?.invoke(); return }
+        if (p.size < 3) { ieogaJiugi(); mal("이 길에는 점이 너무 적습니다."); byeonhwa?.invoke(); return }
         pts = p
         nu.clear()
         nu.add(0.0)
@@ -247,24 +379,33 @@ object JeomEngine {
         idx = 0; firstFix = true; me = null; spd = 0.0; lastT = 0L; offSu = 0; beoseoSu = 0
         jeop30 = false; jeop20 = false; cheotBang = false; dolgiMok = null; geonneolOn = false; geonneolI = -1
         geoMode = false; dwiNeolge = false; geollimJari = null; geollimHan.clear()
+        munOn = false; mun = null; munList = emptyList(); munSu = 0; munIdx = 0; munDasi = false; munGakkaum = null; munKamera = false
+        juwiRows = emptyList(); juwiHan.clear(); juwiEonje = 0L; juwiJari = null; juwiCenter = null; juwiBatT = 0L
         val now = System.currentTimeMillis()
         sijakT = now
         jariTtae = now; wiseongTtae = now
         S = HS()
         gil = g
+        // 여정 — 이 길의 끝을 목적지로(차를 타셔도 목적지가 이어지게, 웹 260910-9와 같음)
+        val e = p[p.size - 1]
+        val doIreum = if (mok == null || mok.ireum.isEmpty()) (if (g.to.isEmpty()) g.title else g.to) else mok.ireum
+        yeojeongJeonghagi?.invoke(JeomMokjeok(doIreum, mok?.juso ?: "", mok?.lat ?: e.lat, mok?.lon ?: e.lon))
         if (!g0.id.startsWith("nae_")) Tongsin.json("ttara.php", mapOf("a" to "put", "id" to g0.id)) { }
         Girok.namgi("jeom_sijak", mapOf("id" to g0.id, "dwit" to dw, "m" to (nu.lastOrNull() ?: 0.0).toInt()))
         // 안전 경고 — 끌 수 없음
         hwakinDoen(g0.id) { hwakin ->
             if (sd != sedae || gil == null) return@hwakinDoen
-            var t = "길눈은 보조 안내입니다. 지팡이와 주변 소리를 먼저 확인하십시오."
+            var t = if (ieumIdx > 0) "" else "길눈은 보조 안내입니다. 지팡이와 주변 소리를 먼저 확인하십시오."
             if (!hwakin) t += " 이 점지도는 아직 확인 중인 길입니다. 조심해서 걸으십시오."
-            mal(t, MalGeup.GYEONGGO)
-            var m = (if (dw) "되돌아가기를 시작합니다. " else "따라 걷기를 시작합니다. ") + "모두 ${Jeomjido.bannol(nu.lastOrNull() ?: 0.0).toInt()}미터입니다."
+            if (t.isNotEmpty()) mal(t.trim(), MalGeup.GYEONGGO)
+            var m = if (ieum.isEmpty()) "" else "이어진 길 ${ieum.size}구간 가운데 ${ieumIdx + 1}번째 구간입니다. "
+            m += (if (dw) "되돌아가기를 시작합니다. " else "따라 걷기를 시작합니다. ") + "모두 ${Jeomjido.bannol(nu.lastOrNull() ?: 0.0).toInt()}미터입니다."
             m += if (Seoljeong.bopokJaem) " 걸음 수는 재 두신 보폭으로 알려 드립니다." else " 보폭을 아직 재지 않으셔서 기본값으로 알려 드립니다."
             if (kkeoks.isNotEmpty()) m += " 이 길에 꺾이는 자리가 ${kkeoks.size}곳 있습니다. 미리 알려 드리겠습니다."
             mal(m)
         }
+        ieogaJeojang(g0.id, dw, mok)
+        munJunbi()
         umjikSijak()
         tikT = now
         sigyeDolgo = true
@@ -281,13 +422,28 @@ object JeomEngine {
         sedae += 1
         bulleoneun = false
         if (gil == null) {
-            if (bulleo) mal("따라 걷기를 그만두었습니다.")
+            if (bulleo) { ieum = emptyList(); ieumIdx = 0; ieumMok = null; ieogaJiugi(); mal("따라 걷기를 그만두었습니다.") }
             byeonhwa?.invoke()
             return
         }
+        ieum = emptyList(); ieumIdx = 0; ieumMok = null
+        ieogaJiugi()
+        hamkkeBunho?.let { hamkkeKkeut(it); hamkkeBunho = null }
         val dochak = dochakHam
         geumanSok(!dochak)
-        if (dochak) mal("따라 걷기를 마쳤습니다.")
+        yeojeongKkeut?.invoke()
+        if (dochak) mal(if (yeojeongKkeut != null) "여정을 끝냈습니다." else "따라 걷기를 마쳤습니다.")
+        byeonhwa?.invoke()
+    }
+
+    /** 2.7.0 여정을 끝낼 때 — 다른 묶음(여정·안내)이 부름. 말없이 점지도만 닫음 */
+    fun yeojeongKkeutJeom() {
+        muleumJiugi()
+        bulleoneun = false
+        ieum = emptyList(); ieumIdx = 0; ieumMok = null
+        ieogaJiugi()
+        hamkkeBunho?.let { hamkkeKkeut(it); hamkkeBunho = null }
+        if (gil != null) geumanSok(false)
         byeonhwa?.invoke()
     }
 
@@ -304,6 +460,7 @@ object JeomEngine {
         if (garikiBonaen != null) { WatchLink.garikiBonae(null); garikiBonaen = null }
         if (momNaega) { MomSensor.kkeugi(); momNaega = false }
         momSseum = false
+        munOn = false; mun = null; munList = emptyList(); munSu = 0; munKamera = false
         gil = null
         dochakHam = false
         sangMal = ""
@@ -316,6 +473,14 @@ object JeomEngine {
         val c = ctx ?: return
         val id = gilRaw.replace("|r", "")
         val dw = !dwit
+        // 아이폰 2.12.0 이어진 길을 다 걸은 뒤에는 이어진 길 전체를 거꾸로
+        if (ieum.size > 1) {
+            val r = ieum.reversed().map { JeomGugan(it.id, !it.dwit) }
+            ieumGeotgi(c, r, null)
+            return
+        }
+        ieum = emptyList(); ieumIdx = 0; ieumMok = null
+        if (id.startsWith("nae_")) { val n = NaeGil.chatgi(id); if (n != null) { sijak(c, n, dw); return } }
         val w = wonGil
         if (w != null && w.id == id) { sijak(c, w, dw); return }
         bulleoGeotgi(c, id, dw)
@@ -333,6 +498,9 @@ object JeomEngine {
     private fun jigeumEodiMal(): String =
         "남은 거리는 ${georiMal(namEun)}입니다. 위치 오차는 약 ${max(1, Jeomjido.bannol(acc).toInt())}미터입니다." +
             (if (geoMode) " 지금은 걸음으로 이어 셈하고 있습니다." else "")
+
+    /** 다음에 무엇이 있습니까(말로) */
+    fun daeumMuot() { mal(daeumMuotMal()) }
 
     /** 다음에 무엇이 있습니까 */
     fun daeumMuotMal(): String {
@@ -379,7 +547,8 @@ object JeomEngine {
         if (geoMode) dwiNeolge = true   // 걸음으로 가다 위성이 돌아온 첫 자리 — 뒤로도 넓게 찾음
         geoMode = false
         onMove(w.lat, w.lon, w.ochae)
-        // TODO(아이폰 AnnaeEngine.neagoriBakkeseo) 사거리·갈림길 알림
+        // 사거리·갈림길 알림 — 문까지 가는 동안은 쉼(다른 묶음이 채움)
+        if (gil != null && !dochakHam && !munOn) neagoriBakkeseo?.invoke(w)
     }
 
     private fun onMove(la: Double, lo: Double, ac: Double) {
@@ -422,14 +591,15 @@ object JeomEngine {
             firstFix = false
             for (q in pyo) if (q.i < idx) { q.said = true; q.near = true; q.said30 = true }
         }
+        hamkkeBonaegi()
         val rest = namEun
         sangMal = "남은 거리 ${Jeomjido.bannol(rest).toInt()}미터, 위치 오차 약 ${Jeomjido.bannol(ac).toInt()}미터."
         hwaksinGil(bestD, ac, rest)
         bangHwagin()
         // 도착 접근 안내 — 30미터쯤 한 번, 20미터 안에서 한 번, 그 뒤 2.5초마다 남은 거리와 시 방향
         val e = pts[pts.size - 1]
-        val kkeutMal = "목적지"
-        if (rest >= 5 && rest < 32) {
+        val kkeutMal = if (jungganGugan) "이 구간 끝" else "목적지"
+        if (rest >= 5 && rest < 32 && mun == null) {
             if (rest > 20) {
                 if (!jeop30) { jeop30 = true; mal("${kkeutMal}까지 ${Jeomjido.bannol(rest).toInt()}미터입니다.") }
             } else if (!jeop20) {
@@ -440,8 +610,40 @@ object JeomEngine {
                 mal("남은 거리 ${georiMal(rest)}${siMal(e.lat, e.lon)}입니다.")
             }
         }
-        // TODO(아이폰 2.11.0 문까지) 길 끝 50미터 안에서 문을 다시 찾고, 30미터 안에서 문으로 이끌고, 문 5미터 안에서 도착
-        // TODO(아이폰 2.11.1 juwiMalhagi) 지나는 곳 안내
+        // 2.7.0 문까지 — 길 끝 50미터 안에서 문을 다시 찾고, 30미터 안에서 문으로 이끌고, 문 5미터 안에서 도착
+        if (rest < 50 && !munDasi && !munOn) { munDasi = true; munJunbi() }
+        val MU = mun
+        if (MU != null) {
+            val dm = Wichi.geori(la, lo, MU.lat, MU.lon)
+            if (!munOn && rest < 30) {
+                munOn = true; munT = now; munSijakT = now; munGakkaum = dm
+                S.gyeol = ""; S.yeop = 0.0
+                mal("문까지 이어 안내합니다. 여기서부터 위성 안내입니다. " + munMal(MU) + (if (munList.size > 1) " 문이 ${munList.size}곳 있습니다." else ""))
+                byeonhwa?.invoke()
+                return
+            }
+            if (munOn) {
+                // 문 10미터 안 — 카메라 문 찾기를 저절로(묶음 3이 이어 붙임). 위성 안내는 그대로 이어 감
+                if (dm < 10 && !munKamera) {
+                    munKamera = true
+                    if (JeomMunKamera.gigiGaneung()) JeomMunKamera.kyeogi?.invoke("munkkaji", if (MU.geul.isEmpty()) null else Pair(MU.ireum, MU.geul))
+                }
+                val g = munGakkaum
+                if (g != null) {
+                    if (g - dm >= 1.5) { munGakkaum = dm; eum(EumJong.HWAKSIN) } else if (dm > g + 3) munGakkaum = dm
+                }
+                if (dm < max(5.0, min(acc, 10.0))) {
+                    var t = "문 앞입니다. " + munMal(MU)
+                    if (MU.saengMal.isNotEmpty()) t += " 문은 ${MU.saengMal}입니다."
+                    dochak(t)
+                    return
+                }
+                if (now - munT > 2500 && !JeomMunKamera.munBoim()) { munT = now; mal(munMal(MU)) }   // 카메라가 문을 보고 있으면 카메라 말에 맡김
+                return
+            }
+        }
+        // 2.7.0 지나는 곳 안내 — 목적지 20미터 안에서는 문 찾기에 집중하도록 쉼
+        if (rest >= 20) juwiMalhagi(la, lo)
         geollimSalpigi(la, lo)
         kkeokBoda(la, lo)
         // 길에서 크게 벗어남 — 말은 확신음 쪽이 맡고, 여기서는 걸린 자리로 남김
@@ -489,8 +691,14 @@ object JeomEngine {
                 if (gil == null || dochakHam) return
             }
         }
+        // 2.7.0 문을 90초 넘게 찾으면 — 끝없이 말하지 않고 마침(아이폰 2.12.0)
+        val MU = mun
+        if (munOn && MU != null && now - munSijakT > 90000) {
+            dochak("문을 찾는 시간이 길어져 안내를 마칩니다. " + munMal(MU))
+            return
+        }
         // 점지도를 확신할 수 없는 동안(폰 방향이 들쭉날쭉) 5초마다
-        if (S.jumeoni && !S.pokgiMal && now - S.hwakMalT >= 5000) {
+        if (S.jumeoni && !munOn && !S.pokgiMal && now - S.hwakMalT >= 5000) {
             S.hwakMalT = now
             mal("점지도 확인이 어렵습니다. 멈추고 주변을 확인하십시오.", MalGeup.GYEONGGO)
         }
@@ -960,9 +1168,9 @@ object JeomEngine {
         }
     }
 
-    /** 2.5.0 워치 방향 진동 — 꺾는 각도(오른쪽 +). 뒤쪽(150도 넘게)은 길게 */
+    /** 2.5.0 워치 방향 진동 — 2.7.0 아이폰 2.38.0과 같이 폰과 워치에 같은 무늬(Jindong.banghyang: 2~5시 오른쪽, 7~10시 왼쪽, 6시 길게) */
     private fun watchBang(d: Double) {
-        WatchLink.jindongBonae(if (abs(d) > 150) "long" else if (d > 0) "right" else "left")
+        Jindong.banghyang(sigyeSu(d))
     }
 
     /** 2.5.0 (아이폰 2.36.0, 대표님 승인) 손목 가리키기 — 가야 할 쪽(돌아야 할 때는 돌 쪽, 아니면 앞 6미터)을 워치에
@@ -1230,21 +1438,313 @@ object JeomEngine {
 
     // MARK: 도착
 
-    private fun dochak() {
+    private fun dochak(munAp: String? = null) {
         if (dochakHam) return
-        // TODO(아이폰 2.11.0 jungganGugan) 이어진 길의 가운데 구간 끝이면 곧장 다음 구간으로
+        // 2.7.0 이어진 길의 가운데 구간 끝 — 알리고 곧장 다음 구간으로(손을 쓰지 않게)
+        val c = ctx
+        if (jungganGugan && c != null) {
+            sseumNamgigi(true)
+            gilRaw = ""   // 다음 구간을 부르며 이 구간의 쓰임을 두 번 남기지 않게
+            val nam = ieum.size - ieumIdx - 1
+            ieumIdx += 1
+            val da = ieum[ieumIdx]
+            geumanSok(false)   // 이 구간을 닫아 다음 구간을 부르는 동안 헛도착·건너뜀이 없게
+            Eum.naegi(EumJong.DORAOM)
+            mal("한 구간을 마쳤습니다. 남은 구간 ${nam}개, 이어서 안내합니다.")
+            Girok.namgi("jeom_ieum", mapOf("id" to da.id, "idx" to ieumIdx))
+            bulleoGeotgi(c, da.id, da.dwit, ieumMok, true)
+            return
+        }
         dochakHam = true
         if (garikiBonaen != null) { WatchLink.garikiBonae(null); garikiBonaen = null }   // 2.5.0 도착하면 손목 가리키기 쉼
-        WatchLink.jindongBonae("arrive")   // 2.5.0 워치 도착 진동
+        munOn = false
+        ieogaJiugi()
         sseumNamgigi(true)
         sigyeDolgo = false
         main.removeCallbacks(sigye)
         gasokKkeugi()
         Eum.naegi(EumJong.DOCHAK)
-        sangMal = "목적지에 닿았습니다."
-        mal("목적지에 닿았습니다. 따라 걷기를 마칩니다. 되돌아가시려면 되돌아가기 단추를 누르십시오.")
-        Girok.namgi("jeom_dochak", mapOf("id" to gilRaw, "mun" to false))
+        Jindong.dochak()   // 2.7.0 폰과 워치 도착 진동(세 번)
+        yeojeongDochak?.invoke()
+        sangMal = if (munAp == null) "목적지에 닿았습니다." else "문 앞에 닿았습니다."
+        val ap = if (ieum.isNotEmpty()) "이어진 길을 모두 걸었습니다. " else ""
+        if (munAp != null) mal(ap + munAp + " 따라 걷기를 마칩니다. 되돌아가시려면 되돌아가기 단추를 누르십시오.")
+        else mal(ap + "목적지에 닿았습니다. 따라 걷기를 마칩니다. 되돌아가시려면 되돌아가기 단추를 누르십시오.")
+        Girok.namgi("jeom_dochak", mapOf("id" to gilRaw, "mun" to (munAp != null)))
         byeonhwa?.invoke()
+    }
+
+    // MARK: 2.7.0 문까지(웹 munJunbi — 내 문 → 여러 번 확인된 문 → 한 번 찍힌 문)
+
+    private fun munJunbi() {
+        munList = emptyList(); munSu = 0
+        if (!munOn) { mun = null; munIdx = 0 }
+        if (pts.size < 2 || jungganGugan) return
+        val kk = pts[pts.size - 1]
+        val hubo = NaeMun.mokrok.mapNotNull { m ->
+            val d = Wichi.geori(kk.lat, kk.lon, m.lat, m.lon)
+            if (d > 60) null else JeomMun(m.lat, m.lon, if (m.ireum.isEmpty()) "내 문" else m.ireum, "", m.bang, 0, d, m.geul ?: emptyList())
+        }
+        munSeugi(hubo)
+        munBeon += 1
+        val beon = munBeon
+        Tongsin.json("mun.php", mapOf("a" to "near") + Jeomjido.jari(kk.lat, kk.lon) + mapOf("r" to "60"), 20000) { o ->
+            if (o == null || beon != munBeon || gil == null) return@json
+            val rows = o.optJSONArray("list") ?: o.optJSONArray("rows") ?: return@json
+            val h = ArrayList(hubo)
+            for (i in 0 until rows.length()) {
+                val x = rows.optJSONObject(i) ?: continue
+                val la = Jeomjido.su(x, "lat") ?: continue
+                val lo = Jeomjido.su(x, "lon") ?: continue
+                if (la == 0.0) continue
+                if (h.any { Wichi.geori(it.lat, it.lon, la, lo) < 3 }) continue
+                val nm = Jeomjido.gul(x, "ireum").trim()
+                h.add(JeomMun(la, lo, if (nm.isEmpty()) "문" else nm, Jeomjido.gul(x, "saengMal"), Jeomjido.su(x, "bang"),
+                    if ((Jeomjido.su(x, "doo") ?: 0.0) > 0) 1 else 2, Wichi.geori(kk.lat, kk.lon, la, lo)))
+            }
+            munSeugi(h)
+        }
+    }
+
+    private fun munSeugi(h: List<JeomMun>) {
+        val s = h.sortedBy { it.jarye * 1000.0 + it.d }
+        munList = s
+        munSu = s.size
+        if (!munOn) { munIdx = 0; mun = s.firstOrNull() }
+    }
+
+    /** 문은 몇 시 방향, 몇 걸음 — 방향을 모르면 걸어 보시라고 */
+    private fun munMal(MU: JeomMun): String {
+        val m = me ?: return ""
+        val nm = MU.ireum
+        val d = Wichi.geori(m.first, m.second, MU.lat, MU.lon)
+        val h = jigeumHead ?: return "${nm}까지 ${georeum(d)}입니다. 폰을 앞으로 든 채 한두 걸음 걸으시면 방향을 알려 드립니다."
+        var t = "$nm${MalHagi.eun(nm)} ${sigyeGak(chai(Jeomjido.bangwi(m.first, m.second, MU.lat, MU.lon), h))}, ${georeum(d)}입니다."
+        val b = MU.bang
+        if (b != null) t += " 들어가는 쪽은 ${sigyeGak(chai(b, h))}입니다."
+        return t
+    }
+
+    /** 다른 문으로 */
+    fun dareunMun() {
+        if (!munOn || munList.size <= 1) { mal("다른 문이 없습니다."); return }
+        munIdx = (munIdx + 1) % munList.size
+        val MU = munList[munIdx]
+        mun = MU
+        munGakkaum = null
+        mal("다른 문으로 바꿉니다. " + munMal(MU))
+    }
+
+    // MARK: 2.7.0 이 길목은 어떻게 생겼습니까, 가까운 버스 정류장, 지나는 곳
+
+    fun gilmok() {
+        val jj = jigeumJari() ?: run { mal("지금 자리를 잡는 중입니다. 잠시만 기다려 주십시오."); return }
+        mal("길목을 살펴보는 중입니다.", MalGeup.JEONGBO)
+        val h = Jeomjido.bannol(jigeumHead ?: 0.0).toInt()
+        Tongsin.json("ppyeodae.php", mapOf("a" to "gakkaun") + Jeomjido.jari(jj.first, jj.second) + mapOf("head" to h.toString()), 20000) { o ->
+            if (o == null || !o.optBoolean("ok", false)) { mal("길목을 살펴보지 못했습니다."); return@json }
+            mal(Jeomjido.gul(o, "mal") + " " + Jeomjido.gul(o, "aljjik"))
+        }
+    }
+
+    fun beoseuJeongryujang() {
+        val jj = jigeumJari() ?: run { mal("지금 자리를 잡는 중입니다. 잠시만 기다려 주십시오."); return }
+        mal("가까운 버스 정류장을 찾는 중입니다.", MalGeup.JEONGBO)
+        val h = Jeomjido.bannol(jigeumHead ?: 0.0).toInt()
+        Tongsin.json("beoseu.php", mapOf("a" to "gakkaun") + Jeomjido.jari(jj.first, jj.second) + mapOf("head" to h.toString(), "myeot" to "3"), 20000) { o ->
+            if (o == null || !o.optBoolean("ok", false)) { mal("정류장을 찾지 못했습니다."); return@json }
+            mal(Jeomjido.gul(o, "mal") + " " + Jeomjido.gul(o, "aljjik"))
+        }
+    }
+
+    private fun jigeumJari(): Pair<Double, Double>? {
+        me?.let { return it }
+        val w = Wichi.jigeum ?: return null
+        return Pair(w.lat, w.lon)
+    }
+
+    private fun juwiMalhagi(la: Double, lo: Double) {
+        if (!JeomSeol.gilOn) return
+        val now = System.currentTimeMillis()
+        val cc = juwiCenter
+        val pilyo = if (cc == null) true else Wichi.geori(cc.first, cc.second, la, lo) > juwiBan * 0.6
+        if ((pilyo || juwiRows.isEmpty()) && !juwiBadneun && now - juwiBatT > 15000) {
+            juwiBadneun = true
+            juwiBatT = now
+            var c = Pair(la, lo)
+            var r = 300.0
+            val e = pts.lastOrNull()
+            if (e != null) {
+                c = Pair((la + e.lat) / 2, (lo + e.lon) / 2)
+                r = min(900.0, max(150.0, Jeomjido.bannol(Wichi.geori(la, lo, e.lat, e.lon) / 2) + 150))
+            }
+            juwiCenter = c
+            juwiBan = r
+            val sd = sedae
+            Tongsin.json("juwi2.php", Jeomjido.jari(c.first, c.second) + mapOf("ban" to r.toInt().toString()), 20000) { o ->
+                juwiBadneun = false
+                if (sd != sedae) return@json
+                val rows = o?.optJSONArray("rows") ?: return@json
+                val l = ArrayList<JuwiJul>()
+                for (i in 0 until rows.length()) {
+                    val x = rows.optJSONObject(i) ?: continue
+                    val a = Jeomjido.su(x, "lat") ?: continue
+                    val b = Jeomjido.su(x, "lon") ?: continue
+                    val wv = x.opt("wi")
+                    val wi = if (wv is Boolean) wv else ((Jeomjido.su(x, "wi") ?: 0.0) > 0)
+                    l.add(JuwiJul(Jeomjido.gul(x, "ireum"), Jeomjido.gul(x, "jong"), a, b, wi))
+                }
+                juwiRows = l
+            }
+        }
+        if (juwiRows.isEmpty() || now - juwiEonje < 8000 || now - malT < 3000) return
+        val jj = juwiJari
+        if (jj != null && Wichi.geori(jj.first, jj.second, la, lo) < 15) return
+        val head = jigeumHead
+        val wi = ArrayList<Pair<String, String>>()
+        val ap = ArrayList<Pair<String, String>>()
+        val oreun = ArrayList<Pair<String, String>>()
+        val oen = ArrayList<Pair<String, String>>()
+        val gakkai = ArrayList<Pair<String, String>>()
+        for (r in juwiRows) {
+            val key = "${r.ireum}|${r.lat}|${r.lon}"
+            if (juwiHan.contains(key)) continue
+            if (Wichi.geori(la, lo, r.lat, r.lon) > 25) continue
+            var rel: Double? = null
+            if (head != null) {
+                val x = chai(Jeomjido.bangwi(la, lo, r.lat, r.lon), head)
+                if (abs(x) > 150) continue   // 뒤에 있는 것은 말하지 않음
+                rel = x
+            }
+            juwiHan.add(key)
+            val nm = juwiIreum(r.ireum)
+            val rx = rel
+            if (r.wi) wi.add(Pair(nm, r.jong))
+            else if (rx != null) { if (abs(rx) <= 30) ap.add(Pair(nm, r.jong)) else if (rx > 0) oreun.add(Pair(nm, r.jong)) else oen.add(Pair(nm, r.jong)) }
+            else gakkai.add(Pair(nm, r.jong))
+        }
+        val jul = ArrayList<String>()
+        if (wi.isNotEmpty()) jul.add("조심하십시오. " + juwiMukkgi(wi) + "입니다.")
+        if (oreun.isNotEmpty()) jul.add("오른쪽에 " + juwiMukkgi(oreun) + "입니다.")
+        if (oen.isNotEmpty()) jul.add("왼쪽에 " + juwiMukkgi(oen) + "입니다.")
+        if (ap.isNotEmpty()) jul.add("앞에 " + juwiMukkgi(ap) + "입니다.")
+        if (gakkai.isNotEmpty()) jul.add("가까이 " + juwiMukkgi(gakkai) + "입니다.")
+        if (jul.isEmpty()) return
+        juwiEonje = now
+        juwiJari = Pair(la, lo)
+        mal(jul.joinToString(" "), MalGeup.JEONGBO)
+    }
+
+    /** 한글 이름 뒤에 붙은 영문 이름은 뗌 */
+    fun juwiIreum(nm: String): String {
+        val t = nm.trim()
+        if (!Regex("[가-힣]").containsMatchIn(t)) return t
+        val x = t.replace(Regex("\\s+[A-Za-z][A-Za-z0-9 .,'&\\-]*$"), "")
+        return if (x.isEmpty()) t else x
+    }
+
+    /** 같은 갈래끼리 묶어 — "식당 3곳입니다. 가, 나, 다" */
+    fun juwiMukkgi(l: List<Pair<String, String>>): String {
+        val cha = ArrayList<String>()
+        val moum = HashMap<String, ArrayList<String>>()
+        for ((nm, jong) in l) {
+            if (!moum.containsKey(jong)) { cha.add(jong); moum[jong] = ArrayList() }
+            moum[jong]?.add(nm)
+        }
+        return cha.joinToString(". ") { k ->
+            val nn = moum[k] ?: arrayListOf()
+            if (nn.size == 1) (if (k.isEmpty()) nn[0] else k + " " + nn[0])
+            else (if (k.isEmpty()) "" else "$k ") + "${nn.size}곳입니다. " + nn.joinToString(", ")
+        }
+    }
+
+    // MARK: 2.7.0 앱이 꺼졌다 켜져도 이어 걷기 — 걷던 길을 폰에 적어 둠(3시간 안이면 이어 감)
+
+    private fun ieogaJeojang(id: String, dw: Boolean, mok: JeomMokjeok?) {
+        val o = JSONObject().put("id", id).put("dwit", dw).put("ieumIdx", ieumIdx).put("ttae", System.currentTimeMillis())
+        (mok ?: ieumMok)?.let { o.put("mok", it.json()) }
+        val a = JSONArray()
+        for (g in ieum) a.put(g.json())
+        o.put("ieum", a)
+        JeomSeol.geulSseugi("jeomIeoga", o.toString())
+    }
+
+    private fun ieogaJiugi() { JeomSeol.geulSseugi("jeomIeoga", null) }
+
+    /** 앱이 켜질 때 — 3시간 안에 걷던 점지도가 있으면 그 길로 이어 감. 이어 가면 참(화면이 걷는 화면을 열도록) */
+    fun ieoGagi(c: Context): Boolean {
+        junbi(c)
+        val s = JeomSeol.geul("jeomIeoga") ?: return false
+        val o = try { JSONObject(s) } catch (e: Exception) { ieogaJiugi(); return false }
+        val id = Jeomjido.gul(o, "id")
+        if (id.isEmpty() || System.currentTimeMillis() - o.optLong("ttae", 0L) >= 3 * 3600 * 1000L) { ieogaJiugi(); return false }
+        val mok = JeomMokjeok.batgi(o.optJSONObject("mok"))
+        // 아이폰 2.12.6 걷던 점지도의 목적지가 지금 여정의 목적지와 다르면 잇지 않음(옛 길이 새 목적지를 덮어쓰던 것)
+        val y = yeojeongMok?.invoke()
+        if (mok != null && y != null && Wichi.geori(mok.lat, mok.lon, y.lat, y.lon) > 50) {
+            ieogaJiugi()
+            Girok.namgi("jeom_ieoga_an", mapOf("id" to id))
+            return false
+        }
+        val l = ArrayList<JeomGugan>()
+        val a = o.optJSONArray("ieum")
+        if (a != null) for (i in 0 until a.length()) JeomGugan.batgi(a.optJSONObject(i))?.let { l.add(it) }
+        ieum = l
+        ieumIdx = min(o.optInt("ieumIdx", 0), max(0, l.size - 1))
+        ieumMok = mok
+        Girok.namgi("jeom_ieoga", mapOf("id" to id))
+        Sori.mal("하던 점지도 따라 걷기를 이어 갑니다.")
+        bulleoGeotgi(c, id, o.optBoolean("dwit", false), mok, true)
+        return true
+    }
+
+    // MARK: 2.7.0 함께 시험하기(곁의 자봉이 번호로 따라 봄)
+
+    fun hamkkeNureum() {
+        val b0 = hamkkeBunho
+        if (b0 != null) {
+            hamkkeKkeut(b0)
+            hamkkeBunho = null
+            mal("함께 시험을 마쳤습니다.")
+            byeonhwa?.invoke()
+            return
+        }
+        val g = gil ?: run { mal("먼저 걸으실 길을 골라 따라 걷기를 시작해 주십시오. 그 뒤에 번호를 받으실 수 있습니다."); return }
+        val id = gilRaw.replace("|r", "")
+        val mok = yeojeongMok?.invoke()?.ireum ?: g.to
+        val body = JSONObject().put("gil", id).put("dwit", if (dwit) 1 else 0).put("mok", mok)
+        val sd = sedae
+        Jeomjido.postJson("hamkke.php", mapOf("a" to "yeol"), body) { o ->
+            if (sd != sedae || gil == null) {   // 그사이 그만두셨으면 받은 번호를 닫음
+                if (o != null && o.optBoolean("ok", false)) hamkkeKkeut(Jeomjido.gul(o, "bunho"))
+                return@postJson
+            }
+            if (o == null || !o.optBoolean("ok", false)) { mal("번호를 받지 못했습니다. 잠시 뒤에 다시 눌러 주십시오."); return@postJson }
+            val b = Jeomjido.gul(o, "bunho")
+            hamkkeBunho = b
+            hamkkeT = 0L
+            mal("함께 시험 번호는 ${b.toList().joinToString(" ")}입니다. 곁의 자봉께 알려 주십시오.")
+            byeonhwa?.invoke()
+        }
+    }
+
+    private fun hamkkeKkeut(b: String) {
+        Jeomjido.postJson("hamkke.php", mapOf("a" to "kkeut"), JSONObject().put("bunho", b)) { }
+    }
+
+    private fun hamkkeBonaegi() {
+        val b = hamkkeBunho ?: return
+        val now = System.currentTimeMillis()
+        if (now - hamkkeT < 2000 || pts.isEmpty()) return
+        hamkkeT = now
+        var mi = -1
+        var mn = ""
+        for (p in pyo) if (p.i >= idx && (mi < 0 || p.i < mi)) { mi = p.i; mn = p.p.ireum }
+        if (mi < 0) { mi = pts.size - 1; mn = "도착" }
+        val body = JSONObject().put("bunho", b).put("tc", now).put("idx", idx).put("mi", mi).put("mn", mn)
+            .put("ws", ap(idx, mi)).put("su", S.stepSu).put("bo", bocok).put("acc", acc)
+            .put("mal", Sori.majimak.take(100))
+        Jeomjido.postJson("hamkke.php", mapOf("a" to "sang"), body) { }
     }
 
     // MARK: 걸린 자리(geollim.js) — 다른 분이 벗어났던 자리를 미리 알림
@@ -1263,6 +1763,15 @@ object JeomEngine {
             geollimHan.add(key)
             geollimT = System.currentTimeMillis()
             mal("${m}미터 앞. " + Jeomjido.gul(x, "mal"))
+        }
+    }
+
+    /** 2.7.0 여기 걸렸어요 — 다음 분께 알려 주기 */
+    fun geollimNamgigi() {
+        val w = Wichi.jigeum ?: run { mal("지금 자리를 잡는 중입니다. 잠시 뒤에 다시 눌러 주십시오."); return }
+        Tongsin.json("jeom_db.php", mapOf("a" to "makhim", "kind" to "beoseonam") + Jeomjido.jari(w.lat, w.lon), 20000) { o ->
+            if (o != null && o.optBoolean("ok", false)) mal("여기가 걸리는 자리라고 남겼습니다. 다음에 오시는 분께 미리 알려 드리겠습니다. 고맙습니다.")
+            else mal("남기지 못했습니다. 잠시 뒤에 다시 해 주십시오.")
         }
     }
 
@@ -1302,8 +1811,9 @@ object JeomEngine {
         malT = System.currentTimeMillis()
     }
 
-    /** 확신음 — 말하는 동안에는 쉬어 말과 겹치지 않게(벗어남 경고음은 늘). TODO(아이폰 Seoljeong.hwaksinEum): 끄기 설정은 다음 판 */
+    /** 확신음 — 말하는 동안에는 쉬어 말과 겹치지 않게(벗어남 경고음은 늘). 2.7.0 아이폰과 같이 확신음 끄기(JeomSeol.hwaksinEum) */
     private fun eum(j: EumJong) {
+        if (!JeomSeol.hwaksinEum) return
         if (j != EumJong.BEOSEO && Sori.malhaneunJung) return
         Eum.naegi(j)
     }
@@ -1352,6 +1862,15 @@ object JeomEngine {
     private fun georiMal(m: Double): String {
         if (m < 3) return "바로 앞"
         return "${Jeomjido.bannol(m).toInt()}미터, 약 ${bocokSu(m)}걸음"
+    }
+
+    /** 2.7.0 돌 쪽 각도를 시계 숫자로(진동 무늬 고르기, 아이폰 2.38.0 sigyeSu) */
+    private fun sigyeSu(d: Double): Int {
+        var h = Jeomjido.bannol(d / 30).toInt()
+        if (h <= 0) h += 12
+        if (h > 12) h -= 12
+        if (abs(d) > 150) h = 6
+        return h
     }
 
     /** 꺾는 각도(오른쪽이 +) → "3시 방향" */

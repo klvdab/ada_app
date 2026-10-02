@@ -7,6 +7,7 @@
 //   워치 → 폰 지팡이 떨림 기록(데이터 항목 /gilnun/tteollim/<때>, 자산 "bin" + pyo·cho·son·hz) — 폰이 받아 파일로 옮기고 항목을 지운 뒤
 //     협회 나스(jeom/tteollim.php, 연구용)로 아이폰과 똑같이 올림. 못 올리면 들고 있다가 다음에(10분마다 다시)
 //   폰이 곁에 없을 때 워치가 받을 수 있게 마지막 안내를 나스(watch.php)에도 남김(1.5초 모아서) — 워치 번호는 폰 설정에
+// 2.7.0(빌드 261002-B1, 대표님 지시) 다음 갈림길을 여정에서도(AnnaeEngine.daeumGalrimMal)
 // 2.6.0(빌드 261002-A9, 대표님 지시) 워치 → 폰 부탁에 gingeup(긴급통화) — 워치에서 두 번 눌러 확인한 뒤에만 옴.
 //   마지막으로 요청하신 가족·지인 한 분(없으면 자원봉사자)께 요청하고, 폰에 긴급통화서비스 화면을 엶. 답 dapMal 로 누구에게 가는지 알림
 // 워치 앱(:wear 모듈)은 같은 앱 번호(kr.or.ada.app)와 같은 서명이어야 서로 이어집니다.
@@ -223,7 +224,7 @@ object WatchLink {
             "jari" -> GilChatgiCheot.jariMunjang { s -> dap(JSONObject().put("jari", s)) }
             "daeum" -> {
                 val o = sangtaeJson()
-                o.put("daeum", if (JeomEngine.georeoJung) JeomEngine.daeumMuotMal() else "")
+                o.put("daeum", AnnaeEngine.daeumGalrimMal())   // 2.7.0 묶음 b1 — 따라 걷는 중이면 점지도, 아니면 앞쪽 200미터 안 갈림길(아이폰과 같음)
                 dap(o)
             }
             else -> dap(sangtaeJson())

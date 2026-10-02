@@ -5,6 +5,9 @@
 //   경고가 아닌 말은 잠시 맡아 두었다가 마이크가 닫히면 이어서 냄(15초 넘게 묵은 말은 버림). 경고는 듣기를 그만두게 하고 곧바로 말함
 // 2.5.0(빌드 261002-A8, 대표님 지시) 길눈이 한 말을 갤럭시 워치에도 넘김(WatchLink.malBonae — 아이폰 SoriEngine 과 같이 세 글자 이상인 말만)
 // 2.6.0(빌드 261002-A9, 대표님 지시) 긴급통화 중(tonghwaJung)에는 길눈 말소리를 내지 않음 — 말은 마지막 말로만 간직하고, 경고는 길게 진동(아이폰 SoriEngine 2.12.0과 같음)
+// 2.7.0(빌드 261002-B1, 대표님 지시) 묶음 b5 — 길눈이 말하면 방송 소리를 줄이고(경고는 멈춤, 기사 읽기는 쉼) 말이 끝나면 되돌림(BangsongDuck),
+//   말로 하기가 듣는 동안은 방송 멈춤. 묶음 b6 — 길눈 목소리(선희, NasMoksori)와 목소리 고르기. 경고는 늘 폰 목소리로 곧바로.
+//   말하는 중(malhaneunJung)은 폰 목소리와 선희 목소리를 함께 봄(확신음·신호기 소리가 선희 목소리와 겹치지 않게)
 package kr.or.ada.app.gilnun
 
 import android.content.Context
@@ -25,8 +28,9 @@ object Sori {
     private val dunmal = HashMap<String, Long>()
     private var beon = 0
     private val kkeutJul = HashMap<String, () -> Unit>()
-    @Volatile var malhaneunJung = false
-        private set
+    @Volatile private var ttsMalhaneun = false
+    /** 길눈이 말하는 중 — 폰 목소리 또는 선희 목소리(2.7.0 b6) */
+    val malhaneunJung: Boolean get() = ttsMalhaneun || NasMoksori.malhaneunJung
     var majimak = ""
         private set
     /** 말소리를 꺼 두셨을 때 톡백으로 알리는 자리(화면이 채움) */
@@ -61,7 +65,7 @@ object Sori {
             }
         }
         tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(id: String?) { malhaneunJung = true }
+            override fun onStart(id: String?) { ttsMalhaneun = true }
             override fun onDone(id: String?) { kkeut(id) }
             @Deprecated("옛 안드로이드")
             override fun onError(id: String?) { kkeut(id) }
@@ -71,7 +75,8 @@ object Sori {
 
     private fun kkeut(id: String?) {
         main.post {
-            malhaneunJung = tts?.isSpeaking == true
+            ttsMalhaneun = tts?.isSpeaking == true
+            if (!malhaneunJung) BangsongDuck.malKkeut()   // 2.7.0 b5 0.35초 뒤에도 조용하면 방송을 되돌림
             val f = id?.let { kkeutJul.remove(it) }
             f?.invoke()
         }
@@ -120,6 +125,20 @@ object Sori {
                 kkeutnamyeon?.let { main.postDelayed(it, 1500) }
                 return@post
             }
+            NasMoksori.moksoriJeogyong(tt)   // 2.7.0 b6 목소리 고르기(설정 — 말하기 설정)
+            BangsongDuck.malSijak(geup)      // 2.7.0 b5 방송 소리를 작게(경고는 멈춤, 기사 읽기는 쉼)
+            // 2.7.0 b6 길눈 목소리(선희, 나스 sori/mal.php) — 경고가 아니면 NasMoksori 줄로. 선희 소리와(못 받으면) 폰 목소리 대신 말하기가 한 줄로 차례대로
+            if (geup != MalGeup.GYEONGGO && NasMoksori.kyeojim) {
+                NasMoksori.julSeugi(t, geup, kkeutnamyeon) { daesinKkeut ->
+                    beon += 1
+                    val id2 = "m$beon"
+                    kkeutJul[id2] = daesinKkeut
+                    tt.setSpeechRate(ppareugi)
+                    tt.speak(t, TextToSpeech.QUEUE_ADD, Bundle(), id2)
+                }
+                return@post
+            }
+            if (geup == MalGeup.GYEONGGO) NasMoksori.meomchugi()   // 경고는 기다리지 않고 폰 목소리로 곧바로
             beon += 1
             val id = "m$beon"
             if (kkeutnamyeon != null) kkeutJul[id] = kkeutnamyeon
@@ -134,13 +153,15 @@ object Sori {
     fun dasiDeutgi() { if (majimak.isNotEmpty()) { dunmal.remove(majimak); mal(majimak) } }
 
     /** 하던 말을 멈춤 */
-    fun meomchugi() { main.post { tts?.stop(); malhaneunJung = false } }
+    fun meomchugi() { main.post { tts?.stop(); ttsMalhaneun = false; NasMoksori.meomchugi(); BangsongDuck.malKkeut() } }   // 2.7.0 b5·b6
 
     /** 2.4.0 말로 하기가 마이크를 엶 — 하던 말을 멈추고, 닫힐 때까지 경고가 아닌 말은 맡아 둠 */
     fun deutgiSijak() {
         main.post {
+            BangsongDuck.deutgi(true)    // 2.7.0 b5 말로 하기가 듣는 동안 방송 멈춤
             tts?.stop()
-            malhaneunJung = false
+            NasMoksori.meomchugi()       // 2.7.0 b6 마이크가 열리면 선희 목소리도 멈춤
+            ttsMalhaneun = false
             deutneunJung = true
         }
     }
@@ -148,6 +169,7 @@ object Sori {
     /** 2.4.0 마이크가 닫힘 — 맡아 둔 말을 이어서 냄(15초 넘게 묵은 말은 버림) */
     fun deutgiKkeut() {
         main.post {
+            BangsongDuck.deutgi(false)   // 2.7.0 b5 다시 틂
             deutneunJung = false
             if (matgim.isEmpty()) return@post
             val l = ArrayList(matgim)

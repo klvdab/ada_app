@@ -11,12 +11,19 @@
 //     끝이 그곳 80미터 안에 닿는 점지도를 찾음(아이폰 Jeomjido.matneunGil 과 같은 잣대). 찾으면 「○○까지 점지도를 따라 걸을까요?」
 // 아이폰과 다른 점:
 //   아이폰 2.29.0 말뜻 풀이는 폰 안의 애플 인공지능이라 안드로이드에 없음 — 사전으로 못 알아들은 말은 나스의 곳 찾기(a=jangso)로 풀어 봄
-//   TODO(아이폰 하이 길눈·시리) 부르는 말로 깨우기, 화면이 꺼진 채 이어폰 단추로 열기(MediaSession 은 음악 앱의 단추를 빼앗아 이번 판에 넣지 않음)
-//   TODO(아이폰 목적지 위성 안내·차·지하철·버스·콜·즐겨찾기·음악·방송·카메라 눈) 안드로이드에 기능이 옮겨 오면 말로도 되게
+//   TODO(아이폰 하이 길눈·시리) 부르는 말로 깨우기. 화면이 꺼진 채 이어폰 단추로 열기는 2.7.0부터 안내 중에만(RemoteDanchu)
+//   TODO(아이폰 교통편 부르기·호칭 바꾸기) 안드로이드에 기능이 옮겨 오면 말로도 되게
 // 2.6.0(빌드 261002-A9, 대표님 지시) 긴급통화 — 아이폰 MalHagi 긴급통화(gingeupJikjeop·gingeup)와 같은 말, 같은 차례.
 //   도와줘·긴급통화·화상통화·영상통화(사전 doum) → 해설사·봉사자·명단의 이름이 들리면 곧장 요청, 아니면 누구에게 요청할지 여쭘(3분 동안 기억)
 //   요청하면 긴급통화서비스 화면을 열어 끊기 단추가 바로 보이게. 긴급통화 중에는 말로 하기를 열지 않음(마이크를 통화에 내어 줌)
 //   전에 드리던 「112나 119에 전화해 주십시오」 안내 말은 걷어냄
+// 2.7.0(빌드 261002-B1, 대표님 지시 「안드로이드에서도 이 원칙 지켜서 동일하게」) 아이폰에서 옮겨 온 기능을 말로도 — 아직 없다던 말(aJik)을 걷어냄
+//   여정(YeojeongMal — 걸어서·차로·지하철로·버스로 가자, 탔어, 내렸어, 얼마나 걸려, 즐겨찾기, 여정 끝·도착, 점지도로·위성으로),
+//   점지도(여기 문제 있어, 여기 걸렸어, 길목, 정류장, 다른 문, 길 기억해 줘, 되짚어 나가자, 말로 그린 길, 음성유도기),
+//   카메라 눈(빛·사람·글자·문·QR), 둘러보기(DulreoMal — 지폐·색깔·바코드·이게 뭐야·가리키는 거·둘레·축제·고장 이야기·마실·사진·안면인식),
+//   음악·방송(BangsongMal — 곡·라디오·TV·뉴스·기분 음악), 목소리 바꿔, 현장영상해설 받고 싶어
+//   하던 일 멈춰 → 안내 엔진이 여정·따라 걷기·지하철·되짚어 나가기·말로 그린 길·신호기 찾기·카메라 눈·묻던 말을 모두 멈춤(음악·방송은 그대로)
+//   그만 → 길눈 말, 신호기 찾기, 카메라 눈, 말로 그린 길, 음악·방송
 package kr.or.ada.app.gilnun
 
 import android.Manifest
@@ -99,6 +106,8 @@ object MalHagi {
         ctx = c.applicationContext
         if (sijakham) return
         sijakham = true
+        AnnaeEngine.meomchumHooks.add { mureumChoGihwa() }   // 2.7.0 묶음 b1 — 하던 일 멈추기 때 묻던 말도 비움
+        AnnaeEngine.meomchumHooks.add { MalgilEngine.geuman(false) }   // 2.7.0 묶음 b2 — 하던 일 멈추기 때 말로 그린 길 안내도 말없이 멈춤
         MalSajeon.bureogi()
         Sori.gyeonggoHook = { gyeonggoOm() }
     }
@@ -315,13 +324,12 @@ object MalHagi {
 
         // 0. 하던 일 멈추기 — 따라 걷기·신호기 찾기·묻던 말을 모두 멈춤
         if (s.itda(alts, "hadeon_meomchum") && z.length <= 10) {
-            mureumChoGihwa()
-            Sori.meomchugi()
-            if (SinhogiEngine.chatneunJung) SinhogiEngine.chatgiKkeugi()
-            if (jm.gil != null || jm.bulleoneun) { dap("", false); jm.geuman() }
-            else dap("하던 일을 멈췄습니다.", false)
+            dap("", false)
+            AnnaeEngine.haneunIlMeomchum()   // 2.7.0 묶음 b1 — 여정·따라 걷기·지하철·되짚어 나가기·말로 그린 길·묻던 말·신호기 찾기·카메라 눈·길눈 말을 모두 멈추고 첫 화면으로(말은 한 번)
             return
         }
+        // 2.7.0 묶음 b1 — 여정이 있을 때의 여정 끝·도착, "점지도로 걸을까요"의 대답(아이폰 1번·1-2번·muleum)
+        if (YeojeongMal.meonjeo(alts, z, dap)) { mureumChoGihwa(); return }
         // 1. 여정 끝·도착 — "도착", "다 왔어"를 가실 곳 이름으로 찾지 않고 따라 걷기를 마침(아이폰 2.12.7)
         val dochakMal = setOf("도착", "도착했어", "도착했다", "도착했어요", "도착했습니다", "도착이야", "도착했네", "다왔어", "다왔다", "다왔어요", "다왔습니다", "다왔네", "도착완료", "여기도착")
         val dochak = dochakMal.contains(z) || (z.startsWith("도착") && z.length <= 6 && !z.contains("까지") && !z.contains("시간"))
@@ -379,6 +387,16 @@ object MalHagi {
                 jm.jigeumEodiDeutgi()
                 return
             }
+            // 2.7.0 묶음 b2 — 아이폰 MalHagi 2.11.0과 같은 말
+            if (z.contains("문제있") || z.contains("여기문제")) {
+                dap("무슨 문제인지 고르시는 화면을 엽니다.", false)
+                hwalseong?.get()?.cheotHwamyeonEuro(MunjeHwamyeon())
+                return
+            }
+            if (z.contains("길목")) { dap("", false); jm.gilmok(); return }
+            if (z.contains("정류장") && !z.contains("까지")) { dap("", false); jm.beoseuJeongryujang(); return }
+            if (z.contains("다른문")) { dap("", false); jm.dareunMun(); return }
+            if (z.contains("여기걸렸")) { dap("", false); jm.geollimNamgigi(); return }
         }
         if ((z.contains("점지도") && (z.contains("가까운") || z.contains("근처") || z.contains("목록") || z.contains("찾아"))) ||
             z.contains("가까운길") || z.contains("근처길")) {
@@ -390,7 +408,10 @@ object MalHagi {
         if (s.itda(alts, "geuman") && z.length <= 8) {
             mureumChoGihwa()
             Sori.meomchugi()
+            KameraNun.modukkeugi(true)   // 2.7.0 묶음 b3·b4 켜 둔 카메라 눈도 그만(아이폰과 같이 「…을 멈췄습니다」 한 번)
             if (SinhogiEngine.chatneunJung) SinhogiEngine.chatgiKkeugi()
+            MalgilEngine.geuman()   // 2.7.0 묶음 b2 말로 그린 길 안내도 그만
+            if (Bangsong.naneunJung) Bangsong.meomchumTogeul()   // 2.7.0 묶음 b5 방송도 멈춤(이어서 틀어로 다시)
             dap("", false)
             return
         }
@@ -451,6 +472,14 @@ object MalHagi {
             }
             return true
         }
+        // 2.7.0 묶음 b5 기분과 날씨에 맞춰 음악 — "기분이 꿀꿀해", "잔잔한 음악 틀어 줘", "날씨에 맞게 틀어 줘"(날씨보다 먼저)
+        if (BangsongMal.gibun(z, dap)) return true
+        // 2.7.0 묶음 b6 현장영상해설 받기(아이폰 MalHagi 2.14.0 — 가실 곳으로 새지 않게 먼저)
+        if (z.contains("현장영상해설") || z.contains("현장해설") || z.contains("해설받") || z.contains("해설코스") || z.contains("파견신청")) {
+            dap("현장영상해설 받기를 엽니다. 현장영상해설사 화상통화, 현장영상해설 코스, 파견 신청 가운데 고르십시오.", false)
+            hwalseong?.get()?.tabCheotEuro(1, HaeseolBatgiHwamyeon())
+            return true
+        }
         // 날씨 — "날씨 어때", "오늘 날씨"(아이폰 2.13.0, 웹 길눈과 같은 자료)
         if (z.contains("날씨") || z.contains("미세먼지")) {
             Nalssi.mal { n -> dap(if (n.isEmpty()) "날씨를 받아 오지 못했습니다. 통신과 위치를 확인해 주십시오." else "날씨는 $n.", false) }
@@ -462,8 +491,14 @@ object MalHagi {
     /** 명령 — 하면 참 */
     private fun myeongryeong(alts: List<String>, z: String, dap: (String, Boolean) -> Unit): Boolean {
         val s = MalSajeon
+        if (YeojeongMal.myeongryeong(alts, z, dap)) return true   // 2.7.0 묶음 b1 — 내렸어·탔어·얼마나 걸려·지금 가는 길·즐겨찾기·탈것만 말씀하심·어떻게 가실지의 대답
         if (s.itda(alts, "doumal")) {
             dap(DOUMAL_MAL, false)
+            return true
+        }
+        if (s.itda(alts, "dasi") && z.length <= 10 && MalgilEngine.geotneun) {   // 2.7.0 묶음 b2 말로 그린 길을 걷는 중이면 그 안내를
+            dap("", false)
+            MalgilEngine.dasiDeutgi()
             return true
         }
         if (s.itda(alts, "dasi") && z.length <= 10) {
@@ -481,7 +516,7 @@ object MalHagi {
         }
         if (s.itda(alts, "eodi")) {
             dap("", false)
-            GilChatgiCheot.jariMal()
+            AnnaeEngine.jigeumJari()   // 2.7.0 묶음 b1 — 아이폰과 같은 지금 내 자리 듣기
             return true
         }
         if (s.itda(alts, "sigan_now")) {
@@ -517,16 +552,82 @@ object MalHagi {
             dap("새로고침을 마쳤습니다. 나스에서 새 자료를 받습니다.", false)
             return true
         }
+        // 2.7.0 묶음 b2 되짚어 나가기 — "길 기억해 줘"(들어갈 때), "되짚어 나가자"(나올 때)
+        if (z.contains("되짚") || z.contains("왔던길로나가") || z.contains("들어온길로나가")) {
+            val d = DoeEngine
+            val c = ctx
+            if (d.sangtae == DoeEngine.Sangtae.ANNAE) { dap("", false); d.jigeumMal() }
+            else if ((d.gieokItda || d.sangtae == DoeEngine.Sangtae.GIEOK) && c != null) { dap("", false); d.doejipgi(c) }
+            else dap("기억해 둔 길이 없습니다. 들어가실 때 길 기억해 줘라고 말씀해 주십시오.", false)
+            return true
+        }
+        if (z.contains("길기억") || z.contains("길을기억") || z.contains("길좀기억")) {
+            if (z.contains("그만") || z.contains("멈춰") || z.contains("꺼")) { dap("", false); DoeEngine.gieokGeuman(); return true }
+            dap("", false)
+            ctx?.let { DoeEngine.gieokSijak(it) }
+            return true
+        }
+        // 2.7.0 묶음 b2 말로 그린 길, 음성유도기와 승강기
+        if (z.contains("말로그린")) {
+            dap("말로 그린 길을 엽니다.", false)
+            hwalseong?.get()?.cheotHwamyeonEuro(MalgilHwamyeon())
+            return true
+        }
+        if (z.contains("음성유도기") || z.contains("유도기") || z.contains("승강기") || (z.contains("엘리베이터") && (z.contains("역") || z.contains("어디")))) {
+            dap("가까운 역의 음성유도기와 승강기를 찾습니다.", false)
+            hwalseong?.get()?.cheotHwamyeonEuro(YudoHwamyeon())
+            return true
+        }
+        // 2.7.0 묶음 b6 목소리 바꿔(아이폰과 같은 말)
+        if (s.itda(alts, "mok_bakkum")) {
+            val a = hwalseong?.get()
+            if (a == null) { dap("지금은 목소리를 바꿀 수 없습니다.", false); return true }
+            SeoljeongDeo.moksoriBakkugi(a) { m -> dap(m, false) }
+            return true
+        }
+        // 2.7.0 카메라 눈(묶음 b3) — 아이폰 MalHagi 2.22.0·2.18.0·2.16.0·2.15.0·2.13.0 과 같은 말
+        val ha = hwalseong?.get()
+        if (z.contains("불켜") || z.contains("불꺼") || z.contains("빛알") || z.contains("빛찾") || z.contains("밝은쪽") || z.contains("창문어느")) {
+            dap("빛 알아보기를 엽니다.", false)
+            ha?.let { KameraNun.dulreoYeolgi(it, BitAlgiHwamyeon()) }
+            return true
+        }
+        if (z.contains("사람있") || z.contains("사람감지") || z.contains("앞에사람") || z.contains("사람찾")) {
+            dap("사람 감지를 엽니다.", false)
+            ha?.let { KameraNun.dulreoYeolgi(it, SaramGamjiHwamyeon()) }
+            return true
+        }
+        if (z.contains("글자읽") || z.contains("글읽어") || z.contains("글씨읽")) {
+            dap("즉석 글자 읽기를 엽니다.", false)
+            ha?.let { KameraNun.dulreoYeolgi(it, GeulIlgiHwamyeon()) }
+            return true
+        }
+        if (z.contains("문찾") || z.contains("문어디")) {
+            if (ha == null || !KameraGwanli.boim(ha)) {
+                dap("죄송합니다. 문 찾기는 안드로이드 길눈에서 아직 관리자 시험 중입니다.", false)
+                return true
+            }
+            dap("카메라로 문을 찾습니다.", false)
+            val mh = MunChatgiHwamyeon()
+            ha.cheotHwamyeonEuro(mh)
+            main.postDelayed({ MunChatgi.kyeogi("malhagi", ha) }, 1500)
+            return true
+        }
+        if (z.lowercase().contains("qr") || z.contains("큐알") || z.contains("큐아르")) {
+            dap("QR 찾기를 엽니다.", false)
+            ha?.cheotHwamyeonEuro(QrChatgiHwamyeon())
+            return true
+        }
+        // 2.7.0 둘러보기(묶음 b4) — 지폐와 색깔, 바코드, 이게 뭐야, 가리키는 거 읽어 줘, 고장 이야기, 마실 가자, 사진 읽어 줘, 안면인식, 축제, 근처 약국·화장실 들
+        //   (아이폰 MalHagi 2.21.0·2.20.0·2.23.0·2.17.0·2.7.0 과 같은 말·같은 차례 — 빛·사람·글자·문·QR 다음)
+        if (DulreoMal.myeongryeong(z, s.itda(alts, "gojang"), s.itda(alts, "masil"), s.itda(alts, "sajin"), dap)) return true
+        // 2.7.0 음악·방송(묶음 b5) — 다음 곡, 이전 곡, 무슨 곡, 이어서 틀어, 고장 노래, 라디오·TV(방송사 이름만으로도), 뉴스, 음악 꺼
+        if (BangsongMal.myeongryeong(alts, alts.firstOrNull() ?: "", z, dap)) return true
         // 아직 안드로이드에 넣지 못한 기능 — 모르는 척하지 않고, 기록해 두었다가 그 기능을 넣을 때 말로도 되게(아이폰 aJik 과 같음)
+        // 2.7.0 여정·즐겨찾기·카메라 눈·되짚어 나가기·음성유도기·음악·방송·목소리는 이제 됨 — 목록에서 뺌
         val aJik: List<Pair<String, Boolean>> = listOf(
-            "음악·방송" to (listOf("음악", "노래", "라디오", "뉴스", "티비", "티브이", "방송", "틀어", "다음곡", "무슨곡").any { z.contains(it) } || z.lowercase().contains("tv")),
             "교통편 부르기" to (s.itda(alts, "kol_bokji") || s.itda(alts, "kol_jangaein") || s.itda(alts, "kol_nabi") || s.itda(alts, "kol_beonho") || z.contains("콜택시")),
-            "차 안 안내" to (s.itda(alts, "tatda") || s.itda(alts, "naerim")),
-            "즐겨찾기" to z.contains("즐겨찾기"),
-            "카메라 눈" to listOf("문찾", "문어디", "글자읽", "글읽어", "글씨읽", "바코드", "무슨색", "색깔", "지폐", "얼마짜리", "사람있", "사람감지", "이게뭐", "이거뭐", "뭐가보여", "불켜", "빛알", "밝은쪽", "가리키", "안면", "얼굴인식").any { z.contains(it) },
-            "되짚어 나가기" to (z.contains("되짚") || z.contains("길기억") || z.contains("길을기억")),
-            "음성유도기와 승강기 찾기" to (z.contains("유도기") || z.contains("승강기")),
-            "호칭과 목소리 바꾸기" to (s.itda(alts, "hoching") || s.itda(alts, "mok_bakkum"))
+            "호칭 바꾸기" to s.itda(alts, "hoching")
         )
         for ((nm, mat) in aJik) {
             if (!mat) continue
@@ -549,6 +650,9 @@ object MalHagi {
     // MARK: 가실 곳 — 점지도 찾기
 
     private fun mokjeokChatgi(t: String, q: String, qB: String?, gagiMal: Boolean, dap: (String, Boolean) -> Unit) {
+        // 2.7.0 묶음 b1 — 즐겨찾기 이름이 들리면 그곳으로, 탈것을 말씀하셨으면 그 탈것으로(아이폰 gagi)
+        val tg = YeojeongMal.talgeotChatgi(MalSajeon.ttuk(t))
+        YeojeongMal.jeulgyeoChatgi(MalSajeon.ttuk(q))?.let { j -> YeojeongMal.gagi(j, tg, dap, "네, "); return }
         val w = Wichi.jigeum
         if (w == null) {
             dap("아직 위치를 잡는 중이라 가까운 점지도를 찾지 못했습니다. 잠시 뒤 다시 말씀해 주십시오.", false)
@@ -561,7 +665,7 @@ object MalHagi {
             }
             // 이름으로 — 되살린 이름(qB)이 맞으면 그것을 먼저
             val ireumMat = (if (qB != null) ireumMatchugi(r, qB, w) else emptyList()).ifEmpty { ireumMatchugi(r, q, w) }
-            if (ireumMat.isNotEmpty()) {
+            if (ireumMat.isNotEmpty() && (tg == null || tg == Talgeot.GEOREUM)) {
                 hubo = ireumMat
                 huboI = 0
                 Girok.namgi("malhagi_jeom", mapOf("dan" to "ireum", "su" to ireumMat.size))
@@ -578,11 +682,13 @@ object MalHagi {
                 }
                 val rows = o.optJSONArray("rows")
                 var jg: Triple<String, Double, Double>? = null
+                var jusoB = ""   // 2.7.0 묶음 b1 — 찾은 곳의 주소(여정 목적지로)
                 if (rows != null) for (i in 0 until rows.length()) {
                     val rr: JSONObject = rows.optJSONObject(i) ?: continue
                     val la = Jeomjido.su(rr, "lat") ?: continue
                     val lo = Jeomjido.su(rr, "lon") ?: continue
                     jg = Triple(Jeomjido.gul(rr, "ireum").ifEmpty { q }, la, lo)
+                    jusoB = Jeomjido.gul(rr, "juso")
                     break
                 }
                 val j = jg
@@ -596,12 +702,13 @@ object MalHagi {
                     else "네, ${j.first}${eun(j.first)} ${bangMal(w2, j.second, j.third)}${Jeomjido.geoMal(d)}에 있습니다. "
                 val jm = jariMatchugi(r, j.second, j.third, w2)
                 Girok.namgi("malhagi_jeom", mapOf("dan" to "jangso", "su" to jm.size))
-                if (jm.isNotEmpty()) {
+                if (jm.isNotEmpty() && (tg == null || tg == Talgeot.GEOREUM)) {
                     hubo = jm
                     huboI = 0
                     huboMutgi(dap, jariMal)
                 } else {
-                    dap(jariMal + "가까운 점지도 가운데 그곳으로 가는 길은 아직 없습니다.", false)
+                    // 2.7.0 묶음 b1 — 점지도가 없으면 위성 걷는 안내·차·지하철·버스로(아이폰 gagi — 2킬로미터가 넘으면 어떻게 가실지 여쭘)
+                    YeojeongMal.gagi(Jangso(j.first, jusoB, j.second, j.third), tg, dap, jariMal)
                 }
             }
         }
@@ -785,7 +892,7 @@ object MalHagi {
     private fun kkajiTo(w: String) = if (w.endsWith("까지")) "" else "까지"
 
     /** 말로 하는 도움말 — 안드로이드 길눈에서 되는 말만 */
-    const val DOUMAL_MAL = "이렇게 말씀하시면 됩니다. 지금 어디야. 약수역 가자. 가까운 점지도 찾아 줘. 점지도를 따라 걸을 때는 다음에 무엇, 다음 갈림길, 어디쯤이야, 그만 걷기, 도착하면 되돌아가자. 신호기 울려 줘. 신호 알려 줘. 신호기 찾아 줘. 도와줘, 또는 가족 이름과 화상통화. 날씨 어때. 몇 시야. 말 빠르게, 말 느리게. 말소리 꺼. 다시 말해. 그만. 하던 일 멈춰. 새로고침."
+    const val DOUMAL_MAL = "이렇게 말씀하시면 됩니다. 지금 어디야. 약수역 가자. 가까운 점지도 찾아 줘. 점지도를 따라 걸을 때는 다음에 무엇, 다음 갈림길, 어디쯤이야, 그만 걷기, 도착하면 되돌아가자. 신호기 울려 줘. 신호 알려 줘. 신호기 찾아 줘. 도와줘, 또는 가족 이름과 화상통화. 날씨 어때. 몇 시야. 말 빠르게, 말 느리게. 말소리 꺼. 다시 말해. 그만. 하던 일 멈춰. 걸어서 가자, 차로 가자, 지하철로 가자, 버스로 가자. 차에 탔어, 내렸어. 얼마나 걸려, 지금 가는 길. 여정 끝, 도착했어. 즐겨찾기 목록, 즐겨찾기에 담아 줘. 점지도로, 위성으로. 점지도를 따라 걸을 때는 여기 문제 있어, 여기 걸렸어, 길목, 정류장, 다른 문. 길 기억해 줘. 되짚어 나가자. 말로 그린 길. 음성유도기 어디 있어. QR 찾아 줘. 글자 읽어 줘. 사람 있어. 빛 알려 줘. 바코드 읽어 줘. 무슨 색이야. 얼마짜리야. 이게 뭐야. 가리키는 거 읽어 줘. 근처 약국. 축제 알려 줘. 고장 이야기. 마실 가자. 사진 읽어 줘. 안면인식. 음악 틀어 줘. 트롯 틀어 줘, 또는 가수나 곡 이름. 다음 곡, 이전 곡. 무슨 곡이야. 이어서 틀어. 고장 노래 틀어 줘. 라디오 틀어 줘. KBS 1라디오 틀어 줘. TV 틀어 줘. 뉴스 들려줘. 장애 소식, 속보, 경제 뉴스. 기분이 꿀꿀해. 음악 꺼, 라디오 꺼. 목소리 바꿔. 현장영상해설 받고 싶어. 새로고침."
 }
 
 // MARK: 받아쓰기 — 안드로이드 자체 SpeechRecognizer(아이폰 MalDeutgi)
