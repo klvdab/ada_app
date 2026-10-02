@@ -5,6 +5,7 @@ import WatchKit
 import AVFoundation
 import CoreLocation
 import CoreMotion
+import SwiftUI
 
 final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocationManagerDelegate, WKExtendedRuntimeSessionDelegate {
     static let shared = WatchModel()
@@ -40,8 +41,15 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
     }
 
     // 말하기 + 진동
+    // 2.37.1 (빌드 261002-6, 대표님 승인) 보이스오버가 켜져 있으면 보이스오버가 읽게 함 — 워치 자체 목소리는 보이스오버에 묻혀 나오지 않았음
     func speak(_ t: String, jindong: WKHapticType = .click) {
         WKInterfaceDevice.current().play(jindong)
+        if WKAccessibilityIsVoiceOverRunning(), #available(watchOS 10.0, *) {
+            synth.stopSpeaking(at: .immediate)
+            // 진동·초점 옮김과 겹치지 않게 아주 잠깐 뒤에
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { AccessibilityNotification.Announcement(t).post() }
+            return
+        }
         synth.stopSpeaking(at: .immediate)
         let u = AVSpeechUtterance(string: t)
         u.voice = AVSpeechSynthesisVoice(language: "ko-KR")
@@ -50,15 +58,13 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
     }
 
     // 단추 셋
+    // 2.37.1 폰에서 답이 온 뒤에 그 답을 말함(전에는 답을 받아 글자만 바꾸고 말하지 않았음)
     func malDeutgi() {
         askPhone("mal")
-        speak(mal.isEmpty ? "아직 받은 안내가 없습니다." : mal)
     }
 
     func daeumDeutgi() {
         askPhone("daeum")
-        if !daeum.isEmpty { speak(daeum, jindong: .directionUp); return }
-        speak("다음 갈림길을 폰에서 받아 오는 중입니다.")
     }
 
     // 2.33.0 (빌드 261002-1, 대표님 승인) 손가락 두 번 집기 — 1.5초 안에 잇달아 한 횟수로 나눔
@@ -140,16 +146,29 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
     private func askPhone(_ what: String) {
         guard WCSession.isSupported(), WCSession.default.isReachable else { fetchServer(what); return }
         WCSession.default.sendMessage(["what": what], replyHandler: { [weak self] r in
-            DispatchQueue.main.async { self?.apply(r) }
-        }, errorHandler: { [weak self] _ in self?.fetchServer(what) })
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.apply(r)
+                // 2.37.1 받은 답을 말함
+                if what == "daeum" {
+                    self.speak(self.daeum.isEmpty ? "다음 갈림길 안내가 아직 없습니다." : self.daeum, jindong: .directionUp)
+                } else {
+                    self.speak(self.mal.isEmpty ? "아직 받은 안내가 없습니다." : self.mal)
+                }
+            }
+        }, errorHandler: { [weak self] _ in DispatchQueue.main.async { self?.fetchServer(what) } })
     }
 
+    /// 폰이 곁에 없을 때 — 나스에 남은 마지막 것을 받아 말함, 그것도 안 되면 그렇다고 알려 드림
     private func fetchServer(_ what: String) {
+        let mot = "폰의 길눈과 이어져 있지 않습니다. 폰에서 길눈을 열어 주십시오."
         guard let k = UserDefaults.standard.string(forKey: "watchBeonho"), !k.isEmpty,
-              let u = URL(string: "\(WURL)?a=deut&k=\(k)&what=\(what)") else { return }
+              let u = URL(string: "\(WURL)?a=deut&k=\(k)&what=\(what)") else { speak(mot, jindong: .failure); return }
         URLSession.shared.dataTask(with: u) { [weak self] d, _, _ in
-            guard let d = d, let s = String(data: d, encoding: .utf8) else { return }
             DispatchQueue.main.async {
+                guard let s = d.flatMap({ String(data: $0, encoding: .utf8) })?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty else {
+                    self?.speak(mot, jindong: .failure); return
+                }
                 if what == "mal" { self?.mal = s } else { self?.daeum = s }
                 self?.speak(s)
             }
