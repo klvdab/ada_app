@@ -10,6 +10,9 @@
 //   걸으실 때 한 손에 지팡이 — 길눈 화면이 켜져 있으면 이어폰 재생 단추를 길게(0.6초 넘게) 눌러도 열림. 짧게 누르면 음악 앱에 그대로 돌려줌.
 //   단추 글자는 화면을 다시 그리지 않고 그 자리에서만 바꿈(톡백 커서가 흔들리지 않게)
 // 2.5.0(빌드 261002-A8, 대표님 지시) 갤럭시 워치와 잇기(WatchLink.sijak). 지금 내 자리 한 줄을 워치와 함께 씀(jariMunjang). 도움말에 갤럭시 워치 길눈
+// 2.6.0(빌드 261002-A9, 대표님 지시) 긴급통화서비스(GinGeup.kt·GinGeupHwamyeon.kt) — 길 찾기 탭 말로 하기 바로 아래에 긴급통화서비스 단추(급한 일이라 겉에).
+//   설정 탭에 가족·지인 명단과 받는 분 화면에 뜰 내 이름. 카메라·마이크 허락은 요청을 누를 때 여쭘(tonghwaHeorak).
+//   통화 중 폰의 뒤로 동작은 묻지 않고 통화를 끊고 알려 드림(앱 밖으로 말없이 나가지 않음). 길눈 화면이 닫히면 통화를 끊고 치움
 package kr.or.ada.app.gilnun
 
 import android.Manifest
@@ -39,6 +42,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.widget.doAfterTextChanged
 import java.lang.ref.WeakReference
 
 /** 화면 하나 — 제목과 줄들 */
@@ -58,6 +62,7 @@ class GilnunActivity : AppCompatActivity() {
     private var cheotJul: View? = null
     private var heorakDwi: (() -> Unit)? = null   // 2.3.0 근처 기기 허락을 받으면 이어 할 일
     private var maikDwi: ((Boolean) -> Unit)? = null   // 2.4.0 마이크 허락을 받으면 이어 할 일
+    private var tonghwaDwi: (() -> Unit)? = null      // 2.6.0 카메라·마이크 허락을 여쭌 뒤 이어 할 일(허락하지 않으셔도 이어 감)
 
     companion object {
         val NAM = Color.rgb(18, 52, 110)
@@ -74,6 +79,8 @@ class GilnunActivity : AppCompatActivity() {
         MalHagi.sijak(this)         // 2.4.0 말로 하기 — 나스 알아듣기 사전을 받아 둠
         MalHagi.hwalseong = WeakReference(this)
         WatchLink.sijak(this)       // 2.5.0 갤럭시 워치와 잇기
+        GinGeup.sijak(this)         // 2.6.0 긴급통화서비스
+        GinGeup.hwalseong = WeakReference(this)
         Girok.namgi("app_sijak", mapOf("pan" to Pan.pan, "bild" to Pan.bild, "android" to Build.VERSION.SDK_INT))
 
         val bburi = LinearLayout(this).apply {
@@ -116,7 +123,18 @@ class GilnunActivity : AppCompatActivity() {
         gil[4].add(SeoljeongCheot())
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() { dwiro() }
+            override fun handleOnBackPressed() {
+                // 2.6.0 긴급통화 중 폰의 뒤로 동작 — 묻지 않고 통화를 끊고 알려 드림. 통화 화면이면 앞 화면으로도
+                if (GinGeup.sangtae != GinGeupSangtae.EOPSEUM) {
+                    GinGeup.geumanhagi()
+                    if (wiHwamyeon is GinGeupHwamyeon && gil[tab].size > 1) {
+                        gil[tab].removeAt(gil[tab].size - 1)
+                        boyeojugi()
+                    }
+                    return
+                }
+                dwiro()
+            }
         })
 
         boyeojugi()
@@ -149,6 +167,12 @@ class GilnunActivity : AppCompatActivity() {
         if (MalHagi.hwalseong?.get() === this) {
             MalHagi.hwalseong = null
             MalHagi.byeonhwa = null
+        }
+        // 2.6.0 길눈 화면이 닫히면 통화를 끊고 카메라·마이크를 치움
+        if (GinGeup.hwalseong?.get() === this) {
+            GinGeup.byeonhwa = null
+            GinGeup.dateum()
+            GinGeup.hwalseong = null
         }
         super.onDestroy()
     }
@@ -200,6 +224,13 @@ class GilnunActivity : AppCompatActivity() {
         val gyeolgwa = permissions.indices.associate { permissions[it] to (grantResults.getOrNull(it) == PackageManager.PERMISSION_GRANTED) }
         Girok.namgi("heorak", gyeolgwa.mapKeys { it.key.substringAfterLast('.') })
         SinhogiEngine.saerogochim()
+        if (requestCode == 10) {
+            // 2.6.0 긴급통화에 여쭌 카메라·마이크 허락 — 허락하지 않으셔도 통화는 이어 감(카메라가 없으면 목소리만)
+            val f = tonghwaDwi
+            tonghwaDwi = null
+            f?.invoke()
+            return
+        }
         if (requestCode == 9) {
             // 2.4.0 말로 하기에 여쭌 마이크 허락
             val f = maikDwi
@@ -229,6 +260,18 @@ class GilnunActivity : AppCompatActivity() {
         maikDwi = f
         Sori.mal("말로 하기에는 마이크 허락이 필요합니다. 허용을 눌러 주십시오.")
         ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 9)
+    }
+
+    /** 2.6.0 긴급통화 카메라·마이크 허락 — 있으면 곧바로 f, 없으면 여쭙고 답이 오면 f(여쭙는 중이면 이어 붙임) */
+    fun tonghwaHeorak(f: () -> Unit) {
+        val an = listOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
+            .filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
+        if (an.isEmpty()) { f(); return }
+        val ap = tonghwaDwi
+        if (ap != null) { tonghwaDwi = { ap(); f() }; return }
+        tonghwaDwi = f
+        Sori.mal("화상통화에는 카메라와 마이크 허락이 필요합니다. 허용을 눌러 주십시오.")
+        ActivityCompat.requestPermissions(this, an.toTypedArray(), 10)
     }
 
     /** 길 찾기 탭 첫 화면으로 돌린 뒤 h 를 엶(h 가 없으면 첫 화면만) — 말로 하기가 화면을 열 때(아이폰 GilGil.cheotHwamyeon) */
@@ -304,6 +347,9 @@ class GilnunActivity : AppCompatActivity() {
 
     /** 지금 보이는 화면(2.2.0 — 늦게 온 결과로 다시 그릴 때, 그 화면이 아직 보이는지 가림) */
     val wiHwamyeon: Hwamyeon get() = gil[tab].last()
+
+    /** 2.6.0 화면을 그린 뒤 커서가 갈 첫 줄을 이 줄로(뒤로 단추 대신 — 통화 끊기 단추 등) */
+    fun chojeomJul(v: View) { cheotJul = v }
 
     /** 이 줄로 커서를 옮김(2.2.0 — 결과 목록이 나오면 첫 결과 줄로) */
     fun chojeomOmgigi(v: View) {
@@ -434,6 +480,14 @@ class GilChatgiCheot : Hwamyeon("길 찾기") {
                 dv.visibility = if (MalHagi.dapMal.isEmpty()) View.GONE else View.VISIBLE
             }
         }
+        // 2.6.0 긴급통화서비스 — 급한 일이라 말로 하기 바로 아래 겉에. 요청 중·통화 중이면 통화 화면으로 가는 단추(글자만 그 자리에서 바꿈)
+        val gb = t.danchu(ginGeupGeul()) { t.yeolgi(GinGeupHwamyeon()) }
+        GinGeup.byeonhwa = {
+            if (t.wiHwamyeon === this) {
+                val n = ginGeupGeul()
+                if (gb.text.toString() != n) gb.text = n
+            }
+        }
         // 2.2.0 따라 걷는 중이면 걷는 화면으로 가는 단추를 맨 위에
         if (JeomEngine.gil != null || JeomEngine.bulleoneun) {
             t.danchu(if (JeomEngine.dochakHam) "목적지에 닿았습니다 — 따라 걷기 화면으로" else "점지도 따라 걷는 중 — 걷는 화면으로") { t.yeolgi(JeomGeotgiHwamyeon()) }
@@ -457,7 +511,13 @@ class GilChatgiCheot : Hwamyeon("길 찾기") {
                 }
             }
         }
-        t.geul("목적지 찾기, 걸어갈까요, 차로갈까요, 지하철, 긴급통화서비스가 아이폰 길눈에서 묶음별로 옮겨 옵니다.")
+        t.geul("목적지 찾기, 걸어갈까요, 차로갈까요, 지하철이 아이폰 길눈에서 묶음별로 옮겨 옵니다.")
+    }
+
+    private fun ginGeupGeul() = when (GinGeup.sangtae) {
+        GinGeupSangtae.EOPSEUM -> "긴급통화서비스 — 화상통화 요청"
+        GinGeupSangtae.YOCHEONG -> "긴급통화 요청 중 — 통화 화면으로"
+        else -> "긴급통화 중 — 통화 화면으로"
     }
 
     private fun malDapGeul() = "들은 말 — ${MalHagi.deureunMal}. 길눈 — ${MalHagi.dapMal}"
@@ -518,6 +578,11 @@ class SeoljeongCheot : Hwamyeon("설정") {
             t.dasiGeurigi()
             if (on) t.sinhogiHagi { }   // 허락이 없거나 블루투스가 꺼져 있으면 그 자리에서
         }
+        // 2.6.0 긴급통화서비스 — 가족·지인 명단과 받는 분 화면에 뜰 내 이름(아이폰 2.4.1 설계도대로 설정 탭에)
+        t.danchu("가족·지인 명단 — 등록하고 초대 주소 보내기") { t.yeolgi(JiinMyeongdanHwamyeon()) }
+        val ne = t.ipryeok("받는 분 화면에 뜰 내 이름 — 긴급통화 때 보입니다", false)
+        ne.setText(GinGeup.naIrum)
+        ne.doAfterTextChanged { GinGeup.naIrum = it?.toString() ?: "" }
         t.danchu("새로고침") {
             SinhogiEngine.saerogochim()
             Wichi.wiseongDolligi()
@@ -634,11 +699,15 @@ class DoumalHwamyeon : Hwamyeon("도움말") {
             "음향신호기 — 자동으로 잡기" to "건널목 앞에서 폰을 꺼내실 필요가 없습니다. 길눈이 켜져 있으면 화면이 꺼져 있어도 둘레의 블루투스 음향신호기를 늘 살핍니다. 신호기가 가까이 잡히면 위치 안내를 스스로 한 번 울리고, 그 앞에 4초 넘게 머무르시면 신호 안내를 한 번 울립니다. 같은 신호기에는 3분에 한 번만 보내며, 이때 길눈은 말하지 않고 짧게 진동만 합니다. 신호기가 소리를 냅니다. 보행신호 음성안내 장치가 있는 횡단보도 앞이면 5분에 한 번 알려 드립니다. 처음부터 켜져 있고, 설정 탭의 음향신호기 자동으로 잡기에서 끄실 수 있습니다. 폰의 블루투스와 근처 기기 허락이 있어야 합니다. 화면이 꺼져 있을 때는 공용 번호나 정해진 이름을 내보내는 신호기만 잡힙니다.",
             "음향신호기 — 손으로 울리기" to "길 찾기 탭의 음향신호기 펼치기 안에 음향신호기 위치 안내 울리기와 음향신호기 신호 안내 울리기가 있습니다. 누르시면 둘레를 2.5초 살펴 가장 가까운 신호기에 요청을 보내고, 신호기가 받았는지 말씀드립니다. 받으면 세 번, 안 되면 길게 진동합니다. 가까이에 블루투스 음향신호기가 없으면 그렇게 알려 드립니다. 리모컨으로만 울리는 신호기도 있습니다. 블루투스가 꺼져 있으면 블루투스 켜기 창을 열어 드리고, 허용을 누르시면 하시던 요청을 이어서 보냅니다. 근처 기기 허락이 없으면 그 자리에서 여쭙니다.",
             "말로 하기" to "길 찾기 탭 맨 위의 첫 줄이 말로 하기 단추입니다. 누르시면 길눈이 네 하고 말씀을 기다립니다. 말소리를 꺼 두셨으면 딩동 소리 뒤에 말씀하십시오. 듣는 중에 다시 누르시면 그만둡니다. 듣는 동안에는 길눈이 하던 말을 멈추고 안내를 잠시 맡아 두었다가 말씀이 끝나면 이어서 드립니다. 위험 경고는 기다리지 않고 곧바로 말씀드립니다. 대답을 찾는 데 1초 넘게 걸리면 잠깐만 기다려 주세요라고 알려 드리고, 못 알아들으면 다시 한번 말씀해 주세요라고 한 번 더 여쭙니다. 묻는 말에는 마이크를 한 번 저절로 엽니다. 처음 쓰실 때 마이크 허락을 여쭙니다. 받아쓰기는 폰의 구글 음성 인식을 씁니다.",
-            "말로 하기 — 할 수 있는 말" to "지금 어디야. 약수역 가자처럼 가실 곳. 가까운 점지도 찾아 줘. 점지도를 따라 걸을 때는 다음에 무엇, 다음 갈림길, 어디쯤이야, 그만 걷기, 도착하면 되돌아가자. 신호기 울려 줘, 신호 알려 줘, 신호기 찾아 줘. 날씨 어때. 몇 시야. 말 빠르게, 말 느리게. 말소리 꺼, 말소리 켜. 다시 말해. 그만. 하던 일 멈춰. 여정 끝. 새로고침. 도움말이라고 하시면 이 말들을 읽어 드립니다. 아직 안드로이드 길눈에 없는 기능을 말씀하시면 그렇다고 알려 드리고 기록해 둡니다.",
+            "말로 하기 — 할 수 있는 말" to "지금 어디야. 약수역 가자처럼 가실 곳. 가까운 점지도 찾아 줘. 점지도를 따라 걸을 때는 다음에 무엇, 다음 갈림길, 어디쯤이야, 그만 걷기, 도착하면 되돌아가자. 신호기 울려 줘, 신호 알려 줘, 신호기 찾아 줘. 도와줘, 긴급통화, 해설사 불러 줘, 또는 가족 이름과 화상통화. 날씨 어때. 몇 시야. 말 빠르게, 말 느리게. 말소리 꺼, 말소리 켜. 다시 말해. 그만. 하던 일 멈춰. 여정 끝. 새로고침. 도움말이라고 하시면 이 말들을 읽어 드립니다. 아직 안드로이드 길눈에 없는 기능을 말씀하시면 그렇다고 알려 드리고 기록해 둡니다.",
             "말로 하기 — 가실 곳 말하기" to "약수역 가자처럼 가실 곳을 말씀하시면 가까운 점지도 가운데 그곳으로 가는 길을 찾습니다. 점지도의 도착지나 이름이 맞으면 약수역까지 점지도를 따라 걸을까요라고 여쭙고, 출발지가 맞으면 거꾸로 걷는 되돌아가는 점지도로 여쭙니다. 시작점이 떨어져 있으면 몇 시 방향, 얼마나 떨어졌는지 함께 알려 드립니다. 네라고 하시면 곧바로 따라 걷기를 시작하고 걷는 화면을 엽니다. 아니오라고 하시면 다음 길을 말씀드립니다. 이름으로 맞는 점지도가 없으면 나스에서 그곳을 찾아 몇 시 방향, 얼마나 떨어졌는지 알려 드리고, 끝이 그곳 가까이 닿는 점지도가 있으면 여쭙니다.",
             "말로 하기 — 이어폰 단추" to "걸으실 때는 한 손에 지팡이를 드시므로, 길눈 화면이 켜져 있으면 이어폰의 재생 단추를 길게, 0.6초 넘게 누르셔도 말로 하기가 열립니다. 짧게 누르시면 평소처럼 음악이 멈추고 다시 나옵니다. 화면이 꺼져 있을 때 이어폰 단추로 여는 것은 다음 판에 옮깁니다.",
+            "긴급통화서비스" to "길 찾기 탭 첫 화면의 말로 하기 바로 아래에 긴급통화서비스 단추가 있습니다. 세 갈래로 화상통화를 청하실 수 있습니다. 가족·지인은 고르신 한 분께만, 자원봉사자와 현장영상해설사는 지금 받으실 수 있는 모든 분께 신호가 갑니다. 먼저 한마디를 적어 두시면 받는 분 화면에 뜹니다. 가족·지인 명단과 내 이름은 설정 탭에서 다룹니다. 지금 계신 곳과, 점지도를 따라 걷는 중이면 그 길의 도착지도 함께 갑니다. 받으시면 누르지 않으셔도 뒤 카메라와 마이크가 켜지고 통화가 이어지며, 이어폰이 없으면 스피커로 들립니다. 1분 30초 동안 기다리며, 받을 분이 없거나 받지 않으시면 알려 드립니다. 통화 중에는 길눈이 말하지 않고 화면이 꺼지지 않습니다. 끊으실 때는 맨 위의 통화 끊기 단추를 누르시거나 폰의 뒤로 동작을 하십시오. 처음 쓰실 때 카메라와 마이크 허락을 여쭙니다.",
+            "가족·지인 명단" to "설정 탭의 가족·지인 명단을 여십시오. 이름과 전화번호를 적고 이 사람 만들기를 누르시면 초대 주소가 만들어집니다. 문자로 보내기나 다른 앱으로 보내기로 그 분께 보내 드리고, 그 분이 한 번 열어 받겠습니다를 누르시면 등록이 끝납니다. 전화번호는 폰 안에만 담기고 나스로 가지 않습니다. 등록된 분의 이름을 누르시면 초대 주소 다시 보내기와 명단에서 빼기가 있습니다. 받는 분 화면에 뜰 내 이름은 설정 탭의 가족·지인 명단 바로 아래 칸에 적으십시오. 명단이 비어 있을 때 긴급통화서비스에서 가족·지인을 누르시면 명단 화면으로 가는 단추가 나옵니다. 웹 길눈, 아이폰 길눈과 같은 명부를 씁니다.",
+            "긴급통화가 이어지지 않을 때" to "도움 요청이 통신이 약해 나스의 답을 받지 못해도 100초가 지나면 요청을 마치고 알려 드립니다. 상대가 받으신 뒤 40초 안에 통화가 이어지지 않아도 마치고 다시 요청하시라고 알려 드립니다. 연결이 막히면 한 번 더 이어 보고, 그래도 안 되면 알려 드립니다. 통화 중에는 길눈 말소리를 내지 않는 대신 경고가 생기면 길게 진동합니다. 길눈 화면을 닫으시면 통화도 끊깁니다.",
+            "갤럭시 워치 길눈 — 긴급통화" to "워치 첫 화면의 긴급통화를 두드리시면 한 번 더 누르시면 긴급통화를 요청합니다라고 알려 드립니다. 5초 안에 한 번 더 두드리셔야 폰 길눈이 요청합니다. 걷다가 잘못 눌리지 않게 하려는 것이며, 워치 단추 횟수에는 넣지 않았습니다. 마지막으로 요청하신 가족·지인 한 분께 갑니다. 그런 분이 없을 때 받겠다고 하신 분이 한 분뿐이면 그분께, 아니면 자원봉사자에게 갑니다. 폰 길눈의 긴급통화서비스 화면이 함께 열리며, 끊으실 때는 폰에서 끊으십시오.",
             "음향신호기 찾기" to "길 찾기 탭의 음향신호기 펼치기 안에 있습니다. 켜시면 신호기에 가까워질수록 확신음이 빨라지고, 바로 앞이면 음향신호기 바로 앞입니다라고 알려 드린 뒤 위치 안내를 울립니다. 6초 넘게 잡히지 않으면 천천히 둘러보시라고 한 번 알려 드리고, 1분이 지나면 저절로 마칩니다. 다시 누르시면 멈춥니다.",
-            "갤럭시 워치 길눈 — 잇기와 첫 화면" to "갤럭시 워치에 워치 길눈을 깔면 폰 길눈과 저절로 이어집니다. 폰 길눈이 켜져 있어야 합니다. 처음 여실 때 한 번만 지팡이를 어느 손으로 쥐시는지, 워치를 어느 손목에 차셨는지 여쭙니다. 워치 화면에는 다음 갈림길, 내 자리, 마지막 안내, 말로 하기, 음향신호기 위치, 음향신호기 신호, 걷는 동안 깨어 있기가 한 줄에 하나씩 있고, 맨 아래에 도움말과 손 바꾸기가 있습니다.",
+            "갤럭시 워치 길눈 — 잇기와 첫 화면" to "갤럭시 워치에 워치 길눈을 깔면 폰 길눈과 저절로 이어집니다. 폰 길눈이 켜져 있어야 합니다. 처음 여실 때 한 번만 지팡이를 어느 손으로 쥐시는지, 워치를 어느 손목에 차셨는지 여쭙니다. 워치 화면에는 다음 갈림길, 내 자리, 마지막 안내, 말로 하기, 긴급통화, 음향신호기 위치, 음향신호기 신호, 걷는 동안 깨어 있기가 한 줄에 하나씩 있고, 맨 아래에 도움말과 손 바꾸기가 있습니다.",
             "갤럭시 워치 길눈 — 안내와 진동" to "폰 길눈이 한 말은 워치의 마지막 안내로 넘어갑니다. 다음 갈림길은 점지도를 따라 걷는 중 다음에 무엇이 있는지 읽어 드립니다. 꺾어야 할 때 워치가 오른쪽은 길게 한 번, 왼쪽은 짧게 두 번 떨고, 도착하면 세 번 떱니다. 워치에서 톡백을 쓰시면 톡백이 읽고, 아니면 워치 목소리로 읽습니다. 폰이 곁에 없으면 나스에 남은 마지막 안내를 받아 읽고, 내 자리는 워치의 위성으로 찾습니다.",
             "갤럭시 워치 길눈 — 걷는 동안 깨어 있기" to "폰 길눈으로 점지도 따라 걷기를 시작하면 워치도 저절로 깨어 있기를 켭니다. 워치 화면 위에 길눈이 떠 있고, 손목을 내려도 꺼지지 않으며, 팔 흔들림으로 걸음을 세어 폰에 보냅니다. 폰이 가방 속에 있어 4초 넘게 걸음을 못 세면 폰 길눈이 워치 걸음으로 이어 셉니다. 워치 화면의 걷는 동안 깨어 있기 단추로 손수 켜고 끌 수도 있습니다.",
             "갤럭시 워치 길눈 — 손목 가리키기" to "지팡이를 쥐지 않은 손에 워치를 차셨을 때 씁니다. 점지도를 따라 걷는 중 워치 찬 팔을 손등이 위로 오게 앞으로 뻗으시면, 가야 할 쪽을 가리킬 때 1초마다 굵게 떨고, 어긋나면 팔을 옮길 쪽을 오른쪽은 길게 한 번, 왼쪽은 짧게 두 번으로 알려 드립니다. 팔을 뻗는 순간 한 번 맞습니다, 오른쪽으로, 왼쪽으로라고 말씀드립니다. 어긋나게 느껴지시면 따라 걷는 중에 서서 가리키기 방향 맞추기를 누르고 팔을 몸 정면으로 곧게 뻗어 기다리십시오.",

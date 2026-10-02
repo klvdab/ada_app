@@ -2,11 +2,13 @@
 // 아이폰 WatchLink.swift(2.6.0~2.37.0)와 같은 뜻, 같은 말. 애플의 WatchConnectivity 대신 구글 웨어러블 데이터 층(Wearable Data Layer)을 씁니다.
 //   폰 → 워치 상태(데이터 항목 /gilnun/sangtae — 아이폰 applicationContext 와 같음): mal 마지막 안내, daeum 다음 갈림길, ttae, geotneun 점지도 따라 걷는 중, watchBeonho
 //   폰 → 워치 알림(메시지 /gilnun/allim — 지금 이어져 있을 때만): jindong 방향 진동(left·right·arrive), gariki 가야 할 쪽(음수면 없음), sinhogiMal·sinhogiOk 음향신호기 결과, geotneun
-//   워치 → 폰 부탁(메시지 /gilnun/yocheong, JSON {what, id, cmd, n}): mal | daeum | jari | sinhogi(cmd 1·2) | malhagiSijak | momBang | watchGeoreum(n)
+//   워치 → 폰 부탁(메시지 /gilnun/yocheong, JSON {what, id, cmd, n}): mal | daeum | jari | sinhogi(cmd 1·2) | malhagiSijak | momBang | watchGeoreum(n) | gingeup
 //   폰 → 워치 답(메시지 /gilnun/dap, 부탁의 what·id 를 그대로 실어 보냄)
 //   워치 → 폰 지팡이 떨림 기록(데이터 항목 /gilnun/tteollim/<때>, 자산 "bin" + pyo·cho·son·hz) — 폰이 받아 파일로 옮기고 항목을 지운 뒤
 //     협회 나스(jeom/tteollim.php, 연구용)로 아이폰과 똑같이 올림. 못 올리면 들고 있다가 다음에(10분마다 다시)
 //   폰이 곁에 없을 때 워치가 받을 수 있게 마지막 안내를 나스(watch.php)에도 남김(1.5초 모아서) — 워치 번호는 폰 설정에
+// 2.6.0(빌드 261002-A9, 대표님 지시) 워치 → 폰 부탁에 gingeup(긴급통화) — 워치에서 두 번 눌러 확인한 뒤에만 옴.
+//   마지막으로 요청하신 가족·지인 한 분(없으면 자원봉사자)께 요청하고, 폰에 긴급통화서비스 화면을 엶. 답 dapMal 로 누구에게 가는지 알림
 // 워치 앱(:wear 모듈)은 같은 앱 번호(kr.or.ada.app)와 같은 서명이어야 서로 이어집니다.
 // 구글 플레이 서비스나 워치가 없으면 아무 일도 하지 않습니다(모든 부름을 try 로 감쌈).
 package kr.or.ada.app.gilnun
@@ -216,6 +218,7 @@ object WatchLink {
                 MalHagi.dudeurim()
                 dap(JSONObject().put("dapMal", "폰 길눈이 듣고 있습니다. 말씀하십시오."))
             }
+            "gingeup" -> GinGeup.watchYocheong { m -> dap(JSONObject().put("dapMal", m)) }
             "momBang" -> dap(JSONObject().put("momBang", JeomEngine.momBang ?: -1.0))
             "jari" -> GilChatgiCheot.jariMunjang { s -> dap(JSONObject().put("jari", s)) }
             "daeum" -> {

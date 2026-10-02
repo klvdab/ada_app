@@ -5,6 +5,7 @@
 //   점지도 위를 제대로 디딤 1320 짧게 · 반 걸음 비켜남 700 · 한 걸음 벗어남 330-247 낮은 두 소리 · 돌아옴 880-1320 오르는 두 소리
 // 2.4.0(빌드 261002-A7, 대표님 지시) 말로 하기 — 딩동 1318.5-1046.5(이제 말씀하십시오), 땡 1320(다 들었음). 아이폰과 같은 값.
 //   마이크가 열려 있는 동안은 경고음·벗어남·딩동·땡만 내고 나머지는 쉼(아이폰 myeongryeongDeutneunJung 과 같음)
+// 2.6.0(빌드 261002-A9, 대표님 지시) 긴급통화 중에는 알림 소리를 내지 않음(아이폰 SoriEngine.sori 와 같음)
 package kr.or.ada.app.gilnun
 
 import android.media.AudioAttributes
@@ -57,6 +58,7 @@ object Eum {
     /** 소리 하나 내기 — 겹쳐도 되고, 다 나면 스스로 치움 */
     fun naegi(j: EumJong) {
         main.post {
+            if (Sori.tonghwaJung) return@post   // 2.6.0 긴급통화 중에는 알림 소리도 내지 않음(아이폰과 같음)
             if (Sori.deutneunJung && j != EumJong.GYEONGGO && j != EumJong.BEOSEO && j != EumJong.DINGDONG && j != EumJong.TTAENG) return@post
             val s = gotgan.getOrPut(j) { mandeulgi(jogak(j)) }
             if (s.isEmpty()) return@post

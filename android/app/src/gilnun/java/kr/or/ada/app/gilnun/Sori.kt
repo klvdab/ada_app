@@ -4,6 +4,7 @@
 // 2.4.0(빌드 261002-A7, 대표님 지시) 말로 하기 — 마이크가 열려 있는 동안(deutneunJung) 길눈 말이 마이크로 들어가지 않게
 //   경고가 아닌 말은 잠시 맡아 두었다가 마이크가 닫히면 이어서 냄(15초 넘게 묵은 말은 버림). 경고는 듣기를 그만두게 하고 곧바로 말함
 // 2.5.0(빌드 261002-A8, 대표님 지시) 길눈이 한 말을 갤럭시 워치에도 넘김(WatchLink.malBonae — 아이폰 SoriEngine 과 같이 세 글자 이상인 말만)
+// 2.6.0(빌드 261002-A9, 대표님 지시) 긴급통화 중(tonghwaJung)에는 길눈 말소리를 내지 않음 — 말은 마지막 말로만 간직하고, 경고는 길게 진동(아이폰 SoriEngine 2.12.0과 같음)
 package kr.or.ada.app.gilnun
 
 import android.content.Context
@@ -30,6 +31,9 @@ object Sori {
         private set
     /** 말소리를 꺼 두셨을 때 톡백으로 알리는 자리(화면이 채움) */
     var tokbaek: ((String) -> Unit)? = null
+
+    /** 2.6.0 긴급통화 중 — 길눈 말소리를 내지 않음(GinGeup 이 켜고 끔) */
+    @Volatile var tonghwaJung = false
 
     /** 2.4.0 말로 하기가 마이크를 열어 둔 동안 */
     @Volatile var deutneunJung = false
@@ -80,6 +84,13 @@ object Sori {
         val t = t0.trim()
         if (t.isEmpty()) { kkeutnamyeon?.let { main.post(it) }; return }
         main.post {
+            // 2.6.0 긴급통화 중 — 말하지 않고, 경고는 길게 진동
+            if (tonghwaJung) {
+                majimak = t
+                if (geup == MalGeup.GYEONGGO) GinGeup.jindongGilge(true)
+                kkeutnamyeon?.let { main.post(it) }
+                return@post
+            }
             // 2.4.0 마이크가 열려 있으면 — 경고는 듣기를 그만두게 하고 곧바로, 다른 말은 맡아 둠
             if (deutneunJung) {
                 if (geup == MalGeup.GYEONGGO) {

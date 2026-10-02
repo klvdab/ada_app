@@ -12,7 +12,11 @@
 // 아이폰과 다른 점:
 //   아이폰 2.29.0 말뜻 풀이는 폰 안의 애플 인공지능이라 안드로이드에 없음 — 사전으로 못 알아들은 말은 나스의 곳 찾기(a=jangso)로 풀어 봄
 //   TODO(아이폰 하이 길눈·시리) 부르는 말로 깨우기, 화면이 꺼진 채 이어폰 단추로 열기(MediaSession 은 음악 앱의 단추를 빼앗아 이번 판에 넣지 않음)
-//   TODO(아이폰 목적지 위성 안내·차·지하철·버스·콜·긴급통화·즐겨찾기·음악·방송·카메라 눈) 안드로이드에 기능이 옮겨 오면 말로도 되게
+//   TODO(아이폰 목적지 위성 안내·차·지하철·버스·콜·즐겨찾기·음악·방송·카메라 눈) 안드로이드에 기능이 옮겨 오면 말로도 되게
+// 2.6.0(빌드 261002-A9, 대표님 지시) 긴급통화 — 아이폰 MalHagi 긴급통화(gingeupJikjeop·gingeup)와 같은 말, 같은 차례.
+//   도와줘·긴급통화·화상통화·영상통화(사전 doum) → 해설사·봉사자·명단의 이름이 들리면 곧장 요청, 아니면 누구에게 요청할지 여쭘(3분 동안 기억)
+//   요청하면 긴급통화서비스 화면을 열어 끊기 단추가 바로 보이게. 긴급통화 중에는 말로 하기를 열지 않음(마이크를 통화에 내어 줌)
+//   전에 드리던 「112나 119에 전화해 주십시오」 안내 말은 걷어냄
 package kr.or.ada.app.gilnun
 
 import android.Manifest
@@ -72,6 +76,9 @@ object MalHagi {
     private var huboI = 0
     private var mutneunJung = false
     private var mureumTtae = 0L
+    /** 2.6.0 긴급통화 — 누구에게 요청할지 여쭌 뒤(아이폰 mureum = .galrae) */
+    private var gingeupMutneun = false
+    private var gingeupTtae = 0L
 
     private fun bakkum(s: MalSangtae) {
         sangtae = s
@@ -121,6 +128,7 @@ object MalHagi {
 
     private fun yeolgi(sori: Boolean) {
         val c = ctx ?: return
+        if (GinGeup.sangtae != GinGeupSangtae.EOPSEUM) return   // 2.6.0 긴급통화 중에는 마이크를 통화에 내어 줌(아이폰과 같음)
         if (!MalDeutgi.heorakItda(c)) {
             val a = hwalseong?.get()
             if (a == null || a.isFinishing) {
@@ -327,6 +335,12 @@ object MalHagi {
             }
             return
         }
+        // 1-2. 2.6.0 긴급통화 중 그만·끊어(아이폰 2번과 같음)
+        if (GinGeup.sangtae != GinGeupSangtae.EOPSEUM && (s.itda(alts, "geuman") || z.contains("끊어"))) {
+            dap("", false)
+            GinGeup.geumanhagi()
+            return
+        }
         // 2. 점지도를 따라 걸을지 여쭌 말의 대답
         if (mutneunJung && huboI < hubo.size) {
             val ye = s.tteut(alts, "ye") != null
@@ -380,10 +394,18 @@ object MalHagi {
             dap("", false)
             return
         }
-        // 5. 긴급통화 — 가장 급한 일. 안드로이드에는 아직 없으므로 모르는 척하지 않고 길을 알려 드림
+        // 4-2. 2.6.0 누구에게 요청할지 여쭌 말의 대답(아이폰 case .galrae) — 3분이 지나면 잊음
+        if (gingeupMutneun && now - gingeupTtae < 180000) {
+            if (gingeupJikjeop(z, dap)) return
+            if (z.contains("가족") || z.contains("지인")) {
+                gingeup(t, dap)
+                return
+            }
+        }
+        // 5. 2.6.0 긴급통화 — 가장 급한 일(아이폰과 같은 말)
         if (s.itda(alts, "doum") || z.contains("화상통화") || z.contains("영상통화") || z.contains("긴급통화")) {
-            Girok.namgi("malhagi_eopneun", mapOf("k" to "gingeup"))
-            dap("죄송합니다. 긴급통화서비스는 아직 안드로이드 길눈에 넣지 못했습니다. 급하시면 112나 119에 전화해 주십시오. 이 말씀은 기록해 두었습니다.", false)
+            if (gingeupJikjeop(z, dap)) return
+            gingeup(t, dap)
             return
         }
 
@@ -664,6 +686,59 @@ object MalHagi {
         mutneunJung = false
         hubo = emptyList()
         huboI = 0
+        gingeupMutneun = false
+    }
+
+    // MARK: 긴급통화(2.6.0, 아이폰 gingeupJikjeop·gingeup 과 같음)
+
+    /** 해설사·봉사자·명단의 이름이 바로 들리면 곧장 요청 — 하면 참 */
+    private fun gingeupJikjeop(z: String, dap: (String, Boolean) -> Unit): Boolean {
+        if (z.contains("해설")) {
+            mureumChoGihwa()
+            dap("", false)
+            GinGeup.hwamyeonYeolgi()
+            GinGeup.yocheong(GinGeupGalrae.HAESEOLSA)
+            return true
+        }
+        if (z.contains("봉사")) {
+            mureumChoGihwa()
+            dap("", false)
+            GinGeup.hwamyeonYeolgi()
+            GinGeup.yocheong(GinGeupGalrae.HAEBONG)
+            return true
+        }
+        val l = Jiin.mokrok.sortedByDescending { it.name.length }
+        val sa = l.firstOrNull { val nz = MalSajeon.ttuk(it.name); nz.isNotEmpty() && z.contains(nz) }
+        if (sa != null) {
+            mureumChoGihwa()
+            dap("", false)
+            GinGeup.hwamyeonYeolgi()
+            GinGeup.yocheong(GinGeupGalrae.JIIN, sa)
+            return true
+        }
+        return false
+    }
+
+    /** 누구에게 요청할지 여쭘(명단을 먼저 받아 봄) */
+    private fun gingeup(t: String, dap: (String, Boolean) -> Unit) {
+        val z = MalSajeon.ttuk(t)
+        val ieo: () -> Unit = {
+            if (!gingeupJikjeop(z, dap)) {
+                val l = Jiin.mokrok
+                gingeupMutneun = true
+                gingeupTtae = System.currentTimeMillis()
+                if (z.contains("가족") || z.contains("지인")) {
+                    if (l.isEmpty()) {
+                        dap("가족·지인 명단이 비어 있습니다. 설정 탭의 가족·지인 명단에서 먼저 등록해 주십시오. 자원봉사자나 현장영상해설사에게 요청하시려면 말씀해 주십시오.", true)
+                    } else {
+                        dap("가족·지인 가운데 누구에게 요청할까요? " + l.take(5).joinToString(", ") { it.name } + ".", true)
+                    }
+                } else {
+                    dap("누구에게 요청할까요? 가족·지인이면 이름을, 아니면 자원봉사자나 현장영상해설사라고 말씀해 주십시오.", true)
+                }
+            }
+        }
+        if (Jiin.mokrok.isEmpty()) Jiin.bureogi { ieo() } else ieo()
     }
 
     /** 찾는 곳을 못 찾았을 때의 대답 */
@@ -710,7 +785,7 @@ object MalHagi {
     private fun kkajiTo(w: String) = if (w.endsWith("까지")) "" else "까지"
 
     /** 말로 하는 도움말 — 안드로이드 길눈에서 되는 말만 */
-    const val DOUMAL_MAL = "이렇게 말씀하시면 됩니다. 지금 어디야. 약수역 가자. 가까운 점지도 찾아 줘. 점지도를 따라 걸을 때는 다음에 무엇, 다음 갈림길, 어디쯤이야, 그만 걷기, 도착하면 되돌아가자. 신호기 울려 줘. 신호 알려 줘. 신호기 찾아 줘. 날씨 어때. 몇 시야. 말 빠르게, 말 느리게. 말소리 꺼. 다시 말해. 그만. 하던 일 멈춰. 새로고침."
+    const val DOUMAL_MAL = "이렇게 말씀하시면 됩니다. 지금 어디야. 약수역 가자. 가까운 점지도 찾아 줘. 점지도를 따라 걸을 때는 다음에 무엇, 다음 갈림길, 어디쯤이야, 그만 걷기, 도착하면 되돌아가자. 신호기 울려 줘. 신호 알려 줘. 신호기 찾아 줘. 도와줘, 또는 가족 이름과 화상통화. 날씨 어때. 몇 시야. 말 빠르게, 말 느리게. 말소리 꺼. 다시 말해. 그만. 하던 일 멈춰. 새로고침."
 }
 
 // MARK: 받아쓰기 — 안드로이드 자체 SpeechRecognizer(아이폰 MalDeutgi)
