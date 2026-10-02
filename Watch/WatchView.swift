@@ -4,6 +4,7 @@
 // 2.35.0 (빌드 261002-3, 대표님 승인) 처음 열 때 한 번만 "지팡이를 어느 손으로 쥐십니까", "워치는 어느 손목에 차셨습니까"를 여쭘
 //   워치는 지팡이를 쥐지 않은 손에 차는 것이 기본(손목 가리키기에 알맞음). 지팡이 쥔 손에 차시면 나중에 지팡이 떨림 읽기를 씀.
 //   "걷는 동안 깨어 있기" 단추 — 폰이 걷기를 시작하면 저절로 켜짐
+// 2.36.0 (빌드 261002-4, 대표님 승인) 손목 가리키기 켜고 끄기, 가리키기 방향 맞추기 — 지팡이를 쥐지 않은 손에 차셨을 때만 보임
 //   애플은 앱에 두 번 집기 하나만 내어 주므로(워치 시리즈 9·울트라 2 이후, watchOS 11 이후), 두 번 집기를 몇 번 잇달아 했는지 셈
 import SwiftUI
 import AVKit
@@ -44,6 +45,7 @@ struct SonMureumView: View {
     }
     private func gogeum(_ v: String) {
         watchSonmok = v
+        SonmokGariki.shared.mokBatda(SonmokGariki.shared.mok)   // 2.36.0 손이 바뀌면 가리키기를 다시 정함
         let gateum = v == jipangiSon
         model.speak("지팡이는 \(Son.mal(jipangiSon))손, 워치는 \(Son.mal(v))쪽 손목입니다. " + (gateum
             ? "지팡이를 쥔 손이라 걸음 세기와 지팡이 떨림 읽기에 씁니다."
@@ -53,6 +55,7 @@ struct SonMureumView: View {
 
 struct WatchView: View {
     @EnvironmentObject var model: WatchModel
+    @ObservedObject private var gariki = SonmokGariki.shared
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("jipangiSon") private var jipangiSon = ""
     @AppStorage("watchSonmok") private var watchSonmok = ""
@@ -109,6 +112,20 @@ struct WatchView: View {
                     .font(.footnote)
                     .accessibilityLabel("마지막 안내. \(model.mal)")
                     .padding(.top, 4)
+                // 2.36.0 손목 가리키기 — 지팡이를 쥐지 않은 손에 차셨을 때만
+                if jipangiSon != watchSonmok {
+                    Button { gariki.kyeojim.toggle(); model.speak(gariki.kyeojim ? "손목 가리키기를 켰습니다." : "손목 가리키기를 껐습니다.") } label: {
+                        Text("손목 가리키기").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityValue(gariki.kyeojim ? "켜짐" : "꺼짐")
+                    .accessibilityHint("점지도 따라 걷는 중 이 팔을 손등이 위로 오게 앞으로 뻗으면, 가야 할 쪽을 가리킬 때 굵은 진동이 오고 어긋나면 옮길 쪽을 진동으로 알려 드립니다")
+                    Button { gariki.majchugi { dap in model.momBangMureum(dap) } } label: {
+                        Text("가리키기 방향 맞추기").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityHint("폰 길눈으로 걷는 중에 서서, 두드린 뒤 이 팔을 몸 정면으로 곧게 뻗고 기다리시면 한 번 맞춰 둡니다")
+                }
                 // 2.35.0 손 바꾸기
                 Button("지팡이 \(Son.mal(jipangiSon))손, 워치 \(Son.mal(watchSonmok))쪽 손목 — 바꾸기") {
                     jipangiSon = ""; watchSonmok = ""

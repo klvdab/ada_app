@@ -159,7 +159,10 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
         if let g = r["geotneun"] as? Bool, g != ponGeotneun {
             ponGeotneun = g
             g ? geotgiKyeogi() : geotgiKkeugi()
+            if !g { SonmokGariki.shared.mokBatda(nil) }
         }
+        // 2.36.0 손목 가리키기 — 폰이 보낸 가야 할 쪽(음수면 없음)
+        if let b = r["gariki"] as? Double { SonmokGariki.shared.mokBatda(b >= 0 ? b : nil) }
         if let m = r["mal"] as? String, !m.isEmpty { mal = m }
         if let d = r["daeum"] as? String { daeum = d }
         if let t = r["ttae"] as? Double { ttae = t }
@@ -258,6 +261,15 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
     /// 워치 길눈이 화면에 다시 떴을 때 — 폰이 걷는 중인데 깨어 있지 못하면 다시 엶
     func hwamyeonDolawa() {
         if ponGeotneun && gilSession == nil { geotgiKyeogi() }
+    }
+
+    /// 2.36.0 가리키기 방향 맞추기 — 폰 길눈에게 지금 몸이 향한 방향을 물음
+    func momBangMureum(_ dap: @escaping (Double?) -> Void) {
+        guard WCSession.isSupported(), WCSession.default.isReachable else { dap(nil); return }
+        WCSession.default.sendMessage(["what": "momBang"], replyHandler: { r in
+            let b = r["momBang"] as? Double ?? -1
+            dap(b >= 0 ? b : nil)
+        }, errorHandler: { _ in dap(nil) })
     }
 
     private func georeumBonae(_ n: Int) {
