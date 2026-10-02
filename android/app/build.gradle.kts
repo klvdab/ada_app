@@ -1,4 +1,7 @@
-// 협회 안드로이드 앱 — 앱 설정 (1.3.0판, 빌드 261001-A3 — 길눈 2.1.0 몸 센서를 길눈에도)
+// 협회 안드로이드 앱 — 앱 설정 (1.4.0판, 빌드 261002-A8 — 길눈 2.5.0 갤럭시 워치, 대표님 지시)
+// 1.4.0판(261002-A8) 구글 웨어러블 데이터 층(play-services-wearable)을 더함 — 폰 길눈 ↔ 갤럭시 워치 길눈(:wear 모듈, 같은 앱 번호 kr.or.ada.app)
+//   자봉 갈래도 src/gilnun 을 함께 싣으므로 세 갈래 모두에 넣음(자봉·배프는 쓰지 않음)
+// 1.3.0판(261001-A3) 길눈 2.1.0 몸 센서를 길눈에도
 // 1.2.0판(261001-A2) 자봉 갈래 점지도 그리기 속까지 앱, 몸 센서 극대화
 // 1.1.0판(261001-A1) 길눈 갈래 속까지 앱
 // 한 프로젝트에 세 앱을 담습니다(갈래=flavor).
@@ -47,7 +50,7 @@ android {
             dimension = "ap"
             applicationId = "kr.or.ada.app"
             resValue("string", "app_name", "길눈")
-            versionName = "2.4.0"   // 261002-A7 말로 하기를 안드로이드 길눈에도(MalHagi — 받아쓰기·나스 알아듣기 사전·점지도 찾기, 이어폰 단추 길게, 대표님 지시). 261002-A6 음향신호기를 안드로이드 길눈에도(SinhogiEngine — 자동으로 잡기·손으로 울리기·찾기, 대표님 지시). 261002-A4 점지도 따라 걷기를 안드로이드에도(JeomEngine·Jeomjido·Eum·JeomHwamyeon, 대표님 지시). 261001-A3 몸 센서를 길눈에도(MomSensor.kt 를 src/gilnun 으로). 261001-A1 길눈은 속까지 앱(GilnunActivity, src/gilnun)으로 새로 지음 — 자봉·배프는 웹 판 그대로
+            versionName = "2.5.0"   // 261002-A8 갤럭시 워치 길눈과 잇기(WatchLink — 안내·진동·걸음·손목 가리키기·지팡이 떨림 기록, 대표님 지시). 261002-A7 말로 하기를 안드로이드 길눈에도(MalHagi — 받아쓰기·나스 알아듣기 사전·점지도 찾기, 이어폰 단추 길게, 대표님 지시). 261002-A6 음향신호기를 안드로이드 길눈에도(SinhogiEngine — 자동으로 잡기·손으로 울리기·찾기, 대표님 지시). 261002-A4 점지도 따라 걷기를 안드로이드에도(JeomEngine·Jeomjido·Eum·JeomHwamyeon, 대표님 지시). 261001-A3 몸 센서를 길눈에도(MomSensor.kt 를 src/gilnun 으로). 261001-A1 길눈은 속까지 앱(GilnunActivity, src/gilnun)으로 새로 지음 — 자봉·배프는 웹 판 그대로
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/jeom/jeom.html\"")   // 260926-3 길눈 첫 화면으로 곧바로
         }
         create("jabong") {
@@ -99,4 +102,5 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.webkit:webkit:1.12.1")   // 260926-1 다리를 문서 맨 처음에 심기
+    implementation("com.google.android.gms:play-services-wearable:18.1.0")   // 261002-A8 갤럭시 워치 길눈과 잇기
 }
