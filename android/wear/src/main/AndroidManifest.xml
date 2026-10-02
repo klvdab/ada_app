@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 갤럭시 워치 길눈 — 얼개 (2.5.0판, 빌드 261002-A8, 대표님 지시)
+     폰 길눈이 있어야 쓰는 워치 앱(standalone = false). 앱 번호는 폰 길눈과 같은 kr.or.ada.app(build.gradle.kts).
+     걷는 동안 깨어 있기는 몸 활동(health) 갈래의 앞에 도는 일(foreground service)로 — 안드로이드 14 이상이 요구하는 갈래 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature android:name="android.hardware.type.watch" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.BODY_SENSORS" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
+    <!-- 안드로이드 14 이상의 몸 활동 갈래 앞에 도는 일은 몸 활동 허락이나 이 허락(설치할 때 저절로 받음) 중 하나가 있어야 열림 -->
+    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@drawable/ic_launcher"
+        android:roundIcon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.DeviceDefault">
+
+        <meta-data
+            android:name="com.google.android.wearable.standalone"
+            android:value="false" />
+
+        <activity
+            android:name=".WatchActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- 폰 길눈이 보내는 상태·알림·답을 받음(워치 길눈 화면이 닫혀 있어도) -->
+        <service
+            android:name=".GilnunWearService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/gilnun" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/gilnun/sangtae" />
+            </intent-filter>
+        </service>
+
+        <!-- 걷는 동안 깨어 있기 + 팔 흔들림 걸음 세기 + 지팡이 떨림 기록 중 멈추지 않게 -->
+        <service
+            android:name=".GeotgiService"
+            android:exported="false"
+            android:foregroundServiceType="health" />
+    </application>
+</manifest>
