@@ -1,5 +1,6 @@
 // 안드로이드 길눈 — 몸통: 판번호, 설정, 기록, 나스 통신 (2.0.0, 빌드 261001-A1, 대표님 승인)
 // 아이폰 길눈(Gilnun 폴더)과 같은 설계도로, 웹 껍데기 없이 앱 속에서 돕니다.
+// 2.3.0(빌드 261002-A6, 대표님 지시) 설정에 음향신호기 자동으로 잡기(sinhogiJadong, 처음부터 켜짐)
 package kr.or.ada.app.gilnun
 
 import android.content.Context
@@ -18,12 +19,22 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.2.0"
-    const val bild = "261002-A4"
+    const val pan = "2.3.0"
+    const val bild = "261002-A6"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.3.0", "261002-A6", "2026-10-02", listOf(
+            "음향신호기를 안드로이드 길눈에도(대표님 지시) — 아이폰 길눈의 음향신호기 엔진을 같은 규격, 같은 잣대, 같은 말로 옮김(SinhogiEngine)",
+            "건널목 앞에서 폰을 꺼내지 않아도 되게 — 길눈이 켜져 있으면 화면이 꺼져도 둘레의 블루투스 음향신호기를 늘 살핌. 가까이 잡히면 위치 안내 한 번, 그 앞에 4초 넘게 머무르면 신호 안내 한 번, 같은 신호기에는 3분에 한 번, 이때 길눈은 말하지 않고 짧게 진동만",
+            "보행신호 음성안내 장치가 있는 횡단보도 앞이면 5분에 한 번 알림",
+            "설정 탭에 음향신호기 자동으로 잡기 — 처음부터 켜짐, 누르면 꺼짐",
+            "길 찾기 탭에 음향신호기 펼치기 — 음향신호기 위치 안내 울리기, 음향신호기 신호 안내 울리기, 음향신호기 찾기(가까워질수록 소리가 빨라짐)",
+            "블루투스가 꺼져 있으면 블루투스 켜기 창을 열고, 켜지면 하시던 요청을 이어 보냄. 근처 기기 허락이 없으면 그 자리에서 여쭘",
+            "남산 현장 확인을 위한 기록 — 신호기나 음성안내 장치가 잡히면 한 기기에 한 번 이름, 세기, 자리를 남김. 기기 주소는 알아볼 수 없게 줄여서만",
+            "도움말에 음향신호기 자동으로 잡기, 손으로 울리기, 찾기 더함"
+        )),
         Gochim("2.2.0", "261002-A4", "2026-10-02", listOf(
             "점지도 따라 걷기를 안드로이드에도(대표님 지시) — 아이폰 길눈의 따라 걷기 엔진을 같은 잣대, 같은 시간, 같은 말로 옮김",
             "길 찾기 탭에 점지도 따라 걷기 단추. 가까운 점지도를 다섯씩 보여 드리고 아래에 더 보기와 이전 보기. 목록이 나오면 커서를 첫 결과 줄로",
@@ -68,6 +79,10 @@ object Seoljeong {
         get() = d.getFloat("bopok", 0.65f).toDouble()
         set(v) { d.edit().putFloat("bopok", v.toFloat()).putBoolean("bopokJaem", true).apply() }
     val bopokJaem: Boolean get() = d.getBoolean("bopokJaem", false)
+    /** 2.3.0 음향신호기 자동으로 잡기(처음부터 켜짐) — 끄면 손으로만 울림 */
+    var sinhogiJadong: Boolean
+        get() = d.getBoolean("sinhogiJadong", true)
+        set(v) { d.edit().putBoolean("sinhogiJadong", v).apply() }
     val dev: String
         get() {
             val v = d.getString("dev", null)

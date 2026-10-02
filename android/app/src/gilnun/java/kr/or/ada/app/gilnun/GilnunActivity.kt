@@ -4,14 +4,19 @@
 //   속 화면의 뒤로 단추는 위에 하나(탭 바가 아래에 있으므로). 폰의 뒤로 동작도 앞 화면으로 — 앱 밖으로 튀어 나가지 않음
 //   화면이 바뀌면 커서를 첫 줄로. 자주 쓰는 것만 겉에 두고 나머지는 펼치기 안에. 새로고침은 설정에 하나
 // 2.2.0(빌드 261002-A4, 대표님 지시) 길 찾기 탭에 점지도 따라 걷기(JeomHwamyeon.kt). 결과 목록은 첫 결과 줄로 커서를 옮김(chojeomOmgigi)
+// 2.3.0(빌드 261002-A6, 대표님 지시) 음향신호기(SinhogiEngine.kt) — 길 찾기 탭에 음향신호기 펼치기(위치 안내·신호 안내 울리기, 찾기),
+//   설정에 음향신호기 자동으로 잡기(처음부터 켜짐). 근처 기기 허락은 처음 켤 때 함께 여쭙고, 손으로 울릴 때 없으면 그 자리에서 다시 여쭘
 package kr.or.ada.app.gilnun
 
 import android.Manifest
+import android.bluetooth.BluetoothAdapter
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.text.InputType
 import android.util.TypedValue
 import android.view.Gravity
@@ -44,6 +49,7 @@ class GilnunActivity : AppCompatActivity() {
     private val gil = List(5) { ArrayList<Hwamyeon>() }
     private var tab = 0
     private var cheotJul: View? = null
+    private var heorakDwi: (() -> Unit)? = null   // 2.3.0 근처 기기 허락을 받으면 이어 할 일
 
     companion object {
         val NAM = Color.rgb(18, 52, 110)
@@ -56,6 +62,7 @@ class GilnunActivity : AppCompatActivity() {
         Girok.sijak(this)
         Sori.sijak(this)
         Wichi.sijak(this)
+        SinhogiEngine.sijak(this)   // 2.3.0 음향신호기 자동으로 잡기(설정에서 끔)
         Girok.namgi("app_sijak", mapOf("pan" to Pan.pan, "bild" to Pan.bild, "android" to Build.VERSION.SDK_INT))
 
         val bburi = LinearLayout(this).apply {
@@ -115,6 +122,17 @@ class GilnunActivity : AppCompatActivity() {
         Girok.jeojang()
     }
 
+    // 2.3.0 화면이 꺼지면 음향신호기는 공용 번호·정해진 이름으로만 살핌(안드로이드가 거르개 없는 훑기를 막음)
+    override fun onStart() {
+        super.onStart()
+        SinhogiEngine.dwiKyeogi(false)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        SinhogiEngine.dwiKyeogi(true)
+    }
+
     // MARK: 허락
 
     private fun heorakCheong() {
@@ -123,6 +141,7 @@ class GilnunActivity : AppCompatActivity() {
         p.add(Manifest.permission.ACCESS_COARSE_LOCATION)
         if (Build.VERSION.SDK_INT >= 29) p.add(Manifest.permission.ACTIVITY_RECOGNITION)
         if (Build.VERSION.SDK_INT >= 33) p.add(Manifest.permission.POST_NOTIFICATIONS)
+        if (Seoljeong.sinhogiJadong) for (b in SinhogiEngine.pilyoHeorak()) if (b !in p) p.add(b)   // 2.3.0 음향신호기(근처 기기)
         val an = p.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
         if (an.isEmpty()) { WichiService.kyeogi(this); return }
         ActivityCompat.requestPermissions(this, an.toTypedArray(), 7)
@@ -132,9 +151,54 @@ class GilnunActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         val gyeolgwa = permissions.indices.associate { permissions[it] to (grantResults.getOrNull(it) == PackageManager.PERMISSION_GRANTED) }
         Girok.namgi("heorak", gyeolgwa.mapKeys { it.key.substringAfterLast('.') })
+        SinhogiEngine.saerogochim()
+        if (requestCode == 8) {
+            // 2.3.0 음향신호기를 손으로 울리려다 여쭌 허락
+            val f = heorakDwi
+            heorakDwi = null
+            Wichi.wiseongDolligi()
+            WichiService.kyeogi(this)
+            if (SinhogiEngine.heorakItda) { if (f != null) sinhogiHagi(f) } else Sori.mal(SinhogiEngine.heorakMal)   // 블루투스가 꺼져 있으면 켜기 창까지
+            return
+        }
         Wichi.wiseongDolligi()
         WichiService.kyeogi(this)
         if (!Wichi.heorakItda) Sori.mal("길눈이 길을 안내하려면 위치 허락이 필요합니다. 폰 설정의 앱, 길눈, 권한에서 위치를 허용해 주십시오.")
+    }
+
+    // MARK: 음향신호기(2.3.0)
+
+    /** 음향신호기를 손으로 쓰기 전에 — 허락이 없으면 여쭙고, 블루투스가 꺼져 있으면 켜기 창을 엶. 다 되면 il */
+    fun sinhogiHagi(il: () -> Unit) {
+        if (!SinhogiEngine.giginItda) { Sori.mal("이 폰은 블루투스를 쓸 수 없습니다."); return }
+        if (!SinhogiEngine.heorakItda) {
+            val an = SinhogiEngine.pilyoHeorak().filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
+            if (an.isNotEmpty()) {
+                heorakDwi = il
+                Sori.mal("음향신호기를 찾으려면 " + (if (Build.VERSION.SDK_INT >= 31) "근처 기기" else "위치") + " 허락이 필요합니다. 허용을 눌러 주십시오.")
+                ActivityCompat.requestPermissions(this, an.toTypedArray(), 8)
+                return
+            }
+        }
+        if (!SinhogiEngine.kyeojim) {
+            Sori.mal("폰의 블루투스가 꺼져 있습니다. 블루투스 켜기 창을 엽니다. 허용을 누르시면 이어서 보내 드립니다.")
+            SinhogiEngine.kyeojimyeonHagi(il)
+            bluetoothKyeogi()
+            return
+        }
+        il()
+    }
+
+    /** 블루투스 켜기 창 — 안 되면 블루투스 설정 화면 */
+    @android.annotation.SuppressLint("MissingPermission")
+    private fun bluetoothKyeogi() {
+        try {
+            startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+        } catch (e: Exception) {
+            try { startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) } catch (e2: Exception) {
+                Sori.mal("블루투스 설정을 열지 못했습니다. 화면 위에서 아래로 쓸어내려 빠른 설정에서 블루투스를 켜 주십시오.")
+            }
+        }
     }
 
     // MARK: 화면 옮기기
@@ -281,6 +345,7 @@ class GilnunActivity : AppCompatActivity() {
 // MARK: 길 찾기 탭
 
 class GilChatgiCheot : Hwamyeon("길 찾기") {
+    private var sinhogiPyeol = false   // 2.3.0 음향신호기 펼치기 — 자동으로 잡기는 접혀 있어도 늘 돎
     override fun chaeugi(t: GilnunActivity) {
         // 2.2.0 따라 걷는 중이면 걷는 화면으로 가는 단추를 맨 위에
         if (JeomEngine.gil != null || JeomEngine.bulleoneun) {
@@ -288,6 +353,23 @@ class GilChatgiCheot : Hwamyeon("길 찾기") {
         }
         t.danchu("지금 내 자리 다시 듣기") { jariMal() }
         t.danchu("점지도 따라 걷기") { t.yeolgi(JeomMokrokHwamyeon()) }
+        t.pyeolchigi("음향신호기", sinhogiPyeol) { sinhogiPyeol = !sinhogiPyeol }
+        if (sinhogiPyeol) {
+            t.danchu("음향신호기 위치 안내 울리기") { t.sinhogiHagi { SinhogiEngine.ulligi(1) } }
+            t.danchu("음향신호기 신호 안내 울리기") { t.sinhogiHagi { SinhogiEngine.ulligi(2) } }
+            t.danchu(if (SinhogiEngine.chatneunJung) "음향신호기 찾기 멈추기" else "음향신호기 찾기 — 가까워질수록 소리가 빨라집니다") {
+                if (SinhogiEngine.chatneunJung) {
+                    SinhogiEngine.chatgiKkeugi("음향신호기 찾기를 멈췄습니다.")
+                    t.dasiGeurigi()
+                } else {
+                    t.sinhogiHagi {
+                        SinhogiEngine.chatgiKyeogi()
+                        Sori.mal("음향신호기 찾기를 켭니다. 가까워질수록 소리가 빨라집니다. 다시 누르시면 멈춥니다.")
+                        if (t.wiHwamyeon === this) t.dasiGeurigi()
+                    }
+                }
+            }
+        }
         t.geul("목적지 찾기, 걸어갈까요, 차로갈까요, 지하철, 긴급통화서비스가 아이폰 길눈에서 묶음별로 옮겨 옵니다.")
     }
 
@@ -333,7 +415,17 @@ class SeoljeongCheot : Hwamyeon("설정") {
         t.danchu(if (Seoljeong.bopokJaem) "내 보폭 다시 재기 — 지금 ${(Seoljeong.bopok * 100).toInt()}센티미터" else "내 보폭 재기 — 한 번 재 두면 걸음 수가 정확해집니다") {
             t.yeolgi(BopokHwamyeon())
         }
+        t.danchu("음향신호기 자동으로 잡기 — 지금 " + (if (Seoljeong.sinhogiJadong) "켜짐, 누르면 꺼짐" else "꺼짐, 누르면 켜짐")) {
+            val on = !Seoljeong.sinhogiJadong
+            Seoljeong.sinhogiJadong = on
+            SinhogiEngine.jadongKyeogi(on)
+            Sori.mal(if (on) "음향신호기 자동으로 잡기를 켰습니다. 신호기가 가까이 잡히면 길눈이 스스로 울립니다."
+                else "음향신호기 자동으로 잡기를 껐습니다. 길 찾기 탭의 음향신호기 펼치기에서 손으로 울리실 수 있습니다.")
+            t.dasiGeurigi()
+            if (on) t.sinhogiHagi { }   // 허락이 없거나 블루투스가 꺼져 있으면 그 자리에서
+        }
         t.danchu("새로고침") {
+            SinhogiEngine.saerogochim()
             Wichi.wiseongDolligi()
             WichiService.kyeogi(t)
             Girok.bonaegi()
@@ -444,7 +536,10 @@ class DoumalHwamyeon : Hwamyeon("도움말") {
             "위성이 끊길 때 — 걸음으로 이어 셈" to "점지도의 바탕은 걸음입니다. 위성이 6초 넘게 끊기거나 흐리면 걸으신 걸음 수에 보폭을 곱해 점지도 위를 그만큼 나아가신 것으로 셉니다. 설정 탭에서 보폭을 재 두시면 걸음 수가 더 정확해집니다.",
             "끌 수 없는 안전 안내" to "따라 걷기를 시작할 때 길눈은 보조 안내이니 지팡이와 주변 소리를 먼저 확인하시라고 말씀드립니다. 아직 확인 중인 점지도면 조심해서 걸으시라고 덧붙입니다. 폰이 멈췄다 깨어나 안내가 10초 넘게 끊기면 안내가 끊겼다고 알려 드립니다. 이 안내들은 말소리를 꺼 두셔도 말씀드립니다.",
             "도착" to "목적지 30미터쯤과 20미터 안에서 남은 거리를 알려 드리고, 닿으면 도착 소리와 함께 알려 드립니다. 걷는 화면의 첫 줄이 목적지에 닿았습니다, 되돌아가기 단추로 바뀝니다.",
-            "몸 센서 — 걸음과 방향을 더 정확하게" to "길눈을 켜 두시는 동안 폰의 가속도계와 자이로를 1초에 50번 읽어 걸음과 방향을 잽니다. 자봉 앱이 점지도를 그릴 때와 같은 센서, 같은 셈법이라 그린 분의 걸음과 걸으시는 분의 걸음이 같은 자로 맞습니다. 안드로이드 폰의 걸음 센서는 걸음을 몇 초씩 몰아서 알려 주는 일이 많은데, 몸 센서가 발이 땅에 닿을 때마다 곧바로 세어 그 늦음을 메웁니다. 방향은 몸이 몇 도 돌았는지 자이로로 재고 나침반 쪽으로 천천히 맞추므로 쇠붙이나 건물 옆에서도 틀어지지 않습니다. 위성이 끊겨 걸음으로 자리를 이어 셀 때도 이 방향을 씁니다. 설정 탭 더 보기 안의 기초 시험에서 몸 센서 듣기로 몸 센서가 센 걸음과 방향을 들어 보실 수 있습니다. 따로 켜실 것은 없습니다."
+            "몸 센서 — 걸음과 방향을 더 정확하게" to "길눈을 켜 두시는 동안 폰의 가속도계와 자이로를 1초에 50번 읽어 걸음과 방향을 잽니다. 자봉 앱이 점지도를 그릴 때와 같은 센서, 같은 셈법이라 그린 분의 걸음과 걸으시는 분의 걸음이 같은 자로 맞습니다. 안드로이드 폰의 걸음 센서는 걸음을 몇 초씩 몰아서 알려 주는 일이 많은데, 몸 센서가 발이 땅에 닿을 때마다 곧바로 세어 그 늦음을 메웁니다. 방향은 몸이 몇 도 돌았는지 자이로로 재고 나침반 쪽으로 천천히 맞추므로 쇠붙이나 건물 옆에서도 틀어지지 않습니다. 위성이 끊겨 걸음으로 자리를 이어 셀 때도 이 방향을 씁니다. 설정 탭 더 보기 안의 기초 시험에서 몸 센서 듣기로 몸 센서가 센 걸음과 방향을 들어 보실 수 있습니다. 따로 켜실 것은 없습니다.",
+            "음향신호기 — 자동으로 잡기" to "건널목 앞에서 폰을 꺼내실 필요가 없습니다. 길눈이 켜져 있으면 화면이 꺼져 있어도 둘레의 블루투스 음향신호기를 늘 살핍니다. 신호기가 가까이 잡히면 위치 안내를 스스로 한 번 울리고, 그 앞에 4초 넘게 머무르시면 신호 안내를 한 번 울립니다. 같은 신호기에는 3분에 한 번만 보내며, 이때 길눈은 말하지 않고 짧게 진동만 합니다. 신호기가 소리를 냅니다. 보행신호 음성안내 장치가 있는 횡단보도 앞이면 5분에 한 번 알려 드립니다. 처음부터 켜져 있고, 설정 탭의 음향신호기 자동으로 잡기에서 끄실 수 있습니다. 폰의 블루투스와 근처 기기 허락이 있어야 합니다. 화면이 꺼져 있을 때는 공용 번호나 정해진 이름을 내보내는 신호기만 잡힙니다.",
+            "음향신호기 — 손으로 울리기" to "길 찾기 탭의 음향신호기 펼치기 안에 음향신호기 위치 안내 울리기와 음향신호기 신호 안내 울리기가 있습니다. 누르시면 둘레를 2.5초 살펴 가장 가까운 신호기에 요청을 보내고, 신호기가 받았는지 말씀드립니다. 받으면 세 번, 안 되면 길게 진동합니다. 가까이에 블루투스 음향신호기가 없으면 그렇게 알려 드립니다. 리모컨으로만 울리는 신호기도 있습니다. 블루투스가 꺼져 있으면 블루투스 켜기 창을 열어 드리고, 허용을 누르시면 하시던 요청을 이어서 보냅니다. 근처 기기 허락이 없으면 그 자리에서 여쭙니다.",
+            "음향신호기 찾기" to "길 찾기 탭의 음향신호기 펼치기 안에 있습니다. 켜시면 신호기에 가까워질수록 확신음이 빨라지고, 바로 앞이면 음향신호기 바로 앞입니다라고 알려 드린 뒤 위치 안내를 울립니다. 6초 넘게 잡히지 않으면 천천히 둘러보시라고 한 번 알려 드리고, 1분이 지나면 저절로 마칩니다. 다시 누르시면 멈춥니다."
         )
     }
 }
