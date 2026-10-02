@@ -1,4 +1,7 @@
-# 안드로이드 앱 자동 짓기 (1.1.0판, 빌드 261002-A5)
+# 안드로이드 앱 자동 짓기 (1.2.0판, 빌드 261002-A8)
+# 1.2.0 (261002-A8, 대표님 지시) 갤럭시 워치 길눈 — eoneu=wear 이면 :wear 모듈(웨어 OS, 앱 번호 kr.or.ada.app)을 같은 열쇠로 서명해 짓고
+#   sihum-apk-wear 갈래에 wear.apk 로 올림. 워치 앱은 아이콘을 스스로 갖고 있어 아이콘 만들기를 건너뜀.
+#   길눈·자봉·배프는 :app 의 그 갈래만 지음(워치 모듈은 짓지 않아 빠름)
 # 1.1.0 (261002-A5, 대표님 승인) 지은 시험판 APK 를 sihum-apk-<갈래> 갈래에 올려, 클이 협회 시험판 받기 화면(나스)으로 곧바로 옮김
 # 깃허브가 빌려 주는 리눅스에서 안드로이드 앱을 짓습니다. 맥이 필요 없어 애플보다 빠릅니다.
 # 세 앱을 한 프로젝트에 담았습니다(갈래).
@@ -19,7 +22,7 @@ on:
   workflow_dispatch:
     inputs:
       eoneu:
-        description: "어느 앱 (gilnun = 길눈, jabong = 자봉, bfb = 배프)"
+        description: "어느 앱 (gilnun = 길눈, jabong = 자봉, bfb = 배프, wear = 갤럭시 워치 길눈)"
         default: "gilnun"
 jobs:
   jitgi:
@@ -39,8 +42,11 @@ jobs:
             gilnun|"") FL=gilnun; CAP=Gilnun; NM=길눈 ;;
             jabong)    FL=jabong; CAP=Jabong; NM=자봉 ;;
             bfb)       FL=bfb;    CAP=Bfb;    NM=배프 ;;
-            *) echo "eoneu 는 gilnun, jabong, bfb 중 하나여야 합니다 (받은 값: $EONEU)"; exit 1 ;;
+            wear)      FL=wear;   CAP=Wear;   NM="워치 길눈" ;;
+            *) echo "eoneu 는 gilnun, jabong, bfb, wear 중 하나여야 합니다 (받은 값: $EONEU)"; exit 1 ;;
           esac
+          if [ "$FL" = "wear" ]; then MOD=wear; else MOD=app; fi
+          echo "MODULE=$MOD" >> "$GITHUB_ENV"
           echo "FLAVOR=$FL" >> "$GITHUB_ENV"
           echo "FLAVOR_CAP=$CAP" >> "$GITHUB_ENV"
           echo "APPNAME=$NM" >> "$GITHUB_ENV"
@@ -65,6 +71,7 @@ jobs:
                     echo "BUILD_NUMBER=$(( ($(date +%s) - 1767225600) / 60 ))" >> "$GITHUB_ENV"
 
       - name: 아이콘 만들기
+        if: env.FLAVOR != 'wear'
         run: |
           python3 -m venv /tmp/py
           /tmp/py/bin/pip install --quiet pillow
@@ -108,7 +115,13 @@ jobs:
         run: |
           set -o pipefail
           gradle --version
-          gradle "assemble${FLAVOR_CAP}Release" "bundle${FLAVOR_CAP}Release" --no-daemon --stacktrace 2>&1 | tee build.log | tail -n 120 || true
+          if [ "$FLAVOR" = "wear" ]; then
+            TASKS=":wear:assembleRelease"
+          else
+            TASKS=":app:assemble${FLAVOR_CAP}Release :app:bundle${FLAVOR_CAP}Release"
+          fi
+          echo "짓는 일: $TASKS"
+          gradle $TASKS --no-daemon --stacktrace 2>&1 | tee build.log | tail -n 120 || true
           if ! grep -q "BUILD SUCCESSFUL" build.log; then
             echo "===== 잘못된 곳 ====="
             sed -n '/What went wrong/,/^$/p' build.log | head -n 40
@@ -118,16 +131,16 @@ jobs:
 
       - name: 만들어진 것 살펴보기
         run: |
-          echo "--- APK ---"; find app/build/outputs/apk -name "*.apk" -print 2>/dev/null || true
-          echo "--- AAB ---"; find app/build/outputs/bundle -name "*.aab" -print 2>/dev/null || true
+          echo "--- APK ---"; find "$MODULE/build/outputs/apk" -name "*.apk" -print 2>/dev/null || true
+          echo "--- AAB ---"; find "$MODULE/build/outputs/bundle" -name "*.aab" -print 2>/dev/null || true
           echo "서명 여부: $SEOMYEONG"
 
       - name: 시험판 갈래에 올리기
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          A=$(find app/build/outputs/apk -name "*release*.apk" | head -n1)
-          [ -z "$A" ] && A=$(find app/build/outputs/apk -name "*.apk" | head -n1)
+          A=$(find "$MODULE/build/outputs/apk" -name "*release*.apk" | head -n1)
+          [ -z "$A" ] && A=$(find "$MODULE/build/outputs/apk" -name "*.apk" | head -n1)
           [ -z "$A" ] && { echo "APK 없음"; exit 0; }
           cp "$A" "/tmp/$FLAVOR.apk"
           mkdir -p /tmp/sihum && cd /tmp/sihum
@@ -147,4 +160,5 @@ jobs:
             android/build.log
             android/app/build/outputs/apk/**/*.apk
             android/app/build/outputs/bundle/**/*.aab
+            android/wear/build/outputs/apk/**/*.apk
           if-no-files-found: warn
