@@ -3,6 +3,8 @@
 // 길 안내 소리 자리(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)로 내므로 음악을 들으셔도 함께 들립니다.
 //   확신 880 · 경고 440 두 번 · 도착 660-880-1100
 //   점지도 위를 제대로 디딤 1320 짧게 · 반 걸음 비켜남 700 · 한 걸음 벗어남 330-247 낮은 두 소리 · 돌아옴 880-1320 오르는 두 소리
+// 2.4.0(빌드 261002-A7, 대표님 지시) 말로 하기 — 딩동 1318.5-1046.5(이제 말씀하십시오), 땡 1320(다 들었음). 아이폰과 같은 값.
+//   마이크가 열려 있는 동안은 경고음·벗어남·딩동·땡만 내고 나머지는 쉼(아이폰 myeongryeongDeutneunJung 과 같음)
 package kr.or.ada.app.gilnun
 
 import android.media.AudioAttributes
@@ -14,7 +16,7 @@ import kotlin.math.PI
 import kotlin.math.min
 import kotlin.math.sin
 
-enum class EumJong { HWAKSIN, GYEONGGO, DOCHAK, JEOMOK, BIKYEO, BEOSEO, DORAOM }
+enum class EumJong { HWAKSIN, GYEONGGO, DOCHAK, JEOMOK, BIKYEO, BEOSEO, DORAOM, DINGDONG, TTAENG }
 
 object Eum {
     private const val SR = 22050
@@ -30,6 +32,8 @@ object Eum {
         EumJong.BIKYEO -> listOf(700.0 to 0.12)
         EumJong.BEOSEO -> listOf(330.0 to 0.2, 0.0 to 0.07, 247.0 to 0.26)
         EumJong.DORAOM -> listOf(880.0 to 0.08, 0.0 to 0.04, 1320.0 to 0.1)
+        EumJong.DINGDONG -> listOf(1318.5 to 0.14, 0.0 to 0.03, 1046.5 to 0.3)
+        EumJong.TTAENG -> listOf(1320.0 to 0.2)
     }
 
     private fun mandeulgi(jg: List<Pair<Double, Double>>): ShortArray {
@@ -53,6 +57,7 @@ object Eum {
     /** 소리 하나 내기 — 겹쳐도 되고, 다 나면 스스로 치움 */
     fun naegi(j: EumJong) {
         main.post {
+            if (Sori.deutneunJung && j != EumJong.GYEONGGO && j != EumJong.BEOSEO && j != EumJong.DINGDONG && j != EumJong.TTAENG) return@post
             val s = gotgan.getOrPut(j) { mandeulgi(jogak(j)) }
             if (s.isEmpty()) return@post
             try {

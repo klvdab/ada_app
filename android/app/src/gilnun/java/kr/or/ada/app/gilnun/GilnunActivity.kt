@@ -6,6 +6,9 @@
 // 2.2.0(빌드 261002-A4, 대표님 지시) 길 찾기 탭에 점지도 따라 걷기(JeomHwamyeon.kt). 결과 목록은 첫 결과 줄로 커서를 옮김(chojeomOmgigi)
 // 2.3.0(빌드 261002-A6, 대표님 지시) 음향신호기(SinhogiEngine.kt) — 길 찾기 탭에 음향신호기 펼치기(위치 안내·신호 안내 울리기, 찾기),
 //   설정에 음향신호기 자동으로 잡기(처음부터 켜짐). 근처 기기 허락은 처음 켤 때 함께 여쭙고, 손으로 울릴 때 없으면 그 자리에서 다시 여쭘
+// 2.4.0(빌드 261002-A7, 대표님 지시) 말로 하기(MalHagi.kt) — 길 찾기 탭 맨 위 첫 줄에 큰 말로 하기 단추. 마이크 허락은 처음 누를 때 여쭘.
+//   걸으실 때 한 손에 지팡이 — 길눈 화면이 켜져 있으면 이어폰 재생 단추를 길게(0.6초 넘게) 눌러도 열림. 짧게 누르면 음악 앱에 그대로 돌려줌.
+//   단추 글자는 화면을 다시 그리지 않고 그 자리에서만 바꿈(톡백 커서가 흔들리지 않게)
 package kr.or.ada.app.gilnun
 
 import android.Manifest
@@ -14,12 +17,14 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
+import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.text.InputType
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.accessibility.AccessibilityEvent
@@ -33,6 +38,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import java.lang.ref.WeakReference
 
 /** 화면 하나 — 제목과 줄들 */
 abstract class Hwamyeon(val jemok: String) {
@@ -50,6 +56,7 @@ class GilnunActivity : AppCompatActivity() {
     private var tab = 0
     private var cheotJul: View? = null
     private var heorakDwi: (() -> Unit)? = null   // 2.3.0 근처 기기 허락을 받으면 이어 할 일
+    private var maikDwi: ((Boolean) -> Unit)? = null   // 2.4.0 마이크 허락을 받으면 이어 할 일
 
     companion object {
         val NAM = Color.rgb(18, 52, 110)
@@ -63,6 +70,8 @@ class GilnunActivity : AppCompatActivity() {
         Sori.sijak(this)
         Wichi.sijak(this)
         SinhogiEngine.sijak(this)   // 2.3.0 음향신호기 자동으로 잡기(설정에서 끔)
+        MalHagi.sijak(this)         // 2.4.0 말로 하기 — 나스 알아듣기 사전을 받아 둠
+        MalHagi.hwalseong = WeakReference(this)
         Girok.namgi("app_sijak", mapOf("pan" to Pan.pan, "bild" to Pan.bild, "android" to Build.VERSION.SDK_INT))
 
         val bburi = LinearLayout(this).apply {
@@ -131,6 +140,43 @@ class GilnunActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         SinhogiEngine.dwiKyeogi(true)
+        MalHagi.meomchum()   // 2.4.0 화면이 가려지면 마이크를 닫음
+    }
+
+    override fun onDestroy() {
+        if (MalHagi.hwalseong?.get() === this) {
+            MalHagi.hwalseong = null
+            MalHagi.byeonhwa = null
+        }
+        super.onDestroy()
+    }
+
+    // MARK: 이어폰 단추(2.4.0) — 길게 누르면 말로 하기, 짧게 누르면 음악 앱에 그대로
+
+    private fun iyeopon(keyCode: Int) = keyCode == KeyEvent.KEYCODE_HEADSETHOOK || keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (iyeopon(keyCode)) return true   // 뗄 때 길이를 보고 정함
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (!iyeopon(keyCode)) return super.onKeyUp(keyCode, event)
+        if (event.isCanceled) return true
+        if (event.eventTime - event.downTime >= 600) {
+            Girok.namgi("malhagi_iyeopon")
+            MalHagi.dudeurim()
+        } else {
+            // 짧게 누름 — 받은 단추를 소리 관리자에게 돌려주어 음악 앱이 평소대로 멈추고 다시 틀게
+            try {
+                val am = getSystemService(AUDIO_SERVICE) as AudioManager
+                am.dispatchMediaKeyEvent(KeyEvent(event.downTime, event.downTime, KeyEvent.ACTION_DOWN, keyCode, 0))
+                am.dispatchMediaKeyEvent(KeyEvent(event.downTime, event.eventTime, KeyEvent.ACTION_UP, keyCode, 0))
+            } catch (e: Exception) {
+                Girok.namgi("iyeopon_oryu", mapOf("e" to (e.message ?: "")))
+            }
+        }
+        return true
     }
 
     // MARK: 허락
@@ -152,6 +198,13 @@ class GilnunActivity : AppCompatActivity() {
         val gyeolgwa = permissions.indices.associate { permissions[it] to (grantResults.getOrNull(it) == PackageManager.PERMISSION_GRANTED) }
         Girok.namgi("heorak", gyeolgwa.mapKeys { it.key.substringAfterLast('.') })
         SinhogiEngine.saerogochim()
+        if (requestCode == 9) {
+            // 2.4.0 말로 하기에 여쭌 마이크 허락
+            val f = maikDwi
+            maikDwi = null
+            f?.invoke(ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
+            return
+        }
         if (requestCode == 8) {
             // 2.3.0 음향신호기를 손으로 울리려다 여쭌 허락
             val f = heorakDwi
@@ -164,6 +217,24 @@ class GilnunActivity : AppCompatActivity() {
         Wichi.wiseongDolligi()
         WichiService.kyeogi(this)
         if (!Wichi.heorakItda) Sori.mal("길눈이 길을 안내하려면 위치 허락이 필요합니다. 폰 설정의 앱, 길눈, 권한에서 위치를 허용해 주십시오.")
+    }
+
+    // MARK: 말로 하기(2.4.0)
+
+    /** 마이크 허락 — 있으면 곧바로 f(참), 없으면 여쭙고 답에 따라 f */
+    fun maikHeorak(f: (Boolean) -> Unit) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) { f(true); return }
+        maikDwi = f
+        Sori.mal("말로 하기에는 마이크 허락이 필요합니다. 허용을 눌러 주십시오.")
+        ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 9)
+    }
+
+    /** 길 찾기 탭 첫 화면으로 돌린 뒤 h 를 엶(h 가 없으면 첫 화면만) — 말로 하기가 화면을 열 때(아이폰 GilGil.cheotHwamyeon) */
+    fun cheotHwamyeonEuro(h: Hwamyeon?) {
+        tab = 0
+        while (gil[0].size > 1) gil[0].removeAt(gil[0].size - 1)
+        if (h != null) gil[0].add(h)
+        boyeojugi()
     }
 
     // MARK: 음향신호기(2.3.0)
@@ -347,6 +418,20 @@ class GilnunActivity : AppCompatActivity() {
 class GilChatgiCheot : Hwamyeon("길 찾기") {
     private var sinhogiPyeol = false   // 2.3.0 음향신호기 펼치기 — 자동으로 잡기는 접혀 있어도 늘 돎
     override fun chaeugi(t: GilnunActivity) {
+        // 2.4.0 첫 줄은 큰 말로 하기 단추 — 듣는 중에 다시 누르면 그만. 글자는 그 자리에서만 바꿈(화면을 다시 그리지 않음)
+        val mb = t.danchu(MalHagi.danchuGeul) { MalHagi.dudeurim() }
+        mb.minHeight = t.dp(96)
+        mb.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+        mb.contentDescription = "말로 하기 — 누르고 말씀하십시오"
+        val dv = t.geul(malDapGeul())
+        dv.visibility = if (MalHagi.dapMal.isEmpty()) View.GONE else View.VISIBLE
+        MalHagi.byeonhwa = {
+            if (t.wiHwamyeon === this) {
+                mb.text = MalHagi.danchuGeul
+                dv.text = malDapGeul()
+                dv.visibility = if (MalHagi.dapMal.isEmpty()) View.GONE else View.VISIBLE
+            }
+        }
         // 2.2.0 따라 걷는 중이면 걷는 화면으로 가는 단추를 맨 위에
         if (JeomEngine.gil != null || JeomEngine.bulleoneun) {
             t.danchu(if (JeomEngine.dochakHam) "목적지에 닿았습니다 — 따라 걷기 화면으로" else "점지도 따라 걷는 중 — 걷는 화면으로") { t.yeolgi(JeomGeotgiHwamyeon()) }
@@ -372,6 +457,8 @@ class GilChatgiCheot : Hwamyeon("길 찾기") {
         }
         t.geul("목적지 찾기, 걸어갈까요, 차로갈까요, 지하철, 긴급통화서비스가 아이폰 길눈에서 묶음별로 옮겨 옵니다.")
     }
+
+    private fun malDapGeul() = "들은 말 — ${MalHagi.deureunMal}. 길눈 — ${MalHagi.dapMal}"
 
     companion object {
         fun jariMal() {
@@ -539,6 +626,10 @@ class DoumalHwamyeon : Hwamyeon("도움말") {
             "몸 센서 — 걸음과 방향을 더 정확하게" to "길눈을 켜 두시는 동안 폰의 가속도계와 자이로를 1초에 50번 읽어 걸음과 방향을 잽니다. 자봉 앱이 점지도를 그릴 때와 같은 센서, 같은 셈법이라 그린 분의 걸음과 걸으시는 분의 걸음이 같은 자로 맞습니다. 안드로이드 폰의 걸음 센서는 걸음을 몇 초씩 몰아서 알려 주는 일이 많은데, 몸 센서가 발이 땅에 닿을 때마다 곧바로 세어 그 늦음을 메웁니다. 방향은 몸이 몇 도 돌았는지 자이로로 재고 나침반 쪽으로 천천히 맞추므로 쇠붙이나 건물 옆에서도 틀어지지 않습니다. 위성이 끊겨 걸음으로 자리를 이어 셀 때도 이 방향을 씁니다. 설정 탭 더 보기 안의 기초 시험에서 몸 센서 듣기로 몸 센서가 센 걸음과 방향을 들어 보실 수 있습니다. 따로 켜실 것은 없습니다.",
             "음향신호기 — 자동으로 잡기" to "건널목 앞에서 폰을 꺼내실 필요가 없습니다. 길눈이 켜져 있으면 화면이 꺼져 있어도 둘레의 블루투스 음향신호기를 늘 살핍니다. 신호기가 가까이 잡히면 위치 안내를 스스로 한 번 울리고, 그 앞에 4초 넘게 머무르시면 신호 안내를 한 번 울립니다. 같은 신호기에는 3분에 한 번만 보내며, 이때 길눈은 말하지 않고 짧게 진동만 합니다. 신호기가 소리를 냅니다. 보행신호 음성안내 장치가 있는 횡단보도 앞이면 5분에 한 번 알려 드립니다. 처음부터 켜져 있고, 설정 탭의 음향신호기 자동으로 잡기에서 끄실 수 있습니다. 폰의 블루투스와 근처 기기 허락이 있어야 합니다. 화면이 꺼져 있을 때는 공용 번호나 정해진 이름을 내보내는 신호기만 잡힙니다.",
             "음향신호기 — 손으로 울리기" to "길 찾기 탭의 음향신호기 펼치기 안에 음향신호기 위치 안내 울리기와 음향신호기 신호 안내 울리기가 있습니다. 누르시면 둘레를 2.5초 살펴 가장 가까운 신호기에 요청을 보내고, 신호기가 받았는지 말씀드립니다. 받으면 세 번, 안 되면 길게 진동합니다. 가까이에 블루투스 음향신호기가 없으면 그렇게 알려 드립니다. 리모컨으로만 울리는 신호기도 있습니다. 블루투스가 꺼져 있으면 블루투스 켜기 창을 열어 드리고, 허용을 누르시면 하시던 요청을 이어서 보냅니다. 근처 기기 허락이 없으면 그 자리에서 여쭙니다.",
+            "말로 하기" to "길 찾기 탭 맨 위의 첫 줄이 말로 하기 단추입니다. 누르시면 길눈이 네 하고 말씀을 기다립니다. 말소리를 꺼 두셨으면 딩동 소리 뒤에 말씀하십시오. 듣는 중에 다시 누르시면 그만둡니다. 듣는 동안에는 길눈이 하던 말을 멈추고 안내를 잠시 맡아 두었다가 말씀이 끝나면 이어서 드립니다. 위험 경고는 기다리지 않고 곧바로 말씀드립니다. 대답을 찾는 데 1초 넘게 걸리면 잠깐만 기다려 주세요라고 알려 드리고, 못 알아들으면 다시 한번 말씀해 주세요라고 한 번 더 여쭙니다. 묻는 말에는 마이크를 한 번 저절로 엽니다. 처음 쓰실 때 마이크 허락을 여쭙니다. 받아쓰기는 폰의 구글 음성 인식을 씁니다.",
+            "말로 하기 — 할 수 있는 말" to "지금 어디야. 약수역 가자처럼 가실 곳. 가까운 점지도 찾아 줘. 점지도를 따라 걸을 때는 다음에 무엇, 다음 갈림길, 어디쯤이야, 그만 걷기, 도착하면 되돌아가자. 신호기 울려 줘, 신호 알려 줘, 신호기 찾아 줘. 날씨 어때. 몇 시야. 말 빠르게, 말 느리게. 말소리 꺼, 말소리 켜. 다시 말해. 그만. 하던 일 멈춰. 여정 끝. 새로고침. 도움말이라고 하시면 이 말들을 읽어 드립니다. 아직 안드로이드 길눈에 없는 기능을 말씀하시면 그렇다고 알려 드리고 기록해 둡니다.",
+            "말로 하기 — 가실 곳 말하기" to "약수역 가자처럼 가실 곳을 말씀하시면 가까운 점지도 가운데 그곳으로 가는 길을 찾습니다. 점지도의 도착지나 이름이 맞으면 약수역까지 점지도를 따라 걸을까요라고 여쭙고, 출발지가 맞으면 거꾸로 걷는 되돌아가는 점지도로 여쭙니다. 시작점이 떨어져 있으면 몇 시 방향, 얼마나 떨어졌는지 함께 알려 드립니다. 네라고 하시면 곧바로 따라 걷기를 시작하고 걷는 화면을 엽니다. 아니오라고 하시면 다음 길을 말씀드립니다. 이름으로 맞는 점지도가 없으면 나스에서 그곳을 찾아 몇 시 방향, 얼마나 떨어졌는지 알려 드리고, 끝이 그곳 가까이 닿는 점지도가 있으면 여쭙니다.",
+            "말로 하기 — 이어폰 단추" to "걸으실 때는 한 손에 지팡이를 드시므로, 길눈 화면이 켜져 있으면 이어폰의 재생 단추를 길게, 0.6초 넘게 누르셔도 말로 하기가 열립니다. 짧게 누르시면 평소처럼 음악이 멈추고 다시 나옵니다. 화면이 꺼져 있을 때 이어폰 단추로 여는 것은 다음 판에 옮깁니다.",
             "음향신호기 찾기" to "길 찾기 탭의 음향신호기 펼치기 안에 있습니다. 켜시면 신호기에 가까워질수록 확신음이 빨라지고, 바로 앞이면 음향신호기 바로 앞입니다라고 알려 드린 뒤 위치 안내를 울립니다. 6초 넘게 잡히지 않으면 천천히 둘러보시라고 한 번 알려 드리고, 1분이 지나면 저절로 마칩니다. 다시 누르시면 멈춥니다."
         )
     }
