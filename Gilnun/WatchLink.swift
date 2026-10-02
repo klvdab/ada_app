@@ -1,6 +1,7 @@
 // 폰 ↔ 워치 — 앱 2.6.0 (빌드 260928-8). 옛 앱(260927-2·3)에서 승인된 방식을 새 앱의 알맹이로 옮기고 "말로 하기"를 더함.
 //   폰 → 워치: 마지막 안내(mal), 다음 갈림길(daeum), 방향 진동(jindong), 음향신호기 결과(sinhogiMal·sinhogiOk), 워치 번호
 //   워치 → 폰: what = mal | daeum | sinhogi(cmd 1·2) | malhagi(t: 손목에 말씀하신 글) | malhagiSijak(2.33.0 손가락 세 번 집기 — 폰이 듣기 시작)
+//   2.35.0 폰 → 워치: geotneun(점지도 따라 걷는 중 — 워치가 깨어 있기를 엶) / 워치 → 폰: watchGeoreum(n: 워치가 센 걸음 누계)
 //   폰이 곁에 없을 때 워치가 받을 수 있게 마지막 안내를 나스(watch.php)에도 남김 — 워치 번호는 폰 키체인에
 import Foundation
 import WatchConnectivity
@@ -75,6 +76,17 @@ final class WatchLink: NSObject, WCSessionDelegate {
         }
     }
 
+    /// 2.35.0 (빌드 261002-3, 대표님 승인) 점지도 따라 걷기 시작·그만 — 워치가 깨어 있기와 걸음 세기를 켜고 끔
+    func geotgiAllim(_ on: Bool) {
+        DispatchQueue.main.async {
+            guard (self.last["geotneun"] as? Bool) != on else { return }
+            self.last["geotneun"] = on
+            guard self.iEojim else { return }
+            try? WCSession.default.updateApplicationContext(self.last)
+            if WCSession.default.isReachable { WCSession.default.sendMessage(["geotneun": on], replyHandler: nil, errorHandler: nil) }
+        }
+    }
+
     /// 방향 진동 — 워치의 길눈이 열려 있으면 지금 한 번(지난 진동이 나중에 울리지 않게 메시지로만)
     func jindongBonae(_ mu: String) {
         guard iEojim, WCSession.default.isReachable else { return }
@@ -121,5 +133,9 @@ final class WatchLink: NSObject, WCSessionDelegate {
         }
     }
 
-    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {}
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        // 2.35.0 워치가 센 걸음 — 폰이 걸음을 못 셀 때(가방 속 등) 점지도 따라 걷기가 이것으로 이어 감
+        guard (message["what"] as? String) == "watchGeoreum", let n = message["n"] as? Int else { return }
+        DispatchQueue.main.async { JeomEngine.shared.watchGeoreum(n) }
+    }
 }

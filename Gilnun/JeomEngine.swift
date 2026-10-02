@@ -173,6 +173,9 @@ final class JeomEngine: ObservableObject {
     private var moG: Double = 9.8
     private var moWi = false
     private var moT = Date.distantPast
+    // 2.35.0 워치 걸음 — 폰이 4초 넘게 걸음을 못 셀 때만 워치가 센 걸음으로 이어 감(두 번 세지 않게)
+    private var ponGeoreumT = Date.distantPast
+    private var watchN0: Int?
 
     private let RAD = Double.pi / 180
     private var bocok: Double { let b = Seoljeong.shared.bopok; return (b > 0.3 && b < 1.2) ? b : 0.7 }
@@ -382,6 +385,8 @@ final class JeomEngine: ObservableObject {
         sigye = nil
         umjik.stopAccelerometerUpdates()
         MomSensor.shared.gilnunGeoreum = nil
+        WatchLink.shared.geotgiAllim(false)
+        watchN0 = nil
         if momNaega { MomSensor.shared.kkeugi(); momNaega = false }
         momSseum = false
         WichiEngine.shared.momBbareum = false
@@ -639,6 +644,7 @@ final class JeomEngine: ObservableObject {
     // MARK: 걸음
 
     private func umjikSijak() {
+        WatchLink.shared.geotgiAllim(true)   // 2.35.0 워치도 깨어 걸음을 셈
         // 2.32.0 몸 센서 — 1초에 50번, 발이 땅에 닿을 때마다 한 걸음, 자이로로 돈 각도
         if CMMotionManager().isDeviceMotionAvailable {
             let ms = MomSensor.shared
@@ -649,6 +655,7 @@ final class JeomEngine: ObservableObject {
             ms.gilnunGeoreum = { [weak self] in
                 guard let self = self else { return }
                 WichiEngine.shared.momGeoreumNal()
+                self.ponGeoreumT = Date()
                 if self.S.gidarim { self.S.gidarimSu += 1; if self.S.gidarimSu >= 3 { self.S.gidarim = false } }
                 self.georeum()
             }
@@ -667,12 +674,26 @@ final class JeomEngine: ObservableObject {
             if !self.moWi && df > 1.3 && now.timeIntervalSince(self.moT) > 0.3 {
                 self.moWi = true
                 self.moT = now
+                self.ponGeoreumT = now
                 if self.S.gidarim { self.S.gidarimSu += 1; if self.S.gidarimSu >= 3 { self.S.gidarim = false } }
                 self.georeum()
             } else if self.moWi && df < 0.3 {
                 self.moWi = false
             }
         }
+    }
+
+    /// 2.35.0 (빌드 261002-3, 대표님 승인) 워치가 팔 흔들림으로 센 걸음 누계
+    func watchGeoreum(_ n: Int) {
+        guard gil != nil else { watchN0 = nil; return }
+        defer { watchN0 = n }
+        guard let n0 = watchN0, n > n0 else { return }
+        guard Date().timeIntervalSince(ponGeoreumT) > 4 else { return }
+        for _ in 0..<min(n - n0, 10) {
+            if S.gidarim { S.gidarimSu += 1; if S.gidarimSu >= 3 { S.gidarim = false } }
+            georeum()
+        }
+        Girok.shared.namgi("jeom_watch_georeum", ["n": n - n0])
     }
 
     private var nachimban: Double? {
