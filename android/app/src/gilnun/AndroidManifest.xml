@@ -1,12 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 길눈 갈래 얼개 (안드로이드 길눈 2.0.0, 빌드 261001-A1, 대표님 승인) — 껍데기 웹 대신 속까지 앱.
-     자봉·배프 갈래는 main 의 MainActivity(웹)를 그대로 쓰고, 길눈 갈래만 GilnunActivity 로 엽니다. -->
+     자봉·배프 갈래는 main 의 MainActivity(웹)를 그대로 쓰고, 길눈 갈래만 GilnunActivity 로 엽니다.
+     2.7.0(빌드 261002-B1, 대표님 지시) 음악·방송 서비스(BangsongService), 동영상 틀기(DongyeongActivity — 공유 → 길눈),
+     내 서류 보관함 파일 제공자(NnSeoryuProvider), 발 앞 턱 알림의 구글 AR 은 있으면 씀(optional). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- 2.7.0 b5 음악·방송: 화면이 꺼져도 소리가 이어지게(알림 칸의 길눈 방송) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <application>
         <activity android:name="kr.or.ada.app.MainActivity" tools:node="remove" />
@@ -27,5 +31,43 @@
             android:name="kr.or.ada.app.gilnun.WichiService"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <!-- 2.7.0 b5 알림 칸의 길눈 방송 — 미디어3 미디어 세션 서비스(음악·라디오·TV) -->
+        <service
+            android:name="kr.or.ada.app.gilnun.BangsongService"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
+
+        <!-- 2.7.0 b5 동영상 틀기 — 온 화면 재생기. 카톡·문자·갤러리의 "공유 → 길눈"으로 동영상을 받음(글 공유 거르개는 넣지 않음 — 아이폰과 같게) -->
+        <activity
+            android:name="kr.or.ada.app.gilnun.DongyeongActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:launchMode="singleTop"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden">
+            <intent-filter android:label="길눈에서 틀기">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
+        </activity>
+
+        <!-- 2.7.0 b6 내 서류 보관함 — 보낼 때·사진 찍을 때만 캐시를 거쳐 문자·메일 창으로(원본은 no_backup 폴더). 이름은 코드의 packageName + ".b6seoryu" 와 같아야 함 -->
+        <provider
+            android:name="kr.or.ada.app.gilnun.NnSeoryuProvider"
+            android:authorities="${applicationId}.b6seoryu"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/b6_seoryu_paths" />
+        </provider>
+
+        <!-- 2.7.0 b3 발 앞 계단·턱 알림(관리자 시험) — 구글 AR 은 있으면 씀(없어도 앱은 깔림). camera.ar uses-feature 는 넣지 않음 -->
+        <meta-data android:name="com.google.ar.core" android:value="optional" />
     </application>
 </manifest>
