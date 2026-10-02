@@ -1,6 +1,7 @@
 // 폰 ↔ 워치 — 앱 2.6.0 (빌드 260928-8). 옛 앱(260927-2·3)에서 승인된 방식을 새 앱의 알맹이로 옮기고 "말로 하기"를 더함.
 //   폰 → 워치: 마지막 안내(mal), 다음 갈림길(daeum), 방향 진동(jindong), 음향신호기 결과(sinhogiMal·sinhogiOk), 워치 번호
 //   워치 → 폰: what = mal | daeum | sinhogi(cmd 1·2) | malhagi(t: 손목에 말씀하신 글) | malhagiSijak(2.33.0 손가락 세 번 집기 — 폰이 듣기 시작)
+//   2.37.0 워치 → 폰: 지팡이 떨림 기록 파일(what = tteollim) — 폰이 받아 협회 나스(jeom/tteollim.php, 연구용)로 올림. 못 올리면 들고 있다가 다음에
 //   2.36.0 폰 → 워치: gariki(가야 할 쪽, 음수면 없음) / 워치 → 폰: momBang(가리키기 방향 맞추기 — 몸 방향을 물음)
 //   2.35.0 폰 → 워치: geotneun(점지도 따라 걷는 중 — 워치가 깨어 있기를 엶) / 워치 → 폰: watchGeoreum(n: 워치가 센 걸음 누계)
 //   폰이 곁에 없을 때 워치가 받을 수 있게 마지막 안내를 나스(watch.php)에도 남김 — 워치 번호는 폰 키체인에
@@ -27,6 +28,63 @@ final class WatchLink: NSObject, WCSessionDelegate {
         WCSession.default.delegate = self
         WCSession.default.activate()
         last["watchBeonho"] = WatchLink.beonho
+        tteollimOlligi()   // 2.37.0 지난번에 못 올린 지팡이 떨림 기록
+    }
+
+    // MARK: 2.37.0 (빌드 261002-5, 대표님 승인) 지팡이 떨림 기록 — 워치에서 받아 나스로
+
+    private var tteollimOlineun = false
+
+    private static var tteollimHam: URL {
+        let d = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("tteollim", isDirectory: true)
+        try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
+        return d
+    }
+
+    func session(_ session: WCSession, didReceive file: WCSessionFile) {
+        guard (file.metadata?["what"] as? String) == "tteollim" else { return }
+        let m = file.metadata ?? [:]
+        let pyo = ((m["pyo"] as? String) ?? "모름").replacingOccurrences(of: "_", with: " ")
+        let cho = (m["cho"] as? Int) ?? 0, hz = (m["hz"] as? Int) ?? 100
+        let son = (m["son"] as? String) ?? ""
+        // 받은 파일은 이 함수가 끝나면 지워지므로 곧바로 옮김 — 이름에 바닥·길이를 담아 둠
+        let ireum = "\(Int(Date().timeIntervalSince1970))_\(hz)_\(cho)_\(son)_\(pyo).bin"
+        do { try FileManager.default.moveItem(at: file.fileURL, to: WatchLink.tteollimHam.appendingPathComponent(ireum)) } catch { return }
+        Girok.shared.namgi("tteollim_batda", ["pyo": pyo, "cho": cho])
+        DispatchQueue.main.async { self.tteollimOlligi() }
+    }
+
+    /// 들고 있는 떨림 기록을 차례로 나스에 올림 — 하나라도 못 올리면 멈추고 다음 기회에
+    func tteollimOlligi() {
+        DispatchQueue.main.async {
+            guard !self.tteollimOlineun else { return }
+            let fs = ((try? FileManager.default.contentsOfDirectory(at: WatchLink.tteollimHam, includingPropertiesForKeys: nil)) ?? [])
+                .filter { $0.pathExtension == "bin" }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+            guard !fs.isEmpty else { return }
+            self.tteollimOlineun = true
+            Task {
+                for f in fs {
+                    let p = f.deletingPathExtension().lastPathComponent.split(separator: "_", maxSplits: 4).map(String.init)
+                    guard p.count == 5, let d = try? Data(contentsOf: f) else { try? FileManager.default.removeItem(at: f); continue }
+                    var c = URLComponents(string: "https://lvd.ada.or.kr/jeom/tteollim.php")!
+                    c.queryItems = [URLQueryItem(name: "k", value: WatchLink.beonho), URLQueryItem(name: "ttae", value: p[0]),
+                                    URLQueryItem(name: "hz", value: p[1]), URLQueryItem(name: "cho", value: p[2]),
+                                    URLQueryItem(name: "son", value: p[3]), URLQueryItem(name: "pyo", value: p[4]),
+                                    URLQueryItem(name: "pan", value: Pan.pan + "(" + Pan.bild + ")")]
+                    guard let u = c.url else { break }
+                    var r = URLRequest(url: u)
+                    r.httpMethod = "POST"
+                    r.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+                    r.httpBody = d
+                    r.timeoutInterval = 90
+                    guard let dr = try? await URLSession.shared.data(for: r), (dr.1 as? HTTPURLResponse)?.statusCode == 200,
+                          String(data: dr.0, encoding: .utf8)?.contains("\"ok\":true") == true else { break }
+                    try? FileManager.default.removeItem(at: f)
+                    Girok.shared.namgi("tteollim_olim", ["pyo": p[4], "cho": p[2]])
+                }
+                DispatchQueue.main.async { self.tteollimOlineun = false }
+            }
+        }
     }
 
     /// 2.34.0 워치가 짝지어져 있고 워치 길눈이 깔려 있는가(동영상을 워치로 보낼지 정할 때)
