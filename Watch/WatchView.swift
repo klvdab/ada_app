@@ -1,6 +1,9 @@
 // 워치 화면 — 단추 셋만. 이름 하나, 단추 하나.
 // 2.33.0 (빌드 261002-1, 대표님 승인) 손가락 두 번 집기 — 화면을 만지지 않고 집기 횟수로 세 가지를 부름
 //   한 번: 다음 갈림길(다음 안내) / 두 번: 내 자리 / 세 번: 폰 길눈에게 말하기(폰이 듣기 시작)
+// 2.35.0 (빌드 261002-3, 대표님 승인) 처음 열 때 한 번만 "지팡이를 어느 손으로 쥐십니까", "워치는 어느 손목에 차셨습니까"를 여쭘
+//   워치는 지팡이를 쥐지 않은 손에 차는 것이 기본(손목 가리키기에 알맞음). 지팡이 쥔 손에 차시면 나중에 지팡이 떨림 읽기를 씀.
+//   "걷는 동안 깨어 있기" 단추 — 폰이 걷기를 시작하면 저절로 켜짐
 //   애플은 앱에 두 번 집기 하나만 내어 주므로(워치 시리즈 9·울트라 2 이후, watchOS 11 이후), 두 번 집기를 몇 번 잇달아 했는지 셈
 import SwiftUI
 import AVKit
@@ -14,11 +17,52 @@ struct JipgiIeum: ViewModifier {
     }
 }
 
+/// 2.35.0 지팡이 쥔 손과 워치 찬 손목 — "oreun" 오른쪽 / "oen" 왼쪽
+enum Son {
+    static func mal(_ v: String) -> String { v == "oen" ? "왼" : "오른" }
+    /// 워치 설정에 적힌 손목(바꾸지 않으셨으면 왼쪽)
+    static var watchSeoljeong: String { WKInterfaceDevice.current().wristLocation == .right ? "oreun" : "oen" }
+}
+
+struct SonMureumView: View {
+    @AppStorage("jipangiSon") private var jipangiSon = ""
+    @AppStorage("watchSonmok") private var watchSonmok = ""
+    @EnvironmentObject var model: WatchModel
+    var body: some View {
+        VStack(spacing: 8) {
+            if jipangiSon.isEmpty {
+                Text("지팡이를 어느 손으로 쥐십니까").font(.headline).accessibilityAddTraits(.isHeader)
+                Button("오른손") { jipangiSon = "oreun"; WKInterfaceDevice.current().play(.click) }.buttonStyle(.borderedProminent)
+                Button("왼손") { jipangiSon = "oen"; WKInterfaceDevice.current().play(.click) }.buttonStyle(.borderedProminent)
+            } else {
+                Text("워치는 어느 손목에 차셨습니까").font(.headline).accessibilityAddTraits(.isHeader)
+                Text("워치 설정에는 \(Son.mal(Son.watchSeoljeong))쪽 손목으로 되어 있습니다.").font(.footnote)
+                Button("왼쪽 손목") { gogeum("oen") }.buttonStyle(.borderedProminent)
+                Button("오른쪽 손목") { gogeum("oreun") }.buttonStyle(.borderedProminent)
+            }
+        }
+    }
+    private func gogeum(_ v: String) {
+        watchSonmok = v
+        let gateum = v == jipangiSon
+        model.speak("지팡이는 \(Son.mal(jipangiSon))손, 워치는 \(Son.mal(v))쪽 손목입니다. " + (gateum
+            ? "지팡이를 쥔 손이라 걸음 세기와 지팡이 떨림 읽기에 씁니다."
+            : "지팡이를 쥐지 않은 손이라 걸음 세기와 손목으로 방향 가리키기에 알맞습니다."), jindong: .success)
+    }
+}
+
 struct WatchView: View {
     @EnvironmentObject var model: WatchModel
+    @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("jipangiSon") private var jipangiSon = ""
+    @AppStorage("watchSonmok") private var watchSonmok = ""
     var body: some View {
         ScrollView {
             VStack(spacing: 10) {
+                // 2.35.0 처음 한 번만 — 답하시면 사라짐
+                if jipangiSon.isEmpty || watchSonmok.isEmpty {
+                    SonMureumView()
+                } else {
                 // 2.33.0 손가락 두 번 집기 — 화면을 두드려도 같음
                 Button { model.jipgi() } label: { Text("집기: 1 다음, 2 자리, 3 말하기").frame(maxWidth: .infinity) }
                     .buttonStyle(.borderedProminent)
@@ -54,14 +98,29 @@ struct WatchView: View {
                 Button { model.sinhogi(2) } label: { Text("음향신호기 신호").frame(maxWidth: .infinity) }
                     .buttonStyle(.bordered)
                     .accessibilityHint("가까운 블루투스 음향신호기가 지금 보행 신호를 알려 주게 합니다. 리모컨의 신 단추와 같습니다")
+                // 2.35.0 걷는 동안 깨어 있기 — 폰이 걷기를 시작하면 저절로 켜짐
+                Button { model.kkaeeoDanchu() } label: {
+                    Text(model.kkaeeoItda ? "깨어 있기 끄기" : "걷는 동안 깨어 있기").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityValue(model.kkaeeoItda ? "켜짐" : "꺼짐")
+                .accessibilityHint("손목을 내려도 워치가 꺼지지 않고, 팔 흔들림으로 걸음을 세어 폰 길눈에 보냅니다. 폰이 점지도 따라 걷기를 시작하면 저절로 켜집니다")
                 Text(model.mal)
                     .font(.footnote)
                     .accessibilityLabel("마지막 안내. \(model.mal)")
                     .padding(.top, 4)
+                // 2.35.0 손 바꾸기
+                Button("지팡이 \(Son.mal(jipangiSon))손, 워치 \(Son.mal(watchSonmok))쪽 손목 — 바꾸기") {
+                    jipangiSon = ""; watchSonmok = ""
+                }
+                .font(.footnote)
+                .accessibilityHint("두드리면 지팡이 쥔 손과 워치 찬 손목을 다시 여쭙니다")
+                }
             }
             .padding(.horizontal, 4)
         }
         .navigationTitle("길눈")
+        .onChange(of: scenePhase) { p in if p == .active { model.hwamyeonDolawa() } }
         // 2.34.0 폰 길눈이 동영상을 보내면 곧바로 재생 화면
         .sheet(item: $model.dongyeong) { g in DongyeongWatchView(url: g.url) }
     }

@@ -4,8 +4,9 @@ import WatchConnectivity
 import WatchKit
 import AVFoundation
 import CoreLocation
+import CoreMotion
 
-final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocationManagerDelegate {
+final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocationManagerDelegate, WKExtendedRuntimeSessionDelegate {
     static let shared = WatchModel()
     @Published var mal = "아직 받은 안내가 없습니다."
     @Published var daeum = ""
@@ -21,6 +22,14 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
     // 2.33.0 두 번 집기 횟수 세기
     private var jipgiSu = 0
     private var jipgiSigye: Timer?
+    // 2.35.0 (빌드 261002-3, 대표님 승인) 걷는 동안 깨어 있기 + 팔 흔들림 걸음 세기
+    //   폰 길눈이 점지도 따라 걷기를 시작하면 워치도 깨어 있는 운동 시간(물리 치료 갈래, 길게 한 시간)을 열어
+    //   손목을 내려도 꺼지지 않고, 워치의 걸음 세기(팔 흔들림)를 폰에 보냄. 폰이 가방 속이라 걸음을 못 셀 때 폰이 이것으로 이어 감.
+    @Published var kkaeeoItda = false
+    private let manbo = CMPedometer()
+    private var gilSession: WKExtendedRuntimeSession?
+    private var majimakBonaen = -1
+    private var ponGeotneun = false   // 폰이 알린 걷는 중 — 바뀔 때만 따름
 
     override init() {
         super.init()
@@ -147,6 +156,10 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
     }
 
     private func apply(_ r: [String: Any]) {
+        if let g = r["geotneun"] as? Bool, g != ponGeotneun {
+            ponGeotneun = g
+            g ? geotgiKyeogi() : geotgiKkeugi()
+        }
         if let m = r["mal"] as? String, !m.isEmpty { mal = m }
         if let d = r["daeum"] as? String { daeum = d }
         if let t = r["ttae"] as? Double { ttae = t }
@@ -204,6 +217,67 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
     func dongyeongTeulgi(_ u: URL) {
         WKInterfaceDevice.current().play(.notification)
         dongyeong = WatchDongyeong(url: u)
+    }
+
+    // MARK: 2.35.0 걷는 동안 깨어 있기
+
+    /// 폰이 걷기를 시작했다고 알리거나, 손목에서 "걷는 동안 깨어 있기"를 누르면
+    func geotgiKyeogi() {
+        if gilSession == nil {
+            let s = WKExtendedRuntimeSession()
+            s.delegate = self
+            s.start()   // 워치 길눈이 화면에 떠 있을 때만 열림 — 못 열리면 화면에 다시 뜰 때 한 번 더
+            gilSession = s
+        }
+        if CMPedometer.isStepCountingAvailable() {
+            majimakBonaen = -1
+            manbo.stopUpdates()
+            manbo.startUpdates(from: Date()) { [weak self] d, _ in
+                guard let d = d else { return }
+                DispatchQueue.main.async { self?.georeumBonae(d.numberOfSteps.intValue) }
+            }
+        }
+    }
+
+    func geotgiKkeugi() {
+        gilSession?.invalidate()
+        gilSession = nil
+        manbo.stopUpdates()
+        kkaeeoItda = false
+    }
+
+    /// 손목의 단추 — 켜져 있으면 끄고, 꺼져 있으면 켬
+    func kkaeeoDanchu() {
+        if kkaeeoItda || gilSession != nil {
+            geotgiKkeugi(); speak("걷는 동안 깨어 있기를 껐습니다.")
+        } else {
+            geotgiKyeogi(); speak("걷는 동안 워치가 깨어 있고, 팔 흔들림으로 걸음을 세어 폰 길눈에 보냅니다.", jindong: .start)
+        }
+    }
+
+    /// 워치 길눈이 화면에 다시 떴을 때 — 폰이 걷는 중인데 깨어 있지 못하면 다시 엶
+    func hwamyeonDolawa() {
+        if ponGeotneun && gilSession == nil { geotgiKyeogi() }
+    }
+
+    private func georeumBonae(_ n: Int) {
+        guard n != majimakBonaen, WCSession.isSupported(), WCSession.default.isReachable else { return }
+        majimakBonaen = n
+        WCSession.default.sendMessage(["what": "watchGeoreum", "n": n], replyHandler: nil, errorHandler: nil)
+    }
+
+    func extendedRuntimeSessionDidStart(_ s: WKExtendedRuntimeSession) {
+        DispatchQueue.main.async { self.kkaeeoItda = true }
+    }
+    func extendedRuntimeSessionWillExpire(_ s: WKExtendedRuntimeSession) {
+        // 한 시간이 다 되어 감 — 손목으로 알려 드림(화면에 길눈을 띄우시면 다시 열림)
+        DispatchQueue.main.async { self.speak("워치 깨어 있기 시간이 곧 끝납니다. 길눈 워치 화면을 한 번 여시면 다시 이어집니다.", jindong: .retry) }
+    }
+    func extendedRuntimeSession(_ s: WKExtendedRuntimeSession, didInvalidateWith reason: WKExtendedRuntimeSessionInvalidationReason, error: Error?) {
+        DispatchQueue.main.async {
+            if self.gilSession === s { self.gilSession = nil }
+            self.kkaeeoItda = false
+        }
     }
 
     // 내 자리 — 워치 GPS 로 서버에 물음
