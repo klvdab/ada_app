@@ -1,4 +1,5 @@
-# 협회 앱 · 자봉 앱 · 배프 앱 · AI점자도서관 — XcodeGen 설계도 (1.6.7판, 빌드 261001-14 — 길눈 2.32.0 몸 센서)
+# 협회 앱 · 자봉 앱 · 배프 앱 · AI점자도서관 — XcodeGen 설계도 (1.6.8판, 빌드 261002-1 — 길눈 2.33.0 워치 두 번 집기)
+# 1.6.8 (261002-1, 대표님 승인) 길눈 2.33.0 — 애플워치 손가락 두 번 집기 횟수로 다음 갈림길·내 자리·말하기
 # 1.6.7 (261001-14, 대표님 지시) 길눈 2.32.0 — 몸 센서를 길눈 따라 걷기에도(MomSensor.swift 를 Gilnun 폴더로 옮겨 두 앱이 함께 씀)
 # 1.6.6 (261001-13, 대표님 지시) 자봉 앱 2.3.0 — 몸 센서 극대화(Jabong/MomSensor.swift 새로), 움직임 쓰임 안내 문구 고침
 # 1.6.5 (261001-12, 대표님 승인) 길눈 2.31.0 — 하이 길눈 빠르게
@@ -88,7 +89,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "2.32.0"
+        MARKETING_VERSION: "2.33.0"
         OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "FoundationModels"]   # 1.6.0 옛 폰에서도 앱이 열리게 약하게 잇기
   JabongApp:
     # 2.0.0 (빌드 261001-7, 2026-10-01 대표님 승인) 자봉 앱도 속까지 앱으로 — 웹을 띄우던 App 폴더 대신
@@ -223,7 +224,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app.watchkitapp
         TARGETED_DEVICE_FAMILY: "4"
-        MARKETING_VERSION: "2.32.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
+        MARKETING_VERSION: "2.33.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
 schemes:
   AdaApp:
     build:
