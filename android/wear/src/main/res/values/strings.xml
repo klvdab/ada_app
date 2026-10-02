@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 갤럭시 워치 길눈 (2.5.0판, 빌드 261002-A8) -->
+<resources>
+    <string name="app_name">길눈</string>
+</resources>
