@@ -37,7 +37,7 @@ android {
         versionName = "1.2.1"
         // 261002-A10 화상통화 부품(WebRTC)이 폰 종류별 부품을 넷 다 실어 APK 가 47메가바이트가 되던 것을 줄임 —
         //   요즘 폰(64비트)과 옛 폰(32비트) 두 가지만 실음. 플레이 스토어(AAB)는 폰마다 맞는 것만 따로 내려 보냄
-        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+        ndk { abiFilters += listOf("arm64-v8a") }   // 261002-B1 64비트 폰만(2016년 뒤 거의 모든 폰) — 카메라 눈 부품이 커서 APK 크기를 줄임
     }
 
     signingConfigs {
@@ -120,11 +120,11 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.3.4")
     implementation("androidx.camera:camera-view:1.3.4")
     implementation("androidx.annotation:annotation-experimental:1.4.1")        // Camera2Interop·미디어3 OptIn 표시
-    implementation("com.google.mlkit:text-recognition-korean:16.0.1")          // 즉석 글자 읽기·간판·문 글자·지폐(한글+영어)
-    implementation("com.google.mlkit:barcode-scanning:17.3.0")                 // QR 찾기·상품 바코드
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition-korean:16.0.1")   // 모델은 구글 플레이 서비스가 받아 둠(APK 작게)          // 즉석 글자 읽기·간판·문 글자·지폐(한글+영어)
+    implementation("com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1")                 // QR 찾기·상품 바코드
     implementation("com.google.mlkit:pose-detection:18.0.0-beta5")             // 사람 감지
-    implementation("com.google.mlkit:face-detection:16.1.7")                   // 안면인식, 한마디 설명의 사람 수
-    implementation("com.google.mlkit:image-labeling:17.0.9")                   // 한마디 설명
+    implementation("com.google.android.gms:play-services-mlkit-face-detection:17.1.0")                   // 안면인식, 한마디 설명의 사람 수
+    implementation("com.google.android.gms:play-services-mlkit-image-labeling:16.0.8")                   // 한마디 설명
     implementation("com.google.mediapipe:tasks-vision:0.10.14")                // 가리키고 말하기 — 손 마디(검지 끝)
     implementation("com.google.ar:core:1.44.0")                                // 발 앞 계단·턱 알림(관리자 시험) — AR 없어도 앱은 깔림(매니페스트 optional)
 
