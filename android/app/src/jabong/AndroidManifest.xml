@@ -63,5 +63,8 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <!-- 261002-B1 자봉 갈래도 src/gilnun 코드(카메라 눈 발 앞 턱의 구글 AR)를 함께 싣으므로 — 있으면 씀(없어도 앱은 깔림) -->
+        <meta-data android:name="com.google.ar.core" android:value="optional" />
     </application>
 </manifest>
