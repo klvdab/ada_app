@@ -10,13 +10,18 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.37.0"
-    static let bild = "261002-5"
+    static let pan = "2.37.1"
+    static let bild = "261002-6"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.37.1", bild: "261002-6", nal: "2026-10-02", naeyong: [
+            "워치에서 보이스오버가 켜져 있으면 길눈 워치의 말을 보이스오버가 읽어 드림(대표님 시험에서 두 번 집기는 떨리는데 말이 안 나오던 것을 고침)",
+            "다음 갈림길·마지막 안내는 폰에서 답이 온 뒤 그 답을 말함. 폰과 이어지지 않으면 이어져 있지 않다고 알려 드림",
+            "도움말 — 워치 보이스오버 손 제스처가 켜져 있으면 이중 탭을 켤 수 없으니 손 제스처를 끄고 이중 탭을 켜는 법을 더함"
+        ]),
         Gochim(pan: "2.37.0", bild: "261002-5", nal: "2026-10-02", naeyong: [
             "지팡이 떨림 기록(대표님 지시, 연구 1단계) — 워치를 지팡이 쥔 손에 차셨을 때 워치 화면에 지팡이 떨림 기록 단추",
             "바닥 종류(점자블록, 보도블록, 아스팔트, 흙길, 그 밖의 바닥)를 고르면 곧바로 손목 떨림을 1초에 100번 담음. 그만 단추나 두 번 집기로 멈춤, 5분이면 저절로",
