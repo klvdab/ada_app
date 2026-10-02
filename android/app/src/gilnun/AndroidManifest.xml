@@ -13,6 +13,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <application>
+        <!-- 261002-B1 카메라 눈 모델을 길눈을 깔 때 구글 플레이 서비스가 미리 받아 둠(글자·바코드·얼굴·사진 이름표) -->
+        <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="ocr_korean,barcode,face,ica" />
         <activity android:name="kr.or.ada.app.MainActivity" tools:node="remove" />
 
         <activity
