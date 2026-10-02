@@ -1,6 +1,6 @@
 // 폰 ↔ 워치 — 앱 2.6.0 (빌드 260928-8). 옛 앱(260927-2·3)에서 승인된 방식을 새 앱의 알맹이로 옮기고 "말로 하기"를 더함.
 //   폰 → 워치: 마지막 안내(mal), 다음 갈림길(daeum), 방향 진동(jindong), 음향신호기 결과(sinhogiMal·sinhogiOk), 워치 번호
-//   워치 → 폰: what = mal | daeum | sinhogi(cmd 1·2) | malhagi(t: 손목에 말씀하신 글)
+//   워치 → 폰: what = mal | daeum | sinhogi(cmd 1·2) | malhagi(t: 손목에 말씀하신 글) | malhagiSijak(2.33.0 손가락 세 번 집기 — 폰이 듣기 시작)
 //   폰이 곁에 없을 때 워치가 받을 수 있게 마지막 안내를 나스(watch.php)에도 남김 — 워치 번호는 폰 키체인에
 import Foundation
 import WatchConnectivity
@@ -89,6 +89,10 @@ final class WatchLink: NSObject, WCSessionDelegate {
             case "malhagi":
                 let t = (message["t"] as? String) ?? ""
                 MalHagi.shared.bakkatCheori(t) { d in replyHandler(["dapMal": d]) }
+            case "malhagiSijak":
+                // 2.33.0 워치에서 두 번 집기를 세 번 — 폰 길눈이 말로 하기 단추를 누른 것처럼 듣기를 엶
+                MalHagi.shared.dudeurim()
+                replyHandler(["dapMal": "폰 길눈이 듣고 있습니다. 말씀하십시오."])
             case "daeum":
                 var r = self.last
                 r["daeum"] = AnnaeEngine.shared.daeumGalrimMal()
