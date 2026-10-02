@@ -16,6 +16,9 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
     private let loc = CLLocationManager()
     private var jariDone: ((String) -> Void)?
     private let WURL = "https://lvd.ada.or.kr/jeom/watch.php"
+    // 2.33.0 두 번 집기 횟수 세기
+    private var jipgiSu = 0
+    private var jipgiSigye: Timer?
 
     override init() {
         super.init()
@@ -44,6 +47,42 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
         askPhone("daeum")
         if !daeum.isEmpty { speak(daeum, jindong: .directionUp); return }
         speak("다음 갈림길을 폰에서 받아 오는 중입니다.")
+    }
+
+    // 2.33.0 (빌드 261002-1, 대표님 승인) 손가락 두 번 집기 — 1.5초 안에 잇달아 한 횟수로 나눔
+    //   집을 때마다 한 번 짧게 떨어 몇 번 셌는지 손목으로 알게 함. 세 번이면 더 기다리지 않고 곧바로.
+    func jipgi() {
+        jipgiSu += 1
+        WKInterfaceDevice.current().play(.click)
+        jipgiSigye?.invalidate()
+        if jipgiSu >= 3 { jipgiKkeut(); return }
+        jipgiSigye = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in self?.jipgiKkeut() }
+    }
+
+    private func jipgiKkeut() {
+        let n = jipgiSu
+        jipgiSu = 0
+        jipgiSigye?.invalidate(); jipgiSigye = nil
+        switch n {
+        case 1: daeumDeutgi()
+        case 2: jariDeutgi()
+        default: malSijak()
+        }
+    }
+
+    /// 2.33.0 집기 세 번 — 폰 길눈이 말로 하기 듣기를 엶(폰의 마이크나 이어폰으로 말씀하시면 됨)
+    func malSijak() {
+        guard WCSession.isSupported(), WCSession.default.isReachable else {
+            speak("폰의 길눈과 이어져 있지 않습니다. 폰에서 길눈을 열어 주십시오.", jindong: .failure); return
+        }
+        WCSession.default.sendMessage(["what": "malhagiSijak"], replyHandler: { [weak self] r in
+            DispatchQueue.main.async {
+                WKInterfaceDevice.current().play(.start)
+                if let d = r["dapMal"] as? String { self?.dapMal = d }
+            }
+        }, errorHandler: { [weak self] _ in
+            DispatchQueue.main.async { self?.speak("폰에 요청을 보내지 못했습니다. 다시 해 주십시오.", jindong: .failure) }
+        })
     }
 
     // 260927-3 음향신호기 — 폰이 블루투스로 가까운 음향신호기를 울림 (1 위치안내 / 2 신호안내)
