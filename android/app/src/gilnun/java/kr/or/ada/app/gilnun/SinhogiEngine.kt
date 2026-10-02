@@ -14,6 +14,7 @@
 //   · 화면이 꺼지면 안드로이드는 거르개 없는 훑기를 막으므로 공용 서비스 번호와 정해진 이름(AHG001, KPOL01)으로 거름(아이폰 잠김과 같은 뜻)
 //   · 안드로이드는 화면이 꺼져도 같은 기기를 거듭 알려 주므로 아이폰 2.12.0 의 "잠겨 있으면 한 번 잡혀도 신호 안내" 지름길은 쓰지 않고 4초 머무름으로 가림
 //   · 30분 넘게 훑으면 안드로이드가 느리게 바꾸므로 10분마다 다시 열고, 30초에 다섯 번 넘게 새로 열지 않음(안드로이드가 막음)
+// 2.5.0(빌드 261002-A8, 대표님 지시) 손으로 울린 결과를 갤럭시 워치에도 알림(WatchLink.sinhogiDap)
 // 모든 상태는 화면 줄(main) 하나에서만 만집니다 — 블루투스 답은 Handler 로 넘겨 받음.
 package kr.or.ada.app.gilnun
 
@@ -350,6 +351,7 @@ object SinhogiEngine {
         bonaegi(cmd) { ok, mal ->
             Sori.mal(mal)
             jindong(if (ok) "arrive" else "long")
+            WatchLink.sinhogiDap(ok, mal)   // 2.5.0 워치에서 울렸을 때 워치도 알게
         }
     }
 

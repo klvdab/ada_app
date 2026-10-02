@@ -17,11 +17,14 @@
 //   TODO(아이폰 munJunbi·munOn·MunChatgi) 문까지 이어 안내와 카메라 문 찾기
 //   TODO(아이폰 juwiMalhagi) 지나는 곳 안내
 //   TODO(아이폰 hamkkeNureum·hamkkeBonaegi) 함께 시험하기
-//   TODO(아이폰 WatchLink 걸음·손목 가리키기) 워치
 //   TODO(아이폰 georeoGagiBoda·muleum, YeojeongEngine, AnnaeEngine.neagoriBakkeseo) 걸어가기에서 점지도 여쭘, 여정, 사거리 알림
 //   TODO(아이폰 ieoGagi) 앱이 꺼졌다 켜져도 이어 걷기
 //   TODO(아이폰 gilmok·beoseuJeongryujang·geollimNamgigi) 길목 살펴보기, 가까운 정류장, 여기 걸렸어요
-//   TODO(아이폰 Jindong.dochak) 도착 진동
+//   TODO(아이폰 Jindong.dochak) 폰 도착 진동(워치 도착 진동은 2.5.0에서 옮김)
+// 2.5.0(빌드 261002-A8, 대표님 지시) 갤럭시 워치 — 아이폰 2.35.0·2.36.0과 같이
+//   따라 걷기 시작·그만을 워치에 알림(워치가 깨어 있기와 팔 흔들림 걸음 세기를 켜고 끔), 워치가 센 걸음으로 폰 걸음이 끊긴 때를 메움(watchGeoreum),
+//   손목 가리키기에 가야 할 쪽을 보냄(garikiAllim, 5도·10초), 가리키기 방향 맞추기에 몸 방향(momBang),
+//   지금 도십시오에 맞춰 워치 방향 진동(오른쪽 길게 한 번, 왼쪽 짧게 두 번), 도착하면 워치 도착 진동
 package kr.or.ada.app.gilnun
 
 import android.content.Context
@@ -115,6 +118,10 @@ object JeomEngine {
     private var geoAcc0 = 5.0
     private var geoS0 = 0.0
     private var dwiNeolge = false
+    private var ponGeoreumT = 0L              // 2.5.0 폰이 마지막으로 걸음을 센 때(워치 걸음으로 메울지 가림)
+    private var watchN0: Int? = null          // 2.5.0 워치가 보낸 걸음 누계(지난번)
+    private var garikiBonaen: Double? = null  // 2.5.0 손목 가리키기에 마지막으로 보낸 쪽
+    private var garikiT = 0L
 
     // 확신음(웹 hwaksin.js 의 S)
     private class HS {
@@ -159,6 +166,7 @@ object JeomEngine {
     private var apGeoreum: (() -> Unit)? = null   // 따라 걷기 전에 몸 센서 걸음을 받던 곳(위치 엔진) — 함께 부르고, 그만두면 되돌림
     private val naeGeoreum: () -> Unit = {
         apGeoreum?.invoke()
+        ponGeoreumT = System.currentTimeMillis()
         if (S.gidarim) { S.gidarimSu += 1; if (S.gidarimSu >= 3) S.gidarim = false }
         georeum()
     }
@@ -291,6 +299,9 @@ object JeomEngine {
         gasokKkeugi()
         if (MomSensor.gilnunGeoreum === naeGeoreum) MomSensor.gilnunGeoreum = apGeoreum
         apGeoreum = null
+        WatchLink.geotgiAllim(false)   // 2.5.0
+        watchN0 = null
+        if (garikiBonaen != null) { WatchLink.garikiBonae(null); garikiBonaen = null }
         if (momNaega) { MomSensor.kkeugi(); momNaega = false }
         momSseum = false
         gil = null
@@ -461,6 +472,7 @@ object JeomEngine {
             Girok.namgi("jeom_kkeunkim")
         }
         tikT = now
+        garikiAllim(now)   // 2.5.0
         // 위성이 6초 넘게 끊기면 걸음으로 점지도 위를 나아감(georeum_iego.js)
         if (now - wiseongTtae > 6000 && S.stepSu > 0) {
             if (!geoMode) {
@@ -509,6 +521,7 @@ object JeomEngine {
     // MARK: 걸음
 
     private fun umjikSijak() {
+        WatchLink.geotgiAllim(true)   // 2.5.0 워치도 깨어 걸음을 셈
         val c = ctx ?: return
         val sm = c.getSystemService(Context.SENSOR_SERVICE) as? SensorManager ?: return
         // 아이폰 2.32.0 몸 센서 — 1초에 50번, 발이 땅에 닿을 때마다 한 걸음, 자이로로 돈 각도
@@ -547,6 +560,7 @@ object JeomEngine {
             if (!moWi && df > 1.3 && now - moT > 300) {
                 moWi = true
                 moT = now
+                ponGeoreumT = now
                 if (S.gidarim) { S.gidarimSu += 1; if (S.gidarimSu >= 3) S.gidarim = false }
                 georeum()
             } else if (moWi && df < 0.3) {
@@ -925,6 +939,7 @@ object JeomEngine {
         if (dk.i < idx - 1) {
             kkeokHan.add(key + "a"); kkeokHan.add(key + "c"); kkeokHan.add(key + "b")
             mal("지금 ${sigyeGak(dk.d)}으로 도십시오.")
+            watchBang(dk.d)
             dolgi(8.0)
             dolgiMok = DolgiMok(dk.i, null, System.currentTimeMillis()); dolgiGijun()
             return
@@ -939,9 +954,42 @@ object JeomEngine {
         } else if (mi <= 5 && !kkeokHan.contains(key + "b")) {
             kkeokHan.add(key + "b")
             mal("지금 ${sigyeGak(dk.d)}으로 도십시오.")
+            watchBang(dk.d)
             dolgi(8.0)
             dolgiMok = DolgiMok(dk.i, null, System.currentTimeMillis()); dolgiGijun()
         }
+    }
+
+    /** 2.5.0 워치 방향 진동 — 꺾는 각도(오른쪽 +). 뒤쪽(150도 넘게)은 길게 */
+    private fun watchBang(d: Double) {
+        WatchLink.jindongBonae(if (abs(d) > 150) "long" else if (d > 0) "right" else "left")
+    }
+
+    /** 2.5.0 (아이폰 2.36.0, 대표님 승인) 손목 가리키기 — 가야 할 쪽(돌아야 할 때는 돌 쪽, 아니면 앞 6미터)을 워치에
+     *  5도 넘게 바뀌거나 10초가 지나면 다시 보냄 */
+    private fun garikiAllim(now: Long) {
+        val b = dolgiMok?.bang ?: gilBang(idx, 6.0) ?: return
+        val o = garikiBonaen
+        if (o != null && abs(chai(b, o)) < 5 && now - garikiT < 10000) return
+        garikiBonaen = b; garikiT = now
+        WatchLink.garikiBonae(b)
+    }
+
+    /** 2.5.0 가리키기 방향 맞추기 — 지금 몸이 향한 방향(따라 걷는 중일 때만) */
+    val momBang: Double? get() = if (gil != null) jigeumHead else null
+
+    /** 2.5.0 (아이폰 2.35.0, 대표님 승인) 워치가 팔 흔들림으로 센 걸음 누계 — 폰이 4초 넘게 걸음을 못 셀 때만, 한 번에 열 걸음까지 */
+    fun watchGeoreum(n: Int) {
+        if (gil == null) { watchN0 = null; return }
+        val n0 = watchN0
+        watchN0 = n
+        if (n0 == null || n <= n0) return
+        if (System.currentTimeMillis() - ponGeoreumT <= 4000) return
+        repeat(min(n - n0, 10)) {
+            if (S.gidarim) { S.gidarimSu += 1; if (S.gidarimSu >= 3) S.gidarim = false }
+            georeum()
+        }
+        Girok.namgi("jeom_watch_georeum", mapOf("n" to n - n0))
     }
 
     private fun kkeokGakkai(mi: Int): Boolean = kkeoks.any { abs(ap(min(it.i, mi), max(it.i, mi))) <= 15 }
@@ -1186,6 +1234,8 @@ object JeomEngine {
         if (dochakHam) return
         // TODO(아이폰 2.11.0 jungganGugan) 이어진 길의 가운데 구간 끝이면 곧장 다음 구간으로
         dochakHam = true
+        if (garikiBonaen != null) { WatchLink.garikiBonae(null); garikiBonaen = null }   // 2.5.0 도착하면 손목 가리키기 쉼
+        WatchLink.jindongBonae("arrive")   // 2.5.0 워치 도착 진동
         sseumNamgigi(true)
         sigyeDolgo = false
         main.removeCallbacks(sigye)

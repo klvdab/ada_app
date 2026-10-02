@@ -2,6 +2,7 @@
 // 아이폰 길눈(Gilnun 폴더)과 같은 설계도로, 웹 껍데기 없이 앱 속에서 돕니다.
 // 2.3.0(빌드 261002-A6, 대표님 지시) 설정에 음향신호기 자동으로 잡기(sinhogiJadong, 처음부터 켜짐)
 // 2.4.0(빌드 261002-A7, 대표님 지시) 말로 하기 판 기록
+// 2.5.0(빌드 261002-A8, 대표님 지시) 갤럭시 워치 길눈 — 설정에 워치 번호(watchBeonho, 여섯 자리, 한 번 만들면 바뀌지 않음), 판 기록
 package kr.or.ada.app.gilnun
 
 import android.content.Context
@@ -20,12 +21,22 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.4.0"
-    const val bild = "261002-A7"
+    const val pan = "2.5.0"
+    const val bild = "261002-A8"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.5.0", "261002-A8", "2026-10-02", listOf(
+            "갤럭시 워치 길눈(대표님 지시) — 아이폰 길눈의 애플워치 앱을 갤럭시 워치(웨어 OS)로 옮기고, 폰 길눈과 이음(WatchLink). 워치 앱은 폰 길눈과 같은 앱 번호·같은 서명",
+            "폰이 워치에 — 길눈이 마지막으로 한 말, 따라 걷는 중의 다음에 무엇, 꺾을 때 방향 진동(왼쪽 짧게 두 번, 오른쪽 길게 한 번), 도착 진동, 음향신호기 결과",
+            "점지도 따라 걷기를 시작하면 워치도 깨어 있기를 켜고 팔 흔들림으로 걸음을 세어 폰에 보냄. 폰이 4초 넘게 걸음을 못 세면(가방 속 등) 워치 걸음으로 이어 감(한 번에 열 걸음까지)",
+            "손목 가리키기 — 가야 할 쪽(돌아야 할 때는 돌 쪽, 아니면 앞 6미터)을 5도 넘게 바뀌거나 10초마다 워치에 보냄. 가리키기 방향 맞추기에 지금 몸이 향한 방향을 알려 줌",
+            "워치에서 부탁 — 다음 갈림길, 내 자리(길 찾기 첫 화면의 지금 내 자리와 같은 말), 마지막 안내, 말로 하기(폰 길눈이 듣기 시작), 음향신호기 위치·신호",
+            "지팡이 떨림 기록(연구 1단계) — 워치가 보낸 기록을 받아 협회 나스(연구용)로 아이폰과 같은 꼴로 올림. 못 올리면 들고 있다가 10분 뒤 다시",
+            "폰이 곁에 없을 때 워치가 받을 수 있게 마지막 안내를 나스에도 남김(워치 번호)",
+            "도움말에 갤럭시 워치 길눈 항목 더함"
+        )),
         Gochim("2.4.0", "261002-A7", "2026-10-02", listOf(
             "말로 하기를 안드로이드 길눈에도(대표님 지시) — 아이폰 길눈의 말로 하기를 같은 차례, 같은 말로 옮김. 받아쓰기는 폰의 구글 음성 인식, 알아듣기는 웹·아이폰과 같은 나스 사전",
             "길 찾기 탭 맨 위 첫 줄에 큰 말로 하기 단추. 누르면 「네」 하고 듣고(말소리를 끄셨으면 딩동), 듣는 중에 다시 누르면 그만. 처음 누를 때 마이크 허락을 여쭘",
@@ -95,6 +106,15 @@ object Seoljeong {
     var sinhogiJadong: Boolean
         get() = d.getBoolean("sinhogiJadong", true)
         set(v) { d.edit().putBoolean("sinhogiJadong", v).apply() }
+    /** 2.5.0 워치 번호(여섯 자리) — 한 번 만들면 바뀌지 않음(폰이 곁에 없을 때 워치가 나스에서 마지막 안내를 받는 열쇠) */
+    val watchBeonho: String
+        get() {
+            val v = d.getString("watchBeonho", null)
+            if (v != null && v.length == 6) return v
+            val n = (0 until 6).map { "0123456789".random() }.joinToString("")
+            d.edit().putString("watchBeonho", n).apply()
+            return n
+        }
     val dev: String
         get() {
             val v = d.getString("dev", null)
