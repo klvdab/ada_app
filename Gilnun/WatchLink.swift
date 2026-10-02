@@ -27,6 +27,24 @@ final class WatchLink: NSObject, WCSessionDelegate {
         last["watchBeonho"] = WatchLink.beonho
     }
 
+    /// 2.34.0 워치가 짝지어져 있고 워치 길눈이 깔려 있는가(동영상을 워치로 보낼지 정할 때)
+    var watchItda: Bool { iEojim }
+
+    /// 2.34.0 받은 동영상을 워치로 — 파일은 파일 보내기(폰 길눈이 뒤에 있어도 이어짐), 주소는 말로 보내고 안 닿으면 뒤에서 넘김
+    func dongyeongBonae(_ u: URL) {
+        guard iEojim else { return }
+        if u.isFileURL {
+            WCSession.default.transferFile(u, metadata: ["what": "dongyeong", "ireum": u.lastPathComponent])
+        } else {
+            let m: [String: Any] = ["what": "dongyeongJuso", "u": u.absoluteString]
+            if WCSession.default.isReachable {
+                WCSession.default.sendMessage(m, replyHandler: nil) { _ in WCSession.default.transferUserInfo(m) }
+            } else {
+                WCSession.default.transferUserInfo(m)
+            }
+        }
+    }
+
     private var iEojim: Bool {
         WCSession.isSupported() && WCSession.default.activationState == .activated && WCSession.default.isPaired
             && WCSession.default.isWatchAppInstalled

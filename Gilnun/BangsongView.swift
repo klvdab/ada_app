@@ -13,6 +13,7 @@ enum BangsongHwamyeon: Hashable {
     case sesang
     case gisaMok(String)
     case gisa
+    case dongyeong   // 2.34.0 동영상 틀기
 }
 
 final class BangsongGil: ObservableObject {
@@ -33,6 +34,7 @@ struct BangsongTab: View {
                     case .sesang: SesangView()
                     case .gisaMok(let j): GisaMokView(jemok: j)
                     case .gisa: GisaView()
+                    case .dongyeong: DongyeongView()
                     }
                 }
         }
@@ -65,6 +67,7 @@ struct BangsongCheot: View {
                 NavigationLink(value: BangsongHwamyeon.radio) { Text("라디오 듣기") }.buttonStyle(KeunDanchu())
                 NavigationLink(value: BangsongHwamyeon.tv) { Text("TV 보기") }.buttonStyle(KeunDanchu())
                 NavigationLink(value: BangsongHwamyeon.sesang) { Text("지금 세상 이야기") }.buttonStyle(KeunDanchu())
+                NavigationLink(value: BangsongHwamyeon.dongyeong) { Text("동영상 틀기") }.buttonStyle(KeunDanchu())   // 2.34.0
             }
             .padding()
         }

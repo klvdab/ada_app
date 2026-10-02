@@ -27,6 +27,8 @@ final class Seoljeong: ObservableObject {
     @Published var sinhogiJadong: Bool { didSet { d.set(sinhogiJadong, forKey: "gn.sinhogiJadong") } }
     /// 안내 중 이어폰 단추 받기(처음부터 켜짐)
     @Published var ieoponDanchu: Bool { didSet { d.set(ieoponDanchu, forKey: "gn.ieoponDanchu") } }
+    /// 2.34.0 받은 동영상을 애플워치가 있으면 워치에서 틀기(처음엔 켬)
+    @Published var dongyeongWatch: Bool { didSet { d.set(dongyeongWatch, forKey: "gn.dongyeongWatch") } }
     /// 차 안에서 고장이 바뀌면 고장 이야기 한 번(처음부터 켜짐)
     @Published var gojangJadong: Bool { didSet { d.set(gojangJadong, forKey: "gn.gojangJadong") } }
     /// 2.12.7 차에 타면 지나는 고장 노래 저절로 틀기(처음부터 켜짐, 나스 음악 열쇠가 있을 때만)
@@ -88,6 +90,7 @@ final class Seoljeong: ObservableObject {
         hoching = h.isEmpty ? "길손님" : h
         sinhogiJadong = (ud.object(forKey: "gn.sinhogiJadong") as? Bool) ?? true
         ieoponDanchu = (ud.object(forKey: "gn.ieoponDanchu") as? Bool) ?? true
+        dongyeongWatch = (ud.object(forKey: "gn.dongyeongWatch") as? Bool) ?? true
         gojangJadong = (ud.object(forKey: "gn.gojangJadong") as? Bool) ?? true
         gojangNorae = (ud.object(forKey: "gn.gojangNorae") as? Bool) ?? true
         kameraMal = (ud.object(forKey: "gn.kameraMal") as? Bool) ?? true
