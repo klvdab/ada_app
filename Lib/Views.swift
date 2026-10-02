@@ -1,4 +1,5 @@
-// AI점자도서관 앱 — 화면들 (판 0.1.0, 빌드 260930-3: 도움말 갈래에 「대본」, 독서기에 한글·데이지)
+// AI점자도서관 앱 — 화면들 (판 0.2.0, 빌드 261002-1: 디자인 바탕(남색·금빛·로고·책 표지), 첫 화면 머리와 이어 듣기 카드, 내 서재 15개씩·지우기·되돌리기·다 읽은 책)
+// 0.1.0 (260930-3) 도움말 갈래에 「대본」, 독서기에 한글·데이지
 // 규칙: 한 줄에 이름 하나 단추 하나, 목록은 한 쪽에 15줄(아래에 더 보기, 그 아래 이전 보기),
 // 결과가 나오면 커서를 첫 줄에, 겉에는 급한 것만 두고 나머지는 더 보기에 접는다.
 import SwiftUI
@@ -17,11 +18,30 @@ struct HomeView: View {
 
     var body: some View {
         List {
-            if let l = store.last {
-                Button("이어 읽기, \(l.t) \(l.wichiMal)부터") {
-                    nav.lib.append(Route.reader(l.i, l.t, l.kind))
+            Section {
+                Meori()
+                    .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
+                    .listRowBackground(Color.clear)
+                if let l = store.last {
+                    Button {
+                        nav.lib.append(Route.reader(l.i, l.t, l.kind))
+                    } label: {
+                        HStack(spacing: 14) {
+                            BookCover(title: l.t, keugi: 48)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("이어 듣기").font(.caption.weight(.semibold)).foregroundStyle(Saek.ganjo)
+                                Text(l.t).font(.headline).foregroundStyle(.primary).lineLimit(2)
+                                Text("\(l.wichiMal)부터").font(.subheadline).foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("이어 듣기, \(l.t), \(l.wichiMal)부터")
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityFocused($focusFirst)
+                    .listRowBackground(Saek.kadeu)
                 }
-                .accessibilityFocused($focusFirst)
             }
             Section {
                 HStack {
@@ -34,8 +54,13 @@ struct HomeView: View {
             Section {
                 ForEach(gal) { g in
                     NavigationLink(value: Route.list(g.g)) {
-                        Text("\(g.g) \(g.n.formatted())\(g.dan)")
+                        HStack(spacing: 12) {
+                            RoundedRectangle(cornerRadius: 4).fill(Saek.pyoji(g.g))
+                                .frame(width: 8, height: 28).accessibilityHidden(true)
+                            Text("\(g.g) \(g.n.formatted())\(g.dan)")
+                        }
                     }
+                    .listRowBackground(Saek.kadeu)
                 }
                 if !msg.isEmpty { Text(msg) }
             }
@@ -46,7 +71,11 @@ struct HomeView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(Saek.bada)
+        .tint(Saek.ganjo)
         .navigationTitle("AI점자도서관")
+        .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
         .refreshable { await load() }
     }
@@ -277,34 +306,119 @@ struct MarksView: View {
     }
 }
 
-// MARK: 내 서재
+// MARK: 내 서재 (0.2.0, 261002-1 이사장님 승인)
+// 읽기 시작한 책은 저절로 담김(가장 최근이 맨 위), 한 쪽 15개, 지우기는 줄마다 단추를 달지 않고
+// 보이스오버 위아래 쓸기(동작) 「내 서재에서 지우기」로. 지운 뒤 10초 동안 「되돌리기」.
+// 지우면 폰에 내려받아 둔 책도 함께 지워 공간을 돌려드림. 다 읽은 책은 따로 묶음.
 struct SeojaeView: View {
     @EnvironmentObject var store: Store
     @EnvironmentObject var nav: Nav
     @State private var more = false
+    @State private var o = 0
+    @State private var od = 0
+    @State private var jiun: (ReadRec, [Mark])? = nil
+    @State private var jiunTask: Task<Void, Never>? = nil
+    @AccessibilityFocusState private var focus: String?
+    static let jjok = 15
+
     var body: some View {
         List {
-            Section("읽던 책") {
-                if store.reading.isEmpty { Text("읽던 책이 없습니다.") }
-                ForEach(store.reading) { rc in
-                    Button("\(rc.t), \(rc.wichiMal)부터") { nav.seojae.append(Route.reader(rc.i, rc.t, rc.kind)) }
+            if let rc = jiun?.0 {
+                Section {
+                    Button("되돌리기, 방금 지운 \(rc.t)") { doedollrigi() }
+                        .font(.headline)
+                        .foregroundStyle(Saek.ganjo)
+                        .accessibilityFocused($focus, equals: "doedol")
+                        .listRowBackground(Saek.kadeu)
                 }
             }
             Section {
+                let ilk = store.reading
+                if ilk.isEmpty {
+                    Text("읽던 책이 없습니다. 도서관에서 책을 찾아 읽기 시작하면 여기에 저절로 담깁니다.")
+                } else {
+                    Text("읽던 책 \(ilk.count)권 가운데 \(o + 1)번부터 \(min(o + Self.jjok, ilk.count))번")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    ForEach(Array(ilk.dropFirst(o).prefix(Self.jjok))) { rc in
+                        jul(rc, mal: "\(rc.t), \(rc.wichiMal)부터")
+                    }
+                    if o + Self.jjok < ilk.count { Button("더 보기") { o += Self.jjok; focusCheot(ilk) } }
+                    if o > 0 { Button("이전 보기") { o = max(0, o - Self.jjok); focusCheot(ilk) } }
+                }
+            } header: { Text("읽던 책").foregroundStyle(Saek.ganjo) }
+            Section {
                 DisclosureGroup("더 보기", isExpanded: $more) {
+                    let da = store.finished
+                    Text("다 읽은 책 \(da.count)권")
+                    ForEach(Array(da.dropFirst(od).prefix(Self.jjok))) { rc in
+                        jul(rc, mal: "\(rc.t), 다 읽음", daIlgeum: true)
+                    }
+                    if od + Self.jjok < da.count { Button("다 읽은 책 더 보기") { od += Self.jjok } }
+                    if od > 0 { Button("다 읽은 책 이전 보기") { od = max(0, od - Self.jjok) } }
                     Text("책갈피 \(store.marks.count)개")
                     ForEach(store.marks.sorted { $0.at > $1.at }) { m in
                         Button("\(m.t), \(m.wichiMal)") { nav.seojae.append(Route.reader(m.i, m.t, m.kind)) }
-                    }
-                    Text("다 읽은 책 \(store.finished.count)권")
-                    ForEach(store.finished) { rc in
-                        Button(rc.t) { nav.seojae.append(Route.book(rc.i)) }
                     }
                     Text("폰에 내려받은 책 \(store.downloaded.count)권")
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(Saek.bada)
+        .tint(Saek.ganjo)
         .navigationTitle("내 서재")
+    }
+
+    @ViewBuilder func jul(_ rc: ReadRec, mal: String, daIlgeum: Bool = false) -> some View {
+        Button {
+            if daIlgeum { nav.seojae.append(Route.book(rc.i)) } else { nav.seojae.append(Route.reader(rc.i, rc.t, rc.kind)) }
+        } label: {
+            HStack(spacing: 12) {
+                BookCover(title: rc.t, keugi: 40)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(rc.t).font(.body.weight(.semibold)).foregroundStyle(.primary).lineLimit(2)
+                    Text(daIlgeum ? "다 읽음" : "\(rc.wichiMal)부터").font(.footnote).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(mal)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction(named: "내 서재에서 지우기") { jiugi(rc) }
+        .accessibilityFocused($focus, equals: "r\(rc.i)")
+        .swipeActions(edge: .trailing) {
+            Button("지우기", role: .destructive) { jiugi(rc) }
+        }
+        .listRowBackground(Saek.kadeu)
+    }
+
+    func jiugi(_ rc: ReadRec) {
+        guard let d = store.jiugi(rc.i) else { return }
+        jiun = d
+        store.say("\(rc.t)을 내 서재에서 지웠습니다. 10초 안에 되돌리기를 누르시면 되살아납니다.")
+        Task { try? await Task.sleep(nanoseconds: 500_000_000); focus = "doedol" }
+        jiunTask?.cancel()
+        jiunTask = Task {
+            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            if !Task.isCancelled, let r = jiun?.0 {
+                Offline.shared.remove(r.i)   // 되돌리지 않으면 내려받은 책도 지워 공간을 돌려드림
+                jiun = nil
+            }
+        }
+        if o >= store.reading.count, o > 0 { o = max(0, o - Self.jjok) }
+    }
+    func doedollrigi() {
+        guard let j = jiun else { return }
+        let rc = j.0, mk = j.1
+        jiunTask?.cancel()
+        store.doedollrigi(rc, mk)
+        jiun = nil
+        store.say("\(rc.t)을 되살렸습니다.")
+        Task { try? await Task.sleep(nanoseconds: 400_000_000); focus = "r\(rc.i)" }
+    }
+    func focusCheot(_ ilk: [ReadRec]) {
+        if let f = ilk.dropFirst(o).first { Task { try? await Task.sleep(nanoseconds: 400_000_000); focus = "r\(f.i)" } }
     }
 }
 

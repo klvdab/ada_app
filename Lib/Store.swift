@@ -1,4 +1,5 @@
-// AI점자도서관 앱 — 내 서재와 설정 보관 (판 0.1.0, 빌드 260930-1)
+// AI점자도서관 앱 — 내 서재와 설정 보관 (판 0.2.0, 빌드 261002-1: 지우기·되돌리기)
+// 0.1.0 (260930-1) 첫 판
 import Foundation
 import SwiftUI
 import UIKit
@@ -83,6 +84,18 @@ final class Store: ObservableObject {
         }
     }
     func removeMark(_ m: Mark) { marks.removeAll { $0.id == m.id }; save() }
+    /// 내 서재에서 지우기 — 그 책의 읽던 자리와 책갈피를 함께 빼고, 되돌리기를 위해 돌려줌 (0.2.0)
+    func jiugi(_ i: Int) -> (ReadRec, [Mark])? {
+        guard let r = reads.first(where: { $0.i == i }) else { return nil }
+        let mk = marks.filter { $0.i == i }
+        reads.removeAll { $0.i == i }; marks.removeAll { $0.i == i }
+        save(); return (r, mk)
+    }
+    func doedollrigi(_ r: ReadRec, _ mk: [Mark]) {
+        if !reads.contains(where: { $0.i == r.i }) { reads.append(r) }
+        for m in mk where !marks.contains(where: { $0.id == m.id }) { marks.append(m) }
+        save()
+    }
     func marks(of i: Int) -> [Mark] { marks.filter { $0.i == i }.sorted { $0.pos < $1.pos } }
 
     /// 앱이 스스로 내는 안내 말(보이스오버 알림). 설정에서 끌 수 있다.
