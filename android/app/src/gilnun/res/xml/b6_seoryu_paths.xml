@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 안드로이드 길눈 2.7.0 묶음 b6_nanum — 내 서류 보관함(SeoljeongDeo.kt NnSeoryuham)이 쓰는 파일 제공자 자리.
+     보관함 원본은 no_backup 폴더에만 있고, 보낼 때와 사진을 찍을 때만 캐시의 아래 두 폴더를 거칩니다. -->
+<paths>
+    <cache-path name="seoryu_bonaegi" path="seoryu_bonaegi/" />
+    <cache-path name="seoryu_jjikgi" path="seoryu_jjikgi/" />
+</paths>
