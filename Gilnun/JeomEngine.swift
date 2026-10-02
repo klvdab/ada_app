@@ -176,6 +176,9 @@ final class JeomEngine: ObservableObject {
     // 2.35.0 워치 걸음 — 폰이 4초 넘게 걸음을 못 셀 때만 워치가 센 걸음으로 이어 감(두 번 세지 않게)
     private var ponGeoreumT = Date.distantPast
     private var watchN0: Int?
+    // 2.36.0 손목 가리키기 — 워치에 마지막으로 보낸 가야 할 쪽
+    private var garikiBonaen: Double?
+    private var garikiT = Date.distantPast
 
     private let RAD = Double.pi / 180
     private var bocok: Double { let b = Seoljeong.shared.bopok; return (b > 0.3 && b < 1.2) ? b : 0.7 }
@@ -387,6 +390,7 @@ final class JeomEngine: ObservableObject {
         MomSensor.shared.gilnunGeoreum = nil
         WatchLink.shared.geotgiAllim(false)
         watchN0 = nil
+        if garikiBonaen != nil { WatchLink.shared.garikiBonae(nil); garikiBonaen = nil }
         if momNaega { MomSensor.shared.kkeugi(); momNaega = false }
         momSseum = false
         WichiEngine.shared.momBbareum = false
@@ -593,6 +597,7 @@ final class JeomEngine: ObservableObject {
             Girok.shared.namgi("jeom_kkeunkim", [:])
         }
         tikT = now
+        garikiAllim(now)
         // 위성이 6초 넘게 끊기면 걸음으로 점지도 위를 나아감(georeum_iego.js)
         if now.timeIntervalSince(wiseongTtae) > 6 && S.stepSu > 0 {
             if !geoMode {
@@ -682,6 +687,18 @@ final class JeomEngine: ObservableObject {
             }
         }
     }
+
+    /// 2.36.0 (빌드 261002-4, 대표님 승인) 손목 가리키기 — 가야 할 쪽(돌아야 할 때는 돌 쪽, 아니면 앞 6미터)을 워치에
+    ///   5도 넘게 바뀌거나 10초가 지나면 다시 보냄
+    private func garikiAllim(_ now: Date) {
+        guard let b = dolgiMok?.bang ?? gilBang(idx, 6) else { return }
+        if let o = garikiBonaen, abs(chai(b, o)) < 5, now.timeIntervalSince(garikiT) < 10 { return }
+        garikiBonaen = b; garikiT = now
+        WatchLink.shared.garikiBonae(b)
+    }
+
+    /// 2.36.0 가리키기 방향 맞추기 — 지금 몸이 향한 방향(따라 걷는 중일 때만)
+    var momBang: Double? { gil != nil ? jigeumHead : nil }
 
     /// 2.35.0 (빌드 261002-3, 대표님 승인) 워치가 팔 흔들림으로 센 걸음 누계
     func watchGeoreum(_ n: Int) {
@@ -1275,6 +1292,7 @@ final class JeomEngine: ObservableObject {
             return
         }
         dochakHam = true
+        if garikiBonaen != nil { WatchLink.shared.garikiBonae(nil); garikiBonaen = nil }   // 2.36.0 도착하면 손목 가리키기 쉼
         munOn = false
         ieogaJiugi()
         sseumNamgigi(kkeut: true)
