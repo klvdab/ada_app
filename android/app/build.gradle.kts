@@ -47,7 +47,7 @@ android {
             dimension = "ap"
             applicationId = "kr.or.ada.app"
             resValue("string", "app_name", "길눈")
-            versionName = "2.2.0"   // 261002-A4 점지도 따라 걷기를 안드로이드에도(JeomEngine·Jeomjido·Eum·JeomHwamyeon, 대표님 지시). 261001-A3 몸 센서를 길눈에도(MomSensor.kt 를 src/gilnun 으로). 261001-A1 길눈은 속까지 앱(GilnunActivity, src/gilnun)으로 새로 지음 — 자봉·배프는 웹 판 그대로
+            versionName = "2.3.0"   // 261002-A6 음향신호기를 안드로이드 길눈에도(SinhogiEngine — 자동으로 잡기·손으로 울리기·찾기, 대표님 지시). 261002-A4 점지도 따라 걷기를 안드로이드에도(JeomEngine·Jeomjido·Eum·JeomHwamyeon, 대표님 지시). 261001-A3 몸 센서를 길눈에도(MomSensor.kt 를 src/gilnun 으로). 261001-A1 길눈은 속까지 앱(GilnunActivity, src/gilnun)으로 새로 지음 — 자봉·배프는 웹 판 그대로
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/jeom/jeom.html\"")   // 260926-3 길눈 첫 화면으로 곧바로
         }
         create("jabong") {
