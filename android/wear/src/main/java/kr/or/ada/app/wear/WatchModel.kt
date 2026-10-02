@@ -6,6 +6,7 @@
 //   걷는 동안 깨어 있기(아이폰 2.35.0): 폰이 점지도 따라 걷기를 시작하면 앞에 도는 일(GeotgiService)을 열어 손목을 내려도 멈추지 않고,
 //     워치 걸음 센서(팔 흔들림)의 누계를 폰에 보냄. 폰이 가방 속이라 걸음을 못 셀 때 폰이 이것으로 이어 감
 // 폰과는 웨어러블 데이터 층 — 경로는 폰 WatchLink.kt 와 같음(/gilnun/sangtae·allim·yocheong·dap·tteollim)
+// 2.6.0판(빌드 261002-A9, 대표님 지시) 긴급통화 — 화면에서 두 번 눌러 확인하면 폰에 gingeup 부탁. 폰이 누구에게 요청하는지 답(dapMal)을 읽어 드림
 package kr.or.ada.app.wear
 
 import android.Manifest
@@ -235,6 +236,18 @@ object WatchModel {
             haptic("start")
             dapMal = r.optString("dapMal", "")
             byeonhwa?.invoke()
+        }
+    }
+
+    /** 2.6.0 긴급통화 — 폰 길눈이 화상통화를 요청(마지막으로 요청하신 가족·지인 한 분, 없으면 자원봉사자). 폰이 곁에 없으면 알려 드림 */
+    fun gingeup() {
+        haptic("start")
+        askPhone("gingeup", null, { eopseum ->
+            speak(if (eopseum) MOT_MAL else "폰에 긴급통화 요청을 보내지 못했습니다. 다시 눌러 주십시오.", "failure")
+        }) { r ->
+            dapMal = r.optString("dapMal", "")
+            byeonhwa?.invoke()
+            speak(dapMal.ifEmpty { "폰 길눈이 긴급통화를 요청합니다." }, "success")
         }
     }
 

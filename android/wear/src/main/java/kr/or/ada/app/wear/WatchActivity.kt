@@ -2,12 +2,14 @@
 // 이름 하나, 단추 하나 — 한 줄에 단추 하나, 크게. 톡백으로 쓰기 좋게.
 //   처음 열 때 한 번만 "지팡이를 어느 손으로 쥐십니까", "워치는 어느 손목에 차셨습니까"를 여쭘(맨 아래 손 바꾸기로 다시)
 //   워치는 지팡이를 쥐지 않은 손에 차는 것이 기본(손목 가리키기에 알맞음). 지팡이 쥔 손에 차시면 지팡이 떨림 기록을 씀.
-//   첫 화면: 다음 갈림길, 내 자리, 마지막 안내, 말로 하기, 음향신호기 위치, 음향신호기 신호, 걷는 동안 깨어 있기,
+//   첫 화면: 다음 갈림길, 내 자리, 마지막 안내, 말로 하기, 긴급통화(2.6.0), 음향신호기 위치, 음향신호기 신호, 걷는 동안 깨어 있기,
 //     (지팡이를 쥐지 않은 손) 손목 가리키기 · 가리키기 방향 맞추기 / (지팡이 쥔 손) 지팡이 떨림 기록, 도움말, 손 바꾸기
 //   상태가 바뀌면 화면을 다시 그리지 않고 그 줄의 글자만 바꿈(톡백 커서가 흔들리지 않게)
 //   속 화면(도움말·지팡이 떨림 기록)은 맨 위에 뒤로. 워치의 뒤로 동작도 첫 화면으로 — 첫 화면에서만 앱을 닫음
 //   워치 단추: 앱이 쓸 수 있는 옆 단추(STEM 1·2·3)가 있는 워치만 — 1.5초 안에 누른 횟수 1 다음 갈림길, 2 내 자리, 3 말로 하기.
 //     웨어 OS는 애플워치 두 번 집기 같은 손가락 동작을 앱에 내어 주지 않고, 갤럭시 워치의 홈·뒤로 단추는 워치가 씀
+// 2.6.0판(빌드 261002-A9, 대표님 지시) 첫 화면 말로 하기 아래에 긴급통화 — 걷다가 잘못 눌리지 않게 5초 안에 한 번 더 눌러야 폰 길눈이 요청함.
+//   워치 단추 횟수(1·2·3)에는 넣지 않음(애플워치 두 번 집기에 넣지 않은 것과 같은 뜻)
 package kr.or.ada.app.wear
 
 import android.Manifest
@@ -33,8 +35,8 @@ import java.lang.ref.WeakReference
 
 class WatchActivity : Activity() {
     companion object {
-        const val PAN = "2.5.0"
-        const val BILD = "261002-A8"
+        const val PAN = "2.6.0"
+        const val BILD = "261002-A9"
         /** 지금 보이는 워치 길눈 화면(톡백 알림에 씀) */
         var boineun: WeakReference<WatchActivity>? = null
         private val NAM = Color.rgb(18, 52, 110)
@@ -55,6 +57,12 @@ class WatchActivity : Activity() {
     private var garikiBtn: Button? = null
     private var siganView: TextView? = null
     private var gurinDamneun = false
+    private var gingeupBtn: Button? = null
+    private var gingeupHanbeon = false   // 2.6.0 긴급통화를 한 번 누름 — 5초 안에 한 번 더 누르면 요청
+    private val gingeupDoedollim = Runnable {
+        gingeupHanbeon = false
+        gingeupBtn?.text = "긴급통화"
+    }
 
     private val byeonhwaF: () -> Unit = { gaengsin() }
 
@@ -144,7 +152,9 @@ class WatchActivity : Activity() {
         nae.removeAllViews()
         cheotJul = null
         chojeomJul = null
-        malView = null; dapView = null; kkaeeoBtn = null; garikiBtn = null; siganView = null
+        malView = null; dapView = null; kkaeeoBtn = null; garikiBtn = null; siganView = null; gingeupBtn = null
+        gingeupHanbeon = false
+        seuk.removeCallbacks(gingeupDoedollim)
         if (WatchModel.jipangiSon.isEmpty() || WatchModel.watchSonmok.isEmpty()) {
             sonMureum()
         } else when (hwamyeon) {
@@ -192,6 +202,7 @@ class WatchActivity : Activity() {
         danchu("마지막 안내") { WatchModel.malDeutgi() }
         danchu("말로 하기") { WatchModel.malSijak() }
         dapView = geul("").also { it.visibility = View.GONE }
+        gingeupBtn = danchu("긴급통화") { gingeupNureum() }
         danchu("음향신호기 위치") { WatchModel.sinhogi(1) }
         danchu("음향신호기 신호") { WatchModel.sinhogi(2) }
         kkaeeoBtn = danchu("걷는 동안 깨어 있기") { WatchModel.kkaeeoDanchu() }
@@ -215,6 +226,22 @@ class WatchActivity : Activity() {
         }
         b.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
         gaengsin()
+    }
+
+    /** 2.6.0 긴급통화 — 처음 누르면 알리고, 5초 안에 한 번 더 누르면 폰 길눈이 요청 */
+    private fun gingeupNureum() {
+        val b = gingeupBtn ?: return
+        seuk.removeCallbacks(gingeupDoedollim)
+        if (!gingeupHanbeon) {
+            gingeupHanbeon = true
+            b.text = "한 번 더 누르면 긴급통화 요청"
+            WatchModel.speak("한 번 더 누르시면 긴급통화를 요청합니다.", "notification")
+            seuk.postDelayed(gingeupDoedollim, 5000)
+            return
+        }
+        gingeupHanbeon = false
+        b.text = "긴급통화"
+        WatchModel.gingeup()
     }
 
     /** 지팡이 떨림 기록 — 바닥을 고르면 곧바로 담기, 담는 중에는 그만 단추 하나 */
@@ -334,6 +361,7 @@ class WatchActivity : Activity() {
         "내 자리" to "지금 있는 곳의 주소와 폰이 향한 방향을 폰 길눈에 물어 읽어 드립니다. 폰이 곁에 없으면 워치의 위성으로 찾습니다.",
         "마지막 안내" to "폰 길눈이 마지막으로 한 말을 다시 읽어 드립니다. 폰이 곁에 없으면 나스에 남은 마지막 안내를 받아 읽습니다. 폰 길눈이 새 안내를 하면 워치가 한 번 떱니다.",
         "말로 하기" to "폰 길눈이 말로 하기 듣기를 엽니다. 폰의 마이크나 이어폰으로 말씀하시면 폰 길눈이 알아듣고 대답합니다.",
+        "긴급통화" to "두드리시면 한 번 더 누르시면 긴급통화를 요청합니다라고 알려 드립니다. 5초 안에 한 번 더 두드리셔야 폰 길눈이 화상통화를 요청합니다. 걷다가 잘못 눌리지 않게 하려는 것이며, 워치 단추 횟수에는 넣지 않았습니다. 마지막으로 요청하신 가족·지인 한 분께 가고, 그런 분이 없으면 자원봉사자에게 갑니다. 받으시면 폰의 뒤 카메라와 마이크가 켜집니다. 끊으실 때는 폰 길눈의 통화 끊기 단추를 누르십시오.",
         "음향신호기" to "음향신호기 위치는 리모컨의 유 단추, 음향신호기 신호는 신 단추와 같습니다. 폰이 블루투스로 가까운 음향신호기를 울리고, 받았는지 워치에도 알려 드립니다.",
         "방향 진동" to "점지도를 따라 걷다 꺾어야 할 때 오른쪽은 길게 한 번, 왼쪽은 짧게 두 번 떱니다. 도착하면 세 번 떱니다.",
         "걷는 동안 깨어 있기" to "손목을 내려도 워치 길눈이 멈추지 않고, 팔 흔들림으로 걸음을 세어 폰 길눈에 보냅니다. 폰이 가방 속이라 걸음을 못 셀 때 폰 길눈이 워치 걸음으로 이어 갑니다. 폰이 점지도 따라 걷기를 시작하면 저절로 켜집니다. 워치 화면 위에 길눈이 떠 있고, 두드리면 이 화면이 열립니다.",
@@ -343,6 +371,6 @@ class WatchActivity : Activity() {
         "워치 단추" to "앱이 쓸 수 있는 옆 단추가 있는 워치는 그 단추를 1.5초 안에 한 번 누르시면 다음 갈림길, 두 번이면 내 자리, 세 번이면 말로 하기입니다. 누를 때마다 한 번씩 짧게 떱니다. 갤럭시 워치의 홈 단추와 뒤로 단추는 워치가 쓰므로 길눈이 쓰지 못합니다. 그때는 화면의 단추를 쓰십시오.",
         "말소리" to "워치에서 톡백을 쓰시면 톡백이 읽고, 아니면 워치 목소리로 읽습니다.",
         "손 바꾸기" to "첫 화면 맨 아래의 바꾸기를 두드리면 지팡이 쥔 손과 워치 찬 손목을 다시 여쭙니다.",
-        "판 기록" to "갤럭시 워치 길눈 ${PAN}판, 빌드 ${BILD}. 2026년 10월 2일 대표님 지시로 아이폰 길눈의 애플워치 앱을 갤럭시 워치로 옮겼습니다. 폰 길눈 2.5.0판 이상과 이어집니다."
+        "판 기록" to "갤럭시 워치 길눈 ${PAN}판, 빌드 ${BILD}. 2026년 10월 2일 대표님 지시로 아이폰 길눈의 애플워치 앱을 갤럭시 워치로 옮겼습니다. 같은 날 2.6.0판에서 대표님 지시로 긴급통화 단추를 더했습니다(두 번 눌러 확인). 폰 길눈 2.5.0판 이상과 이어지며, 긴급통화는 폰 길눈 2.6.0판 이상에서 됩니다."
     )
 }
