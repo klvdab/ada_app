@@ -95,6 +95,11 @@ android {
         buildConfig = true
     }
 
+    // 261002-B1 APK 속 기계어 부품(.so)을 눌러 담아 받는 파일 크기를 줄임(깔 때 풀림)
+    packaging {
+        jniLibs { useLegacyPackaging = true }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
