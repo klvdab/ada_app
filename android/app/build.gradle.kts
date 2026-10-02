@@ -62,7 +62,7 @@ android {
             dimension = "ap"
             applicationId = "kr.or.ada.jabong"
             resValue("string", "app_name", "자봉")
-            versionName = "2.3.0"   // 261001-A2 점지도 그리기를 속까지 앱(JabongActivity, src/jabong) — 몸 센서 극대화. 나머지는 웹 자봉
+            versionName = "2.3.0"   // 261002-J1 아이폰 자봉 2.3.0과 똑같이 — 처음 등록·탭 넷·긴급통화 받기(JabongDaegi·JabongTonghwa, 알림 칸의 자봉이 나스 부름을 살핌)·점지도 그리기 마저(주소·말로 표시·그린 길 목록), 대표님 지시. 261001-A2 점지도 그리기를 속까지 앱(JabongActivity, src/jabong) — 몸 센서 극대화
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/jabong/\"")
         }
         create("bfb") {
