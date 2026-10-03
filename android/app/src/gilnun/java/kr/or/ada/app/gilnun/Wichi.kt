@@ -60,6 +60,8 @@ object Wichi : SensorEventListener, LocationListener {
     var batunSu = 0
         private set
     private var majimakWiseong = 0L
+    /** 2.9.0 마지막으로 위성이 잡힌 때(탈것 알아채기가 씀) */
+    val majimakWiseongTtae: Long get() = majimakWiseong
     /** 폰 방향(북쪽 기준 도), 모르면 -1 */
     var nachimban = -1.0
         private set

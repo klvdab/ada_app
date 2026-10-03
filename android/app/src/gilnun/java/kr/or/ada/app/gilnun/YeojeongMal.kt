@@ -186,7 +186,7 @@ object YeojeongMal {
         var tg = tg0 ?: talgeotDaegi
         talgeotDaegi = null
         if (tg == null) {
-            if (taneunJung) tg = Talgeot.CHA
+            if (taneunJung) tg = if (yj.sokdoChujeong == Talgeot.JIHACHEOL) Talgeot.JIHACHEOL else Talgeot.CHA   // 2.9.0 땅속에서 타고 가는 중이면 지하철로
             else if (d == null || d <= 2000) tg = Talgeot.GEOREUM
         }
         val mk = Mokjeok(j.ireum, j.lat, j.lon, j.juso)
@@ -222,6 +222,15 @@ object YeojeongMal {
                 a?.cheotHwamyeonEuro(null)
             }
             Talgeot.JIHACHEOL -> {
+                // 2.9.0 이미 열차를 타고 가는 중이면 역 입구 안내를 건너뛰고 곧장 역 알림(아이폰 2.40.0과 같음)
+                if (TalgeotGamji.chujeong == Talgeot.JIHACHEOL || (TalgeotGamji.jiha && TalgeotGamji.jigeumUmjigim != "걸음")) {
+                    Sori.mal(apMal + "타고 가시는 중이니 지하철 길을 찾아 곧장 역 알림을 시작합니다.", MalGeup.JEONGBO)
+                    JihacheolEngine.jungganSijak(j) { ok, mal ->
+                        hwalseong()?.cheotHwamyeonEuro(null)
+                        dap(if (ok) mal else "$mal 잠시 뒤 다시 지하철로 가자고 말씀해 주십시오.", false)
+                    }
+                    return
+                }
                 Sori.mal(apMal + "지하철 길을 찾는 중입니다.", MalGeup.JEONGBO)
                 JihacheolEngine.gilChatgi(j) { gg, k ->
                     if (gg != null) {

@@ -239,11 +239,32 @@ object YeojeongEngine {
         }
     }
 
+    /** 2.9.0 탈것 알아채기(TalgeotGamji — 걸음 센서·가속도·기압계)가 알아챈 탈것 — 위성 빠르기보다 먼저 */
+    fun gamjiBatda(t: Talgeot) {
+        if (sokdoChujeong == Talgeot.GICHA && t == Talgeot.CHA) return   // 기차는 빠르기로만
+        if (t == sokdoChujeong) return
+        sokdoChujeong = t
+        AnnaeEngine.talgeotBakkwim(t)
+    }
+
     /** 시속 15킬로미터를 15초 넘게 넘으면 차(시속 150을 넘으면 기차), 시속 8 아래로 3분이면 걸음 */
     private fun sokdoBoda(w: Jari) {
         if (w.georeumChu || w.ochae > 30) return
         val kmh = w.sokdo * 3.6
         val now = System.currentTimeMillis()
+        // 2.9.0 걷기·차·버스·지하철은 TalgeotGamji 가 가림 — 여기서는 기차(시속 150 넘게 15초)만
+        if (kmh > 150) {
+            if (ppareunTtae == 0L) ppareunTtae = now
+            if (now - ppareunTtae >= 15000 && sokdoChujeong != Talgeot.GICHA) {
+                sokdoChujeong = Talgeot.GICHA
+                Girok.namgi("talgeot_chujeong", mapOf("t" to "gicha", "kmh" to kmh.toInt()))
+                AnnaeEngine.talgeotBakkwim(Talgeot.GICHA)
+            }
+        } else {
+            ppareunTtae = 0L
+            if (sokdoChujeong == Talgeot.GICHA && TalgeotGamji.chujeong == Talgeot.GEOREUM) sokdoChujeong = Talgeot.GEOREUM
+        }
+        if (true) return
         if (kmh > 15) {
             neurinTtae = 0L
             if (ppareunTtae == 0L) ppareunTtae = now

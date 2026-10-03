@@ -156,7 +156,7 @@ object AnnaeEngine {
     }
 
     /** 목적지를 정하고 지하철로 — 먼저 타는 역 출구까지 걷는 안내 */
-    fun jihacheolGagi(j: Jangso, g: JihaGil) {
+    fun jihacheolGagi(j: Jangso, g: JihaGil, malEopsi: Boolean = false) {
         jeomKkeut()
         JihacheolEngine.meomchugi()
         yj.jeonghagi(Mokjeok(j.ireum, j.lat, j.lon, j.juso))
@@ -164,6 +164,7 @@ object AnnaeEngine {
         yj.talgeotJeonghagi(Talgeot.JIHACHEOL, true)
         yj.danggyeBakkugi(Danggye.TANEUN_GOT_KKAJI)
         dasiSijak()
+        if (malEopsi) return
         malHagi("${g.ipgu.ireum}까지 걷는 안내를 시작합니다.")
         jigeumBoda()
     }
@@ -412,6 +413,40 @@ object AnnaeEngine {
     /** 빠르기로 알아챈 탈것이 바뀜(YeojeongEngine 이 부름) */
     fun talgeotBakkwim(t: Talgeot) {
         val y = yj.jigeum ?: return
+        // 2.9.0 탈것 알아채기가 알아챈 지하철·버스도 이어 받음(아이폰 2.40.0과 같음)
+        if (t == Talgeot.JIHACHEOL) {
+            if (y.barojabeum && y.talgeot == Talgeot.BEOSEU && !TalgeotGamji.jiha) return
+            val g = y.jiha
+            if (g != null) {
+                if (y.danggye == Danggye.TANEUN_GOT_KKAJI && !JihacheolEngine.dolgo) {
+                    if (!g.ipguDochak) JihacheolEngine.ipguDochak()
+                    JihacheolEngine.tatda(true)
+                }
+                return
+            }
+            if (!(y.danggye == Danggye.NAM_EUN_GIL || y.danggye == Danggye.EOTTEOKE || (y.danggye == Danggye.TANEUN_JUNG && y.talgeot != Talgeot.BEOSEU))) return
+            malHagi("지하철을 타신 것 같습니다. 지하철 길을 찾습니다.")
+            JihacheolEngine.jungganSijak(y.mokjeok.jangso) { ok, mal ->
+                if (ok) Girok.namgi("jadong_jihacheol") else malHagi("$mal 차 안 안내로 잇습니다.")
+            }
+            return
+        }
+        if (t == Talgeot.BEOSEU) {
+            if (y.beoseu != null || y.jiha != null || (y.barojabeum && y.talgeot != Talgeot.CHA)) return
+            if (!(y.danggye == Danggye.NAM_EUN_GIL || y.danggye == Danggye.EOTTEOKE || y.danggye == Danggye.TANEUN_JUNG)) return
+            yj.talgeotJeonghagi(Talgeot.BEOSEU, false)
+            yj.danggyeBakkugi(Danggye.TANEUN_JUNG)
+            dasiSijak()
+            malHagi("정류장마다 서는 것을 보니 버스를 타신 것 같습니다. 버스 안 안내로 잇습니다.")
+            Girok.namgi("jadong_beoseu", mapOf("gil" to "umjigim"))
+            jigeumBoda()
+            return
+        }
+        if (t == Talgeot.GEOREUM) {
+            // 걸음 판단은 차·버스에서 내리신 것을 알아채는 데 씀(지하철은 지하철 엔진이 땅 위로 나온 것을 보고 마침)
+            if (y.danggye == Danggye.TANEUN_JUNG && y.jiha == null) naeryeotda(true)
+            return
+        }
         if (t != Talgeot.CHA && t != Talgeot.GICHA) return
         // 버스 정류장에서 기다리다 빠르게 움직이면 버스에 타신 것
         if (y.beoseu != null && y.danggye == Danggye.TANEUN_GOT_KKAJI) {

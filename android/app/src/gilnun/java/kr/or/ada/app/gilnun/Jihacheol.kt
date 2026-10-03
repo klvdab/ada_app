@@ -36,7 +36,13 @@ object JihacheolEngine : SensorEventListener {
     private var dallimSijak = 0L
     private var dallimGeoreum = 0
     private var yeolcha = ""
-    private var silsiJal = false
+    /** 2.9.0 실시간이 내 열차를 마지막으로 확인해 준 때 — 90초가 지나면 다른 셈이 다시 맡음 */
+    private var silsiHwagin = 0L
+    private var silsiJal: Boolean
+        get() = yeolcha.isNotEmpty() && System.currentTimeMillis() - silsiHwagin < 90000
+        set(v) { if (!v) silsiHwagin = 0L }
+    private var tamTtae = 0L
+    private var huboJikyeo = HashMap<String, Int>()
     private var silsiMot = 0
     private var majimak = System.currentTimeMillis()
     private var hwanJa: List<Int> = emptyList()
@@ -57,6 +63,40 @@ object JihacheolEngine : SensorEventListener {
     fun sijak(c: Context) {
         ctx = c.applicationContext
         sm = c.applicationContext.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+        // 2.9.0 탈것이 섰다가 떠남으로도 역을 셈
+        TalgeotGamji.seotdaTteonam = { t ->
+            if (dolgo && t >= 8 && t <= 120 && !silsiJal && System.currentTimeMillis() - majimak > 40000) hanYeok()
+        }
+        // 2.9.0 기압으로 땅속에 내려가신 것을 알면 — 타는 역 근처면 역에 닿은 것으로
+        TalgeotGamji.jihaJinip = {
+            val y = yj.jigeum
+            val g = y?.jiha
+            if (y != null && g != null && y.danggye == Danggye.TANEUN_GOT_KKAJI && !g.ipguDochak) {
+                val w = TalgeotGamji.jisangJari ?: Wichi.jigeum
+                if (w == null || Wichi.geori(w.lat, w.lon, g.ipgu.lat, g.ipgu.lon) <= 300) {
+                    Girok.namgi("jiha_ipgu_gido")
+                    ipguDochak()
+                }
+            }
+        }
+    }
+
+    /** 2.9.0 가장 가까운 역까지의 거리(미터) */
+    fun gakkaunYeokGeori(lat: Double, lon: Double, kkeut: (Double?) -> Unit) {
+        gakkaun(lat, lon) { y -> kkeut(y?.let { Wichi.geori(lat, lon, it.lat, it.lon) }) }
+    }
+
+    /** 2.9.0 이미 열차를 타고 가는 중에 시작 — 땅속으로 내려가기 전 땅 위 자리에서 가까운 역을 타는 역으로 */
+    fun jungganSijak(mok: Jangso, kkeut: (Boolean, String) -> Unit) {
+        val buteo = TalgeotGamji.jisangJari ?: TalgeotGamji.chaSijakJari ?: Wichi.jigeum
+        gilChatgi(mok, buteo) { gg, k ->
+            if (gg == null) { kkeut(false, k); return@gilChatgi }
+            val g = gg.copy(ipguDochak = true)
+            AnnaeEngine.jihacheolGagi(mok, g, malEopsi = true)
+            Girok.namgi("jiha_junggan", mapOf("from" to g.from, "to" to g.to))
+            kkeut(true, "${g.from}역에서 타신 것으로 보고 ${g.to}역까지 역을 알려 드립니다.")
+            tatda(true)
+        }
     }
 
     // MARK: 길 찾기
@@ -64,8 +104,8 @@ object JihacheolEngine : SensorEventListener {
     private class Yeok(val yeok: String, val ireum: String, val lat: Double, val lon: Double)
 
     /** 지금 자리에서 목적지까지 지하철 길 — (길, 못 찾은 까닭). 결과는 화면 줄에서 */
-    fun gilChatgi(mok: Jangso, kkeut: (JihaGil?, String) -> Unit) {
-        val w = Wichi.jigeum
+    fun gilChatgi(mok: Jangso, buteo: Jari? = null, kkeut: (JihaGil?, String) -> Unit) {
+        val w = buteo ?: Wichi.jigeum
         if (w == null) { kkeut(null, "아직 위치를 잡는 중입니다. 잠시 뒤 다시 눌러 주십시오."); return }
         var ya: Yeok? = null
         var yb: Yeok? = null
@@ -162,6 +202,7 @@ object JihacheolEngine : SensorEventListener {
         yj.danggyeBakkugi(Danggye.TANEUN_JUNG)
         junbi(g)
         majimak = System.currentTimeMillis()
+        tamTtae = majimak
         val apmal = if (jadong) "열차가 움직이는 것 같습니다. " else ""
         Sori.mal(apmal + "역 알림을 시작합니다. 내리실 역은 ${g.to}역, ${g.jina.size} 정거장 뒤입니다. 지나는 역마다 알려 드립니다.")
         Girok.namgi("jiha_tam", mapOf("jadong" to jadong))
@@ -210,6 +251,7 @@ object JihacheolEngine : SensorEventListener {
         yeolcha = ""
         silsiJal = false
         silsiMot = 0
+        huboJikyeo = HashMap()
     }
 
     private val poller: Runnable = object : Runnable {
@@ -317,21 +359,53 @@ object JihacheolEngine : SensorEventListener {
         if (rows.isEmpty()) { silsiMot += 1; silsiJal = false; return }
         silsiMot = 0
         var nae: org.json.JSONObject? = null
-        if (yeolcha.isNotEmpty()) nae = rows.firstOrNull { Jeomjido.gul(it, "yeolcha") == yeolcha }
-        if (nae == null) {
-            val chatja = ArrayList<String>()
-            chatja.add(ireum(from))
-            val s = max(0, g.i)
-            for (k in s until min(g.jina.size, s + 2)) chatja.add(ireum(g.jina[k]))
-            val hubo = rows.filter { chatja.contains(ireum(Jeomjido.gul(it, "yeok"))) }
-            nae = hubo.firstOrNull { kkeut.isNotEmpty() && ireum(Jeomjido.gul(it, "jong")) == ireum(kkeut) } ?: hubo.firstOrNull()
-            nae?.let { yeolcha = Jeomjido.gul(it, "yeolcha") }
+        if (yeolcha.isNotEmpty()) {
+            nae = rows.firstOrNull { Jeomjido.gul(it, "yeolcha") == yeolcha }
+            if (nae == null) { yeolcha = ""; silsiJal = false }   // 붙잡았던 열차가 사라짐
         }
-        silsiJal = yeolcha.isNotEmpty()
+        if (nae == null) {
+            // 2.9.0 지금 역(지난 역)과 바로 다음 역에 있는 열차만, 가는 방향이 맞는 것만(아이폰 2.40.0과 같음)
+            val chatja = ArrayList<String>()
+            chatja.add(ireum(if (g.i >= 0 && g.i < g.jina.size) g.jina[g.i] else from))
+            if (g.i + 1 < g.jina.size) chatja.add(ireum(g.jina[g.i + 1]))
+            val hubo = rows.filter { chatja.contains(ireum(Jeomjido.gul(it, "yeok"))) }
+            if (kkeut.isNotEmpty()) nae = hubo.firstOrNull { ireum(Jeomjido.gul(it, "jong")) == ireum(kkeut) }
+            // 방면 이름이 달리 오거나 모를 때 — 후보 열차를 지켜보다가 내 길을 따라 한 역 앞으로 나아간 열차만 붙잡음
+            if (nae == null) {
+                val sae = HashMap<String, Int>()
+                for (r in rows) {
+                    val id = Jeomjido.gul(r, "yeolcha")
+                    if (id.isEmpty()) continue
+                    val y = ireum(Jeomjido.gul(r, "yeok"))
+                    val p = if (g.i < 0 && y == ireum(from)) -1 else g.jina.indexOfLast { ireum(it) == y }.let { if (it < 0) null else it } ?: continue
+                    sae[id] = p
+                    val ap = huboJikyeo[id]
+                    if (nae == null && ap != null && p == ap + 1 && p <= g.i + 1) nae = r
+                }
+                huboJikyeo = sae
+            }
+            nae?.let {
+                yeolcha = Jeomjido.gul(it, "yeolcha")
+                Girok.namgi("jiha_yeolcha", mapOf("yeolcha" to yeolcha, "yeok" to Jeomjido.gul(it, "yeok")))
+            }
+        }
         val n = nae ?: return
+        if (yeolcha.isEmpty()) return
         val yeok = ireum(Jeomjido.gul(n, "yeok"))
         val ja = g.jina.indexOfLast { ireum(it) == yeok }
-        if (ja < 0) return
+        if (ja < 0) {
+            Girok.namgi("jiha_yeolcha_noh", mapOf("kkadak" to "길 밖", "yeok" to yeok))
+            yeolcha = ""; silsiJal = false
+            return
+        }
+        // 지나간 시간에 비해 너무 많이 앞서 가면 엉뚱한 열차(역 사이 최소 1분 반)
+        val heoyong = 1 + ((System.currentTimeMillis() - majimak) / 90000).toInt()
+        if (ja - g.i > heoyong) {
+            Girok.namgi("jiha_yeolcha_noh", mapOf("kkadak" to "너무 앞섬", "ap" to (ja - g.i)))
+            yeolcha = ""; silsiJal = false
+            return
+        }
+        if (ja >= g.i) silsiHwagin = System.currentTimeMillis()
         var bon = 0
         // 실시간으로 여러 역을 따라잡을 때는 조용히 넘기고 마지막 역(과 갈아타는 역)만 말함
         while ((gil?.i ?: ja) < ja && !(gil?.kkeutnam ?: true) && bon < 12) {
@@ -345,6 +419,16 @@ object JihacheolEngine : SensorEventListener {
 
     // ③ 시간으로 셈하기
     private fun sigan() {
+        // 2.9.0 땅 위로 나와 걸으시거나 위성이 다시 잡히면 지하철 안내를 마치고 걷는 안내로
+        val g0 = gil
+        if (dolgo && g0 != null && !g0.kkeutnam && System.currentTimeMillis() - tamTtae > 120000 &&
+            !TalgeotGamji.jiha && TalgeotGamji.chujeong == Talgeot.GEOREUM && TalgeotGamji.wiseongJoeum) {
+            Girok.namgi("jiha_kkeut_jisang", mapOf("i" to g0.i))
+            meomchugi()
+            yj.jihaNoki(g0.copy(kkeutnam = true))
+            AnnaeEngine.naeryeotda(true, "땅 위로 나오신 것 같습니다. 지하철 안내를 마치고 남은 길을 걸어서 안내합니다.")
+            return
+        }
         if (!dolgo || silsiJal) return
         val g = gil ?: return
         if (g.kkeutnam) return
