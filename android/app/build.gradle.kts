@@ -73,6 +73,13 @@ android {
             resValue("string", "app_name", "배프")
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/bfb/\"")
         }
+        create("byod") {   // 261003-B1 BYOD 방송 — 삼성 태블릿이 노트북 대신 현장 방송 서버를 맡음(ByodActivity·ByodService, src/byod), 이사장님 승인 2026-10-03
+            dimension = "ap"
+            applicationId = "kr.or.ada.byod"
+            resValue("string", "app_name", "BYOD 방송")
+            versionName = "1.0.0"
+            buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/bfblive/hyeonjang/\"")
+        }
         create("lib") {   // 261002-L1 AI점자도서관 안드로이드 — 속까지 앱(LibActivity, src/lib), 아이폰 0.2.0 과 동시에(이사장님 승인 "2")
             dimension = "ap"
             applicationId = "kr.or.ada.lib"
