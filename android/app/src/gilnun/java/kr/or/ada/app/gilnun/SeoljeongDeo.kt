@@ -495,51 +495,22 @@ internal object NnSeoryuham {
 /** 내 서류 보관함 전용 파일 제공자 — 다른 묶음의 파일 제공자와 얼개(manifest)에서 부딪치지 않게 따로 이름을 둠 */
 class NnSeoryuProvider : FileProvider()
 
-/** 복지콜·교통약자 콜 번호 — 나스 call.json 의 지금 계신 지역(상자) 콜과 전국 콜(아이폰 MalSajeon.kolDeul). 못 받으면 서울 기본 셋 */
+/** 복지콜·교통약자 콜 번호 — 나스 call.json(2.0부터 시군 목록 포함). 지역 고르기는 2.8.0부터 KolJiyeok.kt(아이폰 KolJiyeok.swift 와 같음) */
 internal object NnKol {
     class Kol(val ireum: String, val jeonhwa: String, val bigo: String)
-    private var o: JSONObject? = null
+    var jaryo: JSONObject? = null
+        private set
     private var batneun = false
 
     fun batgi(kkeut: () -> Unit) {
-        if (o != null || batneun) return
+        if (jaryo != null) { kkeut(); return }
+        if (batneun) return
         batneun = true
-        Tongsin.json("call.json", emptyMap()) { r -> batneun = false; if (r != null) { o = r; kkeut() } }
+        Tongsin.json("call.json", emptyMap()) { r -> batneun = false; if (r != null) { jaryo = r; kkeut() } }
     }
 
-    fun mok(): List<Kol> {
-        val l = ArrayList<Kol>()
-        val oo = o
-        val jy = oo?.optJSONArray("지역")
-        if (oo != null && jy != null && jy.length() > 0) {
-            var got = jy.optJSONObject(0)
-            val w = Wichi.jigeum
-            if (w != null) {
-                for (i in 0 until jy.length()) {
-                    val g = jy.optJSONObject(i) ?: continue
-                    val s = g.optJSONArray("상자") ?: continue
-                    if (s.length() != 4) continue
-                    val a0 = s.optDouble(0, Double.NaN); val a1 = s.optDouble(1, Double.NaN)
-                    val o0 = s.optDouble(2, Double.NaN); val o1 = s.optDouble(3, Double.NaN)
-                    if (w.lat >= a0 && w.lat <= a1 && w.lon >= o0 && w.lon <= o1) { got = g; break }
-                }
-            }
-            val kk = ArrayList<JSONObject>()
-            got?.optJSONArray("콜")?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.let { kk.add(it) } }
-            oo.optJSONArray("전국")?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.let { kk.add(it) } }
-            for (k in kk) {
-                val nm = k.optString("이름", "")
-                val tel = k.optString("전화", "").filter { it.isDigit() }
-                if (nm.isNotEmpty() && tel.isNotEmpty()) l.add(Kol(nm, tel, k.optString("비고", "")))
-            }
-        }
-        if (l.isEmpty()) {
-            l.add(Kol("복지콜", "0220920000", "시각·신장 장애인 전용"))
-            l.add(Kol("장애인콜택시", "15884388", "서울시설공단"))
-            l.add(Kol("나비콜(바우처택시)", "18001133", "바우처택시 이용등록을 마친 뒤 이용"))
-        }
-        return l
-    }
+    fun mok(): List<Kol> = KolJiyeok.mok(jaryo)
+    fun jiyeokMal(): String = KolJiyeok.mal(jaryo)
 }
 
 class SeoryuhamHwamyeon : Hwamyeon("내 서류 보관함") {
@@ -559,7 +530,8 @@ class SeoryuhamHwamyeon : Hwamyeon("내 서류 보관함") {
         t.geul("여기에 담긴 것은 이 폰 안에만 있습니다. 서버로 올라가지 않고 폰 백업에도 넣지 않습니다. 폰을 바꾸시면 다시 담으셔야 합니다.")
         nnPyeolchigi(t, "복지콜·교통약자 콜 번호 펼치기 — 지금 계신 지역", "복지콜·교통약자 콜 번호 접기", kolPyeol) { kolPyeol = !kolPyeol }
         if (kolPyeol) {
-            NnKol.batgi { if (nnBoinda(t, this) && kolPyeol) t.dasiGeurigi() }
+            if (NnKol.jaryo == null) NnKol.batgi { if (nnBoinda(t, this) && kolPyeol) t.dasiGeurigi() }
+            t.geul(NnKol.jiyeokMal())
             for (k in NnKol.mok()) {
                 t.danchu("${k.ireum} 전화 걸기" + (if (k.bigo.isEmpty()) "" else " — ${k.bigo}")) { nnJeonhwa(t, k.jeonhwa) }
             }

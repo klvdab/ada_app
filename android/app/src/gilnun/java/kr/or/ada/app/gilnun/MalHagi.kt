@@ -12,7 +12,7 @@
 // 아이폰과 다른 점:
 //   아이폰 2.29.0 말뜻 풀이는 폰 안의 애플 인공지능이라 안드로이드에 없음 — 사전으로 못 알아들은 말은 나스의 곳 찾기(a=jangso)로 풀어 봄
 //   TODO(아이폰 하이 길눈·시리) 부르는 말로 깨우기. 화면이 꺼진 채 이어폰 단추로 열기는 2.7.0부터 안내 중에만(RemoteDanchu)
-//   TODO(아이폰 교통편 부르기·호칭 바꾸기) 안드로이드에 기능이 옮겨 오면 말로도 되게
+//   TODO(아이폰 호칭 바꾸기) 안드로이드에 기능이 옮겨 오면 말로도 되게. 교통편 부르기는 2.8.0에 넣음
 // 2.6.0(빌드 261002-A9, 대표님 지시) 긴급통화 — 아이폰 MalHagi 긴급통화(gingeupJikjeop·gingeup)와 같은 말, 같은 차례.
 //   도와줘·긴급통화·화상통화·영상통화(사전 doum) → 해설사·봉사자·명단의 이름이 들리면 곧장 요청, 아니면 누구에게 요청할지 여쭘(3분 동안 기억)
 //   요청하면 긴급통화서비스 화면을 열어 끊기 단추가 바로 보이게. 긴급통화 중에는 말로 하기를 열지 않음(마이크를 통화에 내어 줌)
@@ -623,10 +623,38 @@ object MalHagi {
         if (DulreoMal.myeongryeong(z, s.itda(alts, "gojang"), s.itda(alts, "masil"), s.itda(alts, "sajin"), dap)) return true
         // 2.7.0 음악·방송(묶음 b5) — 다음 곡, 이전 곡, 무슨 곡, 이어서 틀어, 고장 노래, 라디오·TV(방송사 이름만으로도), 뉴스, 음악 꺼
         if (BangsongMal.myeongryeong(alts, alts.firstOrNull() ?: "", z, dap)) return true
+        // 2.8.0 교통편 부르기(아이폰 MalHagi 콜과 같음) — 지금 계신 지역의 복지콜·교통약자 콜. 지역 콜 이름(두리발·나드리콜…)은 콜·전화·불러가 함께 있을 때만
+        run {
+            val beonho = s.itda(alts, "kol_beonho")
+            val jong = when { s.itda(alts, "kol_jangaein") -> "jangaein"; s.itda(alts, "kol_nabi") -> "nabi"; s.itda(alts, "kol_bokji") -> "bokji"; else -> null }
+            val kolMal = alts.any { it.contains("콜") || it.contains("전화") || it.contains("불러") }
+            if (!beonho && jong == null && !kolMal && !z.contains("콜택시")) return@run
+            val o = NnKol.jaryo
+            if (beonho) {
+                val l = KolJiyeok.mok(o)
+                if (l.isEmpty()) dap(KolJiyeok.mal(o), false)
+                else dap(KolJiyeok.mal(o) + " 콜 번호입니다. " + l.joinToString(". ") { "${it.ireum} ${beonhoMal(it.jeonhwa)}" } + ".", false)
+                if (o == null) NnKol.batgi {}
+                return true
+            }
+            val k = (if (jong != null) KolJiyeok.chatgi(o, jong) else null)
+                ?: KolJiyeok.ireumChatgi(o, alts)
+                ?: (if (z.contains("콜택시")) KolJiyeok.chatgi(o, "jangaein") else null)
+            if (k == null) {
+                if (o == null) NnKol.batgi {}
+                if (jong == null && !z.contains("콜택시")) return@run   // 콜 이름이 아니면 다른 명령으로 넘김
+                dap(if (KolJiyeok.mok(o).isEmpty()) KolJiyeok.mal(o) else "그 콜은 이 지역 목록에 없습니다. 콜 번호 알려 줘라고 말씀하시면 이 지역 번호를 읽어 드립니다.", false)
+                return true
+            }
+            Girok.namgi("malhagi_kol_georeum", mapOf("ireum" to k.ireum))
+            dap(KolJiyeok.mal(o) + " ${k.ireum}에 전화를 겁니다. 전화 화면이 열리면 통화 단추를 누르십시오. 처음 쓰시는 곳이면 이용 등록을 먼저 하라고 할 수 있습니다. 그때는 설정의 내 서류 보관함에서 서류를 보내실 수 있습니다. 차에 타시면 차에 탔어라고 말씀해 주십시오.", false)
+            val a = hwalseong?.get()
+            main.postDelayed({ a?.let { nnJeonhwa(it, k.jeonhwa) } }, 6500)
+            return true
+        }
         // 아직 안드로이드에 넣지 못한 기능 — 모르는 척하지 않고, 기록해 두었다가 그 기능을 넣을 때 말로도 되게(아이폰 aJik 과 같음)
         // 2.7.0 여정·즐겨찾기·카메라 눈·되짚어 나가기·음성유도기·음악·방송·목소리는 이제 됨 — 목록에서 뺌
         val aJik: List<Pair<String, Boolean>> = listOf(
-            "교통편 부르기" to (s.itda(alts, "kol_bokji") || s.itda(alts, "kol_jangaein") || s.itda(alts, "kol_nabi") || s.itda(alts, "kol_beonho") || z.contains("콜택시")),
             "호칭 바꾸기" to s.itda(alts, "hoching")
         )
         for ((nm, mat) in aJik) {
@@ -888,6 +916,8 @@ object MalHagi {
     }
     fun eul(w: String) = if (batchim(w).first) "을" else "를"
     fun eun(w: String) = if (batchim(w).first) "은" else "는"
+    /** 2.8.0 전화번호를 한 자씩 — 공 이 구 이 … (아이폰 MalSajeon.beonhoMal) */
+    fun beonhoMal(n: String): String = n.map { c -> if (c.isDigit()) "공일이삼사오육칠팔구"[c - '0'].toString() else c.toString() }.joinToString(" ")
     /** 까지 앞 — 토씨 없이 */
     private fun kkajiTo(w: String) = if (w.endsWith("까지")) "" else "까지"
 
@@ -1031,7 +1061,7 @@ object MalSajeon {
         "cha" to listOf("차로", "차 타고", "택시", "콜택시", "타고 가자", "차로 가자"),
         "daejung" to listOf("지하철", "전철", "버스", "대중교통", "기차", "열차"),
         "kol_bokji" to listOf("복지콜", "복지 콜"),
-        "kol_jangaein" to listOf("장애인콜", "장애인 콜택시", "장애인택시", "교통약자"),
+        "kol_jangaein" to listOf("장애인콜", "장애인 콜택시", "장애인택시", "교통약자", "이동지원센터", "특별교통수단"),
         "kol_nabi" to listOf("나비콜", "나비 콜", "바우처택시", "바우처 택시"),
         "tatda" to listOf("탔어", "탔습니다", "차에 탔어", "승차", "타고 있어"),
         "naerim" to listOf("내렸어", "내렸습니다", "하차", "차에서 내렸"),
