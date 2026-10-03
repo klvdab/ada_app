@@ -1,0 +1,34 @@
+// BYOD 방송 — 방송 상태 한곳 (1.0.0판, 빌드 261003-B1, 이사장님 승인 2026-10-03)
+// 화면(ByodActivity)과 방송 일꾼(ByodService)이 함께 보는 상태입니다.
+package kr.or.ada.app.byod
+
+import java.util.concurrent.CopyOnWriteArrayList
+
+object Bang {
+    const val PAN = "1.0.0"
+    const val BILD = "261003-B1"
+    const val PORT = 8080
+
+    @Volatile var kyeojim = false          // 방송 일꾼이 돌고 있는가
+    @Volatile var keu = false              // 소리를 내보내는 중인가(노트북판의 큐)
+    @Volatile var sojae = "아직 정하지 않음"   // 소리 받는 곳 이름
+    @Volatile var juso = ""                // 듣기 주소(http://…:8080/)
+    @Volatile var jalmot = ""              // 잘못된 일(없으면 빈 글)
+    @Volatile var deutnunSu = 0            // 지금 듣는 분 수
+    @Volatile var sigakTtae = 0L           // 방송 시작 시각
+
+    data class Yocheong(val ttae: Long, val beonho: String, val jongryu: String)
+    val yocheong = CopyOnWriteArrayList<Yocheong>()   // 듣는 분의 도움 요청(최근 것 뒤)
+    @Volatile var yocheongSeq = 0
+
+    // 화면이 바뀐 것을 알도록 부르는 곳
+    val gwanchal = CopyOnWriteArrayList<() -> Unit>()
+    fun allyeo() { for (f in gwanchal) try { f() } catch (_: Exception) { } }
+
+    fun jongryuMal(k: String): String = when (k) {
+        "dowum" -> "도움 요청"
+        "gungeum" -> "궁금함"
+        "kkeunkim" -> "소리가 끊김"
+        else -> k
+    }
+}
