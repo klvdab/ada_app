@@ -27,13 +27,17 @@ class GinGeupHwamyeon : Hwamyeon("긴급통화서비스") {
         geulView = null
         when (g.sangtae) {
             GinGeupSangtae.EOPSEUM -> {
+                // 2.11.0 가족·지인이 받지 않으셨으면 — 안내를 읽은 바로 그 자리에 단추
+                val neom = if (g.neomgilkka) t.danchu("${g.geul} — 예, 요청합니다") { g.yocheong(GinGeupGalrae.DOWUM) } else null
+                if (g.neomgilkka) t.danchu("아니요, 그만둡니다") { g.neomgilkka = false; t.dasiGeurigi() }
                 cheotDanchu = t.danchu("가족·지인에게 화상통화 요청 — 한 분을 고르십시오") { t.yeolgi(JiinGoreugiHwamyeon()) }
+                if (neom != null) cheotDanchu = neom
                 t.danchu("자원봉사자에게 화상통화 요청") { g.yocheong(GinGeupGalrae.HAEBONG) }
                 t.danchu("전문 현장영상해설사에게 화상통화 요청") { g.yocheong(GinGeupGalrae.HAESEOLSA) }
                 val e = t.ipryeok("한마디 먼저 남기기 — 받는 분 화면에 뜹니다", false)
                 e.setText(g.malHan)
                 e.doAfterTextChanged { g.malHan = it?.toString() ?: "" }
-                if (g.geul.isNotEmpty()) geulView = t.geul(g.geul, true)
+                if (g.geul.isNotEmpty() && !g.neomgilkka) geulView = t.geul(g.geul, true)
             }
             else -> {
                 val b = t.danchu(kkeunkiGeul()) { g.geumanhagi() }
@@ -118,7 +122,7 @@ class JiinGoreugiHwamyeon : Hwamyeon("가족·지인 고르기") {
     }
 }
 
-/** 가족·지인 명단 — 만들기, 초대 주소 보내기. 등록된 분을 누르시면 다시 보내기·빼기 */
+/** 가족·지인 명단 — 2.11.0 이음 번호로 등록(자봉 앱). 등록된 분을 누르시면 빼기. 예전 초대 주소 방식은 감춤(yetBangsik) */
 class JiinMyeongdanHwamyeon : Hwamyeon("가족·지인 명단") {
     private var ireum = ""
     private var tel = ""
@@ -130,16 +134,50 @@ class JiinMyeongdanHwamyeon : Hwamyeon("가족·지인 명단") {
     private var sijak = 0
     private var chojeomHal = false
     private var chojeomJul: View? = null
+    private var beonho = ""
+    private var beonhoTtae = 0L
+    private var bonIds = setOf<String>()
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    private var salpimR: Runnable? = null
+
+    private fun beonhoMal(): String =
+        "이음 번호 ${beonho.toList().joinToString(" ")}. 30분 안에 가족이나 지인에게 불러 주십시오. 그분이 자봉 앱의 봉사 탭, 긴급통화 받기, 가족·지인으로 받기에서 이 번호와 부르실 이름을 넣으시면 등록됩니다"
 
     override fun chaeugi(t: GilnunActivity) {
         chojeomJul = null
         if (!bureum) {
             bureum = true
-            Jiin.bureogi { if (t.wiHwamyeon === this) t.dasiGeurigi() }
+            Jiin.bureogi { bonIds = Jiin.mokrok.map { it.id }.toSet(); if (t.wiHwamyeon === this) t.dasiGeurigi() }
         }
+        if (beonho.isNotEmpty() && System.currentTimeMillis() - beonhoTtae < 1800_000L) {
+            val b = t.danchu(beonhoMal() + " — 다시 듣기") { Sori.mal(beonhoMal() + ".") }
+            if (chojeomHal) chojeomJul = b
+            t.danchu("새 이음 번호 받기") { beonhoBatgi(t) }
+        } else {
+            t.danchu("이음 번호 받기 — 가족·지인이 자봉 앱에 넣을 여섯 자리") { beonhoBatgi(t) }
+        }
+        if (allim.isNotEmpty()) t.geul(allim, true)
+        if (yetBangsik) yetHwamyeon(t)
+        val l = Jiin.mokrok
+        if (l.isNotEmpty()) {
+            t.geul("등록된 분 — 이름을 누르시면 명단에서 빼기를 고르실 수 있습니다.")
+            if (sijak >= l.size) sijak = 0
+            val kkeut = minOf(sijak + 5, l.size)
+            for (n in sijak until kkeut) {
+                val s = l[n]
+                val b = t.danchu("${s.name} — ${if (s.badeum) "받음" else "아직 받겠다고 안 하심"}") { t.yeolgi(JiinSaramHwamyeon(s)) }
+                if (n == sijak && chojeomHal && chojeomJul == null) chojeomJul = b
+            }
+            if (kkeut < l.size) t.danchu("더 보기") { sijak += 5; chojeomHal = true; t.dasiGeurigi() }
+            if (sijak > 0) t.danchu("이전 보기") { sijak = maxOf(0, sijak - 5); chojeomHal = true; t.dasiGeurigi() }
+        }
+    }
+
+    /** 예전 초대 주소 방식 — 지우지 않고 감춤(이사장님 2026-10-04 "주소를 보내 연결하는 건 어려운 일") */
+    private fun yetHwamyeon(t: GilnunActivity) {
         val s0 = saero
         if (s0 != null) {
-            chojeomJul = t.geul("${s0.name} 님을 만들었습니다. 아래 초대 주소를 그 분께 보내십시오. 그 분이 한 번 열어 받겠습니다를 누르시면 등록이 끝납니다.", true)
+            t.geul("${s0.name} 님을 만들었습니다. 아래 초대 주소를 그 분께 보내십시오.", true)
             if (saeroTel.isNotEmpty()) t.danchu("문자로 초대 주소 보내기 — ${s0.name} 님께") { munja(t, s0, saeroTel) }
             t.danchu("다른 앱으로 초대 주소 보내기 — 카카오톡 등") { nanugi(t, s0) }
         }
@@ -151,19 +189,39 @@ class JiinMyeongdanHwamyeon : Hwamyeon("가족·지인 명단") {
         et.setText(tel)
         et.doAfterTextChanged { tel = it?.toString() ?: "" }
         t.danchu(if (mandeuneun) "만들고 있습니다" else "이 사람 만들기") { mandeulgi(t) }
-        if (allim.isNotEmpty()) t.geul(allim, true)
-        val l = Jiin.mokrok
-        if (l.isNotEmpty()) {
-            t.geul("등록된 분 — 이름을 누르시면 초대 주소 다시 보내기와 명단에서 빼기를 고르실 수 있습니다.")
-            if (sijak >= l.size) sijak = 0
-            val kkeut = minOf(sijak + 5, l.size)
-            for (n in sijak until kkeut) {
-                val s = l[n]
-                val b = t.danchu("${s.name} — ${if (s.badeum) "받음" else "아직 받겠다고 안 하심"}") { t.yeolgi(JiinSaramHwamyeon(s)) }
-                if (n == sijak && chojeomHal) chojeomJul = b
+    }
+
+    /** 이음 번호 받기 — 받은 뒤 30분 동안 5초마다 명단을 살펴 새로 등록하신 분을 알려 드림 */
+    private fun beonhoBatgi(t: GilnunActivity) {
+        allim = "이음 번호를 받고 있습니다."
+        t.dasiGeurigi()
+        Jiin.ieumBeonho { b, e ->
+            if (b == null) { allim = e; Sori.mal(e); if (t.wiHwamyeon === this) t.dasiGeurigi(); return@ieumBeonho }
+            beonho = b; beonhoTtae = System.currentTimeMillis(); allim = ""
+            bonIds = Jiin.mokrok.map { it.id }.toSet()
+            Sori.mal(beonhoMal() + ".")
+            chojeomHal = true
+            if (t.wiHwamyeon === this) t.dasiGeurigi()
+            salpimR?.let { main.removeCallbacks(it) }
+            val r = object : Runnable {
+                override fun run() {
+                    if (System.currentTimeMillis() - beonhoTtae > 1800_000L) return
+                    Jiin.bureogi { ok ->
+                        if (!ok) { main.postDelayed(this, 5000); return@bureogi }
+                        val sae = Jiin.mokrok.filter { it.id !in bonIds }
+                        bonIds = Jiin.mokrok.map { it.id }.toSet()
+                        if (sae.isNotEmpty()) {
+                            for (p in sae) { Sori.mal("${p.name} 님이 가족·지인으로 등록하셨습니다."); Girok.namgi("jiin_ieum_deungrok") }
+                            beonho = ""
+                            allim = sae.joinToString(" ") { "${it.name} 님이 등록하셨습니다." }
+                            val a = GinGeup.hwalseong?.get()
+                            if (a != null && a.wiHwamyeon === this@JiinMyeongdanHwamyeon) a.dasiGeurigi()
+                        } else main.postDelayed(this, 5000)
+                    }
+                }
             }
-            if (kkeut < l.size) t.danchu("더 보기") { sijak += 5; chojeomHal = true; t.dasiGeurigi() }
-            if (sijak > 0) t.danchu("이전 보기") { sijak = maxOf(0, sijak - 5); chojeomHal = true; t.dasiGeurigi() }
+            salpimR = r
+            main.postDelayed(r, 5000)
         }
     }
 
@@ -203,6 +261,9 @@ class JiinMyeongdanHwamyeon : Hwamyeon("가족·지인 명단") {
     }
 
     companion object {
+        /** 예전 초대 주소 방식을 보일지 — 감춤 */
+        const val yetBangsik = false
+
         /** 문자 앱 열기 — 번호와 초대 글을 넣은 채로 */
         fun munja(t: GilnunActivity, s: JiinSaram, beon: String) {
             try {
@@ -231,8 +292,8 @@ class JiinMyeongdanHwamyeon : Hwamyeon("가족·지인 명단") {
 /** 등록된 한 분 — 초대 주소 다시 보내기, 명단에서 빼기 */
 class JiinSaramHwamyeon(private val s: JiinSaram) : Hwamyeon(s.name) {
     override fun chaeugi(t: GilnunActivity) {
-        t.geul(if (s.badeum) "받겠다고 하셨습니다." else "아직 초대 주소를 열어 받겠습니다를 누르지 않으셨습니다.")
-        t.danchu("초대 주소 다시 보내기") {
+        t.geul(if (s.badeum) "받겠다고 하셨습니다." else "아직 받겠다고 하지 않으셨습니다.")
+        if (JiinMyeongdanHwamyeon.yetBangsik) t.danchu("초대 주소 다시 보내기") {
             val beon = Jiin.tel(s.id)
             if (beon.isNotEmpty()) JiinMyeongdanHwamyeon.munja(t, s, beon) else JiinMyeongdanHwamyeon.nanugi(t, s)
         }

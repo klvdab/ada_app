@@ -55,7 +55,9 @@ import java.util.concurrent.Executors
 enum class GinGeupGalrae(val kod: String, val ireum: String) {
     JIIN("jiin", "가족·지인"),
     HAEBONG("haebong", "자원봉사자"),
-    HAESEOLSA("haeseolsa", "현장영상해설사")
+    HAESEOLSA("haeseolsa", "현장영상해설사"),
+    /** 2.11.0 가족·지인이 받지 않으셨을 때 — 자원봉사자와 현장영상해설사 함께(나스 rel.php 261004-1 dowum) */
+    DOWUM("dowum", "자원봉사자와 현장영상해설사")
 }
 
 enum class GinGeupSangtae { EOPSEUM, YOCHEONG, YEONGYEOL, TONGHWA }
@@ -79,6 +81,8 @@ object GinGeup {
         private set
     /** 한마디 먼저 남기기 — 받는 분 화면에 뜸 */
     var malHan = ""
+    /** 2.11.0 (261004-G1, 이사장님 승인) 가족·지인이 받지 않으셨을 때 — 자원봉사자와 현장영상해설사에게 넘길지 여쭘 */
+    var neomgilkka = false
     var galrae = GinGeupGalrae.JIIN
         private set
     var saram: JiinSaram? = null
@@ -155,6 +159,7 @@ object GinGeup {
     private fun yocheongSok(g: GinGeupGalrae, s: JiinSaram?) {
         if (sangtae != GinGeupSangtae.EOPSEUM) return
         if (ctx == null) return
+        neomgilkka = false
         galrae = g
         saram = s
         cheot = true
@@ -336,11 +341,12 @@ object GinGeup {
             }
             if (cheot && !targetOn && !junbiMal) {
                 junbiMal = true
-                Sori.mal("$nm 님은 아직 초대 주소를 열어 받겠습니다를 누르지 않으셔서 신호가 닿지 않을 수 있습니다.")
+                Sori.mal("$nm 님은 아직 자봉 앱으로 받기를 켜지 않으셨거나 받지 않기로 해 두셔서 신호가 닿지 않을 수 있습니다.")
             }
             if (s >= HANDO) {
                 hangup()
-                kkeut("$nm 님과 연결되지 못했습니다. 다른 분께 요청하시거나 전화를 거실 수 있습니다.")
+                neomgilkka = true
+                kkeut("$nm 님이 받지 않으십니다. 자원봉사자와 현장영상해설사에게 요청할까요?")
                 return
             }
         } else {
@@ -768,6 +774,23 @@ object Jiin {
 
     fun chodaeGeul(s: JiinSaram): String =
         "${s.name}님, 제가 앞이 보이지 않을 때 도움을 청하면 이 주소로 알려 드립니다. 한 번만 열어서 받겠습니다를 눌러 주십시오. " + chodaeJuso(s.k)
+
+    /** 2.11.0 이음 번호(여섯 자리, 30분) — (번호, 못 받은 까닭) */
+    fun ieumBeonho(kkeut: (String?, String) -> Unit) {
+        val ow = owner
+        val nm = GinGeup.naIrum.ifEmpty { "길눈 이용자" }
+        il.execute {
+            val t = GinGeup.getText(PHP, mapOf("a" to "ieum_man", "owner" to ow, "who" to nm))
+            val o = try { if (t == null) null else JSONObject(t) } catch (e: Exception) { null }
+            main.post {
+                if (o == null) { kkeut(null, "이음 번호를 받지 못했습니다. 통신이 끊겼을 수 있습니다."); return@post }
+                val b = o.optString("beonho", "")
+                if (!o.optBoolean("ok", false) || b.length != 6) { kkeut(null, o.optString("error", "").ifEmpty { "이음 번호를 받지 못했습니다." }); return@post }
+                Girok.namgi("jiin_ieum_man")
+                kkeut(b, "")
+            }
+        }
+    }
 
     /** 명단 받기 — 결과(받았는가)는 화면 줄에서 */
     fun bureogi(kkeut: ((Boolean) -> Unit)? = null) {
