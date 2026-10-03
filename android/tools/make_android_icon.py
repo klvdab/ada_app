@@ -13,6 +13,7 @@ GALRAE = {
     "gilnun": ((18, 52, 110), "LVD", False),
     "jabong": ((12, 96, 60), "자봉", True),
     "bfb": ((122, 20, 70), "배프", True),
+    "byod": ((18, 52, 110), "BYOD", False),
 }
 SIZES = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
 
@@ -51,7 +52,7 @@ def can_draw(f, t):
 def make(bg, text, korean):
     img = Image.new("RGB", (S, S), bg)
     d = ImageDraw.Draw(img)
-    size = 400 if korean else 360
+    size = 400 if korean else (360 if len(text) <= 3 else 250)
     f = font(size, korean=korean)
     t = text
     if not can_draw(f, t):
