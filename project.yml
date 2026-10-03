@@ -1,4 +1,5 @@
 # 협회 앱 · 자봉 앱 · 배프 앱 · AI점자도서관 — XcodeGen 설계도 (1.7.4판, 빌드 261002-7 — 길눈 2.38.0 꺾는 곳 진동·음향신호기 기록)
+# 1.7.9 (261004-I1, 이사장님 승인) 길눈 2.43.0·자봉 2.5.0 — 영상 다리 주소를 나스 설정 쪽지에서 읽음. 설정 바뀐 것 없음
 # 1.7.8 (261004-G1, 이사장님 승인) 길눈 2.42.0·자봉 2.4.0 — 긴급통화 자봉 앱 하나로 받기(가족·지인 이음 번호, 받지 않기, 고르게 울리기). 설정 바뀐 것 없음
 # 1.7.7 (261003-W1, 이사장님 지시) 길눈 2.41.0 — 애플워치 두 번 집기 바로잡음(설정 바뀐 것 없음)
 # 1.7.6 (261003-T1, 이사장님 승인) 길눈 2.40.0 — 탈것 저절로 알아채기·지하철 바로잡음(Gilnun/TalgeotGamji.swift 새 파일, 설정 바뀐 것 없음 — 움직임 허락 글은 이미 있음)
@@ -105,7 +106,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "2.42.0"
+        MARKETING_VERSION: "2.43.0"
         OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "FoundationModels"]   # 1.6.0 옛 폰에서도 앱이 열리게 약하게 잇기
   JabongApp:
     # 2.0.0 (빌드 261001-7, 2026-10-01 대표님 승인) 자봉 앱도 속까지 앱으로 — 웹을 띄우던 App 폴더 대신
@@ -154,7 +155,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.jabong
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "2.4.0"
+        MARKETING_VERSION: "2.5.0"
         OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "FoundationModels"]   # 길눈 부품과 같이 옛 폰에서도 열리게
   BfbApp:
     type: application
@@ -243,7 +244,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app.watchkitapp
         TARGETED_DEVICE_FAMILY: "4"
-        MARKETING_VERSION: "2.42.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
+        MARKETING_VERSION: "2.43.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
 schemes:
   AdaApp:
     build:
