@@ -23,12 +23,16 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.9.0"
-    const val bild = "261003-T1"
+    const val pan = "2.10.0"
+    const val bild = "261003-W1"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.10.0", "261003-W1", "2026-10-03", listOf(
+            "워치가 다음 갈림길을 물으면 지금 형편에 맞는 한마디로 답함(아이폰 2.41.0과 같음) — 걸을 때 다음 갈림길, 지하철에서 지난 역과 남은 정거장, 역까지 걸을 때 출구까지 거리, 차·버스에서 남은 거리와 지나는 고장",
+            "대답을 폰 길눈이 이어폰·스피커로도 말함"
+        )),
         Gochim("2.9.0", "261003-T1", "2026-10-03", listOf(
             "아이폰 2.40.0과 같음 — 공덕 이마트 왕복에서 지하철이 먹통이던 일 바로잡음(이사장님 승인)",
             "탈것 저절로 알아채기(TalgeotGamji.kt 새 파일) — 걸음 센서·가속도·기압계. 걸음 15초면 걸음, 걸음 없이 흔들리며 20초면 탈것. 땅속이거나 역 근처에서 탔으면 지하철, 정류장마다 서면 버스, 아니면 차",

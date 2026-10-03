@@ -350,6 +350,37 @@ object AnnaeEngine {
         }
 
     /** 다음 갈림길 — 가는 쪽(앞쪽 10시~2시) 200미터 안에서 가장 가까운 사거리·갈림길 */
+    /** 2.10.0 (261003-W1) 워치 두 번 집기 한 번 — 지금 형편에 맞는 한마디(아이폰 2.41.0 watchJigeumMal 과 같음) */
+    fun watchJigeumMal(): String {
+        if (JeomEngine.georeoJung) return JeomEngine.daeumMuotMal()
+        val y = yj.jigeum
+        if (y == null) {
+            val jy = KolJiyeok.majimak?.let { "지금 계신 곳은 ${it.sido} ${it.sigungu.firstOrNull() ?: ""} 쪽입니다." } ?: ""
+            val t = TalgeotGamji.chujeong
+            val ta = if (t == Talgeot.GEOREUM) "" else " " + (if (t == Talgeot.JIHACHEOL) "지하철을" else "${t.ireum}를") + " 타고 계신 것으로 보입니다."
+            return ("가시는 곳이 아직 없습니다. $jy$ta").trim()
+        }
+        val g = y.jiha
+        if (g != null) {
+            if (y.danggye == Danggye.TANEUN_JUNG && (JihacheolEngine.dolgo || g.kkeutnam)) return JihacheolEngine.hyeonhwang()
+            if (y.danggye == Danggye.TANEUN_GOT_KKAJI) {
+                val w = Wichi.jigeum
+                if (w != null && !g.ipguDochak) {
+                    val d = Wichi.geori(w.lat, w.lon, g.ipgu.lat, g.ipgu.lon)
+                    return "${g.ipgu.ireum}까지 ${Annae.geoMal(d)}${Annae.sigyeMal(sigye(w, g.ipgu.lat, g.ipgu.lon))}."
+                }
+                return JihacheolEngine.hyeonhwang()
+            }
+        }
+        if (y.danggye == Danggye.TANEUN_JUNG) {
+            val w = Wichi.jigeum ?: return "${y.mokjeok.ireum}으로 가는 중입니다. 위치를 다시 잡는 중입니다."
+            val d = Wichi.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
+            val gojang = KolJiyeok.majimak?.let { " 지금 ${it.sido} ${it.sigungu.firstOrNull() ?: ""} 쪽을 지나고 있습니다." } ?: ""
+            return "${y.mokjeok.ireum}까지 ${Annae.geoMal(d)} 남았습니다.$gojang"
+        }
+        return daeumGalrimMal()
+    }
+
     fun daeumGalrimMal(): String {
         if (JeomEngine.georeoJung) return JeomEngine.daeumMuotMal()
         val w = Wichi.jigeum ?: return "아직 위치를 잡는 중입니다."

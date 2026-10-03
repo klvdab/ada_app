@@ -223,8 +223,11 @@ object WatchLink {
             "momBang" -> dap(JSONObject().put("momBang", JeomEngine.momBang ?: -1.0))
             "jari" -> GilChatgiCheot.jariMunjang { s -> dap(JSONObject().put("jari", s)) }
             "daeum" -> {
+                // 2.10.0 지금 형편에 맞는 한마디를 폰이 이어폰·스피커로 말하고 워치에는 글로(아이폰 2.41.0과 같음)
                 val o = sangtaeJson()
-                o.put("daeum", AnnaeEngine.daeumGalrimMal())   // 2.7.0 묶음 b1 — 따라 걷는 중이면 점지도, 아니면 앞쪽 200미터 안 갈림길(아이폰과 같음)
+                val m = AnnaeEngine.watchJigeumMal()
+                o.put("daeum", m)
+                Sori.mal(m)
                 dap(o)
             }
             else -> dap(sangtaeJson())
