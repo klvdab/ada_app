@@ -1,6 +1,8 @@
 // 워치 화면 — 단추 셋만. 이름 하나, 단추 하나.
 // 2.33.0 (빌드 261002-1, 대표님 승인) 손가락 두 번 집기 — 화면을 만지지 않고 집기 횟수로 세 가지를 부름
 //   한 번: 다음 갈림길(다음 안내) / 두 번: 내 자리 / 세 번: 폰 길눈에게 말하기(폰이 듣기 시작)
+// 2.41.0 (261003-W1, 이사장님 지시) 한 번은 "지금 형편"(걸을 때 다음 갈림길, 지하철에서 지난 역·남은 정거장, 차에서 남은 거리·지나는 고장),
+//   두 번은 폰에 먼저 물어 땅속에서도 자리를 답함. 폰이 이어폰·스피커로 말하고 워치는 또렷한 진동 두 번과 맨 위 큰 글로. 집을 때마다 또렷한 진동
 // 2.35.0 (빌드 261002-3, 대표님 승인) 처음 열 때 한 번만 "지팡이를 어느 손으로 쥐십니까", "워치는 어느 손목에 차셨습니까"를 여쭘
 //   워치는 지팡이를 쥐지 않은 손에 차는 것이 기본(손목 가리키기에 알맞음). 지팡이 쥔 손에 차시면 나중에 지팡이 떨림 읽기를 씀.
 //   "걷는 동안 깨어 있기" 단추 — 폰이 걷기를 시작하면 저절로 켜짐
@@ -68,12 +70,18 @@ struct WatchView: View {
                 if jipangiSon.isEmpty || watchSonmok.isEmpty {
                     SonMureumView()
                 } else {
+                // 2.41.0 두 번 집기 결과를 맨 위에 크게 — 눈으로도, 보이스오버로도 다시 읽을 수 있게
+                if !model.bogi.isEmpty {
+                    Text(model.bogi)
+                        .font(.title3.weight(.semibold))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityLabel("길눈. \(model.bogi)")
+                }
                 // 2.33.0 손가락 두 번 집기 — 화면을 두드려도 같음
-                Button { model.jipgi() } label: { Text("집기: 1 다음, 2 자리, 3 말하기").frame(maxWidth: .infinity) }
+                Button { model.jipgi() } label: { Text("집기: 1 지금 형편, 2 자리, 3 말하기").frame(maxWidth: .infinity) }
                     .buttonStyle(.borderedProminent)
                     .modifier(JipgiIeum())
-                    .accessibilityLabel("손가락 두 번 집기")
-                    .accessibilityHint("엄지와 검지를 두 번 맞대는 두 번 집기를 한 번 하면 다음 갈림길, 잇달아 두 번 하면 내 자리, 세 번 하면 폰 길눈에게 말하기입니다. 집을 때마다 한 번씩 떨립니다")
+                    .accessibilityLabel("두 번 집기. 한 번 지금 형편, 두 번 내 자리, 세 번 말하기")
                 // 2.6.0 말로 하기 — 두드리면 받아쓰기가 열리고, 말씀을 폰 길눈이 알아듣고 대답합니다
                 TextFieldLink(prompt: Text("말씀하십시오")) {
                     Text("말로 하기").frame(maxWidth: .infinity)
@@ -87,10 +95,10 @@ struct WatchView: View {
                         .font(.footnote)
                         .accessibilityLabel("길눈의 대답. \(model.dapMal)")
                 }
-                Button { model.daeumDeutgi() } label: { Text("다음 갈림길").frame(maxWidth: .infinity) }
+                Button { model.daeumDeutgi() } label: { Text("지금 형편").frame(maxWidth: .infinity) }
                     .buttonStyle(.borderedProminent)
-                    .accessibilityHint("몇 미터 앞에서 어느 쪽으로 꺾는지 읽어 줍니다")
-                Button { model.jariDeutgi() } label: { Text("내 자리").frame(maxWidth: .infinity) }
+                    .accessibilityHint("걸을 때는 다음 갈림길, 지하철에서는 지난 역과 남은 정거장, 차에서는 남은 거리를 읽어 줍니다")
+                Button { model.jariPonDeutgi() } label: { Text("내 자리").frame(maxWidth: .infinity) }
                     .buttonStyle(.bordered)
                     .accessibilityHint("지금 있는 곳의 주소와 가까운 건물을 읽어 줍니다")
                 Button { model.malDeutgi() } label: { Text("마지막 안내").frame(maxWidth: .infinity) }

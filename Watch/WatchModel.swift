@@ -14,6 +14,8 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
     @Published var ttae: Double = 0
     @Published var jari = ""
     @Published var dapMal = ""
+    /// 2.41.0 맨 위에 크게 보이는 마지막 대답(두 번 집기 결과)
+    @Published var bogi = ""
     /// 2.34.0 폰 길눈이 보낸 동영상 — 오면 워치에서 곧바로 틂
     @Published var dongyeong: WatchDongyeong?
     private let synth = AVSpeechSynthesizer()
@@ -46,8 +48,8 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
         WKInterfaceDevice.current().play(jindong)
         if WKAccessibilityIsVoiceOverRunning(), #available(watchOS 10.0, *) {
             synth.stopSpeaking(at: .immediate)
-            // 진동·초점 옮김과 겹치지 않게 아주 잠깐 뒤에
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { AccessibilityNotification.Announcement(t).post() }
+            // 진동·초점 옮김과 겹치지 않게 — 2.41.0 0.3초로는 보이스오버가 단추 이름을 읽다가 묻어 버려 1초 뒤로
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { AccessibilityNotification.Announcement(t).post() }
             return
         }
         synth.stopSpeaking(at: .immediate)
@@ -71,7 +73,8 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
     //   집을 때마다 한 번 짧게 떨어 몇 번 셌는지 손목으로 알게 함. 세 번이면 더 기다리지 않고 곧바로.
     func jipgi() {
         jipgiSu += 1
-        WKInterfaceDevice.current().play(.click)
+        // 2.41.0 "진동이 쥐똥만큼" — 가장 약한 딸깍 대신 또렷한 시작 진동으로 센 횟수를 알림
+        WKInterfaceDevice.current().play(.start)
         jipgiSigye?.invalidate()
         if jipgiSu >= 3 { jipgiKkeut(); return }
         jipgiSigye = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in self?.jipgiKkeut() }
@@ -83,7 +86,7 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
         jipgiSigye?.invalidate(); jipgiSigye = nil
         switch n {
         case 1: daeumDeutgi()
-        case 2: jariDeutgi()
+        case 2: jariPonDeutgi()
         default: malSijak()
         }
     }
@@ -135,9 +138,35 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
         })
     }
 
+    /// 2.41.0 집기 두 번 — 내 자리를 폰에 먼저 물음(땅속에서는 워치 위성이 안 잡혀 아무 답이 없었음). 폰이 없으면 워치 위성으로
+    func jariPonDeutgi() {
+        guard WCSession.isSupported(), WCSession.default.isReachable else { jariDeutgi(); return }
+        bogi = "내 자리를 묻는 중입니다."
+        WCSession.default.sendMessage(["what": "jari"], replyHandler: { [weak self] r in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                let s = (r["jari"] as? String) ?? "자리를 알아내지 못했습니다."
+                self.jari = s
+                self.dapBatda(s, ponMalHam: (r["ponMalHam"] as? Bool) ?? false)
+            }
+        }, errorHandler: { [weak self] _ in DispatchQueue.main.async { self?.jariDeutgi() } })
+    }
+
+    /// 2.41.0 대답을 받음 — 폰이 이미 말했으면 워치는 또렷한 진동과 큰 글로만(같은 말을 두 번 듣지 않게), 아니면 워치도 말함
+    func dapBatda(_ s: String, ponMalHam: Bool) {
+        bogi = s
+        if ponMalHam {
+            let dev = WKInterfaceDevice.current()
+            dev.play(.notification)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { dev.play(.notification) }
+        } else {
+            speak(s, jindong: .notification)
+        }
+    }
+
     func jariDeutgi() {
         speak("내 자리를 찾는 중입니다.", jindong: .start)
-        jariDone = { [weak self] s in self?.jari = s; self?.speak(s, jindong: .success) }
+        jariDone = { [weak self] s in self?.jari = s; self?.bogi = s; self?.speak(s, jindong: .notification) }
         if loc.authorizationStatus == .notDetermined { loc.requestWhenInUseAuthorization() }
         loc.requestLocation()
     }
@@ -149,11 +178,12 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 self.apply(r)
-                // 2.37.1 받은 답을 말함
+                // 2.37.1 받은 답을 말함 — 2.41.0 폰이 이미 말했으면 워치는 진동과 글로
+                let ponMalHam = (r["ponMalHam"] as? Bool) ?? false
                 if what == "daeum" {
-                    self.speak(self.daeum.isEmpty ? "다음 갈림길 안내가 아직 없습니다." : self.daeum, jindong: .directionUp)
+                    self.dapBatda(self.daeum.isEmpty ? "폰에서 받은 안내가 아직 없습니다." : self.daeum, ponMalHam: ponMalHam)
                 } else {
-                    self.speak(self.mal.isEmpty ? "아직 받은 안내가 없습니다." : self.mal)
+                    self.dapBatda(self.mal.isEmpty ? "아직 받은 안내가 없습니다." : self.mal, ponMalHam: false)
                 }
             }
         }, errorHandler: { [weak self] _ in DispatchQueue.main.async { self?.fetchServer(what) } })
@@ -342,6 +372,6 @@ final class WatchModel: NSObject, ObservableObject, WCSessionDelegate, CLLocatio
         }.resume()
     }
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        DispatchQueue.main.async { self.jariDone?("위치를 잡지 못했습니다. 하늘이 보이는 곳에서 다시 눌러 주십시오.") }
+        DispatchQueue.main.async { self.jariDone?("워치가 위치를 잡지 못했습니다. 폰 길눈을 열어 두시면 폰이 대신 알려 드립니다.") }
     }
 }
