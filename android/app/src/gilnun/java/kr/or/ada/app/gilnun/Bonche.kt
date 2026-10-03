@@ -23,12 +23,17 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.11.0"
-    const val bild = "261004-G1"
+    const val pan = "2.12.0"
+    const val bild = "261004-I1"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.12.0", "261004-I1", "2026-10-04", listOf(
+            "긴급통화 영상 다리(턴) 주소를 나스 설정 쪽지(/eyec/ice.json)에서 읽음(이사장님 승인, 아이폰 길눈 2.43.0과 같음) — 다리를 리눅스 서버로 옮기는 날 앱을 새로 받지 않게",
+            "쪽지를 못 읽으면 마지막으로 받은 주소, 그것도 없으면 지금의 나스 다리로",
+            "도움말 긴급통화서비스 항목에 영상 다리 한 줄 더함"
+        )),
         Gochim("2.11.0", "261004-G1", "2026-10-04", listOf(
             "긴급통화서비스 받는 쪽을 자봉 앱 하나로(이사장님 승인, 아이폰 길눈 2.42.0과 같음) — 가족·지인도 자봉 앱으로 전화처럼 받음",
             "가족·지인 명단에 이음 번호 받기 — 여섯 자리(30분)를 불러 주면 그분이 자봉 앱에 넣어 등록, 등록되면 알려 드림. 초대 주소·문자 보내기는 감춤",

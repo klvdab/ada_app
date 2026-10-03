@@ -52,6 +52,59 @@ import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.Executors
 
+/** 2.12.0 (261004-I1, 이사장님 승인) 영상 다리(턴) 주소 — 나스 설정 쪽지 /eyec/ice.json 에서 읽음.
+ *  다리를 리눅스 서버로 옮기는 날 앱을 새로 받지 않고 쪽지 한 줄로 넘어가게. 못 읽으면 마지막으로 받은 것, 그것도 없으면 나스 다리(3478).
+ *  길눈과 자봉이 함께 씀 */
+object IceJuso {
+    private val il = Executors.newSingleThreadExecutor()
+    private var d: SharedPreferences? = null
+    @Volatile private var majimak: String? = null
+
+    fun sijak(c: Context) {
+        if (d != null) return
+        d = c.applicationContext.getSharedPreferences("gilnun_ice", Context.MODE_PRIVATE)
+        majimak = d?.getString("ice", null)
+    }
+
+    /** 통화를 청하거나 울릴 때 미리 받아 둠 */
+    fun gaengsin() {
+        il.execute {
+            val t = GinGeup.getText("/eyec/ice.json", emptyMap()) ?: return@execute
+            try {
+                val a = JSONObject(t).optJSONArray("ice") ?: return@execute
+                if (a.length() == 0) return@execute
+                majimak = a.toString()
+                d?.edit()?.putString("ice", majimak)?.apply()
+            } catch (e: Exception) {}
+        }
+    }
+
+    fun servers(): List<PeerConnection.IceServer> {
+        val s = majimak
+        if (s != null) {
+            try {
+                val a = JSONArray(s)
+                val l = (0 until a.length()).mapNotNull { i ->
+                    val o = a.optJSONObject(i) ?: return@mapNotNull null
+                    val u = o.optJSONArray("urls") ?: return@mapNotNull null
+                    val urls = (0 until u.length()).map { u.optString(it) }.filter { it.isNotEmpty() }
+                    if (urls.isEmpty()) return@mapNotNull null
+                    val b = PeerConnection.IceServer.builder(urls)
+                    val un = o.optString("username", "")
+                    if (un.isNotEmpty()) b.setUsername(un).setPassword(o.optString("credential", ""))
+                    b.createIceServer()
+                }
+                if (l.isNotEmpty()) return l
+            } catch (e: Exception) {}
+        }
+        return listOf(
+            PeerConnection.IceServer.builder(listOf("stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302")).createIceServer(),
+            PeerConnection.IceServer.builder(listOf("turn:221.146.173.20:3478?transport=udp", "turn:221.146.173.20:3478?transport=tcp"))
+                .setUsername("gilnun").setPassword("gilnun-turn-260911-v8k2q").createIceServer()
+        )
+    }
+}
+
 enum class GinGeupGalrae(val kod: String, val ireum: String) {
     JIIN("jiin", "가족·지인"),
     HAEBONG("haebong", "자원봉사자"),
@@ -126,6 +179,7 @@ object GinGeup {
     fun sijak(c: Context) {
         if (ctx == null) ctx = c.applicationContext
         Jiin.sijak(c)
+        IceJuso.sijak(c)
     }
 
     /** 받는 분 화면에 뜰 내 이름 — 설정 탭에서 */
@@ -159,6 +213,7 @@ object GinGeup {
     private fun yocheongSok(g: GinGeupGalrae, s: JiinSaram?) {
         if (sangtae != GinGeupSangtae.EOPSEUM) return
         if (ctx == null) return
+        IceJuso.gaengsin()
         neomgilkka = false
         galrae = g
         saram = s
@@ -459,11 +514,7 @@ object GinGeup {
         if (f == null) { hangup(); kkeut("통화를 열지 못했습니다. 다시 요청해 주십시오."); return }
         Sori.tonghwaJung = true
         Sori.meomchugi()
-        val ice = listOf(
-            PeerConnection.IceServer.builder(listOf("stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302")).createIceServer(),
-            PeerConnection.IceServer.builder(listOf("turn:221.146.173.20:3478?transport=udp", "turn:221.146.173.20:3478?transport=tcp"))
-                .setUsername("gilnun").setPassword("gilnun-turn-260911-v8k2q").createIceServer()
-        )
+        val ice = IceJuso.servers()   // 2.12.0 나스 설정 쪽지에서
         val cfg = PeerConnection.RTCConfiguration(ice).apply {
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
             continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
