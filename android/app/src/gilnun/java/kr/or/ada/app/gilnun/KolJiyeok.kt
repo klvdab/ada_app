@@ -139,10 +139,10 @@ internal object KolJiyeok {
         val j = jiyeok(o) ?: return "위치를 아직 잡지 못했습니다. 잠시 뒤 다시 열어 주십시오."
         val gu = j.second.firstOrNull()?.let { " $it" } ?: ""
         return when (j.third) {
-            "마지막" -> "위치를 새로 잡지 못해 마지막으로 확인한 ${j.first}$gu의 번호입니다."
-            "가까운 센터" -> "주소를 찾지 못해 가장 가까운 ${j.first}$gu 센터 기준 번호입니다."
+            "마지막" -> "위치를 새로 잡지 못해 마지막으로 확인한 ${j.first}${gu}의 번호입니다."
+            "가까운 센터" -> "주소를 찾지 못해 가장 가까운 ${j.first}${gu} 센터 기준 번호입니다."
             "네모" -> "주소를 찾지 못해 대략 ${j.first} 번호입니다."
-            else -> "지금 계신 곳은 ${j.first}$gu입니다."
+            else -> "지금 계신 곳은 ${j.first}${gu}입니다."
         }
     }
 
