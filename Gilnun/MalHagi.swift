@@ -678,6 +678,11 @@ final class MalHagi: ObservableObject {
                 kolGeolgi(jong, dap)
                 return
             }
+            if let k = sajeon.kolIreumChatgi(alts) {
+                mureum = .eopseum
+                kolGeolgiK(k, dap)
+                return
+            }
             if ani && jjalbeun {
                 mureum = .eopseum
                 dap("알겠습니다. 차에 타시면 차에 탔어라고 말씀해 주십시오.", false)
@@ -687,6 +692,11 @@ final class MalHagi: ObservableObject {
             if let jong = kolJong(alts) {
                 mureum = .eopseum
                 kolGeolgi(jong, dap)
+                return
+            }
+            if let k = sajeon.kolIreumChatgi(alts) {
+                mureum = .eopseum
+                kolGeolgiK(k, dap)
                 return
             }
             if ye && !ani && jjalbeun {
@@ -1040,11 +1050,17 @@ final class MalHagi: ObservableObject {
         }
         if s.itda(alts, "kol_beonho") {
             let l = s.kolDeul().map { "\($0.ireum) \(MalSajeon.beonhoMal($0.jeonhwa))" }
-            dap("지금 계신 곳의 콜 번호입니다. " + l.joined(separator: ". ") + ".", false)
+            if l.isEmpty { dap(s.kolJiyeokMal(), false); return true }
+            dap(s.kolJiyeokMal() + " 콜 번호입니다. " + l.joined(separator: ". ") + ".", false)
             return true
         }
         if let jong = kolJong(alts) {
             kolGeolgi(jong, dap)
+            return true
+        }
+        // 2.39.0 지역 콜 이름(두리발, 나드리콜, 새빛콜 등)으로 부르기 — 목적지 이름과 헷갈리지 않게 콜·전화·불러가 함께 있을 때만
+        if alts.contains(where: { $0.contains("콜") || $0.contains("전화") || $0.contains("불러") }), let k = s.kolIreumChatgi(alts) {
+            kolGeolgiK(k, dap)
             return true
         }
         if s.itda(alts, "naerim") {
@@ -1660,16 +1676,27 @@ final class MalHagi: ObservableObject {
     }
 
     private func kolMutgi() -> String {
-        "어디에 전화할까요? " + sajeon.kolDeul().map { $0.ireum }.joined(separator: ", ") + " 가운데 말씀해 주십시오."
+        let l = sajeon.kolDeul()
+        if l.isEmpty { return sajeon.kolJiyeokMal() }
+        return sajeon.kolJiyeokMal() + " 어디에 전화할까요? " + l.prefix(5).map { $0.ireum }.joined(separator: ", ") + " 가운데 말씀해 주십시오. 복지콜이라고만 하셔도 이 지역 센터로 겁니다."
     }
 
     private func kolGeolgi(_ jong: String, _ dap: @escaping (String, Bool) -> Void) {
-        guard let k = sajeon.kolChatgi(jong), let u = URL(string: "tel:" + k.jeonhwa) else {
-            dap("그 콜 번호가 이 지역 목록에 없습니다. 콜 번호 알려 줘라고 말씀하시면 이 지역 번호를 읽어 드립니다.", false)
+        guard let k = sajeon.kolChatgi(jong) else {
+            if sajeon.kolDeul().isEmpty { dap(sajeon.kolJiyeokMal(), false); return }
+            dap("그 콜은 이 지역 목록에 없습니다. 콜 번호 알려 줘라고 말씀하시면 이 지역 번호를 읽어 드립니다.", false)
             return
         }
         Girok.shared.namgi("malhagi_kol", ["k": jong])
-        dap("\(k.ireum)에 전화를 겁니다. 통화 확인이 뜨면 통화를 두 번 두드려 주십시오. 차에 타시면 차에 탔어라고 말씀해 주십시오.", false)
+        kolGeolgiK(k, dap)
+    }
+
+    /// 2.39.0 고른 콜에 바로 걸기(지역 이름을 함께 알려 드림)
+    private func kolGeolgiK(_ k: KolBeonho, _ dap: @escaping (String, Bool) -> Void) {
+        guard let u = URL(string: "tel:" + k.jeonhwa) else { return }
+        Girok.shared.namgi("malhagi_kol_georeum", ["ireum": k.ireum])
+        let ap = sajeon.kolJiyeokMal()
+        dap(ap + " \(k.ireum)에 전화를 겁니다. 통화 확인이 뜨면 통화를 두 번 두드려 주십시오. 처음 쓰시는 곳이면 이용 등록을 먼저 하라고 할 수 있습니다. 그때는 설정 탭의 내 서류 보관함에서 서류를 보내실 수 있습니다. 차에 타시면 차에 탔어라고 말씀해 주십시오.", false)
         SoriEngine.shared.kkeutnamyeon { UIApplication.shared.open(u) }
     }
 

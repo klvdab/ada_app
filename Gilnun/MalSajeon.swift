@@ -19,10 +19,19 @@ final class MalSajeon {
     private(set) var kkeunmal: [String] = MalSajeon.gibonKkeunmal
     private(set) var ppaegi: [String] = MalSajeon.gibonPpaegi
     private(set) var pan = "앱 안 기본"
-    private var kol: [String: Any]?
+    /// 나스 call.json (2.0부터 시군 목록 포함) — 콜 고르기는 KolJiyeok.swift
+    private(set) var kolJaryo: [String: Any]?
+    private var jiyeokSigye: Timer?
 
     /// 나스에서 사전과 콜 번호를 받음(받아 둔 것이 있으면 통신이 끊겨도 그것으로)
     func bureogi() {
+        // 2.39.0 1분마다 지금 자리로 시·도와 시·군을 확인해 둠(옮겨 다녀도 콜 번호가 그 지역으로 바뀌게)
+        DispatchQueue.main.async {
+            if self.jiyeokSigye == nil {
+                self.jiyeokSigye = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in JiyeokEngine.shared.gaengsin(WichiEngine.shared.jigeum) }
+            }
+            JiyeokEngine.shared.gaengsin(WichiEngine.shared.jigeum)
+        }
         Task {
             if let d = try? await Tongsin.shared.get("malsajeon.json"),
                let o = try? JSONSerialization.jsonObject(with: d.data) as? [String: Any] {
@@ -30,7 +39,7 @@ final class MalSajeon {
             }
             if let d = try? await Tongsin.shared.get("call.json"),
                let o = try? JSONSerialization.jsonObject(with: d.data) as? [String: Any] {
-                DispatchQueue.main.async { self.kol = o }
+                DispatchQueue.main.async { self.kolJaryo = o }
             }
         }
     }
@@ -155,46 +164,7 @@ final class MalSajeon {
 
     // MARK: 콜 번호
 
-    /// 지금 계신 시·도의 콜 번호(못 받았으면 서울)
-    func kolDeul() -> [KolBeonho] {
-        var l: [KolBeonho] = []
-        if let o = kol, let jy = o["지역"] as? [[String: Any]], !jy.isEmpty {
-            var got = jy[0]
-            if let w = WichiEngine.shared.jigeum {
-                for g in jy {
-                    if let s = g["상자"] as? [Any], s.count == 4,
-                       let a0 = Chatgi.su(s[0]), let a1 = Chatgi.su(s[1]), let o0 = Chatgi.su(s[2]), let o1 = Chatgi.su(s[3]),
-                       w.lat >= a0 && w.lat <= a1 && w.lon >= o0 && w.lon <= o1 {
-                        got = g
-                        break
-                    }
-                }
-            }
-            var kk = (got["콜"] as? [[String: Any]]) ?? []
-            kk += (o["전국"] as? [[String: Any]]) ?? []
-            for k in kk {
-                let nm = (k["이름"] as? String) ?? ""
-                let tel = ((k["전화"] as? String) ?? "").filter { $0.isNumber }
-                if !nm.isEmpty && !tel.isEmpty { l.append(KolBeonho(ireum: nm, jeonhwa: tel, bigo: (k["비고"] as? String) ?? "")) }
-            }
-        }
-        if l.isEmpty {
-            l = [KolBeonho(ireum: "복지콜", jeonhwa: "0220920000", bigo: "시각·신장 장애인 전용"),
-                 KolBeonho(ireum: "장애인콜택시", jeonhwa: "15884388", bigo: "서울시설공단"),
-                 KolBeonho(ireum: "나비콜(바우처택시)", jeonhwa: "18001133", bigo: "바우처택시 이용등록을 마친 뒤 이용")]
-        }
-        return l
-    }
-
-    /// 콜 한 가지 찾기 — bokji, jangaein, nabi
-    func kolChatgi(_ jong: String) -> KolBeonho? {
-        let l = kolDeul()
-        switch jong {
-        case "bokji": return l.first { $0.ireum.contains("복지") }
-        case "jangaein": return l.first { $0.ireum.contains("장애인") || $0.ireum.contains("교통약자") }
-        default: return l.first { $0.ireum.contains("나비") || $0.ireum.contains("바우처") }
-        }
-    }
+    // 콜 번호 고르기(kolDeul, kolChatgi, kolIreumChatgi, kolJiyeokMal)는 2.39.0부터 KolJiyeok.swift 에 있습니다.
 
     /// 전화번호를 한 자씩 — 공 이 구 이 …
     static func beonhoMal(_ n: String) -> String {
@@ -219,7 +189,7 @@ final class MalSajeon {
         "cha": ["차로", "차 타고", "택시", "콜택시", "타고 가자", "차로 가자"],
         "daejung": ["지하철", "전철", "버스", "대중교통", "기차", "열차"],
         "kol_bokji": ["복지콜", "복지 콜"],
-        "kol_jangaein": ["장애인콜", "장애인 콜택시", "장애인택시", "교통약자"],
+        "kol_jangaein": ["장애인콜", "장애인 콜택시", "장애인택시", "교통약자", "이동지원센터", "특별교통수단"],
         "kol_nabi": ["나비콜", "나비 콜", "바우처택시", "바우처 택시"],
         "tatda": ["탔어", "탔습니다", "차에 탔어", "승차", "타고 있어"],
         "naerim": ["내렸어", "내렸습니다", "하차", "차에서 내렸"],

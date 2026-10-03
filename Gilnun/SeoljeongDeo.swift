@@ -366,6 +366,7 @@ struct SeoryuhamView: View {
                     .font(.body)
                 DisclosureGroup("복지콜·교통약자 콜 번호 펼치기 — 지금 계신 지역") {
                     VStack(alignment: .leading, spacing: 10) {
+                        Text(MalSajeon.shared.kolJiyeokMal()).font(.body)
                         ForEach(Array(kolDeul.enumerated()), id: \.offset) { _, k in
                             Button("\(k.ireum) 전화 걸기" + (k.bigo.isEmpty ? "" : " — \(k.bigo)")) {
                                 if let u = URL(string: "tel:" + k.jeonhwa) { UIApplication.shared.open(u) }
