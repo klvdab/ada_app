@@ -1464,7 +1464,7 @@ final class MalHagi: ObservableObject {
         talgeotDaegi = nil
         if tg == nil {
             if taneunJung {
-                tg = .cha
+                tg = yj.sokdoChujeong == .jihacheol ? .jihacheol : .cha   // 2.40.0 땅속에서 타고 가는 중이면 지하철로
             } else if d == nil || (d ?? 0) <= 2000 {
                 tg = .georeum
             }
@@ -1503,6 +1503,16 @@ final class MalHagi: ObservableObject {
             }
             GilGil.shared.cheotHwamyeon()
         case .jihacheol:
+            // 2.40.0 이미 열차를 타고 가는 중이면(움직임 감지기가 탈것, 또는 땅속에서 탈것) 역 입구 안내를 건너뛰고 곧장 역 알림
+            let tg2 = TalgeotGamji.shared
+            if tg2.chujeong == .jihacheol || (tg2.jiha && tg2.jigeumUmjigim != "걸음") {
+                SoriEngine.shared.mal(apMal + "타고 가시는 중이니 지하철 길을 찾아 곧장 역 알림을 시작합니다.", .jeongbo)
+                JihacheolEngine.shared.jungganSijak(j) { ok, mal in
+                    GilGil.shared.cheotHwamyeon()
+                    dap(ok ? mal : mal + " 잠시 뒤 다시 지하철로 가자고 말씀해 주십시오.", false)
+                }
+                return
+            }
             SoriEngine.shared.mal(apMal + "지하철 길을 찾는 중입니다.", .jeongbo)
             Task {
                 let (gg, k) = await JihacheolEngine.gilChatgi(j)

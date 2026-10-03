@@ -118,7 +118,7 @@ final class AnnaeEngine: ObservableObject {
     }
 
     /// 목적지를 정하고 지하철로 — 먼저 타는 역 출구까지 걷는 안내
-    func jihacheolGagi(_ j: Jangso, _ g: JihaGil) {
+    func jihacheolGagi(_ j: Jangso, _ g: JihaGil, malEopsi: Bool = false) {
         JeomEngine.shared.yeojeongKkeut()
         JihacheolEngine.shared.meomchugi()
         yj.jeonghagi(Mokjeok(ireum: j.ireum, lat: j.lat, lon: j.lon, juso: j.juso))
@@ -126,6 +126,7 @@ final class AnnaeEngine: ObservableObject {
         yj.talgeotJeonghagi(.jihacheol, barojabeum: true)
         yj.danggyeBakkugi(.taneunGotKkaji)
         dasiSijak()
+        if malEopsi { return }
         malHagi("\(g.ipgu.ireum)까지 걷는 안내를 시작합니다.")
         jigeumBoda()
     }
@@ -353,6 +354,37 @@ final class AnnaeEngine: ObservableObject {
 
     private func talgeotBakkwim(_ t: Talgeot) {
         guard let y = yj.jigeum else { return }
+        // 2.40.0 움직임 감지기로 알아챈 지하철·버스·걸음도 이어 받음
+        if t == .jihacheol {
+            if y.barojabeum && y.talgeot == .beoseu && !TalgeotGamji.shared.jiha { return }   // 이용자가 버스로 바로잡으셨고 땅속이 아니면 그대로
+            if let g = y.jiha {
+                // 타는 역으로 가던 중(입구에 닿았든 못 닿았든) 열차가 움직임 — 탄 것으로 보고 역 알림
+                if y.danggye == .taneunGotKkaji && !JihacheolEngine.shared.dolgo {
+                    if !g.ipguDochak { JihacheolEngine.shared.ipguDochak() }
+                    JihacheolEngine.shared.tatda(jadong: true)
+                }
+                return
+            }
+            guard y.danggye == .namEunGil || y.danggye == .eotteoke || (y.danggye == .taneunJung && y.talgeot != .beoseu) else { return }
+            let mok = Jangso(ireum: y.mokjeok.ireum, juso: y.mokjeok.juso, lat: y.mokjeok.lat, lon: y.mokjeok.lon)
+            malHagi("지하철을 타신 것 같습니다. 지하철 길을 찾습니다.")
+            JihacheolEngine.shared.jungganSijak(mok) { [weak self] ok, mal in
+                if ok { Girok.shared.namgi("jadong_jihacheol", [:]) }
+                else { self?.malHagi(mal + " 차 안 안내로 잇습니다.") }
+            }
+            return
+        }
+        if t == .beoseu {
+            guard y.beoseu == nil, y.jiha == nil, !y.barojabeum || y.talgeot == .cha else { return }
+            guard y.danggye == .namEunGil || y.danggye == .eotteoke || y.danggye == .taneunJung else { return }
+            yj.talgeotJeonghagi(.beoseu, barojabeum: false)
+            yj.danggyeBakkugi(.taneunJung)
+            dasiSijak()
+            malHagi("정류장마다 서는 것을 보니 버스를 타신 것 같습니다. 버스 안 안내로 잇습니다.")
+            Girok.shared.namgi("jadong_beoseu", ["gil": "umjigim"])
+            jigeumBoda()
+            return
+        }
         guard t == .cha || t == .gicha else { return }
         // 버스 정류장에서 기다리다 빠르게 움직이면 버스에 타신 것
         if y.beoseu != nil && y.danggye == .taneunGotKkaji {

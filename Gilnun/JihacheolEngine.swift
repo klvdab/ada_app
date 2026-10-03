@@ -5,8 +5,17 @@
 //   ② 폰 흔들림으로 섰다 떠나는 것을 세어 몇 번째 역인지 헤아림(통신이 끊겨도 됨)
 //   ③ 역 사이 걸리는 시간으로 셈함
 // 타는 역 출구에 닿은 뒤 열차가 움직이는데 걸음이 없으면 "탔다"고 보고 저절로 역 알림을 시작합니다(손을 쓰지 않게).
+// 2.40.0 (261003-T1, 2026-10-03 공덕 이마트 왕복에서 33분 동안 말이 없던 일을 바로잡음, 이사장님 승인)
+//   ① 실시간 열차는 가는 방향이 맞고, 지금 역이나 바로 다음 역에 있는 열차만 "내 열차"로 붙잡음 — 처음 붙잡을 때 여러 역을 건너뛰지 않음
+//   ② 붙잡은 열차가 지나간 시간에 맞지 않게 여러 역을 앞서 가면 엉뚱한 열차로 보고 놓음
+//   ③ 실시간이 90초 넘게 내 열차를 확인해 주지 못하면 시간 세기·흔들림 세기가 곧바로 다시 맡음(예전에는 엉뚱한 열차를 쥔 채 둘 다 꺼 버렸음)
+//   ④ 움직임 감지기의 "탈것이 섰다가 떠남"도 역 세기에 씀
+//   ⑤ 땅 위로 나와 걷거나 위성이 다시 잡히면 지하철 안내를 저절로 마치고 걷는 안내로(사무실에 와서 역을 부르던 일)
+//   ⑥ 타고 가는 중에도 시작(jungganSijak) — 땅속으로 내려가기 전 땅 위 자리로 가까운 역을 잡음
+//   ⑦ 기압으로 계단·에스컬레이터를 내려가신 것을 알면 타는 역에 닿은 것으로 봄
 import Foundation
 import CoreMotion
+import Combine
 
 struct JihaGugan: Codable {
     var hoseon: String
@@ -38,7 +47,13 @@ final class JihacheolEngine {
     private var dallimSijak: Date?
     private var dallimGeoreum = 0
     private var yeolcha = ""
-    private var silsiJal = false
+    /// 실시간 열차 위치가 내 열차를 마지막으로 확인해 준 때 — 90초가 지나면 다른 셈이 다시 맡음
+    private var silsiHwagin = Date.distantPast
+    private var silsiJal: Bool {
+        get { !yeolcha.isEmpty && Date().timeIntervalSince(silsiHwagin) < 90 }
+        set { if !newValue { silsiHwagin = .distantPast } }
+    }
+    private var ssak = Set<AnyCancellable>()
     private var silsiMot = 0
     private var majimak = Date()
     private var hwanJa: [Int] = []
@@ -50,9 +65,32 @@ final class JihacheolEngine {
     private(set) var dolgo = false
     private var tabeumGamsi = false
     private var silsiMutneunJung = false
+    private var tamTtae = Date.distantPast
+    /// 후보 열차가 내 길의 몇 번째 역에 있었는지(다음 물음에서 앞으로 나아갔는지 봄)
+    private var huboJikyeo: [String: Int] = [:]
 
     private var yj: YeojeongEngine { YeojeongEngine.shared }
     var gil: JihaGil? { yj.jigeum?.jiha }
+
+    init() {
+        // 움직임 감지기가 알려 주는 "탈것이 섰다가 떠남"으로도 역을 셈
+        TalgeotGamji.shared.seotdaTteonam
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] t in
+                guard let self = self, self.dolgo, t >= 8, t <= 120, !self.silsiJal,
+                      Date().timeIntervalSince(self.majimak) > 40 else { return }
+                self.hanYeok()
+            }
+            .store(in: &ssak)
+        // 기압으로 땅속에 내려가신 것을 알면 — 타는 역 근처면 역에 닿은 것으로
+        NotificationCenter.default.addObserver(forName: TalgeotGamji.jihaJinipAllim, object: nil, queue: .main) { [weak self] _ in
+            guard let self = self, let y = self.yj.jigeum, y.danggye == .taneunGotKkaji, let g = y.jiha, !g.ipguDochak else { return }
+            let w = TalgeotGamji.shared.jisangJari ?? WichiEngine.shared.jigeum
+            if let w = w, WichiEngine.geori(w.lat, w.lon, g.ipgu.lat, g.ipgu.lon) > 300 { return }
+            Girok.shared.namgi("jiha_ipgu_gido", [:])
+            self.ipguDochak()
+        }
+    }
 
     static func ireum(_ n: String) -> String {
         n.hasSuffix("역") ? String(n.dropLast()) : n
@@ -63,8 +101,8 @@ final class JihacheolEngine {
     static func su(_ v: Any?) -> Double? { Chatgi.su(v) }
 
     /// 지금 자리에서 목적지까지 지하철 길 — (길, 못 찾은 까닭)
-    static func gilChatgi(_ mok: Jangso) async -> (JihaGil?, String) {
-        guard let w = WichiEngine.shared.jigeum else { return (nil, "아직 위치를 잡는 중입니다. 잠시 뒤 다시 눌러 주십시오.") }
+    static func gilChatgi(_ mok: Jangso, buteo: Wichi? = nil) async -> (JihaGil?, String) {
+        guard let w = buteo ?? WichiEngine.shared.jigeum else { return (nil, "아직 위치를 잡는 중입니다. 잠시 뒤 다시 눌러 주십시오.") }
         async let a = gakkaun(w.lat, w.lon)
         async let b = gakkaun(mok.lat, mok.lon)
         let (ya, yb) = await (a, b)
@@ -95,6 +133,12 @@ final class JihacheolEngine {
     }
 
     private struct Yeok { let yeok: String; let ireum: String; let lat: Double; let lon: Double }
+
+    /// 2.40.0 가장 가까운 역까지의 거리(미터) — 역 근처에서 탄 것인지 볼 때
+    static func gakkaunYeokGeori(_ lat: Double, _ lon: Double) async -> Double? {
+        guard let y = await gakkaun(lat, lon) else { return nil }
+        return WichiEngine.geori(lat, lon, y.lat, y.lon)
+    }
 
     private static func gakkaun(_ lat: Double, _ lon: Double) async -> Yeok? {
         guard let o = await Chatgi.json("yeok.php", ["a": "gakkaun", "lat": String(format: "%.6f", lat), "lon": String(format: "%.6f", lon)]),
@@ -136,10 +180,27 @@ final class JihacheolEngine {
         yj.danggyeBakkugi(.taneunJung)
         junbi(g)
         majimak = Date()
+        tamTtae = Date()
         let apmal = jadong ? "열차가 움직이는 것 같습니다. " : ""
         SoriEngine.shared.mal(apmal + "역 알림을 시작합니다. 내리실 역은 \(g.to)역, \(g.jina.count) 정거장 뒤입니다. 지나는 역마다 알려 드립니다.")
         Girok.shared.namgi("jiha_tam", ["jadong": jadong])
         dolligi()
+    }
+
+    /// 2.40.0 이미 열차를 타고 가는 중에 시작 — 땅속으로 내려가기 전 땅 위 자리에서 가까운 역을 타는 역으로 잡고 바로 역 알림
+    func jungganSijak(_ mok: Jangso, _ kkeut: @escaping (Bool, String) -> Void) {
+        let buteo = TalgeotGamji.shared.jisangJari ?? TalgeotGamji.shared.chaSijakJari ?? WichiEngine.shared.jigeum
+        Task {
+            let (gg, k) = await JihacheolEngine.gilChatgi(mok, buteo: buteo)
+            await MainActor.run {
+                guard var g = gg else { kkeut(false, k); return }
+                g.ipguDochak = true
+                AnnaeEngine.shared.jihacheolGagi(mok, g, malEopsi: true)
+                Girok.shared.namgi("jiha_junggan", ["from": g.from, "to": g.to])
+                kkeut(true, "\(g.from)역에서 타신 것으로 보고 \(g.to)역까지 역을 알려 드립니다.")
+                self.tatda(jadong: true)
+            }
+        }
     }
 
     /// 앱을 껐다 켰을 때 타고 가던 중이면 이어 감
@@ -183,6 +244,7 @@ final class JihacheolEngine {
         yeolcha = ""
         silsiJal = false
         silsiMot = 0
+        huboJikyeo = [:]
     }
 
     private func dolligi() {
@@ -278,19 +340,54 @@ final class JihacheolEngine {
         if rows.isEmpty { silsiMot += 1; silsiJal = false; return }
         silsiMot = 0
         var nae: [String: Any]?
-        if !yeolcha.isEmpty { nae = rows.first { ($0["yeolcha"] as? String) == yeolcha } }
-        if nae == nil {
-            var chatja = [JihacheolEngine.ireum(from)]
-            let s = max(0, g.i)
-            for k in s..<min(g.jina.count, s + 2) { chatja.append(JihacheolEngine.ireum(g.jina[k])) }
-            let hubo = rows.filter { chatja.contains(JihacheolEngine.ireum(($0["yeok"] as? String) ?? "")) }
-            nae = hubo.first { !kkeut.isEmpty && JihacheolEngine.ireum(($0["jong"] as? String) ?? "") == JihacheolEngine.ireum(kkeut) } ?? hubo.first
-            if let n = nae { yeolcha = (n["yeolcha"] as? String) ?? "" }
+        if !yeolcha.isEmpty {
+            nae = rows.first { ($0["yeolcha"] as? String) == yeolcha }
+            if nae == nil { yeolcha = ""; silsiJal = false }   // 붙잡았던 열차가 사라짐 — 놓고 다시 찾음
         }
-        silsiJal = !yeolcha.isEmpty
-        guard let n = nae else { return }
+        if nae == nil {
+            // 2.40.0 지금 역(지난 역)과 바로 다음 역에 있는 열차만, 가는 방향이 맞는 것만
+            var chatja = [JihacheolEngine.ireum(g.i >= 0 ? g.jina[g.i] : from)]
+            if g.i + 1 < g.jina.count { chatja.append(JihacheolEngine.ireum(g.jina[g.i + 1])) }
+            let hubo = rows.filter { chatja.contains(JihacheolEngine.ireum(($0["yeok"] as? String) ?? "")) }
+            if !kkeut.isEmpty {
+                nae = hubo.first { JihacheolEngine.ireum(($0["jong"] as? String) ?? "") == JihacheolEngine.ireum(kkeut) }
+            }
+            // 방면 이름이 달리 오거나 모를 때 — 후보 열차를 지켜보다가 내 길을 따라 한 역 앞으로 나아간 열차만 붙잡음(반대 열차는 뒤로 감)
+            if nae == nil {
+                func jari(_ r: [String: Any]) -> Int? {
+                    let y = JihacheolEngine.ireum((r["yeok"] as? String) ?? "")
+                    if y == JihacheolEngine.ireum(from) && g.i < 0 { return -1 }
+                    return g.jina.lastIndex { JihacheolEngine.ireum($0) == y }
+                }
+                var sae: [String: Int] = [:]
+                for r in rows {
+                    guard let id = r["yeolcha"] as? String, !id.isEmpty, let p = jari(r) else { continue }
+                    sae[id] = p
+                    if nae == nil, let ap = huboJikyeo[id], p == ap + 1, p <= g.i + 1 { nae = r }
+                }
+                huboJikyeo = sae
+            }
+            if let n = nae {
+                yeolcha = (n["yeolcha"] as? String) ?? ""
+                Girok.shared.namgi("jiha_yeolcha", ["yeolcha": yeolcha, "yeok": (n["yeok"] as? String) ?? ""])
+            }
+        }
+        guard let n = nae, !yeolcha.isEmpty else { return }
         let yeok = JihacheolEngine.ireum((n["yeok"] as? String) ?? "")
-        guard let ja = g.jina.lastIndex(where: { JihacheolEngine.ireum($0) == yeok }) else { return }
+        guard let ja = g.jina.lastIndex(where: { JihacheolEngine.ireum($0) == yeok }) else {
+            // 내 길에 없는 역에 있는 열차 — 엉뚱한 열차
+            Girok.shared.namgi("jiha_yeolcha_noh", ["kkadak": "길 밖", "yeok": yeok])
+            yeolcha = ""; silsiJal = false
+            return
+        }
+        // 지나간 시간에 비해 너무 많이 앞서 가면 엉뚱한 열차(역 사이 최소 1분 반)
+        let heoyong = 1 + Int(Date().timeIntervalSince(majimak) / 90)
+        if ja - g.i > heoyong {
+            Girok.shared.namgi("jiha_yeolcha_noh", ["kkadak": "너무 앞섬", "ap": ja - g.i])
+            yeolcha = ""; silsiJal = false
+            return
+        }
+        if ja >= g.i { silsiHwagin = Date() }   // 내 열차가 지금 역이나 다음 역에 있음을 확인
         var bon = 0
         // 2.12.0 실시간으로 여러 역을 따라잡을 때는 조용히 넘기고 마지막 역(과 갈아타는 역)만 말함
         while (gil?.i ?? ja) < ja && !(gil?.kkeutnam ?? true) && bon < 12 {
@@ -304,6 +401,17 @@ final class JihacheolEngine {
 
     // ③ 시간으로 셈하기
     private func sigan() {
+        // 2.40.0 땅 위로 나와 걸으시거나 위성이 다시 잡히면 지하철 안내를 마치고 걷는 안내로
+        if dolgo, let g = gil, !g.kkeutnam, Date().timeIntervalSince(tamTtae) > 120,
+           !TalgeotGamji.shared.jiha, TalgeotGamji.shared.chujeong == .georeum, TalgeotGamji.wiseongJoeum {
+            Girok.shared.namgi("jiha_kkeut_jisang", ["i": g.i])
+            meomchugi()
+            var gg = g
+            gg.kkeutnam = true
+            yj.jihaNoki(gg)
+            AnnaeEngine.shared.naeryeotda(jadong: true, mal: "땅 위로 나오신 것 같습니다. 지하철 안내를 마치고 남은 길을 걸어서 안내합니다.")
+            return
+        }
         guard dolgo, let g = gil, !g.kkeutnam, !silsiJal else { return }
         let teom = g.jina.isEmpty ? 130.0 : max(60.0, Double(g.bun * 60) / Double(g.jina.count))
         if Date().timeIntervalSince(majimak) > teom * 1.35 { hanYeok() }

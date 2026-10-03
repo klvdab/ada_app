@@ -70,6 +70,16 @@ final class YeojeongEngine: ObservableObject {
         WichiEngine.shared.saeWichi
             .sink { [weak self] w in self?.sokdoBoda(w) }
             .store(in: &ssak)
+        // 2.40.0 움직임 감지기·기압계로 알아챈 탈것을 먼저 씀(땅속에서도 됨, 실내 위성 흔들림에 속지 않음)
+        TalgeotGamji.shared.$chujeong
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] t in
+                guard let self = self, TalgeotGamji.shared.sseulSuItda else { return }
+                if self.sokdoChujeong == .gicha && t == .cha { return }   // 기차는 빠르기로만 알아챔
+                if t != self.sokdoChujeong { self.sokdoChujeong = t }
+            }
+            .store(in: &ssak)
     }
 
     /// 앱이 켜질 때 지난 여정을 되살림
@@ -168,6 +178,20 @@ final class YeojeongEngine: ObservableObject {
         guard !w.georeumChu, w.ochae <= 30 else { return }
         let kmh = w.sokdo * 3.6
         let now = Date()
+        // 2.40.0 움직임 감지기가 있는 폰은 걷기·차·버스·지하철을 TalgeotGamji 가 가림 — 여기서는 기차(시속 150 넘게 15초)만 봄
+        if TalgeotGamji.shared.sseulSuItda {
+            if kmh > 150 {
+                if ppareunTtae == nil { ppareunTtae = now }
+                if let t = ppareunTtae, now.timeIntervalSince(t) >= 15, sokdoChujeong != .gicha {
+                    sokdoChujeong = .gicha
+                    Girok.shared.namgi("talgeot_chujeong", ["t": "gicha", "kmh": Int(kmh)])
+                }
+            } else {
+                ppareunTtae = nil
+                if sokdoChujeong == .gicha && TalgeotGamji.shared.chujeong == .georeum { sokdoChujeong = .georeum }
+            }
+            return
+        }
         if kmh > 15 {
             neurinTtae = nil
             if ppareunTtae == nil { ppareunTtae = now }
