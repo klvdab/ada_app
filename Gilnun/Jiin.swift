@@ -54,6 +54,20 @@ final class Jiin: ObservableObject {
         return (JiinSaram(id: id, name: name, k: k, state: "기다리는 중"), "")
     }
 
+    /// 2.42.0 이음 번호(여섯 자리, 30분) — (번호, 못 받은 까닭)
+    func ieumBeonho() async -> (String?, String) {
+        let nm = GinGeup.shared.naIrum
+        guard let d = try? await Tongsin.shared.getSae(PHP, ["a": "ieum_man", "owner": owner, "who": nm.isEmpty ? "길눈 이용자" : nm]),
+              let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else {
+            return (nil, "이음 번호를 받지 못했습니다. 통신이 끊겼을 수 있습니다.")
+        }
+        guard (o["ok"] as? Bool) == true, let b = o["beonho"] as? String, b.count == 6 else {
+            return (nil, (o["error"] as? String) ?? "이음 번호를 받지 못했습니다.")
+        }
+        Girok.shared.namgi("jiin_ieum_man", [:])
+        return (b, "")
+    }
+
     func jiugi(_ s: JiinSaram) async {
         _ = try? await Tongsin.shared.getSae(PHP, ["a": "jiwoo", "owner": owner, "id": s.id])
         telNoki(s.id, "")

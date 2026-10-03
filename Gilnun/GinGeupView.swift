@@ -7,12 +7,21 @@ import UIKit
 struct GinGeupView: View {
     @ObservedObject private var g = GinGeup.shared
     @AccessibilityFocusState private var chojeom: Bool
+    @AccessibilityFocusState private var neomChojeom: Bool
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 switch g.sangtae {
                 case .eopseum:
+                    if g.neomgilkka {
+                        // 2.42.0 안내를 읽은 바로 그 자리에 단추
+                        Button("\(g.geul) — 예, 요청합니다") { g.yocheong(.dowum) }
+                            .buttonStyle(KeunDanchu())
+                            .accessibilityFocused($neomChojeom)
+                        Button("아니요, 그만둡니다") { g.neomgilkka = false }
+                            .buttonStyle(KeunDanchu())
+                    }
                     NavigationLink(value: GilHwamyeon.jiinGoreugi) { Text("가족·지인에게 화상통화 요청 — 한 분을 고르십시오") }
                         .buttonStyle(KeunDanchu())
                         .accessibilityFocused($chojeom)
@@ -23,7 +32,7 @@ struct GinGeupView: View {
                     TextField("한마디 먼저 남기기 — 받는 분 화면에 뜹니다", text: $g.malHan)
                         .textFieldStyle(.roundedBorder)
                         .font(.title3)
-                    if !g.geul.isEmpty { Text(g.geul).font(.title3) }
+                    if !g.geul.isEmpty && !g.neomgilkka { Text(g.geul).font(.title3) }
                 case .tonghwa:
                     Button("\(g.geul) — 끊기") { g.geumanhagi() }
                         .buttonStyle(KeunDanchu())
@@ -41,7 +50,11 @@ struct GinGeupView: View {
             .padding()
         }
         .sokHwamyeon("긴급통화서비스")
-        .onAppear { chojeom = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }   // 2.12.1 매번 첫 줄로
+        .onAppear {   // 2.12.1 매번 첫 줄로 (2.42.0 넘길지 여쭐 때는 그 단추로)
+            chojeom = false; neomChojeom = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { if g.neomgilkka { neomChojeom = true } else { chojeom = true } }
+        }
+        .onChange(of: g.neomgilkka) { v in if v { neomChojeom = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { neomChojeom = true } } }
     }
 }
 
@@ -78,7 +91,7 @@ struct JiinGoreugiView: View {
     }
 }
 
-/// 가족·지인 명단 — 만들기, 초대 주소 보내기, 빼기
+/// 가족·지인 명단 — 2.42.0 이음 번호로 등록(자봉 앱), 빼기. 예전 초대 주소 방식은 감춤(yetBangsik)
 struct JiinMyeongdanView: View {
     @ObservedObject private var jiin = Jiin.shared
     @State private var ireum = ""
@@ -86,33 +99,36 @@ struct JiinMyeongdanView: View {
     @State private var allim = ""
     @State private var saero: JiinSaram?
     @State private var saeroTel = ""
+    @State private var beonho = ""
+    @State private var beonhoTtae = Date.distantPast
+    @State private var bonIds: Set<String> = []
+    @State private var salpim: Timer?
+    @AccessibilityFocusState private var beonhoChojeom: Bool
+    /// 예전 방식(초대 주소를 문자·카톡으로 보내기) — 지우지 않고 감춤(이사장님 2026-10-04 "주소를 보내 연결하는 건 어려운 일")
+    private static let yetBangsik = false
+
+    private var beonhoMal: String {
+        let ttuim = beonho.map { String($0) }.joined(separator: " ")
+        return "이음 번호 \(ttuim). 30분 안에 가족이나 지인에게 불러 주십시오. 그분이 자봉 앱의 봉사 탭, 긴급통화 받기, 가족·지인으로 받기에서 이 번호와 부르실 이름을 넣으시면 등록됩니다"
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                if let s = saero {
-                    Text("\(s.name) 님을 만들었습니다. 아래 초대 주소를 그 분께 보내십시오. 그 분이 한 번 열어 받겠습니다를 누르시면 등록이 끝납니다.")
-                        .font(.title3)
-                    if !saeroTel.isEmpty {
-                        Button("문자로 초대 주소 보내기 — \(s.name) 님께") { munja(s, saeroTel) }
-                            .buttonStyle(KeunDanchu())
-                    }
-                    ShareLink(item: Jiin.chodaeJuso(s.k),
-                              message: Text("\(s.name)님, 제가 앞이 보이지 않을 때 도움을 청하면 이 주소로 알려 드립니다. 한 번만 열어서 받겠습니다를 눌러 주십시오.")) {
-                        Text("다른 앱으로 초대 주소 보내기 — 카카오톡 등")
-                    }
-                    .buttonStyle(KeunDanchu())
+                if !beonho.isEmpty && Date().timeIntervalSince(beonhoTtae) < 1800 {
+                    Button(beonhoMal + " — 다시 듣기") { SoriEngine.shared.mal(beonhoMal + ".") }
+                        .buttonStyle(KeunDanchu())
+                        .accessibilityFocused($beonhoChojeom)
+                    Button("새 이음 번호 받기") { beonhoBatgi() }
+                        .buttonStyle(KeunDanchu())
+                } else {
+                    Button("이음 번호 받기 — 가족·지인이 자봉 앱에 넣을 여섯 자리") { beonhoBatgi() }
+                        .buttonStyle(KeunDanchu())
                 }
-                TextField("이름", text: $ireum)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.title3)
-                TextField("전화번호 — 폰 안에만 담깁니다", text: $tel)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.title3)
-                    .keyboardType(.phonePad)
-                Button("이 사람 만들기") { mandeulgi() }
-                    .buttonStyle(KeunDanchu())
                 if !allim.isEmpty { Text(allim).font(.title3) }
+                if JiinMyeongdanView.yetBangsik {
+                    yetHwamyeon
+                }
                 if !jiin.mokrok.isEmpty {
                     Text("등록된 분 — 빼실 때는 이름에서 위아래로 쓸어 명단에서 빼기를 고르십시오.").font(.body)
                     Mokrok5(jiin.mokrok) { s in
@@ -123,10 +139,6 @@ struct JiinMyeongdanView: View {
                                 Task { await jiin.jiugi(s) }
                                 SoriEngine.shared.mal("\(s.name) 님을 명단에서 뺐습니다.")
                             }
-                            .accessibilityAction(named: "초대 주소 다시 보내기") {
-                                let t = jiin.tel(s.id)
-                                if !t.isEmpty { munja(s, t) } else { saero = s; saeroTel = "" }
-                            }
                             .contextMenu {
                                 Button("명단에서 빼기", role: .destructive) { Task { await jiin.jiugi(s) } }
                             }
@@ -136,7 +148,51 @@ struct JiinMyeongdanView: View {
             .padding()
         }
         .sokHwamyeon("가족·지인 명단")
-        .task { await jiin.bureogi() }
+        .task { await jiin.bureogi(); bonIds = Set(jiin.mokrok.map { $0.id }) }
+        .onDisappear { salpim?.invalidate(); salpim = nil }
+    }
+
+    /// 예전 초대 주소 방식 화면 — 감춰 둠
+    @ViewBuilder private var yetHwamyeon: some View {
+        if let s = saero {
+            Text("\(s.name) 님을 만들었습니다. 아래 초대 주소를 그 분께 보내십시오.").font(.title3)
+            ShareLink(item: Jiin.chodaeJuso(s.k)) { Text("다른 앱으로 초대 주소 보내기") }.buttonStyle(KeunDanchu())
+        }
+        TextField("이름", text: $ireum).textFieldStyle(.roundedBorder).font(.title3)
+        TextField("전화번호 — 폰 안에만 담깁니다", text: $tel).textFieldStyle(.roundedBorder).font(.title3).keyboardType(.phonePad)
+        Button("이 사람 만들기") { mandeulgi() }.buttonStyle(KeunDanchu())
+    }
+
+    /// 이음 번호 받기 — 받은 뒤 30분 동안 5초마다 명단을 살펴 새로 등록하신 분을 알려 드림
+    private func beonhoBatgi() {
+        allim = "이음 번호를 받고 있습니다."
+        Task {
+            let (b, e) = await jiin.ieumBeonho()
+            await MainActor.run {
+                guard let b = b else { allim = e; SoriEngine.shared.mal(e); return }
+                beonho = b; beonhoTtae = Date(); allim = ""
+                bonIds = Set(jiin.mokrok.map { $0.id })
+                SoriEngine.shared.mal(beonhoMal + ".")
+                beonhoChojeom = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { beonhoChojeom = true }
+                salpim?.invalidate()
+                salpim = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { t in
+                    if Date().timeIntervalSince(beonhoTtae) > 1800 { t.invalidate(); return }
+                    Task {
+                        guard await jiin.bureogi() else { return }
+                        await MainActor.run {
+                            let sae = jiin.mokrok.filter { !bonIds.contains($0.id) }
+                            for p in sae {
+                                SoriEngine.shared.mal("\(p.name) 님이 가족·지인으로 등록하셨습니다.")
+                                Girok.shared.namgi("jiin_ieum_deungrok", [:])
+                            }
+                            if !sae.isEmpty { beonho = ""; t.invalidate(); allim = sae.map { "\($0.name) 님이 등록하셨습니다." }.joined(separator: " ") }
+                            bonIds = Set(jiin.mokrok.map { $0.id })
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private func mandeulgi() {

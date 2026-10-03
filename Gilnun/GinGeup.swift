@@ -3,18 +3,22 @@
 // 받으시면 곧장(누르지 않아도) 뒤 카메라와 마이크로 화상통화(WebRTC, 신호는 rel.php sig_put·sig_get, 나스 턴 서버).
 // 받는 분 화면(nun4.html·자봉 앱)은 지금 그대로입니다.
 // 이사장님 지시: 1분 30초 기다림, 말소리는 요청 시작·받음·연결 실패 때만, 통화 중에는 길눈 말소리를 내지 않음.
+// 2.42.0 (261004-G1, 이사장님 승인 2026-10-04) 받는 쪽은 자봉 앱 하나로 — 가족·지인은 이음 번호로 등록한 그 한 분께만 울림.
+//   가족·지인이 1분 30초 안에 받지 않으시면 "자원봉사자와 현장영상해설사에게 요청할까요?"를 여쭙고, 예 한 번이면 두 갈래 함께(dowum) 호출.
+//   자원봉사자·현장영상해설사는 나스가 처음 15초 최근에 덜 받으신 다섯 분께 먼저, 그다음 모두에게 울림(기회 고르게).
 import Foundation
 import AVFoundation
 import UIKit
 import WebRTC
 
 enum GinGeupGalrae: String {
-    case jiin, haebong, haeseolsa
+    case jiin, haebong, haeseolsa, dowum
     var ireum: String {
         switch self {
         case .jiin: return "가족·지인"
         case .haebong: return "자원봉사자"
         case .haeseolsa: return "현장영상해설사"
+        case .dowum: return "자원봉사자와 현장영상해설사"
         }
     }
 }
@@ -27,6 +31,8 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
     @Published private(set) var sangtae: Sangtae = .eopseum
     @Published private(set) var geul = ""
     @Published var malHan = ""
+    /// 2.42.0 가족·지인이 받지 않으셨을 때 — 자원봉사자와 현장영상해설사에게 넘길지 여쭘
+    @Published var neomgilkka = false
     @Published var naIrum: String = UserDefaults.standard.string(forKey: "gn.naIrum") ?? "" {
         didSet { UserDefaults.standard.set(naIrum, forKey: "gn.naIrum") }
     }
@@ -58,6 +64,7 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
 
     func yocheong(_ g: GinGeupGalrae, _ s: JiinSaram? = nil) {
         guard sangtae == .eopseum else { return }
+        neomgilkka = false
         galrae = g
         saram = s
         cheot = true
@@ -180,11 +187,12 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
             let targetOn = (j["targetOn"] as? Bool) ?? ((j["targetOn"] as? Int).map { $0 != 0 } ?? true)
             if cheot && !targetOn && !junbiMal {
                 junbiMal = true
-                SoriEngine.shared.mal("\(nm) 님은 아직 초대 주소를 열어 받겠습니다를 누르지 않으셔서 신호가 닿지 않을 수 있습니다.")
+                SoriEngine.shared.mal("\(nm) 님은 아직 자봉 앱으로 받기를 켜지 않으셨거나 받지 않기로 해 두셔서 신호가 닿지 않을 수 있습니다.")
             }
             if s >= GinGeup.HANDO {
                 hangup()
-                kkeut("\(nm) 님과 연결되지 못했습니다. 다른 분께 요청하시거나 전화를 거실 수 있습니다.")
+                kkeut("\(nm) 님이 받지 않으십니다. 자원봉사자와 현장영상해설사에게 요청할까요?")
+                neomgilkka = true
                 return
             }
         } else {
