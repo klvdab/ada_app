@@ -192,9 +192,38 @@ final class WatchLink: NSObject, WCSessionDelegate {
                 // 2.36.0 가리키기 방향 맞추기 — 지금 몸이 향한 방향
                 replyHandler(["momBang": JeomEngine.shared.momBang ?? -1.0])
             case "daeum":
+                // 2.41.0 지금 형편에 맞는 한마디를 폰이 이어폰·스피커로 말하고, 워치에는 글과 진동으로
                 var r = self.last
-                r["daeum"] = AnnaeEngine.shared.daeumGalrimMal()
+                let m = AnnaeEngine.shared.watchJigeumMal()
+                r["daeum"] = m
+                r["ponMalHam"] = Seoljeong.shared.malKyeojim
+                SoriEngine.shared.mal(m, .annae)
                 replyHandler(r)
+            case "jari":
+                // 2.41.0 내 자리 — 워치 위성 대신 폰이 답함(땅속에서도 지하철 엔진·마지막 주소로)
+                if let y = YeojeongEngine.shared.jigeum, y.jiha != nil, y.danggye == .taneunJung, JihacheolEngine.shared.dolgo {
+                    let m = JihacheolEngine.shared.hyeonhwang()
+                    SoriEngine.shared.mal(m, .annae)
+                    replyHandler(["jari": m, "ponMalHam": Seoljeong.shared.malKyeojim])
+                    return
+                }
+                guard let w = WichiEngine.shared.jigeum else {
+                    let m = JiyeokEngine.shared.majimak.map { "위치를 새로 잡지 못했습니다. 마지막으로 확인한 곳은 \($0.balmal) 쪽입니다." } ?? "폰도 아직 위치를 잡지 못했습니다."
+                    SoriEngine.shared.mal(m, .annae)
+                    replyHandler(["jari": m, "ponMalHam": Seoljeong.shared.malKyeojim])
+                    return
+                }
+                Task {
+                    var m = ""
+                    if let d = try? await Tongsin.shared.get("watch.php", ["a": "jari", "lat": String(format: "%.6f", w.lat), "lon": String(format: "%.6f", w.lon)]),
+                       let t = String(data: d.data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty { m = t }
+                    if m.isEmpty { m = JiyeokEngine.shared.majimak.map { "지금 계신 곳은 \($0.balmal) 쪽입니다." } ?? "자리를 알아내지 못했습니다." }
+                    if w.georeumChu { m += " 위성이 흐려 걸음으로 이어 셈한 자리라 조금 어긋날 수 있습니다." }
+                    await MainActor.run {
+                        SoriEngine.shared.mal(m, .annae)
+                        replyHandler(["jari": m, "ponMalHam": Seoljeong.shared.malKyeojim])
+                    }
+                }
             default:
                 replyHandler(self.last)
             }

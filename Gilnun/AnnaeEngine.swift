@@ -292,6 +292,38 @@ final class AnnaeEngine: ObservableObject {
     }
 
     /// 다음 갈림길 — 가는 쪽(앞쪽 10시~2시) 200미터 안에서 가장 가까운 사거리·갈림길
+    /// 2.41.0 (261003-W1, 이사장님 지시 "폰 앱이 헤매면 워치라도 정신을 차려야지") 워치 두 번 집기 한 번 — 지금 형편에 맞는 한마디
+    /// 걸을 때는 다음 갈림길, 지하철에서는 지난 역과 남은 정거장, 차·버스에서는 남은 거리와 지금 지나는 고장, 여정이 없으면 지금 자리
+    func watchJigeumMal() -> String {
+        let tg = TalgeotGamji.shared
+        if JeomEngine.shared.georeoJung { return JeomEngine.shared.daeumMuotMal() }
+        guard let y = yj.jigeum else {
+            let jy = JiyeokEngine.shared.majimak.map { "지금 계신 곳은 \($0.balmal) 쪽입니다." } ?? ""
+            let ta = tg.chujeong == .georeum ? "" : " " + (tg.chujeong == .jihacheol ? "지하철을" : "\(tg.chujeong.ireum)를") + " 타고 계신 것으로 보입니다."
+            return ("가시는 곳이 아직 없습니다. " + jy + ta).trimmingCharacters(in: .whitespaces)
+        }
+        if let g = y.jiha {
+            switch y.danggye {
+            case .taneunJung:
+                if JihacheolEngine.shared.dolgo || g.kkeutnam { return JihacheolEngine.shared.hyeonhwang() }
+            case .taneunGotKkaji:
+                if let w = WichiEngine.shared.jigeum, !g.ipguDochak {
+                    let d = WichiEngine.geori(w.lat, w.lon, g.ipgu.lat, g.ipgu.lon)
+                    return "\(g.ipgu.ireum)까지 \(Annae.geoMal(d))\(Annae.sigyeMal(sigye(w, g.ipgu.lat, g.ipgu.lon)))."
+                }
+                return JihacheolEngine.shared.hyeonhwang()
+            default: break
+            }
+        }
+        if y.danggye == .taneunJung {
+            guard let w = WichiEngine.shared.jigeum else { return "\(y.mokjeok.ireum)으로 가는 중입니다. 위치를 다시 잡는 중입니다." }
+            let d = WichiEngine.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
+            let gojang = JiyeokEngine.shared.majimak.map { " 지금 \($0.balmal) 쪽을 지나고 있습니다." } ?? ""
+            return "\(y.mokjeok.ireum)까지 \(Annae.geoMal(d)) 남았습니다.\(gojang)"
+        }
+        return daeumGalrimMal()
+    }
+
     func daeumGalrimMal() -> String {
         // 2.10.0 점지도를 따라 걷는 중이면 점지도의 다음 표시·꺾이는 곳
         if JeomEngine.shared.georeoJung { return JeomEngine.shared.daeumMuotMal() }
