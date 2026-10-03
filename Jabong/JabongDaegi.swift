@@ -74,6 +74,7 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
         r.desiredPushTypes = [.voIP]
         registry = r
         if kyeojim { Task { await self.daegiAllim(on: true) } }   // 켤 때마다 대기를 새로 알림
+        IceJuso.gaengsin()
     }
 
     var galraeIreum: String { kind.isEmpty ? "가족·지인" : (kind == "haeseolsa" ? "현장영상해설사" : "자원봉사자") }
@@ -195,6 +196,7 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
         let mok = (p["mok"] as? String) ?? ""
         let gal = (p["galrae"] as? String) ?? ""
         let buleun = (p["byeol"] as? String) ?? ""
+        IceJuso.gaengsin()   // 2.5.0 받기 전에 영상 다리 주소를 새로
         let uuid = UUID()
         // 애플 약속: 이 알림을 받으면 반드시 전화 화면을 띄워야 함
         let u = CXCallUpdate()

@@ -46,11 +46,7 @@ final class JabongTonghwa: NSObject, ObservableObject, RTCPeerConnectionDelegate
         SoriEngine.shared.tonghwaJung = true
         RTCAudioSession.sharedInstance().useManualAudio = true
         let cfg = RTCConfiguration()
-        cfg.iceServers = [
-            RTCIceServer(urlStrings: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"]),
-            RTCIceServer(urlStrings: ["turn:221.146.173.20:3478?transport=udp", "turn:221.146.173.20:3478?transport=tcp"],
-                         username: "gilnun", credential: "gilnun-turn-260911-v8k2q")
-        ]
+        cfg.iceServers = IceJuso.servers   // 자봉 2.5.0 나스 설정 쪽지에서(길눈 GinGeup.swift 의 IceJuso)
         cfg.sdpSemantics = .unifiedPlan
         cfg.continualGatheringPolicy = .gatherContinually
         let c = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: ["DtlsSrtpKeyAgreement": "true"])
