@@ -2,12 +2,19 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.3.0"
-    static let bild = "261001-13"
+    static let pan = "2.4.0"
+    static let bild = "261004-G1"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.4.0", bild: "261004-G1", nal: "2026-10-04", naeyong: [
+            "긴급통화는 자봉 앱 하나로 받음(이사장님 승인) — 받는 갈래 셋: 자원봉사자, 현장영상해설사, 가족·지인",
+            "가족·지인으로 받기 — 길눈님이 불러 주신 이음 번호 여섯 자리(30분)와 부르실 내 이름을 넣으면 등록. 그 길눈님이 나를 고르시면 이 폰만 울리고 그분 이름이 뜸",
+            "긴급통화 받지 않기 — 점지도만 그려 주시는 분은 한 번 눌러 어떤 요청도 울리지 않게. 알림 주소도 지움. 마음이 바뀌면 다시 받기 시작",
+            "자원봉사자·현장영상해설사는 나스가 처음 15초 최근에 덜 받으신 다섯 분께 먼저, 그다음 모두에게 울려 기회를 고르게 나눔",
+            "도움말 가족·지인으로 받기, 긴급통화 받지 않기 항목 더함, 긴급통화 받기 항목 고침"
+        ]),
         Gochim(pan: "2.3.0", bild: "261001-13", nal: "2026-10-01", naeyong: [
             "몸 센서 극대화(대표님 지시 — 가장 중요한 것은 걸으면서 찍는 점지도, 몸이 움직이는 상황을 담는 센서를 최대한 끌어낼 것)",
             "가속도계·자이로·나침반을 1초에 50번 읽음. 발이 닿을 때마다 걸음을 바로 잡고(가속도), 몸이 돈 각도를 자이로로 재며, 나침반으로 천천히 바로잡은 합성 방향을 씀",
