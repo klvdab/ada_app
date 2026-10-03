@@ -50,7 +50,64 @@ object JabongDaegi {
     val byeol: String get() = d?.getString("jb.daegiByeol", "") ?: ""
     /** 긴급통화 받기를 켜 둠 */
     val kyeojim: Boolean get() = d?.getBoolean("jb.daegiOn", false) ?: false
-    val galraeIreum: String get() = if (kind == "haeseolsa") "현장영상해설사" else "자원봉사자"
+    val galraeIreum: String get() = if (kind.isEmpty()) "가족·지인" else if (kind == "haeseolsa") "현장영상해설사" else "자원봉사자"
+
+    // 2.4.0 (261004-G1, 이사장님 승인 2026-10-04) 가족·지인으로 받기(이음 번호)와 긴급통화 받지 않기 — 아이폰 JabongDaegi.swift 2.4.0과 같음
+    /** 가족·지인으로 등록된 길눈님 이름들 */
+    val gajok: List<String> get() = try { val a = JSONArray(d?.getString("jb.gajok", "[]") ?: "[]"); (0 until a.length()).map { a.optString(it) } } catch (e: Exception) { emptyList() }
+    /** 그 길눈님들이 부르실 내 이름 */
+    val gajokIreum: String get() = d?.getString("jb.gajokIreum", "") ?: ""
+    /** 긴급통화 받지 않기를 고르심 */
+    val geobu: Boolean get() = d?.getBoolean("jb.geobu", false) ?: false
+    /** 나스 대기에 올릴 갈래와 이름 — 봉사 역할이 없으면 가족·지인(jiin)으로 */
+    private val daegiKind: String get() = if (kind.isEmpty()) (if (gajok.isEmpty()) "" else "jiin") else kind
+    private val daegiWho: String get() = byeol.ifEmpty { gajokIreum }
+
+    /** 이음 번호로 가족·지인 등록 — 성공하면 null, 안 되면 까닭(카메라·마이크·알림 허락은 화면이 먼저 여쭘) */
+    fun gajokDeungrok(beonho: String, ireum: String, kkeut: (String?) -> Unit) {
+        val b = beonho.filter { it.isDigit() }
+        val nm = ireum.trim()
+        if (b.length != 6) { kkeut("이음 번호 여섯 자리를 넣어 주십시오."); return }
+        if (nm.isEmpty()) { kkeut("길눈님이 부르실 내 이름을 적어 주십시오."); return }
+        val kk = k
+        il.execute {
+            val t = JbTongsin.getText("/eyec/jiin.php", mapOf("a" to "ieum", "beonho" to b, "name" to nm, "k" to kk))
+            val j = try { if (t == null) null else JSONObject(t) } catch (e: Exception) { null }
+            main.post {
+                if (j == null) { kkeut("통신이 닿지 않았습니다. 잠시 뒤 다시 눌러 주십시오."); return@post }
+                if (!j.optBoolean("ok", false)) { kkeut(j.optString("error", "").ifEmpty { "등록을 마치지 못했습니다." }); return@post }
+                val who = j.optString("who", "").ifEmpty { "길눈님" }
+                val l = gajok.toMutableList(); if (who !in l) l.add(who)
+                d?.edit()?.putString("jb.gajok", JSONArray(l).toString())?.putString("jb.gajokIreum", nm)
+                    ?.putBoolean("jb.daegiOn", true)?.putBoolean("jb.geobu", false)?.apply()
+                daegiAllim(true) {
+                    ctx?.let { JabongDaegiService.kyeogi(it) }
+                    Girok.namgi("jabong_gajok", mapOf("android" to true))
+                    byeonhwa?.invoke()
+                    kkeut(null)
+                }
+            }
+        }
+    }
+
+    /** 긴급통화 받지 않기 — 대기를 끄고 살피기도 멈춤 */
+    fun geobuhagi(kkeut: () -> Unit) {
+        daegiAllim(false) {
+            d?.edit()?.putBoolean("jb.daegiOn", false)?.putBoolean("jb.geobu", true)?.apply()
+            ctx?.let { JabongDaegiService.kkeugi(it) }
+            ulimKkeut()
+            Girok.namgi("jabong_geobu", mapOf("android" to true))
+            byeonhwa?.invoke()
+            kkeut()
+        }
+    }
+
+    /** 다시 받기로 마음을 바꾸심 — 받지 않기만 풀고, 역할이 있으면 다시 켬 */
+    fun geobuPulgi(kkeut: () -> Unit) {
+        d?.edit()?.putBoolean("jb.geobu", false)?.apply()
+        if (daegiKind.isEmpty()) { byeonhwa?.invoke(); kkeut(); return }
+        swigi(false, kkeut)
+    }
 
     /** 이 폰의 대기 열쇠(나스 rel.php 의 k) — 처음 한 번 만들어 둠(아이폰과 같은 꼴, jb + 스무 자) */
     val k: String
@@ -65,7 +122,7 @@ object JabongDaegi {
         }
 
     /** 지금 울리는 부름 */
-    class Ulim(val room: String, val mok: String, val gal: String, val ttae: Long)
+    class Ulim(val room: String, val mok: String, val gal: String, val ttae: Long, val who: String = "")
     var ulim: Ulim? = null
         private set
     /** 형편이 바뀌면 화면이 채움(울림 시작·끝, 받기 켜고 끔) */
@@ -102,7 +159,7 @@ object JabongDaegi {
             main.post {
                 if (j == null) { kkeut("통신이 닿지 않았습니다. 잠시 뒤 다시 눌러 주십시오."); return@post }
                 if (!j.optBoolean("ok", false)) { kkeut(j.optString("msg", "").ifEmpty { "함께하기를 마치지 못했습니다." }); return@post }
-                d?.edit()?.putString("jb.daegiKind", kind0)?.putString("jb.daegiByeol", b)?.putBoolean("jb.daegiOn", true)?.apply()
+                d?.edit()?.putString("jb.daegiKind", kind0)?.putString("jb.daegiByeol", b)?.putBoolean("jb.daegiOn", true)?.putBoolean("jb.geobu", false)?.apply()
                 majimakDaegi = System.currentTimeMillis()
                 ctx?.let { JabongDaegiService.kyeogi(it) }
                 Girok.namgi("jabong_hamkke", mapOf("kind" to kind0, "android" to true))
@@ -125,8 +182,8 @@ object JabongDaegi {
     }
 
     private fun daegiAllim(on: Boolean, kkeut: (() -> Unit)? = null) {
-        val ki = kind
-        val by = byeol
+        val ki = daegiKind
+        val by = daegiWho
         if (ki.isEmpty() || by.isEmpty()) { kkeut?.let { main.post(it) }; return }
         val kk = k
         il.execute {
@@ -172,7 +229,7 @@ object JabongDaegi {
             if (room in bon) continue
             if (ulim != null || JabongTonghwa.tonghwaJung) continue
             val mok = if (x.isNull("mok")) (if (x.isNull("gil")) "" else x.optString("gil", "")) else x.optString("mok", "")
-            ulimSijak(room, mok, if (x.isNull("galrae")) "" else x.optString("galrae", ""))
+            ulimSijak(room, mok, if (x.isNull("galrae")) "" else x.optString("galrae", ""), if (x.isNull("who")) "" else x.optString("who", ""))
         }
         // 오래된 방 이름은 덜어 냄
         while (bon.size > 200) bon.remove(bon.first())
@@ -189,13 +246,13 @@ object JabongDaegi {
 
     // MARK: 울림
 
-    private fun ulimSijak(room: String, mok: String, gal: String) {
+    private fun ulimSijak(room: String, mok: String, gal: String, who: String = "") {
         val c = ctx ?: return
         bon.add(room)
-        val u = Ulim(room, mok, gal, System.currentTimeMillis())
+        val u = Ulim(room, mok, gal, System.currentTimeMillis(), who)
         ulim = u
         Girok.namgi("jabong_ulim", mapOf("gal" to gal, "android" to true))
-        JabongUlim.kyeogi(c, gal)
+        JabongUlim.kyeogi(c, gal, who)
         ulimHwamyeon?.invoke()
         byeonhwa?.invoke()
         salpigi(u)
@@ -251,7 +308,7 @@ object JabongDaegi {
         salpimR = null
         ulim = null
         ctx?.let { JabongUlim.kkeugi(it) }
-        val by = byeol
+        val by = daegiWho
         val kk = k
         il.execute {
             val t = JbTongsin.getText(REL, mapOf("a" to "take", "room" to u.room, "who" to by, "k" to kk))
@@ -289,8 +346,15 @@ object JabongUlim {
     private var jindongi: Vibrator? = null
 
     @Suppress("DEPRECATION")
-    fun kyeogi(c: Context, gal: String) {
-        val jemok = if (gal == "haeseolsa") "길손님이 현장영상해설사를 청합니다" else "길손님이 도움을 청합니다"
+    /** 2.4.0 울림 제목 — 가족·지인 부름이면 부르신 길눈님 이름 */
+    fun jemok(gal: String, who: String): String = when {
+        gal == "jiin" -> if (who.isEmpty()) "길눈님이 화상통화를 요청합니다" else "$who 님이 화상통화를 요청합니다"
+        gal == "haeseolsa" -> "길손님이 현장영상해설사를 청합니다"
+        else -> "길손님이 도움을 청합니다"
+    }
+
+    fun kyeogi(c: Context, gal: String, who: String = "") {
+        val jemok = jemok(gal, who)
         val nm = c.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
             val ch = NotificationChannel(CH, "자봉 긴급통화 울림", NotificationManager.IMPORTANCE_HIGH)

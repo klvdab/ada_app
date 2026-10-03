@@ -359,7 +359,7 @@ class JabongActivity : AppCompatActivity() {
         }
         if (jong == "ulim") {
             val u = JabongDaegi.ulim ?: return
-            deoh(jemokView(if (u.gal == "haeseolsa") "길손님이 현장영상해설사를 청합니다" else "길손님이 도움을 청합니다"))
+            deoh(jemokView(JabongUlim.jemok(u.gal, u.who)))
             if (u.mok.isNotEmpty()) deoh(geulView("길손님의 목적지 — ${u.mok}", false))
             deoh(danchuView("받기 — 곧바로 길손님 카메라 화면과 말소리가 이어집니다") { JabongDaegi.batgi() }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(110)))
             deoh(danchuView("거절 — 이번 부름은 받지 않기") { JabongDaegi.geojeol() })
@@ -442,7 +442,7 @@ class JabongActivity : AppCompatActivity() {
 
 class BongsaTab : JbHwamyeon("봉사") {
     override fun chaeugi(t: JabongActivity) {
-        t.danchu(if (JabongDaegi.kyeojim) "긴급통화 받기 — 받고 있음" else "긴급통화 받기 — 길손님이 도움을 청하면 전화처럼 울립니다") { t.yeolgi(HamkkeHwamyeon()) }
+        t.danchu(if (JabongDaegi.geobu) "긴급통화 받기 — 받지 않기로 하심" else if (JabongDaegi.kyeojim) "긴급통화 받기 — 받고 있음" else "긴급통화 받기 — 길눈님이 도움을 청하면 전화처럼 울립니다") { t.yeolgi(HamkkeHwamyeon()) }
         t.danchu(when (Geurigi.sangtae) {
             Geurigi.Sangtae.GEOREUM -> "점지도 그리기 — 그리는 중"
             Geurigi.Sangtae.MEOMCHUM -> "점지도 그리기 — 잠깐 멈춤, 이어 그리기"
@@ -456,7 +456,7 @@ class BongsaTab : JbHwamyeon("봉사") {
     companion object {
         fun jigeumSangtae(): String {
             var m = "자봉 번호 ${JabongNae.beonho}, ${JabongNae.ireum}님."
-            m += if (JabongDaegi.kyeojim) " 긴급통화를 받고 있습니다." else " 긴급통화는 받지 않는 중입니다."
+            m += if (JabongDaegi.geobu) " 긴급통화는 받지 않기로 하셨습니다." else if (JabongDaegi.kyeojim) " 긴급통화를 받고 있습니다." else " 긴급통화는 받지 않는 중입니다."
             if (Geurigi.sangtae != Geurigi.Sangtae.SWIM) m += " " + Geurigi.sangtaeMal()
             m += if (Seoljeong.bopokJaem && Seoljeong.bopok > 0.2) " 보폭은 ${(Seoljeong.bopok * 100).roundToInt()}센티미터입니다." else " 아직 보폭을 재지 않으셨습니다. 점지도를 그리기 전에 한 번 재 주십시오."
             val w = Wichi.jigeum
@@ -466,18 +466,28 @@ class BongsaTab : JbHwamyeon("봉사") {
     }
 }
 
-// MARK: 긴급통화 받기 — 아이폰 JbHamkkeView 와 같음
+// MARK: 긴급통화 받기 — 아이폰 JbHamkkeView 와 같음 (2.4.0 역할 셋과 긴급통화 받지 않기)
 
 class HamkkeHwamyeon : JbHwamyeon("긴급통화 받기") {
     private var kind = "haebong"
     private var byeol = ""
     private var hwagin = ""
+    private var beonho = ""
+    private var gajokIreum = ""
     private var allim = ""
     private var allimBeon = 0
     private var boinBeon = 0
     private var hal = false
     private var gochim = false
     private var deo = false
+
+    private fun badeumMal(): String {
+        val g = JabongDaegi
+        var m = "긴급통화를 받고 있습니다."
+        if (g.kind.isNotEmpty()) m += " ${if (g.kind == "haeseolsa") "현장영상해설사" else "자원봉사자"}, 별명 ${g.byeol}."
+        if (g.gajok.isNotEmpty()) m += " 가족·지인으로 등록된 곳은 " + g.gajok.joinToString(", ") { "$it 님" } + "입니다."
+        return m
+    }
 
     override fun chaeugi(t: JabongActivity) {
         if (allim.isNotEmpty()) {
@@ -486,28 +496,43 @@ class HamkkeHwamyeon : JbHwamyeon("긴급통화 받기") {
         }
         boinBeon = allimBeon
         val g = JabongDaegi
-        if (g.kyeojim && !gochim) {
-            t.geul("긴급통화를 받고 있습니다. ${g.galraeIreum}, 별명 ${g.byeol}.", true)
-            t.geul("길손님이 도움을 청하면 일반 전화처럼 울립니다. 받으시면 곧바로 길손님 카메라 화면과 말소리가 이어집니다.")
+        if (g.geobu && !gochim) {
+            t.geul("긴급통화를 받지 않기로 하셨습니다. 어떤 요청도 울리지 않습니다. 점지도 그리기는 그대로 쓰실 수 있습니다.", true)
+            t.danchu("마음이 바뀌면 — 긴급통화 받기 시작") { geobuPulgi(t) }
+        } else if (g.kyeojim && !gochim) {
+            t.geul(badeumMal(), true)
+            t.geul("요청이 오면 일반 전화처럼 울립니다. 받으시면 곧바로 길눈님 카메라 화면과 말소리가 이어집니다.")
             t.danchu("잠시 쉬기 — 긴급통화를 받지 않음") { swigi(t, true) }
             t.pyeolchigi("더 보기", deo) { deo = !deo }
             if (deo) {
+                t.danchu("가족·지인으로 받기 — 이음 번호 넣기") { kind = "gajok"; beonho = ""; gajokIreum = g.gajokIreum; gochim = true; allim = ""; t.dasiGeurigi() }
                 t.danchu("역할이나 별명 고치기") { kind = g.kind.ifEmpty { "haebong" }; byeol = g.byeol; gochim = true; allim = ""; t.dasiGeurigi() }
+                t.danchu("긴급통화 받지 않기 — 점지도만 그립니다") { geobu(t) }
                 t.danchu("배터리 아끼기에서 자봉 빼기 — 화면이 꺼져도 늦지 않게 울리도록") { t.baeteoriYeojjum() }
             }
-        } else if (g.kind.isNotEmpty() && !g.kyeojim && !gochim) {
+        } else if ((g.kind.isNotEmpty() || g.gajok.isNotEmpty()) && !g.kyeojim && !gochim) {
             t.geul("지금은 쉬는 중입니다. 긴급통화가 울리지 않습니다.", true)
             t.danchu("다시 함께하기 — 긴급통화 받기") { swigi(t, false) }
-            t.danchu("역할이나 별명 고치기") { kind = g.kind; byeol = g.byeol; gochim = true; allim = ""; t.dasiGeurigi() }
+            t.danchu("가족·지인으로 받기 — 이음 번호 넣기") { kind = "gajok"; beonho = ""; gajokIreum = g.gajokIreum; gochim = true; allim = ""; t.dasiGeurigi() }
+            t.danchu("역할이나 별명 고치기") { kind = g.kind.ifEmpty { "haebong" }; byeol = g.byeol; gochim = true; allim = ""; t.dasiGeurigi() }
+            t.danchu("긴급통화 받지 않기 — 점지도만 그립니다") { geobu(t) }
         } else {
-            t.geul("길손님이 도움을 청할 때 받으실 역할을 고르고, 별명을 적어 주십시오. 실명과 전화번호는 화면에 나오지 않습니다.")
+            t.geul("길눈님이 도움을 청할 때 받으실 역할을 고르십시오. 실명과 전화번호는 화면에 나오지 않습니다.")
             t.danchu((if (kind == "haebong") "고름 — " else "") + "자원봉사자로 받기 — 교육을 마치신 분") { kind = "haebong"; hwagin = ""; t.dasiGeurigi() }
             t.danchu((if (kind == "haeseolsa") "고름 — " else "") + "현장영상해설사로 받기 — 협회 해설사") { kind = "haeseolsa"; hwagin = ""; t.dasiGeurigi() }
-            t.ipryeok("길눈님 별명", byeol, InputType.TYPE_CLASS_TEXT) { byeol = it }
-            if (kind == "haeseolsa") t.ipryeok("협회에 등록하신 전화번호 — 확인에만 씁니다", hwagin, InputType.TYPE_CLASS_PHONE) { hwagin = it }
-            else t.ipryeok("수료 번호 — 협회에서 받으신 번호", hwagin, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS) { hwagin = it }
-            t.danchu("함께하겠습니다") { hamkke(t) }
+            t.danchu((if (kind == "gajok") "고름 — " else "") + "가족·지인으로 받기 — 길눈님께 이음 번호를 받으신 분") { kind = "gajok"; t.dasiGeurigi() }
+            if (kind == "gajok") {
+                t.ipryeok("이음 번호 여섯 자리 — 길눈님께 받으신 번호", beonho, InputType.TYPE_CLASS_NUMBER) { beonho = it }
+                t.ipryeok("길눈님이 부르실 내 이름 — 보기: 큰딸, 김철수", gajokIreum, InputType.TYPE_CLASS_TEXT) { gajokIreum = it }
+                t.danchu("가족·지인으로 등록하기") { gajokDeungrok(t) }
+            } else {
+                t.ipryeok("길눈님 별명", byeol, InputType.TYPE_CLASS_TEXT) { byeol = it }
+                if (kind == "haeseolsa") t.ipryeok("협회에 등록하신 전화번호 — 확인에만 씁니다", hwagin, InputType.TYPE_CLASS_PHONE) { hwagin = it }
+                else t.ipryeok("수료 번호 — 협회에서 받으신 번호", hwagin, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS) { hwagin = it }
+                t.danchu("함께하겠습니다") { hamkke(t) }
+            }
             if (gochim) t.danchu("그만두기") { gochim = false; allim = ""; t.dasiGeurigi() }
+            else t.danchu("긴급통화는 받지 않겠습니다 — 점지도만 그립니다") { geobu(t) }
         }
     }
 
@@ -525,7 +550,25 @@ class HamkkeHwamyeon : JbHwamyeon("긴급통화 받기") {
                     allyeo(t, why)
                 } else {
                     gochim = false
-                    allyeo(t, "고맙습니다. 이제 함께하는 눈이 되셨습니다. 길손님이 도움을 청하면 전화처럼 울립니다.")
+                    allyeo(t, "고맙습니다. 이제 함께하는 눈이 되셨습니다. 길눈님이 도움을 청하면 전화처럼 울립니다.")
+                    t.baeteoriYeojjum()
+                }
+            }
+        }
+    }
+
+    private fun gajokDeungrok(t: JabongActivity) {
+        if (hal) return
+        hal = true
+        allyeo(t, "잠시만요, 등록하고 있습니다.")
+        t.tonghwaHeorak {
+            JabongDaegi.gajokDeungrok(beonho, gajokIreum) { why ->
+                hal = false
+                if (why != null) {
+                    allyeo(t, why)
+                } else {
+                    gochim = false
+                    allyeo(t, "등록되었습니다. ${JabongDaegi.gajok.lastOrNull() ?: "길눈"} 님이 화상통화를 요청하시면 이 폰이 전화처럼 울립니다.")
                     t.baeteoriYeojjum()
                 }
             }
@@ -538,6 +581,25 @@ class HamkkeHwamyeon : JbHwamyeon("긴급통화 받기") {
         JabongDaegi.swigi(s) {
             hal = false
             allyeo(t, if (s) "잠시 쉽니다. 긴급통화가 울리지 않습니다." else "다시 함께합니다. 긴급통화가 울립니다.")
+        }
+    }
+
+    private fun geobu(t: JabongActivity) {
+        if (hal) return
+        hal = true
+        JabongDaegi.geobuhagi {
+            hal = false
+            gochim = false
+            allyeo(t, "긴급통화를 받지 않습니다. 점지도 그리기는 그대로 쓰실 수 있습니다.")
+        }
+    }
+
+    private fun geobuPulgi(t: JabongActivity) {
+        if (hal) return
+        hal = true
+        JabongDaegi.geobuPulgi {
+            hal = false
+            if (JabongDaegi.kyeojim) allyeo(t, "다시 긴급통화를 받습니다.") else { gochim = true; allyeo(t, "받으실 역할을 고르십시오.") }
         }
     }
 }
@@ -763,7 +825,9 @@ class DoumalHwamyeon : JbHwamyeon("도움말") {
         val DOUMAL = listOf(
             "처음 등록" to "자봉 앱을 처음 여시면 한 번만 등록합니다. 이름, 연락처, 주로 활동하실 지역, 네 자리 숫자를 적고, 1365 아이디는 비워 두었다가 나중에 넣으셔도 됩니다. 점지도 그리기 요령 다섯 가지를 듣고 확인 문제 세 개를 풀면 자봉 번호가 나옵니다. 웹 자봉에서 이미 등록하셨으면 자봉 번호와 네 자리 숫자로 이어서 쓰십시오.",
             "탭 넷" to "화면 아래에 봉사, 나눔, 내 기록, 알림·설정 탭이 있고, 속 화면에서도 늘 보입니다. 속 화면의 뒤로 단추는 위에 하나 있고, 폰의 뒤로 동작을 하셔도 앞 화면으로 갑니다. 첫 화면에서는 앱 밖으로 나가지 않고 여기가 첫 화면이라고 알려 드립니다. 같은 탭을 한 번 더 누르시면 그 탭의 첫 화면으로 갑니다.",
-            "긴급통화 받기" to "봉사 탭 맨 위에 있습니다. 자원봉사자나 현장영상해설사 가운데 받으실 역할을 고르고, 별명과 수료 번호(해설사는 협회에 등록한 전화번호)를 적은 뒤 함께하겠습니다를 한 번 누르시면 됩니다. 이때 카메라와 마이크, 알림 허락도 한 번에 받아 두고, 배터리 아끼기에서 자봉을 빼 달라고 한 번 여쭙니다. 그 뒤로는 길손님이 도움을 청하면 폰이 잠겨 있어도 벨소리와 진동이 울리고 받기와 거절이 뜹니다. 받기를 누르시면 곧바로 길손님 카메라 화면과 말소리가 이어집니다. 다른 길눈님이 먼저 받으시면 벨이 멈추고 다른 분께 연결되었다고 알려 드립니다. 실명과 전화번호는 화면에 나오지 않고 별명만 씁니다. 잠시 쉬기를 누르시면 울리지 않습니다.",
+            "긴급통화 받기" to "봉사 탭 맨 위에 있습니다. 자원봉사자나 현장영상해설사 가운데 받으실 역할을 고르고, 별명과 수료 번호(해설사는 협회에 등록한 전화번호)를 적은 뒤 함께하겠습니다를 한 번 누르시면 됩니다. 이때 카메라와 마이크, 알림 허락도 한 번에 받아 두고, 배터리 아끼기에서 자봉을 빼 달라고 한 번 여쭙니다. 그 뒤로는 길손님이 도움을 청하면 폰이 잠겨 있어도 벨소리와 진동이 울리고 받기와 거절이 뜹니다. 받기를 누르시면 곧바로 길손님 카메라 화면과 말소리가 이어집니다. 다른 길눈님이 먼저 받으시면 벨이 멈추고 다른 분께 연결되었다고 알려 드립니다. 실명과 전화번호는 화면에 나오지 않고 별명만 씁니다. 잠시 쉬기를 누르시면 울리지 않습니다. 긴급통화는 이 자봉 앱으로만 받습니다. 자원봉사자와 현장영상해설사는 누구를 고를 수 없게 되어 있고, 받을 수 있는 분 가운데 먼저 받는 분이 연결됩니다. 기회가 고르게 가도록 처음 15초는 최근에 덜 받으신 다섯 분께 먼저 울리고, 그래도 아무도 안 받으면 모든 분께 울립니다. 통화료는 들지 않고 데이터만 씁니다(와이파이에서는 따로 드는 돈이 없음).",
+            "가족·지인으로 받기 — 이음 번호" to "길눈을 쓰시는 가족이나 지인이 나를 콕 집어 화상통화를 요청하실 수 있게 등록합니다. 먼저 길눈님이 길눈 설정 탭의 가족·지인 명단에서 이음 번호 받기를 누르면 여섯 자리 숫자가 나옵니다. 이 번호를 전화로 불러 받으십시오. 번호는 30분 동안만 쓰입니다. 자봉 앱 봉사 탭, 긴급통화 받기에서 가족·지인으로 받기를 고르고, 이음 번호와 길눈님이 부르실 내 이름(보기: 큰딸)을 넣고 가족·지인으로 등록하기를 누르시면 끝입니다. 그 뒤로 그 길눈님이 나를 고르시면 이 폰만 벨소리와 진동이 울리고 화면에 그분 이름이 뜹니다. 자원봉사자로도 함께하시는 분은 두 가지가 다 됩니다.",
+            "긴급통화 받지 않기" to "점지도만 그려 주시고 통화는 원치 않으시면, 긴급통화 받기 화면의 긴급통화 받지 않기(처음이면 긴급통화는 받지 않겠습니다)를 누르십시오. 어떤 요청도 울리지 않고, 알림 칸의 자봉도 살피기를 멈춥니다. 점지도 그리기는 그대로 쓰십니다. 마음이 바뀌시면 같은 화면의 긴급통화 받기 시작을 누르시면 됩니다.",
             "긴급통화 받기 — 알림 칸의 자봉" to "안드로이드에서는 긴급통화를 받는 동안 알림 칸에 자봉 — 긴급통화를 받고 있습니다가 떠 있습니다. 이것이 5초마다 나스에 길손님의 부름이 왔는지 살핍니다. 알림 칸의 자봉을 지우거나 배터리 아끼기가 자봉을 재우면 늦게 울리거나 울리지 않을 수 있으니, 함께하겠습니다 때 여쭙는 배터리 창에서 허용을 눌러 주십시오. 다시 여시려면 긴급통화 받기 화면의 더 보기 안에 배터리 아끼기에서 자봉 빼기가 있습니다. 폰을 껐다 켜셔도 저절로 다시 기다립니다.",
             "통화 화면" to "받으시면 탭 위에 통화 화면이 덮입니다. 맨 위에 지금 형편, 그 아래 길손님의 목적지, 길손님 카메라 화면, 맨 아래에 통화 마치기 단추가 있습니다. 이어지면 톡백으로 한 번 알려 드리고, 통화 중에는 자봉 말소리를 내지 않습니다. 이어폰이 없으면 스피커로 들립니다. 폰의 뒤로 동작을 하셔도 통화를 마칩니다. 15초 넘게 도와주시면 마칠 때 고맙다는 말씀을 드립니다.",
             "지금 상태 듣기" to "봉사 탭에서 누르시면 자봉 번호, 긴급통화를 받는지, 보폭, 위성이 잘 잡혔는지를 말씀드립니다.",
