@@ -11,6 +11,43 @@ import AVFoundation
 import UIKit
 import WebRTC
 
+/// 2.43.0 (261004-I1, 이사장님 승인) 영상 다리(턴) 주소 — 나스 설정 쪽지 /eyec/ice.json 에서 읽음.
+/// 다리를 리눅스 서버로 옮기는 날 앱을 새로 받지 않고 쪽지 한 줄로 넘어가게. 못 읽으면 마지막으로 받은 것, 그것도 없으면 나스 다리(3478).
+/// 길눈과 자봉 앱이 함께 씀(자봉 앱도 Gilnun 폴더를 싣음).
+enum IceJuso {
+    static let kibon: [RTCIceServer] = [
+        RTCIceServer(urlStrings: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"]),
+        RTCIceServer(urlStrings: ["turn:221.146.173.20:3478?transport=udp", "turn:221.146.173.20:3478?transport=tcp"],
+                     username: "gilnun", credential: "gilnun-turn-260911-v8k2q")
+    ]
+
+    /// 통화를 청하거나 울릴 때 미리 받아 둠
+    static func gaengsin() {
+        Task.detached {
+            guard let d = try? await Tongsin.shared.getSae("/eyec/ice.json"),
+                  let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+                  let l = o["ice"] as? [[String: Any]], !l.isEmpty,
+                  let dd = try? JSONSerialization.data(withJSONObject: l) else { return }
+            UserDefaults.standard.set(dd, forKey: "gn.iceJuso")
+        }
+    }
+
+    static var servers: [RTCIceServer] {
+        if let dd = UserDefaults.standard.data(forKey: "gn.iceJuso"),
+           let l = try? JSONSerialization.jsonObject(with: dd) as? [[String: Any]] {
+            let s: [RTCIceServer] = l.compactMap { o in
+                guard let u = o["urls"] as? [String], !u.isEmpty else { return nil }
+                if let un = o["username"] as? String, !un.isEmpty {
+                    return RTCIceServer(urlStrings: u, username: un, credential: (o["credential"] as? String) ?? "")
+                }
+                return RTCIceServer(urlStrings: u)
+            }
+            if !s.isEmpty { return s }
+        }
+        return kibon
+    }
+}
+
 enum GinGeupGalrae: String {
     case jiin, haebong, haeseolsa, dowum
     var ireum: String {
@@ -64,6 +101,7 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
 
     func yocheong(_ g: GinGeupGalrae, _ s: JiinSaram? = nil) {
         guard sangtae == .eopseum else { return }
+        IceJuso.gaengsin()
         neomgilkka = false
         galrae = g
         saram = s
@@ -251,11 +289,7 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
         SoriEngine.shared.tonghwaJung = true
         let f = GinGeup.factory
         let cfg = RTCConfiguration()
-        cfg.iceServers = [
-            RTCIceServer(urlStrings: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"]),
-            RTCIceServer(urlStrings: ["turn:221.146.173.20:3478?transport=udp", "turn:221.146.173.20:3478?transport=tcp"],
-                         username: "gilnun", credential: "gilnun-turn-260911-v8k2q")
-        ]
+        cfg.iceServers = IceJuso.servers   // 2.43.0 나스 설정 쪽지에서
         cfg.sdpSemantics = .unifiedPlan
         cfg.continualGatheringPolicy = .gatherContinually
         let c = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: ["DtlsSrtpKeyAgreement": "true"])

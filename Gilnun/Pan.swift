@@ -10,13 +10,18 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.42.0"
-    static let bild = "261004-G1"
+    static let pan = "2.43.0"
+    static let bild = "261004-I1"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.43.0", bild: "261004-I1", nal: "2026-10-04", naeyong: [
+            "긴급통화 영상 다리(턴) 주소를 나스 설정 쪽지(/eyec/ice.json)에서 읽음(이사장님 승인) — 다리를 리눅스 서버로 옮기는 날 앱을 새로 받지 않고 쪽지 한 줄로 넘어감",
+            "쪽지를 못 읽으면 마지막으로 받은 주소, 그것도 없으면 지금의 나스 다리로 이어 끊기지 않게",
+            "도움말 긴급통화서비스 항목에 영상 다리 한 줄 더함"
+        ]),
         Gochim(pan: "2.42.0", bild: "261004-G1", nal: "2026-10-04", naeyong: [
             "긴급통화서비스 받는 쪽을 자봉 앱 하나로(이사장님 승인) — 가족·지인도 자봉 앱으로 전화처럼 받음",
             "가족·지인 명단에 이음 번호 받기 — 여섯 자리(30분)를 불러 주면 그분이 자봉 앱에 넣어 등록, 등록되면 알려 드림. 초대 주소·문자 보내기는 감춤",
