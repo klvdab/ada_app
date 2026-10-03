@@ -36,7 +36,8 @@ class LogoView(c: Context, private val jeom: Int = Saek.geum) : View(c) {
     override fun onDraw(cv: Canvas) {
         val s = minOf(width / 205f, height / 162f)
         val ox = (width - 205 * s) / 2; val oy = (height - 162 * s) / 2
-        fun x(v: Float) = ox + v * s; fun y(v: Float) = oy + v * s
+        fun x(v: Float): Float = ox + v * s
+        fun y(v: Float): Float = oy + v * s
         pt.color = jeom
         for ((a, b) in listOf(33.9f to 28.5f, 33.9f to 46.7f, 33.9f to 65f, 88.8f to 28.5f, 88.8f to 46.7f, 88.7f to 65f, 107.9f to 65f, 148.6f to 28.6f, 167.6f to 28.5f, 167.6f to 46.8f))
             cv.drawCircle(x(a), y(b), 8.4f * s, pt)
