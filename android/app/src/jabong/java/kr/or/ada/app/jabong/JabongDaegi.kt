@@ -139,6 +139,8 @@ object JabongDaegi {
         if (ctx != null) return
         ctx = c.applicationContext
         d = c.applicationContext.getSharedPreferences("jabong", Context.MODE_PRIVATE)
+        kr.or.ada.app.gilnun.IceJuso.sijak(c)
+        kr.or.ada.app.gilnun.IceJuso.gaengsin()
         if (kyeojim) {
             daegiAllim(true)   // 켤 때마다 대기를 새로 알림
             JabongDaegiService.kyeogi(c)
@@ -250,6 +252,7 @@ object JabongDaegi {
         val c = ctx ?: return
         bon.add(room)
         val u = Ulim(room, mok, gal, System.currentTimeMillis(), who)
+        kr.or.ada.app.gilnun.IceJuso.gaengsin()   // 2.5.0 받기 전에 영상 다리 주소를 새로
         ulim = u
         Girok.namgi("jabong_ulim", mapOf("gal" to gal, "android" to true))
         JabongUlim.kyeogi(c, gal, who)

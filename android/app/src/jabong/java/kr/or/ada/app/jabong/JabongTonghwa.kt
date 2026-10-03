@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import kr.or.ada.app.gilnun.Girok
+import kr.or.ada.app.gilnun.IceJuso
 import kr.or.ada.app.gilnun.Jeomjido
 import kr.or.ada.app.gilnun.Sori
 import org.json.JSONArray
@@ -90,11 +91,7 @@ object JabongTonghwa {
         Sori.tonghwaJung = true
         val f = factoryJunbi(c.applicationContext)
         if (f == null) { geul = "통화를 열지 못했습니다."; byeonhwa?.invoke(); kkeunki(true); return }
-        val ice = listOf(
-            PeerConnection.IceServer.builder(listOf("stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302")).createIceServer(),
-            PeerConnection.IceServer.builder(listOf("turn:221.146.173.20:3478?transport=udp", "turn:221.146.173.20:3478?transport=tcp"))
-                .setUsername("gilnun").setPassword("gilnun-turn-260911-v8k2q").createIceServer()
-        )
+        val ice = IceJuso.servers()   // 자봉 2.5.0 나스 설정 쪽지에서(길눈 GinGeup.kt 의 IceJuso)
         val cfg = PeerConnection.RTCConfiguration(ice).apply {
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
             continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY

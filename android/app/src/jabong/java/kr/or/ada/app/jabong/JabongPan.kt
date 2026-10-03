@@ -3,12 +3,16 @@
 package kr.or.ada.app.jabong
 
 object JabongPan {
-    const val pan = "2.4.0"
-    const val bild = "261004-G1"
+    const val pan = "2.5.0"
+    const val bild = "261004-I1"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.5.0", "261004-I1", "2026-10-04", listOf(
+            "긴급통화 영상 다리(턴) 주소를 나스 설정 쪽지에서 읽음(길눈 2.12.0과 함께) — 다리를 옮겨도 앱을 새로 받지 않게. 울릴 때마다 새로 받아 둠",
+            "도움말 긴급통화 받기 항목에 영상 다리 한 줄 더함"
+        )),
         Gochim("2.4.0", "261004-G1", "2026-10-04", listOf(
             "긴급통화는 자봉 앱 하나로 받음(이사장님 승인, 아이폰 자봉 2.4.0과 같음) — 받는 갈래 셋: 자원봉사자, 현장영상해설사, 가족·지인",
             "가족·지인으로 받기 — 길눈님이 불러 주신 이음 번호 여섯 자리(30분)와 부르실 내 이름을 넣으면 등록. 그 길눈님이 나를 고르시면 이 폰만 울리고 그분 이름이 뜸",
