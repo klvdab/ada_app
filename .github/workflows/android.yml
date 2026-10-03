@@ -1,4 +1,5 @@
-# 안드로이드 앱 자동 짓기 (1.3.0판, 빌드 261003-L1)
+# 안드로이드 앱 자동 짓기 (1.4.0판, 빌드 261003-B1)
+# 1.4.0 (261003-B1, 이사장님 승인) eoneu=byod — BYOD 방송(kr.or.ada.byod, src/byod) 태블릿이 현장 방송 서버를 맡음
 # 1.3.0 (261003-L1, 이사장님 승인) eoneu=lib — AI점자도서관 안드로이드(kr.or.ada.lib, src/lib)
 # 1.2.0 (261002-A8, 대표님 지시) 갤럭시 워치 길눈 — eoneu=wear 이면 :wear 모듈(웨어 OS, 앱 번호 kr.or.ada.app)을 같은 열쇠로 서명해 짓고
 #   sihum-apk-wear 갈래에 wear.apk 로 올림. 워치 앱은 아이콘을 스스로 갖고 있어 아이콘 만들기를 건너뜀.
@@ -23,7 +24,7 @@ on:
   workflow_dispatch:
     inputs:
       eoneu:
-        description: "어느 앱 (gilnun = 길눈, jabong = 자봉, bfb = 배프, lib = AI점자도서관, wear = 갤럭시 워치 길눈)"
+        description: "어느 앱 (gilnun = 길눈, jabong = 자봉, bfb = 배프, lib = AI점자도서관, byod = BYOD 방송, wear = 갤럭시 워치 길눈)"
         default: "gilnun"
 jobs:
   jitgi:
@@ -44,8 +45,9 @@ jobs:
             jabong)    FL=jabong; CAP=Jabong; NM=자봉 ;;
             bfb)       FL=bfb;    CAP=Bfb;    NM=배프 ;;
             lib)       FL=lib;    CAP=Lib;    NM=AI점자도서관 ;;
+            byod)      FL=byod;   CAP=Byod;   NM="BYOD 방송" ;;
             wear)      FL=wear;   CAP=Wear;   NM="워치 길눈" ;;
-            *) echo "eoneu 는 gilnun, jabong, bfb, lib, wear 중 하나여야 합니다 (받은 값: $EONEU)"; exit 1 ;;
+            *) echo "eoneu 는 gilnun, jabong, bfb, lib, byod, wear 중 하나여야 합니다 (받은 값: $EONEU)"; exit 1 ;;
           esac
           if [ "$FL" = "wear" ]; then MOD=wear; else MOD=app; fi
           echo "MODULE=$MOD" >> "$GITHUB_ENV"
