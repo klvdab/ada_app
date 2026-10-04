@@ -10,13 +10,19 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.43.0"
-    static let bild = "261004-I1"
+    static let pan = "2.44.0"
+    static let bild = "261004-I2"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.44.0", bild: "261004-I2", nal: "2026-10-04", naeyong: [
+            "KTX 부산행에서 기차로 바로잡아도 지하철 안내가 그대로 돌던 일 바로잡음(이사장님 승인) — 차·기차·고속버스로 바로잡으면 지하철·버스 안내를 멈추고 곧바로 탄 안내로 넘어감",
+            "기차·고속버스를 타고 가는 동안 터널에서 위성·통신이 끊겨도 지하철로 보지 않음(\"지하철을 타신 것 같습니다\", \"통신이 끊겼을 수 있습니다\"가 나오던 일)",
+            "말로 하기가 기차 탔어·기차야·케이티엑스·SRT·고속버스야·택시 탔어를 알아들어 곧바로 바로잡음",
+            "도움말 탈것 바로잡기 항목 고침"
+        ]),
         Gochim(pan: "2.43.0", bild: "261004-I1", nal: "2026-10-04", naeyong: [
             "긴급통화 영상 다리(턴) 주소를 나스 설정 쪽지(/eyec/ice.json)에서 읽음(이사장님 승인) — 다리를 리눅스 서버로 옮기는 날 앱을 새로 받지 않고 쪽지 한 줄로 넘어감",
             "쪽지를 못 읽으면 마지막으로 받은 주소, 그것도 없으면 지금의 나스 다리로 이어 끊기지 않게",
