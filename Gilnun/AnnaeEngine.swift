@@ -157,8 +157,23 @@ final class AnnaeEngine: ObservableObject {
     /// 탈것 바로잡기 — 바로잡은 것이 가장 앞섬
     func talgeotBarojapgi(_ t: Talgeot) {
         guard yj.jigeum != nil else { return }
+        // 2.44.0 (261004-I2, 2026-10-04 KTX 부산행, 이사장님 승인) — 전에는 이름표만 바꾸고 돌던 지하철 안내를 그대로 두어
+        // 화면은 기차인데 말은 지하철이었음. 차·기차·고속버스로 바로잡으시면 지하철·버스 안내를 멈추고 곧바로 탄 안내로 넘어감
+        guard t == .cha || t == .gicha || t == .gosokbeoseu else {
+            yj.talgeotBarojapgi(t)
+            malHagi("\(t.ireum)로 알겠습니다.")
+            return
+        }
+        JeomEngine.shared.yeojeongKkeut()
+        JihacheolEngine.shared.meomchugi()
+        yj.jihaNoki(nil)
+        yj.beoseuNoki(nil)
         yj.talgeotBarojapgi(t)
-        malHagi("\(t.ireum)로 알겠습니다.")
+        yj.danggyeBakkugi(.taneunJung)
+        dasiSijak()
+        malHagi("\(t.ireum)로 알겠습니다. \(t.ireum) 안 안내를 시작합니다.")
+        Girok.shared.namgi("barojapgi_tal", ["t": t.rawValue])
+        jigeumBoda()
     }
 
     func georeoGagi() {
@@ -388,6 +403,10 @@ final class AnnaeEngine: ObservableObject {
         guard let y = yj.jigeum else { return }
         // 2.40.0 움직임 감지기로 알아챈 지하철·버스·걸음도 이어 받음
         if t == .jihacheol {
+            // 2.44.0 (261004-I2, 이사장님 승인) — 기차·고속버스를 타고 가는 동안 터널에 들어가 위성·통신이 끊기면 땅속으로 보고
+            // "지하철을 타신 것 같습니다"라며 기차 안내를 덮던 일(KTX 부산행). 타고 가는 중이면 지하철로 보지 않음. 차로 바로잡으신 때도 그대로
+            if y.danggye == .taneunJung && (y.talgeot == .gicha || y.talgeot == .gosokbeoseu || yj.sokdoChujeong == .gicha) { return }
+            if y.barojabeum && y.talgeot == .cha && y.danggye == .taneunJung { return }
             if y.barojabeum && y.talgeot == .beoseu && !TalgeotGamji.shared.jiha { return }   // 이용자가 버스로 바로잡으셨고 땅속이 아니면 그대로
             if let g = y.jiha {
                 // 타는 역으로 가던 중(입구에 닿았든 못 닿았든) 열차가 움직임 — 탄 것으로 보고 역 알림
