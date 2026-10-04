@@ -552,6 +552,26 @@ final class MalHagi: ObservableObject {
             }
             return
         }
+        // 1-3. 2.44.0 (261004-I2, 2026-10-04 KTX 부산행, 이사장님 승인) 탈것 바로잡는 말 — "기차 탔어", "기차야", "케이티엑스", "고속버스야", "택시 탔어"
+        //      어떤 상태(지하철로 잘못 알고 있을 때 포함)에서도 받음. 장소 찾기("기차역으로 가자")와 섞이지 않게 가자·가줘·까지·으로가 든 말은 뺌
+        if y != nil && z.count <= 14 && !z.contains("가자") && !z.contains("가줘") && !z.contains("까지") && !z.contains("으로") {
+            let lz = z.lowercased()
+            var tk: Talgeot? = nil
+            if lz.contains("ktx") || z.contains("케이티엑스") || lz.contains("srt") || z.contains("에스알티")
+                || z.contains("기차탔") || z.contains("기차야") || z.contains("기차예요") || z.contains("기차에요") || z.contains("기차입니다") || z.contains("기차타고") {
+                tk = .gicha
+            } else if z.contains("고속버스탔") || z.contains("고속버스야") || z.contains("고속버스예요") || z.contains("고속버스에요") || z.contains("고속버스입니다") || z.contains("고속버스타고") {
+                tk = .gosokbeoseu
+            } else if z.contains("택시탔") || z.contains("택시야") || z.contains("택시예요") || z.contains("택시에요") || z.contains("택시입니다") || z.contains("택시타고") {
+                tk = .cha
+            }
+            if let tk = tk {
+                mureum = .eopseum
+                dap("", false)
+                AnnaeEngine.shared.talgeotBarojapgi(tk)
+                return
+            }
+        }
         // 2. 긴급통화 중 그만·끊어
         if GinGeup.shared.sangtae != .eopseum && (sajeon.itda(alts, "geuman") || z.contains("끊어")) {
             dap("", false)
