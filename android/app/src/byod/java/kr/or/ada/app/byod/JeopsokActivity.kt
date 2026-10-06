@@ -1,4 +1,4 @@
-// BYOD 방송 — 접속 도구: 엔에프시 스티커 쓰기와 큐알코드 만들기 (1.1.0판, 빌드 261006-B2, 도서클이 방송클 일을 이어 맡아 만듦)
+// BYOD 방송 — 접속 도구: 엔에프시 스티커 쓰기와 큐알코드 만들기 (1.1.1판, 빌드 261006-B3, 도서클이 방송클 일을 이어 맡아 만듦)
 // 이사장님 지시(2026-10-06): 접수대에서 한 번에 붙게. 안드로이드는 엔에프시 스티커(와이파이 붙기), 아이폰은 큐알코드(와이파이 붙기). 두 기능 모두 늘 유지.
 // 플린트 2가 오면 붙자마자 듣기 화면이 저절로 열림. 그 전에는 「듣기 주소」 스티커나 큐알로 듣기 화면을 엶.
 package kr.or.ada.app.byod
@@ -119,27 +119,48 @@ class JeopsokActivity : Activity() {
         if (na == null) { mal("이 기기에는 엔에프시가 없습니다."); return }
         if (!na.isEnabled) { mal("엔에프시가 꺼져 있습니다. 설정에서 엔에프시를 켜 주십시오."); return }
         sseulGeot = m; sseulIreum = ireum; sseunSu = 0
-        na.enableReaderMode(this, { tag -> sseugi(tag) }, NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or NfcAdapter.FLAG_READER_NFC_F or NfcAdapter.FLAG_READER_NFC_V or NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK, null)
+        na.enableReaderMode(this, { tag -> sseugi(tag) }, NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or NfcAdapter.FLAG_READER_NFC_F or NfcAdapter.FLAG_READER_NFC_V, null)
         mal(ireum + " 스티커 쓰기를 준비했습니다. 기기 뒷면 가운데에 스티커를 대 주십시오. 여러 장을 차례로 대면 계속 씁니다.")
     }
+    // 1.1.1 — 스티커 쓰기 고침(10월 6일 직원 시험에서 「쓸 수 없습니다」): 엔디프 확인을 건너뛰던 설정을 빼고, 그래도 안 되면 엔태그(NTAG) 칩에 칸마다 직접 씀(엔에프시 툴스 앱과 같은 방식)
     private fun sseugi(tag: Tag) {
         val m = sseulGeot ?: return
-        val r = try {
-            val nd = Ndef.get(tag)
-            if (nd != null) {
-                nd.connect()
-                val rr = if (!nd.isWritable) "이 스티커는 잠겨 있어 쓸 수 없습니다."
-                else if (nd.maxSize < m.toByteArray().size) "이 스티커는 너무 작습니다. 엔태그 215 이상을 쓰십시오."
-                else { nd.writeNdefMessage(m); sseunSu++; "" }
-                try { nd.close() } catch (e: Exception) {}
-                rr
-            } else {
-                val f = NdefFormatable.get(tag)
-                if (f == null) "이 스티커에는 쓸 수 없습니다."
-                else { f.connect(); f.format(m); try { f.close() } catch (e: Exception) {}; sseunSu++; "" }
-            }
-        } catch (e: Exception) { "쓰지 못했습니다. 스티커를 조금 더 오래 대 주십시오." }
+        val r = try { sseugiNdef(tag, m) } catch (e: Exception) { try { sseugiJikjeop(tag, m) } catch (e2: Exception) { "쓰지 못했습니다. 스티커를 움직이지 말고 2초쯤 대 주십시오." } }
+        if (r.isEmpty()) sseunSu++
         runOnUiThread { mal(if (r.isEmpty()) sseulIreum + " 스티커 " + sseunSu + "장째를 다 썼습니다. 다음 스티커를 대 주십시오." else r) }
+    }
+    private fun sseugiNdef(tag: Tag, m: NdefMessage): String {
+        val nd = Ndef.get(tag)
+        if (nd != null) {
+            nd.connect()
+            try {
+                if (!nd.isWritable) return "이 스티커는 잠겨 있어 쓸 수 없습니다."
+                if (nd.maxSize < m.toByteArray().size) return "이 스티커는 너무 작습니다. 엔태그 215 이상을 쓰십시오."
+                nd.writeNdefMessage(m); return ""
+            } finally { try { nd.close() } catch (e: Exception) {} }
+        }
+        val f = NdefFormatable.get(tag)
+        if (f != null) {
+            f.connect()
+            try { f.format(m); return "" } finally { try { f.close() } catch (e: Exception) {} }
+        }
+        return sseugiJikjeop(tag, m)
+    }
+    // 엔태그 21x(울트라라이트 계열) 칩에 엔디프 묶음을 4쪽(page 4)부터 칸마다 직접 씀
+    private fun sseugiJikjeop(tag: Tag, m: NdefMessage): String {
+        val mu = android.nfc.tech.MifareUltralight.get(tag) ?: return "이 스티커는 지원하지 않는 종류입니다. 엔태그 213, 215, 216 스티커를 쓰십시오."
+        val msg = m.toByteArray()
+        val o = java.io.ByteArrayOutputStream()
+        o.write(0x03)
+        if (msg.size < 255) o.write(msg.size) else { o.write(0xFF); o.write(msg.size shr 8); o.write(msg.size and 255) }
+        o.write(msg); o.write(0xFE)
+        while (o.size() % 4 != 0) o.write(0)
+        val b = o.toByteArray()
+        mu.connect()
+        try {
+            for (i in b.indices step 4) mu.writePage(4 + i / 4, b.copyOfRange(i, i + 4))
+        } finally { try { mu.close() } catch (e: Exception) {} }
+        return ""
     }
     private fun sseugiMeomchum(malhae: Boolean = true) {
         try { NfcAdapter.getDefaultAdapter(this)?.disableReaderMode(this) } catch (e: Exception) {}
