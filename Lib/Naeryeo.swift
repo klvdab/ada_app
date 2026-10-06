@@ -7,6 +7,7 @@ import SwiftUI
 import AVFoundation
 import Network
 
+@MainActor
 final class Offline: ObservableObject {
     static let shared = Offline()
     @Published var busy: Int = -1
@@ -19,10 +20,10 @@ final class Offline: ObservableObject {
     private let mon = NWPathMonitor()
 
     static let synth = AVSpeechSynthesizer()     // 인터넷이 없을 때 읽는 폰 목소리
-    static var speakToken = -1
-    static var saidPhone = false
-    static var online = true
-    static var cheap = true                      // 와이파이처럼 데이터 걱정이 없는 길
+    nonisolated(unsafe) static var speakToken = -1
+    nonisolated(unsafe) static var saidPhone = false
+    nonisolated(unsafe) static var online = true
+    nonisolated(unsafe) static var cheap = true                      // 와이파이처럼 데이터 걱정이 없는 길
 
     init() {
         mon.pathUpdateHandler = { [weak self] p in
@@ -30,7 +31,7 @@ final class Offline: ObservableObject {
             Offline.online = on
             Offline.cheap = on && !p.isExpensive && !p.isConstrained
             if on { Offline.saidPhone = false }
-            DispatchQueue.main.async { self?.net = on }
+            Task { @MainActor in self?.net = on }
         }
         mon.start(queue: DispatchQueue(label: "kr.or.ada.lib.net"))
         items = Offline.readItems()
