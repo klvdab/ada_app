@@ -1,4 +1,4 @@
-// AI점자도서관 앱 — 나스 창구 부르기 (판 0.1.0, 빌드 260930-1)
+// AI점자도서관 앱 — 나스 창구 부르기 (판 0.3.0, 빌드 261006-1) — 목록 줄 수, 책 전체 글 받기
 // 앱은 나스(lvd.ada.or.kr)로 요청만 넣고, 목소리 굽기는 서버 일꾼이 맡는다.
 import Foundation
 
@@ -6,7 +6,7 @@ enum API {
     static let base = "https://lvd.ada.or.kr/nas/"
     static var key: String { Hoewon.shared.yeolsoe }   // 회원 열쇠 — 앱 코드에 나스 열쇠를 적지 않음
     static let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AIJeomjaLib/0.1"
-    static let perPage = 15
+    static var perPage: Int { let n = UserDefaults.standard.integer(forKey: "julsu"); return [5, 10, 15, 20, 30].contains(n) ? n : 15 }   // 0.3.0 — 목록 줄 수(기본 15, 설정에서 고름)
 
     static func url(_ file: String, _ q: [String: String]) -> URL {
         var c = URLComponents(string: base + file)!
@@ -32,12 +32,13 @@ enum API {
 
     // 목록·찾기·책 정보
     static func gal() async throws -> GalResp { try await get("doseo.php", ["m": "j_gal"], as: GalResp.self) }
-    static func list(_ g: String, _ o: Int) async throws -> ListResp { try await get("doseo.php", ["m": "j_list", "g": g, "o": String(o)], as: ListResp.self) }
-    static func jakbon(_ j: String, _ o: Int) async throws -> ListResp { try await get("doseo.php", ["m": "j_jakbon", "j": j, "o": String(o)], as: ListResp.self) }
-    static func find(_ s: String, _ o: Int) async throws -> ListResp { try await get("doseo.php", ["m": "j_find", "s": s, "o": String(o)], as: ListResp.self) }
+    static func list(_ g: String, _ o: Int) async throws -> ListResp { try await get("doseo.php", ["m": "j_list", "g": g, "o": String(o), "n": String(perPage)], as: ListResp.self) }
+    static func jakbon(_ j: String, _ o: Int) async throws -> ListResp { try await get("doseo.php", ["m": "j_jakbon", "j": j, "o": String(o), "n": String(perPage)], as: ListResp.self) }
+    static func find(_ s: String, _ o: Int) async throws -> ListResp { try await get("doseo.php", ["m": "j_find", "s": s, "o": String(o), "n": String(perPage)], as: ListResp.self) }
     static func book(_ i: Int) async throws -> BookResp { try await get("doseo.php", ["m": "j_book", "i": String(i)], as: BookResp.self) }
 
     // 독서기: 글자 한 쪽(60문단), 소리 요청, 소리 받기, 소리책·동영상 주소
+    static func gulAll(_ i: Int) async throws -> GulResp { try await get("dokseo.php", ["m": "gul", "i": String(i), "all": "1"], as: GulResp.self) }   // 0.3.0 — 내려받기: 책 전체 글을 한 번에
     static func gul(_ i: Int, _ o: Int) async throws -> GulResp { try await get("dokseo.php", ["m": "gul", "i": String(i), "o": String(o)], as: GulResp.self) }
 
     static func yocheong(_ text: String, voice: Int) async throws -> YoResp {
