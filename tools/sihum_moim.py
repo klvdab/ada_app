@@ -1,4 +1,5 @@
-# 시험 모임 만들기 (1.0.3판, 빌드 261006-1 — 사람 넣기 셋째 길(모임 쪽에서 잇기)·모임 사람과 초대 상태 보이기, 이사장님 승인 2026-10-06)
+# 시험 모임 만들기 (1.0.4판, 빌드 261006-2 — 수락 전(INVITED)인 사람에게 초대 메일 다시 보내기 갈래, 이사장님 승인 2026-10-06 "메일이 삭제되었는데 다시 받을 수 있니")
+# (1.0.3판, 빌드 261006-1 — 사람 넣기 셋째 길(모임 쪽에서 잇기)·모임 사람과 초대 상태 보이기, 이사장님 승인 2026-10-06)
 # (1.0.2판, 빌드 260930-3 — 사람 넣기를 두 길로 다시 시도, 1.0.1 애플 답 한 줄, 이사장님 승인 2026-09-30
 #  "AI점자도서관 앱에 협회 안쪽 시험 모임을 만들고 길눈과 같은 사람들을 넣는 것을 허락한다.")
 # 앱스토어 커넥트 열쇠로, 대상 앱에 길눈 앱과 같은 이름의 내부 시험 모임을 만들고(이미 있으면 그대로 씀)
@@ -130,6 +131,17 @@ for t in hwak:
     allim("확인 - " + saram_mal(t))
 ga = dm.get("attributes", {})
 allim("대상 모임 속성: 안쪽 %s, 모든 판 받기 %s" % (ga.get("isInternalGroup"), ga.get("hasAccessToAllBuilds")))
+if os.environ.get("DASI", "") == "예":
+    # 1.0.4 — 수락 전인 사람에게만 이 앱의 초대 메일을 다시 보냄
+    for t in hwak:
+        if (t.get("attributes", {}).get("state") or "") == "INVITED":
+            try:
+                bureugi("betaTesterInvitations", bon={"data": {"type": "betaTesterInvitations",
+                                                               "relationships": {"app": {"data": {"type": "apps", "id": dae_id}},
+                                                                                 "betaTester": {"data": {"type": "betaTesters", "id": t["id"]}}}}}, bang="POST")
+                allim("초대 메일 다시 보냄: " + saram_mal(t))
+            except urllib.error.HTTPError:
+                allim("초대 메일 다시 보내기 실패: " + saram_mal(t))
 try:
     us = bureugi("users", {"limit": "50"}).get("data", [])
     for u in us:
