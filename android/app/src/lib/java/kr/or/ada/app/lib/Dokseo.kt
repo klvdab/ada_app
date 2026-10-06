@@ -149,7 +149,7 @@ object Dokseo {
     private fun apseo() {
         if (kind != "geul" || !playing) return
         val tk = token
-        for (k in 1..4) {
+        for (k in 1..6) {   // 0.4.1 — 여섯 문단을 미리
             val o = pos + k
             if (modu in 1..o) break
             if (o <= queued) continue
