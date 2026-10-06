@@ -72,6 +72,11 @@ object MalHagi {
     /** 새 명령마다 하나씩 — 늦게 온 대답은 버림 */
     private var sedae = 0
     private var jadongYeolim = 0
+    // 2.17.0 대화 이어 가기(이사장님 승인 2026-10-06, 아이폰 2.49.0과 같음)
+    private var ieoSu = 0
+    private var ieoGeumman = false
+    private val choegeunMal = ArrayList<String>()
+    private val daehwaGirok = ArrayList<Pair<String, String>>()
     private var dasiHanbeon = false
     private var ijeonMal = ""
     private var motBeon = 0
@@ -241,6 +246,22 @@ object MalHagi {
             return
         }
         dasiHanbeon = false
+        // 2.17.0 말씀이 있으면 이어 듣기를 새로 셈, 「됐어」면 그침, 같은 말 세 번이면 부드럽게 끊음
+        ieoSu = 0
+        val zz = MalSajeon.ttuk(alts[0])
+        if (zz in setOf("됐어", "됐어요", "됐습니다", "고마워", "고마워요", "고맙습니다", "알았어", "알겠어", "이제됐어", "충분해")) {
+            ieoGeumman = true
+            dapHagi(sd, "네, 필요하시면 하이 길눈이라고 불러 주십시오.", false)
+            return
+        }
+        choegeunMal.add(zz)
+        if (choegeunMal.size > 3) choegeunMal.removeAt(0)
+        if (choegeunMal.size == 3 && choegeunMal.toSet().size == 1 && zz.length > 1) {
+            choegeunMal.clear()
+            ieoGeumman = true
+            dapHagi(sd, "같은 말씀을 여러 번 하셨습니다. 제가 잘 돕지 못했다면 다른 말로 여쭤 봐 주시거나, 긴급통화로 현장영상해설사를 부르실 수 있습니다.", false)
+            return
+        }
         deureunMal = alts[0]
         bakkum(MalSangtae.ARABONEUN)
         if (Seoljeong.malKyeojim) {
@@ -282,14 +303,18 @@ object MalHagi {
         bakkum(MalSangtae.SWIM)
         if (t.isNotEmpty()) { dapMal = t; byeonhwa?.invoke() }
         if (t.isEmpty()) { jadongYeolim = 0; Girok.namgi("dap_kkeut"); return }
-        if (mutneun && jadongYeolim < 1) {
+        // 2.17.0 묻는 말이든 아니든 대답 뒤에는 하이 길눈 없이 10초 이어 들음(딩동). 말씀이 없으면 조용히 닫음
+        if (!ieoGeumman && ieoSu < 20 && GinGeup.sangtae == GinGeupSangtae.EOPSEUM) {
             malHuHagi(t) {
                 if (sd == sedae && sangtae == MalSangtae.SWIM) {
+                    ieoSu += 1
                     jadongYeolim += 1
                     yeolgi(true)
                 }
             }
         } else {
+            ieoGeumman = false
+            ieoSu = 0
             jadongYeolim = 0
             Sori.mal(t)
             Girok.namgi("dap_kkeut")
@@ -900,11 +925,40 @@ object MalHagi {
         if (gagiMal) {
             dap("죄송합니다. $q${eul(q)} 찾지 못했습니다. 다른 이름으로 말씀해 주십시오.", true)
         } else {
-            val now = System.currentTimeMillis()
-            motBeon = if (now - motTtae < 120000) motBeon + 1 else 1
-            motTtae = now
-            dap(if (motBeon < 2) "죄송합니다. 제가 잘 알아듣지 못했습니다. 다시 말씀해 주십시오."
-                else "죄송합니다. 이 말씀은 아직 배우지 못했습니다. 기록해 두었으니 다음 업그레이드에 넣겠습니다. 다시 말씀해 주십시오.", true)
+            // 2.17.0 명령도 곳 이름도 아니면 말벗(서버 인공지능)에게 물어 끝까지 대답함
+            malbeotMutgi(t) { d ->
+                if (d != null) dap(d, false)
+                else {
+                    val now = System.currentTimeMillis()
+                    motBeon = if (now - motTtae < 120000) motBeon + 1 else 1
+                    motTtae = now
+                    dap(if (motBeon < 2) "죄송합니다. 제가 잘 알아듣지 못했습니다. 다시 말씀해 주십시오."
+                        else "죄송합니다. 이 말씀은 아직 배우지 못했습니다. 기록해 두었으니 다음 업그레이드에 넣겠습니다. 다시 말씀해 주십시오.", true)
+                }
+            }
+        }
+    }
+
+    /** 2.17.0 말벗 — 명령이 아닌 질문은 협회 리눅스 서버의 인공지능(엑사원)에게. 지금 자리·가는 곳·앞의 대화 넉 마디를 함께 넘김 */
+    private fun malbeotMutgi(t: String, kkeut: (String?) -> Unit) {
+        val q = HashMap<String, String>()
+        q["mal"] = t
+        if (AnnaeEngine.majimakGil.isNotEmpty()) q["juso"] = AnnaeEngine.majimakGil
+        YeojeongEngine.jigeum?.let { q["mok"] = it.mokjeok.ireum }
+        val ij = org.json.JSONArray()
+        for (p in daehwaGirok.takeLast(4)) ij.put(org.json.JSONArray().put(p.first).put(p.second))
+        q["ijeon"] = ij.toString()
+        Tongsin.json("malbeot.php", q, 40000) { o ->
+            val d = o?.optString("dap", "") ?: ""
+            if (o != null && o.optBoolean("ok", false) && d.isNotEmpty()) {
+                daehwaGirok.add(Pair(t, d))
+                if (daehwaGirok.size > 6) daehwaGirok.removeAt(0)
+                Girok.namgi("malbeot", mapOf("cho" to o.optDouble("cho", 0.0)))
+                kkeut(d)
+            } else {
+                Girok.namgi("malbeot_mot")
+                kkeut(null)
+            }
         }
     }
 
