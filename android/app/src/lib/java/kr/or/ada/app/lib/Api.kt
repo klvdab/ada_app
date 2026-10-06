@@ -12,7 +12,7 @@ import java.util.UUID
 data class Gal(val g: String, val n: Int, val dan: String)
 data class Item(val i: Int?, val j: String?, val t: String, val g: String?)
 data class ListResp(val modu: Int, val o: Int, val items: List<Item>, val ttl: String?)
-data class BookResp(val i: Int, val t: String, val g: String, val meg: Double, val nal: String, val kind: String)
+data class BookResp(val i: Int, val t: String, val g: String, val meg: Double, val nal: String, val kind: String, val sogae: String = "", val jieun: String = "", val chulpan: String = "")   // 0.4.2 — 책 소개
 
 class Makhim : Exception()   // 403 — 회원 열쇠가 막힘
 
@@ -61,7 +61,7 @@ object Api {
     fun find(s: String, o: Int) = listResp(getJson("doseo.php", mapOf("m" to "j_find", "s" to s, "o" to "$o", "n" to "$PER")), o)
     fun book(i: Int): BookResp {
         val j = getJson("doseo.php", mapOf("m" to "j_book", "i" to "$i"))
-        return BookResp(j.optInt("i", i), j.optString("t"), j.optString("g"), j.optDouble("meg", 0.0), j.optString("nal"), j.optString("kind", "geul"))
+        return BookResp(j.optInt("i", i), j.optString("t"), j.optString("g"), j.optDouble("meg", 0.0), j.optString("nal"), j.optString("kind", "geul"), j.optString("sogae"), j.optString("jieun"), j.optString("chulpan"))
     }
     /** 글자책 한 쪽(60문단) */
     fun gul(i: Int, o: Int): Triple<Int, List<String>, String> {
