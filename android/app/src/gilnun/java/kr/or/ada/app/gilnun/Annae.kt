@@ -205,7 +205,8 @@ object AnnaeEngine {
         yj.talgeotJeonghagi(Talgeot.GEOREUM, false)
         yj.danggyeBakkugi(Danggye.NAM_EUN_GIL)
         dasiSijak()
-        malHagi("걷는 안내를 시작합니다.")
+        // 2.18.0 흰지팡이 당부, 보폭을 재기 전이면 미터로 안내한다고 알림(이사장님 승인)
+        malHagi("걷는 안내를 시작합니다. 흰지팡이를 꼭 짚어 주십시오." + (if (Seoljeong.bopokJaem) "" else " 보폭을 아직 재지 않으셔서 걸음 수 대신 미터로 알려 드립니다."))
         jigeumBoda()
     }
 
@@ -579,18 +580,21 @@ object AnnaeEngine {
     /** 마지막 스무 미터 — 걸음 수와 시 방향(4초에 한 번, 바뀔 때만). 맡았으면 참 */
     private fun magakAnnae(w: Jari, d: Double, lat: Double, lon: Double, mok: String): Boolean {
         if (d > 20) return false
-        val bp = if (Seoljeong.bopok > 0.3) Seoljeong.bopok else 0.65
+        // 2.18.0 보폭을 재기 전에는 걸음 수 대신 미터로
+        val jaem = Seoljeong.bopokJaem
+        val bp = if (jaem && Seoljeong.bopok > 0.3) Seoljeong.bopok else 1.0
         val su = max(1, Math.round(d / bp).toInt())
+        val dan = if (jaem) "걸음" else "미터"
         val s = sigye(w, lat, lon)
         val now = System.currentTimeMillis()
         if (now - magakMalTtae < 4000) return true
         if (magakSu < 0) {
             magakMalTtae = now; magakSu = su; magakSigye = s
-            malHagi("곧 도착합니다. ${bg?.ireum ?: mok}까지 ${su}걸음" + (if (s == 0) "." else ", ${s}시 방향."))
+            malHagi("곧 도착합니다. ${bg?.ireum ?: mok}까지 ${su}$dan" + (if (s == 0) "." else ", ${s}시 방향."))
             if (s != 0) Jindong.banghyang(s)
         } else if (abs(su - magakSu) >= 2 || (s != 0 && s != magakSigye)) {
             magakMalTtae = now; magakSu = su; magakSigye = s
-            malHagi("${su}걸음" + (if (s == 0) "." else ", ${s}시 방향."))
+            malHagi("${su}$dan" + (if (s == 0) "." else ", ${s}시 방향."))
             if (s != 0) Jindong.banghyang(s)
         }
         return true
