@@ -10,13 +10,17 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.50.0"
-    static let bild = "261006-I10"
+    static let pan = "2.51.0"
+    static let bild = "261006-I11"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.51.0", bild: "261006-I11", nal: "2026-10-06", naeyong: [
+            "말벗 견주기(관리자 시험, 이사장님 승인) — 같은 질문 다섯 가지를 서버 말벗과 폰 안 인공지능에 차례로 묻고 걸린 초와 대답을 나란히 적음. 폰 안 인공지능이 안 되는 폰은 서버만 잼",
+            "도움말 말벗 견주기 항목 더함"
+        ]),
         Gochim(pan: "2.50.0", bild: "261006-I10", nal: "2026-10-06", naeyong: [
             "처음 안내(이사장님 승인) — 처음 여시면 흰지팡이 당부와 보폭 재기 화면부터. 나중에 재기를 누르시면 보폭을 재기 전까지 걸음 수 대신 미터로 안내. 보폭을 재 두신 분께는 띄우지 않음",
             "걷는 안내·점지도 따라 걷기를 시작할 때마다 「흰지팡이를 꼭 짚어 주십시오」 한 줄",
