@@ -10,13 +10,18 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.47.0"
-    static let bild = "261006-I6"
+    static let pan = "2.48.0"
+    static let bild = "261006-I8"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.48.0", bild: "261006-I8", nal: "2026-10-06", naeyong: [
+            "마지막 스무 걸음(이사장님 승인) — 목적지 스무 미터 앞부터 걸음 수와 시 방향으로 좁혀 말함(바뀔 때만, 4초에 한 번), 그쪽으로 진동",
+            "볼거리 — 목적지 80미터 앞에서 자봉이 남긴 볼거리(서버 lvd-jabong 0.2.0)를 받아, 있으면 그 정확한 자리로 이끌고 더 가까이(5~10미터)에서 도착을 알리며 이름과 만져지는 것을 들려 드림",
+            "도움말 마지막 스무 걸음과 볼거리 항목 더함"
+        ]),
         Gochim(pan: "2.47.0", bild: "261006-I6", nal: "2026-10-06", naeyong: [
             "걸을 수 있는 길로 이끌기(이사장님 승인, 부산 에이펙 공원에서 2시 방향만으로는 찾아갈 수 없었던 일) — 점지도 없이 위성으로 걸을 때 리눅스 서버 걷기 길찾기(lvd-gil, 나스 gilchatgi.php)로 걸을 수 있는 길을 받아 목적지가 아니라 다음 꺾는 곳을 겨눔",
             "꺾는 곳 열 걸음쯤 앞에서 미리, 닿으면 지금 꺾으라고 하고 그쪽으로 진동. 걸음마다 방향을 다시 셈해 맞으면 20초에 한 번 확신음, 틀어지면 길은 몇 시 방향",
