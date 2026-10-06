@@ -193,7 +193,10 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
             guard my == token else { return }
             waiting = false
             guard let f else {
-                speakPhone(text, my)   // 0.3.0 — 서버 소리를 못 받으면 폰 목소리로
+                if !Offline.online { speakPhone(text, my); return }   // 0.3.2 — 폰 목소리는 인터넷이 완전히 끊겼을 때만(이사장님: 도서관 목소리가 바뀌면 안 됨)
+                playing = false
+                status = "소리를 만들지 못했습니다. 잠시 뒤 다시 읽기를 눌러 주십시오."
+                store.say(status)
                 return
             }
             do {
