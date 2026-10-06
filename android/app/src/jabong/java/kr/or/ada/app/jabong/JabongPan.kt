@@ -3,12 +3,16 @@
 package kr.or.ada.app.jabong
 
 object JabongPan {
-    const val pan = "2.8.1"
-    const val bild = "261006-A3"
+    const val pan = "2.9.0"
+    const val bild = "261006-A8"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.9.0", "261006-A8", "2026-10-06", listOf(
+            "볼거리 표시(이사장님 승인, 아이폰 자봉 2.9.0과 같음) — 점지도 그리기 화면에서 팽나무·동상·안내판처럼 찾아갈 것 앞에 서서 이름과 만져지는 것·다가가는 법을 남기면 지금 자리와 함께 서버(lvd-jabong 0.2.0)에 담김. 걷기 전에도 그리는 중에도. 남기면 박수",
+            "도움말 볼거리 표시 항목 더함"
+        )),
         Gochim("2.8.1", "261006-A3", "2026-10-06", listOf(
             "나눔 탭 더 보기 안의 나눔 마당과 함께하기를 웹 자봉 대신 앱 화면으로(이사장님 승인) — 아이폰 자봉과 같은 내용, 같은 나스 창고",
             "나눔 마당: 드립니다·찾습니다 다섯 개씩, 한 건을 누르면 자세히와 전화 걸기(연락처 듣기)·다 나눴습니다, 글 올리기(이름 칸은 자봉 번호로 미리 채움). 올리거나 다 나누면 박수",
