@@ -330,13 +330,13 @@ final class JeomEngine: ObservableObject {
             let hwakin = await JeomEngine.hwakinDoen(g0.id)
             await MainActor.run {
                 guard sd == self.sedae, self.gil != nil else { return }
-                var t = self.ieumIdx > 0 ? "" : "길눈은 보조 안내입니다. 지팡이와 주변 소리를 먼저 확인하십시오."
+                var t = self.ieumIdx > 0 ? "" : "길눈은 보조 안내입니다. 단독보행을 하실 때는 반드시 흰지팡이를 짚고, 주변 소리를 먼저 확인하십시오."   // 2.50.0 흰지팡이 강조
                 if !hwakin { t += " 이 점지도는 아직 확인 중인 길입니다. 조심해서 걸으십시오." }
                 if !t.isEmpty { self.mal(t, .gyeonggo) }
                 let s = Seoljeong.shared
                 var m = self.ieum.isEmpty ? "" : "이어진 길 \(self.ieum.count)구간 가운데 \(self.ieumIdx + 1)번째 구간입니다. "
                 m += (dw ? "되돌아가기를 시작합니다. " : "따라 걷기를 시작합니다. ") + "모두 \(Int((self.nu.last ?? 0).rounded()))미터입니다."
-                m += s.bopokJaem ? " 걸음 수는 \(Seoljeong.bopokModeIreum(s.bopokMode)) 보폭으로 알려 드립니다." : " 보폭을 아직 재지 않으셔서 기본값으로 알려 드립니다."
+                m += s.bopokJaem ? " 걸음 수는 \(Seoljeong.bopokModeIreum(s.bopokMode)) 보폭으로 알려 드립니다." : " 보폭을 아직 재지 않으셔서 걸음 수 대신 미터로 알려 드립니다."   // 2.50.0
                 if !self.kkeoks.isEmpty { m += " 이 길에 꺾이는 자리가 \(self.kkeoks.count)곳 있습니다. 미리 알려 드리겠습니다." }
                 self.mal(m)
             }
@@ -1673,6 +1673,8 @@ final class JeomEngine: ObservableObject {
 
     /// 미터 → "스무 걸음", 아흔아홉 걸음이 넘으면 "약 80미터"
     private func georeum(_ m: Double) -> String {
+        // 2.50.0 보폭을 재기 전에는 걸음 수 대신 미터로(틀린 걸음 수보다 안전, 이사장님 승인)
+        if !Seoljeong.shared.bopokJaem { return "약 \(max(1, Int(m.rounded())))미터" }
         let n = bocokSu(m)
         if let g = JeomEngine.goyu(n) { return g + " 걸음" }
         return "약 \(Int(m.rounded()))미터"
