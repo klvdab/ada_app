@@ -265,6 +265,7 @@ object Geurigi {
         val sae = JSONArray(); sae.put(g); for (i in 0 until geurinGil.length()) sae.put(geurinGil.get(i))
         geurinGil = sae
         mokJeojang()
+        Hamkke.geurimAllim(g.optString("id"), geori)   // 2.8.0 함께한 기록판에 셈
         try { jigeumPail()?.delete() } catch (e: Exception) {}
         Girok.namgi("jb_geurigi_kkeut", mapOf("id" to g.optString("id"), "georeum" to gr, "georeum2" to n2, "pyosi" to marks.length(), "jari" to pts.length()))
         gil = null
