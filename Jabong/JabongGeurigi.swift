@@ -680,6 +680,9 @@ struct GeurigiView: View {
     @ObservedObject private var g = JeomGeurigi.shared
     @ObservedObject private var s = Seoljeong.shared
     @State private var gyedanSu = ""
+    @State private var bgIreum = ""       // 2.9.0 볼거리 표시
+    @State private var bgMal = ""
+    @State private var bgPyeol = false
     @AccessibilityFocusState private var allimChojeom: Bool
     @AccessibilityFocusState private var mureumChojeom: Bool
 
@@ -722,6 +725,19 @@ struct GeurigiView: View {
         }
         Text("꺾이는 곳, 계단, 건널목, 문에 닿는 순간 표시를 남기시면 됩니다. 폰이 방향이나 높이가 바뀐 것을 알아채면 먼저 여쭙니다. 네라고 말씀하시거나 네 단추를 누르셔야 표시가 됩니다.")
             .font(.body)
+        DisclosureGroup("볼거리 표시 — 팽나무·동상처럼 찾아갈 것 남기기", isExpanded: $bgPyeol) { bolgeoriKan }.font(.title3)
+    }
+
+    /// 2.9.0 볼거리 표시 — 그 앞에 서서 이름과 만져지는 것을 남김
+    @ViewBuilder private var bolgeoriKan: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("볼거리 바로 앞에 서서 남기십시오. 지금 자리가 그대로 담깁니다.").font(.body)
+            TextField("이름 — 예를 들어 팽나무", text: $bgIreum).textFieldStyle(.roundedBorder).font(.title3)
+            TextField("만져지는 것과 다가가는 법 — 예를 들어 오른손을 뻗으면 줄기가 닿습니다", text: $bgMal).textFieldStyle(.roundedBorder).font(.title3)
+            Button("볼거리 남기기") {
+                g.bolgeoriNamgi(bgIreum, bgMal) { ok in if ok { bgIreum = ""; bgMal = ""; bgPyeol = false } }
+            }.buttonStyle(KeunDanchu())
+        }
     }
 
     @ViewBuilder private var georeumJung: some View {
@@ -731,6 +747,7 @@ struct GeurigiView: View {
         Button(g.malDeutneun ? "말로 표시 — 듣는 중" : "말로 표시 — 누르고 계단 시작처럼 말씀하십시오") { g.malloPyosi() }
             .buttonStyle(KeunDanchu())
         Button("다 걸었습니다") { g.kkeut() }.buttonStyle(KeunDanchu())
+        DisclosureGroup("볼거리 표시 — 팽나무·동상처럼 찾아갈 것 남기기", isExpanded: $bgPyeol) { bolgeoriKan }.font(.title3)   // 2.9.0
         DisclosureGroup("다른 표시와 도구 펼치기") {
             VStack(alignment: .leading, spacing: 12) {
                 ForEach(JeomGeurigi.MARKS.filter { !JeomGeurigi.JAJU.contains($0) }, id: \.self) { n in
