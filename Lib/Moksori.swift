@@ -33,6 +33,21 @@ final class Miri: ObservableObject {
             Store.shared.say("미리 듣기를 받지 못했습니다.")
         }
     }
+    // 0.4.2 — 아무 글이나 지금 고른 목소리로 읽어 주기(책 소개 듣기)
+    func deutgiGeul(_ t: String) {
+        tk += 1; let my = tk
+        Reader.shared.pause(); p?.stop()
+        let v = Store.shared.voice
+        Task { @MainActor in
+            guard let y = try? await API.yocheong(String(t.prefix(800)), voice: v) else { Store.shared.say("소개를 받지 못했습니다."); return }
+            let hh = (y.h as String?) ?? ""
+            for _ in 0..<120 {
+                if my != self.tk { return }
+                if let d = try? await API.sori(hh) { try? AVAudioSession.sharedInstance().setActive(true); self.p = try? AVAudioPlayer(data: d); self.p?.play(); return }
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+        }
+    }
     func meomchum() { tk += 1; p?.stop() }
 }
 
