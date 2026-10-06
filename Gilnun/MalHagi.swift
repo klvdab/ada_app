@@ -46,6 +46,12 @@ final class MalHagi: ObservableObject {
     private var motBeon = 0
     private var motTtae = Date.distantPast
     private var jadongYeolim = 0
+    // 2.49.0 대화 이어 가기(이사장님 승인 2026-10-06) — 대답 뒤 하이 길눈 없이 이어 듣기, 같은 말 세 번이면 부드럽게 끊음
+    private var ieoSu = 0
+    private var ieoGeumman = false
+    private var watchMal = false
+    private var choegeunMal: [String] = []
+    private var daehwaGirok: [[String]] = []
     private var bureumDolgo = false
     private var bureumYeyak = false
     private var bureumSilpae = 0   // 2.12.0 뒤에서 부름 기다리기를 거듭 못 열면 앱으로 돌아올 때까지 쉼
@@ -245,6 +251,24 @@ final class MalHagi: ObservableObject {
             bureumDeureum()
             return
         }
+        // 2.49.0 말씀이 있으면 이어 듣기를 새로 셈, 「됐어」면 그침, 같은 말 세 번이면 부드럽게 끊음
+        ieoSu = 0
+        let zz = MalSajeon.ttuk(alts[0])
+        if ["됐어", "됐어요", "됐습니다", "고마워", "고마워요", "고맙습니다", "알았어", "알겠어", "이제됐어", "충분해"].contains(zz) {
+            ieoGeumman = true
+            sangtae = .swim
+            dapHagi("네, 필요하시면 하이 길눈이라고 불러 주십시오.", false)
+            return
+        }
+        choegeunMal.append(zz)
+        if choegeunMal.count > 3 { choegeunMal.removeFirst() }
+        if choegeunMal.count == 3 && Set(choegeunMal).count == 1 && zz.count > 1 {
+            choegeunMal = []
+            ieoGeumman = true
+            sangtae = .swim
+            dapHagi("같은 말씀을 여러 번 하셨습니다. 제가 잘 돕지 못했다면 다른 말로 여쭤 봐 주시거나, 긴급통화로 현장영상해설사를 부르실 수 있습니다.", false)
+            return
+        }
         deureunMal = alts[0]
         sangtae = .araboneun
         if Seoljeong.shared.malKyeojim {
@@ -285,10 +309,15 @@ final class MalHagi: ObservableObject {
         if !t.isEmpty { dapMal = t }
         malHam(t) { [weak self] in
             guard let self = self else { return }
-            if mutneun && self.jadongYeolim < 1 && GinGeup.shared.sangtae == .eopseum {
+            // 2.49.0 묻는 말이든 아니든 대답 뒤에는 하이 길눈 없이 10초 이어 들음(딩동으로 알림). 말씀이 없으면 조용히 닫음
+            if GinGeup.shared.sangtae == .eopseum && !self.ieoGeumman && !self.watchMal && self.ieoSu < 20 {
+                self.ieoSu += 1
                 self.jadongYeolim += 1
                 self.myeongryeongYeolgi(sori: true)
             } else {
+                self.ieoGeumman = false
+                self.watchMal = false
+                self.ieoSu = 0
                 self.jadongYeolim = 0
                 Girok.shared.namgi("dap_kkeut", [:])
                 self.bureumDasi(0.8)   // 2.26.0 땡은 대답 앞에서 이미 울림
@@ -501,6 +530,7 @@ final class MalHagi: ObservableObject {
             self.bureumDolgo = false
             self.deureunMal = s
             self.jadongYeolim = 1   // 워치에서 온 말에는 폰 마이크를 저절로 열지 않음
+            self.watchMal = true   // 2.49.0 이어 듣기도 하지 않음
             self.sangtae = .araboneun
             var han = false
             self.cheori([s]) { d, m in
@@ -1807,9 +1837,49 @@ final class MalHagi: ObservableObject {
         mureum = .mokjeok
         mureumTtae = Date()
         if hwagin {
-            dap(sagwa() + "다시 말씀해 주십시오.", true)
+            // 2.49.0 명령도 곳 이름도 아니면 말벗(서버 인공지능)에게 물어 끝까지 대답함
+            malbeotMutgi(t) { [weak self] d in
+                guard let self = self else { return }
+                if let d = d {
+                    self.mureum = .eopseum
+                    dap(d, false)
+                } else {
+                    dap(self.sagwa() + "다시 말씀해 주십시오.", true)
+                }
+            }
         } else {
             dap("죄송합니다. \(q)\(MalHagi.eul(q)) 찾지 못했습니다. 다른 이름으로 말씀해 주십시오.", true)
+        }
+    }
+
+    /// 2.49.0 말벗 — 명령이 아닌 질문은 협회 리눅스 서버의 인공지능(엑사원)에게. 지금 자리·가는 곳·앞의 대화 넉 마디를 함께 넘김
+    private func malbeotMutgi(_ t: String, _ kkeut: @escaping (String?) -> Void) {
+        var c = URLComponents(string: "https://lvd.ada.or.kr/jeom/malbeot.php")
+        var q = [URLQueryItem(name: "mal", value: t)]
+        if !AnnaeEngine.shared.majimakGil.isEmpty { q.append(URLQueryItem(name: "juso", value: AnnaeEngine.shared.majimakGil)) }
+        if let y = YeojeongEngine.shared.jigeum { q.append(URLQueryItem(name: "mok", value: y.mokjeok.ireum)) }
+        if let d = try? JSONSerialization.data(withJSONObject: Array(daehwaGirok.suffix(4))), let s = String(data: d, encoding: .utf8) {
+            q.append(URLQueryItem(name: "ijeon", value: s))
+        }
+        c?.queryItems = q
+        guard let u = c?.url else { kkeut(nil); return }
+        var r = URLRequest(url: u)
+        r.timeoutInterval = 40
+        r.cachePolicy = .reloadIgnoringLocalCacheData
+        Task {
+            let dr = try? await URLSession.shared.data(for: r)
+            let o = dr.flatMap { (try? JSONSerialization.jsonObject(with: $0.0)) as? [String: Any] }
+            await MainActor.run {
+                if let o = o, (o["ok"] as? Bool) == true, let d = o["dap"] as? String, !d.isEmpty {
+                    self.daehwaGirok.append([t, d])
+                    if self.daehwaGirok.count > 6 { self.daehwaGirok.removeFirst() }
+                    Girok.shared.namgi("malbeot", ["cho": Chatgi.su(o["cho"]) ?? 0])
+                    kkeut(d)
+                } else {
+                    Girok.shared.namgi("malbeot_mot", [:])
+                    kkeut(nil)
+                }
+            }
         }
     }
 
