@@ -197,6 +197,7 @@ class ByodActivity : Activity() {
         mom.addView(deoDanchu)
 
         deoAn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+        deoAn.addView(danchu("접속 도구: 엔에프시 스티커와 큐알코드") { startActivity(Intent(this, JeopsokActivity::class.java)) })   // 1.1.0 (261006-B2)
         deoAn.addView(danchu("새로고침") { saerogochim() })
         malsoriDanchu = danchu(if (malsoriOn) "프로그램 말소리 끄기" else "프로그램 말소리 켜기") { malsoriBakkugi() }
         deoAn.addView(malsoriDanchu)
