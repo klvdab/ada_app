@@ -1,4 +1,5 @@
-# 시험 모임 만들기 (1.0.2판, 빌드 260930-3 — 사람 넣기를 두 길로 다시 시도, 1.0.1 애플 답 한 줄, 이사장님 승인 2026-09-30
+# 시험 모임 만들기 (1.0.3판, 빌드 261006-1 — 사람 넣기 셋째 길(모임 쪽에서 잇기)·모임 사람과 초대 상태 보이기, 이사장님 승인 2026-10-06)
+# (1.0.2판, 빌드 260930-3 — 사람 넣기를 두 길로 다시 시도, 1.0.1 애플 답 한 줄, 이사장님 승인 2026-09-30
 #  "AI점자도서관 앱에 협회 안쪽 시험 모임을 만들고 길눈과 같은 사람들을 넣는 것을 허락한다.")
 # 앱스토어 커넥트 열쇠로, 대상 앱에 길눈 앱과 같은 이름의 내부 시험 모임을 만들고(이미 있으면 그대로 씀)
 # 길눈 모임에 있는 사람들을 그대로 넣습니다. 모임은 앞으로 올라오는 판을 모두 받게 해 둡니다.
@@ -49,6 +50,21 @@ def moimdeul(aid):
     return bureugi("apps/%s/betaGroups" % aid, {"limit": "50"}).get("data", [])
 
 
+def garyeo(m):
+    # 메일 주소는 앞 두 글자와 @ 뒤만 보이게
+    m = m or ""
+    if "@" not in m:
+        return m
+    a, b = m.split("@", 1)
+    return a[:2] + "***@" + b
+
+
+def saram_mal(t):
+    a = t.get("attributes", {})
+    return "%s %s (%s, 초대방식 %s, 상태 %s)" % (a.get("lastName") or "", a.get("firstName") or "", garyeo(a.get("email")),
+                                          a.get("inviteType") or "-", a.get("state") or "-")
+
+
 won_id, won_nm = app_id(WON)
 dae_id, dae_nm = app_id(DAE)
 allim("원래 앱: %s / 대상 앱: %s" % (won_nm, dae_nm))
@@ -70,7 +86,12 @@ if dm is None:
 else:
     allim("대상 앱에 「%s」 모임이 이미 있어 그대로 씀" % MOIM)
 
-itdeon = {t["id"] for t in bureugi("betaGroups/%s/betaTesters" % dm["id"], {"limit": "200"}).get("data", [])}
+itdeon_saram = bureugi("betaGroups/%s/betaTesters" % dm["id"], {"limit": "200"}).get("data", [])
+for t in saram:
+    allim("원래 모임 사람: " + saram_mal(t))
+for t in itdeon_saram:
+    allim("대상 모임에 이미 있는 사람: " + saram_mal(t))
+itdeon = {t["id"] for t in itdeon_saram}
 neol = [t for t in saram if t["id"] not in itdeon]
 for t in neol:
     at = t["attributes"]
@@ -78,6 +99,14 @@ for t in neol:
         bureugi("betaTesters/%s/relationships/betaGroups" % t["id"],
                 bon={"data": [{"type": "betaGroups", "id": dm["id"]}]}, bang="POST")
         allim("넣음(사람 쪽에서 모임 잇기): %s" % (at.get("firstName") or ""))
+        continue
+    except urllib.error.HTTPError:
+        pass
+    try:
+        # 1.0.3 셋째 길 — 모임 쪽에서 사람 잇기
+        bureugi("betaGroups/%s/relationships/betaTesters" % dm["id"],
+                bon={"data": [{"type": "betaTesters", "id": t["id"]}]}, bang="POST")
+        allim("넣음(모임 쪽에서 사람 잇기): %s" % (at.get("firstName") or ""))
         continue
     except urllib.error.HTTPError:
         pass
@@ -97,6 +126,18 @@ for t in saram:
 
 hwak = bureugi("betaGroups/%s/betaTesters" % dm["id"], {"limit": "200"}).get("data", [])
 allim("확인: 대상 모임 사람 %d명" % len(hwak))
+for t in hwak:
+    allim("확인 - " + saram_mal(t))
+ga = dm.get("attributes", {})
+allim("대상 모임 속성: 안쪽 %s, 모든 판 받기 %s" % (ga.get("isInternalGroup"), ga.get("hasAccessToAllBuilds")))
+try:
+    us = bureugi("users", {"limit": "50"}).get("data", [])
+    for u in us:
+        ua = u.get("attributes", {})
+        allim("앱스토어 커넥트 사용자: %s %s (%s, 역할 %s, 모든 앱 %s)" % (ua.get("lastName") or "", ua.get("firstName") or "",
+                                                         garyeo(ua.get("username")), ",".join(ua.get("roles") or []), ua.get("allAppsVisible")))
+except Exception:
+    allim("앱스토어 커넥트 사용자 목록은 이 열쇠로 볼 수 없음")
 b = bureugi("builds", {"filter[app]": dae_id, "sort": "-uploadedDate", "limit": "3", "include": "buildBetaDetail"})
 gyeot = {x["id"]: x.get("attributes", {}) for x in b.get("included", [])}
 for x in b.get("data", []):
