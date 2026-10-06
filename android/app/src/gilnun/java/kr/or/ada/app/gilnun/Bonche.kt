@@ -23,12 +23,17 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.14.0"
-    const val bild = "261006-A5"
+    const val pan = "2.15.0"
+    const val bild = "261006-A6"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.15.0", "261006-A6", "2026-10-06", listOf(
+            "걸을 수 있는 길로 이끌기(이사장님 승인, 아이폰 길눈 2.47.0과 같음) — 점지도 없이 위성으로 걸을 때 리눅스 서버 걷기 길찾기(lvd-gil, 나스 gilchatgi.php)로 걸을 수 있는 길을 받아 다음 꺾는 곳을 겨눔",
+            "꺾는 곳 열 걸음쯤 앞에서 미리, 닿으면 지금 꺾으라고 하고 그쪽으로 진동. 맞으면 20초에 한 번 확신음, 틀어지면 길은 몇 시 방향. 크게 벗어나면 다시 찾고, 못 받으면 예전처럼 곧은 방향",
+            "도움말 걸을 수 있는 길로 이끌기 항목 더함"
+        )),
         Gochim("2.14.0", "261006-A5", "2026-10-06", listOf(
             "비슷한 곡 권하기(이사장님 승인, 아이폰 길눈 2.46.0과 같음) — 말로 하기에서 가수와 곡 이름으로 찾았는데 꼭 맞는 곡이 없으면, 나스 음악 창구가 이름이 비슷한 제목·가수를 찾아 여쭘(이문세 첫사랑 → 옛사랑). 네면 바로 틀고 아니면 그만",
             "도움말 비슷한 곡 권하기 항목 더함"
