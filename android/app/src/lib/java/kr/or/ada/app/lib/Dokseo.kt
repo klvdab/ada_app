@@ -13,6 +13,7 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import java.io.File
+import java.util.Locale
 import java.security.MessageDigest
 import java.util.concurrent.Executors
 
@@ -71,7 +72,7 @@ object Dokseo {
             pos = saved?.pos?.toInt() ?: 0
             loadPage(pos) { Store.remember(i, title, kind, pos.toDouble(), modu); bakkwim?.invoke() }
         } else {
-            p.setMediaItem(MediaItem.Builder().setUri(Api.mediaUrl(bi)).setMediaId("m").build())
+            p.setMediaItem(MediaItem.Builder().setUri(Naeryeo.localMedia(c, bi)?.let { android.net.Uri.fromFile(it).toString() } ?: Api.mediaUrl(bi)).setMediaId("m").build())   // 0.3.0 — 내려받은 소리책은 폰 안 파일로
             p.prepare()
             saved?.let { p.seekTo((it.pos * 1000).toLong()) }
             Store.remember(i, title, kind, saved?.pos ?: 0.0, 0)
@@ -81,6 +82,7 @@ object Dokseo {
     private fun loadPage(o: Int, then: (() -> Unit)? = null) {
         val pg = (o / 60) * 60
         if (paras.containsKey(o)) { then?.let { main.post(it) }; return }
+        ctx?.let { cx -> Naeryeo.paras(cx, i)?.let { all -> modu = all.size; all.forEachIndexed { k, s -> paras[k] = s }; then?.let { main.post(it) }; return } }   // 0.3.0 — 내려받은 글이 있으면 인터넷 없이
         if (!pageLoading.add(pg)) return
         val book = i
         pool.execute {
@@ -133,9 +135,10 @@ object Dokseo {
         pos = at; playing = true; waiting = true; queued = at - 1
         p.stop(); p.clearMediaItems()
         bakkwim?.invoke()
+        ctx?.let { cx -> if (!Naeryeo.online(cx)) { speakPhone(at, tk); return } }   // 0.3.0 — 인터넷이 없으면 바로 폰 목소리
         soriFile(at) { f ->
             if (tk != token) return@soriFile
-            if (f == null) { playing = false; waiting = false; allim?.invoke("목소리를 받지 못했습니다. 인터넷을 확인한 뒤 다시 읽기를 눌러 주십시오."); bakkwim?.invoke(); return@soriFile }
+            if (f == null) { speakPhone(at, tk); return@soriFile }   // 0.3.0 — 서버 목소리를 못 받으면 폰 목소리로
             p.setMediaItem(MediaItem.Builder().setUri(android.net.Uri.fromFile(f)).setMediaId("$at").build())
             queued = at; waiting = false
             p.prepare(); p.play()
@@ -166,13 +169,13 @@ object Dokseo {
         bakkwim?.invoke()
     }
 
-    fun pause() {
+    fun pause() { tts?.stop();
         token += 1
         player?.pause(); playing = false; waiting = false
         if (kind != "geul") player?.let { Store.remember(i, title, kind, it.currentPosition / 1000.0, 0) }
         bakkwim?.invoke()
     }
-    fun stop() {
+    fun stop() { tts?.stop();
         token += 1
         player?.stop(); player?.clearMediaItems()
         playing = false; waiting = false; gidari.clear()
@@ -184,5 +187,49 @@ object Dokseo {
     fun markHere() {
         val ps = if (kind == "geul") pos.toDouble() else (player?.currentPosition ?: 0) / 1000.0
         Store.addMark(i, title, kind, ps)
+    }
+
+    // 0.3.0 — 인터넷이 없거나 서버 목소리를 못 받으면 폰 목소리(TextToSpeech)로 읽음
+    private var tts: android.speech.tts.TextToSpeech? = null
+    private var ttsOk = false
+    private var saidPhone = false
+    private fun speakPhone(at: Int, tk: Int) {
+        val t = paras[at]
+        if (t == null) { loadPage(at) { if (tk == token) speakPhone(at, tk) }; return }
+        val cx = ctx ?: return
+        val go: () -> Unit = {
+            val e = tts
+            if (e == null || !ttsOk) { playing = false; waiting = false; allim?.invoke("폰 목소리를 쓸 수 없습니다. 설정의 텍스트 음성 변환을 확인해 주십시오."); bakkwim?.invoke() }
+            else {
+                if (!Naeryeo.online(cx) && !saidPhone) { saidPhone = true; allim?.invoke("인터넷이 없어 폰 목소리로 읽습니다.") }
+                if (Naeryeo.online(cx)) saidPhone = false
+                e.setSpeechRate(Store.rate)
+                waiting = false; pos = at
+                e.speak(if (t.isEmpty()) " " else t, android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, "p$tk-$at")
+                Store.remember(i, title, kind, at.toDouble(), modu)
+                bakkwim?.invoke()
+            }
+        }
+        if (tts == null) {
+            tts = android.speech.tts.TextToSpeech(cx) { st ->
+                ttsOk = st == android.speech.tts.TextToSpeech.SUCCESS
+                if (ttsOk) {
+                    tts?.language = Locale.KOREAN
+                    tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                        override fun onStart(id: String?) {}
+                        @Deprecated("") override fun onError(id: String?) {}
+                        override fun onDone(id: String?) {
+                            main.post {
+                                val tkn = id?.removePrefix("p")?.substringBefore("-")?.toIntOrNull() ?: -1
+                                if (tkn != token || !playing) return@post
+                                if (pos + 1 < modu) play(pos + 1)
+                                else { playing = false; allim?.invoke("책을 끝까지 읽었습니다."); bakkwim?.invoke() }
+                            }
+                        }
+                    })
+                }
+                main.post { go() }
+            }
+        } else go()
     }
 }
