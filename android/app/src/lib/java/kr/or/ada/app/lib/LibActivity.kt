@@ -267,6 +267,12 @@ class LibActivity : Activity() {
                     body.removeView(mal)
                     val t = geul(b.t, jemok = true)
                     geul("갈래 ${b.g}" + (if (b.nal.isNotEmpty()) ", ${b.nal}" else ""), jakge = true)
+                    if (b.sogae.isNotEmpty()) {   // 0.4.2 — 책 소개(카카오 책 정보), 지은이, 출판사
+                        if (b.jieun.isNotEmpty()) geul("지은이 " + b.jieun, jakge = true)
+                        if (b.chulpan.isNotEmpty()) geul("출판사 " + b.chulpan, jakge = true)
+                        geul("책 소개. " + b.sogae)
+                        danchu("책 소개 듣기") { sogaeDeutgi("책 소개. " + b.sogae) }
+                    }
                     val ireum = when (b.kind) { "sori" -> "듣기"; "yeongsang" -> "보기"; else -> "읽기" }
                     danchu(if (Store.rec(i) != null) "이어서 $ireum" else ireum, keun = true) { go(Hm.Reader(i, b.t, b.kind)) }
                     if (Store.marksOf(i).isNotEmpty()) danchu("책갈피 ${Store.marksOf(i).size}개") { go(Hm.Marks(i)) }
@@ -343,6 +349,21 @@ class LibActivity : Activity() {
     private val MOKSORI = listOf("여자 1", "여자 2", "여자 3", "여자 4", "여자 5", "남자 1", "남자 2", "남자 3", "남자 4", "남자 5")
     private fun pctStep(): Int = getSharedPreferences("naeryeo", MODE_PRIVATE).getInt("pctStep", 5)
     private var miriPlayer: android.media.MediaPlayer? = null
+    // 0.4.2 — 글을 지금 고른 목소리로 읽어 주기(책 소개 듣기)
+    private fun sogaeDeutgi(t: String) {
+        Dokseo.pause()
+        try { miriPlayer?.release() } catch (e: Exception) {}
+        miriPlayer = null
+        val v = Store.voice
+        pool.execute {
+            var d: ByteArray? = null
+            runCatching { val (_, hh) = Api.yocheong(t.take(800), v); for (n in 0 until 120) { d = Api.sori(hh); if (d != null) break; Thread.sleep(500) } }
+            main.post {
+                val b = d ?: run { malhagi("소개를 받지 못했습니다."); return@post }
+                runCatching { val f = java.io.File(cacheDir, "sogae.mp3"); f.writeBytes(b); miriPlayer = android.media.MediaPlayer().apply { setDataSource(f.path); prepare(); start() } }
+            }
+        }
+    }
     private fun miriDeutgi(v: Int) {
         Dokseo.pause()
         try { miriPlayer?.release() } catch (e: Exception) {}
