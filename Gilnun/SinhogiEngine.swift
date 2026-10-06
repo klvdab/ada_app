@@ -48,7 +48,7 @@ final class SinhogiEngine: NSObject, CBCentralManagerDelegate, CBPeripheralDeleg
     private var chatgiSori = Date.distantPast
     private var eopdaMal = false
 
-    private var salpim: Bool { jadongOn || chatneunJung || pending != nil }
+    private var salpim: Bool { jadongOn || chatneunJung || pending != nil || salpigiJung }
 
     // MARK: 세우기
 
@@ -261,6 +261,7 @@ final class SinhogiEngine: NSObject, CBCentralManagerDelegate, CBPeripheralDeleg
         guard r < 0 && r > -100 else { return }
         let now = Date()
         if name.hasPrefix(SinhogiEngine.bojaApMal) {
+            if salpigiJung { salpigiDam(p.identifier, "boja", r) }   // 2.45.0 주변 신호기 살피기
             girokNamgi(p, name, r, "boja")
             if jadongOn, r >= -80, now.timeIntervalSince(lastBoja[p.identifier] ?? .distantPast) > 300 {
                 lastBoja[p.identifier] = now
@@ -271,6 +272,7 @@ final class SinhogiEngine: NSObject, CBCentralManagerDelegate, CBPeripheralDeleg
         }
         let gongyong = ((ad[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID]) ?? []).contains(SinhogiEngine.serviceUUID)
         guard name.hasPrefix(SinhogiEngine.apMal) || gongyong else { return }
+        if salpigiJung { salpigiDam(p.identifier, "sinhogi", r) }   // 2.45.0 주변 신호기 살피기
         girokNamgi(p, name, r, "sinhogi")
         chajeun[p.identifier] = (p, r, now)
         guard jadongOn, pending == nil, !chatneunJung else { return }
@@ -296,6 +298,54 @@ final class SinhogiEngine: NSObject, CBCentralManagerDelegate, CBPeripheralDeleg
             lastSinho[id] = now
             jadongBonaegi(2, p)
         }
+    }
+
+    // MARK: 2.45.0 내 주변 신호기 살피기(이사장님 승인 2026-10-06) — 있는지, 블루투스로 울릴 수 있는지
+    private var salpigiJung = false
+    private var salpigiJaba: [UUID: (jong: String, rssi: Int)] = [:]
+    private(set) var salpigiGyeolgwa = ""
+
+    private func salpigiDam(_ id: UUID, _ jong: String, _ r: Int) {
+        if let o = salpigiJaba[id], o.rssi >= r { return }
+        salpigiJaba[id] = (jong, r)
+    }
+
+    /// 둘레를 8초 살펴 음향신호기가 있는지, 블루투스로 울릴 수 있는지 알림
+    func juByeonSalpigi() {
+        DispatchQueue.main.async {
+            guard !self.salpigiJung else { SoriEngine.shared.mal("지금 살피는 중입니다.", .jeongbo); return }
+            self.salpigiJaba = [:]
+            self.salpigiJung = true
+            SoriEngine.shared.mal("둘레의 음향신호기를 8초 동안 살핍니다. 폰을 앞으로 들어 주십시오.", .annae)
+            if self.central == nil { self.central = CBCentralManager(delegate: self, queue: .main) }
+            self.dasiSalpim()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 8) { self.salpigiKkeut() }
+        }
+    }
+
+    private func salpigiKkeut() {
+        salpigiJung = false
+        dasiSalpim()
+        guard central?.state == .poweredOn else {
+            let m = "블루투스가 꺼져 있거나 길눈에 블루투스 허락이 없어 살피지 못했습니다. 폰 설정에서 블루투스를 켜고 길눈의 블루투스 허락을 확인해 주십시오."
+            salpigiGyeolgwa = m
+            SoriEngine.shared.mal(m, .annae)
+            return
+        }
+        let s = salpigiJaba.values.filter { $0.jong == "sinhogi" }.map { $0.rssi }.sorted(by: >)
+        let b = salpigiJaba.values.filter { $0.jong == "boja" }.count
+        var m: String
+        if let ga = s.first {
+            let geori = ga >= -65 ? "바로 앞" : (ga >= -80 ? "가까이" : "조금 떨어진 곳")
+            m = "블루투스로 울릴 수 있는 음향신호기가 \(s.count)대 잡힙니다. 가장 가까운 것은 \(geori)에 있습니다. 울리시려면 신호기 울려 줘라고 말씀하시거나 신호기 울리기를 누르십시오."
+            Jindong.hagi("arrive")
+        } else {
+            m = "블루투스로 울릴 수 있는 음향신호기는 잡히지 않습니다. 이 근처 신호기가 리모컨 전용이거나, 신호기가 없을 수 있습니다."
+        }
+        if b > 0 { m += " 보행신호 음성안내 장치도 \(b)대 있습니다." }
+        salpigiGyeolgwa = m
+        SoriEngine.shared.mal(m, .annae)
+        Girok.shared.namgi("sinhogi_salpigi", ["sinhogi": s.count, "boja": b])
     }
 
     /// 2.38.0 (빌드 261002-7, 대표님 승인) 남산 점검 — 음향신호기·음성안내 장치가 잡히면 종류·세기·자리를 한 번 남김(안드로이드 길눈 2.3.0과 같은 기록 sinhogi_chatgi)
