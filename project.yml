@@ -106,7 +106,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "2.45.0"
+        MARKETING_VERSION: "2.46.0"
         OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "FoundationModels"]   # 1.6.0 옛 폰에서도 앱이 열리게 약하게 잇기
   JabongApp:
     # 2.0.0 (빌드 261001-7, 2026-10-01 대표님 승인) 자봉 앱도 속까지 앱으로 — 웹을 띄우던 App 폴더 대신
@@ -244,7 +244,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app.watchkitapp
         TARGETED_DEVICE_FAMILY: "4"
-        MARKETING_VERSION: "2.45.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
+        MARKETING_VERSION: "2.46.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
 schemes:
   AdaApp:
     build:
