@@ -84,7 +84,7 @@ android {
             dimension = "ap"
             applicationId = "kr.or.ada.lib"
             resValue("string", "app_name", "AI점자도서관")
-            versionName = "0.3.1"   // 261006-L2 세 겹의 문 목록 고침·독서기 떠나면 멈춤(도서관 창 클, 이사장님 지적)
+            versionName = "0.3.2"   // 261006-L3 인터넷이 될 때는 늘 도서관 목소리(이사장님 지적). 261006-L2 세 겹의 문 목록 고침·독서기 떠나면 멈춤(도서관 창 클, 이사장님 지적)
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/nas/doseo.php\"")
         }
     }
