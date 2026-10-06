@@ -269,7 +269,7 @@ object AnnaeEngine {
         val w = Wichi.jigeum
         if (w != null) {
             val d = Wichi.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
-            m += " 남은 거리 ${Annae.geoMal(d)}"
+            m += " 남은 거리 ${gm(d)}"
             if (geotna) {
                 m += Annae.sigyeMal(sigye(w, y.mokjeok.lat, y.mokjeok.lon)) + "."
             } else {
@@ -368,7 +368,7 @@ object AnnaeEngine {
                 val w = Wichi.jigeum
                 if (w != null && !g.ipguDochak) {
                     val d = Wichi.geori(w.lat, w.lon, g.ipgu.lat, g.ipgu.lon)
-                    return "${g.ipgu.ireum}까지 ${Annae.geoMal(d)}${Annae.sigyeMal(sigye(w, g.ipgu.lat, g.ipgu.lon))}."
+                    return "${g.ipgu.ireum}까지 ${gm(d)}${Annae.sigyeMal(sigye(w, g.ipgu.lat, g.ipgu.lon))}."
                 }
                 return JihacheolEngine.hyeonhwang()
             }
@@ -377,7 +377,7 @@ object AnnaeEngine {
             val w = Wichi.jigeum ?: return "${y.mokjeok.ireum}으로 가는 중입니다. 위치를 다시 잡는 중입니다."
             val d = Wichi.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
             val gojang = KolJiyeok.majimak?.let { " 지금 ${it.sido} ${it.sigungu.firstOrNull() ?: ""} 쪽을 지나고 있습니다." } ?: ""
-            return "${y.mokjeok.ireum}까지 ${Annae.geoMal(d)} 남았습니다.$gojang"
+            return "${y.mokjeok.ireum}까지 ${gm(d)} 남았습니다.$gojang"
         }
         return daeumGalrimMal()
     }
@@ -399,11 +399,11 @@ object AnnaeEngine {
             if (gk == null || d < gk.first) gakka = d to n
         }
         val g = gakka
-        if (g != null) return "다음 갈림길. ${Annae.geoMal(g.first)} 앞, ${g.second.mal}입니다."
+        if (g != null) return "다음 갈림길. ${gm(g.first)} 앞, ${g.second.mal}입니다."
         val y = yj.jigeum
         if (y != null) {
             val d = Wichi.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
-            return "앞쪽 가까이에는 갈림길 자료가 없습니다. ${y.mokjeok.ireum}까지 ${Annae.geoMal(d)}${Annae.sigyeMal(sigye(w, y.mokjeok.lat, y.mokjeok.lon))}."
+            return "앞쪽 가까이에는 갈림길 자료가 없습니다. ${y.mokjeok.ireum}까지 ${gm(d)}${Annae.sigyeMal(sigye(w, y.mokjeok.lat, y.mokjeok.lon))}."
         }
         return "앞쪽 가까이에는 갈림길 자료가 없습니다."
     }
@@ -600,6 +600,66 @@ object AnnaeEngine {
         return true
     }
 
+    // MARK: 2.20.0 걷는 중 거리는 걸음 수로, 건널목·계단 미리 알림, 걷는 자리 기록(이사장님 승인 2026-10-06, 아이폰 2.52.0과 같음)
+    /** 걷는 중 거리 말 — 보폭을 재 두셨으면 걸음 수로(300미터 넘으면 미터도 함께), 차·버스 안이면 미터 */
+    fun gm(d: Double): String {
+        val georeum = (YeojeongEngine.jigeum?.talgeot ?: Talgeot.GEOREUM) == Talgeot.GEOREUM
+        val bp = Seoljeong.bopok
+        if (!georeum || !Seoljeong.bopokJaem || bp <= 0.3) return Annae.geoMal(d)
+        val n = max(1, Math.round(d / bp).toInt())
+        return if (d >= 300) "약 ${n}걸음, ${Math.round(d / 10).toInt() * 10}미터쯤" else "약 ${n}걸음"
+    }
+
+    private class TtGugan(val jong: String, val lat: Double, val lon: Double, val geori: Double)
+    private var ttGugan: List<TtGugan> = emptyList()
+    private val ttGuganMi = HashSet<Int>()
+    private val ttGuganAp = HashSet<Int>()
+    private var jariGirokT = 0L
+
+    /** 서버가 아는 건널목·계단·다리·지하도를 열다섯 미터쯤 앞에서 미리, 닿으면 한 번 더. 건널목이면 음향신호기를 저절로 살핌 */
+    private fun guganAllim(w: Jari): String? {
+        for ((i, g) in ttGugan.withIndex()) {
+            if (g.jong !in setOf("건널목", "계단", "다리", "지하도")) continue
+            val d = Wichi.geori(w.lat, w.lon, g.lat, g.lon)
+            if (i !in ttGuganAp && d <= max(4.0, min(w.ochae, 8.0))) {
+                ttGuganAp.add(i); ttGuganMi.add(i)
+                Girok.namgi("gugan_ap", mapOf("jong" to g.jong))
+                return when (g.jong) {
+                    "건널목" -> "건널목 앞입니다. 길이 ${gm(g.geori)}. 신호와 차 소리를 확인하신 뒤 건너십시오."
+                    "계단" -> "계단 앞입니다. 지팡이로 첫 계단을 확인하십시오. 길이 ${gm(g.geori)}."
+                    "다리" -> "다리에 들어섭니다. 길이 ${gm(g.geori)}."
+                    else -> "지하도 입구입니다. 길이 ${gm(g.geori)}."
+                }
+            }
+            if (i !in ttGuganMi && d <= 15) {
+                ttGuganMi.add(i)
+                val josa = if (g.jong == "다리" || g.jong == "지하도") "가" else "이"
+                var m = "${gm(d)} 앞에 ${g.jong}$josa 있습니다."
+                if (g.jong == "건널목") {
+                    m += " 음향신호기를 살펴 드리겠습니다."
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ SinhogiEngine.juByeonSalpigi() }, 4000)
+                }
+                return m
+            }
+        }
+        return null
+    }
+
+    /** 걷는 동안 10초마다 자리·방향을 기록(관리자 폰만) — 방향이 어긋난 까닭을 나중에 찾기 위해 */
+    private fun jariGirok(w: Jari, lat: Double, lon: Double) {
+        val now = System.currentTimeMillis()
+        if (Yeolsoe.eumakTk().isEmpty() || now - jariGirokT < 10000) return
+        jariGirokT = now
+        var mk = Pair(lat, lon)
+        if (ttAn.isNotEmpty() && ttI < ttAn.size) mk = Pair(ttAn[ttI].lat, ttAn[ttI].lon)
+        Girok.namgi("georeum_jari", mapOf(
+            "la" to Math.round(w.lat * 1_000_000) / 1_000_000.0, "lo" to Math.round(w.lon * 1_000_000) / 1_000_000.0,
+            "oc" to w.ochae.toInt(), "bh" to w.banghyang.toInt(), "nc" to Wichi.nachimban.toInt(),
+            "sd" to Math.round(w.sokdo * 10) / 10.0, "s" to sigye(w, mk.first, mk.second),
+            "d" to Wichi.geori(w.lat, w.lon, mk.first, mk.second).toInt(), "gc" to w.georeumChu, "ti" to ttI
+        ))
+    }
+
     // MARK: 2.15.0 걸을 수 있는 길로 이끌기(이사장님 승인 2026-10-06, 아이폰 길눈 2.47.0과 같음)
     //   리눅스 서버의 걷기 길찾기(lvd-gil, 나스 /jeom/gilchatgi.php)로 걸을 수 있는 길을 받아 「다음 꺾는 곳」을 겨눔.
     //   열 걸음쯤 앞에서 미리, 닿으면 지금 꺾으라고. 크게 벗어나면 다시 찾고, 못 받으면 예전처럼 곧은 방향으로.
@@ -614,7 +674,7 @@ object AnnaeEngine {
     private var ttYego = -1
     private var ttMalTtae = 0L
 
-    private fun ttJiugi() { ttPts = emptyList(); ttAn = emptyList(); ttI = 1; ttMok = null; ttBeoseo = 0; ttYego = -1 }
+    private fun ttJiugi() { ttPts = emptyList(); ttAn = emptyList(); ttI = 1; ttMok = null; ttBeoseo = 0; ttYego = -1; ttGugan = emptyList(); ttGuganMi.clear(); ttGuganAp.clear() }
 
     private fun dolgiMal(sign: Int, jigeum: Boolean): String {
         val k = if (jigeum) "꺾으십시오" else "꺾습니다"
@@ -657,7 +717,7 @@ object AnnaeEngine {
         val a = ttAn[ttI]
         val d = Wichi.geori(w.lat, w.lon, a.lat, a.lon)
         val s = sigye(w, a.lat, a.lon)
-        return "${Annae.geoMal(d)} 앞에서 ${dolgiMal(a.sign, false)}." + (if (s == 0) "" else " 그쪽은 ${s}시 방향입니다.")
+        return "${gm(d)} 앞에서 ${dolgiMal(a.sign, false)}." + (if (s == 0) "" else " 그쪽은 ${s}시 방향입니다.")
     }
 
     private fun ttBatgi(w: Jari, lat: Double, lon: Double, apMal: String) {
@@ -673,11 +733,16 @@ object AnnaeEngine {
             val l = ArrayList<TtAn>()
             for (i in 0 until an.length()) { val x = an.optJSONObject(i) ?: continue; val j = x.optJSONArray("jeom") ?: continue; if (j.length() >= 2) l.add(TtAn(x.optInt("sign", 0), j.optDouble(0), j.optDouble(1))) }
             if (l.size < 2) { ttJiugi(); ttMotTtae = System.currentTimeMillis(); return@json }
+            // 2.20.0 길 종류 구간(건널목·계단·다리·지하도)
+            val gg = ArrayList<TtGugan>()
+            val ga = o.optJSONArray("gugan")
+            if (ga != null) for (i in 0 until ga.length()) { val x = ga.optJSONObject(i) ?: continue; val j = x.optJSONArray("jeom") ?: continue; if (j.length() >= 2) gg.add(TtGugan(x.optString("jong", ""), j.optDouble(0), j.optDouble(1), x.optDouble("geori", 0.0))) }
+            ttGugan = gg; ttGuganMi.clear(); ttGuganAp.clear()
             ttPts = p; ttAn = l; ttI = 1; ttMok = Pair(lat, lon); ttYego = -1; ttBeoseo = 0
             ttMalTtae = System.currentTimeMillis()
             val jeon = o.optDouble("geori", 0.0)
             val w2 = Wichi.jigeum ?: return@json
-            malHagi(apMal + "걸을 수 있는 길로 안내합니다. 길 따라 ${Annae.geoMal(jeon)}. " + ttDaeumMal(w2))
+            malHagi(apMal + "걸을 수 있는 길로 안내합니다. 길 따라 ${gm(jeon)}. " + ttDaeumMal(w2))
             Girok.namgi("gil_ttara", mapOf("m" to jeon.toInt(), "an" to l.size))
         }
     }
@@ -695,6 +760,9 @@ object AnnaeEngine {
             return true
         }
         if (ttI >= ttAn.size) return false
+        // 2.20.0 건널목·계단 미리 알림(꺾는 곳보다 먼저)
+        val gm0 = guganAllim(w)
+        if (gm0 != null) { ttMalTtae = now; malHagi(gm0); return true }
         val a = ttAn[ttI]
         val d = Wichi.geori(w.lat, w.lon, a.lat, a.lon)
         if (d <= max(8.0, min(w.ochae, 15.0)) && ttI < ttAn.size - 1) {
@@ -714,7 +782,7 @@ object AnnaeEngine {
             if (s == 12 || s == 11 || s == 1) {
                 if (AnnaeSeoljeong.hwaksinEum) Eum.naegi(EumJong.HWAKSIN)
             } else if (s != 0) {
-                malHagi("길은 ${s}시 방향입니다. 다음 꺾는 곳까지 ${Annae.geoMal(d)}.")
+                malHagi("길은 ${s}시 방향입니다. 다음 꺾는 곳까지 ${gm(d)}.")
                 Jindong.banghyang(s)
             }
         }
@@ -722,6 +790,7 @@ object AnnaeEngine {
     }
 
     private fun georeumAnnae(w: Jari, mok: String, lat: Double, lon: Double, jungan: Boolean, y: Yeojeong) {
+        jariGirok(w, lat, lon)   // 2.20.0 걷는 자리 기록(관리자 폰만)
         val d = Wichi.geori(w.lat, w.lon, lat, lon)
         val beom = if (jungan) max(15.0, min(w.ochae, 30.0)) else if (bg != null) max(5.0, min(w.ochae, 10.0)) else max(12.0, min(w.ochae, 25.0))   // 2.16.0 볼거리면 더 가까이
         if (d <= beom) {
@@ -744,7 +813,7 @@ object AnnaeEngine {
         neagoriBoda(w, true)
         val mg = majimakGeoriMal
         if (mg == null) {
-            malHagi("${mok}까지 ${Annae.geoMal(d)}${Annae.sigyeMal(s)}.")
+            malHagi("${mok}까지 ${gm(d)}${Annae.sigyeMal(s)}.")
             Jindong.banghyang(s)
             majimakGeoriMal = d
             majimakSigye = s
@@ -752,7 +821,7 @@ object AnnaeEngine {
         }
         if (!gotMal && d <= 40) {
             gotMal = true
-            malHagi("곧 도착합니다. ${mok}까지 ${Annae.geoMal(d)}${Annae.sigyeMal(s)}.")
+            malHagi("곧 도착합니다. ${mok}까지 ${gm(d)}${Annae.sigyeMal(s)}.")
             majimakGeoriMal = d
             majimakSigye = s
             return
@@ -763,13 +832,13 @@ object AnnaeEngine {
         val gan = (if (d > 300) 100.0 else (if (d > 100) 50.0 else 20.0)) * bae
         val doepul = st.doepul.toDouble()
         if (mg - d >= gan && jinan >= doepul + 4) {
-            malHagi("${mok}까지 ${Annae.geoMal(d)}${Annae.sigyeMal(s)}.")
+            malHagi("${mok}까지 ${gm(d)}${Annae.sigyeMal(s)}.")
             majimakGeoriMal = d
             majimakSigye = s
             return
         }
         if (d - mg >= 30 && jinan >= doepul + 4) {
-            malHagi("목적지에서 멀어지고 있습니다. $mok 쪽은${if (s == 0) "" else " ${s}시 방향"}, ${Annae.geoMal(d)}.", MalGeup.ANNAE)
+            malHagi("목적지에서 멀어지고 있습니다. $mok 쪽은${if (s == 0) "" else " ${s}시 방향"}, ${gm(d)}.", MalGeup.ANNAE)
             Jindong.banghyang(s)
             majimakGeoriMal = d
             majimakSigye = s
