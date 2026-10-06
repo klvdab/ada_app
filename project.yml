@@ -222,7 +222,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.lib
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "0.2.0"   # 261003-1 디자인 바탕·내 서재(도서관 창 클 0.2.0 묶음, 이사장님 승인)
+        MARKETING_VERSION: "0.3.0"   # 261006-1 내려받기(인터넷 없이 읽기)·목록 줄 수(도서관 창 클, 이사장님 지시)
   AdaWatch:
     type: application
     platform: watchOS
