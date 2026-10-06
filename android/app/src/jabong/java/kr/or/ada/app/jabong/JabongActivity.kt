@@ -12,6 +12,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -38,6 +39,13 @@ import androidx.core.content.ContextCompat
 import androidx.core.widget.doAfterTextChanged
 import kr.or.ada.app.MainActivity
 import kr.or.ada.app.gilnun.Girok
+import kr.or.ada.app.gilnun.Jindong
+import kr.or.ada.app.gilnun.NanumNas
+import kr.or.ada.app.gilnun.NnButak
+import kr.or.ada.app.gilnun.NnGeoreumNanum
+import kr.or.ada.app.gilnun.NnGilButak
+import kr.or.ada.app.gilnun.NnNanumGeul
+import org.json.JSONObject
 import kr.or.ada.app.gilnun.MalGeup
 import kr.or.ada.app.gilnun.MomSensor
 import kr.or.ada.app.gilnun.Seoljeong
@@ -239,7 +247,7 @@ class JabongActivity : AppCompatActivity() {
     fun yeolgi(h: JbHwamyeon) { gil[tab].add(h); boyeojugi() }
 
     fun dwiro() {
-        if (!JabongNae.deungrokham) { deungrok.dwiro(this); return }
+        if (!JabongNae.deungrokham || deungrok.hwanyeongJung) { deungrok.dwiro(this); return }
         if (gil[tab].size > 1) { gil[tab].removeAt(gil[tab].size - 1); boyeojugi() }
         else Sori.mal("여기가 첫 화면입니다.", MalGeup.JEONGBO)
     }
@@ -247,7 +255,7 @@ class JabongActivity : AppCompatActivity() {
     /** 지금 화면을 다시 그림(커서는 방금 누른 단추나 새 알림 줄에) */
     fun dasiGeurigi() { boyeojugi(false) }
 
-    val wiHwamyeon: JbHwamyeon get() = if (!JabongNae.deungrokham) deungrok else gil[tab].last()
+    val wiHwamyeon: JbHwamyeon get() = if (!JabongNae.deungrokham || deungrok.hwanyeongJung) deungrok else gil[tab].last()   // 2.7.0 막 등록을 마치면 환영 화면부터
 
     /** 다시 그린 뒤 커서를 이 줄에 */
     fun chojeom(v: View) { chojeomJul = v }
@@ -269,7 +277,7 @@ class JabongActivity : AppCompatActivity() {
         cheotJul = null
         chojeomJul = null
         gibonJul = null
-        val deung = JabongNae.deungrokham
+        val deung = JabongNae.deungrokham && !deungrok.hwanyeongJung
         tabJul.visibility = if (deung) View.VISIBLE else View.GONE
         val h = wiHwamyeon
         title = h.jemok
@@ -409,6 +417,26 @@ class JabongActivity : AppCompatActivity() {
     }
 
     fun jemok(t: String) { deohagi(jemokView(t)) }
+
+    /** 2.7.0 노란 바탕 카드 — 요령·문제·부탁처럼 눈에 또렷해야 할 글 */
+    fun kadeu(t: String): TextView {
+        val v = TextView(this).apply {
+            text = t; setTextColor(NAM); setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f); setLineSpacing(0f, 1.15f)
+            setPadding(dp(16), dp(14), dp(16), dp(14)); isFocusable = true
+            background = GradientDrawable().apply { setColor(Color.argb(46, 255, 204, 0)); setStroke(dp(2), NAM); cornerRadius = dp(16).toFloat() }
+        }
+        deohagi(v)
+        return v
+    }
+
+    /** 2.7.0 큰 글씨 한 줄(환영 인사 등) */
+    fun keunGeul(t: String, sp: Float, saek: Int = NAM): TextView {
+        val v = TextView(this).apply {
+            text = t; setTextColor(saek); setTextSize(TypedValue.COMPLEX_UNIT_SP, sp); setTypeface(typeface, Typeface.BOLD); isFocusable = true
+        }
+        deohagi(v)
+        return v
+    }
     fun geul(t: String, keuge: Boolean = false): TextView { val v = geulView(t, keuge); deohagi(v); return v }
     fun danchu(t: String, f: () -> Unit): Button { val b = danchuView(t, f); deohagi(b); return b }
 
@@ -416,9 +444,12 @@ class JabongActivity : AppCompatActivity() {
     fun ipryeok(t: String, gap: String, jong: Int, dameum: (String) -> Unit): EditText {
         val e = EditText(this).apply {
             hint = t
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)   // 2.7.0 크고 선명하게 — 굵은 테두리
+            setTextColor(Color.BLACK)
             inputType = jong
-            minHeight = dp(60)
+            minHeight = dp(64)
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+            background = GradientDrawable().apply { setColor(Color.WHITE); setStroke(dp(2), NAM); cornerRadius = dp(12).toFloat() }
             setText(gap)
             doAfterTextChanged { dameum(it?.toString() ?: "") }
         }
@@ -744,10 +775,151 @@ class BopokHwamyeon : JbHwamyeon("내 보폭 재기") {
 
 // MARK: 나눔·내 기록 탭
 
+// 2.7.0 (261006-A1, 이사장님 승인) — 아이폰 자봉 2.7.0 과 같음: 그려 주세요, 걸음 나눔, 더 보기 안에 나눔 마당. 길눈과 같은 나스 창고
 class NanumTab : JbHwamyeon("나눔") {
+    private var deoBogi = false
     override fun chaeugi(t: JabongActivity) {
-        t.geul("그려주세요 게시판, 걸음 나눔 게시판, 물품 나눔 마당이 이 탭에 들어섭니다. 그동안은 웹 자봉에서 쓰시던 글이 그대로 남아 있고, 앱이 채워지면 같은 글을 앱에서 보시게 됩니다.")
-        t.danchu("웹 자봉 게시판 열기 — 앱으로 옮겨 오기 전까지") { t.webJabong() }
+        t.danchu("그려 주세요 — 길눈님이 부탁한 길") { t.yeolgi(GeuryeojuseyoHwamyeon()) }
+        t.danchu("걸음 나눔 — 봉사 이야기와 응원 한마디") { t.yeolgi(GeoreumNanumHwamyeon()) }
+        t.pyeolchigi("더 보기", deoBogi) { deoBogi = !deoBogi }
+        if (deoBogi) {
+            t.danchu("나눔 마당과 함께하기 — 웹 자봉에서 열기") { t.webJabong() }
+        }
+    }
+}
+
+/** 그려 주세요 — 아직 안 그려진 부탁이 먼저, 다섯 개씩 */
+class GeuryeojuseyoHwamyeon : JbHwamyeon("그려 주세요") {
+    private var mok: List<NnButak>? = null
+    private var mot = false
+    private var bureuneun = false
+    private var sijak = 0
+
+    companion object { var dasiBulreo = false }
+
+    override fun chaeugi(t: JabongActivity) {
+        if (dasiBulreo) { dasiBulreo = false; mok = null; sijak = 0 }
+        val l = mok
+        if (l == null) {
+            if (mot) t.danchu("불러오지 못했습니다 — 다시 불러오기") { mot = false; bulreogi(t) }
+            else { t.geul("부탁된 길을 불러오고 있습니다.", true); if (!bureuneun) bulreogi(t) }
+            return
+        }
+        if (l.isEmpty()) { t.geul("지금은 부탁된 길이 없습니다. 길눈님이 부탁하시면 이곳에 바로 나타납니다.", true); return }
+        val kkeut = minOf(sijak + 5, l.size)
+        for (b in l.subList(sijak, kkeut)) t.danchu((if (b.doen) "그려짐 · " else "") + b.julMal) { t.yeolgi(ButakHanGeonHwamyeon(b)) }
+        if (kkeut < l.size) t.danchu("더 보기") { sijak = kkeut; t.dasiGeurigi() }
+        if (sijak > 0) t.danchu("이전 보기") { sijak = maxOf(0, sijak - 5); t.dasiGeurigi() }
+    }
+
+    private fun bulreogi(t: JabongActivity) {
+        bureuneun = true
+        NnGilButak.mok { r ->
+            t.runOnUiThread {
+                bureuneun = false
+                if (r == null) { mot = true; Sori.mal("불러오지 못했습니다.") }
+                else mok = r.filter { !it.doen } + r.filter { it.doen }
+                t.dasiGeurigi()
+            }
+        }
+    }
+}
+
+/** 그려 주세요 한 건 — 이 길 그리러 가기, 응원 한마디, 다 그렸습니다(박수) */
+class ButakHanGeonHwamyeon(private val b: NnButak) : JbHwamyeon("그려 주세요") {
+    private var datMal = ""
+    private var pyeol = false
+    private var doen = b.doen
+    override fun chaeugi(t: JabongActivity) {
+        t.kadeu(b.jaseMal)
+        if (!doen) t.danchu("이 길 그리러 가기 — 봉사 탭으로") {
+            Sori.mal("고맙습니다. 봉사 탭의 점지도 그리기에서 ${b.sin}부터 ${b.min}까지 걸어 주십시오. 다 그리신 뒤 이 부탁으로 돌아와 다 그렸습니다를 눌러 주십시오.")
+            t.tabGo(0)
+        }
+        for (d in b.daetgeul) t.geul("한마디 : ${d.mal}" + (if (d.nugu.isEmpty()) "" else " — ${d.nugu}"), true)
+        t.pyeolchigi("응원 한마디 남기기", pyeol) { pyeol = !pyeol }
+        if (pyeol) {
+            t.ipryeok("한마디", datMal, InputType.TYPE_CLASS_TEXT) { datMal = it }
+            t.danchu("한마디 올리기") {
+                val m = datMal.trim()
+                if (m.isEmpty()) { Sori.mal("한마디를 적어 주십시오."); return@danchu }
+                NnGilButak.hagi("daet", b.id, listOf("mal" to m, "nugu" to "자봉 ${JabongNae.beonho}")) { ok ->
+                    t.runOnUiThread {
+                        Sori.mal(if (ok) "한마디를 남겼습니다." else "하지 못했습니다. 통신을 확인해 주십시오.")
+                        if (ok) { GeuryeojuseyoHwamyeon.dasiBulreo = true; t.dwiro() }
+                    }
+                }
+            }
+        }
+        if (!doen) t.danchu("다 그렸습니다 표시하기") {
+            NnGilButak.hagi("doen", b.id) { ok ->
+                t.runOnUiThread {
+                    if (ok) {
+                        doen = true
+                        Baksu.chigi(true)
+                        Sori.mal("다 그렸습니다. 길눈님께 큰 힘이 됩니다. 고맙습니다!")
+                        GeuryeojuseyoHwamyeon.dasiBulreo = true
+                        t.dwiro()
+                    } else Sori.mal("하지 못했습니다. 통신을 확인해 주십시오.")
+                }
+            }
+        }
+    }
+}
+
+/** 걸음 나눔 — 봉사 이야기와 응원 한마디, 다섯 개씩. 자봉이 쓴 글은 자원봉사자로 적힘 */
+class GeoreumNanumHwamyeon : JbHwamyeon("걸음 나눔") {
+    private var mok: List<NnNanumGeul>? = null
+    private var modu = 0
+    private var bu = 0
+    private var mot = false
+    private var bureuneun = false
+    private var pyeol = false
+    private var sseulGeul = ""
+
+    override fun chaeugi(t: JabongActivity) {
+        t.pyeolchigi("한마디 적기", pyeol) { pyeol = !pyeol }
+        if (pyeol) {
+            t.ipryeok("봉사 이야기나 응원 한마디", sseulGeul, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE) { sseulGeul = it }
+            t.danchu("올리기") {
+                val g = sseulGeul.trim()
+                if (g.isEmpty()) { Sori.mal("한마디를 적어 주십시오."); return@danchu }
+                val bon = JSONObject().put("byeol", "자봉 ${JabongNae.beonho}").put("geul", g).put("jam", JabongNae.jamGap).put("mun", "jabong")
+                NanumNas.postJson("nanum.php", listOf("a" to "sseugi"), bon) { j ->
+                    if (NanumNas.cham(j, "ok")) {
+                        Baksu.chigi()
+                        Sori.mal("올렸습니다. 고맙습니다!")
+                        sseulGeul = ""; pyeol = false; mok = null; bu = 0
+                    } else Sori.mal(NanumNas.gul(j, "msg").ifEmpty { "올리지 못했습니다." })
+                    t.dasiGeurigi()
+                }
+            }
+        }
+        val l = mok
+        if (l == null) {
+            if (mot) t.danchu("불러오지 못했습니다 — 다시 불러오기") { mot = false; bulreogi(t) }
+            else { t.geul("이야기를 불러오고 있습니다.", true); if (!bureuneun) bulreogi(t) }
+            return
+        }
+        if (l.isEmpty()) { t.geul("아직 이야기가 없습니다. 첫 한마디를 남겨 주십시오.", true); return }
+        for (g in l) {
+            var m = "${g.meori}. ${g.geul}"
+            if (g.dat.isNotEmpty()) m += " 댓글 ${g.dat.size}개: " + g.dat.joinToString(" ") { "${it.byeol}, ${it.geul}." }
+            t.kadeu(m)
+        }
+        if ((bu + 1) * 5 < modu) t.danchu("더 보기") { bu += 1; mok = null; bulreogi(t) }
+        if (bu > 0) t.danchu("이전 보기") { bu -= 1; mok = null; bulreogi(t) }
+    }
+
+    private fun bulreogi(t: JabongActivity) {
+        bureuneun = true
+        NnGeoreumNanum.mok(bu) { r ->
+            t.runOnUiThread {
+                bureuneun = false
+                if (r == null) { mot = true; Sori.mal("불러오지 못했습니다.") } else { mok = r.first; modu = r.second }
+                t.dasiGeurigi()
+            }
+        }
     }
 }
 
@@ -823,7 +995,7 @@ class DoumalHwamyeon : JbHwamyeon("도움말") {
     companion object {
         /** 아이폰 JabongDoumalView 와 같은 항목 — 안드로이드에서 다른 대목(뒤로 동작, 알림 칸, 배터리)만 고쳐 씀 */
         val DOUMAL = listOf(
-            "처음 등록" to "자봉 앱을 처음 여시면 한 번만 등록합니다. 이름, 연락처, 주로 활동하실 지역, 네 자리 숫자를 적고, 1365 아이디는 비워 두었다가 나중에 넣으셔도 됩니다. 점지도 그리기 요령 다섯 가지를 듣고 확인 문제 세 개를 풀면 자봉 번호가 나옵니다. 웹 자봉에서 이미 등록하셨으면 자봉 번호와 네 자리 숫자로 이어서 쓰십시오.",
+            "처음 등록" to "자봉 앱을 처음 여시면 한 번만 등록합니다. 이름, 연락처, 주로 활동하실 지역, 네 자리 숫자를 적고, 1365 아이디는 비워 두었다가 나중에 넣으셔도 됩니다. 다음을 누르시면 점지도 그리기 요령 다섯 가지를 길눈 목소리로 차례로 읽어 드리고, 요령 다시 듣기로 언제든 다시 들으실 수 있습니다. 확인 문제 세 개는 문제와 고를 말까지 읽어 드리며, 맞히면 박수 소리와 진동으로 알려 드립니다. 칸이 비었거나 맞지 않으면 무엇이 모자란지 말로 알려 드립니다. 세 문제를 다 맞히면 큰 박수와 함께 환영 화면에서 자봉 번호를 알려 드리고, 봉사 시작하기를 누르시면 봉사 탭으로 갑니다. 이 과정을 마치면 자봉 번호가 나옵니다. 웹 자봉에서 이미 등록하셨으면 자봉 번호와 네 자리 숫자로 이어서 쓰십시오.",
             "탭 넷" to "화면 아래에 봉사, 나눔, 내 기록, 알림·설정 탭이 있고, 속 화면에서도 늘 보입니다. 속 화면의 뒤로 단추는 위에 하나 있고, 폰의 뒤로 동작을 하셔도 앞 화면으로 갑니다. 첫 화면에서는 앱 밖으로 나가지 않고 여기가 첫 화면이라고 알려 드립니다. 같은 탭을 한 번 더 누르시면 그 탭의 첫 화면으로 갑니다.",
             "긴급통화 받기" to "봉사 탭 맨 위에 있습니다. 자원봉사자나 현장영상해설사 가운데 받으실 역할을 고르고, 별명과 수료 번호(해설사는 협회에 등록한 전화번호)를 적은 뒤 함께하겠습니다를 한 번 누르시면 됩니다. 이때 카메라와 마이크, 알림 허락도 한 번에 받아 두고, 배터리 아끼기에서 자봉을 빼 달라고 한 번 여쭙니다. 그 뒤로는 길손님이 도움을 청하면 폰이 잠겨 있어도 벨소리와 진동이 울리고 받기와 거절이 뜹니다. 받기를 누르시면 곧바로 길손님 카메라 화면과 말소리가 이어집니다. 다른 길눈님이 먼저 받으시면 벨이 멈추고 다른 분께 연결되었다고 알려 드립니다. 실명과 전화번호는 화면에 나오지 않고 별명만 씁니다. 잠시 쉬기를 누르시면 울리지 않습니다. 긴급통화는 이 자봉 앱으로만 받습니다. 자원봉사자와 현장영상해설사는 누구를 고를 수 없게 되어 있고, 받을 수 있는 분 가운데 먼저 받는 분이 연결됩니다. 기회가 고르게 가도록 처음 15초는 최근에 덜 받으신 다섯 분께 먼저 울리고, 그래도 아무도 안 받으면 모든 분께 울립니다. 통화료는 들지 않고 데이터만 씁니다(와이파이에서는 따로 드는 돈이 없음). 곧바로 잇지 못할 때 거치는 영상 다리 주소는 나스에서 받아 쓰므로, 다리를 옮겨도 앱을 새로 받으실 필요가 없습니다.",
             "가족·지인으로 받기 — 이음 번호" to "길눈을 쓰시는 가족이나 지인이 나를 콕 집어 화상통화를 요청하실 수 있게 등록합니다. 먼저 길눈님이 길눈 설정 탭의 가족·지인 명단에서 이음 번호 받기를 누르면 여섯 자리 숫자가 나옵니다. 이 번호를 전화로 불러 받으십시오. 번호는 30분 동안만 쓰입니다. 자봉 앱 봉사 탭, 긴급통화 받기에서 가족·지인으로 받기를 고르고, 이음 번호와 길눈님이 부르실 내 이름(보기: 큰딸)을 넣고 가족·지인으로 등록하기를 누르시면 끝입니다. 그 뒤로 그 길눈님이 나를 고르시면 이 폰만 벨소리와 진동이 울리고 화면에 그분 이름이 뜹니다. 자원봉사자로도 함께하시는 분은 두 가지가 다 됩니다.",
@@ -839,7 +1011,8 @@ class DoumalHwamyeon : JbHwamyeon("도움말") {
             "표시 남기기" to "그리는 중 화면 겉에 자주 쓰는 여덟 가지(왼쪽으로 꺾임, 오른쪽으로 꺾임, 올라가는 계단 시작, 내려가는 계단 시작, 계단 끝, 횡단보도 건너기 시작과 끝, 문)가 크게 있고, 다른 표시와 도구 펼치기 안에 나머지 열네 가지와 잠깐 멈춤, 계단 칸수 고치기가 있습니다. 계단과 횡단보도는 시작을 찍으면 끝도 꼭 찍으셔야 하며, 그 사이 칸수와 걸음을 셈해 알려 드립니다. 에스컬레이터, 지하철, 버스는 탈 때와 내릴 때를 찍으시면 그 사이는 걸음으로 재지 않습니다. 문은 딱 찍고 두 걸음 앞에서 한 번 더 찍으셔야 확실한 문이 됩니다.",
             "말로 표시" to "손이 바쁘실 때 말로 표시 단추를 누르고 계단 시작, 왼쪽, 횡단보도 끝, 문처럼 말씀하시면 단추를 누른 그 자리에 표시를 남깁니다. 좌회전, 우회전, 건널목, 승강기 같은 말도 알아듣습니다. 딩동 소리 뒤에 말씀하십시오. 처음 쓰실 때 마이크 허락을 여쭙니다. 받아쓰기는 폰의 구글 음성 인식을 씁니다.",
             "폰이 먼저 여쭘" to "그리는 중에 방향이 크게 바뀌면 왼쪽으로 꺾이셨습니까, 높이가 바뀌면 올라가는 계단입니까처럼 먼저 여쭙고, 계단 중에 높이가 그대로이면 계단이 끝났습니까 하고 여쭙니다. 네라고 말씀하시거나 화면 맨 위에 나오는 네 단추를 누르셔야 표시가 되며, 바뀐 것을 알아챈 그 자리에 남깁니다. 아니오면 남기지 않습니다. 20초 동안 답이 없으면 물음을 거둡니다. 말로 답하시려면 마이크 허락이 있어야 합니다.",
-            "나눔 탭" to "그려주세요 게시판, 걸음 나눔 게시판, 물품 나눔 마당이 앱으로 들어서기 전까지는 나눔 탭의 웹 자봉 게시판 열기로 웹 자봉에서 쓰시던 글을 보실 수 있습니다.",
+            "나눔 탭 — 그려 주세요" to "나눔 탭 맨 위에 있습니다. 길눈님이 그려 주었으면 하고 부탁한 길이 다섯 개씩 나오며, 아직 안 그려진 부탁이 먼저 나옵니다. 줄을 누르시면 출발지와 도착지, 남긴 말이 나오고, 이 길 그리러 가기를 누르시면 봉사 탭으로 옮겨 가 어디부터 어디까지 걸으면 되는지 말씀드립니다. 다 그리신 뒤 그 부탁으로 돌아와 다 그렸습니다 표시하기를 누르시면 큰 박수와 함께 길눈님께 알려집니다. 응원 한마디 남기기로 짧은 말을 남기실 수 있고, 이름 대신 자봉 번호로 적힙니다.",
+            "나눔 탭 — 걸음 나눔과 나눔 마당" to "걸음 나눔은 시각장애인과 자원봉사자가 함께 쓰는 이야기 마당입니다. 다섯 개씩 나오고, 한마디 적기를 펼쳐 봉사 이야기나 응원 한마디를 올리시면 박수로 고마움을 전합니다. 이름 대신 자봉 번호로 적힙니다. 더 보기 펼치기 안의 나눔 마당과 함께하기는 웹 자봉에서 열립니다.",
             "판 기록" to "알림·설정 탭의 더 보기 안에 있습니다. 판마다 무엇을 고쳤는지 적어 둡니다."
         )
     }
@@ -848,7 +1021,8 @@ class DoumalHwamyeon : JbHwamyeon("도움말") {
 // MARK: 처음 등록 — 아이폰 DeungrokView 와 같음
 
 class DeungrokHwamyeon : JbHwamyeon("자원봉사 등록") {
-    private var dangye = 0          // 0 첫 화면, 1 적기, 2 요령, 3 문제, 4 이어 쓰기
+    // 2.7.0 (261006-A1, 이사장님 승인) — 아이폰 자봉 2.6.0·2.7.0 과 같음: 짧은 교육을 소리로, 크고 선명하게, 정답 박수, 환영 화면
+    private var dangye = 0          // 0 첫 화면, 1 적기, 2 요령, 3 문제, 4 이어 쓰기, 5 환영
     private var ireum = ""
     private var yeonrak = ""
     private var jiyeok = ""
@@ -857,9 +1031,10 @@ class DeungrokHwamyeon : JbHwamyeon("자원봉사 등록") {
     private var beonhoIeo = ""
     private var mi = 0
     private var allim = ""
-    private var allimBeon = 0
-    private var boinBeon = 0
     private var boneunJung = false
+    var hwanyeongJung = false
+        private set
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
 
     companion object {
         val YORYEONG = listOf(
@@ -875,29 +1050,56 @@ class DeungrokHwamyeon : JbHwamyeon("자원봉사 등록") {
             Munje("둘째 문제. 건널목 건너기 시작을 찍었으면 어떻게 합니까?", listOf("시작만 찍어도 됩니다", "다 건너서 끝도 꼭 찍습니다"), 1, "시작과 끝이 짝을 이루어야 건널목의 길이를 알려 드릴 수 있습니다."),
             Munje("셋째 문제. 그리는 동안 폰은 어디에 둡니까?", listOf("손에 들거나 주머니에 넣습니다", "가방 깊숙이 넣습니다"), 0, "가방 깊숙이 넣으면 걸음이 잡히지 않아 걸음 수가 틀립니다.")
         )
+        val DANGYE_IREUM = listOf("적기", "요령 듣기", "확인 문제")
     }
 
-    private fun allyeo(t: JabongActivity, m: String) { allim = m; allimBeon += 1; t.dasiGeurigi() }
+    /** 알리기 — 화면 맨 위에 글로 두고 길눈 목소리로 말함(말소리를 꺼 두셨으면 Sori 가 톡백으로 알림) */
+    private fun allyeo(t: JabongActivity, m: String) { allim = m; t.dasiGeurigi(); Sori.meomchugi(); Sori.mal(m) }
+
+    private fun yoryeongIlgi() {
+        Sori.meomchugi()
+        Sori.mal("점지도 그리기 요령 다섯 가지를 읽어 드리겠습니다.")
+        for (y in YORYEONG) Sori.mal(y)
+        Sori.mal("다 들으셨으면 바로 아래 다 들었습니다 단추를 눌러 확인 문제를 풀어 주십시오.")
+    }
+
+    private fun munjeMal(ap: String = ""): String {
+        val m = MUNJE[minOf(mi, MUNJE.size - 1)]
+        var s = ap + m.q
+        m.d.forEachIndexed { k, d -> s += " ${if (k == 0) "하나" else "둘"}, $d." }
+        return s
+    }
+
+    private fun yoryeongEuro(t: JabongActivity) {
+        dangye = 2; allim = "점지도 그리기 요령 다섯 가지입니다."; t.dasiGeurigi(); yoryeongIlgi()
+    }
+
+    private fun hwanyeongKkeut(t: JabongActivity) {
+        hwanyeongJung = false; dangye = 0; allim = ""; Sori.meomchugi(); t.tabGo(0)
+    }
 
     /** 폰의 뒤로 동작 — 등록 단계 안에서 앞 단계로 */
     fun dwiro(t: JabongActivity) {
         when (dangye) {
             0 -> Sori.mal("여기가 첫 화면입니다.", MalGeup.JEONGBO)
-            2 -> { dangye = 1; allim = ""; t.dasiGeurigi() }
-            3 -> { dangye = 2; allyeo(t, "점지도 그리기 요령 다섯 가지입니다.") }
+            2 -> { dangye = 1; allim = ""; Sori.meomchugi(); t.dasiGeurigi() }
+            3 -> yoryeongEuro(t)
+            5 -> hwanyeongKkeut(t)
             else -> { dangye = 0; allim = ""; t.dasiGeurigi() }
         }
     }
 
     override fun chaeugi(t: JabongActivity) {
-        if (allim.isNotEmpty()) {
-            val v = t.geul(allim, true)
-            if (allimBeon != boinBeon) t.chojeom(v)   // 새 알림일 때만 커서를 그 줄로
+        if (dangye == 5) { hwanyeong(t); return }
+        if (allim.isNotEmpty()) t.gibon(t.keunGeul(allim, 22f))
+        if (dangye in 1..3) {
+            val v = t.geul("${dangye} / 3 단계 — ${DANGYE_IREUM[dangye - 1]}", true)
+            v.contentDescription = "등록 세 단계 가운데 ${dangye}단계, ${DANGYE_IREUM[dangye - 1]}"
         }
-        boinBeon = allimBeon
         when (dangye) {
             0 -> {
-                t.geul("점지도 자원봉사를 시작하기 전에 처음 한 번만 등록합니다. 5분쯤 걸리며, 이 폰이 기억하므로 다시 하지 않으셔도 됩니다.", true)
+                t.keunGeul("길눈 자봉에 오신 것을 환영합니다", 28f)
+                t.geul("여러분이 걸으며 그리는 점지도가 시각장애인이 혼자 걷는 길이 됩니다. 처음 한 번만 등록합니다. 5분쯤 걸리며, 이 폰이 기억하므로 다시 하지 않으셔도 됩니다.", true)
                 t.danchu("등록 시작하기") { dangye = 1; allyeo(t, "이름부터 적어 주십시오.") }
                 t.danchu("웹 자봉에서 이미 등록했습니다 — 자봉 번호로 이어 쓰기") { dangye = 4; allyeo(t, "자봉 번호와 네 자리 숫자를 적어 주십시오.") }
             }
@@ -908,23 +1110,26 @@ class DeungrokHwamyeon : JbHwamyeon("자원봉사 등록") {
                 t.ipryeok("1365 아이디 — 비워 두고 나중에 넣으셔도 됩니다", id1365, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS) { id1365 = it }
                 t.ipryeok("네 자리 숫자 — 나중에 등록 정보를 고치실 때 씁니다", jam, InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD) { jam = it }
                 t.danchu("다음 — 짧은 교육 듣기") {
-                    if (ireum.trim().isEmpty()) { allyeo(t, "이름을 적어 주십시오."); return@danchu }
-                    if (yeonrak.count { it.isDigit() } < 9) { allyeo(t, "연락처를 적어 주십시오."); return@danchu }
-                    if (jam.count { it.isDigit() } != 4) { allyeo(t, "네 자리 숫자를 정해 주십시오."); return@danchu }
-                    dangye = 2
-                    allyeo(t, "점지도 그리기 요령 다섯 가지입니다.")
+                    if (ireum.trim().isEmpty()) { allyeo(t, "이름 칸이 비어 있습니다. 이름을 적어 주십시오."); return@danchu }
+                    if (yeonrak.count { it.isDigit() } < 9) { allyeo(t, "연락처가 짧습니다. 전화번호를 끝까지 적어 주십시오."); return@danchu }
+                    if (jam.count { it.isDigit() } != 4) { allyeo(t, "네 자리 숫자 칸에 숫자 네 개를 정해 적어 주십시오."); return@danchu }
+                    yoryeongEuro(t)
                 }
                 t.danchu("뒤로 — 등록 첫 화면으로") { dangye = 0; allim = ""; t.dasiGeurigi() }
             }
             2 -> {
-                for (y in YORYEONG) t.geul(y, true)
-                t.danchu("다 들었습니다 — 확인 문제 풀기") { mi = 0; dangye = 3; allyeo(t, MUNJE[0].q) }
-                t.danchu("뒤로 — 적은 것 고치기") { dangye = 1; allim = ""; t.dasiGeurigi() }
+                t.danchu("요령 다시 듣기") { yoryeongIlgi() }
+                for (y in YORYEONG) t.kadeu(y)
+                t.danchu("다 들었습니다 — 확인 문제 풀기") { mi = 0; dangye = 3; allyeo(t, munjeMal("이제 확인 문제 세 개입니다. ")) }
+                t.danchu("뒤로 — 적은 것 고치기") { dangye = 1; allim = ""; Sori.meomchugi(); t.dasiGeurigi() }
             }
             3 -> {
                 val m = MUNJE[minOf(mi, MUNJE.size - 1)]
+                t.geul("문제 ${mi + 1} / ${MUNJE.size}")
+                t.kadeu(m.q)
                 m.d.forEachIndexed { i, d -> t.danchu(d) { goreum(t, i) } }
-                t.danchu("뒤로 — 요령 다시 듣기") { dangye = 2; allyeo(t, "점지도 그리기 요령 다섯 가지입니다.") }
+                t.danchu("문제 다시 듣기") { Sori.meomchugi(); Sori.mal(munjeMal()) }
+                t.danchu("뒤로 — 요령 다시 듣기") { yoryeongEuro(t) }
             }
             else -> {
                 t.ipryeok("자봉 번호 — 예를 들어 J0001", beonhoIeo, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS) { beonhoIeo = it }
@@ -944,17 +1149,43 @@ class DeungrokHwamyeon : JbHwamyeon("자원봉사 등록") {
         }
     }
 
+    /** 등록을 마친 환영 화면 — 봉사의 보람을 느끼게 */
+    private fun hwanyeong(t: JabongActivity) {
+        t.chojeom(t.keunGeul("환영합니다, ${JabongNae.ireum}님!", 30f))
+        t.kadeu("자봉 번호 ${JabongNae.beonho}")
+        t.geul("오늘부터 걸으시는 한 걸음 한 걸음이 시각장애인이 혼자 걷는 길이 됩니다. 함께해 주셔서 고맙습니다.", true)
+        t.geul("자봉 번호는 내 기록 탭에서 언제든 다시 보실 수 있습니다.")
+        t.danchu("봉사 시작하기 — 봉사 탭에서 보폭부터 잽니다") { hwanyeongKkeut(t) }
+    }
+
     private fun goreum(t: JabongActivity, i: Int) {
         if (boneunJung) return
         val m = MUNJE[mi]
-        if (i != m.a) { allyeo(t, "다시 생각해 보십시오. " + m.h + " " + m.q); return }
-        if (mi + 1 < MUNJE.size) { mi += 1; allyeo(t, "맞습니다. " + MUNJE[mi].q); return }
+        if (i != m.a) { allyeo(t, "아깝습니다. " + m.h + " 다시 골라 주십시오."); return }
+        Baksu.chigi()   // 정답이면 박수
+        Jindong.hagi("arrive")
+        if (mi + 1 < MUNJE.size) {
+            mi += 1
+            val ap = listOf("맞습니다! 잘하셨습니다. ", "맞습니다! 점지도 박사님이십니다. ")[minOf(mi - 1, 1)]
+            allim = ap + MUNJE[mi].q
+            t.dasiGeurigi()
+            main.postDelayed({ Sori.meomchugi(); Sori.mal(munjeMal(ap)) }, 1000)   // 박수가 끝난 뒤에 다음 문제
+            return
+        }
         boneunJung = true
-        allyeo(t, "맞습니다. 등록하는 중입니다.")
+        hwanyeongJung = true   // 등록이 되는 순간 탭으로 넘어가지 않고 환영 화면부터
+        allyeo(t, "세 문제 모두 맞히셨습니다! 등록하는 중입니다.")
         JabongNae.deungrok(ireum.trim(), yeonrak, jiyeok.trim(), id1365.trim(), jam) { why ->
             boneunJung = false
-            if (why != null) allyeo(t, why)
-            else { allim = ""; dangye = 0; Sori.mal("등록을 마쳤습니다. 자봉 번호는 ${JabongNae.beonho}입니다. 봉사 탭에서 보폭을 먼저 재 주십시오.") }
+            if (why != null) { hwanyeongJung = false; allyeo(t, why) }
+            else {
+                allim = ""; dangye = 5
+                t.dasiGeurigi()
+                Baksu.chigi(true)
+                Jindong.hagi("arrive")
+                Sori.meomchugi()
+                Sori.mal("등록을 마쳤습니다. 환영합니다, ${JabongNae.ireum}님. 자봉 번호는 ${JabongNae.beonho}입니다. 오늘부터 걸으시는 한 걸음 한 걸음이 시각장애인이 혼자 걷는 길이 됩니다. 봉사 시작하기를 누르시면 봉사 탭으로 갑니다.")
+            }
         }
     }
 }
