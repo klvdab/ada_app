@@ -10,13 +10,18 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.49.0"
-    static let bild = "261006-I9"
+    static let pan = "2.50.0"
+    static let bild = "261006-I10"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.50.0", bild: "261006-I10", nal: "2026-10-06", naeyong: [
+            "처음 안내(이사장님 승인) — 처음 여시면 흰지팡이 당부와 보폭 재기 화면부터. 나중에 재기를 누르시면 보폭을 재기 전까지 걸음 수 대신 미터로 안내. 보폭을 재 두신 분께는 띄우지 않음",
+            "걷는 안내·점지도 따라 걷기를 시작할 때마다 「흰지팡이를 꼭 짚어 주십시오」 한 줄",
+            "도움말 맨 앞에 안전 수칙 — 흰지팡이와 보폭 항목 더함"
+        ]),
         Gochim(pan: "2.49.0", bild: "261006-I9", nal: "2026-10-06", naeyong: [
             "말로 하기 대화 이어 가기(이사장님 승인) — 되묻는 말 뒤 마이크를 한 번만 열던 것을 고쳐, 대답 뒤에는 하이 길눈 없이 딩동 뒤 10초 이어 들음. 말씀이 없으면 조용히 닫음. 됐어·고마워면 그침. 같은 말 세 번이면 다른 말이나 긴급통화를 권함",
             "말벗 — 명령도 곳 이름도 아닌 질문은 리눅스 서버 인공지능(올라마 엑사원, lvd-malbeot, 나스 malbeot.php)이 지금 자리·가는 곳·앞의 대화 넉 마디를 헤아려 대답. 실시간 정보는 지어내지 않고, 안전 판단은 대신하지 않음",
