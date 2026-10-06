@@ -23,12 +23,17 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.17.0"
-    const val bild = "261006-A9"
+    const val pan = "2.18.0"
+    const val bild = "261006-A10"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.18.0", "261006-A10", "2026-10-06", listOf(
+            "처음 안내(이사장님 승인, 아이폰 길눈 2.50.0과 같음) — 처음 여시면 흰지팡이 당부와 보폭 재기 화면부터. 나중에 재기를 누르시면 보폭을 재기 전까지 걸음 수 대신 미터로 안내. 보폭을 재 두신 분께는 띄우지 않음",
+            "걷는 안내·점지도 따라 걷기를 시작할 때마다 「흰지팡이를 꼭 짚어 주십시오」 한 줄",
+            "도움말 맨 앞에 안전 수칙 — 흰지팡이와 보폭 항목 더함"
+        )),
         Gochim("2.17.0", "261006-A9", "2026-10-06", listOf(
             "말로 하기 대화 이어 가기(이사장님 승인, 아이폰 길눈 2.49.0과 같음) — 대답 뒤 하이 길눈 없이 딩동 뒤 10초 이어 들음, 됐어·고마워면 그침, 같은 말 세 번이면 다른 말이나 긴급통화를 권함",
             "말벗 — 명령도 곳 이름도 아닌 질문은 리눅스 서버 인공지능(올라마 엑사원, 나스 malbeot.php)이 지금 자리·가는 곳·앞의 대화를 헤아려 대답",
@@ -237,6 +242,10 @@ object Seoljeong {
         get() = d.getFloat("bopok", 0.65f).toDouble()
         set(v) { d.edit().putFloat("bopok", v.toFloat()).putBoolean("bopokJaem", true).apply() }
     val bopokJaem: Boolean get() = d.getBoolean("bopokJaem", false)
+    /** 2.18.0 처음 안내(흰지팡이·보폭 재기)에서 나중에 재기를 누르셨나 */
+    var cheotAnnae: Boolean
+        get() = d.getBoolean("cheotAnnae", false)
+        set(v) { d.edit().putBoolean("cheotAnnae", v).apply() }
     /** 2.3.0 음향신호기 자동으로 잡기(처음부터 켜짐) — 끄면 손으로만 울림 */
     var sinhogiJadong: Boolean
         get() = d.getBoolean("sinhogiJadong", true)
