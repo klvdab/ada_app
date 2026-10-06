@@ -21,6 +21,8 @@ object JabongNae {
     }
 
     val beonho: String get() = d?.getString("jb.beonho", "") ?: ""
+    /** 2.7.0 걸음 나눔에 쓴 글을 나중에 가릴 때 쓰는 네 자리 숫자(등록 때 정하신 것) */
+    val jamGap: String get() = yeolsoe?.getString("jbJam", "") ?: ""
     val ireum: String get() = d?.getString("jb.ireum", "") ?: ""
     val jiyeok: String get() = d?.getString("jb.jiyeok", "") ?: ""
     val id1365: String get() = d?.getString("jb.id1365", "") ?: ""
