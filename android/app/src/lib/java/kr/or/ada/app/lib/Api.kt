@@ -19,7 +19,7 @@ class Makhim : Exception()   // 403 — 회원 열쇠가 막힘
 object Api {
     const val BASE = "https://lvd.ada.or.kr/nas/"
     const val UA = "Mozilla/5.0 (Linux; Android) AIJeomjaLib/0.2"
-    const val PER = 15
+    var PER = 15   // 0.3.0 — 설정의 목록 줄 수(5~30)
     lateinit var ctx: Context
     val key: String get() = Hoewon.yeolsoe(ctx)
 
@@ -56,9 +56,9 @@ object Api {
         }
         return ListResp(j.optInt("modu", items.size), j.optInt("o", off), items, j.optString("ttl").ifEmpty { null })
     }
-    fun list(g: String, o: Int) = listResp(getJson("doseo.php", mapOf("m" to "j_list", "g" to g, "o" to "$o")), o)
-    fun jakbon(j: String, o: Int) = listResp(getJson("doseo.php", mapOf("m" to "j_jakbon", "j" to j, "o" to "$o")), o)
-    fun find(s: String, o: Int) = listResp(getJson("doseo.php", mapOf("m" to "j_find", "s" to s, "o" to "$o")), o)
+    fun list(g: String, o: Int) = listResp(getJson("doseo.php", mapOf("m" to "j_list", "g" to g, "o" to "$o", "n" to "$PER")), o)
+    fun jakbon(j: String, o: Int) = listResp(getJson("doseo.php", mapOf("m" to "j_jakbon", "j" to j, "o" to "$o", "n" to "$PER")), o)
+    fun find(s: String, o: Int) = listResp(getJson("doseo.php", mapOf("m" to "j_find", "s" to s, "o" to "$o", "n" to "$PER")), o)
     fun book(i: Int): BookResp {
         val j = getJson("doseo.php", mapOf("m" to "j_book", "i" to "$i"))
         return BookResp(j.optInt("i", i), j.optString("t"), j.optString("g"), j.optDouble("meg", 0.0), j.optString("nal"), j.optString("kind", "geul"))
@@ -90,6 +90,29 @@ object Api {
         if (!(c.contentType ?: "").contains("audio")) return null
         val d = c.inputStream.use { it.readBytes() }
         return if (d.size > 100) d else null
+    }
+    // 0.3.0 — 세 겹의 문: 문마다 서가(키, 이름, 책 수)
+    fun mun(h: String): Map<String, List<Triple<String, String, Int>>> {
+        val j = getJson("doseo.php", mapOf("m" to "j_mun", "h" to h))
+        val out = HashMap<String, List<Triple<String, String, Int>>>()
+        val a = j.optJSONArray("mun") ?: return out
+        for (x in 0 until a.length()) {
+            val m = a.getJSONObject(x); val s = m.optJSONArray("seoga"); val l = ArrayList<Triple<String, String, Int>>()
+            if (s != null) for (y in 0 until s.length()) { val g = s.getJSONObject(y); l.add(Triple(g.optString("k"), g.optString("t"), g.optInt("n"))) }
+            out[m.optString("k")] = l
+        }
+        return out
+    }
+    fun seoga(mun: String, k: String, h: String, o: Int) = listResp(getJson("doseo.php", mapOf("m" to "j_seoga", "mun" to mun, "k" to k, "h" to h, "o" to "$o", "n" to "$PER")), o)
+    // 0.3.0 — 내려받기: 파일을 통째로 받아 저장(멈추면 지움)
+    fun naeryeo(u: String, to: java.io.File, meomchum: () -> Boolean): Boolean {
+        val con = open(u, 900000)
+        if (con.responseCode != 200) { con.disconnect(); return false }
+        val tmp = java.io.File(to.path + ".part")
+        con.inputStream.use { inp -> tmp.outputStream().use { out -> val buf = ByteArray(65536); while (true) { if (meomchum()) { break }; val n = inp.read(buf); if (n < 0) break; out.write(buf, 0, n) } } }
+        con.disconnect()
+        if (meomchum() || tmp.length() < 1000) { tmp.delete(); return false }
+        return tmp.renameTo(to)
     }
     fun mediaUrl(i: Int) = url("dokseo.php", mapOf("m" to "media", "i" to "$i"))
 }
