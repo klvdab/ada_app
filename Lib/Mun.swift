@@ -12,7 +12,7 @@ extension API {
         return try JSONDecoder().decode(MunResp.self, from: d)
     }
     static func seoga(_ mun: String, _ k: String, _ h: String, _ o: Int) async throws -> ListResp {
-        let (d, _) = try await URLSession.shared.data(for: request(url("doseo.php", ["m": "j_seoga", "mun": mun, "k": k, "h": h, "o": String(o), "n": String(perPage)])))
+        let (d, _) = try await URLSession.shared.data(for: request(url("doseo.php", ["m": "j_seoga", "mun": mun, "sk": k, "h": h, "o": String(o), "n": String(perPage)])))
         return try JSONDecoder().decode(ListResp.self, from: d)
     }
 }
