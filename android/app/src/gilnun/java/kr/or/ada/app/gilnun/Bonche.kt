@@ -23,12 +23,16 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.18.0"
-    const val bild = "261006-A10"
+    const val pan = "2.19.0"
+    const val bild = "261006-A11"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.19.0", "261006-A11", "2026-10-06", listOf(
+            "말벗 견주기(관리자 시험, 이사장님 승인, 아이폰 길눈 2.51.0과 같음) — 같은 질문 다섯 가지를 서버 말벗에 차례로 묻고 걸린 초와 대답을 적음",
+            "도움말 말벗 견주기 항목 더함"
+        )),
         Gochim("2.18.0", "261006-A10", "2026-10-06", listOf(
             "처음 안내(이사장님 승인, 아이폰 길눈 2.50.0과 같음) — 처음 여시면 흰지팡이 당부와 보폭 재기 화면부터. 나중에 재기를 누르시면 보폭을 재기 전까지 걸음 수 대신 미터로 안내. 보폭을 재 두신 분께는 띄우지 않음",
             "걷는 안내·점지도 따라 걷기를 시작할 때마다 「흰지팡이를 꼭 짚어 주십시오」 한 줄",
