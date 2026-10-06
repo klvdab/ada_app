@@ -365,6 +365,17 @@ object MalHagi {
                 return
             }
         }
+        // 2-2. 2.14.0 비슷한 곡을 여쭌 말의 대답 — "비슷한 제목으로 옛사랑이 있습니다. 틀까요?"(아이폰 2.46.0과 같음)
+        val bq = Bangsong.biseutQ
+        if (bq != null) {
+            Bangsong.biseutQ = null
+            if (now - Bangsong.biseutTtae < 120000) {
+                val ye = s.tteut(alts, "ye") != null
+                val ani = s.tteut(alts, "ani") != null
+                if (ye && !ani && z.length <= 10) { Bangsong.malChatgi(bq) { m -> dap(m, false) }; return }
+                if (ani && z.length <= 10) { dap("알겠습니다.", false); return }
+            }
+        }
         // 3. 점지도를 따라 걷는 중의 명령("그만 걷기"는 아래 "그만"보다 먼저)
         if (jm.gil != null) {
             if (z.contains("그만걷") || z.contains("따라걷기그만") || z.contains("따라걷기끝") || z.contains("걷기그만")) {
