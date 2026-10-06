@@ -56,7 +56,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
             text = paras[pos] ?? ""
             store.remember(i: i, t: title, kind: kind, pos: Double(pos), modu: modu)
         } else {
-            let p = AVPlayer(playerItem: AVPlayerItem(asset: AVURLAsset(url: API.mediaURL(i), options: ["AVURLAssetHTTPHeaderFieldsKey": ["User-Agent": API.userAgent]])))
+            let p = AVPlayer(playerItem: AVPlayerItem(asset: Offline.asset(i) ?? AVURLAsset(url: API.mediaURL(i), options: ["AVURLAssetHTTPHeaderFieldsKey": ["User-Agent": API.userAgent]])))
             p.automaticallyWaitsToMinimizeStalling = true
             player = p
             let start = saved?.pos ?? 0
@@ -159,14 +159,14 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
     func pause() {
         token += 1
-        audio?.pause(); player?.pause()
+        audio?.pause(); player?.pause(); Offline.synth.stopSpeaking(at: .immediate)
         playing = false; waiting = false
         updateNowPlaying()
     }
 
     func stop() {
         token += 1
-        audio?.stop(); audio = nil
+        audio?.stop(); audio = nil; Offline.synth.stopSpeaking(at: .immediate)
         if let o = timeObs { player?.removeTimeObserver(o) }
         timeObs = nil
         player?.pause(); player = nil
@@ -185,6 +185,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
             text = await para(target) ?? ""
             store.remember(i: i, t: title, kind: kind, pos: Double(target), modu: modu)
             updateNowPlaying()
+            if !Offline.online && Offline.audioURL(i, target, store.voice).map({ FileManager.default.fileExists(atPath: $0.path) }) != true { waiting = false; speakPhone(text, my); return }   // 0.3.0 — 인터넷이 없으면 바로 폰 목소리
             if audioTasks[target * 10 + store.voice] == nil && Offline.audioURL(i, target, store.voice).map({ FileManager.default.fileExists(atPath: $0.path) }) != true {
                 waiting = true
             }
@@ -192,9 +193,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
             guard my == token else { return }
             waiting = false
             guard let f else {
-                playing = false
-                status = "소리를 만들지 못했습니다. 잠시 뒤 다시 읽기를 눌러 주십시오."
-                store.say(status)
+                speakPhone(text, my)   // 0.3.0 — 서버 소리를 못 받으면 폰 목소리로
                 return
             }
             do {
@@ -292,66 +291,33 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
 // MARK: 폰에 내려받기(인터넷 없는 곳에서 듣기)
 @MainActor
-final class Offline: ObservableObject {
-    static let shared = Offline()
-    @Published var busy: Int = -1
-    @Published var done: Int = 0
-    @Published var total: Int = 0
-    private var task: Task<Void, Never>?
 
-    static var root: URL { FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("books", isDirectory: true) }
-    static var cacheDir: URL {
-        let u = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("sori", isDirectory: true)
-        try? FileManager.default.createDirectory(at: u, withIntermediateDirectories: true)
-        return u
+// 0.3.0 — 인터넷이 없거나 서버 소리를 받지 못하면 폰 목소리로 읽는다(내려받은 글자책을 인터넷 없이)
+extension Reader: AVSpeechSynthesizerDelegate {
+    func speakPhone(_ t: String, _ my: Int) {
+        guard my == token else { return }
+        let u = AVSpeechUtterance(string: t.isEmpty ? " " : t)
+        u.voice = AVSpeechSynthesisVoice(language: "ko-KR")
+        u.rate = min(AVSpeechUtteranceMaximumSpeechRate, max(AVSpeechUtteranceMinimumSpeechRate, AVSpeechUtteranceDefaultSpeechRate * store.rate))
+        Offline.speakToken = my
+        Offline.synth.delegate = self
+        try? AVAudioSession.sharedInstance().setActive(true)
+        if !Offline.online && !Offline.saidPhone { Offline.saidPhone = true; store.say("인터넷이 없어 폰 목소리로 읽습니다.") }
+        status = ""
+        Offline.synth.speak(u)
+        updateNowPlaying()
     }
-    static func dir(_ i: Int) -> URL { root.appendingPathComponent("\(i)", isDirectory: true) }
-    static func audioURL(_ i: Int, _ o: Int, _ v: Int) -> URL? { dir(i).appendingPathComponent("\(o)_\(v).mp3") }
-    static func loadParas(_ i: Int) -> [String]? {
-        guard let d = try? Data(contentsOf: dir(i).appendingPathComponent("paras.json")) else { return nil }
-        return try? JSONDecoder().decode([String].self, from: d)
-    }
-
-    func download(i: Int, title: String) {
-        guard busy < 0 else { return }
-        busy = i; done = 0; total = 0
-        let v = Store.shared.voice
-        task = Task {
-            let fm = FileManager.default
-            try? fm.createDirectory(at: Offline.dir(i), withIntermediateDirectories: true)
-            var all: [String] = []
-            var o = 0
-            while true {
-                guard let r = try? await API.gul(i, o), r.ok, let mun = r.mun, !mun.isEmpty else { break }
-                all.append(contentsOf: mun)
-                let m = r.modu ?? all.count
-                total = m
-                if all.count >= m { break }
-                o += 60
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        Task { @MainActor in
+            guard Offline.speakToken == self.token, self.playing else { return }
+            if self.pos + 1 < self.modu {
+                self.play(at: self.pos + 1)
+            } else {
+                self.playing = false
+                self.store.remember(i: self.i, t: self.title, kind: self.kind, pos: Double(self.pos), modu: self.modu, done: true)
+                self.store.say("책을 끝까지 읽었습니다.")
+                self.updateNowPlaying()
             }
-            if all.isEmpty { busy = -1; Store.shared.say("이 책은 내려받을 수 없습니다."); return }
-            if let d = try? JSONEncoder().encode(all) { try? d.write(to: Offline.dir(i).appendingPathComponent("paras.json")) }
-            for (k, t) in all.enumerated() {
-                if Task.isCancelled { break }
-                let dest = Offline.audioURL(i, k, v)!
-                if fm.fileExists(atPath: dest.path) { done = k + 1; continue }
-                let cut = String(t.prefix(600))
-                guard let y = try? await API.yocheong(cut, voice: v) else { continue }
-                let h = y.h ?? Reader.hash(cut, v)
-                for n in 0..<90 {
-                    if let d = try? await API.sori(h) { try? d.write(to: dest); break }
-                    try? await Task.sleep(nanoseconds: n < 10 ? 700_000_000 : 1_000_000_000)
-                }
-                done = k + 1
-            }
-            Store.shared.downloaded.insert(i); Store.shared.save()
-            busy = -1
-            Store.shared.say("\(title), 폰에 내려받기를 마쳤습니다.")
         }
-    }
-    func cancel() { task?.cancel(); busy = -1 }
-    func remove(_ i: Int) {
-        try? FileManager.default.removeItem(at: Offline.dir(i))
-        Store.shared.downloaded.remove(i); Store.shared.save()
     }
 }
