@@ -82,6 +82,6 @@ struct Item: Decodable, Identifiable, Hashable {
     var id: String { if let i { return "b\(i)" }; return "j\(j ?? t)" }
 }
 struct ListResp: Decodable { let ok: Bool; let modu: Int?; let o: Int?; let items: [Item]?; let ttl: String?; let msg: String? }
-struct BookResp: Decodable { let ok: Bool; let i: Int?; let t: String?; let g: String?; let meg: Double?; let nal: String?; let kind: String?; let msg: String? }
+struct BookResp: Decodable { let ok: Bool; let i: Int?; let t: String?; let g: String?; let meg: Double?; let nal: String?; let kind: String?; let sogae: String?; let jieun: String?; let chulpan: String?; let msg: String? }
 struct GulResp: Decodable { let ok: Bool; let ttl: String?; let modu: Int?; let o: Int?; let mun: [String]?; let msg: String? }
 struct YoResp: Decodable { let ok: Bool; let h: String?; let msg: String? }
