@@ -59,6 +59,9 @@ struct Gisa: Identifiable, Hashable {
 final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     static let shared = BangsongEngine()
 
+    /// 2.46.0 꼭 맞는 곡이 없을 때 권한 비슷한 곡(말로 하기에서 "네" 하시면 틂)
+    var biseutQ: String?
+
     // MARK: 화면이 보는 것
     @Published private(set) var jong: BangsongJong = .eopseum
     @Published private(set) var jemok = ""            // 지금 나오는 곡·채널·기사 이름
@@ -616,6 +619,11 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         let j = await eumakMutgi("chatgi", [("q", q)])
         if (j?["gallim"] as? Bool) == true { return (j?["mal"] as? String) ?? "어느 쪽으로 틀까요? 다시 말씀해 주십시오." }
         let ls = BangsongEngine.gokDeul(j)
+        // 2.46.0 꼭 맞는 곡이 없으면 나스가 권한 비슷한 제목·가수를 여쭘(이사장님 승인)
+        if ls.isEmpty, let bs = j?["biseut"] as? [String: Any], let bq = bs["q"] as? String, !bq.isEmpty {
+            await MainActor.run { self.biseutQ = bq }
+            return (bs["mal"] as? String) ?? "비슷한 곡이 있습니다. 틀까요?"
+        }
         guard !ls.isEmpty else { return "찾는 곡이 없습니다. 가수나 곡 이름을 다시 말씀해 주십시오." }
         let n = (j?["su"] as? Int) ?? ls.count
         let ir = (j?["ireum"] as? String) ?? q
