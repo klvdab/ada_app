@@ -2,12 +2,19 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.7.0"
-    static let bild = "261006-I2"
+    static let pan = "2.8.0"
+    static let bild = "261006-I3"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.8.0", bild: "261006-I3", nal: "2026-10-06", naeyong: [
+            "함께한 기록판(이사장님 승인) — 나눔 탭 셋째 줄. 모두 그린 길, 이번 주 함께 그린 길과 거리, 이번 주 가장 많이 그려 주신 분 1~3등(자봉 번호), 모두 보낸 응원 박수. 소리로도 읽음. 이번 주 모든 자봉님께 박수는 한 주에 한 번",
+            "걸음 나눔을 자봉 앱 화면으로 — 글마다 응원 박수 단추(한 글에 한 번, 박수 수 보임), 한마디 적기(자원봉사자로, 자봉 번호로 적힘)",
+            "다 걸었습니다를 누르면 그 길이 기록판에 저절로 셈해짐",
+            "기록판과 응원 박수의 뒷단은 협회 리눅스 서버(lvd-jabong 일꾼), 나스는 건네주기만(/jabong/hamkke.php). 서버가 쉬면 조용히 넘어가고 기록판은 쉬는 중이라 알림",
+            "도움말 함께한 기록판 항목 더함, 걸음 나눔 항목 고침"
+        ]),
         Gochim(pan: "2.7.0", bild: "261006-I2", nal: "2026-10-06", naeyong: [
             "정답을 맞히면 박수 소리(이사장님 승인) — 확인 문제를 맞힐 때마다 박수, 등록을 마치면 큰 박수. 박수 소리는 자봉 앱 안에서만 만들어 길눈 소리 부품은 건드리지 않음",
             "나눔 탭을 채움 — 맨 위 그려 주세요(길눈님이 부탁한 길, 안 그려진 것 먼저, 다섯 개씩), 걸음 나눔, 더 보기 펼치기 안에 나눔 마당과 함께하기. 길눈과 같은 나스 창고라 같은 글이 보임",
