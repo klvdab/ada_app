@@ -101,7 +101,7 @@ object SinhogiEngine {
     private var dasiRun: Runnable? = null
     private var gaengsinRun: Runnable? = null
 
-    private val salpim: Boolean get() = jadongOn || chatneunJung || pending != null
+    private val salpim: Boolean get() = jadongOn || chatneunJung || pending != null || salpigiJung
 
     // MARK: 세우기
 
@@ -209,7 +209,7 @@ object SinhogiEngine {
         dasiRun = null
         val a = adapter
         if (!salpim || a == null || !kyeojim || !heorakItda) { hunKkeugi(); return }
-        val bbareun = chatneunJung || pending != null
+        val bbareun = chatneunJung || pending != null || salpigiJung
         val bang = (if (dwi) "dwi" else "ap") + (if (bbareun) "-bbareum" else "")
         if (hunneunJung && hunneun == bang) return
         val now = System.currentTimeMillis()
@@ -284,6 +284,7 @@ object SinhogiEngine {
         val id = r.device.address ?: return
         val now = System.currentTimeMillis()
         if (ireum.startsWith(BOJA_MAL)) {
+            if (salpigiJung) salpigiDam(id, "boja", rssi)   // 2.13.0 주변 신호기 살피기
             chatgiNamgi("boja", ireum, id, rssi)
             if (jadongOn && rssi >= -80 && now - (lastBoja[id] ?: 0L) > 300000) {
                 lastBoja[id] = now
@@ -294,6 +295,7 @@ object SinhogiEngine {
         }
         val gongyong = rec?.serviceUuids?.contains(ParcelUuid(SERVICE)) == true
         if (!ireum.startsWith(AP_MAL) && !gongyong) return
+        if (salpigiJung) salpigiDam(id, "sinhogi", rssi)   // 2.13.0 주변 신호기 살피기
         chatgiNamgi("sinhogi", ireum, id, rssi)
         chajeun[id] = Chajeun(r.device, rssi, now)
         if (!jadongOn || pending != null || chatneunJung) return
@@ -316,6 +318,54 @@ object SinhogiEngine {
             lastSinho[id] = now
             jadongBonaegi(2, r.device)
         }
+    }
+
+    // MARK: 2.13.0 내 주변 신호기 살피기(이사장님 승인 2026-10-06, 아이폰 길눈 2.45.0 과 같음) — 있는지, 블루투스로 울릴 수 있는지
+    private var salpigiJung = false
+    private val salpigiJaba = HashMap<String, Pair<String, Int>>()
+    var salpigiGyeolgwa = ""
+        private set
+
+    private fun salpigiDam(id: String, jong: String, r: Int) {
+        val o = salpigiJaba[id]
+        if (o != null && o.second >= r) return
+        salpigiJaba[id] = Pair(jong, r)
+    }
+
+    /** 둘레를 8초 살펴 음향신호기가 있는지, 블루투스로 울릴 수 있는지 알림 */
+    fun juByeonSalpigi() {
+        h.post {
+            if (salpigiJung) { Sori.mal("지금 살피는 중입니다.", MalGeup.JEONGBO); return@post }
+            if (adapter == null || !kyeojim || !heorakItda) {
+                val m = "블루투스가 꺼져 있거나 길눈에 근처 기기 허락이 없어 살피지 못했습니다. 폰 설정에서 블루투스를 켜고 길눈의 근처 기기 허락을 확인해 주십시오."
+                salpigiGyeolgwa = m
+                Sori.mal(m)
+                return@post
+            }
+            salpigiJaba.clear()
+            salpigiJung = true
+            Sori.mal("둘레의 음향신호기를 8초 동안 살핍니다. 폰을 앞으로 들어 주십시오.")
+            dasiSalpim()
+            h.postDelayed({ salpigiKkeut() }, 8000)
+        }
+    }
+
+    private fun salpigiKkeut() {
+        salpigiJung = false
+        hunneun = null
+        dasiSalpim()
+        val s = salpigiJaba.values.filter { it.first == "sinhogi" }.map { it.second }.sortedDescending()
+        val b = salpigiJaba.values.count { it.first == "boja" }
+        var m = if (s.isNotEmpty()) {
+            val ga = s[0]
+            val geori = if (ga >= -65) "바로 앞" else if (ga >= -80) "가까이" else "조금 떨어진 곳"
+            Jindong.hagi("arrive")
+            "블루투스로 울릴 수 있는 음향신호기가 ${s.size}대 잡힙니다. 가장 가까운 것은 ${geori}에 있습니다. 울리시려면 신호기 울려 줘라고 말씀하시거나 신호기 울리기를 누르십시오."
+        } else "블루투스로 울릴 수 있는 음향신호기는 잡히지 않습니다. 이 근처 신호기가 리모컨 전용이거나, 신호기가 없을 수 있습니다."
+        if (b > 0) m += " 보행신호 음성안내 장치도 ${b}대 있습니다."
+        salpigiGyeolgwa = m
+        Sori.mal(m)
+        Girok.namgi("sinhogi_salpigi", mapOf("sinhogi" to s.size, "boja" to b))
     }
 
     /** 남산 현장 확인 기록 — 한 기기에 한 번. 기기 주소는 sha256 앞 10자리만, 자리는 소수 여섯째 자리까지 */
