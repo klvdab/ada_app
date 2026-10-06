@@ -204,7 +204,6 @@ class LibActivity : Activity() {
         Store.last?.let { l ->
             cheot = chaekJul(l, "이어 듣기, ${l.t}, ${l.wichiMal}부터", "이어 듣기 · ${l.wichiMal}부터", { go(Hm.Reader(l.i, l.t, l.kind)) }, false)
         }
-        geul("세 겹의 문", jemok = true)   // 0.3.0
         danchu("주제별로 찾기, 십진분류") { go(Hm.Mun("jujae", "주제별")) }
         danchu("장르별로 찾기") { go(Hm.Mun("jangreu", "장르별")) }
         danchu("테마별로 찾기") { go(Hm.Mun("tema", "테마별")) }
