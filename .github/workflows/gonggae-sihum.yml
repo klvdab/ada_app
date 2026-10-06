@@ -1,0 +1,48 @@
+# 공개 시험 링크 만들기 (1.0판, 빌드 261006-1, 이사장님 승인 2026-10-06)
+# 대상 앱에 바깥 시험 모임(공개 링크)을 만들고 가장 새 판을 베타 심사에 냅니다. 지우는 일은 없습니다.
+# Actions 화면의 「Run workflow」로 돌리고, 결과(공개 링크 포함)는 실행 기록의 알림(Annotations)에 남습니다.
+name: gonggae-sihum
+on:
+  workflow_dispatch:
+    inputs:
+      dae:
+        description: "대상 앱 번들 (kr.or.ada.jabong = 길눈 자봉)"
+        default: "kr.or.ada.jabong"
+      moim:
+        description: "바깥 시험 모임 이름"
+        default: "자봉 공개 시험"
+jobs:
+  gonggae:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 도구 준비
+        run: |
+          python3 -m venv /tmp/py
+          /tmp/py/bin/pip install --quiet pyjwt cryptography
+
+      - name: 열쇠 풀어 놓기
+        env:
+          ASC_BUNDLE: ${{ secrets.ASC_BUNDLE }}
+        run: |
+          umask 077
+          B="$RUNNER_TEMP/bundle.txt"
+          printf '%s\n' "$ASC_BUNDLE" | tr -d '\r' > "$B"
+          KID=$(grep -m1 '^KEY_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          IID=$(grep -m1 '^ISSUER_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          if [ -z "$KID" ] || [ -z "$IID" ]; then echo "ASC_BUNDLE 에 KEY_ID / ISSUER_ID 줄이 있어야 합니다"; rm -f "$B"; exit 1; fi
+          mkdir -p "$HOME/private_keys"
+          sed -n '/BEGIN PRIVATE KEY/,/END PRIVATE KEY/p' "$B" > "$HOME/private_keys/AuthKey_$KID.p8"
+          rm -f "$B"
+          chmod 600 "$HOME/private_keys/AuthKey_$KID.p8"
+          echo "::add-mask::$IID"
+          echo "ASC_KEY_ID=$KID" >> "$GITHUB_ENV"
+          echo "ASC_ISSUER_ID=$IID" >> "$GITHUB_ENV"
+
+      - name: 공개 시험 링크 만들기
+        env:
+          DAE_BUNDLE: ${{ github.event.inputs.dae || 'kr.or.ada.jabong' }}
+          MOIM: ${{ github.event.inputs.moim || '자봉 공개 시험' }}
+        run: /tmp/py/bin/python tools/gonggae_sihum.py
