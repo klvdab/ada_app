@@ -8,6 +8,7 @@ struct CheotAnnaeView: View {
     let dachi: () -> Void
     @ObservedObject private var s = Seoljeong.shared
     @AccessibilityFocusState private var chojeom: Bool
+    @Environment(\.dismiss) private var dwiro   // 2.52.0 첫 화면 안 줄에서 열렸을 때 돌아가기
 
     static let kki = "gn.cheotAnnae"
     static var boyeoya: Bool { !UserDefaults.standard.bool(forKey: kki) && !Seoljeong.shared.bopokJaem }
@@ -31,6 +32,7 @@ struct CheotAnnaeView: View {
                         SoriEngine.shared.mal("알겠습니다. 보폭을 재시기 전까지는 걸음 수 대신 미터로 안내합니다. 보폭은 설정 탭의 점지도와 걸음에서 언제든 재실 수 있습니다.")
                         Girok.shared.namgi("cheot_najunge", [:])
                         dachi()
+                        dwiro()
                     }
                     .buttonStyle(KeunDanchu())
                 }
@@ -48,6 +50,7 @@ struct CheotAnnaeView: View {
                 Girok.shared.namgi("cheot_bopok", [:])
                 SoriEngine.shared.mal("보폭을 쟀습니다. 이제 걸음 수로 안내합니다. 길을 나서실 때는 꼭 흰지팡이를 짚어 주십시오.")
                 dachi()
+                dwiro()
             }
         }
     }
