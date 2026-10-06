@@ -299,6 +299,7 @@ final class JeomGeurigi: ObservableObject {
         gil = nil
         geurinGil.insert(g, at: 0)
         mokJeojang()
+        Hamkke.geurimAllim(gil: g.id, geori: geori)   // 2.8.0 함께한 기록판에 셈
         try? FileManager.default.removeItem(at: JeomGeurigi.jigeumPail)
         Girok.shared.namgi("jb_geurigi_kkeut", ["id": g.id, "georeum": g.georeum, "pyosi": g.marks.count, "jari": g.pts.count])
         alrigi(mal)
