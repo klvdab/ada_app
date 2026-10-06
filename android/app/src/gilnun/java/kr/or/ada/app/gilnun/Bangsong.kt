@@ -177,6 +177,10 @@ internal fun bsI(w: String) = if (bsBatchim(w)) "이" else "가"
 object Bangsong {
     const val PPURI = "https://lvd.ada.or.kr"
 
+    /** 2.14.0 꼭 맞는 곡이 없을 때 권한 비슷한 곡(말로 하기에서 "네" 하시면 틂, 아이폰 2.46.0과 같음) */
+    @Volatile var biseutQ: String? = null
+    @Volatile var biseutTtae = 0L
+
     private val main = Handler(Looper.getMainLooper())
     private val il = Executors.newFixedThreadPool(3)
     private var ac: Context? = null
@@ -878,6 +882,14 @@ object Bangsong {
                 return@eumakMutgi
             }
             val ls = gokDeul(j)
+            // 2.14.0 꼭 맞는 곡이 없으면 나스가 권한 비슷한 제목·가수를 여쭘(이사장님 승인)
+            val bs = j?.optJSONObject("biseut")
+            if (ls.isEmpty() && bs != null && bs.bsGeul("q").isNotEmpty()) {
+                biseutQ = bs.bsGeul("q")
+                biseutTtae = System.currentTimeMillis()
+                kkeut(bs.bsGeul("mal").ifEmpty { "비슷한 곡이 있습니다. 틀까요?" })
+                return@eumakMutgi
+            }
             if (ls.isEmpty()) { kkeut("찾는 곡이 없습니다. 가수나 곡 이름을 다시 말씀해 주십시오."); return@eumakMutgi }
             val n = if (j != null && j.has("su") && !j.isNull("su")) j.optInt("su", ls.size) else ls.size
             val ir = (j?.bsGeul("ireum") ?: "").ifEmpty { q }
@@ -1636,7 +1648,8 @@ object BangsongMal {
                 dap("", false)
                 return true
             }
-            b.malChatgi(q) { m -> dap(m, false) }
+            b.biseutQ = null
+            b.malChatgi(q) { m -> dap(m, b.biseutQ != null) }   // 2.14.0 비슷한 곡을 여쭈었으면 대답을 기다림
             return true
         }
         return false
