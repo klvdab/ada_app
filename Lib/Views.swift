@@ -199,6 +199,12 @@ struct BookView: View {
                 }
                 if let r = store.rec(i) { Text(r.done ? "다 읽은 책입니다." : "읽던 자리: \(r.wichiMal)") }
                 Text("갈래 \(b.g ?? "")")
+                if let s = b.sogae, !s.isEmpty {   // 0.4.2 — 책 소개(카카오 책 정보), 지은이, 출판사
+                    if let j = b.jieun, !j.isEmpty { Text("지은이 " + j) }
+                    if let c = b.chulpan, !c.isEmpty { Text("출판사 " + c) }
+                    Text("책 소개. " + s)
+                    Button("책 소개 듣기") { Miri.shared.deutgiGeul("책 소개. " + s) }
+                }
                 Text("크기 \(String(format: "%.1f", b.meg ?? 0))메가")
                 Text("들어온 날 \(b.nal ?? "")")
                 if kind != "etc" {   // 0.3.0 — 소리책도 내려받기
