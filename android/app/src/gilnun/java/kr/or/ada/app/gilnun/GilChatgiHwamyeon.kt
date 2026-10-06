@@ -133,6 +133,7 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
         // ⑤ 그 밖에 펼치기
         t.pyeolchigi("그 밖에", geuBakkPyeol) { geuBakkPyeol = !geuBakkPyeol }
         if (geuBakkPyeol) {
+            t.danchu("주변 신호기 살피기 — 있는지, 블루투스로 울릴 수 있는지") { t.sinhogiHagi { SinhogiEngine.juByeonSalpigi() } }   // 2.13.0
             t.danchu("음향신호기 울리기 — 신호 안내") { t.sinhogiHagi { SinhogiEngine.ulligi(2) } }
             t.danchu("음향신호기 울리기 — 위치 안내") { t.sinhogiHagi { SinhogiEngine.ulligi(1) } }
             t.danchu(if (SinhogiEngine.chatneunJung) "음향신호기 찾기 멈추기" else "음향신호기 찾기 — 가까워질수록 소리가 빨라집니다") {
