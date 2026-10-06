@@ -22,7 +22,7 @@ struct MunSection: View {
     @EnvironmentObject var nav: Nav
     @AppStorage("hyeongtae") private var h = "all"
     var body: some View {
-        Section("세 겹의 문") {
+        Section {   // 0.4.0 — 머리말 「세 겹의 문」은 빼서 손가락짓 한 번 줄임(이사장님)
             Button("주제별로 찾기, 십진분류") { nav.push(Route.mun("jujae", "주제별")) }
             Button("장르별로 찾기") { nav.push(Route.mun("jangreu", "장르별")) }
             Button("테마별로 찾기") { nav.push(Route.mun("tema", "테마별")) }
