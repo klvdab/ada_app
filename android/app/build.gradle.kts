@@ -84,7 +84,7 @@ android {
             dimension = "ap"
             applicationId = "kr.or.ada.lib"
             resValue("string", "app_name", "AI점자도서관")
-            versionName = "0.3.0"   // 261006-L1 내려받기(인터넷 없이 읽기)·세 겹의 문·목록 줄 수(도서관 창 클, 이사장님 지시)
+            versionName = "0.3.1"   // 261006-L2 세 겹의 문 목록 고침·독서기 떠나면 멈춤(도서관 창 클, 이사장님 지적)
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/nas/doseo.php\"")
         }
     }
