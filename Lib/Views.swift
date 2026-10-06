@@ -200,14 +200,14 @@ struct BookView: View {
                 Text("갈래 \(b.g ?? "")")
                 Text("크기 \(String(format: "%.1f", b.meg ?? 0))메가")
                 Text("들어온 날 \(b.nal ?? "")")
-                if kind == "geul" {
+                if kind != "etc" {   // 0.3.0 — 소리책도 내려받기
                     if store.downloaded.contains(i) {
                         Button("폰에서 지우기(내려받은 것)") { offline.remove(i) }
                     } else if offline.busy == i {
                         Text("내려받는 중, \(offline.total)문단 가운데 \(offline.done)")
                         Button("내려받기 멈추기") { offline.cancel() }
                     } else {
-                        Button("폰에 내려받기(인터넷 없이 듣기)") { offline.download(i: i, title: t) }
+                        Button("폰에 내려받기(인터넷 없이 듣기)") { offline.download(i: i, title: t, kind: kind) }
                     }
                 }
             } else {
@@ -319,10 +319,11 @@ struct SeojaeView: View {
     @State private var jiun: (ReadRec, [Mark])? = nil
     @State private var jiunTask: Task<Void, Never>? = nil
     @AccessibilityFocusState private var focus: String?
-    static let jjok = 15
+    static var jjok: Int { API.perPage }   // 0.3.0 — 설정의 목록 줄 수
 
     var body: some View {
         List {
+            NaeryeoSection()   // 0.3.0 — 내려받은 책
             if let rc = jiun?.0 {
                 Section {
                     Button("되돌리기, 방금 지운 \(rc.t)") { doedollrigi() }
@@ -429,6 +430,7 @@ struct SettingsView: View {
     @State private var q = ""
     var body: some View {
         List {
+            NaeryeoSeoljeong()   // 0.3.0 — 목록 줄 수, 와이파이에서만 내려받기, 저장 공간
             Section {
                 Button("새로고침") {
                     URLCache.shared.removeAllCachedResponses()
