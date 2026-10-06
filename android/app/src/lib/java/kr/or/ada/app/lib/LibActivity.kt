@@ -31,6 +31,7 @@ import androidx.media3.ui.PlayerView
 import java.util.concurrent.Executors
 
 sealed class Hm {
+    data class Mun(val mun: String, val t: String) : Hm(); data class Seoga(val mun: String, val k: String, val t: String) : Hm()   // 0.3.0 세 겹의 문
     object Home : Hm(); object Seojae : Hm(); object Seoljeong : Hm()
     data class Gal(val g: String) : Hm(); data class Jakbon(val j: String, val t: String) : Hm(); data class Find(val s: String) : Hm()
     data class Book(val i: Int) : Hm(); data class Reader(val i: Int, val t: String, val k: String) : Hm(); data class Marks(val i: Int) : Hm()
@@ -51,6 +52,7 @@ class LibActivity : Activity() {
     private val undoEnd = Runnable { undo?.let { /* 되돌리지 않으면 그대로 지워짐 */ }; undo = null; if (cur() is Hm.Seojae) draw() }
 
     override fun onCreate(s: Bundle?) {
+        Api.PER = Naeryeo.jul(this)   // 0.3.0 — 목록 줄 수
         super.onCreate(s)
         Api.ctx = applicationContext; Store.load(this); Dokseo.ctx = applicationContext
         Dokseo.bakkwim = { main.post { if (cur() is Hm.Reader) drawReaderState() } }
@@ -136,6 +138,8 @@ class LibActivity : Activity() {
             is Hm.Book -> book(h.i)
             is Hm.Reader -> reader(h)
             is Hm.Marks -> marks(h.i)
+            is Hm.Mun -> munHwamyeon(h)
+            is Hm.Seoga -> paged(h.t) { o -> Api.seoga(h.mun, h.k, Naeryeo.hyeongtae(this), o) }
         }
     }
 
@@ -199,6 +203,11 @@ class LibActivity : Activity() {
         Store.last?.let { l ->
             cheot = chaekJul(l, "이어 듣기, ${l.t}, ${l.wichiMal}부터", "이어 듣기 · ${l.wichiMal}부터", { go(Hm.Reader(l.i, l.t, l.kind)) }, false)
         }
+        geul("세 겹의 문", jemok = true)   // 0.3.0
+        danchu("주제별로 찾기, 십진분류") { go(Hm.Mun("jujae", "주제별")) }
+        danchu("장르별로 찾기") { go(Hm.Mun("jangreu", "장르별")) }
+        danchu("테마별로 찾기") { go(Hm.Mun("tema", "테마별")) }
+        danchu("보일 책: ${Naeryeo.hyeongtaeMal(this)}") { Naeryeo.nextHyeongtae(this); malhagi("보일 책, ${Naeryeo.hyeongtaeMal(this)}"); draw() }
         val chaj = EditText(this).apply {
             hint = "찾을 책 이름"; inputType = InputType.TYPE_CLASS_TEXT; imeOptions = EditorInfo.IME_ACTION_SEARCH
             background = kadeuBg(); setPadding(dp(14), dp(12), dp(14), dp(12)); setTextColor(Saek.geulja(this@LibActivity))
@@ -261,6 +270,11 @@ class LibActivity : Activity() {
                     val ireum = when (b.kind) { "sori" -> "듣기"; "yeongsang" -> "보기"; else -> "읽기" }
                     danchu(if (Store.rec(i) != null) "이어서 $ireum" else ireum, keun = true) { go(Hm.Reader(i, b.t, b.kind)) }
                     if (Store.marksOf(i).isNotEmpty()) danchu("책갈피 ${Store.marksOf(i).size}개") { go(Hm.Marks(i)) }
+                    if (b.kind == "geul" || b.kind == "sori") {   // 0.3.0 — 내려받기(인터넷 없이 듣기)
+                        if (Naeryeo.isDown(this, i)) danchu("폰에서 지우기(내려받은 것)") { Naeryeo.remove(this, i); malhagi("폰에서 지웠습니다."); draw() }
+                        else if (Naeryeo.busy == i) danchu("내려받기 멈추기") { Naeryeo.cancel(); malhagi("내려받기를 멈췄습니다."); draw() }
+                        else danchu("폰에 내려받기(인터넷 없이 듣기)") { Naeryeo.download(this, i, b.t, b.kind) { m -> main.post { malhagi(m); if (cur() == Hm.Book(i)) draw() } } }
+                    }
                     cheotJul(t)
                 }
             }
@@ -304,21 +318,42 @@ class LibActivity : Activity() {
     }
 
     // ── 내 서재 ──
+    // 0.3.0 — 세 겹의 문 안: 서가와 책 수
+    private fun munHwamyeon(h: Hm.Mun) {
+        val t = geul(h.t, jemok = true)
+        val mal = geul("가져오는 중입니다.", jakge = true)
+        val hy = Naeryeo.hyeongtae(this)
+        pool.execute {
+            val r = runCatching { Api.mun(hy) }
+            main.post {
+                if (cur() != h) return@post
+                body.removeView(mal)
+                r.onFailure { geul("가져오지 못했습니다. 설정의 새로고침을 눌러 주십시오.") }.onSuccess { all ->
+                    var first: View? = null
+                    for ((k, tt, n) in all[h.mun].orEmpty()) if (n > 0) { val b = danchu("$tt, class n extends HTMLElement{expanded=!1;connectedCallback(){this.annotationTextComponent=this.annotationContainer.firstElementChild,this.initalizeEventListeners()}static observedAttributes=["data-expanded"];attributeChangedCallback(){this.expanded?(this.displayShowLessButton(),this.annotationContainer.classList.replace("annotation--contracted","annotation--expanded")):(this.displayShowMoreButton(),this.annotationContainer.classList.replace("annotation--expanded","annotation--contracted"))}toggleExpansion(){this.expanded=!this.expanded}calculateOverflow(){if(this.annotationTextComponent){let t=this.isEllipsisActive(this.annotationTextComponent);if(this.expanded){if(!t){let t=this.isAnnotationWrapped(this.annotationTextComponent);this.expanded&&t?this.displayShowLessButton():t?this.displayShowMoreButton():this.hideBothButtons()}}else t?this.displayShowMoreButton():this.hideBothButtons()}}displayShowLessButton(){this.setButtonHiddenProperties(!1,!0)}displayShowMoreButton(){this.setButtonHiddenProperties(!0,!1)}hideBothButtons(){this.setButtonHiddenProperties(!0,!0)}setButtonHiddenProperties(t,e){this.showLessButton.hidden=t,this.showMoreButton.hidden=e}initalizeEventListeners(){"ResizeObserver"in window?new ResizeObserver(()=>this.calculateOverflow()).observe(this.annotationTextComponent):window.addEventListener("resize",()=>this.calculateOverflow())}isEllipsisActive(t){return t.offsetWidth<t.scrollWidth}isAnnotationWrapped(t){let{lineHeight:e}=getComputedStyle(t),i=parseInt(e.split("px")[0]);return t.scrollHeight>i}}권") { go(Hm.Seoga(h.mun, k, tt)) }; if (first == null) first = b }
+                    if (first == null) geul("이 문에는 아직 책이 없습니다.")
+                    cheotJul(first ?: t)
+                }
+            }
+        }
+    }
+
     private fun seojae() {
         geul("내 서재", jemok = true)
+        Naeryeo.items(this).let { nr -> if (nr.isNotEmpty()) { geul("내려받은 책 ${nr.size}권, ${Naeryeo.meg(nr.sumOf { it.size })}", jakge = true); for (x in nr) danchu(x.t) { go(Hm.Reader(x.id, x.t, x.kind)) } } }   // 0.3.0
         var first: View? = null
         undo?.let { (rc, _) -> first = danchu("되돌리기, 방금 지운 ${rc.t}", keun = true) { doedollrigi() } }
         val ilk = Store.reading
         if (ilk.isEmpty()) geul("읽던 책이 없습니다. 도서관에서 책을 찾아 읽기 시작하면 여기에 저절로 담깁니다.")
         else {
             if (listO >= ilk.size) listO = 0
-            geul("읽던 책 ${ilk.size}권 가운데 ${listO + 1}번부터 ${minOf(listO + 15, ilk.size)}번", jakge = true)
+            geul("읽던 책 ${ilk.size}권 가운데 ${listO + 1}번부터 ${minOf(listO + Api.PER, ilk.size)}번", jakge = true)
             for (rc in ilk.drop(listO).take(15)) {
                 val v = chaekJul(rc, "${rc.t}, ${rc.wichiMal}부터", "${rc.wichiMal}부터", { go(Hm.Reader(rc.i, rc.t, rc.kind)) }, true)
                 if (first == null) first = v
             }
-            if (listO + 15 < ilk.size) danchu("더 보기") { listO += 15; draw() }
-            if (listO > 0) danchu("이전 보기") { listO = (listO - 15).coerceAtLeast(0); draw() }
+            if (listO + Api.PER < ilk.size) danchu("더 보기") { listO += Api.PER; draw() }
+            if (listO > 0) danchu("이전 보기") { listO = (listO - Api.PER).coerceAtLeast(0); draw() }
         }
         val da = Store.finished
         var pyeolchim = false
@@ -359,6 +394,9 @@ class LibActivity : Activity() {
         danchu("읽기 빠르기: ${Store.rateNames[Store.rateIndex]}") { Store.rateIndex = (Store.rateIndex + 1) % Store.rates.size; Dokseo.setRate(); draw() }
         danchu("목소리: ${if (Store.voice == 0) "1번 여자 목소리" else "2번 여자 목소리"}") { Store.voice = if (Store.voice == 0) 1 else 0; draw() }
         danchu("앱 안내 말: ${if (Store.speechOn) "켜짐" else "꺼짐"}") { Store.speechOn = !Store.speechOn; draw() }
+        danchu("목록 줄 수: ${Api.PER}줄") { Naeryeo.nextJul(this); malhagi("목록 줄 수, ${Api.PER}줄"); draw() }   // 0.3.0
+        danchu("와이파이에서만 내려받기: ${if (Naeryeo.wifiOnly(this)) "켜짐" else "꺼짐"}") { Naeryeo.setWifiOnly(this, !Naeryeo.wifiOnly(this)); draw() }
+        Naeryeo.items(this).let { nr -> geul("내려받은 책 ${nr.size}권, ${Naeryeo.meg(nr.sumOf { it.size })}", jakge = true); if (nr.isNotEmpty()) danchu("내려받은 책 모두 지우기") { Naeryeo.removeAll(this); malhagi("내려받은 책을 모두 지웠습니다."); draw() } }
         danchu("새로고침") { Dokseo.stop(); for (k in 0..2) while (stacks[k].size > 1) stacks[k].removeAt(stacks[k].size - 1); tab = 0; draw(); malhagi("새로 불러왔습니다.") }
         geul("도움말", jemok = true)
         for ((q, a) in listOf(
@@ -369,6 +407,13 @@ class LibActivity : Activity() {
             "내 서재" to "읽기 시작한 책은 저절로 내 서재에 담깁니다. 가장 최근에 본 책이 맨 위에 있고 15권씩 넘깁니다.",
             "내 서재에서 지우기" to "지울 책에서 톡백 동작 메뉴를 열어 내 서재에서 지우기를 고르거나, 그 줄을 길게 누릅니다. 10초 안에 되돌리기를 누르면 되살아납니다.",
             "책갈피" to "독서기에서 이 자리에 책갈피 꽂기를 누르면 그 자리가 남습니다. 내 서재의 더 보기에서 찾을 수 있습니다.",
+            "목록 넘기기" to "목록은 처음에 한 쪽 15줄입니다. 설정의 목록 줄 수를 누를 때마다 5, 10, 15, 20, 30줄로 바뀝니다.",
+            "세 겹의 문" to "도서관 첫 화면에 주제별, 장르별, 테마별 세 문이 있습니다. 문을 누르면 서가와 책 수가, 서가를 누르면 책 목록이 나옵니다.",
+            "보일 책" to "첫 화면의 보일 책을 누를 때마다 모든 책, 소리로 듣는 책만, 점자책만으로 바뀌고 문과 서가에 그 책만 나옵니다.",
+            "내려받기" to "책 정보 화면의 폰에 내려받기를 누르면 책을 폰에 받아 둡니다. 글자책은 글 전체를, 소리책은 소리 파일을 받습니다. 받은 책은 이 앱 안에만 있고 다른 앱에서는 보이지 않습니다. 내 서재 맨 위에 모입니다.",
+            "인터넷 없이 듣기" to "인터넷이 끊기거나 데이터가 모자라도 내려받은 책은 들을 수 있습니다. 소리책은 받은 파일 그대로, 글자책은 폰 목소리로 읽습니다.",
+            "와이파이에서만 내려받기" to "설정에서 켜 두면 휴대폰 데이터로는 내려받지 않습니다. 처음에는 켜져 있습니다.",
+            "내려받은 책 지우기" to "책 정보 화면의 폰에서 지우기로 한 권씩, 설정의 내려받은 책 모두 지우기로 한꺼번에 지웁니다.",
             "새로고침" to "앱이 이상하거나 새 판이 나왔을 때 설정의 새로고침을 누르십시오."
         )) geul("$q. $a")
         geul("AI점자도서관 안드로이드 ${PAN}판, 빌드 $BILDEU", jakge = true)
