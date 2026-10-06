@@ -20,6 +20,50 @@ enum MalAI {
         return false
     }
 
+    /// 2.51.0 말벗 견주기 — 설정과 상관없이 이 폰에서 폰 안 인공지능이 도는가
+    static var daehwaGaneung: Bool {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            if case .available = SystemLanguageModel.default.availability { return true }
+        }
+        #endif
+        return false
+    }
+
+    /// 2.51.0 말벗 견주기 — 폰 안 인공지능에게 대화로 묻기(서버 말벗과 같은 지침, 20초 안에 답이 없으면 nil)
+    static func daehwa(_ t: String) async -> String? {
+        await withTaskGroup(of: String?.self) { g in
+            g.addTask { await MalAI.daehwaMutgi(t) }
+            g.addTask { try? await Task.sleep(nanoseconds: 20_000_000_000); return nil }
+            let d = await g.next() ?? nil
+            g.cancelAll()
+            return d
+        }
+    }
+
+    private static func daehwaMutgi(_ t: String) async -> String? {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            let jisi = """
+            너는 시각장애인의 길 안내 앱 길눈의 말벗이다. 반드시 우리말 존댓말로, 세 문장 안으로 짧게 대답한다. 표, 기호, 영어를 쓰지 않는다.
+            방향은 시계 방향(정면이 12시)으로 말한다. 너는 사용자의 주변을 볼 수 없다. 날씨, 주변 모습, 위험, 버스 도착, 가게 영업처럼 지금 상황은 지어내지 말고 모른다고 말한다.
+            길을 건너도 되는지처럼 안전이 걸린 판단은 대신하지 않는다.
+            알아 둘 사실: 현장영상해설은 교육받은 현장영상해설사가 관광지, 공연, 행사, 일상의 현장에서 시각장애인 곁에서 보이는 것을 말로 실시간 풀어 드리는 해설이다.
+            2011년 박광재 이사장이 처음 세웠고, 사단법인 한국시각장애인현장영상해설협회가 2015년부터 현장영상해설사를 길러 파견한다. 길눈은 이 협회가 만든 앱이다.
+            """
+            do {
+                let s = LanguageModelSession(instructions: jisi)
+                let r = try await s.respond(to: t)
+                let d = r.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                return d.isEmpty ? nil : d
+            } catch {
+                return nil
+            }
+        }
+        #endif
+        return nil
+    }
+
     /// 사용자의 말을 길눈이 알아듣는 말 한 줄로 — 맞는 것이 없으면 nil
     static func puri(_ t: String) async -> String? {
         await withTaskGroup(of: String?.self) { g in
