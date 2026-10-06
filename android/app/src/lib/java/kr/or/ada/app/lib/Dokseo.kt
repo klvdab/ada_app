@@ -138,7 +138,7 @@ object Dokseo {
         ctx?.let { cx -> if (!Naeryeo.online(cx)) { speakPhone(at, tk); return } }   // 0.3.0 — 인터넷이 없으면 바로 폰 목소리
         soriFile(at) { f ->
             if (tk != token) return@soriFile
-            if (f == null) { speakPhone(at, tk); return@soriFile }   // 0.3.0 — 서버 목소리를 못 받으면 폰 목소리로
+            if (f == null) { ctx?.let { cx -> if (!Naeryeo.online(cx)) { speakPhone(at, tk); return@soriFile } }; playing = false; waiting = false; allim?.invoke("목소리를 받지 못했습니다. 인터넷을 확인한 뒤 다시 읽기를 눌러 주십시오."); bakkwim?.invoke(); return@soriFile }   // 0.3.2 — 폰 목소리는 인터넷이 끊겼을 때만
             p.setMediaItem(MediaItem.Builder().setUri(android.net.Uri.fromFile(f)).setMediaId("$at").build())
             queued = at; waiting = false
             p.prepare(); p.play()
