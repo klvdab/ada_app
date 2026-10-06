@@ -232,4 +232,18 @@ object Dokseo {
             }
         } else go()
     }
+
+    // 0.4.0 — 재생 위치(퍼센트), 앞으로 30초와 뒤로 30초(이사장님 지시)
+    private fun choPerMundan(): Double { val ls = paras.values.map { it.length.toDouble() }; val avg = if (ls.isEmpty()) 120.0 else ls.average(); return maxOf(2.0, avg / (7.0 * Store.rate.toDouble())) }
+    fun jeonche(): Double = if (kind == "geul") maxOf(modu, 1) * choPerMundan() else (player?.duration ?: 0L).let { if (it > 0) it / 1000.0 else 0.0 }
+    fun jigeum(): Double = if (kind == "geul") pos * choPerMundan() else (player?.currentPosition ?: 0L) / 1000.0
+    fun peosenteu(): Double { val t = jeonche(); return if (t > 0) (jigeum() / t * 100).coerceIn(0.0, 100.0) else 0.0 }
+    fun sigan(s: Double): String { val n = maxOf(0, s.toInt()); val h = n / 3600; val m = (n % 3600) / 60; val c = n % 60; return if (h > 0) "" + h + "시간 " + m + "분" else if (m > 0) "" + m + "분 " + c + "초" else "" + c + "초" }
+    fun wichiMal(): String = "전체 " + (if (kind == "geul") "약 " else "") + sigan(jeonche()) + " 가운데 " + sigan(jigeum()) + ", " + Math.round(peosenteu()) + "퍼센트"
+    fun gaPeosenteu(p: Double) { val q = p.coerceIn(0.0, 100.0); if (kind == "geul") gaPo((modu * q / 100).toInt()) else player?.let { it.seekTo((jeonche() * q / 100 * 1000).toLong()) } }
+    fun gaCho(s: Double) {
+        if (kind != "geul") { player?.let { it.seekTo((it.currentPosition + (s * 1000).toLong()).coerceAtLeast(0)) }; return }
+        val n = maxOf(1, Math.round(Math.abs(s) / choPerMundan()).toInt())
+        gaPo(if (s > 0) pos + n else pos - n)
+    }
 }
