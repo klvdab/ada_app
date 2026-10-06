@@ -370,6 +370,7 @@ final class AnnaeEngine: ObservableObject {
     }
 
     private func dasiSijak() {
+        ttJiugi()   // 2.47.0
         majimakGeoriMal = nil
         majimakSigye = 0
         gotMal = false
@@ -492,6 +493,148 @@ final class AnnaeEngine: ObservableObject {
         }
     }
 
+    // MARK: 2.47.0 걸을 수 있는 길로 이끌기(이사장님 승인 2026-10-06, 부산 에이펙 공원에서 「2시 방향」만으로는 찾아갈 수 없었던 일)
+    //   리눅스 서버의 걷기 길찾기(lvd-gil, 나스 /jeom/gilchatgi.php 가 건네줌)로 걸을 수 있는 길을 받아,
+    //   목적지가 아니라 「다음 꺾는 곳」을 겨누고 걸음마다 방향을 다시 셈함. 열 걸음쯤 앞에서 미리, 닿으면 지금 꺾으라고.
+    //   길에서 크게 벗어나면 그 자리에서 다시 길을 찾고, 길을 못 받으면 예전처럼 곧은 방향으로 안내.
+    private struct TtAn { let sign: Int; let lat: Double; let lon: Double }
+    private var ttPts: [(Double, Double)] = []
+    private var ttAn: [TtAn] = []
+    private var ttI = 1
+    private var ttMok: (Double, Double)?
+    private var ttBatneun = false
+    private var ttMotTtae = Date.distantPast
+    private var ttBeoseo = 0
+    private var ttYego = -1
+    private var ttMalTtae = Date.distantPast
+
+    private func ttJiugi() { ttPts = []; ttAn = []; ttI = 1; ttMok = nil; ttBeoseo = 0; ttYego = -1 }
+
+    private func dolgiMal(_ sign: Int, jigeum: Bool) -> String {
+        let k = jigeum ? "꺾으십시오" : "꺾습니다"
+        let g = jigeum ? "가십시오" : "갑니다"
+        switch sign {
+        case -3, -2: return "왼쪽, 9시 방향으로 " + k
+        case 2, 3: return "오른쪽, 3시 방향으로 " + k
+        case -1: return "11시 방향으로 비스듬히 " + g
+        case 1: return "1시 방향으로 비스듬히 " + g
+        case -7: return "갈림길에서 왼쪽 길로 " + g
+        case 7: return "갈림길에서 오른쪽 길로 " + g
+        case -98, 98: return "뒤로 돌아 " + g
+        case 6, -6: return "둥근 길을 따라 " + g
+        case 4: return jigeum ? "목적지 가까이입니다" : "목적지에 닿습니다"
+        default: return "곧장 " + g
+        }
+    }
+
+    private func dolgiSigye(_ sign: Int) -> Int {
+        switch sign { case -3, -2, -7: return 9; case 2, 3, 7: return 3; case -1: return 11; case 1: return 1; case -98, 98: return 6; default: return 12 }
+    }
+
+    /// 지금 자리에서 걷는 길까지 몇 미터 떨어졌는지
+    private func ttGeori(_ la: Double, _ lo: Double) -> Double {
+        guard ttPts.count >= 2 else { return 0 }
+        let kx = 111320 * cos(la * .pi / 180), ky = 110540.0
+        var m = Double.greatestFiniteMagnitude
+        for i in 0..<(ttPts.count - 1) {
+            let ax = (ttPts[i].1 - lo) * kx, ay = (ttPts[i].0 - la) * ky
+            let bx = (ttPts[i + 1].1 - lo) * kx, by = (ttPts[i + 1].0 - la) * ky
+            let dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy
+            var t = l2 > 0 ? -(ax * dx + ay * dy) / l2 : 0
+            t = max(0, min(1, t))
+            let px = ax + t * dx, py = ay + t * dy
+            m = min(m, (px * px + py * py).squareRoot())
+        }
+        return m
+    }
+
+    private func ttDaeumMal(_ w: Wichi) -> String {
+        guard ttI < ttAn.count else { return "" }
+        let a = ttAn[ttI]
+        let d = WichiEngine.geori(w.lat, w.lon, a.lat, a.lon)
+        let s = sigye(w, a.lat, a.lon)
+        return "\(Annae.geoMal(d)) 앞에서 \(dolgiMal(a.sign, jigeum: false))." + (s == 0 ? "" : " 그쪽은 \(s)시 방향입니다.")
+    }
+
+    private func ttBatgi(_ w: Wichi, _ lat: Double, _ lon: Double, apMal: String) {
+        guard !ttBatneun, Date().timeIntervalSince(ttMotTtae) > 20 else { return }
+        ttBatneun = true
+        let q = ["slat": String(format: "%.6f", w.lat), "slon": String(format: "%.6f", w.lon),
+                 "mlat": String(format: "%.6f", lat), "mlon": String(format: "%.6f", lon)]
+        Task {
+            let o = await Chatgi.json("gilchatgi.php", q)
+            await MainActor.run {
+                self.ttBatneun = false
+                guard let o = o, (o["ok"] as? Bool) == true,
+                      let pts = o["pts"] as? [[Double]], let an = o["an"] as? [[String: Any]], pts.count >= 2 else {
+                    self.ttMotTtae = Date()
+                    return
+                }
+                self.ttPts = pts.compactMap { $0.count >= 2 ? ($0[0], $0[1]) : nil }
+                self.ttAn = an.compactMap { a in
+                    guard let j = a["jeom"] as? [Double], j.count >= 2 else { return nil }
+                    return TtAn(sign: Int(Chatgi.su(a["sign"]) ?? 0), lat: j[0], lon: j[1])
+                }
+                guard self.ttAn.count >= 2 else { self.ttJiugi(); self.ttMotTtae = Date(); return }
+                self.ttI = 1
+                self.ttMok = (lat, lon)
+                self.ttYego = -1
+                self.ttBeoseo = 0
+                self.ttMalTtae = Date()
+                let jeon = Chatgi.su(o["geori"]) ?? 0
+                guard let w2 = WichiEngine.shared.jigeum else { return }
+                self.malHagi(apMal + "걸을 수 있는 길로 안내합니다. 길 따라 \(Annae.geoMal(jeon)). " + self.ttDaeumMal(w2))
+                Girok.shared.namgi("gil_ttara", ["m": Int(jeon), "an": self.ttAn.count])
+            }
+        }
+    }
+
+    /// 걷는 길을 따라 이끌기 — 맡았으면 참(받기 전·못 받았으면 거짓, 예전 곧은 방향 안내로)
+    private func ttaraAnnae(_ w: Wichi, _ lat: Double, _ lon: Double) -> Bool {
+        if let m = ttMok, abs(m.0 - lat) > 0.000001 || abs(m.1 - lon) > 0.000001 { ttJiugi() }
+        if ttAn.isEmpty { ttBatgi(w, lat, lon, apMal: ""); return false }
+        let now = Date()
+        // 길에서 크게 벗어나면 그 자리에서 다시 찾기(세 번 잇달아 벗어났을 때만 — 위성 흔들림에 흔들리지 않게)
+        if ttGeori(w.lat, w.lon) > max(25, w.ochae * 1.5) { ttBeoseo += 1 } else { ttBeoseo = 0 }
+        if ttBeoseo >= 3 {
+            ttJiugi()
+            ttMotTtae = .distantPast
+            ttBatgi(w, lat, lon, apMal: "길에서 벗어나신 것 같아 지금 자리에서 다시 길을 찾았습니다. ")
+            return true
+        }
+        guard ttI < ttAn.count else { return false }
+        let a = ttAn[ttI]
+        let d = WichiEngine.geori(w.lat, w.lon, a.lat, a.lon)
+        // 꺾는 곳에 닿음 — 지금 꺾으라고, 그다음 꺾는 곳으로 넘어감
+        if d <= max(8, min(w.ochae, 15)) && ttI < ttAn.count - 1 {
+            ttI += 1
+            ttYego = -1
+            ttMalTtae = now
+            Jindong.banghyang(dolgiSigye(a.sign))
+            malHagi("지금 \(dolgiMal(a.sign, jigeum: true)). 그다음은 " + ttDaeumMal(w))
+            return true
+        }
+        // 열 걸음쯤 앞에서 미리
+        if d <= 15 && ttYego != ttI && a.sign != 0 && a.sign != 4 {
+            ttYego = ttI
+            ttMalTtae = now
+            malHagi("열 걸음쯤 앞에서 \(dolgiMal(a.sign, jigeum: false)).")
+            return true
+        }
+        // 걷는 중 — 다음 꺾는 곳 쪽이 맞으면 확신음, 틀어졌으면 방향(20초에 한 번)
+        if now.timeIntervalSince(ttMalTtae) >= 20 && now.timeIntervalSince(majimakMal) >= 6 {
+            ttMalTtae = now
+            let s = sigye(w, a.lat, a.lon)
+            if s == 12 || s == 11 || s == 1 {
+                if Seoljeong.shared.hwaksinEum { SoriEngine.shared.sori(.hwaksin) }
+            } else if s != 0 {
+                malHagi("길은 \(s)시 방향입니다. 다음 꺾는 곳까지 \(Annae.geoMal(d)).")
+                Jindong.banghyang(s)
+            }
+        }
+        return true
+    }
+
     // MARK: 걷기
 
     private func georeumAnnae(_ w: Wichi, ireum mok: String, lat: Double, lon: Double, jungan: Bool, _ y: Yeojeong) {
@@ -507,6 +650,8 @@ final class AnnaeEngine: ObservableObject {
             }
             return
         }
+        // 2.47.0 걸을 수 있는 길을 받았으면 그 길로 이끎(다음 꺾는 곳을 겨눔)
+        if ttaraAnnae(w, lat, lon) { neagoriBoda(w); return }
         let s = sigye(w, lat, lon)
         let now = Date()
         let jinan = now.timeIntervalSince(majimakMal)
