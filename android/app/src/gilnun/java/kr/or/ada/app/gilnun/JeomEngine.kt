@@ -395,12 +395,12 @@ object JeomEngine {
         // 안전 경고 — 끌 수 없음
         hwakinDoen(g0.id) { hwakin ->
             if (sd != sedae || gil == null) return@hwakinDoen
-            var t = if (ieumIdx > 0) "" else "길눈은 보조 안내입니다. 지팡이와 주변 소리를 먼저 확인하십시오."
+            var t = if (ieumIdx > 0) "" else "길눈은 보조 안내입니다. 단독보행을 하실 때는 반드시 흰지팡이를 짚고, 주변 소리를 먼저 확인하십시오."   // 2.18.0 흰지팡이 강조
             if (!hwakin) t += " 이 점지도는 아직 확인 중인 길입니다. 조심해서 걸으십시오."
             if (t.isNotEmpty()) mal(t.trim(), MalGeup.GYEONGGO)
             var m = if (ieum.isEmpty()) "" else "이어진 길 ${ieum.size}구간 가운데 ${ieumIdx + 1}번째 구간입니다. "
             m += (if (dw) "되돌아가기를 시작합니다. " else "따라 걷기를 시작합니다. ") + "모두 ${Jeomjido.bannol(nu.lastOrNull() ?: 0.0).toInt()}미터입니다."
-            m += if (Seoljeong.bopokJaem) " 걸음 수는 재 두신 보폭으로 알려 드립니다." else " 보폭을 아직 재지 않으셔서 기본값으로 알려 드립니다."
+            m += if (Seoljeong.bopokJaem) " 걸음 수는 재 두신 보폭으로 알려 드립니다." else " 보폭을 아직 재지 않으셔서 걸음 수 대신 미터로 알려 드립니다."   // 2.18.0
             if (kkeoks.isNotEmpty()) m += " 이 길에 꺾이는 자리가 ${kkeoks.size}곳 있습니다. 미리 알려 드리겠습니다."
             mal(m)
         }
@@ -1840,6 +1840,8 @@ object JeomEngine {
 
     /** 미터 → "스무 걸음", 아흔아홉 걸음이 넘으면 "약 80미터" */
     private fun georeum(m: Double): String {
+        // 2.18.0 보폭을 재기 전에는 걸음 수 대신 미터로(틀린 걸음 수보다 안전, 이사장님 승인)
+        if (!Seoljeong.bopokJaem) return "약 ${max(1, Math.round(m).toInt())}미터"
         val n = bocokSu(m)
         val g = goyu(n)
         if (g != null) return "$g 걸음"
