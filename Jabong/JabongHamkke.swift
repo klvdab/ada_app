@@ -107,7 +107,7 @@ struct JbGirokpanView: View {
                 if let g = g {
                     GirokKan(ireum: "모두 그린 길", gap: "\(g.gilModu + g.nasGil)개").accessibilityFocused($chojeom)
                     GirokKan(ireum: "이번 주 함께 그린 길", gap: "\(g.gilJu)개, 약 \(g.geoJu)미터")
-                    GirokKan(ireum: "이번 주 가장 많이 그려 주신 분", gap: g.top.isEmpty ? "이번 주 첫 길의 주인공이 되어 주십시오!" : g.top.enumerated().map { "\($0.offset + 1)등 \($0.element.0), \($0.element.1)개" }.joined(separator: "\n"))
+                    GirokKan(ireum: "이번 주 가장 많이 그려 주신 분", gap: topMal(g))
                     GirokKan(ireum: "모두 보낸 응원 박수", gap: "\(g.baksuModu)번")
                     Button("이번 주 모든 자봉님께 응원 박수 보내기") { modu() }.buttonStyle(KeunDanchu())
                 } else if mot {
@@ -140,6 +140,13 @@ struct JbGirokpanView: View {
                 }
             }
         }
+    }
+
+    private func topMal(_ g: Girokpan) -> String {
+        if g.top.isEmpty { return "이번 주 첫 길의 주인공이 되어 주십시오!" }
+        var jul: [String] = []
+        for (i, x) in g.top.enumerated() { jul.append("\(i + 1)등 \(x.0), \(x.1)개") }
+        return jul.joined(separator: "\n")
     }
 
     private func modu() {
@@ -180,16 +187,7 @@ struct JbGeoreumNanumView: View {
                 .font(.title3)
                 if let l = mok {
                     if l.isEmpty { Text("아직 이야기가 없습니다. 첫 한마디를 남겨 주십시오.").font(.title2) }
-                    ForEach(l) { g in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(g.meori + ". " + g.geul + (g.dat.isEmpty ? "" : " 댓글 \(g.dat.count)개: " + g.dat.map { "\($0.byeol), \($0.geul)." }.joined(separator: " ")))
-                                .font(.title3).fixedSize(horizontal: false, vertical: true)
-                            Button("응원 박수 — 지금 \(baksu["nn:" + g.id] ?? 0)번") { baksuChigi(g.id) }.buttonStyle(KeunDanchu())
-                        }
-                        .padding(14)
-                        .background(RoundedRectangle(cornerRadius: 16).fill(Saek.norang.opacity(0.18)))
-                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Saek.nam, lineWidth: 2))
-                    }
+                    ForEach(l) { g in geulKadeu(g) }
                     if (bu + 1) * 5 < modu { Button("더 보기") { bu += 1; bulreogi() }.buttonStyle(KeunDanchu()) }
                     if bu > 0 { Button("이전 보기") { bu -= 1; bulreogi() }.buttonStyle(KeunDanchu()) }
                 } else if mot {
@@ -202,6 +200,27 @@ struct JbGeoreumNanumView: View {
         }
         .sokHwamyeon("걸음 나눔")
         .onAppear { if mok == nil { bulreogi() } }
+    }
+
+    /// 글 한 줄 — 머리, 글, 댓글(컴파일러가 빨리 읽도록 나눠 씀)
+    private func julMal(_ g: NanumGeul) -> String {
+        var t: String = g.meori + ". " + g.geul
+        if !g.dat.isEmpty {
+            let d: [String] = g.dat.map { (x: NanumDat) -> String in x.byeol + ", " + x.geul + "." }
+            t += " 댓글 \(g.dat.count)개: " + d.joined(separator: " ")
+        }
+        return t
+    }
+
+    private func geulKadeu(_ g: NanumGeul) -> some View {
+        let su: Int = baksu["nn:" + g.id] ?? 0
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(julMal(g)).font(.title3).fixedSize(horizontal: false, vertical: true)
+            Button("응원 박수 — 지금 \(su)번") { baksuChigi(g.id) }.buttonStyle(KeunDanchu())
+        }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Saek.norang.opacity(0.18)))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Saek.nam, lineWidth: 2))
     }
 
     private func bulreogi() {
