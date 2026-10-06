@@ -2,12 +2,17 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.8.0"
-    static let bild = "261006-I3"
+    static let pan = "2.9.0"
+    static let bild = "261006-I7"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.9.0", bild: "261006-I7", nal: "2026-10-06", naeyong: [
+            "볼거리 표시(이사장님 승인) — 점지도 그리기 화면에서 팽나무·동상·안내판처럼 찾아갈 것 앞에 서서 이름과 만져지는 것·다가가는 법을 남기면 지금 자리와 함께 서버(lvd-jabong 0.2.0)에 담김. 걷기 전에도 그리는 중에도. 남기면 박수",
+            "길눈 2.48.0이 목적지 가까이에서 이 볼거리 자리로 마지막 스무 걸음을 이끌고 남긴 말을 들려 드림",
+            "도움말 볼거리 표시 항목 더함"
+        ]),
         Gochim(pan: "2.8.0", bild: "261006-I3", nal: "2026-10-06", naeyong: [
             "함께한 기록판(이사장님 승인) — 나눔 탭 셋째 줄. 모두 그린 길, 이번 주 함께 그린 길과 거리, 이번 주 가장 많이 그려 주신 분 1~3등(자봉 번호), 모두 보낸 응원 박수. 소리로도 읽음. 이번 주 모든 자봉님께 박수는 한 주에 한 번",
             "걸음 나눔을 자봉 앱 화면으로 — 글마다 응원 박수 단추(한 글에 한 번, 박수 수 보임), 한마디 적기(자원봉사자로, 자봉 번호로 적힘)",
