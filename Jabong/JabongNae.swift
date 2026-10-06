@@ -12,6 +12,8 @@ final class JabongNae: ObservableObject {
     @Published private(set) var geurinSu: Int     // 그려 준 길 수(내 발자취)
 
     var deungrokham: Bool { !beonho.isEmpty }
+    @Published private(set) var hwanyeong = false   // 2.6.0 막 등록을 마쳐 환영 화면을 보이는 중
+    func hwanyeongKkeut() { hwanyeong = false }
 
     private init() {
         beonho = d.string(forKey: "jb.beonho") ?? ""
@@ -47,7 +49,7 @@ final class JabongNae: ObservableObject {
             return (j["msg"] as? String) ?? "등록하지 못했습니다."
         }
         Yeolsoe.sseugi("jbJam", jam)   // 새로고침 때 쓰려고 네 자리 숫자는 열쇠 곳간에
-        await MainActor.run { self.dameum(b, ireum, jiyeok, id1365) }
+        await MainActor.run { self.hwanyeong = true; self.dameum(b, ireum, jiyeok, id1365) }
         Girok.shared.namgi("jabong_deungrok", ["beonho": b])
         return nil
     }
