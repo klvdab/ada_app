@@ -476,7 +476,7 @@ final class MalHagi: ObservableObject {
     private func bureumDasiGangje() {
         bureumYeyak = false
         bureumSoriDollim()
-        guard sangtae == .swim, !bureumDolgo, MalDeutgi.heorakItda else { return }
+        guard Seoljeong.shared.haiGilnun, sangtae == .swim, !bureumDolgo, MalDeutgi.heorakItda else { return }   // 2.52.1 하이 길눈이 꺼져 있으면(자봉 앱 포함) 열지 않음
         SoriEngine.shared.deutgiKyeojim = true
         let ok = MalDeutgi.shared.bureum(deureum: { [weak self] in
             self?.bureumDeureum()
