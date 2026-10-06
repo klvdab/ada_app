@@ -244,7 +244,7 @@ final class AnnaeEngine: ObservableObject {
         var m = "\(mok)까지 " + (geotna ? "걸어서" : yj.talgeot.ireum + "로") + " 가는 중입니다."
         if let w = WichiEngine.shared.jigeum {
             let d = WichiEngine.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
-            m += " 남은 거리 \(Annae.geoMal(d))"
+            m += " 남은 거리 \(gm(d))"
             if geotna {
                 m += Annae.sigyeMal(sigye(w, y)) + "."
             } else {
@@ -325,7 +325,7 @@ final class AnnaeEngine: ObservableObject {
             case .taneunGotKkaji:
                 if let w = WichiEngine.shared.jigeum, !g.ipguDochak {
                     let d = WichiEngine.geori(w.lat, w.lon, g.ipgu.lat, g.ipgu.lon)
-                    return "\(g.ipgu.ireum)까지 \(Annae.geoMal(d))\(Annae.sigyeMal(sigye(w, g.ipgu.lat, g.ipgu.lon)))."
+                    return "\(g.ipgu.ireum)까지 \(gm(d))\(Annae.sigyeMal(sigye(w, g.ipgu.lat, g.ipgu.lon)))."
                 }
                 return JihacheolEngine.shared.hyeonhwang()
             default: break
@@ -335,7 +335,7 @@ final class AnnaeEngine: ObservableObject {
             guard let w = WichiEngine.shared.jigeum else { return "\(y.mokjeok.ireum)으로 가는 중입니다. 위치를 다시 잡는 중입니다." }
             let d = WichiEngine.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
             let gojang = JiyeokEngine.shared.majimak.map { " 지금 \($0.balmal) 쪽을 지나고 있습니다." } ?? ""
-            return "\(y.mokjeok.ireum)까지 \(Annae.geoMal(d)) 남았습니다.\(gojang)"
+            return "\(y.mokjeok.ireum)까지 \(gm(d)) 남았습니다.\(gojang)"
         }
         return daeumGalrimMal()
     }
@@ -355,10 +355,10 @@ final class AnnaeEngine: ObservableObject {
             }
             if gakka == nil || d < gakka!.0 { gakka = (d, n) }
         }
-        if let g = gakka { return "다음 갈림길. \(Annae.geoMal(g.0)) 앞, \(g.1.mal)입니다." }
+        if let g = gakka { return "다음 갈림길. \(gm(g.0)) 앞, \(g.1.mal)입니다." }
         if let y = yj.jigeum {
             let d = WichiEngine.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
-            return "앞쪽 가까이에는 갈림길 자료가 없습니다. \(y.mokjeok.ireum)까지 \(Annae.geoMal(d))\(Annae.sigyeMal(sigye(w, y)))."
+            return "앞쪽 가까이에는 갈림길 자료가 없습니다. \(y.mokjeok.ireum)까지 \(gm(d))\(Annae.sigyeMal(sigye(w, y)))."
         }
         return "앞쪽 가까이에는 갈림길 자료가 없습니다."
     }
@@ -560,6 +560,66 @@ final class AnnaeEngine: ObservableObject {
         return true
     }
 
+    // MARK: 2.52.0 걷는 중 거리는 걸음 수로, 건널목·계단 미리 알림, 걷는 자리 기록(이사장님 승인 2026-10-06 부산 하이가쯔 길 뒤)
+    /// 걷는 중 거리 말 — 보폭을 재 두셨으면 걸음 수로(300미터 넘으면 미터도 함께), 차·버스 안이면 미터
+    func gm(_ d: Double) -> String {
+        let s = Seoljeong.shared
+        let georeum = (yj.jigeum?.talgeot ?? .georeum) == .georeum
+        let bp = s.bopokMode == "dongban" ? s.bopokDongban : s.bopokHonja
+        guard georeum, s.bopokJaem, bp > 0.3 else { return Annae.geoMal(d) }
+        let n = max(1, Int((d / bp).rounded()))
+        return d >= 300 ? "약 \(n)걸음, \(Int((d / 10).rounded()) * 10)미터쯤" : "약 \(n)걸음"
+    }
+
+    private struct TtGugan { let jong: String; let lat: Double; let lon: Double; let geori: Double }
+    private var ttGugan: [TtGugan] = []
+    private var ttGuganMi: Set<Int> = []
+    private var ttGuganAp: Set<Int> = []
+    private var jariGirokT = Date.distantPast
+
+    /// 서버가 아는 건널목·계단·다리·지하도를 열다섯 미터쯤 앞에서 미리, 닿으면 한 번 더. 건널목이면 음향신호기를 저절로 살핌
+    private func guganAllim(_ w: Wichi) -> String? {
+        for (i, g) in ttGugan.enumerated() where ["건널목", "계단", "다리", "지하도"].contains(g.jong) {
+            let d = WichiEngine.geori(w.lat, w.lon, g.lat, g.lon)
+            if !ttGuganAp.contains(i) && d <= max(4, min(w.ochae, 8)) {
+                ttGuganAp.insert(i)
+                ttGuganMi.insert(i)
+                Girok.shared.namgi("gugan_ap", ["jong": g.jong])
+                switch g.jong {
+                case "건널목": return "건널목 앞입니다. 길이 \(gm(g.geori)). 신호와 차 소리를 확인하신 뒤 건너십시오."
+                case "계단": return "계단 앞입니다. 지팡이로 첫 계단을 확인하십시오. 길이 \(gm(g.geori))."
+                case "다리": return "다리에 들어섭니다. 길이 \(gm(g.geori))."
+                default: return "지하도 입구입니다. 길이 \(gm(g.geori))."
+                }
+            }
+            if !ttGuganMi.contains(i) && d <= 15 {
+                ttGuganMi.insert(i)
+                let josa = (g.jong == "다리" || g.jong == "지하도") ? "가" : "이"
+                var m = "\(gm(d)) 앞에 \(g.jong)\(josa) 있습니다."
+                if g.jong == "건널목" {
+                    m += " 음향신호기를 살펴 드리겠습니다."
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 4) { SinhogiEngine.shared.juByeonSalpigi() }
+                }
+                return m
+            }
+        }
+        return nil
+    }
+
+    /// 걷는 동안 10초마다 자리·방향을 기록(관리자 폰만) — 방향이 어긋난 까닭을 나중에 찾기 위해
+    private func jariGirok(_ w: Wichi, _ lat: Double, _ lon: Double) {
+        guard TeokAllim.boim, Date().timeIntervalSince(jariGirokT) >= 10 else { return }
+        jariGirokT = Date()
+        var mk = (lat, lon)
+        if !ttAn.isEmpty && ttI < ttAn.count { mk = (ttAn[ttI].lat, ttAn[ttI].lon) }
+        Girok.shared.namgi("georeum_jari", [
+            "la": (w.lat * 1_000_000).rounded() / 1_000_000, "lo": (w.lon * 1_000_000).rounded() / 1_000_000,
+            "oc": Int(w.ochae), "bh": Int(w.banghyang), "nc": Int(WichiEngine.shared.nachimban),
+            "sd": (w.sokdo * 10).rounded() / 10, "s": sigye(w, mk.0, mk.1),
+            "d": Int(WichiEngine.geori(w.lat, w.lon, mk.0, mk.1)), "gc": w.georeumChu, "ti": ttI
+        ])
+    }
+
     // MARK: 2.47.0 걸을 수 있는 길로 이끌기(이사장님 승인 2026-10-06, 부산 에이펙 공원에서 「2시 방향」만으로는 찾아갈 수 없었던 일)
     //   리눅스 서버의 걷기 길찾기(lvd-gil, 나스 /jeom/gilchatgi.php 가 건네줌)로 걸을 수 있는 길을 받아,
     //   목적지가 아니라 「다음 꺾는 곳」을 겨누고 걸음마다 방향을 다시 셈함. 열 걸음쯤 앞에서 미리, 닿으면 지금 꺾으라고.
@@ -575,7 +635,7 @@ final class AnnaeEngine: ObservableObject {
     private var ttYego = -1
     private var ttMalTtae = Date.distantPast
 
-    private func ttJiugi() { ttPts = []; ttAn = []; ttI = 1; ttMok = nil; ttBeoseo = 0; ttYego = -1 }
+    private func ttJiugi() { ttPts = []; ttAn = []; ttI = 1; ttMok = nil; ttBeoseo = 0; ttYego = -1; ttGugan = []; ttGuganMi = []; ttGuganAp = [] }
 
     private func dolgiMal(_ sign: Int, jigeum: Bool) -> String {
         let k = jigeum ? "꺾으십시오" : "꺾습니다"
@@ -620,7 +680,7 @@ final class AnnaeEngine: ObservableObject {
         let a = ttAn[ttI]
         let d = WichiEngine.geori(w.lat, w.lon, a.lat, a.lon)
         let s = sigye(w, a.lat, a.lon)
-        return "\(Annae.geoMal(d)) 앞에서 \(dolgiMal(a.sign, jigeum: false))." + (s == 0 ? "" : " 그쪽은 \(s)시 방향입니다.")
+        return "\(gm(d)) 앞에서 \(dolgiMal(a.sign, jigeum: false))." + (s == 0 ? "" : " 그쪽은 \(s)시 방향입니다.")
     }
 
     private func ttBatgi(_ w: Wichi, _ lat: Double, _ lon: Double, apMal: String) {
@@ -643,6 +703,13 @@ final class AnnaeEngine: ObservableObject {
                     return TtAn(sign: Int(Chatgi.su(a["sign"]) ?? 0), lat: j[0], lon: j[1])
                 }
                 guard self.ttAn.count >= 2 else { self.ttJiugi(); self.ttMotTtae = Date(); return }
+                // 2.52.0 길 종류 구간(건널목·계단·다리·지하도)
+                self.ttGugan = ((o["gugan"] as? [[String: Any]]) ?? []).compactMap { g in
+                    guard let j = g["jeom"] as? [Double], j.count >= 2, let jong = g["jong"] as? String else { return nil }
+                    return TtGugan(jong: jong, lat: j[0], lon: j[1], geori: Chatgi.su(g["geori"]) ?? 0)
+                }
+                self.ttGuganMi = []
+                self.ttGuganAp = []
                 self.ttI = 1
                 self.ttMok = (lat, lon)
                 self.ttYego = -1
@@ -650,7 +717,7 @@ final class AnnaeEngine: ObservableObject {
                 self.ttMalTtae = Date()
                 let jeon = Chatgi.su(o["geori"]) ?? 0
                 guard let w2 = WichiEngine.shared.jigeum else { return }
-                self.malHagi(apMal + "걸을 수 있는 길로 안내합니다. 길 따라 \(Annae.geoMal(jeon)). " + self.ttDaeumMal(w2))
+                self.malHagi(apMal + "걸을 수 있는 길로 안내합니다. 길 따라 \(self.gm(jeon)). " + self.ttDaeumMal(w2))
                 Girok.shared.namgi("gil_ttara", ["m": Int(jeon), "an": self.ttAn.count])
             }
         }
@@ -670,6 +737,12 @@ final class AnnaeEngine: ObservableObject {
             return true
         }
         guard ttI < ttAn.count else { return false }
+        // 2.52.0 건널목·계단 미리 알림(꺾는 곳보다 먼저)
+        if let m = guganAllim(w) {
+            ttMalTtae = now
+            malHagi(m)
+            return true
+        }
         let a = ttAn[ttI]
         let d = WichiEngine.geori(w.lat, w.lon, a.lat, a.lon)
         // 꺾는 곳에 닿음 — 지금 꺾으라고, 그다음 꺾는 곳으로 넘어감
@@ -695,7 +768,7 @@ final class AnnaeEngine: ObservableObject {
             if s == 12 || s == 11 || s == 1 {
                 if Seoljeong.shared.hwaksinEum { SoriEngine.shared.sori(.hwaksin) }
             } else if s != 0 {
-                malHagi("길은 \(s)시 방향입니다. 다음 꺾는 곳까지 \(Annae.geoMal(d)).")
+                malHagi("길은 \(s)시 방향입니다. 다음 꺾는 곳까지 \(gm(d)).")
                 Jindong.banghyang(s)
             }
         }
@@ -705,6 +778,7 @@ final class AnnaeEngine: ObservableObject {
     // MARK: 걷기
 
     private func georeumAnnae(_ w: Wichi, ireum mok: String, lat: Double, lon: Double, jungan: Bool, _ y: Yeojeong) {
+        jariGirok(w, lat, lon)   // 2.52.0 걷는 자리 기록(관리자 폰만)
         let d = WichiEngine.geori(w.lat, w.lon, lat, lon)
         let beom = jungan ? max(15, min(w.ochae, 30)) : (bg != nil ? max(5, min(w.ochae, 10)) : max(12, min(w.ochae, 25)))   // 2.48.0 볼거리면 더 가까이
         if d <= beom {
@@ -726,7 +800,7 @@ final class AnnaeEngine: ObservableObject {
         let jinan = now.timeIntervalSince(majimakMal)
         neagoriBoda(w)
         if majimakGeoriMal == nil {
-            malHagi("\(mok)까지 \(Annae.geoMal(d))\(Annae.sigyeMal(s)).")
+            malHagi("\(mok)까지 \(gm(d))\(Annae.sigyeMal(s)).")
             Jindong.banghyang(s)
             majimakGeoriMal = d
             majimakSigye = s
@@ -734,7 +808,7 @@ final class AnnaeEngine: ObservableObject {
         }
         if !gotMal && d <= 40 {
             gotMal = true
-            malHagi("곧 도착합니다. \(mok)까지 \(Annae.geoMal(d))\(Annae.sigyeMal(s)).")
+            malHagi("곧 도착합니다. \(mok)까지 \(gm(d))\(Annae.sigyeMal(s)).")
             majimakGeoriMal = d
             majimakSigye = s
             return
@@ -746,13 +820,13 @@ final class AnnaeEngine: ObservableObject {
         let doepul = Double(st.doepul)
         if let m = majimakGeoriMal {
             if m - d >= gan && jinan >= doepul + 4 {
-                malHagi("\(mok)까지 \(Annae.geoMal(d))\(Annae.sigyeMal(s)).")
+                malHagi("\(mok)까지 \(gm(d))\(Annae.sigyeMal(s)).")
                 majimakGeoriMal = d
                 majimakSigye = s
                 return
             }
             if d - m >= 30 && jinan >= doepul + 4 {
-                malHagi("목적지에서 멀어지고 있습니다. \(mok) 쪽은\(s == 0 ? "" : " \(s)시 방향"), \(Annae.geoMal(d)).", .annae)
+                malHagi("목적지에서 멀어지고 있습니다. \(mok) 쪽은\(s == 0 ? "" : " \(s)시 방향"), \(gm(d)).", .annae)
                 Jindong.banghyang(s)
                 majimakGeoriMal = d
                 majimakSigye = s
