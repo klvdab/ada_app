@@ -124,6 +124,7 @@ class LibActivity : Activity() {
 
     // ── 화면 ──
     private fun draw() {
+        if (cur() !is Hm.Reader && Dokseo.playing) Dokseo.pause()   // 0.3.1 — 독서기 화면을 떠나면 멈춤
         playerView?.player = null; playerView = null
         body.removeAllViews(); tabs()
         if (!Hoewon.deungrokdoem(this)) { deungrok(); return }
