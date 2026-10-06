@@ -167,6 +167,7 @@ class GilnunActivity : AppCompatActivity() {
 
         boyeojugi()
         if (jeomIeum) cheotHwamyeonEuro(JeomGeotgiHwamyeon())   // 2.7.0 b2 이어 걷기 — 걷는 화면을 엶
+        else if (!Seoljeong.bopokJaem && !Seoljeong.cheotAnnae) cheotHwamyeonEuro(CheotAnnaeHwamyeon())   // 2.18.0 처음 안내 — 흰지팡이와 보폭 재기
         Heundeul.ginGeupYeolgi = { cheotHwamyeonEuro(GinGeupHwamyeon()) }   // 2.7.0 b2 흔들면 긴급통화 열기
         heorakCheong()
     }
@@ -673,6 +674,34 @@ class SeoljeongCheot : Hwamyeon("설정") {
     }
 }
 
+/** 2.18.0 처음 안내 — 흰지팡이와 보폭 재기(이사장님 승인 2026-10-06, 아이폰 2.50.0과 같음). 보폭을 재 두신 분께는 띄우지 않음 */
+class CheotAnnaeHwamyeon : Hwamyeon("길눈에 오신 것을 환영합니다") {
+    private var malHam = false
+    override fun chaeugi(t: GilnunActivity) {
+        if (Seoljeong.bopokJaem) {
+            // 보폭 재기에서 돌아오심 — 다 됐다고 알리고 길 찾기 첫 화면으로
+            Seoljeong.cheotAnnae = true
+            Girok.namgi("cheot_bopok")
+            Sori.mal("보폭을 쟀습니다. 이제 걸음 수로 안내합니다. 길을 나서실 때는 꼭 흰지팡이를 짚어 주십시오.")
+            t.cheotHwamyeonEuro(null)
+            return
+        }
+        if (!malHam) {
+            malHam = true
+            Sori.mal("길눈에 오신 것을 환영합니다. 단독보행을 하실 때는 반드시 흰지팡이를 짚어 주십시오. 처음 한 번 보폭을 재 주십시오.")
+        }
+        t.geul("길눈은 혼자 걷기를 돕는 도구입니다. 단독보행을 하실 때는 반드시 흰지팡이를 짚어 주십시오. 길눈의 안내보다 흰지팡이와 주변 소리를 먼저 믿으십시오.")
+        t.geul("길눈은 걸음 수로 길을 안내합니다. 걸음 수가 정확하려면 처음 한 번 내 보폭을 재야 합니다. 거리를 미리 아는 곳에서 10미터쯤 평소대로 걸으시면 됩니다.")
+        t.danchu("보폭 재기 — 처음 한 번, 10미터쯤 걸어 재기") { t.yeolgi(BopokHwamyeon()) }
+        t.danchu("나중에 재기 — 그때까지는 미터로 안내") {
+            Seoljeong.cheotAnnae = true
+            Girok.namgi("cheot_najunge")
+            Sori.mal("알겠습니다. 보폭을 재시기 전까지는 걸음 수 대신 미터로 안내합니다. 보폭은 설정에서 언제든 재실 수 있습니다.")
+            t.cheotHwamyeonEuro(null)
+        }
+    }
+}
+
 class BopokHwamyeon : Hwamyeon("내 보폭 재기") {
     private var sijakSu = -1
     private var jaelGeori = 20.0
@@ -752,6 +781,7 @@ class DoumalHwamyeon : Hwamyeon("도움말") {
 
     companion object {
         val DOUMAL = listOf(
+            "안전 수칙 — 흰지팡이와 보폭" to "길눈은 혼자 걷기를 돕는 도구입니다. 단독보행을 하실 때는 반드시 흰지팡이를 짚어 주십시오. 길눈의 안내보다 흰지팡이와 주변 소리를 먼저 믿으십시오. 길눈을 처음 여시면 이 당부와 함께 보폭 재기 화면이 먼저 나옵니다. 걸음 수가 정확하려면 처음 한 번 보폭을 재셔야 하며, 급하실 때는 나중에 재기를 누르실 수 있습니다. 보폭을 재시기 전까지는 걸음 수 대신 미터로 안내합니다. 걷는 안내와 점지도 따라 걷기를 시작할 때마다 흰지팡이를 꼭 짚어 주십시오라고 한 번 말씀드립니다. 업데이트를 해도 재 두신 보폭은 그대로 남지만, 앱을 지웠다가 새로 까시면 다시 재셔야 합니다.",
             "탭 다섯" to "화면 아래에 길 찾기, 둘러보기, 음악·방송, 나눔, 설정 탭이 있고, 속 화면에서도 늘 보입니다. 속 화면에서는 맨 위의 뒤로 단추나 폰의 뒤로 동작으로 앞 화면에 갑니다. 첫 화면에서 뒤로 하시면 여기가 첫 화면이라고 알려 드리고 앱 밖으로 나가지 않습니다. 같은 탭을 한 번 더 누르시면 그 탭의 첫 화면으로 갑니다.",
             "지금 내 자리 듣기" to "길 찾기 탭에서 아무 여정이 없을 때 즐겨찾기 아래에 있고, 여정 중에는 여정 다른 할 일 펼치기 안에 있습니다. 지금 계신 곳의 도로명 주소와 가까운 지하철 출구나 건물을 거리와 함께, 위성 오차, 국가지점번호, 날씨를 말씀드립니다. 무엇을 말할지는 설정 탭의 현 위치정보 말할 내용에서 고르십니다.",
             "화면이 꺼져도" to "길눈을 켜면 알림 칸에 길눈이 떠 있습니다. 화면이 꺼지거나 다른 앱을 쓰셔도 길눈이 위치를 이어 봅니다. 위성이 6초 넘게 끊기거나 흐리면 걸음 수와 보폭, 방향으로 자리를 이어 셉니다.",
