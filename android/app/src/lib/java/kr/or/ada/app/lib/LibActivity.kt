@@ -296,8 +296,9 @@ class LibActivity : Activity() {
         readerDan = danchu("읽기", keun = true) { Dokseo.toggle() }
         if (h.k == "geul") readerMun = geul("")
         val more = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        danchu(if (h.k == "geul") "다음 문단" else "30초 앞으로") { Dokseo.next() }
-        danchu(if (h.k == "geul") "앞 문단" else "30초 뒤로") { Dokseo.prev() }
+        danchu("앞으로 30초") { Dokseo.gaCho(30.0) }   // 0.4.0 — 헷갈리지 않는 이름(이사장님)
+        danchu("뒤로 30초") { Dokseo.gaCho(-30.0) }
+        jaesaengMakdae()   // 0.4.0 — 재생 위치 막대
         danchu("이 자리에 책갈피 꽂기") { Dokseo.markHere(); malhagi("책갈피를 꽂았습니다.") }
         danchu("빠르기: ${Store.rateNames[Store.rateIndex]}") { Store.rateIndex = (Store.rateIndex + 1) % Store.rates.size; Dokseo.setRate(); draw(); malhagi("빠르기 ${Store.rateNames[Store.rateIndex]}") }
         if (Store.marksOf(h.i).isNotEmpty()) danchu("책갈피 보기") { go(Hm.Marks(h.i)) }
@@ -337,6 +338,56 @@ class LibActivity : Activity() {
                 }
             }
         }
+    }
+
+    // 0.4.0 — 목소리 열 가지와 미리 듣기, 재생 위치 막대
+    private val MOKSORI = listOf("여자 1", "여자 2", "여자 3", "여자 4", "여자 5", "남자 1", "남자 2", "남자 3", "남자 4", "남자 5")
+    private fun pctStep(): Int = getSharedPreferences("naeryeo", MODE_PRIVATE).getInt("pctStep", 5)
+    private var miriPlayer: android.media.MediaPlayer? = null
+    private fun miriDeutgi(v: Int) {
+        Dokseo.pause()
+        try { miriPlayer?.release() } catch (e: Exception) {}
+        miriPlayer = null
+        malhagi(MOKSORI[v] + " 미리 듣기를 준비합니다.")
+        pool.execute {
+            val t = "안녕하십니까. " + MOKSORI[v] + " 목소리입니다. 이 목소리로 책을 읽어 드립니다."
+            var d: ByteArray? = null
+            runCatching {
+                val (_, hh) = Api.yocheong(t, v)
+                for (n in 0 until 80) { d = Api.sori(hh); if (d != null) break; Thread.sleep(500) }
+            }
+            main.post {
+                val b = d
+                if (b == null) { malhagi("미리 듣기를 받지 못했습니다. 인터넷을 확인해 주십시오."); return@post }
+                runCatching {
+                    val f = java.io.File(cacheDir, "miri.mp3"); f.writeBytes(b)
+                    miriPlayer = android.media.MediaPlayer().apply { setDataSource(f.path); prepare(); start() }
+                }
+            }
+        }
+    }
+    private fun jaesaengMakdae() {
+        val sb = object : android.widget.SeekBar(this) {
+            override fun performAccessibilityAction(action: Int, args: Bundle?): Boolean {
+                if (action == android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_FORWARD || action == android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) {
+                    val d = if (action == android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) pctStep() else -pctStep()
+                    Dokseo.gaPeosenteu(Dokseo.peosenteu() + d)
+                    main.postDelayed({ progress = Dokseo.peosenteu().toInt(); if (android.os.Build.VERSION.SDK_INT >= 30) stateDescription = Dokseo.wichiMal(); announceForAccessibility(Dokseo.wichiMal()) }, 400)
+                    return true
+                }
+                return super.performAccessibilityAction(action, args)
+            }
+        }
+        sb.max = 100
+        sb.progress = Dokseo.peosenteu().toInt()
+        sb.contentDescription = "재생 위치"
+        if (android.os.Build.VERSION.SDK_INT >= 30) sb.stateDescription = Dokseo.wichiMal()
+        sb.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(s: android.widget.SeekBar?, p: Int, fromUser: Boolean) {}
+            override fun onStartTrackingTouch(s: android.widget.SeekBar?) {}
+            override fun onStopTrackingTouch(s: android.widget.SeekBar?) { Dokseo.gaPeosenteu((s?.progress ?: 0).toDouble()) }
+        })
+        body.addView(sb)
     }
 
     private fun seojae() {
@@ -393,7 +444,9 @@ class LibActivity : Activity() {
     private fun seoljeong() {
         val t = geul("설정·도움말", jemok = true)
         danchu("읽기 빠르기: ${Store.rateNames[Store.rateIndex]}") { Store.rateIndex = (Store.rateIndex + 1) % Store.rates.size; Dokseo.setRate(); draw() }
-        danchu("목소리: ${if (Store.voice == 0) "1번 여자 목소리" else "2번 여자 목소리"}") { Store.voice = if (Store.voice == 0) 1 else 0; draw() }
+        geul("목소리 고르기, 지금 " + MOKSORI[Store.voice.coerceIn(0, 9)], jakge = true)   // 0.4.0 — 목소리 열 가지
+        for (v in 0..9) danchu((if (Store.voice == v) "고름, " else "") + MOKSORI[v] + ", 누르면 고르고 미리 듣기") { Store.voice = v; miriDeutgi(v); draw() }
+        danchu("재생 위치 막대 한 번에: " + pctStep() + "퍼센트") { getSharedPreferences("naeryeo", MODE_PRIVATE).edit().putInt("pctStep", if (pctStep() == 5) 1 else 5).apply(); malhagi("재생 위치 막대 한 번에 " + pctStep() + "퍼센트"); draw() }
         danchu("앱 안내 말: ${if (Store.speechOn) "켜짐" else "꺼짐"}") { Store.speechOn = !Store.speechOn; draw() }
         danchu("목록 줄 수: ${Api.PER}줄") { Naeryeo.nextJul(this); malhagi("목록 줄 수, ${Api.PER}줄"); draw() }   // 0.3.0
         danchu("와이파이에서만 내려받기: ${if (Naeryeo.wifiOnly(this)) "켜짐" else "꺼짐"}") { Naeryeo.setWifiOnly(this, !Naeryeo.wifiOnly(this)); draw() }
@@ -412,6 +465,9 @@ class LibActivity : Activity() {
             "세 겹의 문" to "도서관 첫 화면에 주제별, 장르별, 테마별 세 문이 있습니다. 문을 누르면 서가와 책 수가, 서가를 누르면 책 목록이 나옵니다.",
             "보일 책" to "첫 화면의 보일 책을 누를 때마다 모든 책, 소리로 듣는 책만, 점자책만으로 바뀌고 문과 서가에 그 책만 나옵니다.",
             "내려받기" to "책 정보 화면의 폰에 내려받기를 누르면 책을 폰에 받아 둡니다. 글자책은 글 전체를, 소리책은 소리 파일을 받습니다. 받은 책은 이 앱 안에만 있고 다른 앱에서는 보이지 않습니다. 내 서재 맨 위에 모입니다.",
+            "목소리 고르기" to "설정의 목소리 고르기에서 여자 1부터 5, 남자 1부터 5까지 열 가지 가운데 고릅니다. 누르면 그 목소리로 바뀌고 바로 미리 들려 드립니다. 처음 값은 여자 1입니다.",
+            "재생 위치 막대" to "책 읽는 화면의 재생 위치에 커서를 두면 전체 시간과 지금 시간, 퍼센트를 읽어 줍니다. 위로 쓸거나 음량 단추로 앞으로, 아래로 쓸거나 음량 단추로 뒤로 갑니다. 한 번에 움직이는 양은 설정에서 5퍼센트나 1퍼센트로 바꿉니다.",
+            "앞으로 30초와 뒤로 30초" to "앞으로 30초는 30초 뒤의 내용으로 건너뛰고, 뒤로 30초는 30초 전의 내용으로 되돌아갑니다. 글자책은 읽는 빠르기로 30초 분량의 글만큼 움직입니다.",
             "인터넷 없이 듣기" to "인터넷이 끊기거나 데이터가 모자라도 내려받은 책은 들을 수 있습니다. 소리책은 받은 파일 그대로, 글자책은 폰 목소리로 읽습니다.",
             "와이파이에서만 내려받기" to "설정에서 켜 두면 휴대폰 데이터로는 내려받지 않습니다. 처음에는 켜져 있습니다.",
             "내려받은 책 지우기" to "책 정보 화면의 폰에서 지우기로 한 권씩, 설정의 내려받은 책 모두 지우기로 한꺼번에 지웁니다.",
