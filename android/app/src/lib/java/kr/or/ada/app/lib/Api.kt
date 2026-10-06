@@ -103,7 +103,7 @@ object Api {
         }
         return out
     }
-    fun seoga(mun: String, k: String, h: String, o: Int) = listResp(getJson("doseo.php", mapOf("m" to "j_seoga", "mun" to mun, "k" to k, "h" to h, "o" to "$o", "n" to "$PER")), o)
+    fun seoga(mun: String, k: String, h: String, o: Int) = listResp(getJson("doseo.php", mapOf("m" to "j_seoga", "mun" to mun, "sk" to k, "h" to h, "o" to "$o", "n" to "$PER")), o)
     // 0.3.0 — 내려받기: 파일을 통째로 받아 저장(멈추면 지움)
     fun naeryeo(u: String, to: java.io.File, meomchum: () -> Boolean): Boolean {
         val con = open(u, 900000)
