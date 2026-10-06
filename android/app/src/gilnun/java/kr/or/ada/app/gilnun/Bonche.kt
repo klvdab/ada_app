@@ -23,12 +23,17 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.16.0"
-    const val bild = "261006-A7"
+    const val pan = "2.17.0"
+    const val bild = "261006-A9"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.17.0", "261006-A9", "2026-10-06", listOf(
+            "말로 하기 대화 이어 가기(이사장님 승인, 아이폰 길눈 2.49.0과 같음) — 대답 뒤 하이 길눈 없이 딩동 뒤 10초 이어 들음, 됐어·고마워면 그침, 같은 말 세 번이면 다른 말이나 긴급통화를 권함",
+            "말벗 — 명령도 곳 이름도 아닌 질문은 리눅스 서버 인공지능(올라마 엑사원, 나스 malbeot.php)이 지금 자리·가는 곳·앞의 대화를 헤아려 대답",
+            "도움말 말로 하기 — 이어서 묻고 답하기 항목 더함"
+        )),
         Gochim("2.16.0", "261006-A7", "2026-10-06", listOf(
             "마지막 스무 걸음과 볼거리(이사장님 승인, 아이폰 길눈 2.48.0과 같음) — 스무 미터 앞부터 걸음 수와 시 방향, 자봉이 남긴 볼거리가 있으면 그 자리로 이끌고 닿으면 이름과 만져지는 것을 들려 드림",
             "도움말 마지막 스무 걸음과 볼거리 항목 더함"
