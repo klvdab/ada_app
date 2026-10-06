@@ -242,8 +242,9 @@ struct ReaderView: View {
             Section {
                 Button(r.playing ? "멈춤" : (r.waiting ? "소리 만드는 중" : "읽기")) { r.toggle() }
                     .accessibilityFocused($focus)
-                Button(kind == "geul" ? "다음 문단" : "30초 뒤로 건너뛰기") { r.next() }
-                Button(kind == "geul" ? "앞 문단" : "30초 앞으로 되돌리기") { r.prev() }
+                Button("앞으로 30초") { r.gaCho(30) }   // 0.4.0 — 헷갈리지 않는 이름(이사장님)
+                Button("뒤로 30초") { r.gaCho(-30) }
+                JaesaengWichi()   // 0.4.0 — 재생 위치 막대
             }
             Section {
                 Text(r.wichiMal).font(.footnote)
@@ -263,10 +264,8 @@ struct ReaderView: View {
                         store.rateIndex = min(Store.rates.count - 1, store.rateIndex + 1); store.save(); r.applyRate(); store.say(Store.rateNames[store.rateIndex])
                     }
                     if kind == "geul" {
-                        Button("목소리 바꾸기, 지금 목소리 \(store.voice + 1)") {
-                            store.voice = store.voice == 0 ? 1 : 0; store.save()
-                            if r.playing { r.play(at: r.pos) }
-                            store.say("목소리 \(store.voice + 1)")
+                        Picker("목소리, 지금 " + Moksori.name(store.voice), selection: Binding(get: { store.voice }, set: { store.voice = $0; store.save(); store.say(Moksori.name($0)) })) {   // 0.4.0 — 목소리 열 가지
+                            ForEach(0..<10, id: \.self) { Text(Moksori.name($0)).tag($0) }
                         }
                     }
                     Button("책갈피 넣기") {
@@ -432,6 +431,8 @@ struct SettingsView: View {
     var body: some View {
         List {
             NaeryeoSeoljeong()   // 0.3.0 — 목록 줄 수, 와이파이에서만 내려받기, 저장 공간
+            MoksoriSection()   // 0.4.0 — 목소리 열 가지 고르기와 미리 듣기
+            JaesaengSeoljeong()   // 0.4.0 — 재생 위치 막대 한 번에 움직이는 양
             Section {
                 Button("새로고침") {
                     URLCache.shared.removeAllCachedResponses()
@@ -466,6 +467,9 @@ enum Doum {
         ("와이파이에서만 내려받기", "설정에서 켜 두면 휴대폰 데이터로는 내려받지 않습니다. 처음에는 켜져 있습니다. 데이터로도 받으려면 끄십시오."),
         ("내려받은 책 지우기", "책 정보 화면의 폰에서 지우기로 한 권씩, 설정의 내려받은 책 모두 지우기로 한꺼번에 지웁니다. 설정에 내려받은 책 권수와 차지한 크기가 나옵니다."),
         ("탭 다시 누르기", "지금 보고 있는 탭을 한 번 더 누르면 그 탭의 첫 화면 맨 위로 돌아갑니다."),
+        ("목소리 고르기", "설정의 목소리 고르기에서 여자 1부터 5, 남자 1부터 5까지 열 가지 가운데 고릅니다. 누르면 그 목소리로 바뀌고 바로 미리 들려 드립니다. 처음 값은 여자 1입니다. 책 읽는 화면의 목소리에서도 바꿀 수 있습니다."),
+        ("재생 위치 막대", "책 읽는 화면의 재생 위치에 커서를 두면 전체 시간과 지금 시간, 퍼센트를 읽어 줍니다. 한 손가락으로 위로 쓸면 앞으로, 아래로 쓸면 뒤로 갑니다. 한 번에 움직이는 양은 설정에서 5퍼센트나 1퍼센트로 고릅니다. 글자책의 시간은 읽는 빠르기로 셈한 대략의 시간입니다."),
+        ("앞으로 30초와 뒤로 30초", "앞으로 30초는 지금 읽는 곳에서 30초 뒤의 내용으로 건너뛰고, 뒤로 30초는 30초 전의 내용으로 되돌아갑니다. 글자책은 읽는 빠르기로 30초 분량의 글만큼 움직입니다."),
         ("책 묶어 보기", "목록에는 파일 이름이 아니라 책 제목과 권수가 한 줄로 나옵니다. 보기: 야인시대, 전 117회. 그 줄을 누르면 야인시대 1회, 야인시대 2회처럼 제목과 번호가 차례대로 나옵니다. 찾기를 해도 같은 책은 묶음 한 줄로 나옵니다."),
         ("입체낭독", "드라마 대본을 인물마다 다른 목소리로 연기하듯 읽은 소리 드라마입니다. 이야기꾼과 주인공이 서로 다른 목소리로 나옵니다. 지금은 야인시대가 날마다 몇 회씩 늘어납니다. 소리책처럼 독서기에서 틀고, 듣던 자리를 기억합니다."),
         ("독서기", "글자책은 사람 목소리로 문단마다 읽어 줍니다. 한글 파일(hwp, hwpx)과 데이지 책도 읽습니다. 옛 한글 3.0 파일도 읽지만, 배포용이나 암호가 걸린 한글 파일은 읽지 못합니다. 앞 문단을 읽는 동안 뒤 문단을 미리 만들어 둡니다. 겉에는 읽기, 다음 문단, 앞 문단이 있고 빠르기, 목소리, 책갈피, 처음부터는 더 보기 안에 있습니다."),
