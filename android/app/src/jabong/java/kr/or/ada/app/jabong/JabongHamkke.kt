@@ -2,7 +2,9 @@
 // 뒷단은 리눅스 서버(lvd-jabong 일꾼), 나스 /jabong/hamkke.php 가 건네줌. 서버가 쉬면 조용히 넘어가고, 기록판은 쉬는 중이라 알림.
 package kr.or.ada.app.jabong
 
+import android.text.InputType
 import kr.or.ada.app.gilnun.Sori
+import kr.or.ada.app.gilnun.Wichi
 import org.json.JSONObject
 import java.util.Calendar
 
@@ -29,6 +31,12 @@ object Hamkke {
         }
     }
 
+    /** 2.9.0 볼거리 남기기(팽나무·동상·안내판 등) — 서버 lvd-jabong 에 이름·만져지는 것·자리 */
+    fun bolgeoriNamgi(ireum: String, mal: String, lat: Double, lon: Double, kkeut: (Boolean) -> Unit) {
+        val bon = JSONObject().put("ireum", ireum).put("mal", mal).put("lat", lat).put("lon", lon).put("beonho", JabongNae.beonho)
+        JbTongsin.postJson(PAIL, mapOf("a" to "bolgeori"), bon.toString()) { o -> kkeut(ok(o) != null) }
+    }
+
     fun baksuSu(ids: List<String>, kkeut: (Map<String, Int>) -> Unit) {
         if (ids.isEmpty()) { kkeut(emptyMap()); return }
         JbTongsin.getJson(PAIL, mapOf("a" to "baksu", "ids" to ids.joinToString(","))) { o ->
@@ -51,6 +59,38 @@ object Hamkke {
             c.minimalDaysInFirstWeek = 4
             return "modu-${c.getWeekYear()}-${c.get(Calendar.WEEK_OF_YEAR)}"
         }
+}
+
+/** 2.9.0 볼거리 표시(이사장님 승인 2026-10-06, 아이폰 자봉 2.9.0과 같음) — 그 앞에 서서 이름과 만져지는 것을 남김 */
+class BolgeoriKan {
+    private var pyeol = false
+    private var ireum = ""
+    private var mal = ""
+
+    fun geurigi(t: JabongActivity) {
+        t.pyeolchigi("볼거리 표시 — 팽나무·동상처럼 찾아갈 것 남기기", pyeol) { pyeol = !pyeol }
+        if (!pyeol) return
+        t.geul("볼거리 바로 앞에 서서 남기십시오. 지금 자리가 그대로 담깁니다.")
+        t.ipryeok("이름 — 예를 들어 팽나무", ireum, InputType.TYPE_CLASS_TEXT) { ireum = it }
+        t.ipryeok("만져지는 것과 다가가는 법 — 예를 들어 오른손을 뻗으면 줄기가 닿습니다", mal, InputType.TYPE_CLASS_TEXT) { mal = it }
+        t.danchu("볼거리 남기기") { namgi(t) }
+    }
+
+    private fun namgi(t: JabongActivity) {
+        val ir = ireum.trim(); val ml = mal.trim()
+        if (ir.isEmpty()) { Sori.mal("볼거리 이름을 적어 주십시오."); return }
+        val w = Wichi.jigeum
+        if (w == null || System.currentTimeMillis() - w.ttae > 15000) { Sori.mal("지금 자리를 잡지 못했습니다. 하늘이 트인 곳에서 잠시 뒤 다시 눌러 주십시오."); return }
+        if (w.ochae > 20) Sori.mal("위성 오차가 ${w.ochae.toInt()}미터로 커서 자리가 조금 어긋날 수 있습니다. 그래도 남깁니다.")
+        Hamkke.bolgeoriNamgi(ir, ml, w.lat, w.lon) { ok ->
+            if (ok) {
+                Baksu.chigi()
+                Sori.mal("${ir} 볼거리를 남겼습니다. 길눈님이 이 자리로 찾아오실 수 있습니다. 고맙습니다!")
+                ireum = ""; mal = ""; pyeol = false
+                t.dasiGeurigi()
+            } else Sori.mal("남기지 못했습니다. 통신을 확인해 주십시오.")
+        }
+    }
 }
 
 /** 함께한 기록판 */
