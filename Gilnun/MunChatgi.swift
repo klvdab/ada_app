@@ -191,9 +191,16 @@ final class MunChatgi: NSObject, ObservableObject, ARSessionDelegate {
                 sangtae = "문을 다시 찾는 중입니다."
                 mal("문이 카메라에서 벗어났습니다. 폰을 천천히 좌우로 돌려 주십시오.")
             }
-            if !munBoim && ((chatneunMalSu == 0 && el > 10) || (chatneunMalSu == 1 && el > 35)) {
+            // 2.52.0 8초마다 지금 하는 일을 알리고, 한 번도 문을 못 보고 30초 지나면 바로 알려 다른 길을 권함(이사장님 승인)
+            if !munBoim && el > Double(8 * (chatneunMalSu + 1)) && el < 30 {
                 chatneunMalSu += 1
                 mal("문을 찾고 있습니다. 폰을 가슴 앞에 세워 들고 천천히 좌우로 돌려 주십시오.")
+            }
+            if !munBoim && !ireotdaMal && el > 30 && eodiseo != "munkkaji" {
+                kkeugi(malHagi: false)
+                mal("30초 동안 문을 찾지 못했습니다. 사진 읽어 주기로 문 앞을 찍어 보시거나, 긴급통화로 현장영상해설사를 부르실 수 있습니다.")
+                Girok.shared.namgi("munchatgi_mot", ["eodi": eodiseo])
+                return
             }
             if el > 90 {
                 kkeugi(malHagi: false)
