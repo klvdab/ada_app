@@ -8,6 +8,9 @@ on:
       dae:
         description: "대상 앱 번들 (kr.or.ada.lib = AI점자도서관)"
         default: "kr.or.ada.lib"
+      dasi:
+        description: "수락 전인 사람에게 초대 메일 다시 보내기 (예 / 아니오)"
+        default: "아니오"
 jobs:
   moim:
     runs-on: ubuntu-latest
@@ -41,4 +44,5 @@ jobs:
       - name: 시험 모임 만들기
         env:
           DAE_BUNDLE: ${{ github.event.inputs.dae || 'kr.or.ada.lib' }}
+          DASI: ${{ github.event.inputs.dasi || '아니오' }}
         run: /tmp/py/bin/python tools/sihum_moim.py
