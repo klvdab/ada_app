@@ -14,7 +14,9 @@ final class Seoljeong: ObservableObject {
     /// 보폭(미터) — 위성이 흐릴 때 걸음으로 이어 셈하는 데 씀
     @Published var bopok: Double { didSet { d.set(bopok, forKey: "gn.bopok") } }
     /// 말로 하기 — "하이 길눈"으로 부르기(마이크를 계속 열어 둠, 처음에는 꺼 둠)
-    @Published var haiGilnun: Bool { didSet { d.set(haiGilnun, forKey: "gn.haiGilnun") } }
+    @Published var haiGilnun: Bool { didSet { if Seoljeong.jabongApp && haiGilnun { haiGilnun = false; return }; d.set(haiGilnun, forKey: "gn.haiGilnun") } }
+    /// 2.52.1 지금 도는 앱이 자봉 앱인가(자봉 앱은 길눈 부품을 함께 실음)
+    static let jabongApp = Bundle.main.bundleIdentifier == "kr.or.ada.jabong"
     /// 2.27.0 새 알아듣기 부품(애플 SpeechAnalyzer, iOS 26) 쓰기 — 처음부터 켜짐
     @Published var saeDeutgi: Bool { didSet { d.set(saeDeutgi, forKey: "gn.saeDeutgi") } }
     /// 2.29.0 못 알아들은 말을 폰 안 인공지능(애플 인텔리전스)으로 풀기 — 처음부터 켜짐
@@ -82,7 +84,8 @@ final class Seoljeong: ObservableObject {
         moksoriId = ud.string(forKey: "gn.moksori") ?? ""
         let b = ud.double(forKey: "gn.bopok")
         bopok = b > 0.2 ? b : 0.65
-        haiGilnun = (ud.object(forKey: "gn.haiGilnun") as? Bool) ?? false
+        // 2.52.1 자봉 앱(길눈 부품을 함께 실음)에서는 하이 길눈 듣기를 아예 켜지 않음 — 길눈 앱과 마이크를 다투지 않게(이사장님 승인 2026-10-06)
+        haiGilnun = Seoljeong.jabongApp ? false : ((ud.object(forKey: "gn.haiGilnun") as? Bool) ?? false)
         saeDeutgi = (ud.object(forKey: "gn.saeDeutgi") as? Bool) ?? true
         malAI = (ud.object(forKey: "gn.malAI") as? Bool) ?? true
         haiBangsongDeutgi = (ud.object(forKey: "gn.haiBangsong") as? Bool) ?? true
