@@ -39,29 +39,34 @@ final class Nav: ObservableObject {
     @Published var lib = NavigationPath()
     @Published var seojae = NavigationPath()
     @Published var tab = 0
-    func cheotHwamyeon(_ t: Int) {
-        if t == 0 { lib = NavigationPath() } else if t == 1 { seojae = NavigationPath() }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { UIAccessibility.post(notification: .screenChanged, argument: nil) }
+    @Published var gen = [0, 0, 0]   // 0.3.1 — 탭을 고를 때마다 그 탭 화면을 새로 그려 맨 위에서 시작
+    func tabGo(_ t: Int, _ same: Bool) {
+        if same { if t == 0 { lib = NavigationPath() } else if t == 1 { seojae = NavigationPath() } }
+        if t >= 0 && t < 3 { gen[t] += 1 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { UIAccessibility.post(notification: .screenChanged, argument: nil) }
     }
 }
 
 struct RootView: View {
     @StateObject private var nav = Nav()
     var body: some View {
-        TabView(selection: Binding(get: { nav.tab }, set: { t in if t == nav.tab { nav.cheotHwamyeon(t) }; nav.tab = t })) {   // 0.3.0 — 지금 탭을 다시 누르면 그 탭 첫 화면 맨 위로
+        TabView(selection: Binding(get: { nav.tab }, set: { t in let same = (t == nav.tab); nav.tab = t; nav.tabGo(t, same) })) {   // 0.3.0 — 지금 탭을 다시 누르면 그 탭 첫 화면 맨 위로
             NavigationStack(path: $nav.lib) {
                 HomeView().routes()
             }
+            .id(nav.gen[0])
             .tabItem { Label("도서관", systemImage: "books.vertical") }
             .tag(0)
             NavigationStack(path: $nav.seojae) {
                 SeojaeView().routes()
             }
+            .id(nav.gen[1])
             .tabItem { Label("내 서재", systemImage: "bookmark") }
             .tag(1)
             NavigationStack {
                 SettingsView()
             }
+            .id(nav.gen[2])
             .tabItem { Label("설정·도움말", systemImage: "gearshape") }
             .tag(2)
         }
@@ -77,7 +82,7 @@ extension View {
             case .jakbon(let j, let t): JakbonView(j: j, ttl: t).dwiro()
             case .find(let s): FindView(s: s).dwiro()
             case .book(let i): BookView(i: i).dwiro()
-            case .reader(let i, let t, let k): ReaderView(i: i, title: t, kind: k).dwiro()
+            case .reader(let i, let t, let k): ReaderView(i: i, title: t, kind: k).dwiro().onDisappear { Reader.shared.pause() }   // 0.3.1 — 독서기 화면을 떠나면 멈춤
             case .marks(let i): MarksView(i: i).dwiro()
             case .mun(let m, let t): MunView(mun: m, ttl: t).dwiro()
             case .seoga(let m, let k, let t): SeogaView(mun: m, k: k, ttl: t).dwiro()
