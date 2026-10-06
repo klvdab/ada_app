@@ -419,6 +419,7 @@ object AnnaeEngine {
 
     private fun dasiSijak() {
         ttJiugi()   // 2.15.0
+        bgJiugi()   // 2.16.0
         majimakGeoriMal = null
         majimakSigye = 0
         gotMal = false
@@ -522,19 +523,78 @@ object AnnaeEngine {
             when (y.danggye) {
                 Danggye.TANEUN_GOT_KKAJI -> if (!g.ipguDochak) georeumAnnae(w, g.ipgu.ireum, g.ipgu.lat, g.ipgu.lon, true, y)
                 Danggye.TANEUN_JUNG -> if (g.kkeutnam) naonGeotBoda(w)
-                Danggye.NAM_EUN_GIL -> georeumAnnae(w, y.mokjeok.ireum, y.mokjeok.lat, y.mokjeok.lon, false, y)
+                Danggye.NAM_EUN_GIL -> { val t = bgJari(w, y.mokjeok.lat, y.mokjeok.lon, y.mokjeok.ireum); georeumAnnae(w, y.mokjeok.ireum, t.first, t.second, false, y) }   // 2.16.0 볼거리 자리
                 else -> {}
             }
             return
         }
         when (y.danggye) {
             Danggye.TANEUN_JUNG -> chaAnnae(w, d, y)
-            Danggye.NAM_EUN_GIL -> georeumAnnae(w, y.mokjeok.ireum, y.mokjeok.lat, y.mokjeok.lon, false, y)
+            Danggye.NAM_EUN_GIL -> { val t = bgJari(w, y.mokjeok.lat, y.mokjeok.lon, y.mokjeok.ireum); georeumAnnae(w, y.mokjeok.ireum, t.first, t.second, false, y) }   // 2.16.0 볼거리 자리
             else -> {}
         }
     }
 
     // MARK: 걷기
+
+    // MARK: 2.16.0 마지막 스무 걸음과 볼거리(이사장님 승인 2026-10-06, 아이폰 길눈 2.48.0과 같음)
+    //   목적지 80미터 앞에서 자봉이 남긴 볼거리(서버 lvd-jabong)를 받아, 있으면 그 정확한 자리로 이끎.
+    //   스무 미터 안에서는 걸음 수와 시 방향으로 좁혀 말하고, 닿으면 볼거리 이름과 만져지는 것을 알려 드림.
+    private class Bolgeori(val ireum: String, val mal: String, val lat: Double, val lon: Double)
+    private var bgMok: Pair<Double, Double>? = null
+    private var bg: Bolgeori? = null
+    private var bgBatneun = false
+    private var magakMalTtae = 0L
+    private var magakSu = -1
+    private var magakSigye = 0
+
+    private fun bgJiugi() { bgMok = null; bg = null; magakSu = -1; magakSigye = 0 }
+
+    /** 최종 목적지의 자리 — 가까이에 볼거리 기록이 있으면 그 자리 */
+    private fun bgJari(w: Jari, lat: Double, lon: Double, ireum: String): Pair<Double, Double> {
+        val m = bgMok
+        if (m != null && (abs(m.first - lat) > 0.000001 || abs(m.second - lon) > 0.000001)) bgJiugi()
+        if (bgMok == null && !bgBatneun && Wichi.geori(w.lat, w.lon, lat, lon) <= 80) {
+            bgBatneun = true
+            bgMok = Pair(lat, lon)
+            val f = { v: Double -> String.format(java.util.Locale.US, "%.6f", v) }
+            Tongsin.json("/jabong/hamkke.php", mapOf("a" to "bolgeori", "lat" to f(lat), "lon" to f(lon), "r" to "40")) { o ->
+                bgBatneun = false
+                val rows = o?.optJSONArray("rows")
+                val ls = ArrayList<Bolgeori>()
+                if (rows != null) for (i in 0 until rows.length()) {
+                    val r = rows.optJSONObject(i) ?: continue
+                    ls.add(Bolgeori(r.optString("ireum", ""), r.optString("mal", ""), r.optDouble("lat"), r.optDouble("lon")))
+                }
+                val nm = ireum.replace(" ", "")
+                bg = ls.firstOrNull { it.ireum.isNotEmpty() && nm.contains(it.ireum.replace(" ", "")) }
+                    ?: ls.firstOrNull { Wichi.geori(lat, lon, it.lat, it.lon) <= 25 }
+                bg?.let { Girok.namgi("bolgeori_chajeum", mapOf("ireum" to it.ireum)) }
+            }
+        }
+        val b = bg
+        return if (b != null) Pair(b.lat, b.lon) else Pair(lat, lon)
+    }
+
+    /** 마지막 스무 미터 — 걸음 수와 시 방향(4초에 한 번, 바뀔 때만). 맡았으면 참 */
+    private fun magakAnnae(w: Jari, d: Double, lat: Double, lon: Double, mok: String): Boolean {
+        if (d > 20) return false
+        val bp = if (Seoljeong.bopok > 0.3) Seoljeong.bopok else 0.65
+        val su = max(1, Math.round(d / bp).toInt())
+        val s = sigye(w, lat, lon)
+        val now = System.currentTimeMillis()
+        if (now - magakMalTtae < 4000) return true
+        if (magakSu < 0) {
+            magakMalTtae = now; magakSu = su; magakSigye = s
+            malHagi("곧 도착합니다. ${bg?.ireum ?: mok}까지 ${su}걸음" + (if (s == 0) "." else ", ${s}시 방향."))
+            if (s != 0) Jindong.banghyang(s)
+        } else if (abs(su - magakSu) >= 2 || (s != 0 && s != magakSigye)) {
+            magakMalTtae = now; magakSu = su; magakSigye = s
+            malHagi("${su}걸음" + (if (s == 0) "." else ", ${s}시 방향."))
+            if (s != 0) Jindong.banghyang(s)
+        }
+        return true
+    }
 
     // MARK: 2.15.0 걸을 수 있는 길로 이끌기(이사장님 승인 2026-10-06, 아이폰 길눈 2.47.0과 같음)
     //   리눅스 서버의 걷기 길찾기(lvd-gil, 나스 /jeom/gilchatgi.php)로 걸을 수 있는 길을 받아 「다음 꺾는 곳」을 겨눔.
@@ -659,7 +719,7 @@ object AnnaeEngine {
 
     private fun georeumAnnae(w: Jari, mok: String, lat: Double, lon: Double, jungan: Boolean, y: Yeojeong) {
         val d = Wichi.geori(w.lat, w.lon, lat, lon)
-        val beom = if (jungan) max(15.0, min(w.ochae, 30.0)) else max(12.0, min(w.ochae, 25.0))
+        val beom = if (jungan) max(15.0, min(w.ochae, 30.0)) else if (bg != null) max(5.0, min(w.ochae, 10.0)) else max(12.0, min(w.ochae, 25.0))   // 2.16.0 볼거리면 더 가까이
         if (d <= beom) {
             if (jungan) {
                 Eum.naegi(EumJong.DOCHAK)
@@ -670,6 +730,8 @@ object AnnaeEngine {
             }
             return
         }
+        // 2.16.0 마지막 스무 미터는 걸음 수와 시 방향으로 좁혀 말함
+        if (!jungan && magakAnnae(w, d, lat, lon, mok)) return
         // 2.15.0 걸을 수 있는 길을 받았으면 그 길로 이끎(다음 꺾는 곳을 겨눔)
         if (ttaraAnnae(w, lat, lon)) { neagoriBoda(w, true); return }
         val s = sigye(w, lat, lon)
@@ -781,7 +843,9 @@ object AnnaeEngine {
         Eum.naegi(EumJong.DOCHAK)
         Jindong.dochak()
         val s = sigye(w, y.mokjeok.lat, y.mokjeok.lon)
-        malHagi("도착했습니다. ${y.mokjeok.ireum}입니다${if (s == 0) "" else ". ${s}시 방향 가까이에 있습니다"}.")
+        val b = bg
+        if (b != null) malHagi("도착했습니다. ${b.ireum} 앞입니다." + (if (b.mal.isEmpty()) "" else " ${b.mal}"))   // 2.16.0 볼거리 — 이름과 만져지는 것
+        else malHagi("도착했습니다. ${y.mokjeok.ireum}입니다${if (s == 0) "" else ". ${s}시 방향 가까이에 있습니다"}.")
         // 걸어서 닿으면 카메라로 문 찾기(카메라 묶음이 dochakHook 을 채움)
         dochakHook?.let { f -> main.postDelayed({ f("dochak") }, 4000) }
         Girok.namgi("dochak", mapOf("m" to d.toInt(), "ochae" to w.ochae.toInt()))
