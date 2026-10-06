@@ -10,13 +10,17 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.45.0"
-    static let bild = "261006-I4"
+    static let pan = "2.46.0"
+    static let bild = "261006-I5"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.46.0", bild: "261006-I5", nal: "2026-10-06", naeyong: [
+            "비슷한 곡 권하기(이사장님 승인) — 말로 하기에서 가수와 곡 이름으로 찾았는데 꼭 맞는 곡이 없으면, 나스 음악 창구(eumak.php 0.6판)가 이름이 비슷한 제목·가수를 찾아 여쭘(이문세 첫사랑 → 옛사랑). 네면 바로 틀고 아니면 그만",
+            "도움말 비슷한 곡 권하기 항목 더함"
+        ]),
         Gochim(pan: "2.45.0", bild: "261006-I4", nal: "2026-10-06", naeyong: [
             "주변 신호기 살피기(이사장님 승인) — 8초 동안 둘레를 살펴 블루투스로 울릴 수 있는 음향신호기가 몇 대인지, 가장 가까운 것이 바로 앞·가까이·조금 떨어진 곳인지, 보행신호 음성안내 장치가 있는지 알림. 잡히지 않으면 리모컨 전용이거나 신호기가 없을 수 있다고 알림. 블루투스가 꺼져 있으면 켜 달라고 알림",
             "길 찾기 탭 그 밖에 펼치기와 설정 바깥 기기에 단추, 말로 하기에서 주변에 신호기 있어·신호기 살펴 줘·블루투스 신호기 있나",
