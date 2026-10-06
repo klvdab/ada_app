@@ -67,6 +67,8 @@ struct GilChatgiView: View {
     @ObservedObject private var doe = DoeEngine.shared
     @ObservedObject private var malgil = MalgilEngine.shared
     @ObservedObject private var jeom = JeomEngine.shared
+    @ObservedObject private var sj = Seoljeong.shared   // 2.52.0 처음 안내 줄
+    @AppStorage("gn.cheotAnnae") private var cheotNajung = false
     @State private var mal = ""
     @AccessibilityFocusState private var meoriChojeom: Bool
 
@@ -74,14 +76,18 @@ struct GilChatgiView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 GingeupGongjiJul()   // 2.9.0 읽지 않은 긴급 공지 — 맨 위
-                // 2.12.6 하던 일 멈추기 — 무엇이든 진행 중일 때만, 접지 않고 맨 위에(이사장님 승인 1)
-                if jeom.muleum != nil || jeom.gil != nil || y.jigeum != nil {
-                    Button("하던 일 멈추기 — 안내를 모두 멈추고 새 목적지 찾기") {
-                        AnnaeEngine.shared.haneunIlMeomchum()
-                        meoriChojeom = false   // 멈춘 뒤 커서를 목적지 적는 칸으로
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { meoriChojeom = true }
-                    }
-                    .buttonStyle(KeunDanchu())
+                // 2.12.6 하던 일 멈추기 — 접지 않고 맨 위에(이사장님 승인 1)
+                // 2.52.0 무엇이 진행 중이든 아니든 늘 맨 위에(이사장님 승인 2026-10-06 — 문 찾기 중에 줄이 사라졌던 일)
+                Button("하던 일 멈추기 — 안내를 모두 멈추고 새 목적지 찾기") {
+                    AnnaeEngine.shared.haneunIlMeomchum()
+                    meoriChojeom = false   // 멈춘 뒤 커서를 목적지 적는 칸으로
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { meoriChojeom = true }
+                }
+                .buttonStyle(KeunDanchu())
+                if !cheotNajung && !sj.bopokJaem {
+                    // 2.52.0 처음 안내는 화면 전체를 덮지 않고 첫 화면 안 한 줄로
+                    NavigationLink { CheotAnnaeView { } } label: { Text("처음 안내 — 흰지팡이 당부와 보폭 재기, 처음 한 번") }
+                        .buttonStyle(KeunDanchu())
                 }
                 if malgil.geotneun {
                     // 2.14.0 말로 그린 길을 걷는 중이면 맨 위에
