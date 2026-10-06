@@ -324,3 +324,47 @@ extension Reader: AVSpeechSynthesizerDelegate {
         }
     }
 }
+
+// 0.4.0 — 재생 위치(퍼센트), 앞으로 30초와 뒤로 30초
+extension Reader {
+    var gulChoPerMundan: Double {
+        let ls = paras.values.map { Double($0.count) }
+        let avg = ls.isEmpty ? 120 : ls.reduce(0, +) / Double(ls.count)
+        return max(2, avg / (7.0 * Double(store.rate)))
+    }
+    var jeonche: Double {
+        if kind == "geul" { return Double(max(modu, 1)) * gulChoPerMundan }
+        let d = player?.currentItem?.duration.seconds ?? 0
+        return d.isFinite ? d : 0
+    }
+    var jigeum: Double {
+        if kind == "geul" { return Double(pos) * gulChoPerMundan }
+        let c = player?.currentTime().seconds ?? 0
+        return c.isFinite ? c : 0
+    }
+    var peosenteu: Double { let t = jeonche; return t > 0 ? min(100, max(0, jigeum / t * 100)) : 0 }
+    static func sigan(_ s: Double) -> String {
+        let n = Int(max(0, s)); let h = n / 3600, m = (n % 3600) / 60, c = n % 60
+        return h > 0 ? "\(h)시간 \(m)분" : (m > 0 ? "\(m)분 \(c)초" : "\(c)초")
+    }
+    var wichiPeosenteuMal: String {
+        "전체 " + (kind == "geul" ? "약 " : "") + Reader.sigan(jeonche) + " 가운데 " + Reader.sigan(jigeum) + ", " + String(Int(peosenteu.rounded())) + "퍼센트"
+    }
+    func gaPeosenteu(_ p: Double) {
+        let q = min(100, max(0, p))
+        if kind == "geul" {
+            let o = min(max(modu - 1, 0), Int(Double(modu) * q / 100))
+            if playing { play(at: o) } else { move(to: o) }
+        } else if let pl = player {
+            pl.seek(to: CMTime(seconds: jeonche * q / 100, preferredTimescale: 600))
+        }
+        objectWillChange.send()
+    }
+    func gaCho(_ s: Double) {
+        if kind != "geul" { skip(s); objectWillChange.send(); return }
+        let n = max(1, Int((abs(s) / gulChoPerMundan).rounded()))
+        let o = s > 0 ? min(max(modu - 1, 0), pos + n) : max(0, pos - n)
+        if o == pos { store.say(s > 0 ? "마지막 문단입니다." : "첫 문단입니다."); return }
+        if playing { play(at: o) } else { move(to: o) }
+    }
+}
