@@ -77,7 +77,7 @@ android {
             dimension = "ap"
             applicationId = "kr.or.ada.byod"
             resValue("string", "app_name", "BYOD 방송")
-            versionName = "1.1.0"   // 261006-B2 접속 도구(엔에프시 스티커 쓰기·큐알코드 만들기, 도서클이 방송클 일을 이어 맡음)
+            versionName = "1.1.1"   // 261006-B3 스티커 쓰기 고침(엔디프 확인 건너뛰기 뺌, 엔태그 칩 직접 쓰기 더함). 261006-B2 접속 도구(엔에프시 스티커 쓰기·큐알코드 만들기, 도서클이 방송클 일을 이어 맡음)
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/bfblive/hyeonjang/\"")
         }
         create("lib") {   // 261002-L1 AI점자도서관 안드로이드 — 속까지 앱(LibActivity, src/lib), 아이폰 0.2.0 과 동시에(이사장님 승인 "2")
