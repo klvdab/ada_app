@@ -2,12 +2,21 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.5.0"
-    static let bild = "261004-I1"
+    static let pan = "2.6.0"
+    static let bild = "261006-I1"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.6.0", bild: "261006-I1", nal: "2026-10-06", naeyong: [
+            "처음 등록의 짧은 교육을 소리로 — 요령 다섯 가지를 길눈 목소리로 차례로 읽고, 요령 다시 듣기 단추를 둠(이사장님 승인: 짧은 설명 듣기가 전혀 작동하지 않던 일)",
+            "확인 문제도 문제와 고를 말을 읽어 드리고, 맞히면 딩동 소리와 진동, 틀리면 까닭을 말로 알림. 문제 다시 듣기 단추",
+            "다음을 눌렀는데 칸이 비었거나 맞지 않으면 무엇이 모자란지 말로 알림(전에는 화면 맨 위 글로만 떠서 넘어가지 않는 것처럼 보였음)",
+            "비시각장애인 봉사자를 위해 화면을 크고 선명하게 — 큰 글씨, 칸마다 이름표와 굵은 테두리, 요령마다 그림과 노란 바탕 카드, 세 단계 막대",
+            "봉사의 보람과 재미 — 첫 화면 환영 글, 문제를 맞히면 칭찬, 등록을 마치면 환영 화면(자봉 번호, 도착 소리와 진동, 고마움 인사) 뒤 봉사 시작하기로 봉사 탭에",
+            "프로그램 말소리를 꺼 두신 분은 소리 대신 보이스오버 커서로 알림. 말소리가 켜져 있으면 보이스오버 커서를 옮기지 않아 두 소리가 겹치지 않게",
+            "도움말 처음 등록 항목 고침"
+        ]),
         Gochim(pan: "2.5.0", bild: "261004-I1", nal: "2026-10-04", naeyong: [
             "긴급통화 영상 다리(턴) 주소를 나스 설정 쪽지에서 읽음(길눈 2.43.0과 함께) — 다리를 옮겨도 앱을 새로 받지 않게. 울릴 때마다 새로 받아 둠",
             "도움말 긴급통화 받기 항목에 영상 다리 한 줄 더함"
