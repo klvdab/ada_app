@@ -371,6 +371,7 @@ final class AnnaeEngine: ObservableObject {
 
     private func dasiSijak() {
         ttJiugi()   // 2.47.0
+        bgJiugi()   // 2.48.0
         majimakGeoriMal = nil
         majimakSigye = 0
         gotMal = false
@@ -480,7 +481,8 @@ final class AnnaeEngine: ObservableObject {
             case .taneunJung:
                 if g.kkeutnam { naonGeotBoda(w) }
             case .namEunGil:
-                georeumAnnae(w, ireum: y.mokjeok.ireum, lat: y.mokjeok.lat, lon: y.mokjeok.lon, jungan: false, y)
+                let t = bgJari(w, y.mokjeok.lat, y.mokjeok.lon, y.mokjeok.ireum)   // 2.48.0 볼거리 자리
+                georeumAnnae(w, ireum: y.mokjeok.ireum, lat: t.0, lon: t.1, jungan: false, y)
             default:
                 break
             }
@@ -488,9 +490,70 @@ final class AnnaeEngine: ObservableObject {
         }
         switch y.danggye {
         case .taneunJung: chaAnnae(w, d, y)
-        case .namEunGil: georeumAnnae(w, ireum: y.mokjeok.ireum, lat: y.mokjeok.lat, lon: y.mokjeok.lon, jungan: false, y)
+        case .namEunGil:
+            let t = bgJari(w, y.mokjeok.lat, y.mokjeok.lon, y.mokjeok.ireum)   // 2.48.0 볼거리 자리
+            georeumAnnae(w, ireum: y.mokjeok.ireum, lat: t.0, lon: t.1, jungan: false, y)
         default: break
         }
+    }
+
+    // MARK: 2.48.0 마지막 스무 걸음과 볼거리(이사장님 승인 2026-10-06)
+    //   목적지 80미터 앞에서 자봉이 남긴 볼거리(팽나무·동상·안내판 등, 서버 lvd-jabong)를 받아, 있으면 그 정확한 자리로 이끎.
+    //   스무 미터 안에서는 「다섯 걸음, 1시 방향」처럼 걸음 수로 좁혀 말하고, 닿으면 볼거리 이름과 만져지는 것을 알려 드림.
+    private struct Bolgeori { let ireum: String; let mal: String; let lat: Double; let lon: Double }
+    private var bgMok: (Double, Double)?
+    private var bg: Bolgeori?
+    private var bgBatneun = false
+    private var magakMalTtae = Date.distantPast
+    private var magakSu = -1
+    private var magakSigye = 0
+
+    private func bgJiugi() { bgMok = nil; bg = nil; magakSu = -1; magakSigye = 0 }
+
+    /// 최종 목적지의 자리 — 가까이에 볼거리 기록이 있으면 그 자리
+    private func bgJari(_ w: Wichi, _ lat: Double, _ lon: Double, _ ireum: String) -> (Double, Double) {
+        if let m = bgMok, abs(m.0 - lat) > 0.000001 || abs(m.1 - lon) > 0.000001 { bgJiugi() }
+        if bgMok == nil && !bgBatneun && WichiEngine.geori(w.lat, w.lon, lat, lon) <= 80 {
+            bgBatneun = true
+            bgMok = (lat, lon)
+            let q = ["a": "bolgeori", "lat": String(format: "%.6f", lat), "lon": String(format: "%.6f", lon), "r": "40"]
+            Task {
+                let o = await Chatgi.json("/jabong/hamkke.php", q)
+                await MainActor.run {
+                    self.bgBatneun = false
+                    let ls = ((o?["rows"] as? [[String: Any]]) ?? []).compactMap { r -> Bolgeori? in
+                        guard let a = Chatgi.su(r["lat"]), let b = Chatgi.su(r["lon"]) else { return nil }
+                        return Bolgeori(ireum: (r["ireum"] as? String) ?? "", mal: (r["mal"] as? String) ?? "", lat: a, lon: b)
+                    }
+                    let nm = ireum.replacingOccurrences(of: " ", with: "")
+                    self.bg = ls.first { !$0.ireum.isEmpty && nm.contains($0.ireum.replacingOccurrences(of: " ", with: "")) }
+                        ?? ls.first { WichiEngine.geori(lat, lon, $0.lat, $0.lon) <= 25 }
+                    if let b = self.bg { Girok.shared.namgi("bolgeori_chajeum", ["ireum": b.ireum]) }
+                }
+            }
+        }
+        if let b = bg { return (b.lat, b.lon) }
+        return (lat, lon)
+    }
+
+    /// 마지막 스무 미터 — 걸음 수와 시 방향(4초에 한 번, 바뀔 때만). 맡았으면 참
+    private func magakAnnae(_ w: Wichi, _ d: Double, _ lat: Double, _ lon: Double, _ mok: String) -> Bool {
+        guard d <= 20 else { return false }
+        let bp = Seoljeong.shared.bopok > 0.3 ? Seoljeong.shared.bopok : 0.65
+        let su = max(1, Int((d / bp).rounded()))
+        let s = sigye(w, lat, lon)
+        let now = Date()
+        guard now.timeIntervalSince(magakMalTtae) >= 4 else { return true }
+        if magakSu < 0 {
+            magakMalTtae = now; magakSu = su; magakSigye = s
+            malHagi("곧 도착합니다. \(bg?.ireum ?? mok)까지 \(su)걸음" + (s == 0 ? "." : ", \(s)시 방향."))
+            if s != 0 { Jindong.banghyang(s) }
+        } else if abs(su - magakSu) >= 2 || (s != 0 && s != magakSigye) {
+            magakMalTtae = now; magakSu = su; magakSigye = s
+            malHagi("\(su)걸음" + (s == 0 ? "." : ", \(s)시 방향."))
+            if s != 0 { Jindong.banghyang(s) }
+        }
+        return true
     }
 
     // MARK: 2.47.0 걸을 수 있는 길로 이끌기(이사장님 승인 2026-10-06, 부산 에이펙 공원에서 「2시 방향」만으로는 찾아갈 수 없었던 일)
@@ -639,7 +702,7 @@ final class AnnaeEngine: ObservableObject {
 
     private func georeumAnnae(_ w: Wichi, ireum mok: String, lat: Double, lon: Double, jungan: Bool, _ y: Yeojeong) {
         let d = WichiEngine.geori(w.lat, w.lon, lat, lon)
-        let beom = jungan ? max(15, min(w.ochae, 30)) : max(12, min(w.ochae, 25))
+        let beom = jungan ? max(15, min(w.ochae, 30)) : (bg != nil ? max(5, min(w.ochae, 10)) : max(12, min(w.ochae, 25)))   // 2.48.0 볼거리면 더 가까이
         if d <= beom {
             if jungan {
                 SoriEngine.shared.sori(.dochak)
@@ -650,6 +713,8 @@ final class AnnaeEngine: ObservableObject {
             }
             return
         }
+        // 2.48.0 마지막 스무 미터는 걸음 수와 시 방향으로 좁혀 말함
+        if !jungan && magakAnnae(w, d, lat, lon, mok) { return }
         // 2.47.0 걸을 수 있는 길을 받았으면 그 길로 이끎(다음 꺾는 곳을 겨눔)
         if ttaraAnnae(w, lat, lon) { neagoriBoda(w); return }
         let s = sigye(w, lat, lon)
@@ -774,7 +839,11 @@ final class AnnaeEngine: ObservableObject {
         SoriEngine.shared.sori(.dochak)
         Jindong.dochak()
         let s = sigye(w, y)
-        malHagi("도착했습니다. \(y.mokjeok.ireum)입니다\(s == 0 ? "" : ". \(s)시 방향 가까이에 있습니다").")
+        if let b = bg {   // 2.48.0 볼거리 — 이름과 만져지는 것
+            malHagi("도착했습니다. \(b.ireum) 앞입니다." + (b.mal.isEmpty ? "" : " \(b.mal)"))
+        } else {
+            malHagi("도착했습니다. \(y.mokjeok.ireum)입니다\(s == 0 ? "" : ". \(s)시 방향 가까이에 있습니다").")
+        }
         // 2.15.0 걸어서 닿으면 카메라로 문 찾기(2.16.0 모든 폰)
         if MunChatgi.gigiGaneung {
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) { MunChatgi.shared.kyeogi("dochak") }
