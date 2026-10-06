@@ -2,12 +2,18 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.6.0"
-    static let bild = "261006-I1"
+    static let pan = "2.7.0"
+    static let bild = "261006-I2"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.7.0", bild: "261006-I2", nal: "2026-10-06", naeyong: [
+            "정답을 맞히면 박수 소리(이사장님 승인) — 확인 문제를 맞힐 때마다 박수, 등록을 마치면 큰 박수. 박수 소리는 자봉 앱 안에서만 만들어 길눈 소리 부품은 건드리지 않음",
+            "나눔 탭을 채움 — 맨 위 그려 주세요(길눈님이 부탁한 길, 안 그려진 것 먼저, 다섯 개씩), 걸음 나눔, 더 보기 펼치기 안에 나눔 마당과 함께하기. 길눈과 같은 나스 창고라 같은 글이 보임",
+            "그려 주세요 한 건에서 이 길 그리러 가기를 누르면 봉사 탭으로 옮겨 어디부터 어디까지 걸을지 말씀드림. 다 그렸습니다 표시하기를 누르면 큰 박수와 함께 길눈님께 알려짐. 응원 한마디는 이름 대신 자봉 번호로",
+            "도움말 나눔 탭 항목 둘 더함, 처음 등록 항목의 딩동을 박수로 고침"
+        ]),
         Gochim(pan: "2.6.0", bild: "261006-I1", nal: "2026-10-06", naeyong: [
             "처음 등록의 짧은 교육을 소리로 — 요령 다섯 가지를 길눈 목소리로 차례로 읽고, 요령 다시 듣기 단추를 둠(이사장님 승인: 짧은 설명 듣기가 전혀 작동하지 않던 일)",
             "확인 문제도 문제와 고를 말을 읽어 드리고, 맞히면 딩동 소리와 진동, 틀리면 까닭을 말로 알림. 문제 다시 듣기 단추",
