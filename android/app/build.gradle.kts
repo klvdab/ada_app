@@ -64,7 +64,7 @@ android {
             dimension = "ap"
             applicationId = "kr.or.ada.jabong"
             resValue("string", "app_name", "자봉")
-            versionName = "2.5.0"   // 261004-I1 영상 다리 주소를 나스 설정 쪽지에서. 261004-G1 가족·지인으로 받기(이음 번호)·긴급통화 받지 않기(이사장님 승인). 261002-J1 아이폰 자봉 2.3.0과 똑같이 — 처음 등록·탭 넷·긴급통화 받기(JabongDaegi·JabongTonghwa, 알림 칸의 자봉이 나스 부름을 살핌)·점지도 그리기 마저(주소·말로 표시·그린 길 목록), 대표님 지시. 261001-A2 점지도 그리기를 속까지 앱(JabongActivity, src/jabong) — 몸 센서 극대화
+            versionName = "2.7.0"   // 261006-A1 아이폰 자봉 2.7.0과 같이 — 짧은 교육 소리로·크고 선명하게·정답 박수·환영 화면·나눔 탭(그려 주세요·걸음 나눔), 이사장님 승인. 261004-I1 영상 다리 주소를 나스 설정 쪽지에서. 261004-G1 가족·지인으로 받기(이음 번호)·긴급통화 받지 않기(이사장님 승인). 261002-J1 아이폰 자봉 2.3.0과 똑같이 — 처음 등록·탭 넷·긴급통화 받기(JabongDaegi·JabongTonghwa, 알림 칸의 자봉이 나스 부름을 살핌)·점지도 그리기 마저(주소·말로 표시·그린 길 목록), 대표님 지시. 261001-A2 점지도 그리기를 속까지 앱(JabongActivity, src/jabong) — 몸 센서 극대화
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/jabong/\"")
         }
         create("bfb") {
