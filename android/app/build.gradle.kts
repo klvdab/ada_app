@@ -77,7 +77,7 @@ android {
             dimension = "ap"
             applicationId = "kr.or.ada.byod"
             resValue("string", "app_name", "BYOD 방송")
-            versionName = "1.0.0"
+            versionName = "1.1.0"   // 261006-B2 접속 도구(엔에프시 스티커 쓰기·큐알코드 만들기, 도서클이 방송클 일을 이어 맡음)
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/bfblive/hyeonjang/\"")
         }
         create("lib") {   // 261002-L1 AI점자도서관 안드로이드 — 속까지 앱(LibActivity, src/lib), 아이폰 0.2.0 과 동시에(이사장님 승인 "2")
@@ -131,6 +131,7 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.webkit:webkit:1.12.1")   // 260926-1 다리를 문서 맨 처음에 심기
     "libImplementation"("androidx.media3:media3-exoplayer:1.4.1")   // 261002-L1 도서관 독서기 — 문단 사이 틈 없이 이어 틀기
+    "byodImplementation"("com.google.zxing:core:3.5.3")   // 261006-B2 BYOD 접속 도구 — 큐알코드 만들기
     "libImplementation"("androidx.media3:media3-ui:1.4.1")          // 261002-L1 도서관 동영상 보기
     gj.forEach { add(it, "com.google.android.gms:play-services-wearable:18.1.0") }   // 261002-A8 갤럭시 워치 길눈과 잇기
     gj.forEach { add(it, "io.getstream:stream-webrtc-android:1.3.8") }   // 261002-A9 길눈 긴급통화서비스 화상통화(org.webrtc)
