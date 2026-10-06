@@ -10,13 +10,18 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.48.0"
-    static let bild = "261006-I8"
+    static let pan = "2.49.0"
+    static let bild = "261006-I9"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.49.0", bild: "261006-I9", nal: "2026-10-06", naeyong: [
+            "말로 하기 대화 이어 가기(이사장님 승인) — 되묻는 말 뒤 마이크를 한 번만 열던 것을 고쳐, 대답 뒤에는 하이 길눈 없이 딩동 뒤 10초 이어 들음. 말씀이 없으면 조용히 닫음. 됐어·고마워면 그침. 같은 말 세 번이면 다른 말이나 긴급통화를 권함",
+            "말벗 — 명령도 곳 이름도 아닌 질문은 리눅스 서버 인공지능(올라마 엑사원, lvd-malbeot, 나스 malbeot.php)이 지금 자리·가는 곳·앞의 대화 넉 마디를 헤아려 대답. 실시간 정보는 지어내지 않고, 안전 판단은 대신하지 않음",
+            "도움말 말로 하기 — 이어서 묻고 답하기 항목 더함"
+        ]),
         Gochim(pan: "2.48.0", bild: "261006-I8", nal: "2026-10-06", naeyong: [
             "마지막 스무 걸음(이사장님 승인) — 목적지 스무 미터 앞부터 걸음 수와 시 방향으로 좁혀 말함(바뀔 때만, 4초에 한 번), 그쪽으로 진동",
             "볼거리 — 목적지 80미터 앞에서 자봉이 남긴 볼거리(서버 lvd-jabong 0.2.0)를 받아, 있으면 그 정확한 자리로 이끌고 더 가까이(5~10미터)에서 도착을 알리며 이름과 만져지는 것을 들려 드림",
