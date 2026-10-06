@@ -1,6 +1,7 @@
 // AI점자도서관 앱 — 시작과 탭 (판 0.1.0, 빌드 260930-1)
 // 탭 셋: 도서관, 내 서재, 설정·도움말. 탭 바는 모든 속 화면에서도 늘 보인다.
 import SwiftUI
+import UIKit
 import AVFoundation
 
 @main
@@ -30,18 +31,24 @@ enum Route: Hashable {
     case book(Int)
     case reader(Int, String, String)
     case marks(Int)
+    case mun(String, String)              // 0.3.0 세 겹의 문
+    case seoga(String, String, String)    // 0.3.0 서가
 }
 
 final class Nav: ObservableObject {
     @Published var lib = NavigationPath()
     @Published var seojae = NavigationPath()
     @Published var tab = 0
+    func cheotHwamyeon(_ t: Int) {
+        if t == 0 { lib = NavigationPath() } else if t == 1 { seojae = NavigationPath() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { UIAccessibility.post(notification: .screenChanged, argument: nil) }
+    }
 }
 
 struct RootView: View {
     @StateObject private var nav = Nav()
     var body: some View {
-        TabView(selection: $nav.tab) {
+        TabView(selection: Binding(get: { nav.tab }, set: { t in if t == nav.tab { nav.cheotHwamyeon(t) }; nav.tab = t })) {   // 0.3.0 — 지금 탭을 다시 누르면 그 탭 첫 화면 맨 위로
             NavigationStack(path: $nav.lib) {
                 HomeView().routes()
             }
@@ -72,6 +79,8 @@ extension View {
             case .book(let i): BookView(i: i).dwiro()
             case .reader(let i, let t, let k): ReaderView(i: i, title: t, kind: k).dwiro()
             case .marks(let i): MarksView(i: i).dwiro()
+            case .mun(let m, let t): MunView(mun: m, ttl: t).dwiro()
+            case .seoga(let m, let k, let t): SeogaView(mun: m, k: k, ttl: t).dwiro()
             }
         }
     }
