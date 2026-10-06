@@ -10,13 +10,16 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.52.0"
-    static let bild = "261006-I12"
+    static let pan = "2.52.1"
+    static let bild = "261006-I13"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.52.1", bild: "261006-I13", nal: "2026-10-06", naeyong: [
+            "자봉 앱(길눈 부품을 함께 실음)에서는 하이 길눈 듣기를 아예 켜지 않음 — 옛 자봉 앱이 50초마다 마이크를 열어 길눈 앱과 다투던 일(이사장님 승인). 하이 길눈이 꺼져 있으면 억지로 다시 여는 길도 막음"
+        ]),
         Gochim(pan: "2.52.0", bild: "261006-I12", nal: "2026-10-06", naeyong: [
             "이사장님 부산 하이가쯔 길 뒤 바로잡음(승인) — 하던 일 멈추기를 늘 맨 위에, 처음 안내는 화면을 덮지 않고 첫 화면 안 한 줄로",
             "보폭을 재 두셨으면 걷는 동안 모든 거리를 걸음 수로(300미터 넘으면 미터도 함께), 차 안은 미터 그대로",
