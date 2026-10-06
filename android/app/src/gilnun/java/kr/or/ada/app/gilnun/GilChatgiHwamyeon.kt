@@ -81,9 +81,12 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
             }
         }
 
-        // ③ 하던 일 멈추기 — 무엇이든 진행 중일 때만, 접지 않고(이사장님 승인 1)
-        if (mu != null || jm.gil != null || jm.bulleoneun || y != null) {
-            t.danchu("하던 일 멈추기 — 안내를 모두 멈추고 새 목적지 찾기") { AnnaeEngine.haneunIlMeomchum() }
+        // ③ 하던 일 멈추기 — 접지 않고(이사장님 승인 1)
+        // 2.20.0 무엇이 진행 중이든 아니든 늘 맨 위에(이사장님 승인 2026-10-06, 아이폰 2.52.0과 같음)
+        t.danchu("하던 일 멈추기 — 안내를 모두 멈추고 새 목적지 찾기") { AnnaeEngine.haneunIlMeomchum() }
+        if (!Seoljeong.bopokJaem && !Seoljeong.cheotAnnae) {
+            // 2.20.0 처음 안내는 첫 화면을 바꾸지 않고 한 줄로
+            t.danchu("처음 안내 — 흰지팡이 당부와 보폭 재기, 처음 한 번") { t.yeolgi(CheotAnnaeHwamyeon()) }
         }
         // 말로 그린 길을 걷는 중이거나 되짚어 나가기 중이면 지금 차례 위에(속 화면을 떠나도 찾기 쉽게)
         if (MalgilEngine.geotneun) {
