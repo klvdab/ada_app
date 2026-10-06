@@ -780,7 +780,8 @@ class NanumTab : JbHwamyeon("나눔") {
     private var deoBogi = false
     override fun chaeugi(t: JabongActivity) {
         t.danchu("그려 주세요 — 길눈님이 부탁한 길") { t.yeolgi(GeuryeojuseyoHwamyeon()) }
-        t.danchu("걸음 나눔 — 봉사 이야기와 응원 한마디") { t.yeolgi(GeoreumNanumHwamyeon()) }
+        t.danchu("걸음 나눔 — 봉사 이야기와 응원 박수") { t.yeolgi(GeoreumNanumHwamyeon()) }
+        t.danchu("함께한 기록판 — 이번 주 우리가 그린 길") { t.yeolgi(GirokpanHwamyeon()) }   // 2.8.0
         t.pyeolchigi("더 보기", deoBogi) { deoBogi = !deoBogi }
         if (deoBogi) {
             t.danchu("나눔 마당과 함께하기 — 웹 자봉에서 열기") { t.webJabong() }
@@ -876,6 +877,7 @@ class GeoreumNanumHwamyeon : JbHwamyeon("걸음 나눔") {
     private var bureuneun = false
     private var pyeol = false
     private var sseulGeul = ""
+    private val baksu = HashMap<String, Int>()   // 2.8.0 글마다 응원 박수 수
 
     override fun chaeugi(t: JabongActivity) {
         t.pyeolchigi("한마디 적기", pyeol) { pyeol = !pyeol }
@@ -906,6 +908,15 @@ class GeoreumNanumHwamyeon : JbHwamyeon("걸음 나눔") {
             var m = "${g.meori}. ${g.geul}"
             if (g.dat.isNotEmpty()) m += " 댓글 ${g.dat.size}개: " + g.dat.joinToString(" ") { "${it.byeol}, ${it.geul}." }
             t.kadeu(m)
+            t.danchu("응원 박수 — 지금 ${baksu["nn:" + g.id] ?: 0}번") {
+                Hamkke.baksuChigi("nn:" + g.id) { r ->
+                    if (r == null) { Sori.mal("박수를 보내지 못했습니다. 잠시 뒤 다시 눌러 주십시오."); return@baksuChigi }
+                    baksu["nn:" + g.id] = r.first
+                    if (r.second) Sori.mal("이미 박수를 보내셨습니다. 지금 ${r.first}번입니다.")
+                    else { Baksu.chigi(); Sori.mal("응원 박수를 보냈습니다. 지금 ${r.first}번입니다.") }
+                    t.dasiGeurigi()
+                }
+            }
         }
         if ((bu + 1) * 5 < modu) t.danchu("더 보기") { bu += 1; mok = null; bulreogi(t) }
         if (bu > 0) t.danchu("이전 보기") { bu -= 1; mok = null; bulreogi(t) }
@@ -916,7 +927,10 @@ class GeoreumNanumHwamyeon : JbHwamyeon("걸음 나눔") {
         NnGeoreumNanum.mok(bu) { r ->
             t.runOnUiThread {
                 bureuneun = false
-                if (r == null) { mot = true; Sori.mal("불러오지 못했습니다.") } else { mok = r.first; modu = r.second }
+                if (r == null) { mot = true; Sori.mal("불러오지 못했습니다.") } else {
+                    mok = r.first; modu = r.second
+                    Hamkke.baksuSu(r.first.map { "nn:" + it.id }) { m -> baksu.putAll(m); t.dasiGeurigi() }   // 2.8.0
+                }
                 t.dasiGeurigi()
             }
         }
@@ -1012,7 +1026,8 @@ class DoumalHwamyeon : JbHwamyeon("도움말") {
             "말로 표시" to "손이 바쁘실 때 말로 표시 단추를 누르고 계단 시작, 왼쪽, 횡단보도 끝, 문처럼 말씀하시면 단추를 누른 그 자리에 표시를 남깁니다. 좌회전, 우회전, 건널목, 승강기 같은 말도 알아듣습니다. 딩동 소리 뒤에 말씀하십시오. 처음 쓰실 때 마이크 허락을 여쭙니다. 받아쓰기는 폰의 구글 음성 인식을 씁니다.",
             "폰이 먼저 여쭘" to "그리는 중에 방향이 크게 바뀌면 왼쪽으로 꺾이셨습니까, 높이가 바뀌면 올라가는 계단입니까처럼 먼저 여쭙고, 계단 중에 높이가 그대로이면 계단이 끝났습니까 하고 여쭙니다. 네라고 말씀하시거나 화면 맨 위에 나오는 네 단추를 누르셔야 표시가 되며, 바뀐 것을 알아챈 그 자리에 남깁니다. 아니오면 남기지 않습니다. 20초 동안 답이 없으면 물음을 거둡니다. 말로 답하시려면 마이크 허락이 있어야 합니다.",
             "나눔 탭 — 그려 주세요" to "나눔 탭 맨 위에 있습니다. 길눈님이 그려 주었으면 하고 부탁한 길이 다섯 개씩 나오며, 아직 안 그려진 부탁이 먼저 나옵니다. 줄을 누르시면 출발지와 도착지, 남긴 말이 나오고, 이 길 그리러 가기를 누르시면 봉사 탭으로 옮겨 가 어디부터 어디까지 걸으면 되는지 말씀드립니다. 다 그리신 뒤 그 부탁으로 돌아와 다 그렸습니다 표시하기를 누르시면 큰 박수와 함께 길눈님께 알려집니다. 응원 한마디 남기기로 짧은 말을 남기실 수 있고, 이름 대신 자봉 번호로 적힙니다.",
-            "나눔 탭 — 걸음 나눔과 나눔 마당" to "걸음 나눔은 시각장애인과 자원봉사자가 함께 쓰는 이야기 마당입니다. 다섯 개씩 나오고, 한마디 적기를 펼쳐 봉사 이야기나 응원 한마디를 올리시면 박수로 고마움을 전합니다. 이름 대신 자봉 번호로 적힙니다. 더 보기 펼치기 안의 나눔 마당과 함께하기는 웹 자봉에서 열립니다.",
+            "함께한 기록판" to "나눔 탭 셋째 줄에 있습니다. 모두 그린 길 수, 이번 주 함께 그린 길과 거리, 이번 주 가장 많이 그려 주신 분(자봉 번호, 1등부터 3등), 모두 보낸 응원 박수를 크게 보여 드리고 소리로도 읽어 드립니다. 다 걸었습니다를 누르시면 그 길이 기록판에 저절로 셈해집니다. 이번 주 모든 자봉님께 응원 박수 보내기는 한 주에 한 번 보낼 수 있습니다. 기록판은 협회 리눅스 서버가 맡으며, 서버가 잠시 쉬면 쉬고 있다고 알려 드립니다.",
+            "나눔 탭 — 걸음 나눔과 나눔 마당" to "걸음 나눔은 시각장애인과 자원봉사자가 함께 쓰는 이야기 마당입니다. 다섯 개씩 나오고, 글마다 응원 박수 단추가 있어 한 글에 한 번 박수를 보낼 수 있습니다. 한마디 적기를 펼쳐 봉사 이야기나 응원 한마디를 올리시면 박수로 고마움을 전합니다. 이름 대신 자봉 번호로 적힙니다. 더 보기 펼치기 안의 나눔 마당과 함께하기는 웹 자봉에서 열립니다.",
             "판 기록" to "알림·설정 탭의 더 보기 안에 있습니다. 판마다 무엇을 고쳤는지 적어 둡니다."
         )
     }
