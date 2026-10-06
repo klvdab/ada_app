@@ -214,7 +214,8 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 status = "소리를 틀지 못했습니다."
             }
             // 뒤 세 문단 미리 받기
-            for k in 1...3 where target + k < max(modu, target + 1) {
+            for k in 1...6 where target + k   // 0.4.1 — 여섯 문단을 미리(서버 일꾼 둘이 쉬지 않고 앞서 굽게)
+             < max(modu, target + 1) {
                 let n = target + k
                 Task { _ = await self.audioFile(n) }
             }
