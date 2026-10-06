@@ -418,6 +418,7 @@ object AnnaeEngine {
     }
 
     private fun dasiSijak() {
+        ttJiugi()   // 2.15.0
         majimakGeoriMal = null
         majimakSigye = 0
         gotMal = false
@@ -535,6 +536,127 @@ object AnnaeEngine {
 
     // MARK: 걷기
 
+    // MARK: 2.15.0 걸을 수 있는 길로 이끌기(이사장님 승인 2026-10-06, 아이폰 길눈 2.47.0과 같음)
+    //   리눅스 서버의 걷기 길찾기(lvd-gil, 나스 /jeom/gilchatgi.php)로 걸을 수 있는 길을 받아 「다음 꺾는 곳」을 겨눔.
+    //   열 걸음쯤 앞에서 미리, 닿으면 지금 꺾으라고. 크게 벗어나면 다시 찾고, 못 받으면 예전처럼 곧은 방향으로.
+    private class TtAn(val sign: Int, val lat: Double, val lon: Double)
+    private var ttPts: List<Pair<Double, Double>> = emptyList()
+    private var ttAn: List<TtAn> = emptyList()
+    private var ttI = 1
+    private var ttMok: Pair<Double, Double>? = null
+    private var ttBatneun = false
+    private var ttMotTtae = 0L
+    private var ttBeoseo = 0
+    private var ttYego = -1
+    private var ttMalTtae = 0L
+
+    private fun ttJiugi() { ttPts = emptyList(); ttAn = emptyList(); ttI = 1; ttMok = null; ttBeoseo = 0; ttYego = -1 }
+
+    private fun dolgiMal(sign: Int, jigeum: Boolean): String {
+        val k = if (jigeum) "꺾으십시오" else "꺾습니다"
+        val g = if (jigeum) "가십시오" else "갑니다"
+        return when (sign) {
+            -3, -2 -> "왼쪽, 9시 방향으로 $k"
+            2, 3 -> "오른쪽, 3시 방향으로 $k"
+            -1 -> "11시 방향으로 비스듬히 $g"
+            1 -> "1시 방향으로 비스듬히 $g"
+            -7 -> "갈림길에서 왼쪽 길로 $g"
+            7 -> "갈림길에서 오른쪽 길로 $g"
+            -98, 98 -> "뒤로 돌아 $g"
+            6, -6 -> "둥근 길을 따라 $g"
+            4 -> if (jigeum) "목적지 가까이입니다" else "목적지에 닿습니다"
+            else -> "곧장 $g"
+        }
+    }
+
+    private fun dolgiSigye(sign: Int): Int = when (sign) { -3, -2, -7 -> 9; 2, 3, 7 -> 3; -1 -> 11; 1 -> 1; -98, 98 -> 6; else -> 12 }
+
+    /** 지금 자리에서 걷는 길까지 몇 미터 떨어졌는지 */
+    private fun ttGeori(la: Double, lo: Double): Double {
+        if (ttPts.size < 2) return 0.0
+        val kx = 111320 * Math.cos(Math.toRadians(la)); val ky = 110540.0
+        var m = Double.MAX_VALUE
+        for (i in 0 until ttPts.size - 1) {
+            val ax = (ttPts[i].second - lo) * kx; val ay = (ttPts[i].first - la) * ky
+            val bx = (ttPts[i + 1].second - lo) * kx; val by = (ttPts[i + 1].first - la) * ky
+            val dx = bx - ax; val dy = by - ay; val l2 = dx * dx + dy * dy
+            var t = if (l2 > 0) -(ax * dx + ay * dy) / l2 else 0.0
+            t = max(0.0, min(1.0, t))
+            val px = ax + t * dx; val py = ay + t * dy
+            m = min(m, Math.sqrt(px * px + py * py))
+        }
+        return m
+    }
+
+    private fun ttDaeumMal(w: Jari): String {
+        if (ttI >= ttAn.size) return ""
+        val a = ttAn[ttI]
+        val d = Wichi.geori(w.lat, w.lon, a.lat, a.lon)
+        val s = sigye(w, a.lat, a.lon)
+        return "${Annae.geoMal(d)} 앞에서 ${dolgiMal(a.sign, false)}." + (if (s == 0) "" else " 그쪽은 ${s}시 방향입니다.")
+    }
+
+    private fun ttBatgi(w: Jari, lat: Double, lon: Double, apMal: String) {
+        if (ttBatneun || System.currentTimeMillis() - ttMotTtae < 20000) return
+        ttBatneun = true
+        val f = { v: Double -> String.format(java.util.Locale.US, "%.6f", v) }
+        Tongsin.json("gilchatgi.php", mapOf("slat" to f(w.lat), "slon" to f(w.lon), "mlat" to f(lat), "mlon" to f(lon)), 10000) { o ->
+            ttBatneun = false
+            val pts = o?.optJSONArray("pts"); val an = o?.optJSONArray("an")
+            if (o == null || !o.optBoolean("ok", false) || pts == null || an == null || pts.length() < 2) { ttMotTtae = System.currentTimeMillis(); return@json }
+            val p = ArrayList<Pair<Double, Double>>()
+            for (i in 0 until pts.length()) { val x = pts.optJSONArray(i) ?: continue; if (x.length() >= 2) p.add(Pair(x.optDouble(0), x.optDouble(1))) }
+            val l = ArrayList<TtAn>()
+            for (i in 0 until an.length()) { val x = an.optJSONObject(i) ?: continue; val j = x.optJSONArray("jeom") ?: continue; if (j.length() >= 2) l.add(TtAn(x.optInt("sign", 0), j.optDouble(0), j.optDouble(1))) }
+            if (l.size < 2) { ttJiugi(); ttMotTtae = System.currentTimeMillis(); return@json }
+            ttPts = p; ttAn = l; ttI = 1; ttMok = Pair(lat, lon); ttYego = -1; ttBeoseo = 0
+            ttMalTtae = System.currentTimeMillis()
+            val jeon = o.optDouble("geori", 0.0)
+            val w2 = Wichi.jigeum ?: return@json
+            malHagi(apMal + "걸을 수 있는 길로 안내합니다. 길 따라 ${Annae.geoMal(jeon)}. " + ttDaeumMal(w2))
+            Girok.namgi("gil_ttara", mapOf("m" to jeon.toInt(), "an" to l.size))
+        }
+    }
+
+    /** 걷는 길을 따라 이끌기 — 맡았으면 참(받기 전·못 받았으면 거짓, 예전 곧은 방향 안내로) */
+    private fun ttaraAnnae(w: Jari, lat: Double, lon: Double): Boolean {
+        val m = ttMok
+        if (m != null && (abs(m.first - lat) > 0.000001 || abs(m.second - lon) > 0.000001)) ttJiugi()
+        if (ttAn.isEmpty()) { ttBatgi(w, lat, lon, ""); return false }
+        val now = System.currentTimeMillis()
+        if (ttGeori(w.lat, w.lon) > max(25.0, w.ochae * 1.5)) ttBeoseo += 1 else ttBeoseo = 0
+        if (ttBeoseo >= 3) {
+            ttJiugi(); ttMotTtae = 0L
+            ttBatgi(w, lat, lon, "길에서 벗어나신 것 같아 지금 자리에서 다시 길을 찾았습니다. ")
+            return true
+        }
+        if (ttI >= ttAn.size) return false
+        val a = ttAn[ttI]
+        val d = Wichi.geori(w.lat, w.lon, a.lat, a.lon)
+        if (d <= max(8.0, min(w.ochae, 15.0)) && ttI < ttAn.size - 1) {
+            ttI += 1; ttYego = -1; ttMalTtae = now
+            Jindong.banghyang(dolgiSigye(a.sign))
+            malHagi("지금 ${dolgiMal(a.sign, true)}. 그다음은 " + ttDaeumMal(w))
+            return true
+        }
+        if (d <= 15 && ttYego != ttI && a.sign != 0 && a.sign != 4) {
+            ttYego = ttI; ttMalTtae = now
+            malHagi("열 걸음쯤 앞에서 ${dolgiMal(a.sign, false)}.")
+            return true
+        }
+        if (now - ttMalTtae >= 20000 && now - majimakMal >= 6000) {
+            ttMalTtae = now
+            val s = sigye(w, a.lat, a.lon)
+            if (s == 12 || s == 11 || s == 1) {
+                if (AnnaeSeoljeong.hwaksinEum) Eum.naegi(EumJong.HWAKSIN)
+            } else if (s != 0) {
+                malHagi("길은 ${s}시 방향입니다. 다음 꺾는 곳까지 ${Annae.geoMal(d)}.")
+                Jindong.banghyang(s)
+            }
+        }
+        return true
+    }
+
     private fun georeumAnnae(w: Jari, mok: String, lat: Double, lon: Double, jungan: Boolean, y: Yeojeong) {
         val d = Wichi.geori(w.lat, w.lon, lat, lon)
         val beom = if (jungan) max(15.0, min(w.ochae, 30.0)) else max(12.0, min(w.ochae, 25.0))
@@ -548,6 +670,8 @@ object AnnaeEngine {
             }
             return
         }
+        // 2.15.0 걸을 수 있는 길을 받았으면 그 길로 이끎(다음 꺾는 곳을 겨눔)
+        if (ttaraAnnae(w, lat, lon)) { neagoriBoda(w, true); return }
         val s = sigye(w, lat, lon)
         val now = System.currentTimeMillis()
         val jinan = (now - majimakMal) / 1000.0
