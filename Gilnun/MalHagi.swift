@@ -34,7 +34,7 @@ final class MalHagi: ObservableObject {
     @Published private(set) var deureunMal = ""
     @Published private(set) var dapMal = ""
 
-    private enum Mureum { case eopseum, mokjeok, bangsik, chaYocheong, kol, galrae, hoching, hubo, jeom }
+    private enum Mureum { case eopseum, mokjeok, bangsik, chaYocheong, kol, galrae, hoching, hubo, jeom, eumakBiseut }
     private var mureum: Mureum = .eopseum
     private var mureumTtae = Date.distantPast
     private var mok: Jangso?
@@ -753,6 +753,20 @@ final class MalHagi: ObservableObject {
                 daeumHubo(dap)
                 return
             }
+        case .eumakBiseut:
+            // 2.46.0 "비슷한 제목으로 옛사랑이 있습니다. 틀까요?" — 네면 틂, 아니면 그만
+            let b = BangsongEngine.shared
+            mureum = .eopseum
+            if ye && !ani && jjalbeun, let bq = b.biseutQ {
+                b.biseutQ = nil
+                Task {
+                    let m = await b.malChatgi(bq)
+                    DispatchQueue.main.async { dap(m, false) }
+                }
+                return
+            }
+            b.biseutQ = nil
+            if ani && jjalbeun { dap("알겠습니다.", false); return }
         case .mokjeok, .eopseum, .jeom:
             break
         }
@@ -1421,9 +1435,13 @@ final class MalHagi: ObservableObject {
                 dap("", false)
                 return true
             }
+            b.biseutQ = nil
             Task {
                 let m = await b.malChatgi(q)
-                DispatchQueue.main.async { dap(m, false) }
+                DispatchQueue.main.async {
+                    // 2.46.0 비슷한 곡을 여쭈었으면 "네"를 기다림
+                    if b.biseutQ != nil { self.mureum = .eumakBiseut; self.mureumTtae = Date(); dap(m, true) } else { dap(m, false) }
+                }
             }
             return true
         }
