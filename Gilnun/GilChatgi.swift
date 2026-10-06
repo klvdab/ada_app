@@ -123,6 +123,8 @@ struct GilChatgiView: View {
                 .buttonStyle(KeunDanchu())
                 DisclosureGroup("그 밖에 펼치기") {
                     VStack(alignment: .leading, spacing: 10) {
+                        Button("주변 신호기 살피기 — 있는지, 블루투스로 울릴 수 있는지") { SinhogiEngine.shared.juByeonSalpigi() }   // 2.45.0
+                            .buttonStyle(KeunDanchu())
                         Button("음향신호기 울리기 — 신호 안내") { SinhogiEngine.shared.ulligi(2) }
                             .buttonStyle(KeunDanchu())
                         Button("음향신호기 찾기 — 가까워질수록 소리가 빨라집니다") { SinhogiEngine.shared.chatgiKyeogi() }
