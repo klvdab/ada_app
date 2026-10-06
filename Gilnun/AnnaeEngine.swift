@@ -182,7 +182,8 @@ final class AnnaeEngine: ObservableObject {
         yj.talgeotJeonghagi(.georeum, barojabeum: false)
         yj.danggyeBakkugi(.namEunGil)
         dasiSijak()
-        malHagi("걷는 안내를 시작합니다.")
+        // 2.50.0 흰지팡이 당부, 보폭을 재기 전이면 미터로 안내한다고 알림(이사장님 승인)
+        malHagi("걷는 안내를 시작합니다. 흰지팡이를 꼭 짚어 주십시오." + (Seoljeong.shared.bopokJaem ? "" : " 보폭을 아직 재지 않으셔서 걸음 수 대신 미터로 알려 드립니다."))
         jigeumBoda()
     }
 
@@ -539,18 +540,21 @@ final class AnnaeEngine: ObservableObject {
     /// 마지막 스무 미터 — 걸음 수와 시 방향(4초에 한 번, 바뀔 때만). 맡았으면 참
     private func magakAnnae(_ w: Wichi, _ d: Double, _ lat: Double, _ lon: Double, _ mok: String) -> Bool {
         guard d <= 20 else { return false }
-        let bp = Seoljeong.shared.bopok > 0.3 ? Seoljeong.shared.bopok : 0.65
+        // 2.50.0 보폭을 재기 전에는 걸음 수 대신 미터로
+        let jaem = Seoljeong.shared.bopokJaem
+        let bp = jaem && Seoljeong.shared.bopok > 0.3 ? Seoljeong.shared.bopok : 1.0
         let su = max(1, Int((d / bp).rounded()))
+        let dan = jaem ? "걸음" : "미터"
         let s = sigye(w, lat, lon)
         let now = Date()
         guard now.timeIntervalSince(magakMalTtae) >= 4 else { return true }
         if magakSu < 0 {
             magakMalTtae = now; magakSu = su; magakSigye = s
-            malHagi("곧 도착합니다. \(bg?.ireum ?? mok)까지 \(su)걸음" + (s == 0 ? "." : ", \(s)시 방향."))
+            malHagi("곧 도착합니다. \(bg?.ireum ?? mok)까지 \(su)\(dan)" + (s == 0 ? "." : ", \(s)시 방향."))
             if s != 0 { Jindong.banghyang(s) }
         } else if abs(su - magakSu) >= 2 || (s != 0 && s != magakSigye) {
             magakMalTtae = now; magakSu = su; magakSigye = s
-            malHagi("\(su)걸음" + (s == 0 ? "." : ", \(s)시 방향."))
+            malHagi("\(su)\(dan)" + (s == 0 ? "." : ", \(s)시 방향."))
             if s != 0 { Jindong.banghyang(s) }
         }
         return true
