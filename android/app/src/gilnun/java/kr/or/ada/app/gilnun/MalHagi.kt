@@ -460,6 +460,13 @@ object MalHagi {
         // 음향신호기 — "신호기 울려 줘", "신호 알려 줘", "신호기 어디", "신호기 찾아 줘"(아이폰 2.6.0)
         if (z.contains("신호기") || z.contains("신호알려") || z.contains("신호안내") || z.contains("신호등")) {
             val a = hwalseong?.get()
+            // 2.13.0 "주변에 신호기 있어?", "신호기 살펴 줘", "블루투스 신호기 있나" — 있는지와 블루투스로 울릴 수 있는지(이사장님 승인)
+            if (!(z.contains("어디") || z.contains("위치")) && (z.contains("있") || z.contains("주변") || z.contains("살펴") || z.contains("둘레") || z.contains("블루투스"))) {
+                dap("", false)
+                val il = { SinhogiEngine.juByeonSalpigi() }
+                if (a != null) a.sinhogiHagi(il) else il()
+                return true
+            }
             if (z.contains("찾")) {
                 dap("음향신호기 찾기를 켭니다. 가까워질수록 소리가 빨라집니다. 그만이라고 하시면 멈춥니다.", false)
                 val il = { SinhogiEngine.chatgiKyeogi() }
