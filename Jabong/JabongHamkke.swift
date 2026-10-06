@@ -57,6 +57,11 @@ enum Hamkke {
         return (su(j["su"]), (j["imi"] as? Bool) ?? false)
     }
 
+    /// 2.9.0 볼거리 남기기(팽나무·동상·안내판 등) — 서버 lvd-jabong 에 이름·만져지는 것·자리
+    static func bolgeoriNamgi(ireum: String, mal: String, lat: Double, lon: Double) async -> Bool {
+        await bureugi("bolgeori", bon: ["ireum": ireum, "mal": mal, "lat": lat, "lon": lon, "beonho": JabongNae.shared.beonho]) != nil
+    }
+
     static func baksuSu(_ ids: [String]) async -> [String: Int] {
         guard !ids.isEmpty, let j = await bureugi("baksu", [("ids", ids.joined(separator: ","))]),
               let s = j["su"] as? [String: Any] else { return [:] }
@@ -75,6 +80,33 @@ enum Hamkke {
         let c = Calendar(identifier: .iso8601)
         let d = c.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date())
         return "modu-\(d.yearForWeekOfYear ?? 0)-\(d.weekOfYear ?? 0)"
+    }
+}
+
+// MARK: 2.9.0 볼거리 표시(이사장님 승인 2026-10-06) — 길눈님이 목적지 가까이에서 이 자리와 말로 찾아오심
+extension JeomGeurigi {
+    func bolgeoriNamgi(_ ireum0: String, _ mal0: String, kkeut: @escaping (Bool) -> Void) {
+        let ireum = ireum0.trimmingCharacters(in: .whitespacesAndNewlines)
+        let mal = mal0.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !ireum.isEmpty else { SoriEngine.shared.mal("볼거리 이름을 적어 주십시오."); kkeut(false); return }
+        guard let w = WichiEngine.shared.jigeum, Date().timeIntervalSince(w.ttae) < 15 else {
+            SoriEngine.shared.mal("지금 자리를 잡지 못했습니다. 하늘이 트인 곳에서 잠시 뒤 다시 눌러 주십시오.")
+            kkeut(false)
+            return
+        }
+        if w.ochae > 20 { SoriEngine.shared.mal("위성 오차가 \(Int(w.ochae))미터로 커서 자리가 조금 어긋날 수 있습니다. 그래도 남깁니다.") }
+        Task {
+            let ok = await Hamkke.bolgeoriNamgi(ireum: ireum, mal: mal, lat: w.lat, lon: w.lon)
+            await MainActor.run {
+                if ok {
+                    Baksu.chigi()
+                    SoriEngine.shared.mal("\(ireum) 볼거리를 남겼습니다. 길눈님이 이 자리로 찾아오실 수 있습니다. 고맙습니다!")
+                } else {
+                    SoriEngine.shared.mal("남기지 못했습니다. 통신을 확인해 주십시오.")
+                }
+                kkeut(ok)
+            }
+        }
     }
 }
 
