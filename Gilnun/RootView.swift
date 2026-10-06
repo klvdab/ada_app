@@ -4,7 +4,6 @@ import SwiftUI
 struct RootView: View {
     @ObservedObject private var tabGil = TabGil.shared   // 2.7.0 둘러보기에서 고른 곳으로 가면 길 찾기 탭으로
     @ObservedObject private var dongyeong = Dongyeong.shared   // 2.34.0 동영상 받아 틀기
-    @State private var cheot = CheotAnnaeView.boyeoya   // 2.50.0 처음 안내 — 흰지팡이와 보폭 재기
 
     var body: some View {
         TabView(selection: $tabGil.tab) {
@@ -30,7 +29,7 @@ struct RootView: View {
         // 2.34.0 다른 앱에서 "공유 → 길눈"으로 넘긴 동영상 — 워치가 있으면 워치로, 없으면 여기서 온 화면으로 틂
         .onOpenURL { u in Dongyeong.shared.batda(u) }
         .fullScreenCover(item: $dongyeong.ponJaesaeng) { g in DongyeongJaesaengView(url: g.url) }
-        .fullScreenCover(isPresented: $cheot) { CheotAnnaeView { cheot = false } }   // 2.50.0
+        // 2.52.0 처음 안내는 화면 전체를 덮지 않음 — 길 찾기 첫 화면 안 한 줄로 옮김(이사장님 승인)
     }
 }
 
