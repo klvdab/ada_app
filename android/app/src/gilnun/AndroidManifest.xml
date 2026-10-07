@@ -33,12 +33,15 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- 2.27.0 앱 아이콘을 길게 누르면 「말로 하기」 바로가기(아이폰 시리로 부르기 자리) -->
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/gilnun_shortcuts" />
         </activity>
 
         <service
             android:name="kr.or.ada.app.gilnun.WichiService"
             android:exported="false"
-            android:foregroundServiceType="location" />
+            android:foregroundServiceType="location|microphone" />
+        <!-- 2.27.0 「화면이 꺼져도 하이 길눈 듣기」를 켜신 때만 마이크 쓰임을 함께 알림(처음은 꺼짐) -->
 
         <!-- 2.25.0 긴급통화 중 알림 칸(마이크·카메라) -->
         <service
