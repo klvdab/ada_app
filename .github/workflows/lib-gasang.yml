@@ -1,0 +1,33 @@
+# 도서관 앱 가상 폰 자동 시험 (판 0.1.0, 빌드 261007-1, 도서관 창 클)
+# 이미 지어 둔 시험판(sihum-apk-lib 갈래의 lib.apk)을 가상 안드로이드 폰에 깔아 켜 보고,
+# 첫 화면 글자와 비행기 모드에서 다시 켜기를 살펴 결과와 화면 사진을 남김.
+name: lib-gasang
+on:
+  workflow_dispatch:
+jobs:
+  gasang:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: KVM 켜기
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: 시험판 받기
+        run: |
+          curl -sL -o lib.apk "https://raw.githubusercontent.com/${{ github.repository }}/sihum-apk-lib/lib.apk"
+          ls -la lib.apk
+      - name: 가상 폰에서 시험
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: bash -c 'mkdir -p gyeolgwa; adb install -r lib.apk && echo 설치됨 >> gyeolgwa/gyeolgwa.txt; adb shell monkey -p kr.or.ada.lib -c android.intent.category.LAUNCHER 1; sleep 20; adb exec-out screencap -p > gyeolgwa/1_cheot.png; adb shell uiautomator dump /sdcard/d1.xml; adb pull /sdcard/d1.xml gyeolgwa/d1.xml; for w in 주제별 장르별 테마별 설정; do grep -q "$w" gyeolgwa/d1.xml && echo "첫화면 $w 있음" >> gyeolgwa/gyeolgwa.txt || echo "첫화면 $w 없음" >> gyeolgwa/gyeolgwa.txt; done; adb shell pidof kr.or.ada.lib && echo 앱살아있음 >> gyeolgwa/gyeolgwa.txt || echo 앱꺼짐 >> gyeolgwa/gyeolgwa.txt; adb shell cmd connectivity airplane-mode enable; sleep 3; adb shell am force-stop kr.or.ada.lib; adb shell monkey -p kr.or.ada.lib -c android.intent.category.LAUNCHER 1; sleep 15; adb exec-out screencap -p > gyeolgwa/2_bihaenggi.png; adb shell pidof kr.or.ada.lib && echo 비행기모드앱살아있음 >> gyeolgwa/gyeolgwa.txt || echo 비행기모드앱꺼짐 >> gyeolgwa/gyeolgwa.txt; adb logcat -d | grep -E "FATAL|AndroidRuntime" | head -20 > gyeolgwa/osu.txt; cat gyeolgwa/gyeolgwa.txt; true'
+      - name: 결과 남기기
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lib-gasang-gyeolgwa
+          path: gyeolgwa
