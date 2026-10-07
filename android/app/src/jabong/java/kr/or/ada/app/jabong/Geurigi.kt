@@ -680,20 +680,23 @@ object Geurigi {
         if (r == null) { alrigi("올리지 못했습니다. 통신을 확인하시고 잠시 뒤 다시 올려 주십시오. 그린 길은 폰에 그대로 있습니다."); return }
         if (!r.optBoolean("ok", false)) { alrigi(r.optString("msg", "올리지 못했습니다.") + " 그린 길은 폰에 그대로 있습니다."); return }
         val heum = r.optJSONArray("heum") ?: JSONArray()
-        val mals = JSONArray(); var ppal = 0
-        for (i in 0 until heum.length()) { val h = heum.optJSONObject(i) ?: continue; val m = h.optString("mal"); if (m.isNotEmpty()) mals.put(m); if (h.optString("saek") == "빨강") ppal++ }
+        val mals = JSONArray(); val saeks = JSONArray(); var ppal = 0
+        for (i in 0 until heum.length()) { val h = heum.optJSONObject(i) ?: continue; val m = h.optString("mal"); if (m.isNotEmpty()) { mals.put(m); saeks.put(h.optString("saek", "빨강")) }; if (h.optString("saek") == "빨강") ppal++ }
         val malMok = (0 until mals.length()).joinToString(" ") { mals.optString(it) }
         if (r.optBoolean("olim", false)) {
-            o.put("olim", true); o.put("seobeoId", r.optString("id")); if (mals.length() > 0) o.put("heum", mals) else o.remove("heum")
+            o.put("olim", true); o.put("seobeoId", r.optString("id")); if (mals.length() > 0) { o.put("heum", mals); o.put("heumSaek", saeks) } else { o.remove("heum"); o.remove("heumSaek") }
             mokJeojang()
             if (majimakId == id) majimakId = null
             Hamkke.geurimAllim(g.optString("id"), (g.optInt("georeum", 0) * g.optDouble("bopok", Seoljeong.bopok)).toInt())   // 함께한 기록판은 올린 길만 셈
             Girok.namgi("jb_olim", mapOf("id" to id, "seobeo" to r.optString("id")))
-            alrigi("올렸습니다. 협회 점검을 통과해 길눈에 실렸습니다. 고맙습니다." + if (mals.length() > 0) " 다음에 손보시면 좋을 곳도 알려 드립니다. $malMok" else "")
+            val bm = r.optInt("bowanMachim", 0)   // 2.13.0 같은 출발지·도착지 보완 부탁이 있었으면 보완 완료
+            if (bm > 0) ctx?.let { c -> JbBowan.bulleo(c, true) { bakkwim?.invoke() } }
+            alrigi("올렸습니다. 협회 점검을 통과해 길눈에 실렸습니다. 고맙습니다." + (if (bm > 0) " 보완 부탁 ${bm}건이 보완 완료되었습니다." else "") + if (mals.length() > 0) " 다음에 손보시면 좋을 곳도 알려 드립니다. $malMok" else "")
         } else {
-            o.put("heum", mals); mokJeojang()
+            o.put("heum", mals); o.put("heumSaek", saeks); mokJeojang()
+            ctx?.let { c -> JbBowan.bulleo(c, true) { bakkwim?.invoke() } }   // 2.13.0 보완 부탁 목록을 새로
             Girok.namgi("jb_olim_heum", mapOf("id" to id, "su" to ppal))
-            alrigi("협회 점검에서 고칠 곳이 ${maxOf(ppal, 1)}가지 나와 아직 올리지 않았습니다. $malMok 이름이 빠진 것은 이 화면에서 바로 넣고 다시 올리시면 되고, 걸음이나 표시가 빠진 구간은 다시 걸어 새로 그려 주십시오.")
+            alrigi("${JbBowan.BUTAK} 협회 점검에서 고칠 곳이 ${maxOf(ppal, 1)}가지 나와 아직 올리지 않았습니다. $malMok 이름이 빠진 것은 이 화면에서 바로 넣고 다시 올리시면 되고, 걸음이나 표시가 빠진 구간은 다시 걸어 새로 그려 주십시오.")
         }
     }
 

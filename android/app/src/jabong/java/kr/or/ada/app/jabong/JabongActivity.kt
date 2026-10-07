@@ -161,6 +161,7 @@ class JabongActivity : AppCompatActivity() {
         }
         Ollim.makgi = { if (Geurigi.sangtae != Geurigi.Sangtae.SWIM) "점지도를 그리는 중에는 업데이트하지 않습니다. 다 걸었습니다를 누르신 뒤 업데이트해 주십시오." else null }   // 2.12.1 설치하면 앱이 꺼지므로
         Ollim.sijak(this)
+        JbBowan.bulleo(this, true) { dasiGeurigi() }   // 2.13.0 켤 때 보완 부탁도 살핌
         Ollim.intentBoda(this, intent)
     }
 
@@ -501,7 +502,7 @@ class BongsaTab : JbHwamyeon("봉사") {
         }) { t.yeolgi(GeurigiHwamyeon()) }
         t.danchu("지금 상태 듣기") { Sori.mal(jigeumSangtae()) }
         t.danchu(if (Seoljeong.bopokJaem && Seoljeong.bopok > 0.2) "내 보폭 다시 재기 — 지금 ${(Seoljeong.bopok * 100).roundToInt()}센티미터" else "내 보폭 재기 — 점지도를 그리기 전에 한 번") { t.yeolgi(BopokHwamyeon()) }
-        t.geul("오늘 걸을 길과 함께 걷기는 이 탭에 차례로 들어섭니다.")
+        if (JbBowan.mok.isNotEmpty()) t.danchu("보완 부탁 ${JbBowan.mok.size}건 — ${JbBowan.BUTAK}") { t.tabGo(3) }   // 2.13.0 보완 부탁이 있으면 한 줄
     }
 
     companion object {
@@ -813,8 +814,14 @@ class GrinGilHwamyeon(private val id: String) : JbHwamyeon("그린 길") {
         }
         val h = g.optJSONArray("heum")
         if (h != null && h.length() > 0) {
-            t.pyeolchigi("협회 점검에서 나온 곳 ${h.length()}가지", heumPyeol) { heumPyeol = !heumPyeol }
-            if (heumPyeol) for (i in 0 until h.length()) t.geul(h.optString(i))
+            // 2.13.0 고칠 곳을 빛깔과 함께, 빨강은 깜박임 — 펼치지 않아도 바로 보이게
+            val sk = g.optJSONArray("heumSaek")
+            t.geul("협회 점검에서 나온 고칠 곳 ${h.length()}가지", true)
+            for (i in 0 until h.length()) JbBowan.heumJul(t, sk?.optString(i, "빨강") ?: "빨강", h.optString(i))
+            t.danchu("고칠 곳 말로 듣기") {
+                Sori.meomchugi()
+                for (i in 0 until h.length()) Sori.mal("${i + 1}. ${sk?.optString(i, "빨강") ?: "빨강"}. ${h.optString(i)}")
+            }
         }
         t.pyeolchigi("출발지·도착지 이름 고치기", ireumPyeol) { ireumPyeol = !ireumPyeol }
         if (ireumPyeol) {
@@ -1053,6 +1060,7 @@ class NaeGirokTab : JbHwamyeon("내 기록") {
 class AllimTab : JbHwamyeon("알림·설정") {
     private var deo = false
     override fun chaeugi(t: JabongActivity) {
+        JbBowan.kan(t)   // 2.13.0 보완 부탁 — 있을 때만 맨 위에
         t.danchu("말소리 — 지금 " + (if (Seoljeong.malKyeojim) "켜짐, 누르면 꺼짐" else "꺼짐, 누르면 켜짐")) {
             Seoljeong.malKyeojim = !Seoljeong.malKyeojim
             t.dasiGeurigi()
@@ -1133,6 +1141,7 @@ class DoumalHwamyeon : JbHwamyeon("도움말") {
             "안내 말소리 끄기" to "그리는 중 다른 표시와 도구 펼치기 안의 안내 말소리를 끄시면 앱이 하는 안내 말소리가 멈추고, 같은 안내가 화면 글자와 진동으로만 나옵니다. 톡백을 쓰시면 톡백이 그 안내를 읽습니다. 지금 상태 듣기도 화면 글자로 보여 드립니다. 설정의 말소리와 같은 스위치입니다.",
             "표시 남기기" to "그리는 중 화면 겉에 자주 쓰는 여덟 가지(9시 방향으로 꺾임, 3시 방향으로 꺾임, 올라가는 계단 시작, 내려가는 계단 시작, 계단 끝, 횡단보도 건너기 시작과 끝, 문)가 크게 있고, 다른 표시와 도구 펼치기 안에 나머지 열네 가지와 잠깐 멈춤, 계단 칸수 고치기가 있습니다. 계단과 횡단보도는 시작을 찍으면 끝도 꼭 찍으셔야 하며, 그 사이 칸수와 걸음을 셈해 알려 드립니다. 에스컬레이터, 지하철, 버스는 탈 때와 내릴 때를 찍으시면 그 사이는 걸음으로 재지 않습니다. 문은 딱 찍고 두 걸음 앞에서 한 번 더 찍으셔야 확실한 문이 됩니다.",
             "말로 표시" to "손이 바쁘실 때 말로 표시 단추를 누르고 계단 시작, 3시 방향, 횡단보도 끝, 문처럼 말씀하시면 단추를 누른 그 자리에 표시를 남깁니다. 좌회전, 우회전, 건널목, 승강기 같은 말도 알아듣습니다. 단추에 없는 것은 벤치, 공사 가림막처럼 말씀하신 그대로 표시로 남깁니다. 받아쓰기가 틀릴 수 있으니 벤치, 이대로 남길까요 하고 되물어, 네라고 하셔야 남습니다. 딩동 소리 뒤에 말씀하십시오. 처음 쓰실 때 마이크 허락을 여쭙니다. 받아쓰기는 폰의 구글 음성 인식을 씁니다.",
+            "보완 부탁" to "올린 길이 협회 점검에서 고칠 곳이 나오면 「조금만 더 보완해 주세요. 시각장애인이 기다립니다」로 보완을 부탁드립니다. 봉사 탭에 보완 부탁 몇 건이 한 줄로 뜨고, 알림·설정 탭 맨 위에 길마다 단계와 기한이 나옵니다. 길을 누르시면 고칠 곳을 몇 걸음째인지와 빛깔(빨강은 따라 걸을 수 없게 하는 것, 주황은 방향 빠짐, 노랑은 목소리 토막 손볼 것)로 보여 드리고, 빨강은 깜박입니다. 고칠 곳 말로 듣기를 누르시면 차례로 읽어 드립니다. 3일째에는 앱을 여실 때 한 번 다시 알려 드리고, 7일이 지나도 보완이 없으면 협회 보완팀이 맡습니다. 그린 분의 이름은 그대로 남습니다. 같은 출발지와 도착지로 다시 걸어 점검을 통과하면 저절로 보완 완료가 됩니다.",
             "표시마다 짧게 말 남기기" to "점지도 일곱 가지 약속의 일곱째입니다. 표시를 남기면 안내 말 뒤에 딩동 소리가 나고 폰이 짧게 귀를 엽니다. 그 자리 모습을 한두 마디로 말씀해 주십시오. 말이 멈추면 저절로 끊기고, 길어도 10초에서 끊기며, 4초 안에 말이 없으면 남기지 않습니다. 이 토막은 녹음한 시간이 아니라 그 표시의 걸음 자리에 묶여, 시각장애인이 그 자리에 닿기 몇 걸음 앞에서 들려 드리게 됩니다. 문은 두 번째로 찍었을 때만 귀를 엽니다. 다른 표시를 누르거나 잠깐 멈춤, 다 걸었습니다를 누르면 바로 닫힙니다. 다른 표시와 도구 펼치기 안에서 끄고 켤 수 있습니다. 말로 표시로 찍은 것은 폰이 이대로 남길까요 하고 되물어, 네라고 하셔야 남습니다.",
             "폰이 먼저 여쭘" to "봉사자분들의 말씀에 따라 계단은 폰이 먼저 여쭙지 않습니다. 계단 시작과 계단 끝은 단추나 말로 표시로 남겨 주십시오. 꺾임 여쭙기는 처음에는 꺼져 있고, 그리는 중 다른 표시와 도구 펼치기 안의 꺾임 여쭙기를 켜시면 방향이 크게 바뀔 때 2시 방향으로 꺾이셨습니까처럼 실제로 도신 만큼 시계 방향으로 여쭙니다. 네라고 말씀하시거나 화면 맨 위에 나오는 네 단추를 누르셔야 표시가 되며, 바뀐 것을 알아챈 그 자리에 남깁니다. 아니오면 남기지 않습니다. 20초 동안 답이 없으면 물음을 거둡니다. 말로 답하시려면 마이크 허락이 있어야 합니다.",
             "나눔 탭 — 그려 주세요" to "나눔 탭 맨 위에 있습니다. 길눈님이 그려 주었으면 하고 부탁한 길이 다섯 개씩 나오며, 아직 안 그려진 부탁이 먼저 나옵니다. 줄을 누르시면 출발지와 도착지, 남긴 말이 나오고, 이 길 그리러 가기를 누르시면 봉사 탭으로 옮겨 가 어디부터 어디까지 걸으면 되는지 말씀드립니다. 다 그리신 뒤 그 부탁으로 돌아와 다 그렸습니다 표시하기를 누르시면 큰 박수와 함께 길눈님께 알려집니다. 응원 한마디 남기기로 짧은 말을 남기실 수 있고, 이름 대신 자봉 번호로 적힙니다.",
