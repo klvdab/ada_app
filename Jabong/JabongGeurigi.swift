@@ -92,10 +92,10 @@ final class JeomGeurigi: ObservableObject {
 
     /// 표시 스물두 가지 — 웹 jeom_rec.js 와 같음
     static let MARKS = ["올라가는 계단 시작", "내려가는 계단 시작", "계단 끝", "오름턱", "내림턱", "횡단보도 건너기 시작", "횡단보도 건너기 끝",
-                        "왼쪽으로 꺾임", "오른쪽으로 꺾임", "점자블록 끊김", "문", "엘리베이터", "버스 정류장", "지하철 개찰구", "조심할 곳",
+                        "9시 방향으로 꺾임", "3시 방향으로 꺾임", "점자블록 끊김", "문", "엘리베이터", "버스 정류장", "지하철 개찰구", "조심할 곳",
                         "에스컬레이터 올라감", "에스컬레이터 내려감", "에스컬레이터 내림", "지하철 탐", "지하철 내림", "버스 탐", "버스 내림"]
     /// 자주 쓰는 표시 — 겉에 크게
-    static let JAJU = ["왼쪽으로 꺾임", "오른쪽으로 꺾임", "올라가는 계단 시작", "내려가는 계단 시작", "계단 끝", "횡단보도 건너기 시작", "횡단보도 건너기 끝", "문"]
+    static let JAJU = ["9시 방향으로 꺾임", "3시 방향으로 꺾임", "올라가는 계단 시작", "내려가는 계단 시작", "계단 끝", "횡단보도 건너기 시작", "횡단보도 건너기 끝", "문"]
     struct Jjak { let end: String; let kind: String; let up: String; let ride: Bool }
     static let PAIR: [String: Jjak] = [
         "올라가는 계단 시작": Jjak(end: "계단 끝", kind: "계단", up: "오르막", ride: false),
@@ -108,8 +108,15 @@ final class JeomGeurigi: ObservableObject {
     ]
     /// 말로 남길 때 알아듣는 다른 말 — 웹 BYEOLCHING 을 따름
     static let BYEOLCHING: [String: String] = [
-        "우회전": "오른쪽으로 꺾임", "오른쪽": "오른쪽으로 꺾임", "오른편": "오른쪽으로 꺾임", "오른쪽으로": "오른쪽으로 꺾임",
-        "좌회전": "왼쪽으로 꺾임", "왼쪽": "왼쪽으로 꺾임", "왼편": "왼쪽으로 꺾임", "왼쪽으로": "왼쪽으로 꺾임",
+        "우회전": "3시 방향으로 꺾임", "오른쪽": "3시 방향으로 꺾임", "오른편": "3시 방향으로 꺾임", "오른쪽으로": "3시 방향으로 꺾임",
+        "좌회전": "9시 방향으로 꺾임", "왼쪽": "9시 방향으로 꺾임", "왼편": "9시 방향으로 꺾임", "왼쪽으로": "9시 방향으로 꺾임",
+        // 2.10.1 방향은 시계 방향으로(이사장님 지시) — 「3시」, 「3시 방향」, 「3시 방향으로」 모두 알아들음
+        "1시": "1시 방향으로 꺾임", "2시": "2시 방향으로 꺾임", "3시": "3시 방향으로 꺾임", "4시": "4시 방향으로 꺾임", "5시": "5시 방향으로 꺾임",
+        "7시": "7시 방향으로 꺾임", "8시": "8시 방향으로 꺾임", "9시": "9시 방향으로 꺾임", "10시": "10시 방향으로 꺾임", "11시": "11시 방향으로 꺾임",
+        "1시방향": "1시 방향으로 꺾임", "2시방향": "2시 방향으로 꺾임", "3시방향": "3시 방향으로 꺾임", "4시방향": "4시 방향으로 꺾임", "5시방향": "5시 방향으로 꺾임",
+        "7시방향": "7시 방향으로 꺾임", "8시방향": "8시 방향으로 꺾임", "9시방향": "9시 방향으로 꺾임", "10시방향": "10시 방향으로 꺾임", "11시방향": "11시 방향으로 꺾임",
+        "1시방향으로": "1시 방향으로 꺾임", "2시방향으로": "2시 방향으로 꺾임", "3시방향으로": "3시 방향으로 꺾임", "4시방향으로": "4시 방향으로 꺾임", "5시방향으로": "5시 방향으로 꺾임",
+        "7시방향으로": "7시 방향으로 꺾임", "8시방향으로": "8시 방향으로 꺾임", "9시방향으로": "9시 방향으로 꺾임", "10시방향으로": "10시 방향으로 꺾임", "11시방향으로": "11시 방향으로 꺾임",
         "올라가는계단": "올라가는 계단 시작", "오르막계단": "올라가는 계단 시작", "계단올라감": "올라가는 계단 시작", "계단시작": "올라가는 계단 시작",
         "내려가는계단": "내려가는 계단 시작", "내리막계단": "내려가는 계단 시작", "계단내려감": "내려가는 계단 시작",
         "계단끝": "계단 끝", "계단끝남": "계단 끝", "계단다": "계단 끝",
@@ -394,8 +401,9 @@ final class JeomGeurigi: ObservableObject {
             d = JeomGeurigi.gakCha(JeomGeurigi.pyeonggyun(ap), JeomGeurigi.pyeonggyun(dwi))
         }
         guard abs(d) >= 55 else { return }
-        let ireum = d > 0 ? "오른쪽으로 꺾임" : "왼쪽으로 꺾임"
-        yeojjum(d > 0 ? "오른쪽으로 꺾이셨습니까?" : "왼쪽으로 꺾이셨습니까?", ireum, n - 6)
+        let s = JeomGeurigi.sigye(d)   // 2.10.1 실제로 돈 만큼 시계 방향으로
+        let ireum = "\(s)시 방향으로 꺾임"
+        yeojjum("\(s)시 방향으로 꺾이셨습니까?", ireum, n - 6)
     }
 
     /// 높이가 바뀌면 — 계단입니까 / 계단이 끝났습니까
@@ -568,7 +576,7 @@ final class JeomGeurigi: ObservableObject {
         SoriEngine.shared.kkeutnamyeon { [weak self] in
             guard let self = self, self.sangtae == .georeum, self.mureum == nil, !self.malDeutneun,
                   self.gil?.id == id, self.gil?.marks.last?.st == st else { return }
-            SoriEngine.shared.sori(.deutgi)
+            SoriEngine.shared.sori(.dingdong)   // 2.10.1 안드로이드와 같은 딩동 소리로
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 TomakNokeum.shared.yeolgi(st: st, pyosi: name, gilId: id, t: t) { [weak self] tm in
                     guard let self = self, let tm = tm, self.gil?.id == id else { return }
@@ -619,7 +627,7 @@ final class JeomGeurigi: ObservableObject {
                     let t = alts.first ?? ""
                     Girok.shared.namgi("jb_malpyosi_moreum", ["mal": String(t.prefix(30))])
                     self.alrigi(t.isEmpty ? "말씀이 들리지 않았습니다. 다시 말로 표시를 눌러 주십시오."
-                                          : "\(t)는 표시 이름으로 알아듣지 못했습니다. 계단 시작, 왼쪽, 문처럼 말씀해 주십시오.")
+                                          : "\(t)는 표시 이름으로 알아듣지 못했습니다. 계단 시작, 3시 방향, 문처럼 말씀해 주십시오.")
                 }
             }
             if !ok { self.malDeutneun = false; self.alrigi("지금은 마이크를 열지 못했습니다. 단추로 남겨 주십시오.") }
@@ -707,6 +715,14 @@ final class JeomGeurigi: ObservableObject {
     }
 
     /// a 에서 b 로 돈 각도(-180~180, 오른쪽이 +)
+    /// 2.10.1 돈 각도(오른쪽 +) → 시계 방향 시(1~11, 12와 6은 피함 — 꺾임이므로)
+    static func sigye(_ d: Double) -> Int {
+        var s = Int((d / 30).rounded())
+        if s == 0 { s = d > 0 ? 1 : -1 }
+        if s >= 6 { s = 5 } else if s <= -6 { s = -5 }
+        return s > 0 ? s : 12 + s
+    }
+
     static func gakCha(_ a: Double, _ b: Double) -> Double {
         var d = (b - a).truncatingRemainder(dividingBy: 360)
         if d > 180 { d -= 360 }
@@ -765,7 +781,7 @@ struct GeurigiView: View {
                 }
             }.font(.title3)
         }
-        Text("꺾이는 곳, 계단, 건널목, 문에 닿는 순간 표시를 남기시면 됩니다. 폰이 방향이나 높이가 바뀐 것을 알아채면 먼저 여쭙니다. 네라고 말씀하시거나 네 단추를 누르셔야 표시가 됩니다. 표시를 남기면 안내 말 뒤에 삐 소리가 나고 폰이 짧게 귀를 엽니다. 그 자리 모습을 한두 마디로 말씀해 주십시오. 말이 멈추면 저절로 끊기고 길어도 10초입니다. 말로 찍은 표시는 폰이 되물어 네라고 하셔야 남습니다.")
+        Text("꺾이는 곳, 계단, 건널목, 문에 닿는 순간 표시를 남기시면 됩니다. 폰이 방향이나 높이가 바뀐 것을 알아채면 먼저 여쭙니다. 네라고 말씀하시거나 네 단추를 누르셔야 표시가 됩니다. 표시를 남기면 안내 말 뒤에 딩동 소리가 나고 폰이 짧게 귀를 엽니다. 그 자리 모습을 한두 마디로 말씀해 주십시오. 말이 멈추면 저절로 끊기고 길어도 10초입니다. 말로 찍은 표시는 폰이 되물어 네라고 하셔야 남습니다.")
             .font(.body)
         DisclosureGroup("볼거리 표시 — 팽나무·동상처럼 찾아갈 것 남기기", isExpanded: $bgPyeol) { bolgeoriKan }.font(.title3)
     }
