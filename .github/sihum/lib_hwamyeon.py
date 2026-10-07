@@ -1,4 +1,4 @@
-# 도서관 앱 안드로이드 화면 하나하나 눌러 보기 (판 0.1.1, 빌드 261007-2, 도서관 창 클) — 0.1.1: 알림 허락, 회원 등록 넘기기
+# 도서관 앱 안드로이드 화면 하나하나 눌러 보기 (판 0.1.2, 빌드 261008-1, 도서관 창 클) — 0.1.2: 단추 이름이 꼭 같은 것을 먼저 누름
 import subprocess,time,re,os,html
 def sh(c,t=60):
     try: return subprocess.run(c,shell=True,capture_output=True,text=True,timeout=t).stdout
@@ -19,7 +19,12 @@ def dump(name,show=True):
         say('== %02d %s: %s'%(n[0],name,' | '.join(ws)[:1800]))
     return x
 def find(x,label):
-    for nd in re.findall(r'<node [^>]*>',x):
+    nds=re.findall(r'<node [^>]*>',x)
+    def key(nd):
+        t=re.search(r' text="([^"]*)"',nd); c=re.search(r'content-desc="([^"]*)"',nd)
+        return html.unescape(t.group(1) if t else '').strip()==label or html.unescape(c.group(1) if c else '').strip()==label
+    nds=[nd for nd in nds if key(nd)]+[nd for nd in nds if not key(nd)]
+    for nd in nds:
         t=re.search(r' text="([^"]*)"',nd); c=re.search(r'content-desc="([^"]*)"',nd); b=re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',nd)
         s=html.unescape((t.group(1) if t else '')+' '+(c.group(1) if c else ''))
         if label in s and b:
