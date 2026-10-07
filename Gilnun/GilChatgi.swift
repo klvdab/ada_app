@@ -76,6 +76,7 @@ struct GilChatgiView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 GingeupGongjiJul()   // 2.9.0 읽지 않은 긴급 공지 — 맨 위
+                OllimJul()           // 2.54.0 새 판이 있을 때만 — 두드리면 테스트플라이트에서 업데이트
                 // 2.12.6 하던 일 멈추기 — 접지 않고 맨 위에(이사장님 승인 1)
                 // 2.52.0 무엇이 진행 중이든 아니든 늘 맨 위에(이사장님 승인 2026-10-06 — 문 찾기 중에 줄이 사라졌던 일)
                 Button("하던 일 멈추기 — 안내를 모두 멈추고 새 목적지 찾기") {
