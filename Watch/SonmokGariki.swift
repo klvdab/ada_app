@@ -97,7 +97,7 @@ final class SonmokGariki: NSObject, ObservableObject, CLLocationManagerDelegate 
         let maja = abs(d) <= 12
         if !ppeotMal {
             ppeotMal = true
-            WatchModel.shared.speak(maja ? "맞습니다" : (d > 0 ? "오른쪽으로" : "왼쪽으로"), jindong: .click)
+            WatchModel.shared.speak(maja ? "맞습니다" : (d > 0 ? "3시 쪽으로" : "9시 쪽으로"), jindong: .click)
             jindongT = now
             return
         }
