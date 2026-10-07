@@ -23,12 +23,15 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.22.0"
-    const val bild = "261007-A5"
+    const val pan = "2.22.1"
+    const val bild = "261007-A7"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.22.1", "261007-A7", "2026-10-07", listOf(
+            "업데이트 시험판 — 새 판 알림이 오고 두드리면 스스로 받아 설치되는지 이사장님 폰으로 확인하는 판. 업데이트 부품에 막기(앱이 지금은 안 된다고 알리면 업데이트하지 않음)를 더함"
+        )),
         Gochim("2.22.0", "261007-A5", "2026-10-07", listOf(
             "새 판 알림과 업데이트(이사장님 승인) — 켤 때·앱으로 돌아올 때(1시간에 한 번까지)·닫혀 있어도 하루 두 번쯤 협회 판 번호 한 장(sihum/pan.json)을 살펴, 새 판이면 폰 알림 「길눈 새 판이 나왔습니다. 두드리면 업데이트합니다」",
             "알림이나 길 찾기 첫 화면 맨 위 한 줄, 설정의 새로고침 바로 아래 업데이트 단추를 누르면 새 판을 스스로 받아 설치 화면을 엶(처음 한 번은 이 출처 허용), 새 판으로 바뀌면 바뀌었다는 알림",
