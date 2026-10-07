@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.27.0 안드로이드 길눈 바로가기 — 앱 아이콘을 길게 누르면 나옴(아이폰 시리로 부르기 자리) -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="malhagi"
+        android:enabled="true"
+        android:icon="@android:drawable/ic_btn_speak_now"
+        android:shortcutShortLabel="@string/gilnun_sc_malhagi"
+        android:shortcutLongLabel="@string/gilnun_sc_malhagi_gin">
+        <intent
+            android:action="kr.or.ada.app.gilnun.MALHAGI"
+            android:targetPackage="kr.or.ada.app"
+            android:targetClass="kr.or.ada.app.gilnun.GilnunActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="jari"
+        android:enabled="true"
+        android:icon="@android:drawable/ic_menu_mylocation"
+        android:shortcutShortLabel="@string/gilnun_sc_jari"
+        android:shortcutLongLabel="@string/gilnun_sc_jari">
+        <intent
+            android:action="kr.or.ada.app.gilnun.JARI"
+            android:targetPackage="kr.or.ada.app"
+            android:targetClass="kr.or.ada.app.gilnun.GilnunActivity" />
+    </shortcut>
+</shortcuts>
