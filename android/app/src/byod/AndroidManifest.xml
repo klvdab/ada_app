@@ -15,6 +15,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- 1.1.2(261007-B4) 새 판 업데이트 — 받은 새 판을 스스로 설치 화면에 넘김 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- 길눈 갈래의 허락들은 BYOD 방송에 쓰지 않으므로 뺍니다 -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" tools:node="remove" />
@@ -47,5 +49,16 @@
             android:name="kr.or.ada.app.byod.ByodService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
+        <!-- 1.1.2 새 판 업데이트 — 설치 결과와 「새 판으로 바뀜」 알림 -->
+        <receiver
+            android:name="kr.or.ada.app.byod.OllimReceiver"
+            android:exported="false" />
+        <receiver
+            android:name="kr.or.ada.app.byod.OllimBakkwimReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
