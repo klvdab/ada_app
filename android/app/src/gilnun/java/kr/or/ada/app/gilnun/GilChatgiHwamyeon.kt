@@ -57,6 +57,8 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
 
         // ⓪ 읽지 않은 긴급 공지 — 있을 때만 맨 위(알림 묶음)
         GongjiEngine.gingeupJul(t)
+        // 2.22.0 새 판이 있을 때만 — 안내와 단추를 한 자리에
+        Ollim.julMal(t)?.let { m -> t.danchu(m) { Ollim.olligi(t) } }
         // ① 말로 하기 — 큰 단추, 맨 위 첫 줄(2.4.0 대표님 승인 자리를 지킴 — 통합 결정). 글자는 그 자리에서만 바꿈(화면을 다시 그리지 않음)
         val mb = t.danchu(MalHagi.danchuGeul) { MalHagi.dudeurim() }
         mb.minHeight = t.dp(96)
