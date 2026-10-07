@@ -209,10 +209,10 @@ object GeulIlgi : KameraNunBupum {
                 if (w > 0 && h > 0) {
                     for (x in jul) {
                         val b = x.teul
-                        if (b.left < w * 0.015) { jallim = "왼쪽"; break }
-                        if (b.right > w * 0.985) { jallim = "오른쪽"; break }
-                        if (b.top < h * 0.015) { jallim = "위쪽"; break }
-                        if (b.bottom > h * 0.985) { jallim = "아래쪽"; break }
+                        if (b.left < w * 0.015) { jallim = "9시 쪽"; break }
+                        if (b.right > w * 0.985) { jallim = "3시 쪽"; break }
+                        if (b.top < h * 0.015) { jallim = "12시 쪽"; break }
+                        if (b.bottom > h * 0.985) { jallim = "6시 쪽"; break }
                     }
                 }
                 kkeut(jul.map { it.mal }, jallim)
