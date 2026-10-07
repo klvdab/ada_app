@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.27.0 안드로이드 길눈 바로가기 이름 -->
+<resources>
+    <string name="gilnun_sc_malhagi">말로 하기</string>
+    <string name="gilnun_sc_malhagi_gin">길눈 말로 하기 — 열자마자 명령을 들음</string>
+    <string name="gilnun_sc_jari">지금 내 자리 듣기</string>
+</resources>
