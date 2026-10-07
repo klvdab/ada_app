@@ -10,13 +10,18 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.54.0"
-    static let bild = "261007-I5"
+    static let pan = "2.55.0"
+    static let bild = "261007-I9"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.55.0", bild: "261007-I9", nal: "2026-10-07", naeyong: [
+            "목소리 따라 걷기(이사장님 확정 방식) — 점지도를 따라 걸을 때 표시에 닿기 몇 걸음 앞에서, 길눈 안내 말 바로 뒤에 그 자리에서 자봉이 남긴 짧은 말 토막을 그대로 들려 드림. 걸음 자리에 묶여 걸음 빠르기에 맞춤, 지나친 토막은 건너뜀",
+            "협회 서버(lvd-tomak)가 받아쓰기와 mp3 바꾸기를 거친 토막만(나스 jeom/sori.php). 되돌아가는 길에서는 들려 드리지 않음",
+            "설정 탭에 자봉 목소리 토막 듣기 켜고 끄기(기본 켬), 도움말에 목소리 따라 걷기 항목 더함"
+        ]),
         Gochim(pan: "2.54.0", bild: "261007-I5", nal: "2026-10-07", naeyong: [
             "새 판 알림(이사장님 승인) — 켤 때와 앱으로 돌아올 때(1시간에 한 번까지) 협회 판 번호 한 장(sihum/pan.json)을 살펴, 새 판이면 길 찾기 첫 화면 맨 위에 「길눈 새 판이 나왔습니다. 두드리면 테스트플라이트에서 업데이트합니다」 단추",
             "설정 탭의 새로고침 바로 아래 업데이트 단추 — 새 판이 있으면 테스트플라이트의 길눈 자리를 열고, 없으면 지금 판이 가장 새 판이라고 알려 드림. 아이폰은 앱이 스스로 설치할 수 없어 테스트플라이트를 거침(그쪽 자동 업데이트를 켜면 저절로)",

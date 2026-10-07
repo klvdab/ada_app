@@ -76,12 +76,17 @@ struct SeoljeongView: View {
 
 /// 말하기 설정 — 화면 글자와 보이스오버가 읽는 것은 건드리지 않고 길눈의 말소리만 다룹니다.
 struct MalSeoljeongView: View {
+    @AppStorage("gn.tomakDeutgi") private var tomakDeutgi = true   // 2.55.0 자봉 목소리 토막 듣기(TomakDeutgi 와 같은 칸)
     @ObservedObject private var s = Seoljeong.shared
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 Toggle(isOn: $s.malKyeojim) { Text("길눈 말소리").font(.title3.weight(.semibold)) }
+                    .padding(.horizontal, 4)
+                    .frame(minHeight: 60)
+                // 2.55.0 목소리 따라 걷기 — 점지도 표시에 닿기 몇 걸음 앞에서 그린 자봉의 짧은 말을 들려 드림
+                Toggle(isOn: $tomakDeutgi) { Text("자봉 목소리 토막 듣기").font(.title3.weight(.semibold)) }
                     .padding(.horizontal, 4)
                     .frame(minHeight: 60)
                 // 2.15.0 카메라 눈 말소리 — 끄면 문 찾기 등이 소리로만

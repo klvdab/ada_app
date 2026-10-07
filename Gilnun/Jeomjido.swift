@@ -26,6 +26,8 @@ struct JeomPyo: Codable {
     var t: Double?
     var acc: Double?
     var dist: Double?
+    var st: Int? = nil        // 2.55.0 그린 이의 걸음 자리
+    var sori: String? = nil   // 2.55.0 자봉 목소리 토막(점검을 거친 mp3, 나스 sori/ 아래 자리)
 
     var ireum: String {
         let n = (name ?? "").trimmingCharacters(in: .whitespaces)
@@ -57,11 +59,20 @@ struct JeomGil: Codable, Identifiable {
         let marks: [JeomPyo] = ((o["marks"] as? [[String: Any]]) ?? []).map { m in
             JeomPyo(lat: Chatgi.su(m["lat"]), lon: Chatgi.su(m["lon"]), name: m["name"] as? String, kind: m["kind"] as? String,
                     cnt: Chatgi.su(m["cnt"]).map { Int($0) }, mal: m["mal"] as? String, t: Chatgi.su(m["t"]),
-                    acc: Chatgi.su(m["acc"]), dist: Chatgi.su(m["dist"]))
+                    acc: Chatgi.su(m["acc"]), dist: Chatgi.su(m["dist"]), st: Chatgi.su(m["st"]).map { Int($0) })
+        }
+        // 2.55.0 목소리 따라 걷기 — 받아쓰기·mp3 를 거친 토막만, 같은 걸음 자리의 표시에 붙임(이사장님 확정 방식)
+        var marks2 = marks
+        for t in (o["sori"] as? [[String: Any]]) ?? [] {
+            guard let pail = t["pail"] as? String, pail.hasSuffix(".mp3"), let st = Chatgi.su(t["st"]).map({ Int($0) }) else { continue }
+            let pn = (t["pyosi"] as? String) ?? ""
+            if let k = marks2.firstIndex(where: { $0.st == st && $0.sori == nil && (pn.isEmpty || $0.name == pn) }) ?? marks2.firstIndex(where: { $0.st == st && $0.sori == nil }) {
+                marks2[k].sori = pail
+            }
         }
         return JeomGil(id: Nas.gul(o["id"]), title: Nas.gul(o["title"]), from: Nas.gul(o["from"]), to: Nas.gul(o["to"]),
                        who: Nas.gul(o["who"]), made: Nas.gul(o["made"]), dist: Chatgi.su(o["dist"]) ?? 0,
-                       pts: pts, marks: marks)
+                       pts: pts, marks: marks2)
     }
 
     /// 되돌아가는 길 — 점을 거꾸로, 표시 이름도 거꾸로(오른쪽 꺾임 ↔ 왼쪽 꺾임 등)
@@ -70,6 +81,7 @@ struct JeomGil: Codable, Identifiable {
         g.pts = pts.reversed()
         var out: [JeomPyo] = marks.map { m in
             var x = m
+            x.sori = nil   // 2.55.0 되돌아가는 길에서는 목소리 토막을 들려 드리지 않음(방향이 거꾸로라서)
             if let n = m.name { x.name = JeomGil.DWIT[n] ?? n }
             if let k = m.kind { x.kind = JeomGil.DWIT[k] ?? k }
             return x

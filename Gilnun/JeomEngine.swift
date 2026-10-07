@@ -1229,6 +1229,8 @@ final class JeomEngine: ObservableObject {
                 p.said = true
                 let y = yego(p, ahead, seoreun: false)
                 if !y.isEmpty { mal(y) }
+                // 2.55.0 목소리 따라 걷기 — 닿기 몇 걸음 앞에서 그린 자봉의 목소리 토막을 한 번(지나친 표시는 위에서 건너뜀)
+                if let so = p.p.sori { TomakDeutgi.shared.deutgi(so) }
             }
             if !p.near && ahead <= 3 {
                 p.near = true
