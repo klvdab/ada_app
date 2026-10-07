@@ -1,4 +1,4 @@
-# 도서관 앱 가상 폰 전수 시험 (판 0.2.0, 빌드 261007-2, 도서관 창 클)
+# 도서관 앱 가상 폰 전수 시험 (판 0.2.1, 빌드 261007-3, 도서관 창 클)
 # 화면마다 글자를 모두 받아 적고, 이름으로 단추를 찾아 눌러 가며 아이폰판과 같은 기능이 다 도는지 살핀다.
 import subprocess, time, re, os, xml.etree.ElementTree as ET
 P='kr.or.ada.lib'; OUT='gyeolgwa'; os.makedirs(OUT, exist_ok=True)
@@ -30,7 +30,14 @@ def tap(nodes, word, nth=0):
     b=hits[nth][1]; x1,y1,x2,y2=map(int,re.findall(r'\d+',b)); sh('adb shell input tap %d %d'%((x1+x2)//2,(y1+y2)//2)); W('   -> 「%s」 누름'%hits[nth][0][:40]); time.sleep(4); return True
 def back(): sh('adb shell input keyevent 4'); time.sleep(3)
 def swipe_up(): sh('adb shell input swipe 500 1600 500 500 400'); time.sleep(2)
+sh('adb shell pm grant %s android.permission.POST_NOTIFICATIONS'%P)
 sh('adb shell monkey -p %s -c android.intent.category.LAUNCHER 1'%P); time.sleep(20)
+a=dump('처음 켬')
+if any('Allow' in t for t,_,c in a): tap(a,'Allow'); a=dump('알림 허락 뒤')
+if any('회원 등록' in t for t,_,c in a):
+    tap(a,'이름'); sh('adb shell input text sihumkeul'); time.sleep(1)
+    a=dump('이름 넣음'); tap(a,'휴대전화'); sh('adb shell input text 01000000000'); time.sleep(1); sh('adb shell input keyevent 111'); time.sleep(1)
+    a=dump('번호 넣음'); tap(a,'등록'); time.sleep(8)
 cheot=dump('첫 화면')
 swipe_up(); cheot2=dump('첫 화면 아래')
 for mun in ['주제별','장르별','테마별']:
@@ -61,12 +68,12 @@ if tap(a,'글자책') or tap(a,'장르별'):
         tap(r,'앞으로 30초'); dump('앞으로 30초 뒤')
         tap(r,'책갈피'); dump('책갈피 뒤')
         back(); dump('독서기에서 뒤로')
-for tab in ['내 서재','설정','도움말','더 보기']:
+for tab in ['내 서재','설정·도움말']:
     sh('adb shell am force-stop %s; adb shell monkey -p %s -c android.intent.category.LAUNCHER 1'%(P,P)); time.sleep(15)
     a=dump('첫 화면('+tab+')')
     if tap(a,tab):
         s=dump(tab)
-        if tab=='설정':
+        if tab=='설정·도움말':
             swipe_up(); s2=dump('설정 아래')
             tap(s+s2,'남자 1'); time.sleep(10); dump('남자 1 고른 뒤')
             for w in ['여자 1','여자 5','남자 5','한 번에','5퍼센트','와이파이','새로고침','업데이트','판']:
