@@ -128,6 +128,7 @@ class JabongActivity : AppCompatActivity() {
             runOnUiThread {
                 val h = wiHwamyeon
                 if (h is GeurigiHwamyeon && deopgaeJong.isEmpty()) { if (h.geulMan()) nureunGeul = null else boyeojugi(false) }
+                else if (h is GrinGilHwamyeon && deopgaeJong.isEmpty()) boyeojugi(false)   // 2.11.0 그린 길 화면도 올리기 결과를 바로
             }
         }
         JabongNae.byeonhwa = { runOnUiThread { boyeojugi() } }
@@ -439,6 +440,8 @@ class JabongActivity : AppCompatActivity() {
         deohagi(v)
         return v
     }
+    /** 2.11.0 꾸민 뷰(협회 로고 머리 등)를 그대로 더함 */
+    fun bogi(v: View) { deohagi(v) }
     fun geul(t: String, keuge: Boolean = false): TextView { val v = geulView(t, keuge); deohagi(v); return v }
     fun danchu(t: String, f: () -> Unit): Button { val b = danchuView(t, f); deohagi(b); return b }
 
@@ -475,6 +478,7 @@ class JabongActivity : AppCompatActivity() {
 
 class BongsaTab : JbHwamyeon("봉사") {
     override fun chaeugi(t: JabongActivity) {
+        t.bogi(kr.or.ada.app.gilnun.HyeophoeLogo.meori(t, "길눈 자봉 — 점지도 그리기"))   // 2.11.0 협회 로고(이사장님 지시)
         t.danchu(if (JabongDaegi.geobu) "긴급통화 받기 — 받지 않기로 하심" else if (JabongDaegi.kyeojim) "긴급통화 받기 — 받고 있음" else "긴급통화 받기 — 길눈님이 도움을 청하면 전화처럼 울립니다") { t.yeolgi(HamkkeHwamyeon()) }
         t.danchu(when (Geurigi.sangtae) {
             Geurigi.Sangtae.GEOREUM -> "점지도 그리기 — 그리는 중"
@@ -649,9 +653,11 @@ class GeurigiHwamyeon : JbHwamyeon("점지도 그리기") {
     private var apAllim = ""
     private var allimJul: TextView? = null
     private var teul = ""
+    private var chulbal = ""   // 2.11.0 출발지·도착지 이름 직접 넣기
+    private var dochak = ""
 
     /** 지금 화면의 틀(단추가 달라지는지 가리는 열쇠) */
-    private fun teulNow(): String = "${Geurigi.sangtae}|${System.identityHashCode(Geurigi.mureum)}|${Geurigi.malDeutneun}|${Geurigi.majimakGyedan != null}|${Geurigi.geurinGil.length()}|${Geurigi.allim.isEmpty()}"
+    private fun teulNow(): String = "${Geurigi.sangtae}|${System.identityHashCode(Geurigi.mureum)}|${Geurigi.malDeutneun}|${Geurigi.majimakGyedan != null}|${Geurigi.geurinGil.length()}|${Geurigi.allim.isEmpty()}|${Geurigi.olliJung}|${Geurigi.majimakId}|${Seoljeong.malKyeojim}"
 
     /** 틀이 그대로이고 알림 글만 바뀌었으면 그 줄만 고쳐 쓰고 참 */
     fun geulMan(): Boolean {
@@ -680,13 +686,18 @@ class GeurigiHwamyeon : JbHwamyeon("점지도 그리기") {
             if (Geurigi.allim != apAllim) t.gibon(v)   // 누른 단추가 사라졌거나 저절로 바뀐 알림이면 커서를 이 줄로
         }
         apAllim = Geurigi.allim
+        // 2.11.0 방금 마친 길 — 안내 바로 아래에 올리기 단추
+        val mid = Geurigi.majimakId
+        if (Geurigi.sangtae == Geurigi.Sangtae.SWIM && mid != null && Geurigi.gilChatgi(mid)?.optBoolean("olim", false) == false) {
+            t.danchu(if (Geurigi.olliJung) "올리는 중입니다" else "방금 그린 길 올리기 — 협회 점검을 거쳐 길눈에 실림") { if (!Geurigi.olliJung) Geurigi.olligi(mid) }
+        }
         when (Geurigi.sangtae) {
             Geurigi.Sangtae.SWIM -> sijakJeon(t)
             Geurigi.Sangtae.GEOREUM -> georeumJung(t)
             Geurigi.Sangtae.MEOMCHUM -> {
                 t.danchu("다시 걷기") { Geurigi.dasiGeotgi() }
                 t.danchu("다 걸었습니다 — 여기까지로 마치기") { Geurigi.kkeut() }
-                t.danchu("지금 상태 듣기") { Sori.mal(Geurigi.sangtaeMal()) }
+                t.danchu("지금 상태 듣기") { Geurigi.sangtaeAllim() }
             }
         }
     }
@@ -694,26 +705,29 @@ class GeurigiHwamyeon : JbHwamyeon("점지도 그리기") {
     private fun sijakJeon(t: JabongActivity) {
         if (Seoljeong.bopokJaem && Seoljeong.bopok > 0.2) t.danchu("걷기 시작 — 출발 자리 주소는 저절로 적습니다") {
             // 2.10.0 표시마다 짧게 말 남기기가 켜져 있으면 마이크 허락을 먼저 여쭘(허락이 없어도 그리기는 됨)
-            if (Tomak.kyeojim(t)) t.maikHeorak { Geurigi.sijak() } else Geurigi.sijak()
+            val cb = chulbal; chulbal = ""
+            if (Tomak.kyeojim(t)) t.maikHeorak { Geurigi.sijak(cb) } else Geurigi.sijak(cb)
         }
         else t.danchu("먼저 내 보폭 재기 — 보폭이 있어야 그릴 수 있습니다") { t.yeolgi(BopokHwamyeon()) }
-        t.danchu("지금 상태 듣기") { Sori.mal(Geurigi.sangtaeMal()) }
+        if (Seoljeong.bopokJaem && Seoljeong.bopok > 0.2) t.ipryeok("출발지 이름 — 넣지 않으면 위성 주소", chulbal, InputType.TYPE_CLASS_TEXT) { chulbal = it }   // 2.11.0
+        t.danchu("지금 상태 듣기") { Geurigi.sangtaeAllim() }
         val mok = Geurigi.geurinGil
         if (mok.length() > 0) {
-            t.danchu(if (gilPyeol) "그린 길 ${mok.length()}개 접기" else "그린 길 ${mok.length()}개 펼치기") { gilPyeol = !gilPyeol; gilJjok = 0; t.dasiGeurigi() }
+            t.danchu(if (gilPyeol) "그린 길 ${mok.length()}개 접기" else "그린 길 ${mok.length()}개 펼치기 — 눌러서 올리기·지우기") { gilPyeol = !gilPyeol; gilJjok = 0; t.dasiGeurigi() }
             if (gilPyeol) {
                 // 다섯 개씩 — 아래에 더 보기, 그 아래에 이전 보기. 펼치면 커서를 첫 줄로
                 val sijak = gilJjok * 5
                 for (i in sijak until minOf(sijak + 5, mok.length())) {
                     val o = mok.optJSONObject(i) ?: continue
-                    val v = t.geul(Geurigi.gilJul(o))
+                    val id = o.optString("id")
+                    val v = t.danchu(Geurigi.gilJul(o)) { t.yeolgi(GrinGilHwamyeon(id)) }   // 2.11.0 줄을 누르면 그 길의 올리기·지우기·이름 고치기
                     if (i == sijak) t.chojeom(v)
                 }
                 if (sijak + 5 < mok.length()) t.danchu("더 보기") { gilJjok += 1; t.dasiGeurigi() }
                 if (gilJjok > 0) t.danchu("이전 보기") { gilJjok -= 1; t.dasiGeurigi() }
             }
         }
-        t.geul("꺾이는 곳, 계단, 건널목, 문에 닿는 순간 표시를 남기시면 됩니다. 폰이 방향이나 높이가 바뀐 것을 알아채면 먼저 여쭙니다. 네라고 말씀하시거나 네 단추를 누르셔야 표시가 됩니다. 표시를 남기면 안내 말 뒤에 딩동 소리가 나고 폰이 짧게 귀를 엽니다. 그 자리 모습을 한두 마디로 말씀해 주십시오. 말이 멈추면 저절로 끊기고 길어도 10초입니다. 말로 찍은 표시는 폰이 되물어 네라고 하셔야 남습니다.")
+        t.geul("꺾이는 곳, 계단, 건널목, 문에 닿는 순간 표시를 남기시면 됩니다. 단추에 없는 것도 말로 표시를 누르고 말씀하시면 그 말 그대로 남길 수 있습니다. 표시를 남기면 안내 말 뒤에 딩동 소리가 나고 폰이 짧게 귀를 엽니다. 그 자리 모습을 한두 마디로 말씀해 주십시오. 말이 멈추면 저절로 끊기고 길어도 10초입니다. 말로 찍은 표시는 폰이 되물어 네라고 하셔야 남습니다.")
         bk.geurigi(t)
     }
 
@@ -727,8 +741,22 @@ class GeurigiHwamyeon : JbHwamyeon("점지도 그리기") {
         t.pyeolchigi("다른 표시와 도구", pyeolchim) { pyeolchim = !pyeolchim }
         if (pyeolchim) {
             for (n in Geurigi.MARKS.filter { it !in Geurigi.JAJU }) t.danchu(n) { Geurigi.pyosi(n) }
-            t.danchu("지금 상태 듣기") { Sori.mal(Geurigi.sangtaeMal()) }
+            t.danchu("지금 상태 듣기") { Geurigi.sangtaeAllim() }
             t.danchu("잠깐 멈춤") { Geurigi.jamkkan() }
+            // 2.11.0 안내 말소리 끄기 — 끄면 톡백이 화면 글자를 읽음(설정의 말소리와 같은 스위치)
+            t.danchu("안내 말소리 — " + if (Seoljeong.malKyeojim) "켜짐, 누르면 끔" else "꺼짐, 누르면 켬") {
+                Seoljeong.malKyeojim = !Seoljeong.malKyeojim
+                if (Seoljeong.malKyeojim) Sori.mal("안내 말소리를 켰습니다.") else Sori.tokbaek?.invoke("안내 말소리를 껐습니다. 화면 글자로 알려 드립니다.")
+                t.dasiGeurigi()
+            }
+            t.danchu("꺾임 여쭙기 — " + if (Geurigi.kkeokMutgi(t)) "켜짐, 누르면 끔" else "꺼짐, 누르면 켬") {
+                val v = !Geurigi.kkeokMutgi(t); Geurigi.kkeokMutgiKyeogi(t, v)
+                Sori.mal(if (v) "꺾임 여쭙기를 켰습니다. 방향이 크게 바뀌면 먼저 여쭙니다." else "꺾임 여쭙기를 껐습니다.")
+                t.dasiGeurigi()
+            }
+            t.ipryeok("출발지 이름 — 지금 " + Geurigi.gilFrom.ifEmpty { "없음" }, chulbal, InputType.TYPE_CLASS_TEXT) { chulbal = it }
+            t.ipryeok("도착지 이름 — 넣지 않으면 다 걸은 자리 위성 주소", dochak, InputType.TYPE_CLASS_TEXT) { dochak = it }
+            t.danchu("출발지·도착지 이름 적기") { Geurigi.ireumGochigi(null, chulbal, dochak); chulbal = ""; dochak = "" }
             t.danchu("표시마다 짧게 말 남기기 — " + if (Tomak.kyeojim(t)) "켜짐, 누르면 끔" else "꺼짐, 누르면 켬") {
                 val v = !Tomak.kyeojim(t); Tomak.kyeogi(t, v)
                 Sori.mal(if (v) "표시마다 짧게 말 남기기를 켰습니다." else "표시마다 짧게 말 남기기를 껐습니다.")
@@ -743,6 +771,50 @@ class GeurigiHwamyeon : JbHwamyeon("점지도 그리기") {
                     else Sori.mal("계단 칸수를 숫자로 적어 주십시오.")
                 }
             }
+        }
+    }
+}
+
+// MARK: 2.11.0 그린 길 하나 — 올리기, 출발지·도착지 이름 고치기, 지우기(한 번 되물음). 아이폰 GrinGilView 와 같음
+
+class GrinGilHwamyeon(private val id: String) : JbHwamyeon("그린 길") {
+    private var chulbal = ""
+    private var dochak = ""
+    private var jiulkka = false
+    private var heumPyeol = false
+    private var ireumPyeol = false
+    private var apAllim = ""
+
+    override fun chaeugi(t: JabongActivity) {
+        val g = Geurigi.gilChatgi(id)
+        if (g == null) { t.geul("이 길은 지워졌습니다.", true); return }
+        if (Geurigi.allim.isNotEmpty()) {
+            val v = t.geul(Geurigi.allim, true)
+            if (Geurigi.allim != apAllim) t.gibon(v)
+        }
+        apAllim = Geurigi.allim
+        t.geul(Geurigi.gilJul(g), true)
+        if (!g.optBoolean("olim", false)) {
+            t.danchu(if (Geurigi.olliJung) "올리는 중입니다" else "이 길 올리기 — 협회 점검을 거쳐 길눈에 실림") { if (!Geurigi.olliJung) Geurigi.olligi(id) }
+        }
+        val h = g.optJSONArray("heum")
+        if (h != null && h.length() > 0) {
+            t.pyeolchigi("협회 점검에서 나온 곳 ${h.length()}가지", heumPyeol) { heumPyeol = !heumPyeol }
+            if (heumPyeol) for (i in 0 until h.length()) t.geul(h.optString(i))
+        }
+        t.pyeolchigi("출발지·도착지 이름 고치기", ireumPyeol) { ireumPyeol = !ireumPyeol }
+        if (ireumPyeol) {
+            t.ipryeok("출발지 — 지금 " + g.optString("from", "").ifEmpty { "없음" }, chulbal, InputType.TYPE_CLASS_TEXT) { chulbal = it }
+            t.ipryeok("도착지 — 지금 " + g.optString("to", "").ifEmpty { "없음" }, dochak, InputType.TYPE_CLASS_TEXT) { dochak = it }
+            t.danchu("이름 적기") { Geurigi.ireumGochigi(id, chulbal, dochak); chulbal = ""; dochak = "" }
+        }
+        if (jiulkka) {
+            val v = t.geul("이 길을 지울까요? 폰 안의 길과 목소리 토막이 지워집니다." + if (g.optBoolean("olim", false)) " 협회에 올린 길은 그대로 남습니다." else "", true)
+            t.chojeom(v)
+            t.danchu("네 — 이 길 지우기") { jiulkka = false; Geurigi.jiugi(id); t.dwiro() }
+            t.danchu("아니오 — 지우지 않기") { jiulkka = false; t.dasiGeurigi() }
+        } else {
+            t.danchu("이 길 지우기 — 잘못 그렸을 때") { jiulkka = true; t.dasiGeurigi() }
         }
     }
 }
@@ -1037,12 +1109,16 @@ class DoumalHwamyeon : JbHwamyeon("도움말") {
             "저절로 저장" to "현장에서는 늘 의외의 일이 생기므로 1분마다 저절로 저장합니다. 점지도를 그리는 중에는 1분마다, 표시를 남길 때마다, 앱이 뒤로 갈 때 그리던 길을 저장하고, 앱이 꺼졌다 켜지면 그리던 길을 잠깐 멈춤으로 되살려 이어 그리실 수 있습니다.",
             "몸 센서 — 걸음과 방향을 더 정확하게" to "점지도를 그리시는 동안 폰의 가속도계, 자이로, 나침반을 1초에 50번 읽습니다. 발이 땅에 닿을 때마다 한 걸음을 바로 세고, 몸이 몇 도 돌았는지 자이로로 재어 쇠붙이나 건물 옆에서도 방향이 틀어지지 않게 합니다. 걸음마다 시각, 방향, 돈 각도, 위아래 충격, 높이, 멈춤과 걷기 상태를 한 줄씩 남깁니다. 꺾이셨습니까 물음도 이 각도로 가려 다 도신 뒤에 여쭙니다. 다 걸었습니다를 누르시면 폰 걸음 센서로 센 걸음과 몸 센서로 센 걸음을 견주어, 차이가 크면 알려 드립니다. 폰을 손에 드셔도 주머니에 넣으셔도 됩니다. 기록 모양은 아이폰 자봉 앱과 똑같아 어느 폰으로 그린 점지도든 함께 쓰입니다.",
             "볼거리 표시" to "점지도 그리기 화면에 볼거리 표시 펼치기가 있습니다. 팽나무, 동상, 안내판, 분수처럼 길눈님이 찾아가실 만한 것 바로 앞에 서서, 이름과 만져지는 것과 다가가는 법(예를 들어 오른손을 뻗으면 줄기가 닿습니다, 둘레에 낮은 나무 울타리가 있습니다)을 적고 볼거리 남기기를 누르시면 지금 자리와 함께 협회 서버에 남습니다. 걷기 전에도, 그리는 중에도 남길 수 있습니다. 길눈님이 그곳을 목적지로 걸어오시면 마지막 스무 걸음을 이 자리로 이끌고, 닿으면 남겨 주신 말을 들려 드립니다. 남기면 박수로 고마움을 전합니다.",
-            "점지도 그리기" to "봉사 탭에서 엽니다. 보폭을 먼저 재 두셔야 시작할 수 있습니다. 걷기 시작을 누르시면 출발한 자리 주소를 저절로 적고, 걸음 수와 방향, 위성 자리, 높이를 1초마다 폰 안에 기록합니다. 화면이 꺼지거나 다른 앱을 쓰셔도 알림 칸의 자봉이 붙들어 이어 갑니다. 길을 접어드시면 무슨 길에 접어드셨는지 알려 드립니다. 다 걸었습니다를 누르시면 걸음과 거리, 표시 수를 말씀드리고 도착한 자리 주소를 적어 그린 길로 폰에 담아 둡니다. 그린 길은 같은 화면의 그린 길 펼치기에서 다섯 개씩 보시고, 다섯 줄 아래의 더 보기로 다음 다섯을, 이전 보기로 앞의 다섯을 봅니다. 올리기 전 점검과 올리기는 다음 판에 들어섭니다.",
+            "점지도 그리기" to "봉사 탭에서 엽니다. 보폭을 먼저 재 두셔야 시작할 수 있습니다. 걷기 시작을 누르시면 출발한 자리 주소를 저절로 적고, 걸음 수와 방향, 위성 자리, 높이를 1초마다 폰 안에 기록합니다. 화면이 꺼지거나 다른 앱을 쓰셔도 알림 칸의 자봉이 붙들어 이어 갑니다. 길을 접어드시면 무슨 길에 접어드셨는지 알려 드립니다. 다 걸었습니다를 누르시면 걸음과 거리, 표시 수를 말씀드리고 도착한 자리 주소를 적어 그린 길로 폰에 담아 둡니다. 그린 길은 같은 화면의 그린 길 펼치기에서 다섯 개씩 보시고, 다섯 줄 아래의 더 보기로 다음 다섯을, 이전 보기로 앞의 다섯을 봅니다. 다 걸으신 뒤 안내 바로 아래 방금 그린 길 올리기를 누르시면 협회로 올라가고, 그린 길 줄을 누르시면 그 길의 올리기, 이름 고치기, 지우기 화면이 열립니다.",
             "방향은 시계 방향으로" to "점지도의 모든 방향은 시계 방향으로 남깁니다. 걷는 쪽이 12시, 오른손 쪽이 3시, 뒤가 6시, 왼손 쪽이 9시입니다. 꺾임 표시는 3시 방향으로 꺾임, 9시 방향으로 꺾임으로 남고, 폰이 먼저 여쭐 때는 실제로 도신 만큼 2시 방향으로 꺾이셨습니까처럼 여쭙니다. 말로 표시에서는 3시, 3시 방향이라고 말씀하셔도 되고, 오른쪽이라고 하셔도 3시 방향으로 꺾임으로 남깁니다. 표시마다 짧게 말을 남기실 때도 3시 방향에 화단 턱이 있습니다처럼 시계 방향으로 말씀해 주십시오.",
+            "그린 길 올리기" to "다 걸으신 뒤 안내 바로 아래의 방금 그린 길 올리기를 누르시거나, 그린 길 펼치기에서 길을 골라 이 길 올리기를 누르십시오. 협회 서버가 점지도 일곱 가지 약속의 잣대로 점검해, 통과한 길만 점지도 창고에 넣어 길눈님이 쓰시게 합니다. 고칠 곳이 있으면 40걸음째에서 길이 크게 꺾였는데 꺾임 표시가 없습니다처럼 걸음 자리로 알려 드리고 올리지 않습니다. 출발지나 도착지 이름이 빠진 것은 그 화면에서 바로 넣고 다시 올리시면 되고, 걸음이나 표시가 빠진 구간은 다시 걸어 새로 그려 주십시오. 함께한 기록판에는 올린 길만 셈합니다. 그린 길 줄에서 올림, 올리기 전, 고칠 곳 있음으로 들립니다.",
+            "그린 길 지우기" to "잘못 그린 길은 그린 길 펼치기에서 길을 골라 이 길 지우기를 누르십시오. 이 길을 지울까요 하고 한 번 여쭙고, 네 — 이 길 지우기를 누르시면 폰 안의 길과 그 길의 목소리 토막이 지워집니다. 이미 협회에 올린 길은 협회 창고에 그대로 남습니다.",
+            "출발지와 도착지 이름" to "출발지와 도착지는 위성이 잡은 주소가 저절로 들어갑니다. 직접 넣고 싶으시면 걷기 시작 아래의 출발지 이름 칸에 적고 걷기 시작을 누르십시오. 그리는 중에는 다른 표시와 도구 펼치기 안에서, 다 그린 뒤에는 그린 길 화면의 출발지·도착지 이름 고치기에서 적으실 수 있습니다. 직접 넣으신 이름이 있으면 위성 주소로 덮어쓰지 않습니다. GS25 마로니에점 문 앞처럼 문 앞 자리까지 적어 주시면 길눈님이 찾아가시기 좋습니다.",
+            "안내 말소리 끄기" to "그리는 중 다른 표시와 도구 펼치기 안의 안내 말소리를 끄시면 앱이 하는 안내 말소리가 멈추고, 같은 안내가 화면 글자와 진동으로만 나옵니다. 톡백을 쓰시면 톡백이 그 안내를 읽습니다. 지금 상태 듣기도 화면 글자로 보여 드립니다. 설정의 말소리와 같은 스위치입니다.",
             "표시 남기기" to "그리는 중 화면 겉에 자주 쓰는 여덟 가지(9시 방향으로 꺾임, 3시 방향으로 꺾임, 올라가는 계단 시작, 내려가는 계단 시작, 계단 끝, 횡단보도 건너기 시작과 끝, 문)가 크게 있고, 다른 표시와 도구 펼치기 안에 나머지 열네 가지와 잠깐 멈춤, 계단 칸수 고치기가 있습니다. 계단과 횡단보도는 시작을 찍으면 끝도 꼭 찍으셔야 하며, 그 사이 칸수와 걸음을 셈해 알려 드립니다. 에스컬레이터, 지하철, 버스는 탈 때와 내릴 때를 찍으시면 그 사이는 걸음으로 재지 않습니다. 문은 딱 찍고 두 걸음 앞에서 한 번 더 찍으셔야 확실한 문이 됩니다.",
-            "말로 표시" to "손이 바쁘실 때 말로 표시 단추를 누르고 계단 시작, 3시 방향, 횡단보도 끝, 문처럼 말씀하시면 단추를 누른 그 자리에 표시를 남깁니다. 좌회전, 우회전, 건널목, 승강기 같은 말도 알아듣습니다. 딩동 소리 뒤에 말씀하십시오. 처음 쓰실 때 마이크 허락을 여쭙니다. 받아쓰기는 폰의 구글 음성 인식을 씁니다.",
+            "말로 표시" to "손이 바쁘실 때 말로 표시 단추를 누르고 계단 시작, 3시 방향, 횡단보도 끝, 문처럼 말씀하시면 단추를 누른 그 자리에 표시를 남깁니다. 좌회전, 우회전, 건널목, 승강기 같은 말도 알아듣습니다. 단추에 없는 것은 벤치, 공사 가림막처럼 말씀하신 그대로 표시로 남깁니다. 받아쓰기가 틀릴 수 있으니 벤치, 이대로 남길까요 하고 되물어, 네라고 하셔야 남습니다. 딩동 소리 뒤에 말씀하십시오. 처음 쓰실 때 마이크 허락을 여쭙니다. 받아쓰기는 폰의 구글 음성 인식을 씁니다.",
             "표시마다 짧게 말 남기기" to "점지도 일곱 가지 약속의 일곱째입니다. 표시를 남기면 안내 말 뒤에 딩동 소리가 나고 폰이 짧게 귀를 엽니다. 그 자리 모습을 한두 마디로 말씀해 주십시오. 말이 멈추면 저절로 끊기고, 길어도 10초에서 끊기며, 4초 안에 말이 없으면 남기지 않습니다. 이 토막은 녹음한 시간이 아니라 그 표시의 걸음 자리에 묶여, 시각장애인이 그 자리에 닿기 몇 걸음 앞에서 들려 드리게 됩니다. 문은 두 번째로 찍었을 때만 귀를 엽니다. 다른 표시를 누르거나 잠깐 멈춤, 다 걸었습니다를 누르면 바로 닫힙니다. 다른 표시와 도구 펼치기 안에서 끄고 켤 수 있습니다. 말로 표시로 찍은 것은 폰이 이대로 남길까요 하고 되물어, 네라고 하셔야 남습니다.",
-            "폰이 먼저 여쭘" to "그리는 중에 방향이 크게 바뀌면 2시 방향으로 꺾이셨습니까처럼 실제로 도신 만큼 시계 방향으로 여쭙고, 높이가 바뀌면 올라가는 계단입니까처럼 먼저 여쭙고, 계단 중에 높이가 그대로이면 계단이 끝났습니까 하고 여쭙니다. 네라고 말씀하시거나 화면 맨 위에 나오는 네 단추를 누르셔야 표시가 되며, 바뀐 것을 알아챈 그 자리에 남깁니다. 아니오면 남기지 않습니다. 20초 동안 답이 없으면 물음을 거둡니다. 말로 답하시려면 마이크 허락이 있어야 합니다.",
+            "폰이 먼저 여쭘" to "봉사자분들의 말씀에 따라 계단은 폰이 먼저 여쭙지 않습니다. 계단 시작과 계단 끝은 단추나 말로 표시로 남겨 주십시오. 꺾임 여쭙기는 처음에는 꺼져 있고, 그리는 중 다른 표시와 도구 펼치기 안의 꺾임 여쭙기를 켜시면 방향이 크게 바뀔 때 2시 방향으로 꺾이셨습니까처럼 실제로 도신 만큼 시계 방향으로 여쭙니다. 네라고 말씀하시거나 화면 맨 위에 나오는 네 단추를 누르셔야 표시가 되며, 바뀐 것을 알아챈 그 자리에 남깁니다. 아니오면 남기지 않습니다. 20초 동안 답이 없으면 물음을 거둡니다. 말로 답하시려면 마이크 허락이 있어야 합니다.",
             "나눔 탭 — 그려 주세요" to "나눔 탭 맨 위에 있습니다. 길눈님이 그려 주었으면 하고 부탁한 길이 다섯 개씩 나오며, 아직 안 그려진 부탁이 먼저 나옵니다. 줄을 누르시면 출발지와 도착지, 남긴 말이 나오고, 이 길 그리러 가기를 누르시면 봉사 탭으로 옮겨 가 어디부터 어디까지 걸으면 되는지 말씀드립니다. 다 그리신 뒤 그 부탁으로 돌아와 다 그렸습니다 표시하기를 누르시면 큰 박수와 함께 길눈님께 알려집니다. 응원 한마디 남기기로 짧은 말을 남기실 수 있고, 이름 대신 자봉 번호로 적힙니다.",
             "함께한 기록판" to "나눔 탭 셋째 줄에 있습니다. 모두 그린 길 수, 이번 주 함께 그린 길과 거리, 이번 주 가장 많이 그려 주신 분(자봉 번호, 1등부터 3등), 모두 보낸 응원 박수를 크게 보여 드리고 소리로도 읽어 드립니다. 다 걸었습니다를 누르시면 그 길이 기록판에 저절로 셈해집니다. 이번 주 모든 자봉님께 응원 박수 보내기는 한 주에 한 번 보낼 수 있습니다. 기록판은 협회 리눅스 서버가 맡으며, 서버가 잠시 쉬면 쉬고 있다고 알려 드립니다.",
             "나눔 탭 — 걸음 나눔과 나눔 마당" to "걸음 나눔은 시각장애인과 자원봉사자가 함께 쓰는 이야기 마당입니다. 다섯 개씩 나오고, 글마다 응원 박수 단추가 있어 한 글에 한 번 박수를 보낼 수 있습니다. 한마디 적기를 펼쳐 봉사 이야기나 응원 한마디를 올리시면 박수로 고마움을 전합니다. 이름 대신 자봉 번호로 적힙니다. 더 보기 펼치기 안에 나눔 마당(드립니다, 찾습니다, 글 올리기, 다 나눴습니다)과 함께하기(자원봉사 교육과 제도 안내, 다 읽었습니다 남기기)가 있습니다.",
