@@ -1,5 +1,5 @@
 # 도서관 앱 가상 폰 자동 시험 (판 0.2.0, 빌드 261007-2, 도서관 창 클)
-# 0.2.0: 깃허브 안의 전수 시험 대본(.github/sihum/lib_dolgi.py)으로 화면마다 글자를 다 받아 적고 단추를 눌러 가며 살핌.
+# 0.2.0: 화면 하나하나 눌러 보기(.github/sihum/lib_hwamyeon.py) — 세 문, 찾기, 책 정보, 읽기, 앞으로 30초, 화면 끈 뒤 소리, 내 서재, 설정, 목소리 미리 듣기, 도움말
 name: lib-gasang
 on:
   workflow_dispatch:
@@ -17,17 +17,17 @@ jobs:
         run: |
           curl -sL -o lib.apk "https://raw.githubusercontent.com/${{ github.repository }}/sihum-apk-lib/lib.apk"
           ls -la lib.apk
-      - name: 가상 폰에서 전수 시험
+      - name: 가상 폰에서 하나하나 눌러 보기
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 33
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: bash -c 'adb install -r lib.apk; adb shell settings put secure enabled_accessibility_services none; python3 .github/sihum/lib_dolgi.py; cp gyeolgwa/jeonsu.txt gyeolgwa/lib_jeonsu_sihum.txt; curl -s -A "curl/8.5.0 lvd-seobeo" -F "f=@gyeolgwa/lib_jeonsu_sihum.txt" "https://lvd.ada.or.kr/seobeo/bat.php?k=sb260924mk&a=put"; true'
+          script: adb install -r lib.apk && python3 .github/sihum/lib_hwamyeon.py; cat g/gyeolgwa.txt; true
       - name: 결과 남기기
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: lib-gasang-gyeolgwa
-          path: gyeolgwa
+          path: g
