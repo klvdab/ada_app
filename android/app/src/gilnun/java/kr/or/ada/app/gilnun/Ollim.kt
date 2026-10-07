@@ -1,4 +1,5 @@
-// 협회 안드로이드 앱 공통 — 새 판 알림과 업데이트(1.0.0판, 빌드 261007-U1, 이사장님 승인 2026-10-07 「1」)
+// 협회 안드로이드 앱 공통 — 새 판 알림과 업데이트(1.1.0판, 빌드 261007-U2, 이사장님 승인 2026-10-07 「1」)
+// 1.1.0(261007-U2) 막기(makgi) — 앱이 「지금은 안 됨」을 알려 주면 업데이트하지 않음(자봉 점지도 그리는 중, BYOD 방송 중 — 설치하면 앱이 꺼지므로)
 // 길눈·자봉이 함께 씀(자봉 갈래도 src/gilnun 을 싣음). BYOD·AI점자도서관은 이 파일을 그대로 옮겨 쓰면 됨(앱 이름은 앱 번호로 가림).
 // 하는 일:
 //   1. 앱을 켤 때와 앱으로 돌아올 때(1시간에 한 번까지), 그리고 앱이 닫혀 있어도 하루 두 번쯤(안드로이드 일꾼)
@@ -69,6 +70,8 @@ object Ollim {
     var byeonhwa: (() -> Unit)? = null
     /** 말할 곳(앱마다 채움 — 길눈은 Sori.mal) */
     var malhagi: ((String) -> Unit)? = null
+    /** 지금 업데이트하면 안 되는 까닭(없으면 null) — 앱마다 채움. 설치하면 앱이 꺼지므로 그리는 중·방송 중에는 막음 */
+    var makgi: (() -> String?)? = null
 
     private var majimakSalpim = 0L
     private var heorakGidarim = false
@@ -210,6 +213,7 @@ object Ollim {
 
     fun olligi(a: Activity) {
         val s = sae ?: return
+        makgi?.invoke()?.let { mal(it); return }
         if (jinhaengJung) { mal("새 판을 받는 중입니다. 잠시만 기다려 주십시오."); return }
         if (!seolchiHeorak(a)) {
             heorakGidarim = true
