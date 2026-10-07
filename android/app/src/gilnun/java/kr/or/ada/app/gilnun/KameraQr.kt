@@ -137,10 +137,12 @@ object QrChatgi : KameraNunBupum {
     }
 
     fun eodi(x: Double, y: Double): String {
-        val a = ArrayList<String>()
-        if (x < 0.33) a.add("왼쪽") else if (x > 0.67) a.add("오른쪽")
-        if (y < 0.33) a.add("위쪽") else if (y > 0.67) a.add("아래쪽")
-        return if (a.isEmpty()) "카메라 한가운데에 있습니다." else "카메라의 " + a.joinToString(" ") + "에 있습니다."
+        // 2.21.0 카메라 화면 속 자리도 시계 방향으로(가운데에서 본 쪽, 위가 열두 시)
+        val dx = x - 0.5; val dy = 0.5 - y
+        if (Math.abs(dx) < 0.17 && Math.abs(dy) < 0.17) return "카메라 한가운데에 있습니다."
+        var s = Math.round(Math.atan2(dx, dy) * 180 / Math.PI / 30).toInt()
+        if (s <= 0) s += 12
+        return "카메라 화면의 ${s}시 쪽에 있습니다."
     }
 
     fun jongryuBoda(t: String): Pair<String, String> {
