@@ -25,7 +25,7 @@ android {
         minSdk = 30
         targetSdk = 35
         versionCode = (System.getenv("BUILD_NUMBER") ?: "1").toInt()
-        versionName = "2.6.0"   // 261002-A9 긴급통화 단추(두 번 눌러 확인, 대표님 지시)
+        versionName = "2.6.1"   // 261007-W1 손목 가리키기와 도움말 방향을 시계 방향으로(이사장님 지시). 261002-A9 긴급통화 단추(두 번 눌러 확인, 대표님 지시)
     }
 
     signingConfigs {
