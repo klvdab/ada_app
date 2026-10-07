@@ -155,7 +155,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.jabong
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "2.10.1"   # 261007-I3 방향은 늘 시계 방향으로(이사장님 지시). 261007-I1 점지도 일곱 가지 약속·확인 문제 아홉 개(이사장님 승인)
+        MARKETING_VERSION: "2.11.0"   # 261007-I4 봉사자 요청 여섯 가지(계단 여쭙기 없앰·말로 자유 표시·올리기·지우기·출발지 도착지 이름·안내 말소리 끄기, 이사장님 승인). 261007-I3 방향은 늘 시계 방향으로(이사장님 지시). 261007-I1 점지도 일곱 가지 약속·확인 문제 아홉 개(이사장님 승인)
         OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "FoundationModels"]   # 길눈 부품과 같이 옛 폰에서도 열리게
   BfbApp:
     type: application
