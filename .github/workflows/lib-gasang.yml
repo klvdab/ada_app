@@ -24,7 +24,7 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: bash -c 'adb install -r lib.apk; adb shell settings put secure enabled_accessibility_services none; python3 .github/sihum/lib_dolgi.py; true'
+          script: bash -c 'adb install -r lib.apk; adb shell settings put secure enabled_accessibility_services none; python3 .github/sihum/lib_dolgi.py; cp gyeolgwa/jeonsu.txt gyeolgwa/lib_jeonsu_sihum.txt; curl -s -A "curl/8.5.0 lvd-seobeo" -F "f=@gyeolgwa/lib_jeonsu_sihum.txt" "https://lvd.ada.or.kr/seobeo/bat.php?k=sb260924mk&a=put"; true'
       - name: 결과 남기기
         if: always()
         uses: actions/upload-artifact@v4
