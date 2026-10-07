@@ -885,7 +885,7 @@ object JeomEngine {
         }
         if (a >= b * 0.5 || (S.gyeol == "heundeul" && a > b * 0.3)) {
             eum(EumJong.BIKYEO)
-            if (S.gyeol != "heundeul") { S.gyeol = "heundeul"; mal((if (S.yeop > 0) "오른쪽" else "왼쪽") + "으로 조금 비켜나십니다.") }
+            if (S.gyeol != "heundeul") { S.gyeol = "heundeul"; mal((if (S.yeop > 0) "3시" else "9시") + " 방향으로 조금 비켜나십니다.") }
             S.sinho = now
             return
         }
@@ -904,12 +904,12 @@ object JeomEngine {
             bangM = sigyeGak(chai(mok, h))
         }
         if (!georeumSalanna) {
-            mal(apm + (if (oreun) "오른쪽으로 " else "왼쪽으로 ") + "약 ${max(1, Jeomjido.bannol(abs(S.yeop)).toInt())}미터 벗어났습니다. " + bangM + "으로 돌아가십시오.", MalGeup.GYEONGGO)
+            mal(apm + (if (oreun) "3시 방향으로 " else "9시 방향으로 ") + "약 ${max(1, Jeomjido.bannol(abs(S.yeop)).toInt())}미터 벗어났습니다. " + bangM + "으로 돌아가십시오.", MalGeup.GYEONGGO)
             return
         }
         val n = max(1, Jeomjido.bannol(abs(S.yeop) / bocok).toInt())
         val gm = georeumSu(n)
-        mal(apm + (if (oreun) "오른쪽으로 " else "왼쪽으로 ") + gm + " 벗어났습니다. " + bangM + "으로 " + gm + " 옮기십시오.", MalGeup.GYEONGGO)
+        mal(apm + (if (oreun) "3시 방향으로 " else "9시 방향으로 ") + gm + " 벗어났습니다. " + bangM + "으로 " + gm + " 옮기십시오.", MalGeup.GYEONGGO)
     }
 
     /** 자리가 올 때마다(위성이든 걸음이든) — 점지도 선 위에 앉혀 옆 거리와 나아간 거리를 봄 */
@@ -988,7 +988,7 @@ object JeomEngine {
                         S.kijun = jin; S.gamyeon = true; S.sinho = now
                         if (heundeul) {
                             eum(EumJong.BIKYEO)
-                            if (S.gyeol != "heundeul") { S.gyeol = "heundeul"; mal((if (S.yeop > 0) "오른쪽" else "왼쪽") + "으로 조금 비켜나십니다.") }
+                            if (S.gyeol != "heundeul") { S.gyeol = "heundeul"; mal((if (S.yeop > 0) "3시" else "9시") + " 방향으로 조금 비켜나십니다.") }
                         } else {
                             eum(EumJong.JEOMOK); S.gyeol = "baro"
                         }
@@ -1297,7 +1297,9 @@ object JeomEngine {
         return nm + "입니다"
     }
 
-    private fun jjok(nm: String): String = if (nm.contains("오른쪽")) "3시" else "9시"
+    /** 2.21.0 꺾임 표시 이름 → 시계 방향(새 이름 「3시 방향으로 꺾임」과 옛 이름 「오른쪽으로 꺾임」 모두 읽음) */
+    private fun jjok(nm: String): String = Regex("(1[0-2]|[1-9])시").find(nm)?.value
+        ?: if (nm.contains("오른") || nm.contains("우회전")) "3시" else "9시"
 
     private fun gyedanKan(p: Pyo): String {
         val c = p.p.cnt ?: 0
@@ -1366,8 +1368,7 @@ object JeomEngine {
         if (nm.contains("내림턱")) return "지금 내려서는 턱입니다."
         if (nm.contains("점자블록 끊김")) return "여기서 점자블록이 끊깁니다."
         if (nm.contains("조심할 곳")) return "지금 조심할 곳입니다. 천천히 가십시오."
-        if (nm.contains("왼쪽으로 꺾임")) return "지금 왼쪽으로 꺾으십시오."
-        if (nm.contains("오른쪽으로 꺾임")) return "지금 오른쪽으로 꺾으십시오."
+        if (nm.contains("꺾임")) return "지금 ${jjok(nm)} 방향으로 꺾으십시오."
         val h = p.p.mal ?: ""
         return "지금 ${nm}입니다." + (if (h.isEmpty()) "" else " $h")
     }
@@ -1625,8 +1626,8 @@ object JeomEngine {
         }
         val jul = ArrayList<String>()
         if (wi.isNotEmpty()) jul.add("조심하십시오. " + juwiMukkgi(wi) + "입니다.")
-        if (oreun.isNotEmpty()) jul.add("오른쪽에 " + juwiMukkgi(oreun) + "입니다.")
-        if (oen.isNotEmpty()) jul.add("왼쪽에 " + juwiMukkgi(oen) + "입니다.")
+        if (oreun.isNotEmpty()) jul.add("3시 방향에 " + juwiMukkgi(oreun) + "입니다.")
+        if (oen.isNotEmpty()) jul.add("9시 방향에 " + juwiMukkgi(oen) + "입니다.")
         if (ap.isNotEmpty()) jul.add("앞에 " + juwiMukkgi(ap) + "입니다.")
         if (gakkai.isNotEmpty()) jul.add("가까이 " + juwiMukkgi(gakkai) + "입니다.")
         if (jul.isEmpty()) return
