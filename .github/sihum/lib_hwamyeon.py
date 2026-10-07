@@ -1,4 +1,4 @@
-# 도서관 앱 안드로이드 화면 하나하나 눌러 보기 (판 0.1.3, 빌드 261008-2, 도서관 창 클) — 0.1.3: 찾기 칸에 바로 적기, 느린 쓸기
+# 도서관 앱 안드로이드 화면 하나하나 눌러 보기 (판 0.1.4, 빌드 261008-3, 도서관 창 클) — 0.1.4: 책 이름 정확히 눌러 책 정보로, 스크롤 가능 여부
 import subprocess,time,re,os,html
 def sh(c,t=60):
     try: return subprocess.run(c,shell=True,capture_output=True,text=True,timeout=t).stdout
@@ -67,8 +67,9 @@ if eds:
     tap('찾기'); time.sleep(8); dump('chatgi_gyeolgwa')
 if True:
     x=dump('g',False)
-    if tap('Pride'): dump('chaek_jeongbo')
-if tap('읽기') or tap('듣기'):
+    if tap('Pride and Prejudice - Austen, Jane (영어)'):
+        x=dump('chaek_jeongbo'); say('-- 책 정보 스크롤 가능: '+str('scrollable="true"' in x))
+if tap('읽기') or tap('독서기로 듣기') or tap('듣기'):
     time.sleep(30); dump('dokseogi'); ggeut('읽기 30초 뒤')
     if tap('앞으로 30초'): time.sleep(5); ggeut('앞으로 30초 뒤')
     sh('adb shell input keyevent 26'); time.sleep(25); ggeut('화면 끈 뒤 25초'); sh('adb shell input keyevent 224'); sh('adb shell input keyevent 82'); time.sleep(3)
@@ -76,7 +77,7 @@ if tap('읽기') or tap('듣기'):
 sh('adb shell am force-stop '+P); sh('adb shell monkey -p %s -c android.intent.category.LAUNCHER 1'%P); time.sleep(15)
 for m in ['내 서재','설정']:
     if tap(m):
-        dump('tab_'+m)
+        x=dump('tab_'+m); say('-- %s 스크롤 가능: %s'%(m,'scrollable="true"' in x))
         for i in range(4): sh('adb shell input swipe 540 1800 540 500 900'); time.sleep(1); dump('tab_%s_%d'%(m,i))
 if tap('여자 2'): time.sleep(20); ggeut('여자 2 미리 듣기')
 if tap('도움말'): dump('doumal')
