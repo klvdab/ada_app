@@ -5,8 +5,8 @@ package kr.or.ada.app.byod
 import java.util.concurrent.CopyOnWriteArrayList
 
 object Bang {
-    const val PAN = "1.1.3"   // 1.1.3(261007-B5) 기기 점검. 1.1.2(261007-B4) 새 판 알림과 업데이트(대장클, 이사장님 지시)
-    const val BILD = "261007-B4"
+    const val PAN = "1.1.4"   // 1.1.4(261007-B6) 실제로 받는 소리 장치 알림·사운드카드 안 잡힐 때 할 일·어떤 장치든 꽂고 빼면 다시 고름·기기 점검 판단과 결과 복사(방송클). 1.1.3(261007-B5) 기기 점검. 1.1.2(261007-B4) 새 판 알림과 업데이트(대장클, 이사장님 지시)
+    const val BILD = "261007-B6"
     const val PORT = 8080
 
     @Volatile var kyeojim = false          // 방송 일꾼이 돌고 있는가
