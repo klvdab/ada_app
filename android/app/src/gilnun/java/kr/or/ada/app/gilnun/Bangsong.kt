@@ -26,7 +26,9 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -176,6 +178,9 @@ internal fun bsI(w: String) = if (bsBatchim(w)) "이" else "가"
 @OptIn(UnstableApi::class)
 object Bangsong {
     const val PPURI = "https://lvd.ada.or.kr"
+    /** 2.24.0(261007-A12, 이사장님 지적 — 안드로이드에서 방송·음악이 하나도 안 나옴) 우리 서버 문지기를 통과하는 이름표.
+     *  도서관 앱·배프 BYOD 앱과 같이 브라우저 이름표를 답니다(재생기·나스 묻기 모두) */
+    const val UA = "Mozilla/5.0 (Linux; Android) Gilnun/2.24.0"
 
     /** 2.14.0 꼭 맞는 곡이 없을 때 권한 비슷한 곡(말로 하기에서 "네" 하시면 틂, 아이폰 2.46.0과 같음) */
     @Volatile var biseutQ: String? = null
@@ -261,6 +266,13 @@ object Bangsong {
     private var teulgiBeon = 0
     private var bureumIl = false
     private var gisaTteonamTtae = 0L
+    // 2.24.0 소리 자리를 잃은 때·길눈 제 말 때문인가·틀기 시작한 때·소리 안 남 알림
+    private var jariIlheum = 0L
+    private var jariJeMal = false
+    private var teulgiTtae = 0L
+    private var anNaomAllim = false
+    private var majimakJindan = 0L
+    private var anNaomMalTtae = 0L
 
     private val tk: String get() = BangsongSeol.eumakTk
 
@@ -293,7 +305,13 @@ object Bangsong {
         val c = ac ?: return null
         var p = exo
         if (p == null) {
+            val ds = DefaultHttpDataSource.Factory()
+                .setUserAgent(UA)
+                .setAllowCrossProtocolRedirects(true)
+                .setConnectTimeoutMs(15000)
+                .setReadTimeoutMs(20000)
             p = ExoPlayer.Builder(c)
+                .setMediaSourceFactory(DefaultMediaSourceFactory(c).setDataSourceFactory(ds))
                 .setAudioAttributes(
                     androidx.media3.common.AudioAttributes.Builder()
                         .setUsage(C.USAGE_MEDIA)
@@ -336,15 +354,12 @@ object Bangsong {
                 meomchunTtae = System.currentTimeMillis()
                 allim()
             } else if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS) {
-                // 다른 앱(전화·동영상)이 소리 자리를 가져감 — 긴급통화·말로 하기 때문이면 그쪽이 끝나면 되돌리고, 아니면 멈춘 채로
-                main.postDelayed({
-                    if (itda && !meomchum && naebuMeomchum.isEmpty() && exo?.playWhenReady == false &&
-                        GinGeup.sangtae == GinGeupSangtae.EOPSEUM && !Sori.deutneunJung) {
-                        meomchum = true
-                        meomchunTtae = System.currentTimeMillis()
-                        allim()
-                    }
-                }, 700)
+                // 2.24.0 고침(이사장님 지적) — 갤럭시는 길눈 제 목소리(「○○에 잇는 중입니다」 등)가 소리 자리를 통째로 가져가
+                // 방송이 멈춘 채로 묶였음(오류도 다시 잇기도 없이 「나온다」고만 함). 이제 길눈 제 말 때문이면 말이 끝난 뒤 되찾고,
+                // 정말 다른 앱(전화·다른 음악)이 3초 넘게 가져간 때에만 멈춘 채로 둡니다.
+                jariIlheum = System.currentTimeMillis()
+                jariJeMal = Sori.malhaneunJung || malJung || System.currentTimeMillis() - teulgiTtae < 15000
+                Girok.namgi("bangsong_jari", mapOf("jong" to jong.ireum, "jemal" to jariJeMal))
             }
         }
     }
@@ -534,6 +549,9 @@ object Bangsong {
         majimakUmjik = System.currentTimeMillis()
         naoneunSijak = 0L
         seekDaegi = seek
+        teulgiTtae = System.currentTimeMillis()
+        anNaomAllim = false
+        jariIlheum = 0L
         p.setMediaItem(b.build())
         hwajilMatchugi()
         p.prepare()
@@ -562,11 +580,55 @@ object Bangsong {
         }
     }
 
+    /** 2.24.0 소리 자리를 잃었을 때 — 길눈 제 말 때문이면 말이 끝나고 0.8초 뒤 되찾음, 다른 앱이면 3초 뒤 멈춘 채로 */
+    private fun jariSalpigi(now: Long) {
+        if (jariIlheum == 0L) return
+        val p = exo
+        if (p == null || !itda || meomchum || p.playWhenReady) { jariIlheum = 0L; return }
+        if (naebuMeomchum.isNotEmpty() || GinGeup.sangtae != GinGeupSangtae.EOPSEUM || Sori.deutneunJung) return   // 그쪽이 끝나면 dasiTeulgi 가 되돌림
+        if (jariJeMal || Sori.malhaneunJung) {
+            jariJeMal = true
+            if (Sori.malhaneunJung) { jariIlheum = now; return }
+            if (now - jariIlheum < 800) return
+            jariIlheum = 0L
+            Girok.namgi("bangsong_jari_doechatgi", mapOf("jong" to jong.ireum))
+            p.playWhenReady = true   // 재생기가 소리 자리를 다시 청함
+            allim()
+        } else if (now - jariIlheum >= 3000) {
+            jariIlheum = 0L
+            meomchum = true
+            meomchunTtae = now
+            Girok.namgi("bangsong_jari_meomchum", mapOf("jong" to jong.ireum))
+            allim()
+        }
+    }
+
+    /** 2.24.0 틀었는데 15초가 지나도 소리가 안 나면 — 까닭을 기록에 남기고 한 번 알림(「나온다」고만 하고 안 나오는 일 막기) */
+    private fun anNaomSalpigi(p: ExoPlayer, now: Long) {
+        if (teulgiTtae == 0L || p.isPlaying) { if (p.isPlaying) teulgiTtae = 0L; return }
+        if (now - teulgiTtae < 15000) return
+        if (now - majimakJindan > 8000) {
+            majimakJindan = now
+            Girok.namgi("bangsong_annaom", mapOf("jong" to jong.ireum, "st" to p.playbackState, "pwr" to p.playWhenReady,
+                "sup" to p.playbackSuppressionReason, "vol" to p.volume.toDouble(), "naebu" to naebuMeomchum.joinToString(","),
+                "meomchum" to meomchum, "maljung" to malJung, "mal" to Sori.malhaneunJung, "oryu" to (p.playerError?.errorCodeName ?: "")))
+        }
+        if (!anNaomAllim && !meomchum && naebuMeomchum.isEmpty() && GinGeup.sangtae == GinGeupSangtae.EOPSEUM &&
+            !Sori.deutneunJung && now - anNaomMalTtae > 60000) {
+            anNaomAllim = true
+            anNaomMalTtae = now
+            val ireum = when (jong) { BangsongJong.RADIO -> "라디오"; BangsongJong.TV -> "TV"; else -> "음악" }
+            Sori.mal("$ireum 소리가 아직 나오지 않습니다. 다시 잇겠습니다.", MalGeup.JEONGBO)
+            dasiIeum()
+        }
+    }
+
     /** 0.5초마다 — 말로 하기·긴급통화 살피기, 기사 화면을 떠나셨는지, 줄인 소리가 남았는지 */
     private fun salpigi() {
         naebu("deutgi", Sori.deutneunJung)
         naebu("tonghwa", GinGeup.sangtae != GinGeupSangtae.EOPSEUM)
         val now = System.currentTimeMillis()
+        jariSalpigi(now)
         if (malJung && malKkeutR == null && !Sori.malhaneunJung && now - malSijakTtae > 2500) malKkeut()
         if (jong == BangsongJong.GISA) {
             val b = gisaHwamyeonBoim
@@ -583,6 +645,7 @@ object Bangsong {
     private fun jikigi() {
         val p = exo
         val now = System.currentTimeMillis()
+        if (p != null && (jong == BangsongJong.RADIO || jong == BangsongJong.TV || jong == BangsongJong.EUMAK || jong == BangsongJong.NUGUNA)) anNaomSalpigi(p, now)
         if (p == null || jong == BangsongJong.EOPSEUM || jong == BangsongJong.GISA || meomchum || naebuMeomchum.isNotEmpty()) {
             majimakUmjik = now
             naoneunSijak = 0L
@@ -677,6 +740,7 @@ object Bangsong {
         c.connectTimeout = handO
         c.readTimeout = handO
         c.useCaches = false
+        c.setRequestProperty("User-Agent", UA)
         val r = if (c.responseCode == 200) c.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() } else null
         c.disconnect()
         r
