@@ -92,7 +92,8 @@ final class GanpanAllim {
             let a = abs(gak)
             guard a >= 20 && a <= 110 else { continue }
             let cha = GanpanAllim.chare.firstIndex(of: gal) ?? 99
-            hubo.append((ir, gal, gak > 0 ? "오른쪽" : "왼쪽", g, cha))
+            let sg = Int((gak / 30).rounded())   // 2.53.0 시계 방향으로(20~110도라 0시는 없음)
+            hubo.append((ir, gal, "\(sg > 0 ? sg : 12 + sg)시 방향", g, cha))
         }
         guard let ga = hubo.sorted(by: { $0.cha != $1.cha ? $0.cha < $1.cha : $0.geori < $1.geori }).first else { return }
         malhan[ga.ireum] = now
