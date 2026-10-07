@@ -29,6 +29,26 @@ object JabongNae {
     /** 그려 준 길 수(내 발자취) */
     val geurinSu: Int get() = d?.getInt("jb.geurinSu", 0) ?: 0
     val deungrokham: Boolean get() = beonho.isNotEmpty()
+    /** 2.10.0 마친 교육 판(2 = 일곱 가지 약속) */
+    val gyoyukPan: Int get() = d?.getInt("jb.gyoyukPan", 0) ?: 0
+    val gyoyukDoem: Boolean get() = gyoyukPan >= JbGyoyuk.pan
+
+    /** 2.10.0 교육을 마침 — 폰에 적고, 나스 등록 창고에 날짜·판을 남김(안 닿으면 다음에 다시 보냄) */
+    fun gyoyukMachim() {
+        d?.edit()?.putInt("jb.gyoyukPan", JbGyoyuk.pan)?.putBoolean("jb.gyoyukMotBonaem", true)?.apply()
+        gyoyukBonaegi()
+    }
+
+    /** 교육 기록 보내기 — 앱을 열 때도 못 보낸 것이 있으면 다시 */
+    fun gyoyukBonaegi() {
+        val jam = yeolsoe?.getString("jbJam", null)
+        if (!deungrokham || d?.getBoolean("jb.gyoyukMotBonaem", false) != true || jam.isNullOrEmpty()) return
+        val nal = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", java.util.Locale.KOREA).format(java.util.Date())
+        mutgi("gyoyuk", JSONObject().put("beonho", beonho).put("jam", jam).put("pan", JbGyoyuk.pan).put("nal", nal).put("munje", JbGyoyuk.munje.size)) { j ->
+            if (j != null && j.optBoolean("ok", false)) d?.edit()?.putBoolean("jb.gyoyukMotBonaem", false)?.apply()
+        }
+        Girok.namgi("jabong_gyoyuk", mapOf("beonho" to beonho, "pan" to "${JbGyoyuk.pan}"))
+    }
 
     private fun dameum(b: String, i: String, j: String, id: String) {
         d?.edit()?.putString("jb.beonho", b)?.putString("jb.ireum", i)?.putString("jb.jiyeok", j)?.putString("jb.id1365", id)?.apply()
@@ -44,12 +64,13 @@ object JabongNae {
 
     /** 처음 등록 — 성공하면 null, 안 되면 까닭 */
     fun deungrok(ireum: String, yeonrak: String, jiyeok: String, id1365: String, jam: String, kkeut: (String?) -> Unit) {
-        val bon = JSONObject().put("ireum", ireum).put("yeonrak", yeonrak).put("jiyeok", jiyeok).put("id1365", id1365).put("jam", jam).put("gyoyuk", true)
+        val bon = JSONObject().put("ireum", ireum).put("yeonrak", yeonrak).put("jiyeok", jiyeok).put("id1365", id1365).put("jam", jam).put("gyoyuk", true).put("gyoyukPan", JbGyoyuk.pan)
         mutgi("sin", bon) { j ->
             if (j == null) { kkeut("통신이 닿지 않았습니다. 잠시 뒤 다시 눌러 주십시오."); return@mutgi }
             val b = j.optString("beonho", "")
             if (!j.optBoolean("ok", false) || b.isEmpty()) { kkeut(j.optString("msg", "").ifEmpty { "등록하지 못했습니다." }); return@mutgi }
             yeolsoe?.edit()?.putString("jbJam", jam)?.apply()
+            d?.edit()?.putInt("jb.gyoyukPan", JbGyoyuk.pan)?.apply()   // 2.10.0 등록 때 새 교육을 마침
             dameum(b, ireum, jiyeok, id1365)
             Girok.namgi("jabong_deungrok", mapOf("beonho" to b))
             kkeut(null)

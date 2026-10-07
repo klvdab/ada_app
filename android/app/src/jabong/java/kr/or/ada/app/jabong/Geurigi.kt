@@ -14,6 +14,7 @@ import android.os.Looper
 import kr.or.ada.app.gilnun.EumJong
 import kr.or.ada.app.gilnun.Eum
 import kr.or.ada.app.gilnun.Girok
+import kr.or.ada.app.gilnun.Jindong
 import kr.or.ada.app.gilnun.MalDeutgi
 import kr.or.ada.app.gilnun.MalGeup
 import kr.or.ada.app.gilnun.MalSajeon
@@ -72,7 +73,8 @@ object Geurigi {
         "버스탐" to "버스 탐", "버스탔어" to "버스 탐", "버스내림" to "버스 내림", "버스내렸어" to "버스 내림"
     )
 
-    class Mureum(val mal: String, val ne: String, val jariI: Int, val ttae: Long) {
+    /** 2.10.0 jari·malo — 말로 찍은 표시를 되물을 때 말한 순간의 자리 */
+    class Mureum(val mal: String, val ne: String, val jariI: Int, val ttae: Long, val jari: JSONObject? = null, val malo: Boolean = false) {
         val danchu: String get() = "네 — $ne"
     }
 
@@ -214,6 +216,7 @@ object Geurigi {
 
     fun jamkkan() {
         if (sangtae != Sangtae.GEOREUM) return
+        Tomak.dakgi(); tomakDaegi = null
         sangtae = Sangtae.MEOMCHUM
         meomchumSt0 = Wichi.georeumSu
         mureum = null
@@ -240,6 +243,7 @@ object Geurigi {
 
     /** 다 걸었습니다 */
     fun kkeut() {
+        Tomak.dakgi(); tomakDaegi = null
         val g = gil ?: return
         meomchugi()
         if (sangtae == Sangtae.GEOREUM) { pts.put(jigeumJari()); g.put("georeum", georeum) }
@@ -364,9 +368,11 @@ object Geurigi {
     }
 
     /** 여쭙고, 말소리가 끝나면 네·아니오를 한 번 들음 — 단추로도 답할 수 있음 */
-    private fun yeojjum(mal: String, ne: String, jariI: Int) {
+    private fun yeojjum(mal: String, ne: String, jariI: Int, jari: JSONObject? = null, malo: Boolean = false) {
         majimakMureum = System.currentTimeMillis()
-        mureum = Mureum(mal, ne, maxOf(0, jariI), majimakMureum)
+        Tomak.dakgi()   // 2.10.0 토막을 듣던 귀는 닫고 여쭘
+        tomakDaegi = null
+        mureum = Mureum(mal, ne, maxOf(0, jariI), majimakMureum, jari, malo)
         Girok.namgi("jb_mureum", mapOf("ne" to ne))
         bakkwim?.invoke()
         Sori.mal(mal, MalGeup.ANNAE) { neDeutgi() }
@@ -374,7 +380,7 @@ object Geurigi {
 
     private fun neDeutgi() {
         val c = ctx ?: return
-        if (mureum == null || sangtae != Sangtae.GEOREUM || malDeutneun) return
+        if (mureum == null || sangtae != Sangtae.GEOREUM || malDeutneun || Tomak.nokeumJung) return
         if (!MalDeutgi.heorakItda(c) || !MalDeutgi.sseulSuItda(c)) return
         malDeutneun = true
         Sori.deutgiSijak()
@@ -396,8 +402,8 @@ object Geurigi {
         mureum = null
         if (malDeutneun) { MalDeutgi.meomchugi(); malDeutneun = false; Sori.deutgiKkeut() }
         if (ne) {
-            val jari = if (m.jariI < pts.length()) pts.getJSONObject(m.jariI) else null
-            pyosi(m.ne, jari, mu = true)
+            val jari = m.jari ?: if (m.jariI < pts.length()) pts.getJSONObject(m.jariI) else null
+            pyosi(m.ne, jari, malo = m.malo, mu = !m.malo)
         } else {
             Girok.namgi("jb_mureum_ani", mapOf("ne" to m.ne))
             alrigi("알겠습니다. 남기지 않았습니다.")
@@ -419,6 +425,8 @@ object Geurigi {
         if (name.endsWith("꺾임")) majimakKkeokim = System.currentTimeMillis()
         mureum = null
         val st = m.optInt("st")
+        Tomak.dakgi()                 // 2.10.0 앞 표시의 토막을 듣는 중이면 닫음
+        tomakDaegi = name to st       // 안내 말이 끝나면 짧게 귀를 엶(alrigi 가 이어 받음)
 
         // 시작 표시면 짝을 열어 둠
         val jj = PAIR[name]
@@ -485,6 +493,7 @@ object Geurigi {
                 alrigi(if ((jk?.optInt("st") ?: 0) <= 10) "나오시는 문을 두 번 찍으셨습니다. 되돌아오실 때 이 문 앞으로 안내됩니다."
                        else "도착하시는 문을 두 번 찍으셨습니다. 이 문은 확실한 문으로 남고, 들어가는 방향까지 함께 남습니다.")
             } else {
+                tomakDaegi = null   // 문은 두 번째로 찍었을 때만 귀를 엶
                 alrigi("문을 남겼습니다. 곧바로 두 걸음 앞으로 가서 문을 한 번 더 눌러 주십시오. 딱 찍고 두 걸음 뒤에 또 찍으셔야 문이 됩니다.")
             }
             return
@@ -522,6 +531,7 @@ object Geurigi {
         if (sangtae != Sangtae.GEOREUM) { alrigi("걷기를 시작한 뒤에 말씀해 주십시오."); return }
         if (!MalDeutgi.heorakItda(c)) { alrigi("말로 표시하려면 마이크와 음성 인식 허락이 필요합니다."); return }
         if (malDeutneun) return
+        Tomak.dakgi(); tomakDaegi = null
         val jari = jigeumJari()
         malDeutneun = true
         bakkwim?.invoke()
@@ -533,7 +543,8 @@ object Geurigi {
                 Sori.deutgiKkeut()
                 val ireum = malChatgi(alts)
                 if (ireum != null) {
-                    pyosi(ireum, jari, malo = true)
+                    // 2.10.0 말로 찍은 표시는 되물어 네라고 하셔야 찍힘(받아쓰기가 틀릴 수 있어서)
+                    yeojjum("$ireum, 이대로 남길까요?", ireum, 0, jari, malo = true)
                 } else {
                     val t = alts.firstOrNull() ?: ""
                     Girok.namgi("jb_malpyosi_moreum", mapOf("mal" to t.take(30)))
@@ -617,8 +628,35 @@ object Geurigi {
 
     private fun alrigi(t: String) {
         allim = t
-        Sori.mal(t, MalGeup.ANNAE)
+        val td = tomakDaegi
+        tomakDaegi = null
+        if (td != null) Sori.mal(t, MalGeup.ANNAE) { tomakYeolgi(td.first, td.second) } else Sori.mal(t, MalGeup.ANNAE)
         bakkwim?.invoke()
+    }
+
+    /** 2.10.0 표시를 남긴 뒤 짧게 담을 차례(표시 이름, 걸음 자리) */
+    private var tomakDaegi: Pair<String, Int>? = null
+
+    /** 2.10.0 표시 안내 말이 끝나면 짧게 귀를 열어 그 자리 모습을 담음(약속 일곱) */
+    private fun tomakYeolgi(name: String, st: Int) {
+        val c = ctx ?: return
+        val id = gil?.optString("id") ?: return
+        if (!Tomak.kyeojim(c) || sangtae != Sangtae.GEOREUM || mureum != null || malDeutneun) return
+        val majimak = if (marks.length() > 0) marks.optJSONObject(marks.length() - 1) else null
+        if (majimak?.optInt("st") != st) return
+        val t = chobun
+        Eum.naegi(EumJong.DINGDONG)
+        main.postDelayed({
+            Tomak.yeolgi(c, st, name, id, t) { tm ->
+                if (tm == null || gil?.optString("id") != id) return@yeolgi
+                val g = gil ?: return@yeolgi
+                val arr = g.optJSONArray("sori") ?: org.json.JSONArray().also { g.put("sori", it) }
+                arr.put(tm)
+                jeojang()
+                Jindong.hagi("arrive")
+                Girok.namgi("jb_tomak", mapOf("st" to st, "cho" to tm.optDouble("cho")))
+            }
+        }, 450)
     }
 
     // MARK: 작은 셈

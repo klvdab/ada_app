@@ -29,6 +29,7 @@ object JabongBonche {
         Sori.sijak(a)
         // 위치(Wichi)는 화면(JabongActivity)과 점지도 그리기(JabongService)가 켬 — 긴급통화만 기다리는 동안 위성·방향 센서를 돌리지 않게(배터리)
         JabongNae.sijak(a)
+        JabongNae.gyoyukBonaegi()   // 2.10.0 못 보낸 교육 기록을 다시
         Geurigi.junbi(a)
         JabongDaegi.sijak(a)   // 2.1.0 긴급통화 받기 — 켜 두셨으면 알림 칸의 자봉이 기다림을 이어 감
         Girok.namgi("jabong_app_sijak", mapOf("pan" to JabongPan.pan, "bild" to JabongPan.bild, "beonho" to JabongNae.beonho, "android" to true))
