@@ -5,7 +5,9 @@ import SwiftUI
 struct JabongRoot: View {
     @ObservedObject private var nae = JabongNae.shared
     var body: some View {
-        if nae.deungrokham && !nae.hwanyeong {
+        if nae.deungrokham && !nae.hwanyeong && !nae.gyoyukDoem {
+            NavigationStack { DeungrokView(dasi: true) }   // 2.10.0 새 교육(일곱 가지 약속)을 아직 안 들은 봉사자
+        } else if nae.deungrokham && !nae.hwanyeong {
             JabongTab()
         } else if nae.deungrokham {
             NavigationStack { HwanyeongView() }   // 2.6.0 등록을 막 마친 분께 환영 화면부터
@@ -33,6 +35,7 @@ struct JabongTab: View {
         }
         .tint(Saek.nam)
         .fullScreenCover(isPresented: $t.boim) { TonghwaView() }   // 2.1.0 긴급통화 통화 화면
+        .task { await JabongNae.shared.gyoyukBonaegi() }   // 2.10.0 못 보낸 교육 기록을 다시
     }
 }
 
@@ -279,6 +282,7 @@ struct AllimTab: View {
                     await MainActor.run { SoriEngine.shared.mal("새로 받았습니다. 그려 주신 길은 \(nae.geurinSu)개입니다.") }
                 }
             }.buttonStyle(KeunDanchu())
+            NavigationLink { YaksokBogiView() } label: { Text("점지도 일곱 가지 약속 다시 보기") }.buttonStyle(KeunDanchu())
             NavigationLink { JabongDoumalView() } label: { Text("도움말") }.buttonStyle(KeunDanchu())
             DisclosureGroup("더 보기 펼치기") {
                 VStack(alignment: .leading, spacing: 12) {
@@ -313,7 +317,10 @@ struct JabongPanView: View {
 
 struct JabongDoumalView: View {
     static let hangmok: [(String, String)] = [
-        ("처음 등록", "자봉 앱을 처음 여시면 한 번만 등록합니다. 이름, 연락처, 주로 활동하실 지역, 네 자리 숫자를 적고, 1365 아이디는 비워 두었다가 나중에 넣으셔도 됩니다. 다음을 누르시면 점지도 그리기 요령 다섯 가지를 길눈 목소리로 차례로 읽어 드리고, 요령 다시 듣기로 언제든 다시 들으실 수 있습니다. 이어서 확인 문제 세 개를 문제와 고를 말까지 읽어 드리며, 맞히면 박수 소리와 진동으로 알려 드립니다. 칸이 비었거나 맞지 않으면 무엇이 모자란지 말로 알려 드립니다. 세 문제를 다 맞히면 환영 화면에서 자봉 번호를 알려 드리고, 봉사 시작하기를 누르시면 봉사 탭으로 갑니다. 프로그램 말소리를 꺼 두셨으면 소리 대신 보이스오버 커서로 알려 드립니다. 웹 자봉에서 이미 등록하셨으면 자봉 번호와 네 자리 숫자로 이어서 쓰십시오."),
+        ("처음 등록", "자봉 앱을 처음 여시면 한 번만 등록합니다. 이름, 연락처, 주로 활동하실 지역, 네 자리 숫자를 적고, 1365 아이디는 비워 두었다가 나중에 넣으셔도 됩니다. 다음을 누르시면 점지도 일곱 가지 약속을 길눈 목소리로 차례로 읽어 드립니다. 약속 한 장을 누르시면 그 약속만 다시 들으실 수 있습니다. 이어서 확인 문제 아홉 개를 문제와 고를 말 넷(가, 나, 다, 라)까지 읽어 드리며, 맞히면 박수 소리와 진동으로, 틀리면 풀이를 들려 드리고 다시 고르시게 합니다. 아홉 문제를 모두 맞혀야 통과합니다. 칸이 비었거나 맞지 않으면 무엇이 모자란지 말로 알려 드립니다. 통과하시면 환영 화면에서 자봉 번호를 알려 드리고, 봉사 시작하기를 누르시면 봉사 탭으로 갑니다. 프로그램 말소리를 꺼 두셨으면 소리 대신 보이스오버 커서로 알려 드립니다. 웹 자봉에서 이미 등록하셨으면 자봉 번호와 네 자리 숫자로 이어서 쓰십시오."),
+        ("표시마다 짧게 말 남기기", "점지도 일곱 가지 약속의 일곱째입니다. 표시를 남기면 안내 말 뒤에 삐 소리가 나고 폰이 짧게 귀를 엽니다. 그 자리 모습을 한두 마디로 말씀해 주십시오. 말이 멈추면 저절로 끊기고, 길어도 10초에서 끊기며, 4초 안에 말이 없으면 남기지 않습니다. 이 토막은 녹음한 시간이 아니라 그 표시의 걸음 자리에 묶여, 시각장애인이 그 자리에 닿기 몇 걸음 앞에서 들려 드리게 됩니다. 문은 두 번째로 찍었을 때만 귀를 엽니다. 다른 표시를 누르거나 잠깐 멈춤, 다 걸었습니다를 누르면 바로 닫힙니다. 다른 표시와 도구 펼치기 안에서 끄고 켤 수 있습니다. 말로 표시로 찍은 것은 폰이 이대로 남길까요 하고 되물어, 네라고 하셔야 남습니다."),
+        ("점지도 일곱 가지 약속", "시작과 끝은 문 앞에서, 걸음을 끊지 않기, 폰은 가슴 앞에 걷는 쪽으로, 꺾이는 그 자리에서 바로 표시, 짝 표시는 시작과 끝을 함께, 보폭은 걷기 전에, 표시마다 짧게 말로 남기기입니다. 서버의 점지도 점검과 같은 잣대라, 약속대로 걸으시면 점검을 통과합니다. 이미 등록하신 분도 교육이 새로워지면 앱을 열 때 약속을 한 번 다시 듣고 확인 문제를 풀어야 점지도 그리기를 쓰실 수 있습니다. 교육을 마친 날짜는 협회 등록 창고에 남습니다. 알림·설정 탭의 점지도 일곱 가지 약속 다시 보기에서 언제든 다시 보고 들으실 수 있습니다."),
+
         ("나눔 탭 — 그려 주세요", "나눔 탭 맨 위에 있습니다. 길눈님이 그려 주었으면 하고 부탁한 길이 다섯 개씩 나오며, 아직 안 그려진 부탁이 먼저 나옵니다. 줄에 엔터를 치시면 출발지와 도착지, 남긴 말이 나오고, 이 길 그리러 가기를 누르시면 봉사 탭으로 옮겨 가 어디부터 어디까지 걸으면 되는지 말씀드립니다. 다 그리신 뒤 그 부탁으로 돌아와 다 그렸습니다 표시하기를 누르시면 큰 박수와 함께 길눈님께 알려집니다. 응원 한마디 남기기로 짧은 말을 남기실 수 있고, 이름 대신 자봉 번호로 적힙니다."),
         ("함께한 기록판", "나눔 탭 셋째 줄에 있습니다. 모두 그린 길 수, 이번 주 함께 그린 길과 거리, 이번 주 가장 많이 그려 주신 분(자봉 번호, 1등부터 3등), 모두 보낸 응원 박수를 크게 보여 드리고 소리로도 읽어 드립니다. 다 걸었습니다를 누르시면 그 길이 기록판에 저절로 셈해집니다. 이번 주 모든 자봉님께 응원 박수 보내기는 한 주에 한 번 보낼 수 있습니다. 기록판은 협회 리눅스 서버가 맡으며, 서버가 잠시 쉬면 쉬고 있다고 알려 드립니다."),
         ("나눔 탭 — 걸음 나눔과 나눔 마당", "걸음 나눔은 시각장애인과 자원봉사자가 함께 쓰는 이야기 마당입니다. 다섯 개씩 나오고, 글마다 응원 박수 단추가 있어 한 글에 한 번 박수를 보낼 수 있습니다. 한마디 적기를 펼쳐 봉사 이야기나 응원 한마디를 올리시면 박수로 고마움을 전하며, 이름 대신 자봉 번호로 적힙니다. 더 보기 펼치기 안에 나눔 마당(쓰지 않는 물건 주고받기)과 함께하기(자원봉사 요령과 제도)가 있습니다."),
@@ -365,19 +372,12 @@ struct DeungrokView: View {
     @State private var boneunJung = false
     @AccessibilityFocusState private var allimChojeom: Bool
 
-    static let yoryeong = [
-        "하나. 처음 그리시기 전에 보폭을 한 번 잽니다. 보폭이 있어야 걸음 수가 정확해집니다.",
-        "둘. 출발 전에 하늘이 트인 곳에서 잠시 기다려 위성이 잡히게 합니다. 출발지와 도착지 주소는 길눈이 저절로 적습니다.",
-        "셋. 폰은 손에 들거나 주머니에 넣고, 평소 걸음으로 걷습니다. 가방 깊숙이 넣으면 걸음이 잡히지 않습니다.",
-        "넷. 꺾이는 곳, 건널목, 턱, 계단, 점자블록이 끊기는 곳은 그 자리에 닿는 순간 표시를 찍습니다. 시작을 찍었으면 끝도 꼭 찍습니다.",
-        "다섯. 올리기 전 점검에서 흠이 나오면 그 구간을 다시 걷습니다. 시각장애인의 안전이 이 한 줄에 달려 있습니다."
-    ]
-    static let yoryeongGeurim = ["ruler", "location.fill", "iphone", "hand.tap.fill", "checkmark.shield.fill"]
-    static let munje: [(q: String, d: [String], a: Int, h: String)] = [
-        ("첫째 문제. 꺾이는 곳 표시는 언제 찍습니까?", ["꺾이는 곳에 닿는 순간 찍습니다", "다 걸은 뒤 한꺼번에 찍습니다"], 0, "꺾이는 곳에 닿는 바로 그 순간 찍어야 시각장애인이 정확한 자리에서 꺾을 수 있습니다."),
-        ("둘째 문제. 건널목 건너기 시작을 찍었으면 어떻게 합니까?", ["시작만 찍어도 됩니다", "다 건너서 끝도 꼭 찍습니다"], 1, "시작과 끝이 짝을 이루어야 건널목의 길이를 알려 드릴 수 있습니다."),
-        ("셋째 문제. 그리는 동안 폰은 어디에 둡니까?", ["손에 들거나 주머니에 넣습니다", "가방 깊숙이 넣습니다"], 0, "가방 깊숙이 넣으면 걸음이 잡히지 않아 걸음 수가 틀립니다.")
-    ]
+    /// 2.10.0 이미 등록한 봉사자가 새 교육(일곱 가지 약속)을 다시 듣는 길 — 적기 없이 약속부터
+    let dasi: Bool
+    init(dasi: Bool = false) {
+        self.dasi = dasi
+        _dangye = State(initialValue: dasi ? 2 : 0)
+    }
 
     var body: some View {
         ScrollView {
@@ -389,7 +389,10 @@ struct DeungrokView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityFocused($allimChojeom)
                 }
-                if dangye >= 1 && dangye <= 3 { danggyePyo }
+                if dasi && dangye >= 2 && dangye <= 3 {
+                    Text("점지도 교육이 새로워졌습니다. 일곱 가지 약속을 한 번 듣고 확인 문제 아홉 개를 풀어 주시면 점지도 그리기를 이어서 쓰실 수 있습니다.")
+                        .font(.title3).fixedSize(horizontal: false, vertical: true)
+                } else if dangye >= 1 && dangye <= 3 { danggyePyo }
                 switch dangye {
                 case 0: cheotHwamyeon
                 case 1: jeokgi
@@ -471,75 +474,68 @@ struct DeungrokView: View {
                 if yeonrak.filter({ $0.isNumber }).count < 9 { allyeo("연락처가 짧습니다. 전화번호를 끝까지 적어 주십시오."); return }
                 if jam.filter({ $0.isNumber }).count != 4 { allyeo("네 자리 숫자 칸에 숫자 네 개를 정해 적어 주십시오."); return }
                 dangye = 2
-                allim = "점지도 그리기 요령 다섯 가지입니다."
+                allim = "점지도 일곱 가지 약속입니다."
             }.buttonStyle(KeunDanchu())
             Button("뒤로 — 등록 첫 화면으로") { dangye = 0; allim = "" }.buttonStyle(KeunDanchu())
         }
     }
 
-    /// 요령 다섯 가지를 차례로 읽음
+    /// 일곱 가지 약속을 차례로 읽음
     private func yoryeongIlgi() {
         if seol.malKyeojim {
             SoriEngine.shared.modu_geodugi()
-            SoriEngine.shared.mal("점지도 그리기 요령 다섯 가지를 읽어 드리겠습니다.")
-            for t in DeungrokView.yoryeong { SoriEngine.shared.mal(t) }
-            SoriEngine.shared.mal("다 들으셨으면 바로 아래 다 들었습니다 단추를 눌러 확인 문제를 풀어 주십시오.")
+            SoriEngine.shared.mal("점지도 일곱 가지 약속을 읽어 드리겠습니다. 약속 한 장을 누르시면 그 약속만 다시 들으실 수 있습니다.")
+            for t in JbGyoyuk.sorijul { SoriEngine.shared.mal(t) }
+            SoriEngine.shared.mal("다 들으셨으면 아래 다 들었습니다 단추를 눌러 확인 문제 아홉 개를 풀어 주십시오. 모두 맞혀야 통과합니다.")
         } else {
-            allyeo("점지도 그리기 요령 다섯 가지입니다. 아래로 넘기시며 읽어 주십시오.", malHagi: false)
+            allyeo("점지도 일곱 가지 약속입니다. 아래로 넘기시며 읽어 주십시오.", malHagi: false)
         }
     }
 
     private var yoryeongHwamyeon: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Button("요령 다시 듣기") { yoryeongIlgi() }.buttonStyle(KeunDanchu())
-            ForEach(Array(DeungrokView.yoryeong.enumerated()), id: \.offset) { i, t in
-                HStack(alignment: .top, spacing: 14) {
-                    Image(systemName: DeungrokView.yoryeongGeurim[i])
-                        .font(.system(size: 32, weight: .bold)).foregroundColor(Saek.nam)
-                        .frame(width: 46).accessibilityHidden(true)
-                    Text(t).font(.title2).foregroundColor(.primary).fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 16).fill(Saek.norang.opacity(0.18)))
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Saek.nam, lineWidth: 2))
-            }
-            Button("다 들었습니다 — 확인 문제 풀기") {
+            Button("약속 처음부터 다시 듣기") { yoryeongIlgi() }.buttonStyle(KeunDanchu())
+            Text(JbGyoyuk.meorimal).font(.title3).fixedSize(horizontal: false, vertical: true)
+            ForEach(Array(JbGyoyuk.yaksok.enumerated()), id: \.offset) { _, y in YaksokKadeu(y: y) }
+            Text(JbGyoyuk.maejeummal).font(.title3).fixedSize(horizontal: false, vertical: true)
+            Button("다 들었습니다 — 확인 문제 아홉 개 풀기") {
                 mi = 0; majeun = 0; dangye = 3
-                munjeIlgi("이제 확인 문제 세 개입니다. ")
+                munjeIlgi("이제 확인 문제 아홉 개입니다. 모두 맞혀야 통과합니다. ")
             }.buttonStyle(KeunDanchu())
-            Button("뒤로 — 적은 것 고치기") { SoriEngine.shared.modu_geodugi(); dangye = 1; allim = "" }.buttonStyle(KeunDanchu())
+            if !dasi {
+                Button("뒤로 — 적은 것 고치기") { SoriEngine.shared.modu_geodugi(); dangye = 1; allim = "" }.buttonStyle(KeunDanchu())
+            }
         }
         .onAppear { yoryeongIlgi() }
     }
 
     /// 문제와 고를 말을 함께 읽음
     private func munjeIlgi(_ apmal: String = "") {
-        let m = DeungrokView.munje[min(mi, DeungrokView.munje.count - 1)]
-        var t = apmal + m.q
-        for (k, d) in m.d.enumerated() { t += " \(k == 0 ? "하나" : "둘"), \(d)." }
+        let m = JbGyoyuk.munje[min(mi, JbGyoyuk.munje.count - 1)]
+        var t = apmal + "\(mi + 1)번 문제. " + m.q
+        for (k, d) in m.d.enumerated() { t += " \(JbGyoyuk.beonho[k]), \(d)." }
         allyeo(t)
     }
 
     private var munjeHwamyeon: some View {
-        let m = DeungrokView.munje[min(mi, DeungrokView.munje.count - 1)]
+        let m = JbGyoyuk.munje[min(mi, JbGyoyuk.munje.count - 1)]
         return VStack(alignment: .leading, spacing: 14) {
-            Text("문제 \(mi + 1) / \(DeungrokView.munje.count)")
+            Text("문제 \(mi + 1) / \(JbGyoyuk.munje.count)")
                 .font(.headline).foregroundColor(.secondary).accessibilityHidden(true)
             Text(m.q)
                 .font(.title.bold()).foregroundColor(Saek.nam).fixedSize(horizontal: false, vertical: true)
                 .padding(16).frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: 16).fill(Saek.norang.opacity(0.18)))
             ForEach(Array(m.d.enumerated()), id: \.offset) { i, d in
-                Button(d) { goreum(i) }.buttonStyle(KeunDanchu()).disabled(boneunJung)
+                Button("\(JbGyoyuk.beonho[i]). \(d)") { goreum(i) }.buttonStyle(KeunDanchu()).disabled(boneunJung)
             }
             Button("문제 다시 듣기") { munjeIlgi() }.buttonStyle(KeunDanchu())
-            Button("뒤로 — 요령 다시 듣기") { dangye = 2 }.buttonStyle(KeunDanchu())
+            Button("뒤로 — 약속 다시 듣기") { dangye = 2 }.buttonStyle(KeunDanchu())
         }
     }
 
     private func goreum(_ i: Int) {
-        let m = DeungrokView.munje[mi]
+        let m = JbGyoyuk.munje[mi]
         guard i == m.a else {
             SoriEngine.shared.sori(.bikyeo)
             allyeo("아깝습니다. " + m.h + " 다시 골라 주십시오.")
@@ -548,14 +544,24 @@ struct DeungrokView: View {
         majeun += 1
         Baksu.chigi()   // 2.7.0 정답이면 박수
         Jindong.hagi("arrive")
-        if mi + 1 < DeungrokView.munje.count {
+        if mi + 1 < JbGyoyuk.munje.count {
             mi += 1
-            let ap = ["맞습니다! 잘하셨습니다. ", "맞습니다! 점지도 박사님이십니다. "][min(mi - 1, 1)]
+            let ap = ["맞습니다! 잘하셨습니다. ", "맞습니다! 점지도 박사님이십니다. "][mi % 2]
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { munjeIlgi(ap) }   // 박수가 끝난 뒤에 다음 문제
             return
         }
         boneunJung = true
-        allyeo("세 문제 모두 맞히셨습니다! 등록하는 중입니다.")
+        if dasi {
+            // 2.10.0 이미 등록하신 분 — 교육 마친 기록만 남기고 탭으로
+            allyeo("아홉 문제 모두 맞히셨습니다! 교육을 마쳤습니다. 이제 점지도 그리기를 이어서 쓰실 수 있습니다.")
+            Baksu.chigi(keuge: true)
+            Task {
+                await nae.gyoyukMachim()
+                await MainActor.run { boneunJung = false }
+            }
+            return
+        }
+        allyeo("아홉 문제 모두 맞히셨습니다! 등록하는 중입니다.")
         Task {
             let t = await nae.deungrok(ireum: ireum.trimmingCharacters(in: .whitespaces), yeonrak: yeonrak, jiyeok: jiyeok.trimmingCharacters(in: .whitespaces), id1365: id1365.trimmingCharacters(in: .whitespaces), jam: jam)
             await MainActor.run {

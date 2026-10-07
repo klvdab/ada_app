@@ -10,6 +10,8 @@ final class JabongNae: ObservableObject {
     @Published private(set) var jiyeok: String
     @Published private(set) var id1365: String
     @Published private(set) var geurinSu: Int     // 그려 준 길 수(내 발자취)
+    @Published private(set) var gyoyukPan: Int    // 2.10.0 마친 교육 판(2 = 일곱 가지 약속)
+    var gyoyukDoem: Bool { gyoyukPan >= JbGyoyuk.pan }
 
     var deungrokham: Bool { !beonho.isEmpty }
     @Published private(set) var hwanyeong = false   // 2.6.0 막 등록을 마쳐 환영 화면을 보이는 중
@@ -21,6 +23,24 @@ final class JabongNae: ObservableObject {
         jiyeok = d.string(forKey: "jb.jiyeok") ?? ""
         id1365 = d.string(forKey: "jb.id1365") ?? ""
         geurinSu = d.integer(forKey: "jb.geurinSu")
+        gyoyukPan = d.integer(forKey: "jb.gyoyukPan")
+    }
+
+    /// 2.10.0 교육을 마침 — 폰에 적고, 나스 등록 창고에 날짜·판을 남김(안 닿으면 다음에 다시 보냄)
+    func gyoyukMachim() async {
+        await MainActor.run { self.gyoyukPan = JbGyoyuk.pan; self.d.set(JbGyoyuk.pan, forKey: "jb.gyoyukPan"); self.d.set(true, forKey: "jb.gyoyukMotBonaem") }
+        await gyoyukBonaegi()
+    }
+
+    /// 교육 기록 보내기 — 앱을 열 때도 못 보낸 것이 있으면 다시
+    func gyoyukBonaegi() async {
+        guard deungrokham, d.bool(forKey: "jb.gyoyukMotBonaem"), let jam = Yeolsoe.ilgi("jbJam") else { return }
+        let nal = ISO8601DateFormatter().string(from: Date())
+        if let j = await JabongNae.mutgi("gyoyuk", ["beonho": beonho, "jam": jam, "pan": JbGyoyuk.pan, "nal": nal, "munje": JbGyoyuk.munje.count]),
+           (j["ok"] as? Bool) == true {
+            d.set(false, forKey: "jb.gyoyukMotBonaem")
+        }
+        Girok.shared.namgi("jabong_gyoyuk", ["beonho": beonho, "pan": "\(JbGyoyuk.pan)"])
     }
 
     private func dameum(_ b: String, _ i: String, _ j: String, _ id: String) {
@@ -42,14 +62,17 @@ final class JabongNae: ObservableObject {
 
     /// 처음 등록 — 성공하면 nil, 안 되면 까닭
     func deungrok(ireum: String, yeonrak: String, jiyeok: String, id1365: String, jam: String) async -> String? {
-        guard let j = await JabongNae.mutgi("sin", ["ireum": ireum, "yeonrak": yeonrak, "jiyeok": jiyeok, "id1365": id1365, "jam": jam, "gyoyuk": true]) else {
+        guard let j = await JabongNae.mutgi("sin", ["ireum": ireum, "yeonrak": yeonrak, "jiyeok": jiyeok, "id1365": id1365, "jam": jam, "gyoyuk": true, "gyoyukPan": JbGyoyuk.pan]) else {
             return "통신이 닿지 않았습니다. 잠시 뒤 다시 눌러 주십시오."
         }
         guard (j["ok"] as? Bool) == true, let b = j["beonho"] as? String, !b.isEmpty else {
             return (j["msg"] as? String) ?? "등록하지 못했습니다."
         }
         Yeolsoe.sseugi("jbJam", jam)   // 새로고침 때 쓰려고 네 자리 숫자는 열쇠 곳간에
-        await MainActor.run { self.hwanyeong = true; self.dameum(b, ireum, jiyeok, id1365) }
+        await MainActor.run {
+            self.gyoyukPan = JbGyoyuk.pan; self.d.set(JbGyoyuk.pan, forKey: "jb.gyoyukPan")   // 2.10.0 등록 때 새 교육을 마침
+            self.hwanyeong = true; self.dameum(b, ireum, jiyeok, id1365)
+        }
         Girok.shared.namgi("jabong_deungrok", ["beonho": b])
         return nil
     }

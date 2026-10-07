@@ -7,6 +7,7 @@
 // 화면이 잠기거나 다른 앱을 써도 이어 갑니다(위치 바탕 실행). 1분마다, 표시를 남길 때마다, 앱이 뒤로 갈 때 저절로 저장합니다.
 // 폰이 알아챌 수 있는 것은 먼저 여쭙니다 — 방향이 크게 바뀌면 꺾이셨습니까, 높이가 바뀌면 계단입니까. 네라고 하셔야(말 또는 단추) 표시가 됩니다.
 import SwiftUI
+import AVFoundation
 import CoreMotion
 import Combine
 import Foundation
@@ -30,6 +31,8 @@ struct GrJari: Codable {
     var cad: Double? = nil    // 만보기 걸음 빠르기(1초에 몇 걸음)
     var sa: String? = nil     // 움직임 상태
 }
+
+extension GrJari: Equatable {}
 
 struct GrPyosi: Codable {
     var t: Int
@@ -67,6 +70,8 @@ struct GrGil: Codable, Identifiable {
     // 2.3.0 몸 센서 — 걸음마다 한 줄과 기기 정보(센서 기록 규격)
     var gs: [GrGeoreum]? = nil
     var gigi: GrGigi? = nil
+    // 2.10.0 표시마다 짧게 남긴 목소리 토막(걸음 자리에 묶임)
+    var sori: [GrTomak]? = nil
 }
 
 // MARK: 그리기 엔진
@@ -81,6 +86,8 @@ final class JeomGeurigi: ObservableObject {
         let danchu: String      // 단추 이름
         let jariI: Int          // 표시를 남길 자리(pts 번호)
         let ttae: Date
+        var jari: GrJari? = nil // 2.10.0 말로 찍은 표시 — 말한 순간의 자리
+        var malo = false        // 2.10.0 말로 찍어 되묻는 중
     }
 
     /// 표시 스물두 가지 — 웹 jeom_rec.js 와 같음
@@ -207,6 +214,10 @@ final class JeomGeurigi: ObservableObject {
 
     /// 그리기 시작 — 보폭이 있어야 함
     func sijak() {
+        // 2.10.0 표시마다 짧게 말 남기기 — 마이크 허락을 처음 한 번 여쭘(허락이 없어도 그리기는 됨)
+        if TomakNokeum.kyeojim && AVAudioSession.sharedInstance().recordPermission == .undetermined {
+            AVAudioSession.sharedInstance().requestRecordPermission { _ in }
+        }
         guard Seoljeong.shared.bopok > 0.2, Seoljeong.shared.bopokJaem else {
             alrigi("먼저 보폭을 재 주십시오. 점지도의 걸음 수가 정확하려면 그리시는 분의 보폭이 꼭 있어야 합니다.")
             return
@@ -242,6 +253,7 @@ final class JeomGeurigi: ObservableObject {
 
     func jamkkan() {
         guard sangtae == .georeum else { return }
+        TomakNokeum.shared.dakgi()
         sangtae = .meomchum
         meomchumSt0 = WichiEngine.shared.georeumSu
         mureum = nil
@@ -273,6 +285,7 @@ final class JeomGeurigi: ObservableObject {
 
     /// 다 걸었습니다
     func kkeut() {
+        TomakNokeum.shared.dakgi()
         guard var g = gil else { return }
         meomchugi()
         if sangtae == .georeum { g.pts.append(jigeumJari()) }
@@ -406,16 +419,17 @@ final class JeomGeurigi: ObservableObject {
     }
 
     /// 여쭙고, 말소리가 끝나면 네·아니오를 한 번 들음 — 단추로도 답할 수 있음
-    private func yeojjum(_ mal: String, _ ne: String, _ jariI: Int) {
+    private func yeojjum(_ mal: String, _ ne: String, _ jariI: Int, jari: GrJari? = nil, malo: Bool = false) {
         majimakMureum = Date()
-        mureum = Mureum(mal: mal, ne: ne, danchu: "네 — " + ne, jariI: max(0, jariI), ttae: Date())
+        TomakNokeum.shared.dakgi()   // 2.10.0 토막을 듣던 귀는 닫고 여쭘
+        mureum = Mureum(mal: mal, ne: ne, danchu: "네 — " + ne, jariI: max(0, jariI), ttae: Date(), jari: jari, malo: malo)
         Girok.shared.namgi("jb_mureum", ["ne": ne])
         SoriEngine.shared.mal(mal, .annae)
         SoriEngine.shared.kkeutnamyeon { [weak self] in self?.neDeutgi() }
     }
 
     private func neDeutgi() {
-        guard mureum != nil, sangtae == .georeum, MalDeutgi.heorakItda, !malDeutneun else { return }
+        guard mureum != nil, sangtae == .georeum, MalDeutgi.heorakItda, !malDeutneun, !TomakNokeum.shared.nokeumJung else { return }
         malDeutneun = true
         let ok = MalDeutgi.shared.myeongryeong(gidarim: 5) { [weak self] alts in
             guard let self = self else { return }
@@ -435,8 +449,8 @@ final class JeomGeurigi: ObservableObject {
         mureum = nil
         if ne {
             let ps = gil?.pts ?? []
-            let jari = m.jariI < ps.count ? ps[m.jariI] : nil
-            pyosi(m.ne, jari: jari, mureum: true)
+            let jari = m.jari ?? (m.jariI < ps.count ? ps[m.jariI] : nil)
+            pyosi(m.ne, jari: jari, malo: m.malo, mureum: !m.malo)
         } else {
             Girok.shared.namgi("jb_mureum_ani", ["ne": m.ne])
             alrigi("알겠습니다. 남기지 않았습니다.")
@@ -456,8 +470,11 @@ final class JeomGeurigi: ObservableObject {
         if mu { m.mureum = true }
         if name.hasSuffix("꺾임") { majimakKkeokim = Date() }
         mureum = nil
+        TomakNokeum.shared.dakgi()   // 2.10.0 앞 표시의 토막을 듣는 중이면 닫음
         defer { jeojang() }
         let st = m.st
+        var tomakHal = true
+        defer { if tomakHal { tomakYeolgi(name, st: st) } }   // 2.10.0 안내 말이 끝나면 짧게 귀를 엶
 
         // 시작 표시면 짝을 열어 둠
         if let jj = JeomGeurigi.PAIR[name] {
@@ -532,6 +549,7 @@ final class JeomGeurigi: ObservableObject {
             } else if let jj = jjak, (m.st - jj.st) >= 1, (m.st - jj.st) <= 5, (m.t - jj.t) <= 20 {
                 doem = true   // 위성이 없는 안쪽 — 걸음으로만 가림
             }
+            tomakHal = doem   // 문은 두 번째로 찍었을 때만 귀를 엶
             if doem {
                 alrigi((jjak?.st ?? 0) <= 10 ? "나오시는 문을 두 번 찍으셨습니다. 되돌아오실 때 이 문 앞으로 안내됩니다."
                                              : "도착하시는 문을 두 번 찍으셨습니다. 이 문은 확실한 문으로 남고, 들어가는 방향까지 함께 남습니다.")
@@ -541,6 +559,27 @@ final class JeomGeurigi: ObservableObject {
             return
         }
         alrigi(name + "을 남겼습니다. 지금까지 \(st)걸음, 표시 \(gil?.marks.count ?? 0)개입니다.")
+    }
+
+    /// 2.10.0 표시 안내 말이 끝나면 짧게 귀를 열어 그 자리 모습을 담음(약속 일곱)
+    private func tomakYeolgi(_ name: String, st: Int) {
+        guard TomakNokeum.kyeojim, let id = gil?.id else { return }
+        let t = chobun
+        SoriEngine.shared.kkeutnamyeon { [weak self] in
+            guard let self = self, self.sangtae == .georeum, self.mureum == nil, !self.malDeutneun,
+                  self.gil?.id == id, self.gil?.marks.last?.st == st else { return }
+            SoriEngine.shared.sori(.deutgi)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                TomakNokeum.shared.yeolgi(st: st, pyosi: name, gilId: id, t: t) { [weak self] tm in
+                    guard let self = self, let tm = tm, self.gil?.id == id else { return }
+                    if self.gil?.sori == nil { self.gil?.sori = [] }
+                    self.gil?.sori?.append(tm)
+                    self.jeojang()
+                    Jindong.hagi("arrive")
+                    Girok.shared.namgi("jb_tomak", ["st": st, "cho": tm.cho])
+                }
+            }
+        }
     }
 
     /// 계단 칸수 고치기 — 마지막 계단의 칸수를 바꿈
@@ -564,6 +603,7 @@ final class JeomGeurigi: ObservableObject {
             return
         }
         guard !malDeutneun else { return }
+        TomakNokeum.shared.dakgi()
         let jari = jigeumJari()
         malDeutneun = true
         SoriEngine.shared.sori(.deutgi)
@@ -573,7 +613,8 @@ final class JeomGeurigi: ObservableObject {
                 self.malDeutneun = false
                 MalDeutgi.shared.meomchugi()
                 if let ireum = JeomGeurigi.malChatgi(alts) {
-                    self.pyosi(ireum, jari: jari, malo: true)
+                    // 2.10.0 말로 찍은 표시는 되물어 네라고 하셔야 찍힘(받아쓰기가 틀릴 수 있어서)
+                    self.yeojjum("\(ireum), 이대로 남길까요?", ireum, 0, jari: jari, malo: true)
                 } else {
                     let t = alts.first ?? ""
                     Girok.shared.namgi("jb_malpyosi_moreum", ["mal": String(t.prefix(30))])
@@ -677,6 +718,7 @@ final class JeomGeurigi: ObservableObject {
 // MARK: 화면
 
 struct GeurigiView: View {
+    @State private var tomak = TomakNokeum.kyeojim   // 2.10.0 표시마다 짧게 말 남기기
     @ObservedObject private var g = JeomGeurigi.shared
     @ObservedObject private var s = Seoljeong.shared
     @State private var gyedanSu = ""
@@ -723,7 +765,7 @@ struct GeurigiView: View {
                 }
             }.font(.title3)
         }
-        Text("꺾이는 곳, 계단, 건널목, 문에 닿는 순간 표시를 남기시면 됩니다. 폰이 방향이나 높이가 바뀐 것을 알아채면 먼저 여쭙니다. 네라고 말씀하시거나 네 단추를 누르셔야 표시가 됩니다.")
+        Text("꺾이는 곳, 계단, 건널목, 문에 닿는 순간 표시를 남기시면 됩니다. 폰이 방향이나 높이가 바뀐 것을 알아채면 먼저 여쭙니다. 네라고 말씀하시거나 네 단추를 누르셔야 표시가 됩니다. 표시를 남기면 안내 말 뒤에 삐 소리가 나고 폰이 짧게 귀를 엽니다. 그 자리 모습을 한두 마디로 말씀해 주십시오. 말이 멈추면 저절로 끊기고 길어도 10초입니다. 말로 찍은 표시는 폰이 되물어 네라고 하셔야 남습니다.")
             .font(.body)
         DisclosureGroup("볼거리 표시 — 팽나무·동상처럼 찾아갈 것 남기기", isExpanded: $bgPyeol) { bolgeoriKan }.font(.title3)
     }
@@ -755,6 +797,8 @@ struct GeurigiView: View {
                 }
                 Button("지금 상태 듣기") { SoriEngine.shared.mal(g.sangtaeMal()) }.buttonStyle(KeunDanchu())
                 Button("잠깐 멈춤") { g.jamkkan() }.buttonStyle(KeunDanchu())
+                Toggle("표시마다 짧게 말 남기기 — 표시 뒤 폰이 10초 안쪽으로 귀를 엶", isOn: $tomak)
+                    .font(.title3).onChange(of: tomak) { v in TomakNokeum.kyeojim = v; if !v { TomakNokeum.shared.dakgi() } }
                 if let n = g.majimakGyedan {
                     TextField("계단 칸수 — 지금 \(n)칸", text: $gyedanSu)
                         .keyboardType(.numberPad).textFieldStyle(.roundedBorder).font(.title3)
