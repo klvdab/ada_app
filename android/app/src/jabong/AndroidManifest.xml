@@ -18,6 +18,8 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- 261002-J1 배터리 아끼기에서 자봉을 빼 달라고 여쭘(화면이 꺼져도 늦지 않게 울리도록) -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- 2.12.0(261007-A6) 새 판 업데이트 — 자봉이 받은 새 판을 스스로 설치 화면에 넘김 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application>
         <activity
@@ -60,6 +62,18 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 2.12.0 새 판 업데이트(길눈 부품 Ollim) — 설치 결과와 「새 판으로 바뀜」 알림 -->
+        <receiver
+            android:name="kr.or.ada.app.gilnun.OllimReceiver"
+            android:exported="false" />
+        <receiver
+            android:name="kr.or.ada.app.gilnun.OllimBakkwimReceiver"
+            android:exported="true">
+            <intent-filter>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
