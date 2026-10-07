@@ -371,6 +371,7 @@ final class AnnaeEngine: ObservableObject {
     }
 
     private func dasiSijak() {
+        ChaMat.shared.kkeut()   // 2.56.0 차 안 길 맞춤도 처음부터
         ttJiugi()   // 2.47.0
         bgJiugi()   // 2.48.0
         majimakGeoriMal = nil
@@ -935,8 +936,18 @@ final class AnnaeEngine: ObservableObject {
         GanpanAllim.shared.chaAn(w)   // 2.25.0 차 안 간판 알림
         let mok = y.mokjeok.ireum
         let now = Date()
+        // 2.56.0 차 안 길 맞춤(웹 길눈 0.84.0과 같음, 이사장님 허락) — 바른 길로 가는지, 내리는 곳의 길·건물·시계 방향·미터.
+        // 승용차·택시에서만(버스·기차는 세워 달라 할 수 없음). 이 차례에 말했으면 남은 거리 눈금은 다음 차례로 미룸
+        var mat = false
+        if y.talgeot == .cha && !w.georeumChu {
+            let cm = ChaMat.shared
+            if !cm.gatEun(y.mokjeok.lat, y.mokjeok.lon) { cm.sijak(y.mokjeok.lat, y.mokjeok.lon, mok) }
+            mat = cm.salpim(w) { self.malHagi($0) }
+        }
         let dan = [5000, 3000, 2000, 1000, 500, 300, 150]
-        if majimakGeoriMal == nil {
+        if mat {
+            // 남은 거리 눈금은 다음 위치 때
+        } else if majimakGeoriMal == nil {
             for g in dan where Double(g) >= d { chaGeori.insert(g) }
             malHagi("\(mok)까지 \(Annae.geoMal(d)) 남았습니다.")
             majimakGeoriMal = d

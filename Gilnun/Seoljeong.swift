@@ -50,6 +50,8 @@ final class Seoljeong: ObservableObject {
     @Published var doepul: Int { didSet { d.set(doepul, forKey: "gn.doepul") } }
     @Published var gilOn: Bool { didSet { d.set(gilOn, forKey: "gn.gilOn") } }
     @Published var gilGap: Int { didSet { d.set(gilGap, forKey: "gn.gilGap") } }
+    /// 2.56.0 차 안 안내 정도 1 간단 · 2 보통 · 3 자세히(웹 길눈 0.84.0과 같은 처음 값 보통)
+    @Published var chaJeongdo: Int { didSet { d.set(chaJeongdo, forKey: "gn.chaJeongdo") } }
     /// 2.25.0 차 안 간판 알림 — 달릴 때 지나는 가게·건물(처음부터 켜짐), 서 있을 때 카메라로 창밖 간판 읽기(처음엔 꺼짐)
     @Published var ganpanOn: Bool { didSet { d.set(ganpanOn, forKey: "gn.ganpanOn") } }
     @Published var ganpanKamera: Bool { didSet { d.set(ganpanKamera, forKey: "gn.ganpanKamera") } }
@@ -106,6 +108,7 @@ final class Seoljeong: ObservableObject {
         doepul = (ud.object(forKey: "gn.doepul") as? Int) ?? 6
         gilOn = (ud.object(forKey: "gn.gilOn") as? Bool) ?? true
         gilGap = (ud.object(forKey: "gn.gilGap") as? Int) ?? 60
+        chaJeongdo = (ud.object(forKey: "gn.chaJeongdo") as? Int) ?? 2
         ganpanOn = (ud.object(forKey: "gn.ganpanOn") as? Bool) ?? true
         ganpanKamera = (ud.object(forKey: "gn.ganpanKamera") as? Bool) ?? false
         malJaru = (ud.object(forKey: "gn.malJaru") as? Bool) ?? false

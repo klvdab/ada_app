@@ -124,6 +124,16 @@ struct MalSeolDeoView: View {
                 SoriEngine.shared.mal("한 번 말한 뒤 \(s.doepul)초 동안은 다시 말하지 않습니다.")
             }
             .buttonStyle(KeunDanchu())
+            // 2.56.0 차 안 안내 정도(웹 길눈 0.84.0과 같음) — 바른 길로 가는지 알림과 내리는 곳 안내는 간단에서도 나옴
+            Button("차 안 안내 정도 — 지금 \(ChaMat.ireum[min(3, max(1, s.chaJeongdo))]) (누르면 바뀝니다)") {
+                s.chaJeongdo = s.chaJeongdo >= 3 ? 1 : s.chaJeongdo + 1
+                switch s.chaJeongdo {
+                case 1: SoriEngine.shared.mal("차 안 안내를 간단히 합니다. 남은 거리, 길에서 벗어났을 때, 내리는 곳만 말씀드립니다.")
+                case 2: SoriEngine.shared.mal("차 안 안내를 보통으로 합니다. 마지막 꺾는 곳과 목적지에서 멀어질 때도 말씀드립니다.")
+                default: SoriEngine.shared.mal("차 안 안내를 자세히 합니다. 꺾는 곳마다, 길대로 가는지, 오래 서 있을 때도 말씀드립니다.")
+                }
+            }
+            .buttonStyle(KeunDanchu())
             Button("지나는 곳 안내 — " + (s.gilOn ? "켜져 있음 (누르면 끕니다)" : "꺼져 있음 (누르면 켭니다)")) {
                 s.gilOn.toggle()
                 SoriEngine.shared.mal(s.gilOn ? "지나는 길을 알려 드립니다." : "지나는 길을 알리지 않습니다.")
@@ -165,9 +175,9 @@ struct MalSeolDeoView: View {
             Button("지금 설정으로 들어 보기") {
                 let m: String
                 switch s.malSang {
-                case 0: m = "사거리 백삼십 미터. 두 시 우회전 왕산로."
-                case 1: m = "백삼십 미터 앞 사거리. 곧장 다산로. 두 시 우회전 왕산로, 열 시 좌회전 정릉천동로."
-                default: m = "백삼십 미터 앞이 사거리입니다. 곧장 가면 다산로입니다. 두 시 방향 우회전은 왕산로, 열 시 방향 좌회전은 정릉천동로입니다."
+                case 0: m = "사거리 백삼십 미터. 두 시 방향 왕산로."
+                case 1: m = "백삼십 미터 앞 사거리. 곧장 다산로. 두 시 방향 왕산로, 열 시 방향 정릉천동로."
+                default: m = "백삼십 미터 앞이 사거리입니다. 곧장 가면 다산로입니다. 두 시 방향은 왕산로, 열 시 방향은 정릉천동로입니다."
                 }
                 SoriEngine.shared.mal("이렇게 들으십니다. " + m)
             }
