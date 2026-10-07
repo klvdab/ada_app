@@ -17,6 +17,7 @@ final class Bonche {
         YeojeongEngine.shared.bureogi()
         WichiEngine.shared.sijak()
         TalgeotGamji.shared.sijak()  // 2.40.0 탈것 저절로 알아채기(움직임 감지기·기압계, 땅속에서도)
+        Task { @MainActor in OllimEngine.shared.sijak() }   // 2.54.0 새 판 알림(이사장님 승인)
         _ = AnnaeEngine.shared       // 지난 여정이 있으면 안내를 곧장 이어 감
         _ = JeomEngine.shared        // 2.10.0 점지도 따라 걷기
         JeomEngine.shared.ieoGagi()  // 2.11.1 앱이 꺼졌다 켜져도 하던 점지도 따라 걷기를 이어 감
