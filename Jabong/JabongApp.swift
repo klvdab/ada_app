@@ -38,6 +38,7 @@ final class JabongBonche {
         Tongsin.shared.sijak()
         WichiEngine.shared.sijak()
         JabongDaegi.shared.sijak()   // 2.1.0 긴급통화 받기 — 애플 알림(VoIP) 받을 준비
+        Task { @MainActor in OllimEngine.shared.sijak() }   // 2.12.0 새 판 알림(이사장님 승인)
         Girok.shared.namgi("jabong_app_sijak", ["pan": JabongPan.pan, "bild": JabongPan.bild, "beonho": JabongNae.shared.beonho])
         // 현장에서는 늘 의외의 일이 생깁니다 — 1분마다 저절로 저장
         sigye = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.jeojang() }
