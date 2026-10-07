@@ -159,6 +159,7 @@ class JabongActivity : AppCompatActivity() {
                 if ((h is BongsaTab || h is AllimTab) && deopgaeJong.isEmpty()) boyeojugi(false)
             }
         }
+        Ollim.makgi = { if (Geurigi.sangtae != Geurigi.Sangtae.SWIM) "점지도를 그리는 중에는 업데이트하지 않습니다. 다 걸었습니다를 누르신 뒤 업데이트해 주십시오." else null }   // 2.12.1 설치하면 앱이 꺼지므로
         Ollim.sijak(this)
         Ollim.intentBoda(this, intent)
     }
