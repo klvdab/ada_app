@@ -138,10 +138,12 @@ final class QrEngine: NSObject, ObservableObject, AVCaptureMetadataOutputObjects
     }
 
     static func eodi(_ x: Double, _ y: Double) -> String {
-        var a: [String] = []
-        if x < 0.33 { a.append("왼쪽") } else if x > 0.67 { a.append("오른쪽") }
-        if y < 0.33 { a.append("위쪽") } else if y > 0.67 { a.append("아래쪽") }
-        return a.isEmpty ? "카메라 한가운데에 있습니다." : "카메라의 " + a.joined(separator: " ") + "에 있습니다."
+        // 2.53.0 카메라 화면 속 자리도 시계 방향으로(가운데에서 본 쪽, 위가 열두 시)
+        let dx = x - 0.5, dy = 0.5 - y
+        if abs(dx) < 0.17 && abs(dy) < 0.17 { return "카메라 한가운데에 있습니다." }
+        var s = Int((atan2(dx, dy) * 180 / .pi / 30).rounded())
+        if s <= 0 { s += 12 }
+        return "카메라 화면의 \(s)시 쪽에 있습니다."
     }
 
     static func jongryuBoda(_ t: String) -> (String, String) {
