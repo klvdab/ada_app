@@ -1,4 +1,4 @@
-# 도서관 앱 안드로이드 화면 하나하나 눌러 보기 (판 0.1.2, 빌드 261008-1, 도서관 창 클) — 0.1.2: 단추 이름이 꼭 같은 것을 먼저 누름
+# 도서관 앱 안드로이드 화면 하나하나 눌러 보기 (판 0.1.3, 빌드 261008-2, 도서관 창 클) — 0.1.3: 찾기 칸에 바로 적기, 느린 쓸기
 import subprocess,time,re,os,html
 def sh(c,t=60):
     try: return subprocess.run(c,shell=True,capture_output=True,text=True,timeout=t).stdout
@@ -35,7 +35,7 @@ def tap(label,tries=6):
     for i in range(tries):
         x=dump('chatgi',False); p=find(x,label)
         if p: sh('adb shell input tap %d %d'%p); time.sleep(3); return True
-        sh('adb shell input swipe 540 1700 540 700 400'); time.sleep(1)
+        sh('adb shell input swipe 540 1800 540 500 900'); time.sleep(1)
     say('!! 못 찾음: '+label); return False
 def wiro():
     for i in range(6): sh('adb shell input swipe 540 600 540 1800 300')
@@ -60,10 +60,12 @@ for m in ['주제별로 찾기','장르별로 찾기','테마별로 찾기']:
     wiro()
     if tap(m): dump('mun_'+m[:3]); dwiro()
 wiro()
-if tap('찾기'):
-    x=dump('chatgi_hwamyeon')
-    p=find(x,'EditText') 
-    sh('adb shell input text Pride'); sh('adb shell input keyevent 66'); time.sleep(8); dump('chatgi_gyeolgwa')
+x=dump('chatgi_hwamyeon',False)
+eds=[tuple(map(int,b)) for b in re.findall(r'class="android.widget.EditText"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',x)]
+if eds:
+    l,t,r,b=eds[0]; sh('adb shell input tap %d %d'%((l+r)//2,(t+b)//2)); sh('adb shell input text Pride'); sh('adb shell input keyevent 111'); time.sleep(1)
+    tap('찾기'); time.sleep(8); dump('chatgi_gyeolgwa')
+if True:
     x=dump('g',False)
     if tap('Pride'): dump('chaek_jeongbo')
 if tap('읽기') or tap('듣기'):
@@ -75,7 +77,7 @@ sh('adb shell am force-stop '+P); sh('adb shell monkey -p %s -c android.intent.c
 for m in ['내 서재','설정']:
     if tap(m):
         dump('tab_'+m)
-        for i in range(4): sh('adb shell input swipe 540 1700 540 700 400'); time.sleep(1); dump('tab_%s_%d'%(m,i))
+        for i in range(4): sh('adb shell input swipe 540 1800 540 500 900'); time.sleep(1); dump('tab_%s_%d'%(m,i))
 if tap('여자 2'): time.sleep(20); ggeut('여자 2 미리 듣기')
 if tap('도움말'): dump('doumal')
 lg=sh('adb logcat -d | grep -E "FATAL EXCEPTION|AndroidRuntime" | head -30')
