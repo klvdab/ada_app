@@ -11,6 +11,9 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- 2.7.0 b5 음악·방송: 화면이 꺼져도 소리가 이어지게(알림 칸의 길눈 방송) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- 2.25.0(261007-A13) 긴급통화 중 잠가도 마이크·카메라가 이어지게(TonghwaService) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     <!-- 2.22.0(261007-A5) 새 판 업데이트 — 길눈이 받은 새 판을 스스로 설치 화면에 넘김 -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
@@ -23,8 +26,9 @@
             android:name="kr.or.ada.app.gilnun.GilnunActivity"
             android:exported="true"
             android:screenOrientation="portrait"
-            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode"
             android:label="@string/app_name">
+            <!-- 2.25.0 블루투스 리모컨·키보드를 붙이거나 화면 분할·밤낮 화면이 바뀌어도 화면을 새로 짓지 않음(긴급통화가 끊기고 첫 화면으로 돌아가던 일) -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -35,6 +39,12 @@
             android:name="kr.or.ada.app.gilnun.WichiService"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <!-- 2.25.0 긴급통화 중 알림 칸(마이크·카메라) -->
+        <service
+            android:name="kr.or.ada.app.gilnun.TonghwaService"
+            android:exported="false"
+            android:foregroundServiceType="microphone|camera" />
 
         <!-- 2.7.0 b5 알림 칸의 길눈 방송 — 미디어3 미디어 세션 서비스(음악·라디오·TV) -->
         <service
