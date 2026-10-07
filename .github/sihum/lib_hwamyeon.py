@@ -1,4 +1,4 @@
-# 도서관 앱 안드로이드 화면 하나하나 눌러 보기 (판 0.1.0, 빌드 261007-1, 도서관 창 클)
+# 도서관 앱 안드로이드 화면 하나하나 눌러 보기 (판 0.1.1, 빌드 261007-2, 도서관 창 클) — 0.1.1: 알림 허락, 회원 등록 넘기기
 import subprocess,time,re,os,html
 def sh(c,t=60):
     try: return subprocess.run(c,shell=True,capture_output=True,text=True,timeout=t).stdout
@@ -40,7 +40,16 @@ def sori(): o=sh('adb shell dumpsys audio'); return 'state:started' in o
 def ggeut(name):
     say('-- %s: 앱 %s, 소리 %s'%(name,'살아 있음' if salla() else '꺼짐','남' if sori() else '안 남'))
 sh('adb shell settings put global window_animation_scale 0')
+sh('adb shell pm grant %s android.permission.POST_NOTIFICATIONS'%P)
 sh('adb shell monkey -p %s -c android.intent.category.LAUNCHER 1'%P); time.sleep(20)
+x=dump('0_deungrok')
+if find(x,'휴대전화'):
+    eds=[tuple(map(int,b)) for b in re.findall(r'class="android.widget.EditText"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',x)]
+    if len(eds)>=2:
+        l,t,r,b=eds[0]; sh('adb shell input tap %d %d'%((l+r)//2,(t+b)//2)); sh('adb shell input text keulsihum')
+        l,t,r,b=eds[1]; sh('adb shell input tap %d %d'%((l+r)//2,(t+b)//2)); sh('adb shell input text 01000000000')
+        sh('adb shell input keyevent 111'); time.sleep(1); tap('등록'); time.sleep(8)
+    else: say('!! 등록 칸을 못 찾음 %d'%len(eds))
 dump('1_cheot'); ggeut('첫 화면')
 for m in ['주제별로 찾기','장르별로 찾기','테마별로 찾기']:
     wiro()
