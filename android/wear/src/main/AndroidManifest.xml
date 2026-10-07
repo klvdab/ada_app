@@ -18,6 +18,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
     <!-- 안드로이드 14 이상의 몸 활동 갈래 앞에 도는 일은 몸 활동 허락이나 이 허락(설치할 때 저절로 받음) 중 하나가 있어야 열림 -->
     <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
+    <!-- 2.7.0 워치 스스로 새 판 받기 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:allowBackup="false"
@@ -42,6 +44,16 @@
             </intent-filter>
         </activity>
 
+        <!-- 2.7.0 새 판 설치 결과 -->
+        <receiver android:name=".WatchOllimReceiver" android:exported="false" />
+
+        <!-- 2.7.0 폰 길눈이 보낸 동영상 틀기 -->
+        <activity
+            android:name=".DongyeongWatchActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:label="길눈 동영상" />
+
         <!-- 폰 길눈이 보내는 상태·알림·답을 받음(워치 길눈 화면이 닫혀 있어도) -->
         <service
             android:name=".GilnunWearService"
@@ -49,6 +61,11 @@
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
                 <data android:scheme="wear" android:host="*" android:pathPrefix="/gilnun" />
+            </intent-filter>
+            <!-- 2.7.0 폰 길눈이 보내는 동영상 파일(채널) -->
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.CHANNEL_EVENT" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/gilnun/dongyeong" />
             </intent-filter>
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
