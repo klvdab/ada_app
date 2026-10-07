@@ -2,12 +2,16 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.11.0"
-    static let bild = "261007-I4"
+    static let pan = "2.12.0"
+    static let bild = "261007-I6"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.12.0", bild: "261007-I6", nal: "2026-10-07", naeyong: [
+            "새 판 알림(이사장님 승인, 길눈 부품 OllimEngine 을 함께 씀) — 켤 때와 앱으로 돌아올 때(1시간에 한 번까지) 협회 판 번호 한 장(sihum/pan.json)을 살펴, 새 판이면 봉사 탭 맨 위에 「자봉 새 판이 나왔습니다. 두드리면 테스트플라이트에서 업데이트합니다」 단추",
+            "알림·설정 탭의 새로고침 바로 아래 업데이트 단추, 도움말에 「업데이트 — 새 판 받기」 항목 더함"
+        ]),
         Gochim(pan: "2.11.0", bild: "261007-I4", nal: "2026-10-07", naeyong: [
             "봉사자가 직접 걸어 보고 낸 요청(이사장님 승인) — 행동 자동인식 가운데 계단 여쭙기(올라가는 계단입니까·계단이 끝났습니까)를 없앰. 꺾임 여쭙기는 기본 끔, 다른 표시와 도구 펼치기 안에서 켬",
             "말로 표시 — 단추에 없는 말도 말한 그대로 표시로(벤치, 이대로 남길까요 하고 되물어 네라고 하셔야 남음)",
