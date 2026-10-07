@@ -5,7 +5,8 @@
 // 웹 jeom_rec.js 의 기록 모양(자리 t·st·h·lat·lon·acc, 표시 이름과 짝·칸수·거리)을 그대로 따라, 앞으로 올리기에서 웹과 한곳에 모입니다.
 // 점지도의 바탕은 폰 걸음 센서, 방향은 폰 방향 센서, 위성은 거듦. 높이는 폰 기압계(상대 높이, ralt)로 재어 계단을 여쭙니다.
 // 화면이 잠기거나 다른 앱을 써도 이어 갑니다(위치 바탕 실행). 1분마다, 표시를 남길 때마다, 앱이 뒤로 갈 때 저절로 저장합니다.
-// 폰이 알아챌 수 있는 것은 먼저 여쭙니다 — 방향이 크게 바뀌면 꺾이셨습니까, 높이가 바뀌면 계단입니까. 네라고 하셔야(말 또는 단추) 표시가 됩니다.
+// 2.11.0 봉사자 요청(이사장님 승인) — 계단 여쭙기는 없앰. 꺾임 여쭙기는 기본 끔(펼치기 안에서 켬). 단추에 없는 말도 말로 표시,
+//   그린 길 올리기(서버 점검 뒤 점지도 창고)와 지우기, 출발지·도착지 이름 직접 넣기, 안내 말소리 끄기를 그리기 화면에.
 import SwiftUI
 import AVFoundation
 import CoreMotion
@@ -72,6 +73,9 @@ struct GrGil: Codable, Identifiable {
     var gigi: GrGigi? = nil
     // 2.10.0 표시마다 짧게 남긴 목소리 토막(걸음 자리에 묶임)
     var sori: [GrTomak]? = nil
+    // 2.11.0 올리기 — 협회 창고 번호와 서버 점검에서 나온 손볼 곳
+    var seobeoId: String? = nil
+    var heum: [String]? = nil
 }
 
 // MARK: 그리기 엔진
@@ -138,6 +142,13 @@ final class JeomGeurigi: ObservableObject {
     @Published private(set) var allim = ""
     @Published private(set) var geurinGil: [GrGil] = []
     @Published private(set) var malDeutneun = false
+    @Published private(set) var olliJung = false        // 2.11.0 올리는 중
+    @Published private(set) var majimakId: String?      // 2.11.0 방금 마친 길(올리기 단추를 안내 바로 아래에)
+    /// 2.11.0 꺾임 여쭙기 — 봉사자 요청으로 기본 끔, 펼치기 안에서 켬
+    static var kkeokMutgi: Bool {
+        get { UserDefaults.standard.bool(forKey: "jb.kkeokMutgi") }
+        set { UserDefaults.standard.set(newValue, forKey: "jb.kkeokMutgi") }
+    }
     private(set) var gil: GrGil?
 
     private var stGijun = 0          // 걸음 센서 기준(앱이 켜진 뒤 센 걸음)
@@ -220,7 +231,7 @@ final class JeomGeurigi: ObservableObject {
     // MARK: 시작·멈춤·끝
 
     /// 그리기 시작 — 보폭이 있어야 함
-    func sijak() {
+    func sijak(chulbal: String = "") {
         // 2.10.0 표시마다 짧게 말 남기기 — 마이크 허락을 처음 한 번 여쭘(허락이 없어도 그리기는 됨)
         if TomakNokeum.kyeojim && AVAudioSession.sharedInstance().recordPermission == .undetermined {
             AVAudioSession.sharedInstance().requestRecordPermission { _ in }
@@ -239,17 +250,20 @@ final class JeomGeurigi: ObservableObject {
         gilJari = nil
         gilIreum = ""
         mureum = nil
+        majimakId = nil
+        let cb = chulbal.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !cb.isEmpty { gil?.from = String(cb.prefix(40)) }   // 2.11.0 봉사자가 넣은 출발지 이름이 먼저
         sangtae = .georeum
         dolligi()
         momKyeogi()
         Girok.shared.namgi("jb_geurigi_sijak", ["id": gil?.id ?? ""])
         alrigi("걷기 시작했습니다. 평소 걸음으로 걸으시고, 꺾이는 곳과 계단, 건널목, 문에 닿는 순간 표시를 남겨 주십시오.")
-        // 출발한 자리 주소를 저절로 적음
-        if let w = WichiEngine.shared.jigeum {
+        // 출발한 자리 주소를 저절로 적음 — 2.11.0 봉사자가 이름을 넣었으면 그대로 둠
+        if cb.isEmpty, let w = WichiEngine.shared.jigeum {
             Task {
                 let j = await Chatgi.juso(w.lat, w.lon)
                 await MainActor.run {
-                    guard let j = j else { return }
+                    guard let j = j, (self.gil?.from ?? "").isEmpty else { return }
                     self.gil?.from = j
                     SoriEngine.shared.mal("출발한 자리는 \(j)입니다.", .jeongbo)
                 }
@@ -313,13 +327,14 @@ final class JeomGeurigi: ObservableObject {
         if let o = openPair {
             mal += " \(o.name)의 짝인 \(JeomGeurigi.PAIR[o.name]?.end ?? "끝") 표시가 없습니다. 올리기 전 점검에서 다시 여쭙겠습니다."
         }
-        mal += " 그린 길은 폰에 담아 두었습니다. 올리기 전 점검과 올리기는 다음 판에 들어섭니다."
+        mal += " 그린 길은 폰에 담아 두었습니다. 바로 아래 방금 그린 길 올리기를 누르시면 협회 점검을 거쳐 길눈에 실립니다."
         openPair = nil
         rideMode = ""
         gil = nil
         geurinGil.insert(g, at: 0)
         mokJeojang()
-        Hamkke.geurimAllim(gil: g.id, geori: geori)   // 2.8.0 함께한 기록판에 셈
+        majimakId = g.id
+        // 2.11.0 함께한 기록판은 올린 길만 셈 — 올리기가 되면 그때 알림
         try? FileManager.default.removeItem(at: JeomGeurigi.jigeumPail)
         Girok.shared.namgi("jb_geurigi_kkeut", ["id": g.id, "georeum": g.georeum, "pyosi": g.marks.count, "jari": g.pts.count])
         alrigi(mal)
@@ -329,7 +344,7 @@ final class JeomGeurigi: ObservableObject {
             Task {
                 let j = await Chatgi.juso(w.lat, w.lon)
                 await MainActor.run {
-                    guard let j = j, let i = self.geurinGil.firstIndex(where: { $0.id == id }) else { return }
+                    guard let j = j, let i = self.geurinGil.firstIndex(where: { $0.id == id }), self.geurinGil[i].to.isEmpty else { return }
                     self.geurinGil[i].to = j
                     self.mokJeojang()
                     SoriEngine.shared.mal("도착한 자리는 \(j)입니다.", .jeongbo)
@@ -372,10 +387,7 @@ final class JeomGeurigi: ObservableObject {
         gil?.georeum = p.st
         // 물음은 20초 지나면 거둠
         if let m = mureum, Date().timeIntervalSince(m.ttae) > 20 { mureum = nil }
-        if rideMode.isEmpty {
-            kkeokimBoda()
-            gyedanBoda()
-        }
+        if rideMode.isEmpty && JeomGeurigi.kkeokMutgi { kkeokimBoda() }   // 2.11.0 계단 여쭙기 없앰, 꺾임 여쭙기는 켰을 때만
         if (gil?.pts.count ?? 0) % 15 == 0 { gilBoda() }
     }
 
@@ -404,26 +416,6 @@ final class JeomGeurigi: ObservableObject {
         let s = JeomGeurigi.sigye(d)   // 2.10.1 실제로 돈 만큼 시계 방향으로
         let ireum = "\(s)시 방향으로 꺾임"
         yeojjum("\(s)시 방향으로 꺾이셨습니까?", ireum, n - 6)
-    }
-
-    /// 높이가 바뀌면 — 계단입니까 / 계단이 끝났습니까
-    private func gyedanBoda() {
-        guard let ps = gil?.pts, ps.count >= 9, mureum == nil, Date().timeIntervalSince(majimakMureum) > 15 else { return }
-        let n = ps.count
-        guard let a0 = ps[n - 9].ralt, let a1 = ps[n - 1].ralt else { return }
-        let georeumSai = ps[n - 1].st - ps[n - 9].st
-        if let o = openPair, JeomGeurigi.PAIR[o.name]?.kind == "계단" {
-            // 계단 중 — 4초 넘게 높이가 그대로면 끝났는지 여쭘
-            guard let b0 = ps[n - 5].ralt, abs(a1 - b0) < 0.25, ps[n - 1].st - ps[n - 5].st >= 3,
-                  n - 5 > o.idx else { return }
-            yeojjum("계단이 끝났습니까?", "계단 끝", n - 5)
-            return
-        }
-        guard openPair == nil, georeumSai >= 4 else { return }
-        let cha = a1 - a0
-        guard abs(cha) >= 1.2 else { return }
-        yeojjum(cha > 0 ? "높이가 올라갑니다. 올라가는 계단입니까?" : "높이가 내려갑니다. 내려가는 계단입니까?",
-                cha > 0 ? "올라가는 계단 시작" : "내려가는 계단 시작", n - 9)
     }
 
     /// 여쭙고, 말소리가 끝나면 네·아니오를 한 번 들음 — 단추로도 답할 수 있음
@@ -624,10 +616,14 @@ final class JeomGeurigi: ObservableObject {
                     // 2.10.0 말로 찍은 표시는 되물어 네라고 하셔야 찍힘(받아쓰기가 틀릴 수 있어서)
                     self.yeojjum("\(ireum), 이대로 남길까요?", ireum, 0, jari: jari, malo: true)
                 } else {
-                    let t = alts.first ?? ""
-                    Girok.shared.namgi("jb_malpyosi_moreum", ["mal": String(t.prefix(30))])
-                    self.alrigi(t.isEmpty ? "말씀이 들리지 않았습니다. 다시 말로 표시를 눌러 주십시오."
-                                          : "\(t)는 표시 이름으로 알아듣지 못했습니다. 계단 시작, 3시 방향, 문처럼 말씀해 주십시오.")
+                    // 2.11.0 단추에 없는 말도 말한 그대로 표시로 — 되물어 네라고 하셔야 남음
+                    let t = String((alts.first ?? "").trimmingCharacters(in: .whitespacesAndNewlines).prefix(20))
+                    Girok.shared.namgi("jb_malpyosi_jayu", ["mal": t])
+                    if t.isEmpty {
+                        self.alrigi("말씀이 들리지 않았습니다. 다시 말로 표시를 눌러 주십시오.")
+                    } else {
+                        self.yeojjum("\(t), 이대로 남길까요?", t, 0, jari: jari, malo: true)
+                    }
                 }
             }
             if !ok { self.malDeutneun = false; self.alrigi("지금은 마이크를 열지 못했습니다. 단추로 남겨 주십시오.") }
@@ -667,6 +663,9 @@ final class JeomGeurigi: ObservableObject {
 
     // MARK: 지금 상태 듣기
 
+    /// 2.11.0 말소리를 꺼 두셔도 화면 글자로 읽히게(보이스오버 커서가 그 줄로)
+    func sangtaeAllim() { alrigi(sangtaeMal()) }
+
     func sangtaeMal() -> String {
         switch sangtae {
         case .swim:
@@ -680,6 +679,106 @@ final class JeomGeurigi: ObservableObject {
             if MomSensor.shared.dollyeo { m += " 몸 센서로 센 걸음은 \(MomSensor.shared.georeumSu)걸음입니다." }
             return m
         }
+    }
+
+    // MARK: 2.11.0 올리기·지우기·이름 고치기
+
+    /// 출발지·도착지 이름 고치기 — 그리는 중이면 지금 길, 아니면 그린 길(id)
+    func ireumGochigi(_ id: String?, chulbal: String, dochak: String) {
+        let c = String(chulbal.trimmingCharacters(in: .whitespacesAndNewlines).prefix(40))
+        let d = String(dochak.trimmingCharacters(in: .whitespacesAndNewlines).prefix(40))
+        if let id = id, let i = geurinGil.firstIndex(where: { $0.id == id }) {
+            if !c.isEmpty { geurinGil[i].from = c }
+            if !d.isEmpty { geurinGil[i].to = d }
+            mokJeojang()
+        } else if gil != nil {
+            if !c.isEmpty { gil?.from = c }
+            if !d.isEmpty { gil?.to = d }
+            jeojang()
+        } else { return }
+        alrigi("이름을 적었습니다." + (c.isEmpty ? "" : " 출발지 \(c).") + (d.isEmpty ? "" : " 도착지 \(d)."))
+    }
+
+    /// 그린 길 지우기 — 폰 안의 길과 그 길의 목소리 토막만 지움(올린 길은 협회 창고에 남음)
+    func jiugi(_ id: String) {
+        guard let i = geurinGil.firstIndex(where: { $0.id == id }) else { return }
+        let g = geurinGil.remove(at: i)
+        for tm in g.sori ?? [] { try? FileManager.default.removeItem(at: TomakNokeum.pyeolDae.appendingPathComponent(tm.pail)) }
+        if majimakId == id { majimakId = nil }
+        mokJeojang()
+        Girok.shared.namgi("jb_gil_jium", ["id": id, "olim": g.olim])
+        alrigi("그린 길을 지웠습니다." + (g.olim ? " 협회에 올린 길은 협회 창고에 그대로 남습니다." : ""))
+    }
+
+    /// 그린 길 올리기 — 협회 서버가 걸음 잣대로 점검해 통과한 길만 점지도 창고에 넣음
+    func olligi(_ id: String) {
+        guard !olliJung, let g = geurinGil.first(where: { $0.id == id }) else { return }
+        if g.olim { alrigi("이미 올린 길입니다. 길눈에 실려 있습니다."); return }
+        olliJung = true
+        alrigi("길을 협회로 올립니다. 협회 점검까지 잠시 걸립니다.")
+        Task {
+            let r = await JeomGeurigi.bonaegi(g)
+            await MainActor.run { self.olligiDap(id, g, r) }
+        }
+    }
+
+    private func olligiDap(_ id: String, _ g: GrGil, _ r: [String: Any]?) {
+        olliJung = false
+        guard let i = geurinGil.firstIndex(where: { $0.id == id }) else { return }
+        guard let r = r else {
+            alrigi("올리지 못했습니다. 통신을 확인하시고 잠시 뒤 다시 올려 주십시오. 그린 길은 폰에 그대로 있습니다."); return
+        }
+        if (r["ok"] as? Bool) != true {
+            alrigi(((r["msg"] as? String) ?? "올리지 못했습니다.") + " 그린 길은 폰에 그대로 있습니다."); return
+        }
+        let heum = (r["heum"] as? [[String: Any]]) ?? []
+        let mals = heum.compactMap { $0["mal"] as? String }.filter { !$0.isEmpty }
+        if (r["olim"] as? Bool) == true {
+            geurinGil[i].olim = true
+            geurinGil[i].seobeoId = r["id"] as? String
+            geurinGil[i].heum = mals.isEmpty ? nil : mals
+            mokJeojang()
+            if majimakId == id { majimakId = nil }
+            Hamkke.geurimAllim(gil: g.id, geori: Int(Double(g.georeum) * g.bopok))   // 함께한 기록판은 올린 길만 셈
+            Girok.shared.namgi("jb_olim", ["id": id, "seobeo": geurinGil[i].seobeoId ?? ""])
+            alrigi("올렸습니다. 협회 점검을 통과해 길눈에 실렸습니다. 고맙습니다." + (mals.isEmpty ? "" : " 다음에 손보시면 좋을 곳도 알려 드립니다. " + mals.joined(separator: " ")))
+        } else {
+            geurinGil[i].heum = mals
+            mokJeojang()
+            let ppal = heum.filter { ($0["saek"] as? String) == "빨강" }.count
+            Girok.shared.namgi("jb_olim_heum", ["id": id, "su": ppal])
+            alrigi("협회 점검에서 고칠 곳이 \(max(ppal, 1))가지 나와 아직 올리지 않았습니다. " + mals.joined(separator: " ")
+                   + " 이름이 빠진 것은 이 화면에서 바로 넣고 다시 올리시면 되고, 걸음이나 표시가 빠진 구간은 다시 걸어 새로 그려 주십시오.")
+        }
+    }
+
+    /// 협회 올리기 창구로 보냄 — 웹 길 보관소(jeom.php save)와 같은 모양에 목소리 토막·몸 센서 기록을 붙임
+    static func bonaegi(_ g: GrGil) async -> [String: Any]? {
+        let enc = JSONEncoder()
+        guard let pd = try? enc.encode(g.pts), let pts = try? JSONSerialization.jsonObject(with: pd),
+              let md = try? enc.encode(g.marks), let marks = try? JSONSerialization.jsonObject(with: md) else { return nil }
+        var sori: [[String: Any]] = []
+        for tm in g.sori ?? [] {
+            var o: [String: Any] = ["st": tm.st, "cho": tm.cho, "pyosi": tm.pyosi, "t": tm.t, "pail": tm.pail]
+            if let d = try? Data(contentsOf: TomakNokeum.pyeolDae.appendingPathComponent(tm.pail)) { o["b64"] = d.base64EncodedString() }
+            sori.append(o)
+        }
+        var body: [String: Any] = [
+            "app_id": g.id, "title": (g.from.isEmpty || g.to.isEmpty) ? "" : "\(g.from) → \(g.to)",
+            "from": g.from, "to": g.to, "who": JabongNae.shared.ireum, "who_kind": "jabong", "jabong": g.beonho,
+            "secs": Int((g.kkeut ?? Date()).timeIntervalSince(g.sijak)), "steps": g.georeum, "stride": g.bopok,
+            "bopokMode": g.bopokMode, "pts": pts, "marks": marks, "sori": sori, "app": "ios-jabong-" + JabongPan.pan
+        ]
+        if let gd = try? enc.encode(g.gs ?? []), let gs = try? JSONSerialization.jsonObject(with: gd) { body["gs"] = gs }
+        guard let u = URL(string: "https://lvd.ada.or.kr/jeom/jeom_olligi.php"),
+              let b = try? JSONSerialization.data(withJSONObject: body) else { return nil }
+        var r = URLRequest(url: u, timeoutInterval: 90)
+        r.httpMethod = "POST"
+        r.httpBody = b
+        r.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        guard let dr = try? await URLSession.shared.data(for: r),
+              (dr.1 as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return (try? JSONSerialization.jsonObject(with: dr.0)) as? [String: Any]
     }
 
     // MARK: 저장
@@ -741,6 +840,9 @@ struct GeurigiView: View {
     @State private var bgIreum = ""       // 2.9.0 볼거리 표시
     @State private var bgMal = ""
     @State private var bgPyeol = false
+    @State private var chulbal = ""       // 2.11.0 출발지·도착지 이름 직접 넣기
+    @State private var dochak = ""
+    @State private var kkeokMutgi = JeomGeurigi.kkeokMutgi   // 2.11.0 꺾임 여쭙기(기본 끔)
     @AccessibilityFocusState private var allimChojeom: Bool
     @AccessibilityFocusState private var mureumChojeom: Bool
 
@@ -754,6 +856,11 @@ struct GeurigiView: View {
                     Button("아니오 — 남기지 않기") { g.dap(false) }.buttonStyle(KeunDanchu())
                 }
                 if !g.allim.isEmpty { Text(g.allim).font(.title3).accessibilityFocused($allimChojeom) }
+                // 2.11.0 방금 마친 길 — 안내 바로 아래에 올리기 단추
+                if g.sangtae == .swim, let id = g.majimakId, g.geurinGil.contains(where: { $0.id == id && !$0.olim }) {
+                    Button(g.olliJung ? "올리는 중입니다" : "방금 그린 길 올리기 — 협회 점검을 거쳐 길눈에 실림") { g.olligi(id) }
+                        .buttonStyle(KeunDanchu()).disabled(g.olliJung)
+                }
                 switch g.sangtae {
                 case .swim: sijakJeon
                 case .georeum: georeumJung
@@ -769,19 +876,25 @@ struct GeurigiView: View {
 
     @ViewBuilder private var sijakJeon: some View {
         if s.bopok > 0.2 && s.bopokJaem {
-            Button("걷기 시작 — 출발 자리 주소는 저절로 적습니다") { g.sijak() }.buttonStyle(KeunDanchu())
+            Button("걷기 시작 — 출발 자리 주소는 저절로 적습니다") { g.sijak(chulbal: chulbal); chulbal = "" }.buttonStyle(KeunDanchu())
+            DisclosureGroup("출발지 이름 직접 넣기 — 넣지 않으면 위성 주소") {   // 2.11.0
+                TextField("출발지 이름 — 예를 들어 GS25 마로니에점 문 앞", text: $chulbal).textFieldStyle(.roundedBorder).font(.title3)
+            }.font(.title3)
         } else {
             NavigationLink { BopokView() } label: { Text("먼저 내 보폭 재기 — 보폭이 있어야 그릴 수 있습니다") }.buttonStyle(KeunDanchu())
         }
-        Button("지금 상태 듣기") { SoriEngine.shared.mal(g.sangtaeMal()) }.buttonStyle(KeunDanchu())
+        Button("지금 상태 듣기") { g.sangtaeAllim() }.buttonStyle(KeunDanchu())
         if !g.geurinGil.isEmpty {
-            DisclosureGroup("그린 길 \(g.geurinGil.count)개 펼치기") {
+            // 2.11.0 줄을 누르면 그 길의 올리기·지우기·이름 고치기 화면
+            DisclosureGroup("그린 길 \(g.geurinGil.count)개 펼치기 — 눌러서 올리기·지우기") {
                 Mokrok5(g.geurinGil) { gil in
-                    Text(JeomGeurigi.gilJul(gil)).font(.body).frame(maxWidth: .infinity, alignment: .leading)
+                    NavigationLink { GrinGilView(id: gil.id) } label: {
+                        Text(JeomGeurigi.gilJul(gil)).font(.body).frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
             }.font(.title3)
         }
-        Text("꺾이는 곳, 계단, 건널목, 문에 닿는 순간 표시를 남기시면 됩니다. 폰이 방향이나 높이가 바뀐 것을 알아채면 먼저 여쭙니다. 네라고 말씀하시거나 네 단추를 누르셔야 표시가 됩니다. 표시를 남기면 안내 말 뒤에 딩동 소리가 나고 폰이 짧게 귀를 엽니다. 그 자리 모습을 한두 마디로 말씀해 주십시오. 말이 멈추면 저절로 끊기고 길어도 10초입니다. 말로 찍은 표시는 폰이 되물어 네라고 하셔야 남습니다.")
+        Text("꺾이는 곳, 계단, 건널목, 문에 닿는 순간 표시를 남기시면 됩니다. 단추에 없는 것도 말로 표시를 누르고 말씀하시면 그 말 그대로 남길 수 있습니다. 표시를 남기면 안내 말 뒤에 딩동 소리가 나고 폰이 짧게 귀를 엽니다. 그 자리 모습을 한두 마디로 말씀해 주십시오. 말이 멈추면 저절로 끊기고 길어도 10초입니다. 말로 찍은 표시는 폰이 되물어 네라고 하셔야 남습니다.")
             .font(.body)
         DisclosureGroup("볼거리 표시 — 팽나무·동상처럼 찾아갈 것 남기기", isExpanded: $bgPyeol) { bolgeoriKan }.font(.title3)
     }
@@ -811,8 +924,15 @@ struct GeurigiView: View {
                 ForEach(JeomGeurigi.MARKS.filter { !JeomGeurigi.JAJU.contains($0) }, id: \.self) { n in
                     Button(n) { g.pyosi(n) }.buttonStyle(KeunDanchu())
                 }
-                Button("지금 상태 듣기") { SoriEngine.shared.mal(g.sangtaeMal()) }.buttonStyle(KeunDanchu())
+                Button("지금 상태 듣기") { g.sangtaeAllim() }.buttonStyle(KeunDanchu())
                 Button("잠깐 멈춤") { g.jamkkan() }.buttonStyle(KeunDanchu())
+                // 2.11.0 안내 말소리 끄기 — 끄면 화면 글자와 진동으로만(설정의 말소리와 같은 스위치)
+                Toggle("안내 말소리 — 끄면 화면 글자와 진동으로만", isOn: $s.malKyeojim).font(.title3)
+                Toggle("꺾임 여쭙기 — 방향이 크게 바뀌면 폰이 먼저 여쭘", isOn: $kkeokMutgi)
+                    .font(.title3).onChange(of: kkeokMutgi) { v in JeomGeurigi.kkeokMutgi = v }
+                TextField("출발지 이름 — 지금 \(g.gilFrom.isEmpty ? "없음" : g.gilFrom)", text: $chulbal).textFieldStyle(.roundedBorder).font(.title3)
+                TextField("도착지 이름 — 넣지 않으면 다 걸은 자리 위성 주소", text: $dochak).textFieldStyle(.roundedBorder).font(.title3)
+                Button("출발지·도착지 이름 적기") { g.ireumGochigi(nil, chulbal: chulbal, dochak: dochak); chulbal = ""; dochak = "" }.buttonStyle(KeunDanchu())
                 Toggle("표시마다 짧게 말 남기기 — 표시 뒤 폰이 10초 안쪽으로 귀를 엶", isOn: $tomak)
                     .font(.title3).onChange(of: tomak) { v in TomakNokeum.kyeojim = v; if !v { TomakNokeum.shared.dakgi() } }
                 if let n = g.majimakGyedan {
@@ -829,11 +949,64 @@ struct GeurigiView: View {
     @ViewBuilder private var meomchumJung: some View {
         Button("다시 걷기") { g.dasiGeotgi() }.buttonStyle(KeunDanchu())
         Button("다 걸었습니다 — 여기까지로 마치기") { g.kkeut() }.buttonStyle(KeunDanchu())
-        Button("지금 상태 듣기") { SoriEngine.shared.mal(g.sangtaeMal()) }.buttonStyle(KeunDanchu())
+        Button("지금 상태 듣기") { g.sangtaeAllim() }.buttonStyle(KeunDanchu())
+    }
+}
+
+/// 2.11.0 그린 길 하나 — 올리기, 출발지·도착지 이름 고치기, 지우기(한 번 되물음)
+struct GrinGilView: View {
+    let id: String
+    @ObservedObject private var g = JeomGeurigi.shared
+    @Environment(\.dismiss) private var dismiss
+    @State private var chulbal = ""
+    @State private var dochak = ""
+    @State private var jiulkka = false
+    @AccessibilityFocusState private var allimChojeom: Bool
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                if let gil = g.geurinGil.first(where: { $0.id == id }) {
+                    if !g.allim.isEmpty { Text(g.allim).font(.title3).accessibilityFocused($allimChojeom) }
+                    Text(JeomGeurigi.gilJul(gil)).font(.title3)
+                    if !gil.olim {
+                        Button(g.olliJung ? "올리는 중입니다" : "이 길 올리기 — 협회 점검을 거쳐 길눈에 실림") { g.olligi(id) }
+                            .buttonStyle(KeunDanchu()).disabled(g.olliJung)
+                    }
+                    if let h = gil.heum, !h.isEmpty {
+                        DisclosureGroup("협회 점검에서 나온 곳 \(h.count)가지 펼치기") {
+                            VStack(alignment: .leading, spacing: 8) { ForEach(h, id: \.self) { Text($0).font(.body) } }
+                        }.font(.title3)
+                    }
+                    DisclosureGroup("출발지·도착지 이름 고치기") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            TextField("출발지 — 지금 \(gil.from.isEmpty ? "없음" : gil.from)", text: $chulbal).textFieldStyle(.roundedBorder).font(.title3)
+                            TextField("도착지 — 지금 \(gil.to.isEmpty ? "없음" : gil.to)", text: $dochak).textFieldStyle(.roundedBorder).font(.title3)
+                            Button("이름 적기") { g.ireumGochigi(id, chulbal: chulbal, dochak: dochak); chulbal = ""; dochak = "" }.buttonStyle(KeunDanchu())
+                        }
+                    }.font(.title3)
+                    if jiulkka {
+                        Text("이 길을 지울까요? 폰 안의 길과 목소리 토막이 지워집니다." + (gil.olim ? " 협회에 올린 길은 그대로 남습니다." : "")).font(.title3.bold())
+                        Button("네 — 이 길 지우기") { jiulkka = false; g.jiugi(id); dismiss() }.buttonStyle(KeunDanchu())
+                        Button("아니오 — 지우지 않기") { jiulkka = false }.buttonStyle(KeunDanchu())
+                    } else {
+                        Button("이 길 지우기 — 잘못 그렸을 때") { jiulkka = true }.buttonStyle(KeunDanchu())
+                    }
+                } else {
+                    Text("이 길은 지워졌습니다.").font(.title3)
+                }
+            }
+            .padding()
+        }
+        .sokHwamyeon("그린 길")
+        .onChange(of: g.allim) { _ in DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { allimChojeom = true } }
     }
 }
 
 extension JeomGeurigi {
+    /// 2.11.0 그리는 중인 길의 출발지 이름
+    var gilFrom: String { gil?.from ?? "" }
+
     /// 그린 길 한 줄
     static func gilJul(_ g: GrGil) -> String {
         let f = DateFormatter()
@@ -841,6 +1014,7 @@ extension JeomGeurigi {
         f.dateFormat = "M월 d일 H시 m분"
         let geori = Int(Double(g.georeum) * g.bopok)
         let eodi = g.from.isEmpty ? "" : " \(g.from)에서" + (g.to.isEmpty ? "" : " \(g.to)까지")
-        return "\(f.string(from: g.sijak))\(eodi), \(g.georeum)걸음 약 \(geori)미터, 표시 \(g.marks.count)개" + (g.olim ? ", 올림" : ", 올리기 전")
+        let sangtae = g.olim ? ", 올림" : ((g.heum?.isEmpty == false) ? ", 고칠 곳 있음" : ", 올리기 전")
+        return "\(f.string(from: g.sijak))\(eodi), \(g.georeum)걸음 약 \(geori)미터, 표시 \(g.marks.count)개" + sangtae
     }
 }
