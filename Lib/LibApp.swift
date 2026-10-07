@@ -71,6 +71,7 @@ struct RootView: View {
             .tag(2)
         }
         .environmentObject(nav)
+        .onAppear { LibOllim.shared.sijak() }   // 0.4.3 새 판 알림(대장클, 이사장님 지시)
     }
 }
 
