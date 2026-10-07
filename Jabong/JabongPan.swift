@@ -2,12 +2,19 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.10.0"
-    static let bild = "261007-I1"
+    static let pan = "2.10.1"
+    static let bild = "261007-I3"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.10.1", bild: "261007-I3", nal: "2026-10-07", naeyong: [
+            "방향은 늘 시계 방향으로(이사장님 지시) — 꺾임 표시를 「3시 방향으로 꺾임」「9시 방향으로 꺾임」으로, 폰이 먼저 여쭐 때는 실제로 도신 만큼 「2시 방향으로 꺾이셨습니까」처럼",
+            "도움말에 「방향은 시계 방향으로」 항목 더함",
+            "말로 표시 — 「3시」「3시 방향」「3시 방향으로」 모두 알아듣고, 「오른쪽」이라고 하셔도 「3시 방향으로 꺾임」으로 남김",
+            "약속 넷·약속 일곱과 확인 문제 풀이, 도움말의 방향 말을 시계 방향으로",
+            "짧게 말 남기기 전 알림 소리를 삐에서 딩동으로 — 안드로이드 자봉과 같은 소리로 맞춤"
+        ]),
         Gochim(pan: "2.10.0", bild: "261007-I1", nal: "2026-10-07", naeyong: [
             "봉사자 교육 보강(이사장님 승인) — 요령 다섯 가지를 점지도 일곱 가지 약속으로 바꿈: 시작과 끝은 문 앞에서, 걸음을 끊지 않기, 폰은 가슴 앞에 걷는 쪽으로, 꺾이는 그 자리에서 바로 표시, 짝 표시는 시작과 끝을 함께, 보폭은 걷기 전에, 표시마다 짧게 말로 남기기. 서버 점검 일꾼과 같은 잣대",
             "실제 있었던 흠(걸음이 빈 길, 건널목 끝 빠짐, 꺾임 표시 없음, 보폭 0)을 그린 사람 이름 없이 사례로 넣음. 약속 한 장을 누르면 그 약속만 다시 읽음",
