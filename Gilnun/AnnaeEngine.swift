@@ -641,12 +641,12 @@ final class AnnaeEngine: ObservableObject {
         let k = jigeum ? "꺾으십시오" : "꺾습니다"
         let g = jigeum ? "가십시오" : "갑니다"
         switch sign {
-        case -3, -2: return "왼쪽, 9시 방향으로 " + k
-        case 2, 3: return "오른쪽, 3시 방향으로 " + k
+        case -3, -2: return "9시 방향으로 " + k
+        case 2, 3: return "3시 방향으로 " + k
         case -1: return "11시 방향으로 비스듬히 " + g
         case 1: return "1시 방향으로 비스듬히 " + g
-        case -7: return "갈림길에서 왼쪽 길로 " + g
-        case 7: return "갈림길에서 오른쪽 길로 " + g
+        case -7: return "갈림길에서 9시 방향 길로 " + g
+        case 7: return "갈림길에서 3시 방향 길로 " + g
         case -98, 98: return "뒤로 돌아 " + g
         case 6, -6: return "둥근 길을 따라 " + g
         case 4: return jigeum ? "목적지 가까이입니다" : "목적지에 닿습니다"
