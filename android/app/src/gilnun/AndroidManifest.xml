@@ -11,6 +11,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- 2.7.0 b5 음악·방송: 화면이 꺼져도 소리가 이어지게(알림 칸의 길눈 방송) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- 2.22.0(261007-A5) 새 판 업데이트 — 길눈이 받은 새 판을 스스로 설치 화면에 넘김 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application>
         <!-- 261002-B1 카메라 눈 모델을 길눈을 깔 때 구글 플레이 서비스가 미리 받아 둠(글자·바코드·얼굴·사진 이름표) -->
@@ -68,6 +70,18 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/b6_seoryu_paths" />
         </provider>
+
+        <!-- 2.22.0 새 판 업데이트 — 설치 결과와 「새 판으로 바뀜」 알림 -->
+        <receiver
+            android:name="kr.or.ada.app.gilnun.OllimReceiver"
+            android:exported="false" />
+        <receiver
+            android:name="kr.or.ada.app.gilnun.OllimBakkwimReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <!-- 2.7.0 b3 발 앞 계단·턱 알림(관리자 시험) — 구글 AR 은 있으면 씀(없어도 앱은 깔림). camera.ar uses-feature 는 넣지 않음 -->
         <meta-data android:name="com.google.ar.core" android:value="optional" />
