@@ -51,6 +51,7 @@ struct SeoljeongView: View {
                 if !saerogochimMal.isEmpty {
                     Text(saerogochimMal).accessibilityFocused($malChojeom)
                 }
+                OllimSeoljeongDanchu()   // 2.54.0 업데이트 — 새로고침 바로 아래 한 곳
                 NavigationLink { YeogiJeomgeomView() } label: { Text("여기서 점검 — 지금 이 자리에서 무엇이 막혔는지 알아보기") }
                     .buttonStyle(KeunDanchu())
                 NavigationLink { SeoryuhamView() } label: { Text("내 서류 보관함 — 복지카드와 신분증 담아 두기, 복지콜 등록") }
