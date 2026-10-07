@@ -137,7 +137,7 @@ struct MalSeolDeoView: View {
             // 2.25.0 차 안 간판 알림
             Button("차 안 간판 알림 — " + (s.ganpanOn ? "켜져 있음 (누르면 끕니다)" : "꺼져 있음 (누르면 켭니다)")) {
                 s.ganpanOn.toggle()
-                SoriEngine.shared.mal(s.ganpanOn ? "달릴 때 지나는 가게와 건물을 왼쪽 오른쪽으로 알려 드립니다." : "지나는 가게와 건물을 알리지 않습니다.")
+                SoriEngine.shared.mal(s.ganpanOn ? "달릴 때 지나는 가게와 건물을 시계 방향으로 알려 드립니다." : "지나는 가게와 건물을 알리지 않습니다.")
             }
             .buttonStyle(KeunDanchu())
             Button("서 있을 때 창밖 간판 읽기(카메라) — " + (s.ganpanKamera ? "켜져 있음 (누르면 끕니다)" : "꺼져 있음 (누르면 켭니다)")) {
