@@ -35,8 +35,8 @@ import java.lang.ref.WeakReference
 
 class WatchActivity : Activity() {
     companion object {
-        const val PAN = "2.6.1"
-        const val BILD = "261007-W1"
+        const val PAN = "2.7.0"
+        const val BILD = "261007-W2"
         /** 지금 보이는 워치 길눈 화면(톡백 알림에 씀) */
         var boineun: WeakReference<WatchActivity>? = null
         private val NAM = Color.rgb(18, 52, 110)
@@ -86,6 +86,7 @@ class WatchActivity : Activity() {
         WatchModel.byeonhwa = byeonhwaF
         heorakCheong()
         boyeojugi()
+        WatchOllim.salpigi(this) { if (hwamyeon == "cheot") boyeojugi() }   // 2.7.0 새 판이 있으면 첫 화면 맨 위에 한 줄
     }
 
     override fun onResume() {
@@ -197,6 +198,8 @@ class WatchActivity : Activity() {
     }
 
     private fun cheot() {
+        // 2.7.0 새 판이 있을 때만 맨 위에(안내와 단추를 한 자리에)
+        WatchOllim.sae?.let { s -> danchu("워치 길눈 새 판 ${s.pan} 받기") { WatchOllim.olligi(this) { m -> WatchModel.speak(m) } } }
         danchu("다음 갈림길", true) { WatchModel.daeumDeutgi() }
         danchu("내 자리") { WatchModel.jariDeutgi() }
         danchu("마지막 안내") { WatchModel.malDeutgi() }
@@ -371,6 +374,8 @@ class WatchActivity : Activity() {
         "워치 단추" to "앱이 쓸 수 있는 옆 단추가 있는 워치는 그 단추를 1.5초 안에 한 번 누르시면 다음 갈림길, 두 번이면 내 자리, 세 번이면 말로 하기입니다. 누를 때마다 한 번씩 짧게 떱니다. 갤럭시 워치의 홈 단추와 뒤로 단추는 워치가 쓰므로 길눈이 쓰지 못합니다. 그때는 화면의 단추를 쓰십시오.",
         "말소리" to "워치에서 톡백을 쓰시면 톡백이 읽고, 아니면 워치 목소리로 읽습니다.",
         "손 바꾸기" to "첫 화면 맨 아래의 바꾸기를 두드리면 지팡이 쥔 손과 워치 찬 손목을 다시 여쭙니다.",
-        "판 기록" to "갤럭시 워치 길눈 ${PAN}판, 빌드 ${BILD}. 2026년 10월 2일 대표님 지시로 아이폰 길눈의 애플워치 앱을 갤럭시 워치로 옮겼습니다. 같은 날 2.6.0판에서 대표님 지시로 긴급통화 단추를 더했습니다(두 번 눌러 확인). 폰 길눈 2.5.0판 이상과 이어지며, 긴급통화는 폰 길눈 2.6.0판 이상에서 됩니다."
+        "동영상 틀기" to "카톡이나 문자로 받은 동영상을 폰에서 공유를 눌러 길눈으로 보내시면, 폰 길눈의 음악·방송 탭 동영상 틀기에서 갤럭시 워치에서 틀기를 켜 두셨을 때 워치로 보내 틉니다. 큰 동영상은 몇십 초 걸립니다. 다 받으면 워치에 동영상 화면이 열리고, 열리지 않으면 워치 알림의 길눈 동영상을 두드리십시오. 화면을 두드리면 멈춤과 다시 틀기, 아래 그만으로 닫습니다. 다 틀면 짧게 떨고 닫힙니다. 워치로 보내지 못하면 폰에서 틉니다.",
+        "새 판 받기" to "워치 길눈을 열 때 새 판이 있는지 살펴, 있으면 첫 화면 맨 위에 워치 길눈 새 판 받기가 나옵니다. 두드리시면 받아서 설치 화면을 엽니다. 처음 한 번은 워치 설정에서 이 앱의 설치 허용이 필요할 수 있습니다.",
+        "판 기록" to "갤럭시 워치 길눈 ${PAN}판, 빌드 ${BILD}. 2.7.0판(2026년 10월 7일, 이사장님 허락)에서 폰에서 보낸 동영상 틀기와 워치 스스로 새 판 받기를 더했습니다. 2026년 10월 2일 대표님 지시로 아이폰 길눈의 애플워치 앱을 갤럭시 워치로 옮겼습니다. 같은 날 2.6.0판에서 대표님 지시로 긴급통화 단추를 더했습니다(두 번 눌러 확인). 폰 길눈 2.5.0판 이상과 이어지며, 긴급통화는 폰 길눈 2.6.0판 이상에서 됩니다."
     )
 }

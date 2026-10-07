@@ -481,6 +481,7 @@ object WatchModel {
     fun hwamyeonDolawa() {
         if (ponGeotneun && !kkaeeoItda) geotgiKyeogi()
         sangtaeChatgi()
+        bonaegi(JSONObject().put("what", "pan").put("pan", WatchActivity.PAN))   // 2.7.0 폰 길눈이 워치 판을 알아 동영상을 보낼지 가림
     }
 
     /** GeotgiService 가 켜지고 꺼질 때 */
