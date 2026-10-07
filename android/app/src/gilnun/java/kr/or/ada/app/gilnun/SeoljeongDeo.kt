@@ -229,7 +229,7 @@ class MalSeolHwamyeon : Hwamyeon("말하기 설정") {
             "${s.gilGap}초에 한 번까지 지금 달리는 길을 말씀드립니다."
         }
         kyeogi(t, "차 안 간판 알림", { s.ganpanOn }, { s.ganpanOn = it }) {
-            if (it) "달릴 때 지나는 가게와 건물을 왼쪽 오른쪽으로 알려 드립니다." else "지나는 가게와 건물을 알리지 않습니다."
+            if (it) "달릴 때 지나는 가게와 건물을 시계 방향으로 알려 드립니다." else "지나는 가게와 건물을 알리지 않습니다."
         }
         kyeogi(t, "서 있을 때 창밖 간판 읽기(카메라)", { s.ganpanKamera }, { s.ganpanKamera = it }) {
             if (it) "차가 서 있거나 천천히 갈 때 카메라로 창밖 간판을 읽어 드립니다. 폰 뒤쪽 카메라를 창밖으로 향해 주십시오." else "창밖 간판을 카메라로 읽지 않습니다."
