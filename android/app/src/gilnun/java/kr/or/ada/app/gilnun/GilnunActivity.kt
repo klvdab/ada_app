@@ -170,11 +170,25 @@ class GilnunActivity : AppCompatActivity() {
         // 2.20.0 처음 안내는 첫 화면을 바꾸지 않고 길 찾기 첫 화면 안 한 줄로(이사장님 승인)
         Heundeul.ginGeupYeolgi = { cheotHwamyeonEuro(GinGeupHwamyeon()) }   // 2.7.0 b2 흔들면 긴급통화 열기
         heorakCheong()
+        // 2.22.0 새 판 알림과 업데이트(이사장님 승인) — 켤 때 살피고, 알림을 두드려 열렸으면 곧바로 업데이트
+        Ollim.byeonhwa = {
+            val h = wiHwamyeon
+            if (h is GilChatgiSae || h is SeoljeongCheot) dasiGeurigi()
+        }
+        Ollim.sijak(this)
+        Ollim.intentBoda(this, intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        Ollim.intentBoda(this, intent)   // 2.22.0 새 판 알림을 두드렸을 때
     }
 
     override fun onResume() {
         super.onResume()
         Wichi.wiseongDolligi()
+        Ollim.dorawatda(this)   // 2.22.0 앱으로 돌아오면 새 판 살피기(1시간에 한 번까지), 설치 허용을 켜고 오셨으면 업데이트 이어 하기
     }
 
     override fun onPause() {
@@ -657,6 +671,7 @@ class SeoljeongCheot : Hwamyeon("설정") {
             t.dasiGeurigi()
             Sori.mal("새로고침했습니다. 안드로이드 길눈 ${Pan.pan}판입니다.")
         }
+        t.danchu(Ollim.seoljeongMal(t)) { Ollim.seoljeongNureum(t) }   // 2.22.0 업데이트 — 새로고침 바로 아래 한 곳
         t.danchu("여기서 점검 — 지금 이 자리에서 무엇이 막혔는지 알아보기") { t.yeolgi(YeogiJeomgeomHwamyeon()) }   // 2.7.0 b6
         t.danchu("내 서류 보관함 — 복지카드와 신분증 담아 두기, 복지콜 등록") { t.yeolgi(SeoryuhamHwamyeon()) }    // 2.7.0 b6
         t.pyeolchigi("폰", pon) { pon = !pon }   // 2.7.0 b6 아이폰 "폰 펼치기 — 흔들면 자리 번호, 현 위치정보 말할 내용"
@@ -833,6 +848,7 @@ class DoumalHwamyeon : Hwamyeon("도움말") {
             "말소리" to "설정 탭에서 길눈 말소리를 켜고 끌 수 있습니다. 끄시면 길눈 말 대신 톡백으로 한 번만 알려 드리고, 경고는 그대로 말씀드립니다. 말 빠르기는 다섯 칸에서 고르십니다.",
             "내 보폭 재기" to "설정 탭에서 엽니다. 잴 거리를 미터로 적고 보폭 재기 시작을 누른 뒤 평소대로 걸으시고, 다 걸었습니다를 누르시면 보폭을 셈해 폰이 기억합니다.",
             "새로고침" to "설정 탭에 하나 있습니다. 위치와 걸음을 다시 열고, 쌓인 기록을 나스로 보내고, 지금 판번호를 말씀드립니다.",
+            "업데이트 — 새 판 받기" to "길눈은 켤 때와 하루 두 번쯤 협회 서버에 새 판이 나왔는지 스스로 물어봅니다. 새 판이 있으면 폰 알림으로 길눈 새 판이 나왔습니다, 두드리면 업데이트합니다라고 알려 드리고, 길 찾기 첫 화면 맨 위에도 같은 말과 단추를 한 줄로 띄웁니다. 알림이나 그 줄을 두드리시면 길눈이 새 판을 스스로 받아 설치 화면을 엽니다. 설치를 한 번 눌러 주시면 됩니다. 처음 한 번은 이 출처 허용을 켜는 화면이 열리니 켜신 뒤 폰의 뒤로 동작으로 돌아오시면 이어서 업데이트합니다. 한 번 스스로 업데이트한 뒤로는 폰에 따라 설치를 누르지 않아도 깔립니다. 새 판으로 바뀌면 길눈이 새 판으로 바뀌었다고 알림을 드립니다. 설정 탭의 새로고침 바로 아래 업데이트 단추로 언제든 새 판이 있는지 살피실 수 있습니다. 쓰시던 설정, 보폭, 즐겨찾기는 그대로 남습니다.",
             "기초 시험" to "설정 탭의 더 보기 안에 있습니다. 허락 상태, 위성, 방향, 걸음, 말소리가 제대로 도는지 하나씩 들어 보실 수 있습니다.",
             "판 기록" to "설정 탭의 더 보기 안에 있습니다. 판마다 무엇을 고쳤는지 적어 둡니다.",
             "말벗 견주기(관리자 시험)" to "관리자 시험입니다. 설정의 더 보기 안 관리자 시험 — 말벗 견주기에서 견주기 시작을 누르시면, 같은 질문 다섯 가지(현장영상해설이 뭐야, 길눈은 누가 만들었어, 비 오는 날 걸을 때 조심할 게 뭐야, 오늘 기분이 좀 우울해, 흰지팡이는 왜 짚어야 해)를 협회 서버 말벗에 차례로 묻고, 걸린 초와 대답을 적어 드립니다. 폰 안 인공지능 견주기는 아이폰 15 프로 이후 폰에서만 되어, 안드로이드에서는 서버 대답만 잽니다. 한 질문에 반 분쯤 걸릴 수 있습니다.",
