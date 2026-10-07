@@ -156,6 +156,16 @@ object Dongyeong {
         return true
     }
 
+    /** 2.27.0 워치로 보내지 못했을 때 — 워치로 가지 않고 곧장 폰에서 */
+    fun ponEseoTeulgi(c: Context, juso: String) {
+        if (juso.isEmpty()) return
+        try {
+            c.startActivity(Intent(c, DongyeongActivity::class.java).putExtra(DongyeongActivity.JUSO, juso).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) {
+            Girok.namgi("dongyeong_oryu", mapOf("e" to (e.message ?: "")))
+        }
+    }
+
     /** 틀기 — 폰에서 틀 것이면 온 화면 재생기를 엶 */
     fun teulgi(c: Context, juso: String) {
         if (!eodiseo(c, juso)) return

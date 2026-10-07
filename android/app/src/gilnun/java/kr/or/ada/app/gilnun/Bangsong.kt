@@ -126,10 +126,57 @@ object BangsongDuck {
     private val main = Handler(Looper.getMainLooper())
     private fun mainEseo(f: () -> Unit) { if (Looper.myLooper() == Looper.getMainLooper()) f() else main.post(f) }
 
+    // 2.27.0 다른 앱 음악(멜론·유튜브 뮤직 등)을 들으며 쓸 때 — 길눈이 말하는 동안만 그 소리를 작게 했다가 말이 끝나면 되돌림(아이폰과 같음).
+    //   길눈 제 방송(길 위의 음악·라디오·TV)이 나오는 동안에는 지금처럼 Bangsong 이 맡고 여기서는 손대지 않음(2.24.0에 고친 것을 흔들지 않게)
+    private var ctx: android.content.Context? = null
+    private var focus: android.media.AudioFocusRequest? = null
+    private var jamgimR: Runnable? = null
+    fun sijak(c: android.content.Context) { ctx = c.applicationContext }
+    private fun dareunAppJurigi() {
+        if (Bangsong.itda || focus != null) return
+        jamgimR?.let { main.removeCallbacks(it) }
+        jamgimR = null
+        if (android.os.Build.VERSION.SDK_INT < 26) return
+        val am = ctx?.getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager ?: return
+        try {
+            val r = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                .setAudioAttributes(android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH).build())
+                .setOnAudioFocusChangeListener { }
+                .build()
+            if (am.requestAudioFocus(r) == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED) { focus = r; main.postDelayed(jikimi, 1500) }
+        } catch (e: Exception) {}
+    }
+    /** 선희 목소리처럼 끝 알림이 오지 않는 말도 있어 — 1.5초마다 살펴 조용하면 되돌림 */
+    private val jikimi: Runnable = object : Runnable {
+        override fun run() {
+            if (focus == null) return
+            if (Sori.malhaneunJung) { main.postDelayed(this, 1500); return }
+            dareunAppDollyeojugi()
+        }
+    }
+    private fun dareunAppDollyeojugi() {
+        if (focus == null) return
+        jamgimR?.let { main.removeCallbacks(it) }
+        val r = Runnable {
+            jamgimR = null
+            if (Sori.malhaneunJung) return@Runnable   // 이어 말할 것이 있음
+            val f = focus ?: return@Runnable
+            focus = null
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                val am = ctx?.getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager
+                try { am?.abandonAudioFocusRequest(f) } catch (e: Exception) {}
+            }
+        }
+        jamgimR = r
+        main.postDelayed(r, 500)
+    }
+
     /** 길눈이 말을 시작함(tts.speak 바로 앞) — 보통 말은 방송을 작게, 경고는 멈춤, 기사 읽기는 쉼 */
-    fun malSijak(geup: MalGeup) = mainEseo { Bangsong.malSijak(geup) }
+    fun malSijak(geup: MalGeup) = mainEseo { Bangsong.malSijak(geup); dareunAppJurigi() }
     /** 길눈 말이 끝났을 수 있음(Sori 의 kkeut·meomchugi) — 0.35초 뒤 정말 조용하면 되돌림 */
-    fun malKkeut() = mainEseo { Bangsong.malKkeutYeyak() }
+    fun malKkeut() = mainEseo { Bangsong.malKkeutYeyak(); dareunAppDollyeojugi() }
     /** 말로 하기가 마이크를 열고 닫음(Sori.deutgiSijak·deutgiKkeut) */
     fun deutgi(on: Boolean) = mainEseo { Bangsong.deutgiMeomchum(on) }
     /** 부름("하이 길눈")을 들은 때부터 명령을 마칠 때까지(안드로이드 길눈에 부름이 들어오면) */
@@ -180,7 +227,7 @@ object Bangsong {
     const val PPURI = "https://lvd.ada.or.kr"
     /** 2.24.0(261007-A12, 이사장님 지적 — 안드로이드에서 방송·음악이 하나도 안 나옴) 우리 서버 문지기를 통과하는 이름표.
      *  도서관 앱·배프 BYOD 앱과 같이 브라우저 이름표를 답니다(재생기·나스 묻기 모두) */
-    const val UA = "Mozilla/5.0 (Linux; Android) Gilnun/2.25.0"
+    const val UA = "Mozilla/5.0 (Linux; Android) Gilnun/2.27.0"
 
     /** 2.14.0 꼭 맞는 곡이 없을 때 권한 비슷한 곡(말로 하기에서 "네" 하시면 틂, 아이폰 2.46.0과 같음) */
     @Volatile var biseutQ: String? = null

@@ -29,6 +29,10 @@ object Sori {
     private var beon = 0
     private val kkeutJul = HashMap<String, () -> Unit>()
     @Volatile private var ttsMalhaneun = false
+    /** 2.27.0 길눈이 말한 횟수(기초 시험이 셈) */
+    @Volatile var malHaneunSu = 0
+    /** 2.27.0 마지막으로 경고를 낸 때(말 자르고 새로 말하기가 경고는 끊지 않게) */
+    private var gyeonggoTtae = 0L
     /** 길눈이 말하는 중 — 폰 목소리 또는 선희 목소리(2.7.0 b6) */
     val malhaneunJung: Boolean get() = ttsMalhaneun || NasMoksori.malhaneunJung
     var majimak = ""
@@ -129,6 +133,15 @@ object Sori {
                 tokbaek?.invoke(t)
                 kkeutnamyeon?.let { main.postDelayed(it, 1500) }
                 return@post
+            }
+            // 2.27.0 말 자르고 새로 말하기(설정에서 켬, 아이폰 2.9.0 malJaru) — 하던 안내를 끊고 새 안내부터(경고는 끊지 않음)
+            malHaneunSu += 1
+            if (geup == MalGeup.GYEONGGO) gyeonggoTtae = now
+            else if (geup == MalGeup.ANNAE && Seoljeong.malJaru && malhaneunJung && now - gyeonggoTtae > 6000) {
+                tt.stop()
+                ttsMalhaneun = false
+                NasMoksori.meomchugiBaro()
+                Girok.namgi("mal_jaru")
             }
             NasMoksori.moksoriJeogyong(tt)   // 2.7.0 b6 목소리 고르기(설정 — 말하기 설정)
             BangsongDuck.malSijak(geup)      // 2.7.0 b5 방송 소리를 작게(경고는 멈춤, 기사 읽기는 쉼)

@@ -58,6 +58,7 @@ object WatchLink {
         val a = c.applicationContext
         ctx = a
         last["watchBeonho"] = Seoljeong.watchBeonho
+        watchPan = a.getSharedPreferences("gilnun", Context.MODE_PRIVATE).getString("watchPan", "") ?: ""
         try {
             Wearable.getMessageClient(a).addListener(messageDeutgi)
             Wearable.getDataClient(a).addListener(dataDeutgi)
@@ -68,6 +69,40 @@ object WatchLink {
         sangtaeOlligi()
         tteollimChatgi()   // 워치가 보내 둔 지팡이 떨림 기록이 남아 있으면
         tteollimOlligi()   // 지난번에 못 올린 기록
+    }
+
+    /** 2.27.0 동영상을 갤럭시 워치로(아이폰 Dongyeong 의 애플워치 틀기와 같은 뜻) — 이어진 워치가 있으면 보내고 참.
+     *  파일은 채널로 통째로(/gilnun/dongyeong), 주소는 메시지(/gilnun/dongyeong_juso). 못 보내면 폰에서 틂 */
+    /** 2.27.0 워치 길눈이 알려 준 판(워치 길눈을 열 때 보냄) */
+    @Volatile var watchPan = ""
+    fun dongyeongBonae(u: android.net.Uri, pail: Boolean): Boolean {
+        val c = ctx ?: return false
+        if (watchPan.isEmpty() || !Ollim.deoSae(watchPan, "2.6.99")) return false   // 동영상을 받을 수 있는 워치 길눈(2.7.0 이상)일 때만
+        if (System.currentTimeMillis() - nodeTtae > 60000) nodeChatgi()   // 오래된 목록이면 뒤에서 새로 받고, 아는 워치로는 그대로 보냄
+        if (nodes.isEmpty()) return false
+        val n = nodes.firstOrNull { it.isNearby } ?: nodes.first()
+        if (!pail) {
+            bonaegi("/gilnun/dongyeong_juso", JSONObject().put("u", u.toString()), n.id)
+            return true
+        }
+        val motham: (String) -> Unit = { e ->
+            Girok.namgi("watch_dongyeong", mapOf("ok" to false, "e" to e))
+            Sori.mal("동영상을 워치로 보내지 못했습니다. 폰에서 틀어 드립니다.")
+            Dongyeong.ponEseoTeulgi(c, u.path ?: "")
+        }
+        try {
+            val cc = Wearable.getChannelClient(c)
+            cc.openChannel(n.id, "/gilnun/dongyeong")
+                .addOnSuccessListener { ch ->
+                    cc.sendFile(ch, u)
+                        .addOnSuccessListener { Girok.namgi("watch_dongyeong", mapOf("ok" to true)) }
+                        .addOnFailureListener { e -> motham(e.message ?: "sendFile") }
+                }
+                .addOnFailureListener { e -> motham(e.message ?: "openChannel") }
+        } catch (e: Exception) {
+            return false
+        }
+        return true
     }
 
     /** 이어진 워치 — 10초마다 새로 물음 */
@@ -201,6 +236,11 @@ object WatchLink {
 
     private fun yocheong(m: JSONObject, src: String) {
         val what = m.optString("what", "")
+        if (what == "pan") {
+            watchPan = m.optString("pan", watchPan)
+            ctx?.getSharedPreferences("gilnun", Context.MODE_PRIVATE)?.edit()?.putString("watchPan", watchPan)?.apply()   // 길눈이 공유로 새로 켜져도 알게
+            return
+        }   // 2.27.0 워치 길눈 판(동영상 틀기는 2.7.0부터)
         if (what == "watchGeoreum") {
             // 워치가 센 걸음 — 폰이 걸음을 못 셀 때(가방 속 등) 점지도 따라 걷기가 이것으로 이어 감
             JeomEngine.watchGeoreum(m.optInt("n", 0))

@@ -305,8 +305,23 @@ class WichiService : Service() {
             .setOngoing(true)
             .build()
         try {
-            if (Build.VERSION.SDK_INT >= 29) startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
-            else startForeground(1, n)
+            // 2.27.0 「화면이 꺼져도 하이 길눈 듣기」를 켜셨으면 마이크 쓰임도 함께(안드로이드 11 이상, 앱이 앞에 있을 때만 받아 줌 — 못 받으면 위치만)
+            val maik = Build.VERSION.SDK_INT >= 30 && Seoljeong.hiGilnun && Seoljeong.hiJamgeum &&
+                androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            var maikOk = false
+            if (maik && Build.VERSION.SDK_INT >= 30) {
+                try {
+                    startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+                    maikOk = true
+                } catch (e: Exception) {
+                    Girok.namgi("wichi_service_maik", mapOf("ok" to false, "e" to (e.message ?: "")))
+                }
+            }
+            if (!maikOk) {
+                if (Build.VERSION.SDK_INT >= 29) startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+                else startForeground(1, n)
+            }
+            maikJabeum = maikOk
             Girok.namgi("wichi_service", mapOf("ok" to true))
         } catch (e: Exception) {
             Girok.namgi("wichi_service", mapOf("ok" to false, "e" to (e.message ?: "")))
@@ -325,7 +340,8 @@ class WichiService : Service() {
     private val kkaeoSalpim = object : Runnable {
         override fun run() {
             val pilyo = try {
-                JeomEngine.georeoJung || YeojeongEngine.jigeum != null || DoeEngine.sangtae != DoeEngine.Sangtae.SWIM || MalgilEngine.geotneun
+                JeomEngine.georeoJung || YeojeongEngine.jigeum != null || DoeEngine.sangtae != DoeEngine.Sangtae.SWIM || MalgilEngine.geotneun ||
+                    GichoSiheomEngine.doneunJung   // 2.27.0 기초 시험 30분 동안
             } catch (e: Exception) { false }
             try {
                 if (pilyo && kkaeum?.isHeld != true) {
@@ -353,6 +369,8 @@ class WichiService : Service() {
     }
 
     companion object {
+        /** 2.27.0 알림 칸 길눈이 마이크 쓰임까지 받았는가(화면이 꺼져도 하이 길눈 듣기) */
+        @Volatile var maikJabeum = false
         fun kyeogi(c: Context) {
             if (!Wichi.heorakItda) return
             try {

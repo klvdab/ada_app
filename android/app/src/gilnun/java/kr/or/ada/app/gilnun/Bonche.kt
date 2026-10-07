@@ -23,12 +23,32 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.25.0"
-    const val bild = "261007-A13"
+    const val pan = "2.27.0"
+    const val bild = "261007-A15"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.27.0", "261007-A15", "2026-10-07", listOf(
+            "★아이폰 길눈과 맞대어 안드로이드에서 빠지거나 덜 된 것을 채움(이사장님 허락 「그래 허락한다」)",
+            "차 안 길 맞춤 — 택시나 남의 차가 바른 길로 가는지(100미터 넘게 15초 벗어나면 알림), 600미터쯤 남으면 내리는 곳의 길·건물·시계 방향·미터, 100미터 안이면 세워 달라고 하시라고. 말하기 설정에 차 안 안내 정도(간단·보통·자세히)",
+            "호칭 바꾸기(처음 길손님) — 말로 하기와 말하기 설정에서",
+            "말로 역 찾기 — 줄인 역 이름 바로잡기(제기역 → 제기동역), 글자 번호(오 번 출구 → 5번), 말한 출구가 없으면 가까운 다른 출구 권하기, 주소로 말하면 주소를 이름으로, 가까운 역·즐겨찾기를 받아쓰기에 미리(안드로이드 13 이상)",
+            "보폭을 혼자 걸을 때와 동반자와 걸을 때 따로 재기, 잰 보폭을 협회 서버에도 남김",
+            "말 자르고 새로 말하기 설정, 앱을 켠 뒤 날씨 한 번, 기초 시험 30분 자동",
+            "화면이 꺼져도 하이 길눈 듣기(하이 길눈을 켠 뒤 따로 켬, 처음 끔), 앱 아이콘 바로가기(말로 하기·지금 내 자리 듣기)",
+            "이어폰 다음 단추와 따라 걷는 화면의 지금 내 자리 듣기를 첫 화면과 같은 말로(가까운 출구·건물·날씨)",
+            "설정 탭에 기기 설정 — 음향신호기, 이어폰 단추, 리모컨, 워치 번호를 한곳에",
+            "다른 앱 음악을 길눈이 말하는 동안만 작게, 기록은 1분마다 폰에 저장",
+            "받은 동영상을 갤럭시 워치에서 틀기(워치 길눈 2.7.0 이상)",
+            "도움말 열 가지 넘게 더하고 바로잡음(문 찾기는 안드로이드에서 아직 관리자 시험 중임을 바르게)"
+        )),
+        Gochim("2.26.0", "261007-A14", "2026-10-07", listOf(
+            "하이 길눈 부르기(이사장님 승인 — 설정에서 켜는 방식, 처음은 끔) — 말하기 설정에서 켜시면 길눈 화면이 켜져 있는 동안 하이 길눈이라고 부르셔서 말로 하기를 엶. 안드로이드 12 이상 폰 안 받아쓰기로, 통신 없이",
+            "도움말 찾기 — 아이폰처럼 맨 위 찾기 칸에 낱말을 넣고 엔터. 도움말 목록도 다섯 개씩, 더 보기·이전 보기, 커서는 첫 결과로",
+            "말하기 설정의 들어 보기 문장에서 우회전·좌회전을 빼고 시계 방향만(이사장님 원칙)",
+            "글 넣는 칸에서 톡백이 적어 넣으신 글 대신 칸 이름을 읽던 것 고침"
+        )),
         Gochim("2.25.0", "261007-A13", "2026-10-07", listOf(
             "★안드로이드 전체 점검(이사장님 지시 「꼼꼼하게 다른 기능들도 점검해 줘」) — 아이폰 길눈과 기능마다 맞대어 안드로이드에서만 말없이 틀어지던 것을 고침",
             "모든 통신에 서버 문지기를 통과하는 이름표를 닮(점지도·긴급통화·사진 읽기·업데이트·선희 목소리·목소리 토막 모두). 끊기면 두 번 더 해 봄(아이폰과 같게)",
@@ -278,20 +298,57 @@ object Pan {
 /** 설정 — 폰에 담아 둠 */
 object Seoljeong {
     private lateinit var d: SharedPreferences
-    fun sijak(ctx: Context) { d = ctx.getSharedPreferences("gilnun", Context.MODE_PRIVATE) }
+    fun sijak(ctx: Context) {
+        d = ctx.getSharedPreferences("gilnun", Context.MODE_PRIVATE)
+        // 2.27.0 보폭을 혼자·동반자로 나누기 전에 재 두신 보폭은 혼자 걸을 때 보폭으로 옮김
+        if (!d.contains("bopokHonja") && d.getBoolean("bopokJaem", false)) d.edit().putFloat("bopokHonja", d.getFloat("bopok", 0.65f)).apply()
+    }
 
     var malKyeojim: Boolean
         get() = d.getBoolean("malKyeojim", true)
         set(v) { d.edit().putBoolean("malKyeojim", v).apply() }
+    /** 2.27.0 길눈이 부르는 내 호칭(아이폰 hoching, 처음은 길손님) */
+    var hoching: String
+        get() = d.getString("hoching", "") ?: ""
+        set(v) { d.edit().putString("hoching", v.trim()).apply() }
+    val ho: String get() = hoching.trim().ifEmpty { "길손님" }
+    /** 2.27.0 말 자르고 새로 말하기(아이폰 malJaru, 처음은 꺼짐) */
+    var malJaru: Boolean
+        get() = d.getBoolean("malJaru", false)
+        set(v) { d.edit().putBoolean("malJaru", v).apply() }
+    /** 2.27.0 화면이 꺼지거나 다른 앱을 쓸 때도 하이 길눈 듣기(아이폰은 잠겨도 들음 — 안드로이드는 따로 켬, 처음은 꺼짐) */
+    var hiJamgeum: Boolean
+        get() = d.getBoolean("hiJamgeum", false)
+        set(v) { d.edit().putBoolean("hiJamgeum", v).apply() }
+    /** 2.26.0 하이 길눈 부르기(처음은 꺼짐 — 이사장님 승인) */
+    var hiGilnun: Boolean
+        get() = d.getBoolean("hiGilnun", false)
+        set(v) { d.edit().putBoolean("hiGilnun", v).apply() }
     /** 말 빠르기 0 아주 느리게 ~ 4 아주 빠르게 */
     var bbareugiDan: Int
         get() = d.getInt("bbareugiDan", 2)
         set(v) { d.edit().putInt("bbareugiDan", v.coerceIn(0, 4)).apply() }
-    /** 보폭(미터) — 재지 않았으면 0.65 로 셈 */
+    /** 2.27.0 보폭 — 혼자 걸을 때(honja)와 동반자와 걸을 때(dongban)를 따로 재 둠(아이폰 2.10.0과 같음). 지금 쓰는 쪽 */
+    var bopokMode: String
+        get() = if (d.getString("bopokMode", "honja") == "dongban") "dongban" else "honja"
+        set(v) { d.edit().putString("bopokMode", if (v == "dongban") "dongban" else "honja").apply() }
+    var bopokHonja: Double
+        get() = d.getFloat("bopokHonja", 0f).toDouble()
+        set(v) { d.edit().putFloat("bopokHonja", v.toFloat()).apply() }
+    var bopokDongban: Double
+        get() = d.getFloat("bopokDongban", 0f).toDouble()
+        set(v) { d.edit().putFloat("bopokDongban", v.toFloat()).apply() }
+    fun bopokModeIreum(m: String = bopokMode) = if (m == "dongban") "동반자와 걸을 때" else "혼자 걸을 때"
+    /** 보폭(미터) — 지금 쓰는 쪽을 재지 않았으면 0.65 로 셈. 넣으면 지금 쓰는 쪽에 담김 */
     var bopok: Double
-        get() = d.getFloat("bopok", 0.65f).toDouble()
-        set(v) { d.edit().putFloat("bopok", v.toFloat()).putBoolean("bopokJaem", true).apply() }
-    val bopokJaem: Boolean get() = d.getBoolean("bopokJaem", false)
+        get() { val v = if (bopokMode == "dongban") bopokDongban else bopokHonja; return if (v > 0.2) v else 0.65 }
+        set(v) {
+            val e = d.edit().putFloat("bopok", v.toFloat()).putBoolean("bopokJaem", true)
+            if (bopokMode == "dongban") e.putFloat("bopokDongban", v.toFloat()) else e.putFloat("bopokHonja", v.toFloat())
+            e.apply()
+        }
+    /** 지금 쓰는 쪽 보폭을 재 두셨는가 */
+    val bopokJaem: Boolean get() = (if (bopokMode == "dongban") bopokDongban else bopokHonja) > 0.2
     /** 2.18.0 처음 안내(흰지팡이·보폭 재기)에서 나중에 재기를 누르셨나 */
     var cheotAnnae: Boolean
         get() = d.getBoolean("cheotAnnae", false)
@@ -430,8 +487,10 @@ object Girok {
     fun sijak(ctx: Context) {
         pail = File(ctx.filesDir, "girok_jul.json")
         try { pail?.takeIf { it.exists() }?.let { jul = JSONArray(it.readText()) } } catch (e: Exception) {}
+        // 2.27.0 현장에서는 늘 의외의 일이 생김 — 1분마다 폰에도 저장(갑자기 꺼져도 기록이 남게, 아이폰과 같음)
+        var beon = 0
         val r = object : Runnable {
-            override fun run() { bonaegi(); main.postDelayed(this, 20000) }
+            override fun run() { bonaegi(); beon += 1; if (beon % 3 == 0) jeojang(); main.postDelayed(this, 20000) }
         }
         main.postDelayed(r, 5000)
     }

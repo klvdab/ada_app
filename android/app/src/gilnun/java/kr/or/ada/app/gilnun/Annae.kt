@@ -55,6 +55,8 @@ object AnnaeSeoljeong {
     var gilOn: Boolean get() = b("gilOn", true); set(v) = sb("gilOn", v)
     /** 지나는 곳 말하는 간격(초) */
     var gilGap: Int get() = i("gilGap", 60); set(v) = si("gilGap", v)
+    /** 2.27.0 차 안 안내 정도 1 간단 · 2 보통 · 3 자세히(웹 길눈 gilnunChaJeongdo 와 같은 처음 값 보통) */
+    var chaJeongdo: Int get() = i("chaJeongdo", 2); set(v) = si("chaJeongdo", v)
     /** 차 안 간판 알림 */
     var ganpanOn: Boolean get() = b("ganpanOn", true); set(v) = sb("ganpanOn", v)
     /** 서 있을 때 창밖 간판 읽기(카메라) */
@@ -419,6 +421,7 @@ object AnnaeEngine {
     }
 
     private fun dasiSijak() {
+        ChaMat.kkeut()   // 2.27.0 차 안 길 맞춤도 처음부터
         ttJiugi()   // 2.15.0
         bgJiugi()   // 2.16.0
         majimakGeoriMal = null
@@ -933,8 +936,17 @@ object AnnaeEngine {
         GanpanAllim.chaAn(w)   // 차 안 간판 알림
         val mok = y.mokjeok.ireum
         val now = System.currentTimeMillis()
+        // 2.27.0 차 안 길 맞춤(웹 길눈 0.84.0과 같음, 이사장님 허락) — 바른 길로 가는지, 내리는 곳의 길·건물·시계 방향·미터.
+        // 승용차·택시에서만(버스·기차는 세워 달라 할 수 없음). 이 차례에 말했으면 남은 거리 눈금은 다음 차례로 미룸
+        var mat = false
+        if (y.talgeot == Talgeot.CHA && !w.georeumChu) {
+            if (!ChaMat.gatEun(y.mokjeok.lat, y.mokjeok.lon)) ChaMat.sijak(y.mokjeok.lat, y.mokjeok.lon, mok)
+            mat = ChaMat.salpim(w) { malHagi(it) }
+        }
         val dan = listOf(5000, 3000, 2000, 1000, 500, 300, 150)
-        if (majimakGeoriMal == null) {
+        if (mat) {
+            // 남은 거리 눈금은 다음 위치 때
+        } else if (majimakGeoriMal == null) {
             for (g in dan) if (g.toDouble() >= d) chaGeori.add(g)
             malHagi("${mok}까지 ${Annae.geoMal(d)} 남았습니다.")
             majimakGeoriMal = d

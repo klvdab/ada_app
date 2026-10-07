@@ -400,7 +400,7 @@ object JeomEngine {
             if (t.isNotEmpty()) mal(t.trim(), MalGeup.GYEONGGO)
             var m = if (ieum.isEmpty()) "" else "이어진 길 ${ieum.size}구간 가운데 ${ieumIdx + 1}번째 구간입니다. "
             m += (if (dw) "되돌아가기를 시작합니다. " else "따라 걷기를 시작합니다. ") + "모두 ${Jeomjido.bannol(nu.lastOrNull() ?: 0.0).toInt()}미터입니다."
-            m += if (Seoljeong.bopokJaem) " 걸음 수는 재 두신 보폭으로 알려 드립니다." else " 보폭을 아직 재지 않으셔서 걸음 수 대신 미터로 알려 드립니다."   // 2.18.0
+            m += if (Seoljeong.bopokJaem) " 걸음 수는 ${Seoljeong.bopokModeIreum()} 보폭으로 알려 드립니다." else " 보폭을 아직 재지 않으셔서 걸음 수 대신 미터로 알려 드립니다."   // 2.18.0
             if (kkeoks.isNotEmpty()) m += " 이 길에 꺾이는 자리가 ${kkeoks.size}곳 있습니다. 미리 알려 드리겠습니다."
             mal(m)
         }

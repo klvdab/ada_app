@@ -193,8 +193,11 @@ object NasMoksori {
     }
 
     /** 하던 말과 줄에 선 말을 모두 멈춤(경고가 올 때, 말로 하기가 마이크를 열 때, Sori.meomchugi). 기다리던 일은 차례로 부름 */
-    fun meomchugi() {
-        main.post {
+    fun meomchugi() { main.post { meomchugiBaro() } }
+
+    /** 2.27.0 화면 줄(main)에서 곧바로 멈춤 — 말 자르고 새로 말하기가 새 말을 넣기 전에 */
+    fun meomchugiBaro() {
+        run {
             beon += 1
             player?.let { try { it.stop() } catch (e: Exception) {}; try { it.release() } catch (e: Exception) {} }
             player = null

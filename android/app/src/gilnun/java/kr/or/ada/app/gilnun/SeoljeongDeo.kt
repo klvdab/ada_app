@@ -223,6 +223,15 @@ class MalSeolHwamyeon : Hwamyeon("말하기 설정") {
             s.doepul = if (s.doepul == 4) 6 else if (s.doepul == 6) 10 else 4
             "한 번 말한 뒤 ${s.doepul}초 동안은 다시 말하지 않습니다."
         }
+        // 2.27.0 차 안 안내 정도(웹 길눈 0.84.0과 같음) — 바른 길로 가는지 알림과 내리는 곳 안내는 간단에서도 나옴
+        dolligi(t, { "차 안 안내 정도 — 지금 ${ChaMat.ireum[ChaMat.jeongdo]} (누르면 바뀝니다)" }) {
+            ChaMat.jeongdo = if (ChaMat.jeongdo >= 3) 1 else ChaMat.jeongdo + 1
+            when (ChaMat.jeongdo) {
+                1 -> "차 안 안내를 간단히 합니다. 남은 거리, 길에서 벗어났을 때, 내리는 곳만 말씀드립니다."
+                2 -> "차 안 안내를 보통으로 합니다. 마지막 꺾는 곳과 목적지에서 멀어질 때도 말씀드립니다."
+                else -> "차 안 안내를 자세히 합니다. 꺾는 곳마다, 길대로 가는지, 오래 서 있을 때도 말씀드립니다."
+            }
+        }
         kyeogi(t, "지나는 곳 안내", { s.gilOn }, { s.gilOn = it }) { if (it) "지나는 길을 알려 드립니다." else "지나는 길을 알리지 않습니다." }
         dolligi(t, { "차 안에서 지나는 곳 말하는 간격 — 지금 ${s.gilGap}초 (누르면 바뀝니다)" }) {
             s.gilGap = if (s.gilGap == 30) 60 else if (s.gilGap == 60) 120 else 30
@@ -234,14 +243,72 @@ class MalSeolHwamyeon : Hwamyeon("말하기 설정") {
         kyeogi(t, "서 있을 때 창밖 간판 읽기(카메라)", { s.ganpanKamera }, { s.ganpanKamera = it }) {
             if (it) "차가 서 있거나 천천히 갈 때 카메라로 창밖 간판을 읽어 드립니다. 폰 뒤쪽 카메라를 창밖으로 향해 주십시오." else "창밖 간판을 카메라로 읽지 않습니다."
         }
+        // 2.27.0 말 자르고 새로 말하기(아이폰 SeoljeongDeo 와 같은 말)
+        kyeogi(t, "말 자르고 새로 말하기", { Seoljeong.malJaru }, { Seoljeong.malJaru = it }) {
+            if (it) "새 안내가 하던 말을 끊고 바로 나옵니다." else "하던 말을 다 마친 뒤에 새 안내가 나옵니다."
+        }
         kyeogi(t, "걸을 때 확신음", { s.hwaksinEum }, { s.hwaksinEum = it }) {
             if (it) "확신음을 켭니다. 제대로 가고 계시면 짧은 맑은 소리가 납니다." else "확신음을 끕니다. 방향이 틀어졌을 때의 말은 그대로 나옵니다."
         }
+        // 2.26.0 하이 길눈 부르기(처음은 꺼짐, 이사장님 승인)
+        run {
+            val hb = t.danchu("") { }
+            fun hgeul() { hb.text = "하이 길눈 부르기 — " + (if (Seoljeong.hiGilnun) "켜져 있음 (누르면 끕니다)" else "꺼져 있음 (누르면 켭니다)") }
+            hgeul()
+            hb.setOnClickListener {
+                if (Seoljeong.hiGilnun) {
+                    Seoljeong.hiGilnun = false; HaiGilnun.datgi(); hgeul(); WichiService.kyeogi(t); t.dasiGeurigi()
+                    Sori.mal("하이 길눈 부르기를 끕니다. 말로 하기 단추나 이어폰 단추 길게 누르기를 쓰십시오.")
+                } else if (!HaiGilnun.sseulSuItda(t)) {
+                    Sori.mal("이 폰에서는 폰 안 받아쓰기가 없어 하이 길눈 부르기를 쓸 수 없습니다. 말로 하기 단추를 써 주십시오.")
+                } else {
+                    t.maikHeorak { ok ->
+                        if (ok) {
+                            Seoljeong.hiGilnun = true; hgeul()
+                            Sori.mal("하이 길눈 부르기를 켭니다. 길눈 화면이 켜져 있는 동안 하이 길눈이라고 불러 주십시오.")
+                            t.dasiGeurigi()
+                        } else Sori.mal("마이크 허락이 없어 켜지 못했습니다.")
+                    }
+                }
+            }
+            // 2.27.0 화면이 꺼져도 하이 길눈 듣기(하이 길눈을 켜신 때만 보임, 처음은 꺼짐)
+            if (Seoljeong.hiGilnun) {
+                val jb = t.danchu("") { }
+                fun jgeul() { jb.text = "화면이 꺼져도 하이 길눈 듣기 — " + (if (Seoljeong.hiJamgeum) "켜져 있음 (누르면 끕니다)" else "꺼져 있음 (누르면 켭니다)") }
+                jgeul()
+                jb.setOnClickListener {
+                    Seoljeong.hiJamgeum = !Seoljeong.hiJamgeum
+                    jgeul()
+                    WichiService.kyeogi(t)   // 알림 칸 길눈을 마이크 쓰임과 함께(또는 빼고) 다시 올림
+                    Sori.mal(if (Seoljeong.hiJamgeum) "화면이 꺼지거나 다른 앱을 쓰실 때도 하이 길눈을 듣습니다. 알림 칸에 길눈이 떠 있는 동안입니다. 배터리를 조금 더 씁니다."
+                        else "하이 길눈은 길눈 화면이 켜져 있을 때만 듣습니다.")
+                }
+            }
+        }
+        // 2.27.0 길눈이 부르는 내 호칭(아이폰 말로 하기 설정의 호칭 칸과 같음, 처음은 길손님)
+        run {
+            val e = t.ipryeok("길눈이 부르는 내 호칭 — 지금 ${Seoljeong.ho}", false)
+            e.setText(Seoljeong.hoching)
+            e.imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+            fun jeojang() {
+                val h = e.text?.toString()?.trim() ?: ""
+                Seoljeong.hoching = h
+                e.hint = "길눈이 부르는 내 호칭 — 지금 ${Seoljeong.ho}"
+                Sori.mal("이제 ${Seoljeong.ho}${MalHagi.irago(Seoljeong.ho)} 부르겠습니다.")
+            }
+            e.setOnEditorActionListener { _, id, ev ->
+                val enter = id == android.view.inputmethod.EditorInfo.IME_ACTION_DONE ||
+                    (ev != null && ev.keyCode == android.view.KeyEvent.KEYCODE_ENTER && ev.action == android.view.KeyEvent.ACTION_DOWN)
+                if (enter) jeojang()
+                enter
+            }
+            t.danchu("호칭 저장") { jeojang() }
+        }
         t.danchu("지금 설정으로 들어 보기") {
             val m = when (s.malSang) {
-                0 -> "사거리 백삼십 미터. 두 시 우회전 왕산로."
-                1 -> "백삼십 미터 앞 사거리. 곧장 다산로. 두 시 우회전 왕산로, 열 시 좌회전 정릉천동로."
-                else -> "백삼십 미터 앞이 사거리입니다. 곧장 가면 다산로입니다. 두 시 방향 우회전은 왕산로, 열 시 방향 좌회전은 정릉천동로입니다."
+                0 -> "사거리 백삼십 미터. 두 시 방향 왕산로."   // 2.26.0 보기 문장도 시계 방향만(우회전·좌회전 뺌)
+                1 -> "백삼십 미터 앞 사거리. 곧장 다산로. 두 시 방향 왕산로, 열 시 방향 정릉천동로."
+                else -> "백삼십 미터 앞이 사거리입니다. 곧장 가면 다산로입니다. 두 시 방향은 왕산로, 열 시 방향은 정릉천동로입니다."
             }
             Sori.mal("이렇게 들으십니다. $m")
         }

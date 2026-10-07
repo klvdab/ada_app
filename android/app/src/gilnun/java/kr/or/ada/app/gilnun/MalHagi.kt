@@ -12,7 +12,7 @@
 // 아이폰과 다른 점:
 //   아이폰 2.29.0 말뜻 풀이는 폰 안의 애플 인공지능이라 안드로이드에 없음 — 사전으로 못 알아들은 말은 나스의 곳 찾기(a=jangso)로 풀어 봄
 //   TODO(아이폰 하이 길눈·시리) 부르는 말로 깨우기. 화면이 꺼진 채 이어폰 단추로 열기는 2.7.0부터 안내 중에만(RemoteDanchu)
-//   TODO(아이폰 호칭 바꾸기) 안드로이드에 기능이 옮겨 오면 말로도 되게. 교통편 부르기는 2.8.0에 넣음
+//   2.27.0 호칭 바꾸기(아이폰과 같음 — 처음 길손님, 「호칭 바꿔」 하고 대답, 말하기 설정에서도). 교통편 부르기는 2.8.0에 넣음
 // 2.6.0(빌드 261002-A9, 대표님 지시) 긴급통화 — 아이폰 MalHagi 긴급통화(gingeupJikjeop·gingeup)와 같은 말, 같은 차례.
 //   도와줘·긴급통화·화상통화·영상통화(사전 doum) → 해설사·봉사자·명단의 이름이 들리면 곧장 요청, 아니면 누구에게 요청할지 여쭘(3분 동안 기억)
 //   요청하면 긴급통화서비스 화면을 열어 끊기 단추가 바로 보이게. 긴급통화 중에는 말로 하기를 열지 않음(마이크를 통화에 내어 줌)
@@ -91,6 +91,14 @@ object MalHagi {
     /** 2.6.0 긴급통화 — 누구에게 요청할지 여쭌 뒤(아이폰 mureum = .galrae) */
     private var gingeupMutneun = false
     private var gingeupTtae = 0L
+    /** 2.27.0 가까운 다른 출구를 권한 뒤(아이폰 mureum = .hubo, huboHwagin) */
+    private var chulguDaean: Jangso? = null
+    private var chulguDaeanTtae = 0L
+    private var chulguDaeanTg: Talgeot? = null
+    /** 2.27.0 호칭을 여쭌 뒤(아이폰 mureum = .hoching) */
+    private var hochingMutneun = false
+    private var hochingTtae = 0L
+    private val ho: String get() = Seoljeong.ho
 
     private fun bakkum(s: MalSangtae) {
         sangtae = s
@@ -131,6 +139,7 @@ object MalHagi {
             jadongYeolim = 0
             dasiHanbeon = false
             ijeonMal = Sori.majimak
+            gakkaunYeokGaengsin()   // 2.27.0 아이폰 2.12.5 — 가까운 역 이름을 받아쓰기에 미리 알려 줌
             yeolgi(true)
         }
     }
@@ -179,6 +188,7 @@ object MalHagi {
         val c = ctx ?: return
         Sori.deutgiSijak()
         val gidarim = if (jadongYeolim > 0) 10 else 6   // 되물은 뒤에는 10초 기다림
+        MalDeutgi.doumMal = doumMal()   // 2.27.0 가까운 역·즐겨찾기(안드로이드 13 이상에서 받아쓰기에 미리 알려 줌)
         val ok = MalDeutgi.deutgi(c, gidarim) { alts, why -> deureum(sd, alts, why) }
         Girok.namgi("myeong_yeolgi", mapOf("ok" to ok))
         if (!ok) {
@@ -208,7 +218,7 @@ object MalHagi {
         Sori.deutgiKkeut()
         Girok.namgi("myeong_deureum", mapOf("su" to alts0.size, "why" to why))
         if (sd != sedae || sangtae != MalSangtae.DEUTNEUN) return
-        val alts = alts0.map { it.trim() }.filter { it.isNotEmpty() }
+        val alts = alts0.map { beonhoSutja(it.trim()) }.filter { it.isNotEmpty() }
         if (why != null) {
             bakkum(MalSangtae.SWIM)
             jadongYeolim = 0
@@ -251,7 +261,7 @@ object MalHagi {
         val zz = MalSajeon.ttuk(alts[0])
         if (zz in setOf("됐어", "됐어요", "됐습니다", "고마워", "고마워요", "고맙습니다", "알았어", "알겠어", "이제됐어", "충분해")) {
             ieoGeumman = true
-            dapHagi(sd, "네, 필요하시면 말로 하기 단추를 눌러 주십시오.", false)
+            dapHagi(sd, if (Seoljeong.hiGilnun) "네, 필요하시면 하이 길눈이라고 불러 주십시오." else "네, 필요하시면 말로 하기 단추를 눌러 주십시오.", false)
             return
         }
         choegeunMal.add(zz)
@@ -337,7 +347,7 @@ object MalHagi {
 
     /** 알아들은 말들로 할 일을 하고, 대답(dap)을 꼭 한 번 부름 — (할 말, 묻는 말인가) */
     fun cheori(alts0: List<String>, dap: (String, Boolean) -> Unit) {
-        val alts = alts0.map { it.trim() }.filter { it.isNotEmpty() }
+        val alts = alts0.map { beonhoSutja(it.trim()) }.filter { it.isNotEmpty() }
         val t = alts.firstOrNull()
         if (t == null) { dap("말씀이 들리지 않았습니다.", false); return }
         val s = MalSajeon
@@ -374,6 +384,34 @@ object MalHagi {
             GinGeup.geumanhagi()
             return
         }
+        // 1-2-2. 2.27.0 「약수역 5번 출구」를 못 찾아 가까운 다른 출구를 권한 말의 대답(아이폰 2.26.0과 같음)
+        val dn = chulguDaean
+        if (dn != null) {
+            chulguDaean = null
+            if (now - chulguDaeanTtae < 60000) {
+                val ye = s.tteut(alts, "ye") != null
+                val ani = s.tteut(alts, "ani") != null
+                if (ye && !ani && z.length <= 10) { YeojeongMal.gagi(dn, chulguDaeanTg, dap, "네, "); return }
+                if (ani && z.length <= 10) { dap("알겠습니다. ${ho}, 어디로 가실까요?", true); return }
+            }
+        }
+        // 1-3. 2.27.0 호칭을 여쭌 말의 대답(아이폰 case .hoching 과 같음)
+        if (hochingMutneun && now - hochingTtae < 60000) {
+            hochingMutneun = false
+            var h = t
+            for (k in listOf("이라고 불러 줘", "라고 불러 줘", "이라고 불러줘", "라고 불러줘", "이라고 불러", "라고 불러",
+                "이라고 해 줘", "라고 해 줘", "이라고", "라고", "으로 불러 줘", "로 불러 줘", "으로 불러", "로 불러")) {
+                if (h.endsWith(k)) { h = h.dropLast(k.length); break }
+            }
+            h = h.trim()
+            val ani = s.tteut(alts, "ani") != null
+            if (h.isEmpty() || (ani && z.length <= 10)) { dap("알겠습니다. 호칭은 그대로 ${ho}입니다.", false); return }
+            Seoljeong.hoching = h
+            Girok.namgi("hoching_bakkum")
+            dap("알겠습니다. 이제 $h${irago(h)} 부르겠습니다.", false)
+            return
+        }
+        hochingMutneun = false
         // 2. 점지도를 따라 걸을지 여쭌 말의 대답
         if (mutneunJung && huboI < hubo.size) {
             val ye = s.tteut(alts, "ye") != null
@@ -485,7 +523,7 @@ object MalHagi {
             }
         }
         if (q.isEmpty()) {
-            dap("어디로 가실까요?", true)
+            dap("$ho, 어디로 가실까요?", true)
             return
         }
         mokjeokChatgi(t, q, qB, gagiMal, dap)
@@ -550,11 +588,11 @@ object MalHagi {
         }
         if (s.itda(alts, "cheoeum") && z.length <= 8) {
             mureumChoGihwa()
-            dap("처음부터 하겠습니다. 어디로 가실까요?", true)
+            dap("처음부터 하겠습니다. $ho, 어디로 가실까요?", true)
             return true
         }
         if (s.itda(alts, "sigan") || s.itda(alts, "jigeum_gil") || s.itda(alts, "charye")) {
-            dap("지금 가시는 길이 없습니다. 어디로 가실까요?", true)
+            dap("지금 가시는 길이 없습니다. $ho, 어디로 가실까요?", true)
             return true
         }
         if (s.itda(alts, "eodi")) {
@@ -564,6 +602,17 @@ object MalHagi {
         }
         if (s.itda(alts, "sigan_now")) {
             dap("지금은 " + SimpleDateFormat("M월 d일 EEEE a h시 m분", Locale.KOREAN).format(Date()) + "입니다.", false)
+            return true
+        }
+        // 2.27.0 차 안 안내 정도(웹 길눈 0.84.0과 같은 말 「자세히·간단히·보통으로 안내해」)
+        if (s.itda(alts, "cha_jasehi") || s.itda(alts, "cha_gandan") || s.itda(alts, "cha_botong")) {
+            val v = if (s.itda(alts, "cha_jasehi")) 3 else if (s.itda(alts, "cha_gandan")) 1 else 2
+            ChaMat.jeongdo = v
+            dap(when (v) {
+                1 -> "차 안 안내를 간단히 합니다. 남은 거리, 길에서 벗어났을 때, 내리는 곳만 말씀드립니다."
+                2 -> "차 안 안내를 보통으로 합니다."
+                else -> "차 안 안내를 자세히 합니다. 꺾는 곳마다 미리 말씀드립니다."
+            }, false)
             return true
         }
         if (s.itda(alts, "bareuge")) {
@@ -695,20 +744,16 @@ object MalHagi {
             main.postDelayed({ a?.let { nnJeonhwa(it, k.jeonhwa) } }, 6500)
             return true
         }
-        // 아직 안드로이드에 넣지 못한 기능 — 모르는 척하지 않고, 기록해 두었다가 그 기능을 넣을 때 말로도 되게(아이폰 aJik 과 같음)
-        // 2.7.0 여정·즐겨찾기·카메라 눈·되짚어 나가기·음성유도기·음악·방송·목소리는 이제 됨 — 목록에서 뺌
-        val aJik: List<Pair<String, Boolean>> = listOf(
-            "호칭 바꾸기" to s.itda(alts, "hoching")
-        )
-        for ((nm, mat) in aJik) {
-            if (!mat) continue
-            Girok.namgi("malhagi_eopneun", mapOf("k" to nm))
-            dap("죄송합니다. $nm${eun(nm)} 아직 안드로이드 길눈에 넣지 못했습니다. 그 기능을 넣을 때 말로도 되게 하겠습니다. 이 말씀은 기록해 두었습니다.", false)
+        // 2.27.0 호칭 바꾸기(아이폰과 같음) — 아직 없다던 말을 걷어냄
+        if (s.itda(alts, "hoching")) {
+            hochingMutneun = true
+            hochingTtae = System.currentTimeMillis()
+            dap("지금은 $ho${irago(ho)} 부릅니다. 뭐라고 불러 드릴까요?", true)
             return true
         }
         // 네·아니오만
         if (s.tteut(alts, "ye") == TteutGyeol.GATDA && z.length <= 4) {
-            dap("네. 어디로 가실까요?", true)
+            dap("네, $ho. 어디로 가실까요?", true)
             return true
         }
         if (s.tteut(alts, "ani") == TteutGyeol.GATDA && z.length <= 4) {
@@ -743,46 +788,165 @@ object MalHagi {
                 huboMutgi(dap, "네, ")
                 return@gakkaun
             }
-            // 나스에서 그곳을 찾아 끝이 그곳 가까이 닿는 점지도(아이폰 Chatgi.jangso + Jeomjido.matneunGil)
-            val jq = mapOf("a" to "jangso", "q" to q,
-                "lat" to String.format(Locale.US, "%.6f", w.lat), "lon" to String.format(Locale.US, "%.6f", w.lon))
-            Tongsin.json("jeom.php", jq) { o ->
-                if (o == null) {
-                    dap("찾는 중에 연결이 끊겼습니다. 통신을 확인하시고 다시 말씀해 주십시오.", false)
-                    return@json
-                }
-                val rows = o.optJSONArray("rows")
-                var jg: Triple<String, Double, Double>? = null
-                var jusoB = ""   // 2.7.0 묶음 b1 — 찾은 곳의 주소(여정 목적지로)
-                if (rows != null) for (i in 0 until rows.length()) {
-                    val rr: JSONObject = rows.optJSONObject(i) ?: continue
-                    val la = Jeomjido.su(rr, "lat") ?: continue
-                    val lo = Jeomjido.su(rr, "lon") ?: continue
-                    jg = Triple(Jeomjido.gul(rr, "ireum").ifEmpty { q }, la, lo)
-                    jusoB = Jeomjido.gul(rr, "juso")
-                    break
-                }
-                val j = jg
-                if (j == null) {
-                    motChatgiDap(t, q, gagiMal, dap)
-                    return@json
-                }
-                val w2 = Wichi.jigeum ?: w
-                val d = Wichi.geori(w2.lat, w2.lon, j.second, j.third)
-                val jariMal = if (d < 30) "네, ${j.first}${eun(j.first)} 지금 계신 곳 바로 가까이에 있습니다. "
-                    else "네, ${j.first}${eun(j.first)} ${bangMal(w2, j.second, j.third)}${Jeomjido.geoMal(d)}에 있습니다. "
-                val jm = jariMatchugi(r, j.second, j.third, w2)
-                Girok.namgi("malhagi_jeom", mapOf("dan" to "jangso", "su" to jm.size))
-                if (jm.isNotEmpty() && (tg == null || tg == Talgeot.GEOREUM)) {
-                    hubo = jm
-                    huboI = 0
-                    huboMutgi(dap, jariMal)
-                } else {
-                    // 2.7.0 묶음 b1 — 점지도가 없으면 위성 걷는 안내·차·지하철·버스로(아이폰 gagi — 2킬로미터가 넘으면 어떻게 가실지 여쭘)
-                    YeojeongMal.gagi(Jangso(j.first, jusoB, j.second, j.third), tg, dap, jariMal)
-                }
+            // 2.27.0 (아이폰 2.12.5) "제기역 2번 출구", "제기 전철역" → 지하철역 목록의 바른 이름(제기동역)으로 바로잡고 찾음
+            yeokBarojapgi(q) { yk ->
+                naseuChatgi(t, yk ?: q, yk, gagiMal, dap, w, r, tg)
             }
         }
+    }
+
+    /** 나스에서 그곳을 찾아 끝이 그곳 가까이 닿는 점지도(아이폰 Chatgi.jangso + Jeomjido.matneunGil).
+     *  2.27.0 역 출구를 말씀하셨으면(yk) 같은 번호 출구를 앞으로, 없으면 그 역의 가까운 다른 출구를 권함(아이폰 2.26.0) */
+    private fun naseuChatgi(t: String, q: String, yk: String?, gagiMal: Boolean, dap: (String, Boolean) -> Unit,
+                            w: Jari, r: List<JeomMok>, tg: Talgeot?) {
+        val jq = mapOf("a" to "jangso", "q" to q,
+            "lat" to String.format(Locale.US, "%.6f", w.lat), "lon" to String.format(Locale.US, "%.6f", w.lon))
+        Tongsin.json("jeom.php", jq) { o ->
+            if (o == null) {
+                dap("찾는 중에 연결이 끊겼습니다. 통신을 확인하시고 다시 말씀해 주십시오.", false)
+                return@json
+            }
+            val rows = o.optJSONArray("rows")
+            val l = ArrayList<Pair<Triple<String, Double, Double>, String>>()
+            if (rows != null) for (i in 0 until rows.length()) {
+                val rr: JSONObject = rows.optJSONObject(i) ?: continue
+                val la = Jeomjido.su(rr, "lat") ?: continue
+                val lo = Jeomjido.su(rr, "lon") ?: continue
+                l.add(Pair(Triple(Jeomjido.gul(rr, "ireum").ifEmpty { q }, la, lo), Jeomjido.gul(rr, "juso")))
+            }
+            val bn = if (yk != null) chulguBeon(yk) else null
+            if (yk != null && bn != null) {
+                val i = l.take(5).indexOfFirst { chulguBeon(it.first.first) == bn }
+                if (i > 0) { val a = l.removeAt(i); l.add(0, a) }   // 맞는 출구를 맨 앞으로
+                if (i < 0) {
+                    // 그 번호 출구가 없음 — 그 역의 가까운 다른 출구를 권함
+                    val yeok = yk.split(" ").firstOrNull() ?: yk
+                    Chatgi.jangso("$yeok 출구") { rs ->
+                        val w2 = Wichi.jigeum ?: w
+                        val dn = (rs ?: emptyList()).filter { chulguBeon(it.ireum).let { b -> b != null && b != bn } }
+                            .minByOrNull { Wichi.geori(w2.lat, w2.lon, it.lat, it.lon) }
+                        val dbn = dn?.let { chulguBeon(it.ireum) }
+                        if (dn != null && dbn != null) {
+                            chulguDaean = dn
+                            chulguDaeanTtae = System.currentTimeMillis()
+                            chulguDaeanTg = tg
+                            Girok.namgi("chulgu_daean", mapOf("mal" to yk.take(30), "daean" to dbn))
+                            dap("네, $yk${eul(yk)} 찾지 못했습니다. 가까운 ${dbn}번 출구로 안내해 드릴까요?", true)
+                        } else naseuGyeolgwa(t, q, gagiMal, dap, w, r, tg, l)
+                    }
+                    return@json
+                }
+            }
+            naseuGyeolgwa(t, q, gagiMal, dap, w, r, tg, l)
+        }
+    }
+
+    private fun naseuGyeolgwa(t: String, q: String, gagiMal: Boolean, dap: (String, Boolean) -> Unit, w: Jari, r: List<JeomMok>,
+                              tg: Talgeot?, l: List<Pair<Triple<String, Double, Double>, String>>) {
+        var j = l.firstOrNull()?.first
+        val jusoB = l.firstOrNull()?.second ?: ""   // 2.7.0 묶음 b1 — 찾은 곳의 주소(여정 목적지로)
+        if (j == null) {
+            motChatgiDap(t, q, gagiMal, dap)
+            return
+        }
+        // 2.27.0 (아이폰 2.12.7) 주소로 말씀하시면(동호로 7길 14) 그 건물 안 가게 이름 대신 주소를 이름으로
+        if (jusoMalinga(q)) {
+            val jj = jusoB.ifEmpty { q }
+            Girok.namgi("juso_mokjeok", mapOf("mal" to q.take(30), "ireum" to j.first.take(20)))
+            j = Triple(jusoIreum(jj), j.second, j.third)
+        }
+        val w2 = Wichi.jigeum ?: w
+        val d = Wichi.geori(w2.lat, w2.lon, j.second, j.third)
+        val jariMal = if (d < 30) "네, ${j.first}${eun(j.first)} 지금 계신 곳 바로 가까이에 있습니다. "
+            else "네, ${j.first}${eun(j.first)} ${bangMal(w2, j.second, j.third)}${Jeomjido.geoMal(d)}에 있습니다. "
+        val jm = jariMatchugi(r, j.second, j.third, w2)
+        Girok.namgi("malhagi_jeom", mapOf("dan" to "jangso", "su" to jm.size))
+        if (jm.isNotEmpty() && (tg == null || tg == Talgeot.GEOREUM)) {
+            hubo = jm
+            huboI = 0
+            huboMutgi(dap, jariMal)
+        } else {
+            // 2.7.0 묶음 b1 — 점지도가 없으면 위성 걷는 안내·차·지하철·버스로(아이폰 gagi — 2킬로미터가 넘으면 어떻게 가실지 여쭘)
+            YeojeongMal.gagi(Jangso(j.first, jusoB, j.second, j.third), tg, dap, jariMal)
+        }
+    }
+
+    // MARK: 2.27.0 역 이름과 번호(아이폰 2.12.5·2.26.0과 같음)
+
+    private val SU = mapOf("일" to "1", "이" to "2", "삼" to "3", "사" to "4", "오" to "5", "육" to "6", "륙" to "6", "칠" to "7", "팔" to "8", "구" to "9",
+        "십" to "10", "십일" to "11", "십이" to "12", "십삼" to "13", "십사" to "14", "십오" to "15", "십육" to "16",
+        "십칠" to "17", "십팔" to "18", "십구" to "19", "이십" to "20")
+    private val BEON_RE = Regex("(?<![가-힣0-9])(이십|십[일이삼사오육륙칠팔구]?|[일이삼사오육륙칠팔구])\\s*번\\s*(?=출)")
+    private val YEOK_RE = Regex("^(.+?)\\s*(지하철역|전철역|지하철|전철|역)\\s*(?:(\\d{1,2})\\s*번\\s*(?:출구|출입구)?)?$")
+    private val CHULGU_RE = Regex("([0-9]{1,2})\\s*번\\s*(출구|출입구)")
+
+    /** 한글로 적힌 번호를 숫자로 — "약수역 오 번출구" → "약수역 5번 출구"(번 뒤에 출구·출입구가 올 때만) */
+    fun beonhoSutja(t: String): String = BEON_RE.replace(t) { m -> SU[m.groupValues[1]]?.let { "${it}번 " } ?: m.value }
+
+    /** 2.27.0 도로명 주소나 지번 주소로 말씀하셨는가 — 동호로 7길 14, 동호로7길 14번지, 신당동 432-1(아이폰 jusoMalinga) */
+    fun jusoMalinga(q: String): Boolean {
+        val t = q.trim()
+        return (Regex("[가-힣0-9]+(로|길)\\s*[0-9]+(\\s*(번?길|가길))?\\s*[0-9-]*\\s*(번지|호)?\\s*$").containsMatchIn(t) && Regex("[0-9]").containsMatchIn(t)) ||
+            Regex("[가-힣]+(동|리|가)\\s*[0-9]+(-[0-9]+)?\\s*(번지)?\\s*$").containsMatchIn(t)
+    }
+
+    /** 주소를 부를 이름으로 — "서울 중구 동호로7길 14" → "동호로7길 14" */
+    fun jusoIreum(juso: String): String {
+        val t = juso.trim()
+        return Regex("[가-힣0-9]+(로|길)[0-9가-힣]*\\s*[0-9-]+.*$").find(t)?.value ?: t
+    }
+
+    /** "약수역 5번 출구", "약수역 5번출구" → 5 */
+    fun chulguBeon(t: String): Int? = CHULGU_RE.find(t)?.groupValues?.get(1)?.toIntOrNull()
+
+    /** 역 이름을 바로잡음 — 역을 찾는 말이 아니면 null. "제기역 2번 출구" → "제기동역 2번 출구", "제기 전철역" → "제기동역" */
+    private fun yeokBarojapgi(q: String, kkeut: (String?) -> Unit) {
+        val tx = q.trim()
+        val m = YEOK_RE.find(tx)
+        if (m == null) { kkeut(null); return }
+        val bon = m.groupValues[1].trim()
+        val beon = m.groupValues[3]
+        if (bon.isEmpty() || bon.length > 10) { kkeut(null); return }
+        val ireum0 = bon.replace(" ", "")
+        Tongsin.json("yeok.php", mapOf("a" to "chatgi", "q" to ireum0)) { o ->
+            var ireum = ireum0
+            val rows = o?.optJSONArray("rows")
+            if (rows != null) {
+                val nms = (0 until rows.length()).mapNotNull { rows.optJSONObject(it)?.optString("nm", "")?.takeIf { s -> s.isNotEmpty() } }
+                (nms.firstOrNull { it == ireum0 } ?: nms.firstOrNull { it.startsWith(ireum0) })?.let { ireum = it }
+            }
+            val bakkum = ireum + "역" + (if (beon.isEmpty()) "" else " ${beon}번 출구")
+            Girok.namgi("yeok_barojapgi", mapOf("jeon" to tx.take(30), "hu" to bakkum))
+            kkeut(bakkum)
+        }
+    }
+
+    /** 가까운 역 이름(받아쓰기에 미리 알려 줄 것) — 자리가 300미터 넘게 바뀌면 새로 받음 */
+    private var gakkaunYeok: List<String> = emptyList()
+    private var gakkaunYeokJari: Pair<Double, Double>? = null
+    private fun gakkaunYeokGaengsin() {
+        val w = Wichi.jigeum ?: return
+        val j = gakkaunYeokJari
+        if (j != null && Wichi.geori(j.first, j.second, w.lat, w.lon) < 300) return
+        gakkaunYeokJari = Pair(w.lat, w.lon)
+        val q = mapOf("a" to "gakkaun", "lat" to String.format(Locale.US, "%.6f", w.lat), "lon" to String.format(Locale.US, "%.6f", w.lon))
+        Tongsin.json("yeok.php", q) { o ->
+            val rows = o?.optJSONArray("rows") ?: return@json
+            val l = ArrayList<String>()
+            for (i in 0 until rows.length()) {
+                val y = rows.optJSONObject(i)?.optString("yeok", "") ?: ""
+                if (y.isNotEmpty() && !l.contains(y + "역")) l.add(y + "역")
+            }
+            gakkaunYeok = l.take(12)
+        }
+    }
+
+    /** 명령을 들을 때 받아쓰기에 미리 알려 줄 말 */
+    private fun doumMal(): List<String> {
+        val l = ArrayList(gakkaunYeok)
+        l.addAll(Jeulgyeo.mokrok.take(30).map { it.ireum })
+        l.addAll(listOf("출구", "번 출구", "여기가 어디야", "길 위의 음악", "라디오 틀어 줘", "뉴스 들려줘", "집으로 가자"))
+        return l.take(80)
     }
 
     /** 점지도의 도착지·이름이 맞으면 따라 걷기, 출발지가 맞으면 거꾸로 걷기 — 맞는 정도와 가까운 차례로 셋까지 */
@@ -861,7 +1025,9 @@ object MalHagi {
     }
 
     private fun mureumChoGihwa() {
+        chulguDaean = null
         mutneunJung = false
+        hochingMutneun = false
         hubo = emptyList()
         huboI = 0
         gingeupMutneun = false
@@ -912,7 +1078,7 @@ object MalHagi {
                         dap("가족·지인 가운데 누구에게 요청할까요? " + l.take(5).joinToString(", ") { it.name } + ".", true)
                     }
                 } else {
-                    dap("누구에게 요청할까요? 가족·지인이면 이름을, 아니면 자원봉사자나 현장영상해설사라고 말씀해 주십시오.", true)
+                    dap("$ho, 누구에게 요청할까요? 가족·지인이면 이름을, 아니면 자원봉사자나 현장영상해설사라고 말씀해 주십시오.", true)
                 }
             }
         }
@@ -988,19 +1154,23 @@ object MalHagi {
     }
     fun eul(w: String) = if (batchim(w).first) "을" else "를"
     fun eun(w: String) = if (batchim(w).first) "은" else "는"
+    /** 2.27.0 호칭 뒤 「이라고·라고」(아이폰 MalHagi.irago) */
+    fun irago(w: String) = if (batchim(w).first) "이라고" else "라고"
     /** 2.8.0 전화번호를 한 자씩 — 공 이 구 이 … (아이폰 MalSajeon.beonhoMal) */
     fun beonhoMal(n: String): String = n.map { c -> if (c.isDigit()) "공일이삼사오육칠팔구"[c - '0'].toString() else c.toString() }.joinToString(" ")
     /** 까지 앞 — 토씨 없이 */
     private fun kkajiTo(w: String) = if (w.endsWith("까지")) "" else "까지"
 
     /** 말로 하는 도움말 — 안드로이드 길눈에서 되는 말만 */
-    const val DOUMAL_MAL = "이렇게 말씀하시면 됩니다. 지금 어디야. 약수역 가자. 가까운 점지도 찾아 줘. 점지도를 따라 걸을 때는 다음에 무엇, 다음 갈림길, 어디쯤이야, 그만 걷기, 도착하면 되돌아가자. 신호기 울려 줘. 신호 알려 줘. 신호기 찾아 줘. 도와줘, 또는 가족 이름과 화상통화. 날씨 어때. 몇 시야. 말 빠르게, 말 느리게. 말소리 꺼. 다시 말해. 그만. 하던 일 멈춰. 걸어서 가자, 차로 가자, 지하철로 가자, 버스로 가자. 차에 탔어, 내렸어. 얼마나 걸려, 지금 가는 길. 여정 끝, 도착했어. 즐겨찾기 목록, 즐겨찾기에 담아 줘. 점지도로, 위성으로. 점지도를 따라 걸을 때는 여기 문제 있어, 여기 걸렸어, 길목, 정류장, 다른 문. 길 기억해 줘. 되짚어 나가자. 말로 그린 길. 음성유도기 어디 있어. QR 찾아 줘. 글자 읽어 줘. 사람 있어. 빛 알려 줘. 바코드 읽어 줘. 무슨 색이야. 얼마짜리야. 이게 뭐야. 가리키는 거 읽어 줘. 근처 약국. 축제 알려 줘. 고장 이야기. 마실 가자. 사진 읽어 줘. 안면인식. 음악 틀어 줘. 트롯 틀어 줘, 또는 가수나 곡 이름. 다음 곡, 이전 곡. 무슨 곡이야. 이어서 틀어. 고장 노래 틀어 줘. 라디오 틀어 줘. KBS 1라디오 틀어 줘. TV 틀어 줘. 뉴스 들려줘. 장애 소식, 속보, 경제 뉴스. 기분이 꿀꿀해. 음악 꺼, 라디오 꺼. 목소리 바꿔. 현장영상해설 받고 싶어. 새로고침."
+    const val DOUMAL_MAL = "이렇게 말씀하시면 됩니다. 지금 어디야. 약수역 가자. 가까운 점지도 찾아 줘. 점지도를 따라 걸을 때는 다음에 무엇, 다음 갈림길, 어디쯤이야, 그만 걷기, 도착하면 되돌아가자. 신호기 울려 줘. 신호 알려 줘. 신호기 찾아 줘. 도와줘, 또는 가족 이름과 화상통화. 날씨 어때. 몇 시야. 말 빠르게, 말 느리게. 말소리 꺼. 다시 말해. 그만. 하던 일 멈춰. 걸어서 가자, 차로 가자, 지하철로 가자, 버스로 가자. 차에 탔어, 내렸어. 자세히 안내해, 간단히 안내해, 보통으로 안내해. 얼마나 걸려, 지금 가는 길. 여정 끝, 도착했어. 즐겨찾기 목록, 즐겨찾기에 담아 줘. 점지도로, 위성으로. 점지도를 따라 걸을 때는 여기 문제 있어, 여기 걸렸어, 길목, 정류장, 다른 문. 길 기억해 줘. 되짚어 나가자. 말로 그린 길. 음성유도기 어디 있어. QR 찾아 줘. 글자 읽어 줘. 사람 있어. 빛 알려 줘. 바코드 읽어 줘. 무슨 색이야. 얼마짜리야. 이게 뭐야. 가리키는 거 읽어 줘. 근처 약국. 축제 알려 줘. 고장 이야기. 마실 가자. 사진 읽어 줘. 안면인식. 음악 틀어 줘. 트롯 틀어 줘, 또는 가수나 곡 이름. 다음 곡, 이전 곡. 무슨 곡이야. 이어서 틀어. 고장 노래 틀어 줘. 라디오 틀어 줘. KBS 1라디오 틀어 줘. TV 틀어 줘. 뉴스 들려줘. 장애 소식, 속보, 경제 뉴스. 기분이 꿀꿀해. 음악 꺼, 라디오 꺼. 목소리 바꿔. 호칭 바꿔. 현장영상해설 받고 싶어. 새로고침."
 }
 
 // MARK: 받아쓰기 — 안드로이드 자체 SpeechRecognizer(아이폰 MalDeutgi)
 
 object MalDeutgi {
     private val main = Handler(Looper.getMainLooper())
+    /** 2.27.0 받아쓰기에 미리 알려 줄 말(가까운 역·즐겨찾기, 아이폰 doumMal) — 안드로이드 13 이상에서만 받아 줌 */
+    @Volatile var doumMal: List<String> = emptyList()
     private var sr: SpeechRecognizer? = null
     private var beon = 0
     private var jigeumBeon = 0
@@ -1068,6 +1238,7 @@ object MalDeutgi {
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 900L)
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 900L)
+            if (android.os.Build.VERSION.SDK_INT >= 33 && doumMal.isNotEmpty()) putStringArrayListExtra(RecognizerIntent.EXTRA_BIASING_STRINGS, ArrayList(doumMal))
         }
         try {
             r.startListening(sik)
@@ -1150,6 +1321,9 @@ object MalSajeon {
         "charye" to listOf("할 차례", "이제 뭐 해", "다음 할 일"),
         "hadeon_meomchum" to listOf("하던 일 멈춰", "하던 일 멈추", "하던 거 멈춰", "하던 것 멈춰", "다 멈춰", "모두 멈춰", "전부 멈춰", "하던 일 그만"),
         "yeojeong_kkeut" to listOf("여정 끝", "안내 끝", "길 안내 그만", "목적지 취소", "여정 취소"),
+        "cha_jasehi" to listOf("자세히 안내", "자세하게 안내"),
+        "cha_gandan" to listOf("간단히 안내", "간단하게 안내", "짧게 안내"),
+        "cha_botong" to listOf("보통으로 안내"),
         "bareuge" to listOf("빠르게", "빨리 말해"),
         "neurige" to listOf("느리게", "천천히 말해"),
         "annae_kkeum" to listOf("말소리 꺼", "안내 음성 꺼"),
@@ -1308,6 +1482,19 @@ object Nalssi {
     private var jangdok = ""
     private var ttae = 0L
     private var ttaeJari: Pair<Double, Double>? = null
+
+    private var cheotMalHaet = false
+
+    /** 2.27.0 앱을 켠 뒤 한 번 — 자리가 잡히면 「날씨는 …」 하고 알려 드림(아이폰 Nalssi.cheotMal, 알려 드리는 말이라 안내가 바쁘면 먼저 버림) */
+    fun cheotMal() {
+        if (cheotMalHaet) return
+        cheotMalHaet = true
+        fun gidari(beon: Int) {
+            if (Wichi.jigeum == null && beon < 20) { main.postDelayed({ gidari(beon + 1) }, 3000); return }
+            mal { t -> if (t.isNotEmpty()) Sori.mal("날씨는 $t.", MalGeup.JEONGBO) }
+        }
+        gidari(0)
+    }
 
     /** 날씨 한 줄 — 받지 못하면 빈 글(결과는 화면 줄에서) */
     fun mal(kkeut: (String) -> Unit) {

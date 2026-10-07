@@ -109,12 +109,12 @@ object YeojeongMal {
                 hwalseong()?.cheotHwamyeonEuro(null)
             } else {
                 talgeotDaegi = Talgeot.CHA
-                dap("차 안 안내를 하겠습니다. 어디로 가십니까?", true)
+                dap("차 안 안내를 하겠습니다. ${Seoljeong.ho}, 어디로 가십니까?", true)
             }
             return true
         }
         if (s.itda(alts, "sigan")) {
-            if (y == null) dap("아직 가시는 곳이 없습니다. 어디로 가실까요?", true)
+            if (y == null) dap("아직 가시는 곳이 없습니다. ${Seoljeong.ho}, 어디로 가실까요?", true)
             else dap(geollineunMal(), false)
             return true
         }
@@ -123,7 +123,7 @@ object YeojeongMal {
                 dap("", false)
                 AnnaeEngine.hyeonhwang()
             } else {
-                dap("지금 가시는 길이 없습니다. 어디로 가실까요?", true)
+                dap("지금 가시는 길이 없습니다. ${Seoljeong.ho}, 어디로 가실까요?", true)
             }
             return true
         }
@@ -132,7 +132,7 @@ object YeojeongMal {
             if (l.isEmpty()) {
                 dap("즐겨찾기가 비어 있습니다. 가시는 곳에서 즐겨찾기에 담아 줘라고 말씀하시면 담아 둡니다.", false)
             } else {
-                dap("즐겨찾기에 담긴 곳은 ${l.joinToString(", ")}입니다. 어디로 가실까요?", true)
+                dap("즐겨찾기에 담긴 곳은 ${l.joinToString(", ")}입니다. ${Seoljeong.ho}, 어디로 가실까요?", true)
             }
             return true
         }
@@ -161,7 +161,7 @@ object YeojeongMal {
                 gagi(m, tg, dap)
             } else {
                 talgeotDaegi = tg
-                dap("어디로 가실지 먼저 말씀해 주십시오.", true)
+                dap("${Seoljeong.ho}, 어디로 가실지 먼저 말씀해 주십시오.", true)
             }
             return true
         }
@@ -195,7 +195,7 @@ object YeojeongMal {
             yj.jeonghagi(mk)
             a?.cheotHwamyeonEuro(null)
             yeoJjum(Mureum.BANGSIK)
-            dap(apMal + "걸어가시기에는 먼 곳입니다. 차로, 지하철로, 버스로 가운데 어떻게 가실까요?", true)
+            dap(apMal + "걸어가시기에는 먼 곳입니다. ${Seoljeong.ho}, 차로, 지하철로, 버스로 가운데 어떻게 가실까요?", true)
             return
         }
         when (tg) {
