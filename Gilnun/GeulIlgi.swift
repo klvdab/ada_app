@@ -205,10 +205,10 @@ final class GeulIlgi: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         }
         var jallim: String?
         for (_, b) in hang {
-            if b.minX < 0.015 { jallim = "왼쪽"; break }
-            if b.maxX > 0.985 { jallim = "오른쪽"; break }
-            if b.maxY > 0.985 { jallim = "위쪽"; break }
-            if b.minY < 0.015 { jallim = "아래쪽"; break }
+            if b.minX < 0.015 { jallim = "9시 쪽"; break }   // 2.53.0 시계 방향으로
+            if b.maxX > 0.985 { jallim = "3시 쪽"; break }
+            if b.maxY > 0.985 { jallim = "12시 쪽"; break }
+            if b.minY < 0.015 { jallim = "6시 쪽"; break }
         }
         return (hang.map { $0.0 }, jallim)
     }
