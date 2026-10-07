@@ -100,6 +100,18 @@ class ByodActivity : Activity() {
         cheotHwamyeon()
         // 듣는 화면을 한 번도 받지 못했으면 조용히 받아 둠(인터넷이 될 때)
         if (Jaryo.pail(this, "deut.html") == null) Thread { Jaryo.batgi(applicationContext) }.start()
+        // 1.1.2 새 판 알림과 업데이트(이사장님 지시 — 모든 앱에). 방송 중에는 설치하면 방송이 끊기므로 막음
+        Ollim.malhagi = { m -> if (malsoriOn && ttsDoem) malhagi(m) else mom.announceForAccessibility(m) }
+        Ollim.makgi = { if (Bang.kyeojim) "방송 중에는 업데이트하지 않습니다. 방송을 멈춘 뒤 업데이트를 눌러 주십시오." else null }
+        Ollim.byeonhwa = { if (!doumalYeollim) cheotHwamyeon() }
+        Ollim.sijak(this)
+        Ollim.intentBoda(this, intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {   // 1.1.2 새 판 알림을 두드렸을 때
+        super.onNewIntent(intent)
+        setIntent(intent)
+        Ollim.intentBoda(this, intent)
     }
 
     override fun onResume() {
@@ -107,6 +119,7 @@ class ByodActivity : Activity() {
         Bang.gwanchal.add(gwan)
         h.post(tik)
         sangtaeGochigi(true)
+        Ollim.dorawatda(this)   // 1.1.2 돌아오면 새 판 살피기(1시간에 한 번까지)
     }
 
     override fun onPause() {
@@ -117,6 +130,7 @@ class ByodActivity : Activity() {
 
     override fun onDestroy() {
         try { tts?.shutdown() } catch (_: Exception) { }
+        Ollim.byeonhwa = null; Ollim.malhagi = null; Ollim.makgi = null
         super.onDestroy()
     }
 
@@ -178,6 +192,7 @@ class ByodActivity : Activity() {
         mom.removeAllViews()
         bangDanchu = danchu("BYOD 방송 시작", keun = true, norang = true) { bangDanchuNullim() }
         mom.addView(bangDanchu)
+        Ollim.julMal(this)?.let { m -> mom.addView(danchu(m) { Ollim.olligi(this) }) }   // 1.1.2 새 판이 있을 때만 — 안내와 단추를 한 자리에
 
         sangtae = geul("", 22f, true)
         sangtae.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
@@ -199,6 +214,7 @@ class ByodActivity : Activity() {
         deoAn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
         deoAn.addView(danchu("접속 도구: 엔에프시 스티커와 큐알코드") { startActivity(Intent(this, JeopsokActivity::class.java)) })   // 1.1.0 (261006-B2)
         deoAn.addView(danchu("새로고침") { saerogochim() })
+        deoAn.addView(danchu(Ollim.seoljeongMal(this)) { Ollim.seoljeongNureum(this) })   // 1.1.2 업데이트 — 새로고침 바로 아래 한 곳
         malsoriDanchu = danchu(if (malsoriOn) "프로그램 말소리 끄기" else "프로그램 말소리 켜기") { malsoriBakkugi() }
         deoAn.addView(malsoriDanchu)
         deoAn.addView(danchu("도움말") { doumalHwamyeon() })
