@@ -449,6 +449,9 @@ object AnnaeEngine {
         val y = yj.jigeum ?: return
         // 2.9.0 탈것 알아채기가 알아챈 지하철·버스도 이어 받음(아이폰 2.40.0과 같음)
         if (t == Talgeot.JIHACHEOL) {
+            // 2.25.0 아이폰 2.44.0과 같게 — 기차·고속버스를 타고 가는 중 터널에서 「지하철을 타신 것 같습니다」로 덮지 않음, 차로 바로잡으신 때도 그대로
+            if (y.danggye == Danggye.TANEUN_JUNG && (y.talgeot == Talgeot.GICHA || y.talgeot == Talgeot.GOSOKBEOSEU || yj.sokdoChujeong == Talgeot.GICHA)) return
+            if (y.barojabeum && y.talgeot == Talgeot.CHA && y.danggye == Danggye.TANEUN_JUNG) return
             if (y.barojabeum && y.talgeot == Talgeot.BEOSEU && !TalgeotGamji.jiha) return
             val g = y.jiha
             if (g != null) {
@@ -477,8 +480,8 @@ object AnnaeEngine {
             return
         }
         if (t == Talgeot.GEOREUM) {
-            // 걸음 판단은 차·버스에서 내리신 것을 알아채는 데 씀(지하철은 지하철 엔진이 땅 위로 나온 것을 보고 마침)
-            if (y.danggye == Danggye.TANEUN_JUNG && y.jiha == null) naeryeotda(true)
+            // 2.25.0 아이폰과 같게 — 걸음 15초만으로는 내리신 것으로 보지 않음(KTX·버스 안에서 잠깐 걸어도 차 안 안내가 끝나던 일).
+            // 내리심은 목적지 가까이에서 멈췄다 걷는 것을 보는 쪽과 「내렸습니다」 단추가 맡음
             return
         }
         if (t != Talgeot.CHA && t != Talgeot.GICHA) return

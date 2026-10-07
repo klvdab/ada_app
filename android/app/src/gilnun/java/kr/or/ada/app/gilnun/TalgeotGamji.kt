@@ -123,6 +123,8 @@ object TalgeotGamji : SensorEventListener {
             if (now - chaSijak >= 20000) chongPandan("탈것 20초")
         } else if (georeum20 <= 3) {
             jigeumUmjigim = "멈춤"
+            // 2.25.0 오래(1분 넘게) 멈춰 있으면 띄엄띄엄 만지작거린 흔들림이 탈것 20초로 쌓이지 않게 처음부터
+            if (chaSijak > 0 && meomchumSijak > 0 && now - meomchumSijak > 60000 && chujeong == Talgeot.GEOREUM) chaSijak = 0L
             if ((chujeong != Talgeot.GEOREUM || chaSijak > 0) && meomchumSijak == 0L) meomchumSijak = now
         }
     }
@@ -160,19 +162,29 @@ object TalgeotGamji : SensorEventListener {
 
     // MARK: 기압 — 1헥토파스칼 ≈ 8.3미터
 
+    // 2.25.0 (전체 점검) 갤럭시 탭 기압계가 잘게 흔들려 가만히 둔 폰이 밤새 「땅속 들어감·나옴」을 백 번 넘게 되풀이함(나스 기록).
+    // 아이폰 고도계처럼 10초 평균으로 고르고, 내려간 채로 10초 넘게 머물러야 땅속으로 봄
+    private val gidoNal = ArrayList<Pair<Long, Double>>()
+    private var naeryeogaTtae = 0L
+
     private fun gidoBatda(hpa: Double) {
         val now = System.currentTimeMillis()
-        val h = -hpa * 8.3   // 높을수록 큰 값(상대 높이)
+        gidoNal.add(now to (-hpa * 8.3))
+        gidoNal.removeAll { now - it.first > 10000 }
+        val h = gidoNal.sumOf { it.second } / gidoNal.size   // 높을수록 큰 값(상대 높이), 10초 평균
         gido.add(now to h)
         gido.removeAll { now - it.first > 120000 }
         if (!jiha) {
             val jeonMax = gido.filter { now - it.first <= 90000 }.maxOfOrNull { it.second } ?: h
             if (jeonMax - h >= 3.5 && !wiseongJoeum) {
+                if (naeryeogaTtae == 0L) naeryeogaTtae = now
+                if (now - naeryeogaTtae < 10000) return
+                naeryeogaTtae = 0L
                 jiha = true
                 jihaMin = h
                 Girok.namgi("jiha_jinip", mapOf("naeryeogam" to ((jeonMax - h) * 10).toInt()))
                 jihaJinip?.invoke()
-            }
+            } else naeryeogaTtae = 0L
         } else {
             if (h < jihaMin) jihaMin = h
             jihaHwagin()

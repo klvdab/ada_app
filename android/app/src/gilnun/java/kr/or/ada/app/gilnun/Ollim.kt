@@ -60,6 +60,15 @@ object Ollim {
     /** 받는 중·설치 중 */
     var jinhaengJung = false
         private set
+    private var jinhaengTtae = 0L                 // 2.25.0 받기 시작한 때 — 오래 갇히지 않게
+    @Volatile private var daegiHwakin: Intent? = null   // 2.25.0 화면이 꺼져 못 연 설치 확인 화면
+
+    /** 2.25.0 길눈 화면이 다시 앞에 오면 못 연 설치 확인 화면을 엶 */
+    fun hwakinIeogi(a: Activity) {
+        val h = daegiHwakin ?: return
+        daegiHwakin = null
+        try { a.startActivity(h) } catch (e: Exception) { Girok.namgi("ollim_hwakin_oryu", mapOf("dan" to "ieogi")) }
+    }
     /** 받는 중 퍼센트(화면을 다시 그릴 때만 읽음 — 낭독기가 쉬지 않고 떠들지 않게 숫자로는 알리지 않음) */
     var peosenteu = 0
         private set
@@ -214,6 +223,7 @@ object Ollim {
     fun olligi(a: Activity) {
         val s = sae ?: return
         makgi?.invoke()?.let { mal(it); return }
+        if (jinhaengJung && System.currentTimeMillis() - jinhaengTtae > 600000) jinhaengJung = false   // 2.25.0 10분 넘게 갇혔으면 풂
         if (jinhaengJung) { mal("새 판을 받는 중입니다. 잠시만 기다려 주십시오."); return }
         if (!seolchiHeorak(a)) {
             heorakGidarim = true
@@ -229,6 +239,7 @@ object Ollim {
             return
         }
         jinhaengJung = true
+        jinhaengTtae = System.currentTimeMillis()
         peosenteu = 0
         mal("${aeIreum(a)} 새 판 ${s.pan}을 받습니다. 다 받으면 설치 화면이 열립니다. 설치를 눌러 주십시오.")
         byeonhwa?.invoke()
@@ -261,7 +272,7 @@ object Ollim {
                     jinhaengJung = false
                     mal("새 판을 받지 못했습니다. 와이파이나 데이터를 확인하시고 다시 눌러 주십시오.")
                     byeonhwa?.invoke()
-                } else seolchi(ac, f, s)
+                } else Thread { seolchi(ac, f, s) }.start()   // 2.25.0 큰 설치 파일 복사는 화면 줄 밖에서(멈춤 막기)
             }
         }.start()
     }
@@ -281,10 +292,12 @@ object Ollim {
             }
             Girok.namgi("ollim_seolchi", mapOf("pan" to s.pan))
         } catch (e: Exception) {
-            jinhaengJung = false
             Girok.namgi("ollim_seolchi_oryu", mapOf("e" to (e.message ?: "").take(80)))
-            mal("설치를 시작하지 못했습니다. 시험판 받기 화면에서 새 판을 받아 주십시오.")
-            byeonhwa?.invoke()
+            main.post {
+                jinhaengJung = false
+                mal("설치를 시작하지 못했습니다. 시험판 받기 화면에서 새 판을 받아 주십시오.")
+                byeonhwa?.invoke()
+            }
         }
     }
 
@@ -296,7 +309,8 @@ object Ollim {
                 val h = i.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
                 if (h != null) {
                     h.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    try { c.startActivity(h) } catch (e: Exception) { Girok.namgi("ollim_hwakin_oryu") }
+                    daegiHwakin = h   // 2.25.0 화면이 꺼져 못 열면 길눈이 앞에 올 때 엶
+                    try { c.startActivity(h); daegiHwakin = null } catch (e: Exception) { Girok.namgi("ollim_hwakin_oryu") }
                 }
                 main.post { mal("설치 화면에서 설치를 눌러 주십시오.") }
             }

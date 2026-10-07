@@ -251,7 +251,7 @@ object MalHagi {
         val zz = MalSajeon.ttuk(alts[0])
         if (zz in setOf("됐어", "됐어요", "됐습니다", "고마워", "고마워요", "고맙습니다", "알았어", "알겠어", "이제됐어", "충분해")) {
             ieoGeumman = true
-            dapHagi(sd, "네, 필요하시면 하이 길눈이라고 불러 주십시오.", false)
+            dapHagi(sd, "네, 필요하시면 말로 하기 단추를 눌러 주십시오.", false)
             return
         }
         choegeunMal.add(zz)

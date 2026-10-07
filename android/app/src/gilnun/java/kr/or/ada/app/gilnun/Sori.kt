@@ -47,11 +47,16 @@ object Sori {
     private class Matgim(val t: String, val geup: MalGeup, val f: (() -> Unit)?, val ttae: Long)
     private val matgim = ArrayList<Matgim>()
 
+    private var ctxJeojang: Context? = null
+
     fun sijak(ctx: Context) {
+        ctxJeojang = ctx.applicationContext
         if (tts != null) return
         tts = TextToSpeech(ctx.applicationContext) { st ->
             if (st == TextToSpeech.SUCCESS) {
-                tts?.language = Locale.KOREAN
+                // 2.25.0 한국어 목소리 자료가 없으면 알고 기록(그래도 말은 시도함)
+                val ra = tts?.setLanguage(Locale.KOREAN) ?: TextToSpeech.LANG_NOT_SUPPORTED
+                if (ra < 0) Girok.namgi("sori_eoneo", mapOf("r" to ra))
                 tts?.setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
@@ -134,7 +139,7 @@ object Sori {
                     val id2 = "m$beon"
                     kkeutJul[id2] = daesinKkeut
                     tt.setSpeechRate(ppareugi)
-                    tt.speak(t, TextToSpeech.QUEUE_ADD, Bundle(), id2)
+                    if (tt.speak(t, TextToSpeech.QUEUE_ADD, Bundle(), id2) != TextToSpeech.SUCCESS) malMotham(id2, t) else jikimi(id2, t, 0)
                 }
                 return@post
             }
@@ -145,8 +150,32 @@ object Sori {
             tt.setSpeechRate(ppareugi)
             val q = if (geup == MalGeup.GYEONGGO) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
             val b = Bundle()
-            tt.speak(t, q, b, id)
+            if (tt.speak(t, q, b, id) != TextToSpeech.SUCCESS) malMotham(id, t) else jikimi(id, t, 0)
         }
+    }
+
+    /** 2.25.0 (전체 점검) 폰 목소리 엔진이 말을 받지 못함 — 기다리는 일을 풀고 엔진을 새로 세움(그대로 두면 「말하는 중」이 남아 안내·방송이 모두 멈춤) */
+    private fun malMotham(id: String, t: String) {
+        Girok.namgi("sori_motham", mapOf("t" to t.take(20)))
+        ttsMalhaneun = false
+        kkeutJul.remove(id)?.let { main.post(it) }
+        BangsongDuck.malKkeut()
+        tokbaek?.invoke(t)
+        val c = ctxJeojang
+        try { tts?.shutdown() } catch (e: Exception) {}
+        tts = null
+        junbi = false
+        if (c != null) main.postDelayed({ sijak(c) }, 500)
+    }
+
+    /** 2.25.0 끝남 알림이 오지 않아도 말 줄이 멈추지 않게 — 넉넉히 기다린 뒤에도 조용하면 끝난 것으로 봄 */
+    private fun jikimi(id: String, t: String, beonjjae: Int) {
+        main.postDelayed({
+            if (!kkeutJul.containsKey(id) && !ttsMalhaneun) return@postDelayed
+            if (tts?.isSpeaking == true && beonjjae < 4) { jikimi(id, t, beonjjae + 1); return@postDelayed }
+            Girok.namgi("sori_jikimi", mapOf("beon" to beonjjae))
+            kkeut(id)
+        }, 4000L + t.length * 250L)
     }
 
     /** 방금 한 말 다시 */

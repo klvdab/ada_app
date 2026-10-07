@@ -147,7 +147,7 @@ object NasMoksori {
     }
 
     private fun maldaKkeut(b0: Int, m: Mal) {
-        if (b0 != beon) return
+        if (b0 != beon || jigeum !== m) return   // 2.25.0 지킴이와 끝남 알림이 둘 다 와도 한 번만
         player?.let { try { it.release() } catch (e: Exception) {} }
         player = null
         jigeum = null
@@ -183,6 +183,9 @@ object NasMoksori {
             p.setVolume(1f, 1f)
             player = p
             p.start()
+            // 2.25.0 (전체 점검) 블루투스가 끊기는 등 끝남 알림이 오지 않아도 줄이 멈추지 않게(아이폰 SoriEngine 과 같음)
+            val gil = p.duration
+            if (gil > 0) main.postDelayed({ maldaKkeut(b0, m) }, gil + 1500L)
         } catch (e: Exception) {
             pail.delete()   // 깨진 소리 파일이면 다음에 다시 받게
             daesinHagi(b0, m)

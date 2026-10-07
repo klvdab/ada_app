@@ -23,12 +23,26 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.24.0"
-    const val bild = "261007-A12"
+    const val pan = "2.25.0"
+    const val bild = "261007-A13"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.25.0", "261007-A13", "2026-10-07", listOf(
+            "★안드로이드 전체 점검(이사장님 지시 「꼼꼼하게 다른 기능들도 점검해 줘」) — 아이폰 길눈과 기능마다 맞대어 안드로이드에서만 말없이 틀어지던 것을 고침",
+            "모든 통신에 서버 문지기를 통과하는 이름표를 닮(점지도·긴급통화·사진 읽기·업데이트·선희 목소리·목소리 토막 모두). 끊기면 두 번 더 해 봄(아이폰과 같게)",
+            "폰 목소리가 말을 받지 못하거나 끝남 알림이 오지 않아도 안내 줄이 멈추지 않게 지킴이를 둠. 선희 목소리도 같은 지킴이",
+            "방향을 진북으로 바로잡음(자북 8도 어긋남 때문에 똑바로 걸어도 비켜났다고 하던 일), 폰을 세워 드셔도 방향이 흔들리지 않게, 회전 센서가 없는 탭은 다른 센서로 방향을 잡음, 「대략적 위치」만 허락하셔도 위치를 받음",
+            "길 안내·점지도 걷기·되짚기·말로 그린 길 동안은 화면을 꺼도 폰이 잠들지 않게 함(지하·실내에서 역 알림과 걸음 셈이 멈추던 일)",
+            "가만히 둔 탭이 밤새 「땅속 들어감·나옴」을 백 번 넘게 되풀이하던 것 — 기압을 10초 평균으로 고르고 10초 넘게 내려가 있어야 땅속으로 봄. 띄엄띄엄 만진 흔들림이 탈것으로 쌓이지 않게",
+            "기차·고속버스 터널에서 「지하철을 타신 것 같습니다」로 덮지 않음, 걸음 15초만으로 차 안 안내가 끝나지 않음(아이폰과 같게)",
+            "카메라 눈(글자·QR·바코드·사람·한마디 설명) 모델을 앱 안에 실음 — 시험판으로 깔면 모델이 없어 말없이 안 되던 일",
+            "긴급통화 중 잠금 단추를 눌러도 마이크·카메라가 끊기지 않게 알림 칸 서비스를 둠. 블루투스 리모컨·키보드를 붙여도 화면이 새로 지어져 통화가 끊기지 않게",
+            "업데이트 — 화면이 꺼져 설치 화면을 못 열었으면 길눈을 다시 열 때 엶, 받는 중에 갇히지 않게",
+            "자봉 목소리 토막은 길눈 말이 끝난 뒤에 틀고 방송 소리를 잠시 줄임, 받다 끊긴 토막 파일이 남지 않게",
+            "지금 내 자리와 방향 듣기에서 북쪽·동쪽 같은 말을 뺌(시계 방향 원칙). 없는 「하이 길눈」을 쓰라던 안내를 단추 안내로 고침"
+        )),
         Gochim("2.24.0", "261007-A12", "2026-10-07", listOf(
             "★음악·방송이 안드로이드에서 하나도 안 나오던 것 고침(이사장님 지적 — 갤럭시 탭에서 TV·라디오를 틀어도 「잇는 중」만 하고 소리가 없었음)",
             "길눈 제 목소리(「○○에 잇는 중입니다」 등)가 소리 자리를 통째로 가져가 방송이 멈춘 채로 묶이던 것 — 이제 말이 끝나면 0.8초 뒤 되찾음. 다른 앱(전화·다른 음악)이 3초 넘게 가져갈 때만 멈춘 채로 둠",
@@ -350,19 +364,30 @@ object Tongsin {
     fun json(pail: String, q: Map<String, String>, handO: Int = 8000, kkeut: (JSONObject?) -> Unit) {
         il.execute {
             var o: JSONObject? = null
-            try {
-                val c = URL(juso(pail, q)).openConnection() as HttpURLConnection
-                c.connectTimeout = handO
-                c.readTimeout = handO
-                c.setRequestProperty("Accept", "application/json")
-                if (c.responseCode == 200) {
-                    val t = c.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-                    o = JSONObject(t)
+            // 2.25.0 (전체 점검) 아이폰 Tongsin 처럼 끊기면 0.8초·1.6초 쉬고 두 번 더 해 봄(지하·터널 잠깐 끊김에 곧바로 실패하지 않게)
+            for (beonjjae in 0..2) {
+                if (beonjjae > 0) try { Thread.sleep(800L * beonjjae) } catch (e: Exception) {}
+                var dasi = false
+                try {
+                    val c = URL(juso(pail, q)).openConnection() as HttpURLConnection
+                    c.connectTimeout = handO
+                    c.readTimeout = handO
+                    c.setRequestProperty("Accept", "application/json")
+                    c.setRequestProperty("User-Agent", Bangsong.UA)
+                    val rc = c.responseCode
+                    if (rc == 200) {
+                        val t = c.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                        o = JSONObject(t)
+                    } else if (rc >= 500 || rc == 403 || rc == 429) dasi = true
+                    c.disconnect()
+                    yeongyeol = true
+                } catch (e: org.json.JSONException) {
+                    yeongyeol = true
+                } catch (e: Exception) {
+                    yeongyeol = false
+                    dasi = true
                 }
-                c.disconnect()
-                yeongyeol = true
-            } catch (e: Exception) {
-                yeongyeol = false
+                if (!dasi) break
             }
             val r = o
             main.post { kkeut(r) }
@@ -380,6 +405,7 @@ object Tongsin {
                 c.connectTimeout = 15000
                 c.readTimeout = 15000
                 c.setRequestProperty("Content-Type", "application/json")
+                c.setRequestProperty("User-Agent", Bangsong.UA)
                 c.outputStream.use { it.write(bonmun.toByteArray(Charsets.UTF_8)) }
                 ok = c.responseCode == 200
                 c.disconnect()

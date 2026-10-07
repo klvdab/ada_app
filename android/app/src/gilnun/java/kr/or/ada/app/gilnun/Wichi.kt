@@ -83,7 +83,8 @@ object Wichi : SensorEventListener, LocationListener {
     fun deutgi(f: (Jari) -> Unit) { deutneun.add(f) }
 
     val heorakItda: Boolean
-        get() = ctx?.let { ContextCompat.checkSelfPermission(it, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED } == true
+        get() = ctx?.let { ContextCompat.checkSelfPermission(it, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(it, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED } == true   // 2.25.0 「대략적 위치」만 고르셔도 받음
     val georeumHeorak: Boolean
         get() = Build.VERSION.SDK_INT < 29 || ctx?.let { ContextCompat.checkSelfPermission(it, Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED } == true
 
@@ -93,7 +94,14 @@ object Wichi : SensorEventListener, LocationListener {
         dolgo = true
         lm = c.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
         sm = c.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
-        sm?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)?.let { sm?.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
+        // 2.25.0 회전 벡터가 없는 기기(자이로 없는 탭)는 지자기 회전 벡터, 그것도 없으면 가속도+자력계로 방향을 잡음
+        val rv = sm?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) ?: sm?.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR)
+        if (rv != null) sm?.registerListener(this, rv, SensorManager.SENSOR_DELAY_UI)
+        else {
+            sm?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let { sm?.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
+            sm?.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)?.let { sm?.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
+        }
+        Girok.namgi("bang_sensor", mapOf("t" to (rv?.type ?: -1)))
         georeumDolligi()
         if (c.packageName == "kr.or.ada.app") momKyeogi(c)
         wiseongDolligi()
@@ -108,7 +116,8 @@ object Wichi : SensorEventListener, LocationListener {
         if (!heorakItda) return
         try {
             m.removeUpdates(this)
-            if (m.isProviderEnabled(LocationManager.GPS_PROVIDER))
+            val jeonghwak = ctx?.let { ContextCompat.checkSelfPermission(it, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED } == true
+            if (jeonghwak && m.isProviderEnabled(LocationManager.GPS_PROVIDER))
                 m.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0f, this, Looper.getMainLooper())
             if (m.isProviderEnabled(LocationManager.NETWORK_PROVIDER))
                 m.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 3000L, 0f, this, Looper.getMainLooper())
@@ -177,17 +186,44 @@ object Wichi : SensorEventListener, LocationListener {
     // MARK: 방향·걸음
 
     private val rot = FloatArray(9)
+    private val rot2 = FloatArray(9)
     private val ori = FloatArray(3)
+    private var jungryeok: FloatArray? = null
+    private var jagi: FloatArray? = null
+    private var pyeongak = -8.5          // 자북과 진북의 차이(서울 약 -8.5도), 위치를 받으면 셈
+    private var pyeongakTtae = 0L
+
+    /** 2.25.0 회전 행렬 → 진북 기준 방향. 폰을 세워 드시면(가슴 앞·주머니) 뒷면 카메라 쪽을 앞으로 셈 */
+    private fun bangNaegi() {
+        SensorManager.getOrientation(rot, ori)
+        if (Math.abs(Math.toDegrees(ori[1].toDouble())) > 45) {
+            SensorManager.remapCoordinateSystem(rot, SensorManager.AXIS_X, SensorManager.AXIS_Z, rot2)
+            SensorManager.getOrientation(rot2, ori)
+        }
+        val now = System.currentTimeMillis()
+        val j = jigeum
+        if (j != null && now - pyeongakTtae > 600000) {
+            pyeongak = android.hardware.GeomagneticField(j.lat.toFloat(), j.lon.toFloat(), 0f, now).declination.toDouble()
+            pyeongakTtae = now
+        }
+        var d = Math.toDegrees(ori[0].toDouble()) + pyeongak
+        d = ((d % 360.0) + 360.0) % 360.0
+        nachimban = d
+        MomSensor.nachimbanNeogi(d)   // 2.1.0 자이로 합성 방향이 나침반 쪽으로 천천히 맞춰지게
+    }
 
     override fun onSensorChanged(e: SensorEvent) {
         when (e.sensor.type) {
-            Sensor.TYPE_ROTATION_VECTOR -> {
+            Sensor.TYPE_ROTATION_VECTOR, Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR -> {
                 SensorManager.getRotationMatrixFromVector(rot, e.values)
-                SensorManager.getOrientation(rot, ori)
-                var d = Math.toDegrees(ori[0].toDouble())
-                if (d < 0) d += 360.0
-                nachimban = d
-                MomSensor.nachimbanNeogi(d)   // 2.1.0 자이로 합성 방향이 나침반 쪽으로 천천히 맞춰지게
+                bangNaegi()
+            }
+            Sensor.TYPE_ACCELEROMETER -> jungryeok = e.values.clone()
+            Sensor.TYPE_MAGNETIC_FIELD -> {
+                val m = e.values.clone()
+                jagi = m
+                val g = jungryeok ?: return
+                if (SensorManager.getRotationMatrix(rot, null, g, m)) bangNaegi()
             }
             Sensor.TYPE_STEP_COUNTER -> {
                 val n = e.values[0].toInt()   // 폰을 켠 뒤 센 걸음
@@ -241,9 +277,9 @@ object Wichi : SensorEventListener, LocationListener {
 
     /** 북쪽 기준 도를 말로 */
     fun bangwiMal(d: Double): String {
+        // 2.25.0 이사장님 원칙 — 동서남북으로 말하지 않음(시계 방향만). 남은 부름 자리는 도로만 말함
         if (d < 0) return "방향을 아직 모릅니다"
-        val i = (((d + 22.5) % 360) / 45).toInt()
-        return listOf("북쪽", "북동쪽", "동쪽", "남동쪽", "남쪽", "남서쪽", "서쪽", "북서쪽")[i]
+        return "${d.toInt()}도"
     }
 }
 
@@ -278,7 +314,42 @@ class WichiService : Service() {
             return START_NOT_STICKY
         }
         Wichi.sijak(this)
+        main.removeCallbacks(kkaeoSalpim)
+        main.postDelayed(kkaeoSalpim, 3000)
         return START_STICKY
+    }
+
+    // 2.25.0 (전체 점검) 화면이 꺼져도 계산이 멈추지 않게 — 길 안내·점지도 걷기·되짚기·말로 그린 길 동안만 폰을 깨워 둠(땅속·실내는 위성이 없어 폰이 잠들면 역 알림·걸음 셈이 멈췄음)
+    private val main = android.os.Handler(Looper.getMainLooper())
+    private var kkaeum: android.os.PowerManager.WakeLock? = null
+    private val kkaeoSalpim = object : Runnable {
+        override fun run() {
+            val pilyo = try {
+                JeomEngine.georeoJung || YeojeongEngine.jigeum != null || DoeEngine.sangtae != DoeEngine.Sangtae.SWIM || MalgilEngine.geotneun
+            } catch (e: Exception) { false }
+            try {
+                if (pilyo && kkaeum?.isHeld != true) {
+                    val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                    val w = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "gilnun:annae")
+                    w.setReferenceCounted(false)
+                    w.acquire(3 * 60 * 60 * 1000L)   // 길어도 세 시간이면 스스로 놓음
+                    kkaeum = w
+                    Girok.namgi("kkaeum", mapOf("on" to true))
+                } else if (!pilyo && kkaeum?.isHeld == true) {
+                    kkaeum?.release()
+                    kkaeum = null
+                    Girok.namgi("kkaeum", mapOf("on" to false))
+                }
+            } catch (e: Exception) {}
+            main.postDelayed(this, 15000)
+        }
+    }
+
+    override fun onDestroy() {
+        main.removeCallbacks(kkaeoSalpim)
+        try { if (kkaeum?.isHeld == true) kkaeum?.release() } catch (e: Exception) {}
+        kkaeum = null
+        super.onDestroy()
     }
 
     companion object {

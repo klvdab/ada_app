@@ -180,7 +180,7 @@ object Bangsong {
     const val PPURI = "https://lvd.ada.or.kr"
     /** 2.24.0(261007-A12, 이사장님 지적 — 안드로이드에서 방송·음악이 하나도 안 나옴) 우리 서버 문지기를 통과하는 이름표.
      *  도서관 앱·배프 BYOD 앱과 같이 브라우저 이름표를 답니다(재생기·나스 묻기 모두) */
-    const val UA = "Mozilla/5.0 (Linux; Android) Gilnun/2.24.0"
+    const val UA = "Mozilla/5.0 (Linux; Android) Gilnun/2.25.0"
 
     /** 2.14.0 꼭 맞는 곡이 없을 때 권한 비슷한 곡(말로 하기에서 "네" 하시면 틂, 아이폰 2.46.0과 같음) */
     @Volatile var biseutQ: String? = null
@@ -438,6 +438,8 @@ object Bangsong {
 
     private fun exoTeulgi() {
         val p = pyeonJunbi() ?: return
+        teulgiTtae = System.currentTimeMillis()   // 2.25.0 다시 틀 때도 소리 안 남 살핌을 새로
+        anNaomAllim = false
         if (p.playbackState == Player.STATE_IDLE) p.prepare()
         p.playWhenReady = true
     }
@@ -606,6 +608,7 @@ object Bangsong {
     /** 2.24.0 틀었는데 15초가 지나도 소리가 안 나면 — 까닭을 기록에 남기고 한 번 알림(「나온다」고만 하고 안 나오는 일 막기) */
     private fun anNaomSalpigi(p: ExoPlayer, now: Long) {
         if (teulgiTtae == 0L || p.isPlaying) { if (p.isPlaying) teulgiTtae = 0L; return }
+        if (meomchum || naebuMeomchum.isNotEmpty()) { teulgiTtae = now; return }   // 2.25.0 멈춰 두신 동안은 재지 않음(기록이 쏟아지지 않게)
         if (now - teulgiTtae < 15000) return
         if (now - majimakJindan > 8000) {
             majimakJindan = now

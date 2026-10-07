@@ -189,6 +189,8 @@ object GinGeup {
 
     private fun bakkum(s: GinGeupSangtae) {
         sangtae = s
+        // 2.25.0 통화가 이어진 동안 잠가도 마이크·카메라가 끊기지 않게
+        ctx?.let { c -> if (s == GinGeupSangtae.YEONGYEOL || s == GinGeupSangtae.TONGHWA) TonghwaService.kyeogi(c) else TonghwaService.kkeugi(c) }
         // 통화 중에는 화면이 꺼지지 않게 — 카메라가 멈추지 않게
         val a = hwalseong?.get()
         if (a != null && !a.isFinishing) {

@@ -33,21 +33,37 @@ object TomakDeutgi {
                     val h = u.openConnection() as HttpURLConnection
                     h.connectTimeout = 8000; h.readTimeout = 15000
                     if (h.responseCode != 200) { h.disconnect(); return@Thread }
-                    h.inputStream.use { i -> f.outputStream().use { o -> i.copyTo(o) } }
+                    // 2.25.0 받다가 끊겨 잘린 파일이 남지 않게 — 임시 파일에 다 받은 뒤 이름을 바꿈
+                    val tmp = File(f.path + ".tmp")
+                    h.inputStream.use { i -> tmp.outputStream().use { o -> i.copyTo(o) } }
                     h.disconnect()
+                    if (tmp.length() < 200 || !tmp.renameTo(f)) { tmp.delete(); return@Thread }
                 }
-                main.post { teulgi(f) }
-            } catch (e: Exception) { }
+                main.post { gidaryeoTeulgi(f, 0) }
+            } catch (e: Exception) { File(f.path + ".tmp").delete() }
         }.start()
+    }
+
+    /** 2.25.0 길눈 안내 말이 끝난 뒤에 틂(아이폰과 같음, 겹치지 않게). 6초 넘게 기다리면 그만 */
+    private fun gidaryeoTeulgi(f: File, beon: Int) {
+        if (Sori.malhaneunJung && beon < 20) { main.postDelayed({ gidaryeoTeulgi(f, beon + 1) }, 300); return }
+        teulgi(f)
     }
 
     private fun teulgi(f: File) {
         try {
             player?.release()
             val m = MediaPlayer()
+            m.setAudioAttributes(
+                android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+            )
             m.setDataSource(f.absolutePath)
-            m.setOnCompletionListener { it.release(); if (player === it) player = null }
+            m.setOnCompletionListener { it.release(); if (player === it) player = null; BangsongDuck.malKkeut() }
             m.prepare()
+            BangsongDuck.malSijak(MalGeup.ANNAE)   // 방송 소리를 잠시 줄임
             m.start()
             player = m
             Girok.namgi("gn_tomak_deutgi", emptyMap())
