@@ -20,6 +20,7 @@ import kr.or.ada.app.gilnun.Jindong
 import kr.or.ada.app.gilnun.MalDeutgi
 import kr.or.ada.app.gilnun.MalGeup
 import kr.or.ada.app.gilnun.MalSajeon
+import kr.or.ada.app.gilnun.NnGilButak
 import kr.or.ada.app.gilnun.MomSensor
 import kr.or.ada.app.gilnun.Seoljeong
 import kr.or.ada.app.gilnun.Sori
@@ -192,6 +193,18 @@ object Geurigi {
     // MARK: 시작·멈춤·끝
 
     /** 그리기 시작 — 보폭이 있어야 함 */
+    /** 2.14.0 그리러 가기로 정한 길눈님 부탁(번호, 출발지, 도착지) — 다음 걷기에 이름이 들어가고, 점검을 통과해 올리면 저절로 다 그렸습니다 */
+    val butak: Triple<String, String, String>?
+        get() {
+            val d = ctx?.getSharedPreferences("jabong", Context.MODE_PRIVATE) ?: return null
+            val i = d.getString("jb.butak.id", "") ?: ""
+            return if (i.isEmpty()) null else Triple(i, d.getString("jb.butak.sin", "") ?: "", d.getString("jb.butak.min", "") ?: "")
+        }
+    fun butakJeonghagi(id: String, sin: String, min: String) {
+        ctx?.getSharedPreferences("jabong", Context.MODE_PRIVATE)?.edit()?.putString("jb.butak.id", id)?.putString("jb.butak.sin", sin)?.putString("jb.butak.min", min)?.apply()
+    }
+    fun butakGeumanduggi() { ctx?.getSharedPreferences("jabong", Context.MODE_PRIVATE)?.edit()?.remove("jb.butak.id")?.apply() }
+
     fun sijak(chulbal: String = "") {
         val c = ctx ?: return
         if (!Seoljeong.bopokJaem || Seoljeong.bopok <= 0.2) {
@@ -212,13 +225,19 @@ object Geurigi {
         openPair = null; rideMode = ""; mureum = null
         gilJari = null; gilIreum = ""
         majimakId = null
-        val cb = chulbal.trim().take(40)
+        var cb = chulbal.trim().take(40)
+        val bt = butak
+        if (bt != null) {   // 2.14.0 길눈님 부탁 길 — 출발지·도착지 이름을 부탁대로
+            gil?.put("butakId", bt.first)
+            if (cb.isEmpty()) cb = bt.second.take(40)
+            if (bt.third.isNotEmpty()) gil?.put("to", bt.third.take(40))
+        }
         if (cb.isNotEmpty()) gil?.put("from", cb)   // 2.11.0 봉사자가 넣은 출발지 이름이 먼저
         sangtae = Sangtae.GEOREUM
         dolligi()
         momKyeogi()
         Girok.namgi("jb_geurigi_sijak", mapOf("id" to gil?.optString("id")))
-        alrigi("걷기 시작했습니다. 평소 걸음으로 걸으시고, 꺾이는 곳과 계단, 건널목, 문에 닿는 순간 표시를 남겨 주십시오.")
+        alrigi((if (bt != null) "길눈님 부탁 길, ${bt.second}에서 ${bt.third}까지 그립니다. " else "") + "걷기 시작했습니다. 평소 걸음으로 걸으시고, 꺾이는 곳과 계단, 건널목, 문에 닿는 순간 표시를 남겨 주십시오.")
         // 출발한 자리 주소를 저절로 적음 — 2.11.0 봉사자가 이름을 넣었으면 그대로 둠
         val w = Wichi.jigeum
         if (w != null && cb.isEmpty()) {
@@ -689,6 +708,18 @@ object Geurigi {
             if (majimakId == id) majimakId = null
             Hamkke.geurimAllim(g.optString("id"), (g.optInt("georeum", 0) * g.optDouble("bopok", Seoljeong.bopok)).toInt())   // 함께한 기록판은 올린 길만 셈
             Girok.namgi("jb_olim", mapOf("id" to id, "seobeo" to r.optString("id")))
+            val bid = g.optString("butakId")   // 2.14.0 점검을 통과한 길만 길눈님 부탁에 다 그렸습니다로
+            if (bid.isNotEmpty()) {
+                NnGilButak.hagi("doen", bid, listOf("gil" to r.optString("id"), "nugu" to "자봉 ${JabongNae.beonho}")) { ok ->
+                    main.post {
+                        if (ok) {
+                            if (butak?.first == bid) butakGeumanduggi()
+                            Baksu.chigi(true)
+                            Sori.mal("길눈님이 부탁하신 길에도 다 그렸다고 알렸습니다. 고맙습니다!", MalGeup.ANNAE)
+                        }
+                    }
+                }
+            }
             val bm = r.optInt("bowanMachim", 0)   // 2.13.0 같은 출발지·도착지 보완 부탁이 있었으면 보완 완료
             if (bm > 0) ctx?.let { c -> JbBowan.bulleo(c, true) { bakkwim?.invoke() } }
             alrigi("올렸습니다. 협회 점검을 통과해 길눈에 실렸습니다. 고맙습니다." + (if (bm > 0) " 보완 부탁 ${bm}건이 보완 완료되었습니다." else "") + if (mals.length() > 0) " 다음에 손보시면 좋을 곳도 알려 드립니다. $malMok" else "")
