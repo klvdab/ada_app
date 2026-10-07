@@ -398,7 +398,7 @@ object MalHagi {
         // 1-3. 2.27.0 호칭을 여쭌 말의 대답(아이폰 case .hoching 과 같음)
         if (hochingMutneun && now - hochingTtae < 60000) {
             hochingMutneun = false
-            var h = t
+            var h: String = t ?: ""
             for (k in listOf("이라고 불러 줘", "라고 불러 줘", "이라고 불러줘", "라고 불러줘", "이라고 불러", "라고 불러",
                 "이라고 해 줘", "라고 해 줘", "이라고", "라고", "으로 불러 줘", "로 불러 줘", "으로 불러", "로 불러")) {
                 if (h.endsWith(k)) { h = h.dropLast(k.length); break }
