@@ -38,7 +38,9 @@ data class JeomPyo(
     var mal: String?,
     var t: Double?,
     var acc: Double?,
-    var dist: Double?
+    var dist: Double?,
+    var st: Int? = null,      // 2.23.0 그린 이의 걸음 자리
+    var sori: String? = null  // 2.23.0 자봉 목소리 토막(점검을 거친 mp3, 나스 sori/ 아래 자리)
 ) {
     val ireum: String
         get() {
@@ -96,6 +98,7 @@ data class JeomGil(
         val out = ArrayList<JeomPyo>()
         for (m in marks) {
             val x = m.copy()
+            x.sori = null   // 2.23.0 되돌아가는 길에서는 목소리 토막을 들려 드리지 않음(방향이 거꾸로라서)
             m.name?.let { x.name = DWIT[it] ?: it }
             m.kind?.let { x.kind = DWIT[it] ?: it }
             out.add(x)
@@ -183,8 +186,21 @@ data class JeomGil(
                     Jeomjido.su(m, "lat"), Jeomjido.su(m, "lon"),
                     Jeomjido.geulOrNull(m, "name"), Jeomjido.geulOrNull(m, "kind"),
                     Jeomjido.su(m, "cnt")?.toInt(), Jeomjido.geulOrNull(m, "mal"),
-                    Jeomjido.su(m, "t"), Jeomjido.su(m, "acc"), Jeomjido.su(m, "dist")
+                    Jeomjido.su(m, "t"), Jeomjido.su(m, "acc"), Jeomjido.su(m, "dist"),
+                    Jeomjido.su(m, "st")?.toInt()
                 ))
+            }
+            // 2.23.0 목소리 따라 걷기 — 받아쓰기·mp3 를 거친 토막만, 같은 걸음 자리의 표시에 붙임(이사장님 확정 방식)
+            val sa: JSONArray? = o.optJSONArray("sori")
+            if (sa != null) for (i in 0 until sa.length()) {
+                val t = sa.optJSONObject(i) ?: continue
+                val pail = t.optString("pail", "")
+                val st = Jeomjido.su(t, "st")?.toInt() ?: continue
+                if (!pail.endsWith(".mp3")) continue
+                val pn = t.optString("pyosi", "")
+                val k = marks.indexOfFirst { it.st == st && it.sori == null && (pn.isEmpty() || it.name == pn) }.takeIf { it >= 0 }
+                    ?: marks.indexOfFirst { it.st == st && it.sori == null }.takeIf { it >= 0 } ?: continue
+                marks[k].sori = pail
             }
             return JeomGil(
                 Jeomjido.gul(o, "id"), Jeomjido.gul(o, "title"), Jeomjido.gul(o, "from"), Jeomjido.gul(o, "to"),

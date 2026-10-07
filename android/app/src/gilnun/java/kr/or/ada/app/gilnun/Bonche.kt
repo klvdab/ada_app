@@ -23,12 +23,17 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.22.1"
-    const val bild = "261007-A7"
+    const val pan = "2.23.0"
+    const val bild = "261007-A11"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.23.0", "261007-A11", "2026-10-07", listOf(
+            "목소리 따라 걷기(이사장님 확정 방식) — 점지도 표시에 자봉이 남긴 짧은 목소리 토막을, 표시 일곱 미터 앞에서 길눈 안내 말 바로 뒤에 들려 드림. 협회 서버가 받아쓰기로 살핀 토막(mp3)만, 지나친 토막은 건너뜀",
+            "설정 탭 점지도와 걸음의 점지도 안내 설정에 「자봉 목소리 토막 듣기」 켜고 끄기(처음은 켬)",
+            "도움말에 「목소리 따라 걷기 — 자봉 목소리 토막」 항목 더함"
+        )),
         Gochim("2.22.1", "261007-A7", "2026-10-07", listOf(
             "업데이트 시험판 — 새 판 알림이 오고 두드리면 스스로 받아 설치되는지 이사장님 폰으로 확인하는 판. 업데이트 부품에 막기(앱이 지금은 안 된다고 알리면 업데이트하지 않음)를 더함"
         )),

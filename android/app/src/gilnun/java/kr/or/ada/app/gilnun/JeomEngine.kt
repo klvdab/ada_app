@@ -1388,7 +1388,10 @@ object JeomEngine {
             if (!p.said && ahead <= 7.7) {
                 p.said = true
                 val y = yego(p, ahead, false)
-                if (y.isNotEmpty()) mal(y)
+                val so = p.p.sori   // 2.23.0 목소리 따라 걷기 — 닿기 몇 걸음 앞, 길눈 안내 말 바로 뒤에 자봉 목소리 토막 한 번
+                if (y.isNotEmpty()) {
+                    if (so != null) { malT = System.currentTimeMillis(); Sori.mal(y, MalGeup.ANNAE) { TomakDeutgi.deutgi(ctx, so) } } else mal(y)
+                } else if (so != null) TomakDeutgi.deutgi(ctx, so)
             }
             if (!p.near && ahead <= 3) {
                 p.near = true

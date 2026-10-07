@@ -92,6 +92,12 @@ class JeomSeoljeongHwamyeon : Hwamyeon("점지도와 걸음") {
                 Sori.mal("점지도를 따라 걸으실 때 ${JeomSeol.hwaksinGan}미터마다 제대로 가고 있다고 말씀드립니다.")
                 t.dasiGeurigi()
             }
+            t.danchu("자봉 목소리 토막 듣기 — " + (if (TomakDeutgi.kyeojim(t)) "켜져 있음 (누르면 끕니다)" else "꺼져 있음 (누르면 켭니다)")) {   // 2.23.0
+                val on = !TomakDeutgi.kyeojim(t)
+                TomakDeutgi.kyeogi(t, on)
+                Sori.mal(if (on) "표시에 닿기 앞서 그린 분이 그 자리에 남긴 짧은 말을 들려 드립니다." else "그린 분의 목소리 토막을 들려 드리지 않습니다. 길눈 안내 말은 그대로 나옵니다.")
+                t.dasiGeurigi()
+            }
             t.danchu("지나는 곳 안내 — " + (if (JeomSeol.gilOn) "켜져 있음 (누르면 끕니다)" else "꺼져 있음 (누르면 켭니다)")) {
                 JeomSeol.gilOn = !JeomSeol.gilOn
                 Sori.mal(if (JeomSeol.gilOn) "지나는 길을 알려 드립니다." else "지나는 길을 알리지 않습니다.")
