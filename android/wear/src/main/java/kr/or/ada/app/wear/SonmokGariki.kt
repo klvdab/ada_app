@@ -144,7 +144,7 @@ object SonmokGariki : SensorEventListener {
         val maja = abs(d) <= 12
         if (!ppeotMal) {
             ppeotMal = true
-            WatchModel.speak(if (maja) "맞습니다" else (if (d > 0) "오른쪽으로" else "왼쪽으로"), "click")
+            WatchModel.speak(if (maja) "맞습니다" else (if (d > 0) "3시 쪽으로" else "9시 쪽으로"), "click")
             jindongT = now
             return
         }
