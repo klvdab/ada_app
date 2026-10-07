@@ -112,7 +112,8 @@ object GanpanAllim {
             val a = abs(gak)
             if (a < 20 || a > 110) continue
             val cha = chare.indexOf(gal).let { if (it < 0) 99 else it }
-            hubo.add(Hubo(ir, gal, if (gak > 0) "오른쪽" else "왼쪽", g, cha))
+            val sg = Math.round(gak / 30.0).toInt()   // 2.21.0 시계 방향으로(20~110도라 0시는 없음)
+            hubo.add(Hubo(ir, gal, "${if (sg > 0) sg else 12 + sg}시 방향", g, cha))
         }
         val ga = hubo.sortedWith(compareBy<Hubo>({ it.cha }, { it.geori })).firstOrNull() ?: return
         malhan[ga.ireum] = now
