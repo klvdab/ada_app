@@ -2,12 +2,18 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.13.0"
-    static let bild = "261007-I7"
+    static let pan = "2.14.0"
+    static let bild = "261007-I8"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.14.0", bild: "261007-I8", nal: "2026-10-07", naeyong: [
+            "그려 주세요와 그린 길 잇기(이사장님 지시) — 그려 주세요 한 건에서 이 길 그리러 가기를 누르면, 다음 걷기 시작에 출발지·도착지 이름이 부탁대로 들어가고 그리기 화면 맨 위에 부탁 길 안내와 부탁 길 그만두기 단추",
+            "그 길을 올려 협회 점검을 통과하면 저절로 길눈님 부탁에 다 그렸습니다(그린 점지도 번호와 자봉 번호를 함께)로 알리고 큰 박수",
+            "손으로 누르던 다 그렸습니다 표시하기 단추를 없앰 — 점검을 거치지 않은 길이 길눈님께 가지 않도록(이사장님 원칙: 기준을 통과한 점지도만 싣기)",
+            "도움말 나눔 탭 — 그려 주세요 항목 고침"
+        ]),
         Gochim(pan: "2.13.0", bild: "261007-I7", nal: "2026-10-07", naeyong: [
             "보완 부탁(이사장님 지시) — 올린 길이 협회 점검에서 고칠 곳이 나오면 「조금만 더 보완해 주세요. 시각장애인이 기다립니다」로 보완을 부탁. 봉사 탭에 보완 부탁 몇 건 한 줄, 알림·설정 탭 맨 위에 길마다 단계와 기한",
             "3일째 앱을 열 때 하루 한 번 다시 알림, 7일이 지나도 보완이 없으면 협회 보완팀이 맡음(그린 분 이름은 그대로, 보완한 분을 더함). 날짜 셈은 협회 리눅스 서버 lvd-bowan, 나스 bowan.php 는 건네기만",

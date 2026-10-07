@@ -77,6 +77,7 @@ struct GrGil: Codable, Identifiable {
     var seobeoId: String? = nil
     var heum: [String]? = nil
     var heumSaek: [String]? = nil   // 2.13.0 고칠 곳의 빛깔(빨강·주황·노랑)
+    var butakId: String? = nil      // 2.14.0 길눈님 「그려 주세요」 부탁으로 그린 길
 }
 
 // MARK: 그리기 엔진
@@ -139,6 +140,21 @@ final class JeomGeurigi: ObservableObject {
     ]
 
     @Published private(set) var sangtae: Sangtae = .swim
+    /// 2.14.0 그리러 가기로 정한 길눈님 부탁(번호, 출발지, 도착지) — 다음 걷기 시작에 이름이 들어가고, 점검을 통과해 올리면 저절로 다 그렸습니다
+    @Published private(set) var butak: (id: String, sin: String, min: String)? = {
+        let d = UserDefaults.standard
+        guard let i = d.string(forKey: "jb.butak.id"), !i.isEmpty else { return nil }
+        return (i, d.string(forKey: "jb.butak.sin") ?? "", d.string(forKey: "jb.butak.min") ?? "")
+    }()
+    func butakJeonghagi(_ id: String, sin: String, min: String) {
+        butak = (id, sin, min)
+        let d = UserDefaults.standard
+        d.set(id, forKey: "jb.butak.id"); d.set(sin, forKey: "jb.butak.sin"); d.set(min, forKey: "jb.butak.min")
+    }
+    func butakGeumanduggi() {
+        butak = nil
+        UserDefaults.standard.removeObject(forKey: "jb.butak.id")
+    }
     @Published private(set) var mureum: Mureum?
     @Published private(set) var allim = ""
     @Published private(set) var geurinGil: [GrGil] = []
@@ -252,13 +268,18 @@ final class JeomGeurigi: ObservableObject {
         gilIreum = ""
         mureum = nil
         majimakId = nil
-        let cb = chulbal.trimmingCharacters(in: .whitespacesAndNewlines)
+        var cb = chulbal.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let b = butak {   // 2.14.0 길눈님 부탁 길 — 출발지·도착지 이름을 부탁대로
+            gil?.butakId = b.id
+            if cb.isEmpty { cb = b.sin }
+            if !b.min.isEmpty { gil?.to = String(b.min.prefix(40)) }
+        }
         if !cb.isEmpty { gil?.from = String(cb.prefix(40)) }   // 2.11.0 봉사자가 넣은 출발지 이름이 먼저
         sangtae = .georeum
         dolligi()
         momKyeogi()
         Girok.shared.namgi("jb_geurigi_sijak", ["id": gil?.id ?? ""])
-        alrigi("걷기 시작했습니다. 평소 걸음으로 걸으시고, 꺾이는 곳과 계단, 건널목, 문에 닿는 순간 표시를 남겨 주십시오.")
+        alrigi((butak.map { "길눈님 부탁 길, \($0.sin)에서 \($0.min)까지 그립니다. " } ?? "") + "걷기 시작했습니다. 평소 걸음으로 걸으시고, 꺾이는 곳과 계단, 건널목, 문에 닿는 순간 표시를 남겨 주십시오.")
         // 출발한 자리 주소를 저절로 적음 — 2.11.0 봉사자가 이름을 넣었으면 그대로 둠
         if cb.isEmpty, let w = WichiEngine.shared.jigeum {
             Task {
@@ -744,6 +765,19 @@ final class JeomGeurigi: ObservableObject {
             if majimakId == id { majimakId = nil }
             Hamkke.geurimAllim(gil: g.id, geori: Int(Double(g.georeum) * g.bopok))   // 함께한 기록판은 올린 길만 셈
             Girok.shared.namgi("jb_olim", ["id": id, "seobeo": geurinGil[i].seobeoId ?? ""])
+            if let bid = g.butakId, let sid = geurinGil[i].seobeoId {   // 2.14.0 점검을 통과한 길만 길눈님 부탁에 다 그렸습니다로
+                let beonho = JabongNae.shared.beonho
+                Task {
+                    let ok = await GilButak.hagi("doen", bid, [("gil", sid), ("nugu", "자봉 \(beonho)")])
+                    await MainActor.run {
+                        if ok {
+                            if self.butak?.id == bid { self.butakGeumanduggi() }
+                            Baksu.chigi(keuge: true)
+                            SoriEngine.shared.mal("길눈님이 부탁하신 길에도 다 그렸다고 알렸습니다. 고맙습니다!", .annae)
+                        }
+                    }
+                }
+            }
             let bm = (r["bowanMachim"] as? Int) ?? 0   // 2.13.0 같은 출발지·도착지 보완 부탁이 있었으면 보완 완료
             if bm > 0 { Task { await JbBowan.shared.bulleo(gangje: true) } }
             alrigi("올렸습니다. 협회 점검을 통과해 길눈에 실렸습니다. 고맙습니다." + (bm > 0 ? " 보완 부탁 \(bm)건이 보완 완료되었습니다." : "") + (mals.isEmpty ? "" : " 다음에 손보시면 좋을 곳도 알려 드립니다. " + mals.joined(separator: " ")))
@@ -883,6 +917,10 @@ struct GeurigiView: View {
 
     @ViewBuilder private var sijakJeon: some View {
         if s.bopok > 0.2 && s.bopokJaem {
+            if let b = g.butak {   // 2.14.0 길눈님 부탁 길 — 안내와 그만두기 단추를 한 자리에
+                Text("길눈님 부탁 길: \(b.sin) → \(b.min). 걷기 시작을 누르시면 이 이름이 들어갑니다.").font(.title3.bold())
+                Button("부탁 길 그만두기 — 그냥 그리기") { g.butakGeumanduggi() }.buttonStyle(KeunDanchu())
+            }
             Button("걷기 시작 — 출발 자리 주소는 저절로 적습니다") { g.sijak(chulbal: chulbal); chulbal = "" }.buttonStyle(KeunDanchu())
             DisclosureGroup("출발지 이름 직접 넣기 — 넣지 않으면 위성 주소") {   // 2.11.0
                 TextField("출발지 이름 — 예를 들어 GS25 마로니에점 문 앞", text: $chulbal).textFieldStyle(.roundedBorder).font(.title3)
