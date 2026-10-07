@@ -38,7 +38,7 @@ sealed class Hm {
 }
 
 class LibActivity : Activity() {
-    companion object { const val PAN = "0.2.0"; const val BILDEU = "261002-L1" }
+    companion object { const val PAN = "0.4.3"; const val BILDEU = "261007-L7" }   // 0.4.3 새 판 알림과 업데이트(대장클, 이사장님 지시)
     private val main = Handler(Looper.getMainLooper())
     private val pool = Executors.newFixedThreadPool(3)
     private val stacks = arrayOf(mutableListOf<Hm>(Hm.Home), mutableListOf<Hm>(Hm.Seojae), mutableListOf<Hm>(Hm.Seoljeong))
@@ -66,8 +66,17 @@ class LibActivity : Activity() {
         root.addView(tabbar, LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
         setContentView(root)
         draw()
+        // 0.4.3 새 판 알림과 업데이트(이사장님 지시 — 모든 앱에) — 켤 때 살피고, 알림을 두드려 열렸으면 곧바로 업데이트
+        Ollim.malhagi = { m -> main.post { scroll.announceForAccessibility(m) } }
+        Ollim.byeonhwa = { main.post { if (cur() is Hm.Home || cur() is Hm.Seoljeong) draw() } }
+        Ollim.sijak(this)
+        Ollim.intentBoda(this, intent)
+        if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 44)   // 새 판 알림을 띄우려고 한 번 여쭘
     }
-    override fun onDestroy() { Dokseo.bakkwim = null; super.onDestroy() }
+    override fun onResume() { super.onResume(); Ollim.dorawatda(this) }   // 0.4.3 돌아오면 새 판 살피기(1시간에 한 번까지)
+    override fun onNewIntent(i: android.content.Intent) { super.onNewIntent(i); setIntent(i); Ollim.intentBoda(this, i) }   // 0.4.3 새 판 알림을 두드렸을 때
+    override fun onDestroy() { Dokseo.bakkwim = null; Ollim.byeonhwa = null; Ollim.malhagi = null; super.onDestroy() }
 
     @Deprecated("뒤로 가기 — 앱 밖으로 나가지 않음")
     override fun onBackPressed() {
@@ -200,6 +209,7 @@ class LibActivity : Activity() {
 
     private fun home() {
         meori()
+        Ollim.julMal(this)?.let { m -> danchu(m, keun = true) { Ollim.olligi(this) } }   // 0.4.3 새 판이 있을 때만 — 안내와 단추를 한 자리에
         var cheot: View? = null
         Store.last?.let { l ->
             cheot = chaekJul(l, "이어 듣기, ${l.t}, ${l.wichiMal}부터", "이어 듣기 · ${l.wichiMal}부터", { go(Hm.Reader(l.i, l.t, l.kind)) }, false)
@@ -472,6 +482,7 @@ class LibActivity : Activity() {
         danchu("와이파이에서만 내려받기: ${if (Naeryeo.wifiOnly(this)) "켜짐" else "꺼짐"}") { Naeryeo.setWifiOnly(this, !Naeryeo.wifiOnly(this)); draw() }
         Naeryeo.items(this).let { nr -> geul("내려받은 책 ${nr.size}권, ${Naeryeo.meg(nr.sumOf { it.size })}", jakge = true); if (nr.isNotEmpty()) danchu("내려받은 책 모두 지우기") { Naeryeo.removeAll(this); malhagi("내려받은 책을 모두 지웠습니다."); draw() } }
         danchu("새로고침") { Dokseo.stop(); for (k in 0..2) while (stacks[k].size > 1) stacks[k].removeAt(stacks[k].size - 1); tab = 0; draw(); malhagi("새로 불러왔습니다.") }
+        danchu(Ollim.seoljeongMal(this)) { Ollim.seoljeongNureum(this) }   // 0.4.3 업데이트 — 새로고침 바로 아래 한 곳
         geul("도움말", jemok = true)
         for ((q, a) in listOf(
             "책 찾기" to "도서관 첫 화면의 찾을 책 이름 칸에 이름을 적고 찾기를 누르면 찾은 책이 15권씩 나옵니다.",
@@ -491,7 +502,8 @@ class LibActivity : Activity() {
             "인터넷 없이 듣기" to "인터넷이 끊기거나 데이터가 모자라도 내려받은 책은 들을 수 있습니다. 소리책은 받은 파일 그대로, 글자책은 폰 목소리로 읽습니다.",
             "와이파이에서만 내려받기" to "설정에서 켜 두면 휴대폰 데이터로는 내려받지 않습니다. 처음에는 켜져 있습니다.",
             "내려받은 책 지우기" to "책 정보 화면의 폰에서 지우기로 한 권씩, 설정의 내려받은 책 모두 지우기로 한꺼번에 지웁니다.",
-            "새로고침" to "앱이 이상하거나 새 판이 나왔을 때 설정의 새로고침을 누르십시오."
+            "새로고침" to "앱이 이상하거나 새 판이 나왔을 때 설정의 새로고침을 누르십시오.",
+            "업데이트 — 새 판 받기" to "도서관 앱은 켤 때와 하루 두 번쯤 협회 서버에 새 판이 나왔는지 스스로 물어봅니다. 새 판이 있으면 폰 알림으로 AI점자도서관 새 판이 나왔습니다, 두드리면 업데이트합니다라고 알려 드리고, 도서관 첫 화면 머리 바로 아래에도 같은 말과 단추를 한 줄로 띄웁니다. 알림이나 그 줄을 두드리시면 앱이 새 판을 스스로 받아 설치 화면을 엽니다. 설치를 한 번 눌러 주시면 됩니다. 처음 한 번은 이 출처 허용을 켜는 화면이 열리니 켜신 뒤 폰의 뒤로 동작으로 돌아오시면 이어서 업데이트합니다. 새 판으로 바뀌면 바뀌었다고 알림을 드립니다. 설정의 새로고침 바로 아래 업데이트 단추로 언제든 새 판이 있는지 살피실 수 있습니다. 내 서재, 책갈피, 내려받은 책은 그대로 남습니다."
         )) geul("$q. $a")
         geul("AI점자도서관 안드로이드 ${PAN}판, 빌드 $BILDEU", jakge = true)
         geul("주관 사단법인 한국시각장애인현장영상해설협회. 전화 02-363-4455, 메일 ada015@naver.com", jakge = true)
