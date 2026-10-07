@@ -5,7 +5,7 @@ package kr.or.ada.app.byod
 import java.util.concurrent.CopyOnWriteArrayList
 
 object Bang {
-    const val PAN = "1.1.2"   // 1.1.2(261007-B4) 새 판 알림과 업데이트(대장클, 이사장님 지시)
+    const val PAN = "1.1.3"   // 1.1.3(261007-B5) 기기 점검. 1.1.2(261007-B4) 새 판 알림과 업데이트(대장클, 이사장님 지시)
     const val BILD = "261007-B4"
     const val PORT = 8080
 
