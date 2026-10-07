@@ -41,6 +41,7 @@ import kr.or.ada.app.MainActivity
 import kr.or.ada.app.gilnun.Girok
 import kr.or.ada.app.gilnun.Jindong
 import kr.or.ada.app.gilnun.NanumNas
+import kr.or.ada.app.gilnun.Ollim
 import kr.or.ada.app.gilnun.NnButak
 import kr.or.ada.app.gilnun.NnGeoreumNanum
 import kr.or.ada.app.gilnun.NnGilButak
@@ -151,12 +152,22 @@ class JabongActivity : AppCompatActivity() {
         val ac = intent?.action
         if (ac != JabongUlim.BATGI && ac != JabongUlim.ULIM) heorakCheong()   // 울림·받기로 열렸으면 허락 창을 띄우지 않음(받기·통화 화면을 가리지 않게)
         jeonhwaGyeolgwa(intent)
+        // 2.12.0 새 판 알림과 업데이트(이사장님 승인) — 길눈 부품 Ollim 을 함께 씀
+        Ollim.byeonhwa = {
+            runOnUiThread {
+                val h = wiHwamyeon
+                if ((h is BongsaTab || h is AllimTab) && deopgaeJong.isEmpty()) boyeojugi(false)
+            }
+        }
+        Ollim.sijak(this)
+        Ollim.intentBoda(this, intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         jeonhwaGyeolgwa(intent)
+        Ollim.intentBoda(this, intent)   // 2.12.0 새 판 알림을 두드렸을 때
     }
 
     /** 울림 알림의 받기·화면 열기 */
@@ -167,11 +178,12 @@ class JabongActivity : AppCompatActivity() {
         }
     }
 
-    override fun onResume() { super.onResume(); Wichi.wiseongDolligi(); deopgaeMatchugi() }
+    override fun onResume() { super.onResume(); Wichi.wiseongDolligi(); deopgaeMatchugi(); Ollim.dorawatda(this) }   // 2.12.0 돌아오면 새 판 살피기
     override fun onPause() { super.onPause(); JabongBonche.jeojang() }
 
     override fun onDestroy() {
         Geurigi.bakkwim = null
+        Ollim.byeonhwa = null
         JabongNae.byeonhwa = null
         JabongDaegi.byeonhwa = null
         JabongDaegi.ulimHwamyeon = null
@@ -479,6 +491,7 @@ class JabongActivity : AppCompatActivity() {
 class BongsaTab : JbHwamyeon("봉사") {
     override fun chaeugi(t: JabongActivity) {
         t.bogi(kr.or.ada.app.gilnun.HyeophoeLogo.meori(t, "길눈 자봉 — 점지도 그리기"))   // 2.11.0 협회 로고(이사장님 지시)
+        Ollim.julMal(t)?.let { m -> t.danchu(m) { Ollim.olligi(t) } }   // 2.12.0 새 판이 있을 때만 — 안내와 단추를 한 자리에
         t.danchu(if (JabongDaegi.geobu) "긴급통화 받기 — 받지 않기로 하심" else if (JabongDaegi.kyeojim) "긴급통화 받기 — 받고 있음" else "긴급통화 받기 — 길눈님이 도움을 청하면 전화처럼 울립니다") { t.yeolgi(HamkkeHwamyeon()) }
         t.danchu(when (Geurigi.sangtae) {
             Geurigi.Sangtae.GEOREUM -> "점지도 그리기 — 그리는 중"
@@ -1055,6 +1068,7 @@ class AllimTab : JbHwamyeon("알림·설정") {
                 Sori.mal(if (ok) "새로 받았습니다. 그려 주신 길은 ${JabongNae.geurinSu}개입니다." else "새로 받지 못했습니다. 통신을 확인하시고 다시 눌러 주십시오.")
             }
         }
+        t.danchu(Ollim.seoljeongMal(t)) { Ollim.seoljeongNureum(t) }   // 2.12.0 업데이트 — 새로고침 바로 아래 한 곳
         t.danchu("도움말") { t.yeolgi(DoumalHwamyeon()) }
         t.pyeolchigi("더 보기", deo) { deo = !deo }
         if (deo) {
@@ -1106,6 +1120,7 @@ class DoumalHwamyeon : JbHwamyeon("도움말") {
             "지금 상태 듣기" to "봉사 탭에서 누르시면 자봉 번호, 긴급통화를 받는지, 보폭, 위성이 잘 잡혔는지를 말씀드립니다.",
             "내 보폭 재기" to "봉사 탭에서 엽니다. 10미터를 미리 재 둔 곳에서 10미터 걸어 재기를 누르고 평소 걸음으로 걸은 뒤 다 걸었습니다를 누르시면 보폭을 셈해 폰이 기억합니다. 아시는 보폭을 센티미터로 넣으셔도 됩니다. 한 번 재면 다시 재지 않아도 되고, 원하실 때 다시 잴 수 있습니다.",
             "새로고침" to "알림·설정 탭에서 누르시면 등록 정보와 그려 주신 길 수를 나스에서 다시 받습니다.",
+            "업데이트 — 새 판 받기" to "자봉 앱은 켤 때와 하루 두 번쯤 협회 서버에 새 판이 나왔는지 스스로 물어봅니다. 새 판이 있으면 폰 알림으로 자봉 새 판이 나왔습니다, 두드리면 업데이트합니다라고 알려 드리고, 봉사 탭 맨 위에도 같은 말과 단추를 한 줄로 띄웁니다. 알림이나 그 줄을 두드리시면 자봉 앱이 새 판을 스스로 받아 설치 화면을 엽니다. 설치를 한 번 눌러 주시면 됩니다. 처음 한 번은 이 출처 허용을 켜는 화면이 열리니 켜신 뒤 폰의 뒤로 동작으로 돌아오시면 이어서 업데이트합니다. 한 번 스스로 업데이트한 뒤로는 폰에 따라 설치를 누르지 않아도 깔립니다. 새 판으로 바뀌면 바뀌었다고 알림을 드립니다. 알림·설정 탭의 새로고침 바로 아래 업데이트 단추로 언제든 새 판이 있는지 살피실 수 있습니다. 그리던 길, 그린 길, 등록 정보, 보폭은 그대로 남습니다. 점지도를 그리는 중이면 다 그리고 올리신 뒤에 업데이트하시기를 권합니다.",
             "저절로 저장" to "현장에서는 늘 의외의 일이 생기므로 1분마다 저절로 저장합니다. 점지도를 그리는 중에는 1분마다, 표시를 남길 때마다, 앱이 뒤로 갈 때 그리던 길을 저장하고, 앱이 꺼졌다 켜지면 그리던 길을 잠깐 멈춤으로 되살려 이어 그리실 수 있습니다.",
             "몸 센서 — 걸음과 방향을 더 정확하게" to "점지도를 그리시는 동안 폰의 가속도계, 자이로, 나침반을 1초에 50번 읽습니다. 발이 땅에 닿을 때마다 한 걸음을 바로 세고, 몸이 몇 도 돌았는지 자이로로 재어 쇠붙이나 건물 옆에서도 방향이 틀어지지 않게 합니다. 걸음마다 시각, 방향, 돈 각도, 위아래 충격, 높이, 멈춤과 걷기 상태를 한 줄씩 남깁니다. 꺾이셨습니까 물음도 이 각도로 가려 다 도신 뒤에 여쭙니다. 다 걸었습니다를 누르시면 폰 걸음 센서로 센 걸음과 몸 센서로 센 걸음을 견주어, 차이가 크면 알려 드립니다. 폰을 손에 드셔도 주머니에 넣으셔도 됩니다. 기록 모양은 아이폰 자봉 앱과 똑같아 어느 폰으로 그린 점지도든 함께 쓰입니다.",
             "볼거리 표시" to "점지도 그리기 화면에 볼거리 표시 펼치기가 있습니다. 팽나무, 동상, 안내판, 분수처럼 길눈님이 찾아가실 만한 것 바로 앞에 서서, 이름과 만져지는 것과 다가가는 법(예를 들어 오른손을 뻗으면 줄기가 닿습니다, 둘레에 낮은 나무 울타리가 있습니다)을 적고 볼거리 남기기를 누르시면 지금 자리와 함께 협회 서버에 남습니다. 걷기 전에도, 그리는 중에도 남길 수 있습니다. 길눈님이 그곳을 목적지로 걸어오시면 마지막 스무 걸음을 이 자리로 이끌고, 닿으면 남겨 주신 말을 들려 드립니다. 남기면 박수로 고마움을 전합니다.",
