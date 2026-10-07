@@ -35,7 +35,7 @@ struct JabongTab: View {
         }
         .tint(Saek.nam)
         .fullScreenCover(isPresented: $t.boim) { TonghwaView() }   // 2.1.0 긴급통화 통화 화면
-        .task { await JabongNae.shared.gyoyukBonaegi() }   // 2.10.0 못 보낸 교육 기록을 다시
+        .task { await JabongNae.shared.gyoyukBonaegi(); await JbBowan.shared.bulleo(gangje: true) }   // 2.13.0 켤 때 보완 부탁도 살핌   // 2.10.0 못 보낸 교육 기록을 다시
     }
 }
 
@@ -63,6 +63,7 @@ struct BongsaTab: View {
     @ObservedObject private var nae = JabongNae.shared
     @ObservedObject private var s = Seoljeong.shared
     @ObservedObject private var gr = JeomGeurigi.shared   // 2.2.0
+    @ObservedObject private var bw = JbBowan.shared        // 2.13.0 보완 부탁
     var body: some View {
         TabCheot(jemok: "봉사") {
             HyeophoeMeori(ireum: "길눈 자봉 — 점지도 그리기")   // 2.11.0 협회 로고(이사장님 지시)
@@ -78,7 +79,9 @@ struct BongsaTab: View {
             NavigationLink { BopokView() } label: {
                 Text(s.bopok > 0.2 ? "내 보폭 다시 재기 — 지금 \(Int((s.bopok * 100).rounded()))센티미터" : "내 보폭 재기 — 점지도를 그리기 전에 한 번")
             }.buttonStyle(KeunDanchu())
-            Text("오늘 걸을 길과 함께 걷기는 이 탭에 차례로 들어섭니다.").font(.body)
+            if !bw.namun.isEmpty {   // 2.13.0 보완 부탁이 있으면 한 줄 — 두드리면 알림·설정 탭으로
+                Button("보완 부탁 \(bw.namun.count)건 — \(JbBowan.butak)") { JbTabGil.shared.tab = 3 }.buttonStyle(KeunDanchu())
+            }
         }
     }
 
@@ -272,6 +275,7 @@ struct AllimTab: View {
     @State private var ijeugiMureum = false
     var body: some View {
         TabCheot(jemok: "알림·설정") {
+            BowanKan()   // 2.13.0 보완 부탁 — 있을 때만 맨 위에
             Toggle(isOn: $s.malKyeojim) { Text("말소리").font(.title3.weight(.semibold)) }
                 .padding(.horizontal, 4).frame(minHeight: 60)
             Button("빠르기 — 지금 \(["아주 느리게", "느리게", "보통", "빠르게", "아주 빠르게"][max(0, min(4, s.bbareugiDan))])") {
@@ -321,6 +325,7 @@ struct JabongPanView: View {
 struct JabongDoumalView: View {
     static let hangmok: [(String, String)] = [
         ("처음 등록", "자봉 앱을 처음 여시면 한 번만 등록합니다. 이름, 연락처, 주로 활동하실 지역, 네 자리 숫자를 적고, 1365 아이디는 비워 두었다가 나중에 넣으셔도 됩니다. 다음을 누르시면 점지도 일곱 가지 약속을 길눈 목소리로 차례로 읽어 드립니다. 약속 한 장을 누르시면 그 약속만 다시 들으실 수 있습니다. 이어서 확인 문제 아홉 개를 문제와 고를 말 넷(가, 나, 다, 라)까지 읽어 드리며, 맞히면 박수 소리와 진동으로, 틀리면 풀이를 들려 드리고 다시 고르시게 합니다. 아홉 문제를 모두 맞혀야 통과합니다. 칸이 비었거나 맞지 않으면 무엇이 모자란지 말로 알려 드립니다. 통과하시면 환영 화면에서 자봉 번호를 알려 드리고, 봉사 시작하기를 누르시면 봉사 탭으로 갑니다. 프로그램 말소리를 꺼 두셨으면 소리 대신 보이스오버 커서로 알려 드립니다. 웹 자봉에서 이미 등록하셨으면 자봉 번호와 네 자리 숫자로 이어서 쓰십시오."),
+        ("보완 부탁", "올린 길이 협회 점검에서 고칠 곳이 나오면 「조금만 더 보완해 주세요. 시각장애인이 기다립니다」로 보완을 부탁드립니다. 봉사 탭에 보완 부탁 몇 건이 한 줄로 뜨고, 알림·설정 탭 맨 위에 길마다 단계와 기한이 나옵니다. 길을 누르시면 고칠 곳을 몇 걸음째인지와 빛깔(빨강은 따라 걸을 수 없게 하는 것, 주황은 방향 빠짐, 노랑은 목소리 토막 손볼 것)로 보여 드리고, 빨강은 깜박입니다. 고칠 곳 말로 듣기를 누르시면 차례로 읽어 드립니다. 3일째에는 앱을 여실 때 한 번 다시 알려 드리고, 7일이 지나도 보완이 없으면 협회 보완팀이 맡습니다. 그린 분의 이름은 그대로 남습니다. 같은 출발지와 도착지로 다시 걸어 점검을 통과하면 저절로 보완 완료가 됩니다."),
         ("표시마다 짧게 말 남기기", "점지도 일곱 가지 약속의 일곱째입니다. 표시를 남기면 안내 말 뒤에 딩동 소리가 나고 폰이 짧게 귀를 엽니다. 그 자리 모습을 한두 마디로 말씀해 주십시오. 말이 멈추면 저절로 끊기고, 길어도 10초에서 끊기며, 4초 안에 말이 없으면 남기지 않습니다. 이 토막은 녹음한 시간이 아니라 그 표시의 걸음 자리에 묶여, 시각장애인이 그 자리에 닿기 몇 걸음 앞에서 들려 드리게 됩니다. 문은 두 번째로 찍었을 때만 귀를 엽니다. 다른 표시를 누르거나 잠깐 멈춤, 다 걸었습니다를 누르면 바로 닫힙니다. 다른 표시와 도구 펼치기 안에서 끄고 켤 수 있습니다. 말로 표시로 찍은 것은 폰이 이대로 남길까요 하고 되물어, 네라고 하셔야 남습니다."),
         ("점지도 일곱 가지 약속", "시작과 끝은 문 앞에서, 걸음을 끊지 않기, 폰은 가슴 앞에 걷는 쪽으로, 꺾이는 그 자리에서 바로 표시, 짝 표시는 시작과 끝을 함께, 보폭은 걷기 전에, 표시마다 짧게 말로 남기기입니다. 서버의 점지도 점검과 같은 잣대라, 약속대로 걸으시면 점검을 통과합니다. 이미 등록하신 분도 교육이 새로워지면 앱을 열 때 약속을 한 번 다시 듣고 확인 문제를 풀어야 점지도 그리기를 쓰실 수 있습니다. 교육을 마친 날짜는 협회 등록 창고에 남습니다. 알림·설정 탭의 점지도 일곱 가지 약속 다시 보기에서 언제든 다시 보고 들으실 수 있습니다."),
 

@@ -76,6 +76,7 @@ struct GrGil: Codable, Identifiable {
     // 2.11.0 올리기 — 협회 창고 번호와 서버 점검에서 나온 손볼 곳
     var seobeoId: String? = nil
     var heum: [String]? = nil
+    var heumSaek: [String]? = nil   // 2.13.0 고칠 곳의 빛깔(빨강·주황·노랑)
 }
 
 // MARK: 그리기 엔진
@@ -733,21 +734,27 @@ final class JeomGeurigi: ObservableObject {
         }
         let heum = (r["heum"] as? [[String: Any]]) ?? []
         let mals = heum.compactMap { $0["mal"] as? String }.filter { !$0.isEmpty }
+        let saeks = heum.filter { !(($0["mal"] as? String) ?? "").isEmpty }.map { ($0["saek"] as? String) ?? "빨강" }
         if (r["olim"] as? Bool) == true {
             geurinGil[i].olim = true
             geurinGil[i].seobeoId = r["id"] as? String
             geurinGil[i].heum = mals.isEmpty ? nil : mals
+            geurinGil[i].heumSaek = mals.isEmpty ? nil : saeks
             mokJeojang()
             if majimakId == id { majimakId = nil }
             Hamkke.geurimAllim(gil: g.id, geori: Int(Double(g.georeum) * g.bopok))   // 함께한 기록판은 올린 길만 셈
             Girok.shared.namgi("jb_olim", ["id": id, "seobeo": geurinGil[i].seobeoId ?? ""])
-            alrigi("올렸습니다. 협회 점검을 통과해 길눈에 실렸습니다. 고맙습니다." + (mals.isEmpty ? "" : " 다음에 손보시면 좋을 곳도 알려 드립니다. " + mals.joined(separator: " ")))
+            let bm = (r["bowanMachim"] as? Int) ?? 0   // 2.13.0 같은 출발지·도착지 보완 부탁이 있었으면 보완 완료
+            if bm > 0 { Task { await JbBowan.shared.bulleo(gangje: true) } }
+            alrigi("올렸습니다. 협회 점검을 통과해 길눈에 실렸습니다. 고맙습니다." + (bm > 0 ? " 보완 부탁 \(bm)건이 보완 완료되었습니다." : "") + (mals.isEmpty ? "" : " 다음에 손보시면 좋을 곳도 알려 드립니다. " + mals.joined(separator: " ")))
         } else {
             geurinGil[i].heum = mals
+            geurinGil[i].heumSaek = saeks
             mokJeojang()
+            Task { await JbBowan.shared.bulleo(gangje: true) }   // 2.13.0 보완 부탁 목록을 새로
             let ppal = heum.filter { ($0["saek"] as? String) == "빨강" }.count
             Girok.shared.namgi("jb_olim_heum", ["id": id, "su": ppal])
-            alrigi("협회 점검에서 고칠 곳이 \(max(ppal, 1))가지 나와 아직 올리지 않았습니다. " + mals.joined(separator: " ")
+            alrigi(JbBowan.butak + " 협회 점검에서 고칠 곳이 \(max(ppal, 1))가지 나와 아직 올리지 않았습니다. " + mals.joined(separator: " ")
                    + " 이름이 빠진 것은 이 화면에서 바로 넣고 다시 올리시면 되고, 걸음이나 표시가 빠진 구간은 다시 걸어 새로 그려 주십시오.")
         }
     }
@@ -974,9 +981,15 @@ struct GrinGilView: View {
                             .buttonStyle(KeunDanchu()).disabled(g.olliJung)
                     }
                     if let h = gil.heum, !h.isEmpty {
-                        DisclosureGroup("협회 점검에서 나온 곳 \(h.count)가지 펼치기") {
-                            VStack(alignment: .leading, spacing: 8) { ForEach(h, id: \.self) { Text($0).font(.body) } }
-                        }.font(.title3)
+                        // 2.13.0 고칠 곳을 빛깔과 함께, 빨강은 깜박임 — 펼치지 않아도 바로 보이게
+                        Text("협회 점검에서 나온 고칠 곳 \(h.count)가지").font(.title3.bold())
+                        ForEach(Array(h.enumerated()), id: \.offset) { k, m in
+                            HeumJul(saek: (gil.heumSaek ?? [])[safe: k] ?? "빨강", mal: m)
+                        }
+                        Button("고칠 곳 말로 듣기") {
+                            SoriEngine.shared.modu_geodugi()
+                            for (k, m) in h.enumerated() { SoriEngine.shared.mal("\(k + 1). \((gil.heumSaek ?? [])[safe: k] ?? "빨강"). \(m)") }
+                        }.buttonStyle(KeunDanchu())
                     }
                     DisclosureGroup("출발지·도착지 이름 고치기") {
                         VStack(alignment: .leading, spacing: 10) {

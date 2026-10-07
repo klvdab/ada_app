@@ -2,12 +2,19 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.12.0"
-    static let bild = "261007-I6"
+    static let pan = "2.13.0"
+    static let bild = "261007-I7"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.13.0", bild: "261007-I7", nal: "2026-10-07", naeyong: [
+            "보완 부탁(이사장님 지시) — 올린 길이 협회 점검에서 고칠 곳이 나오면 「조금만 더 보완해 주세요. 시각장애인이 기다립니다」로 보완을 부탁. 봉사 탭에 보완 부탁 몇 건 한 줄, 알림·설정 탭 맨 위에 길마다 단계와 기한",
+            "3일째 앱을 열 때 하루 한 번 다시 알림, 7일이 지나도 보완이 없으면 협회 보완팀이 맡음(그린 분 이름은 그대로, 보완한 분을 더함). 날짜 셈은 협회 리눅스 서버 lvd-bowan, 나스 bowan.php 는 건네기만",
+            "같은 출발지·도착지로 다시 걸어 점검을 통과하면 저절로 보완 완료, 올릴 때 알려 드림",
+            "고칠 곳을 빛깔(빨강·주황·노랑)과 함께 보여 줌 — 빨강은 깜박임(움직임 줄이기를 켜셨으면 깜박이지 않음), 낭독기로도 빛깔을 읽음. 고칠 곳 말로 듣기 단추",
+            "봉사 탭의 빈 약속 글(오늘 걸을 길과 함께 걷기는 이 탭에 차례로 들어섭니다)을 뺌, 도움말에 보완 부탁 항목 더함"
+        ]),
         Gochim(pan: "2.12.0", bild: "261007-I6", nal: "2026-10-07", naeyong: [
             "새 판 알림(이사장님 승인, 길눈 부품 OllimEngine 을 함께 씀) — 켤 때와 앱으로 돌아올 때(1시간에 한 번까지) 협회 판 번호 한 장(sihum/pan.json)을 살펴, 새 판이면 봉사 탭 맨 위에 「자봉 새 판이 나왔습니다. 두드리면 테스트플라이트에서 업데이트합니다」 단추",
             "알림·설정 탭의 새로고침 바로 아래 업데이트 단추, 도움말에 「업데이트 — 새 판 받기」 항목 더함"
