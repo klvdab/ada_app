@@ -3,12 +3,15 @@
 package kr.or.ada.app.jabong
 
 object JabongPan {
-    const val pan = "2.12.0"
-    const val bild = "261007-A6"
+    const val pan = "2.12.1"
+    const val bild = "261007-A8"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.12.1", "261007-A8", "2026-10-07", listOf(
+            "업데이트 시험판 — 점지도를 그리는 중에는 업데이트하지 않음(설치하면 앱이 꺼지므로, 다 걸은 뒤에)"
+        )),
         Gochim("2.12.0", "261007-A6", "2026-10-07", listOf(
             "새 판 알림과 업데이트(이사장님 승인, 길눈 부품 Ollim 을 함께 씀) — 켤 때·앱으로 돌아올 때(1시간에 한 번까지)·닫혀 있어도 하루 두 번쯤 협회 판 번호 한 장(sihum/pan.json)을 살펴, 새 판이면 폰 알림 「자봉 새 판이 나왔습니다. 두드리면 업데이트합니다」",
             "알림이나 봉사 탭 맨 위 한 줄, 알림·설정의 새로고침 바로 아래 업데이트 단추를 누르면 새 판을 스스로 받아 설치 화면을 엶(처음 한 번은 이 출처 허용), 새 판으로 바뀌면 바뀌었다는 알림",
