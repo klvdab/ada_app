@@ -84,7 +84,7 @@ android {
             dimension = "ap"
             applicationId = "kr.or.ada.lib"
             resValue("string", "app_name", "AI점자도서관")
-            versionName = "0.4.3"   // 261007-L7 새 판 알림과 업데이트(대장클, 이사장님 지시). 261006-L6 책 소개·지은이·출판사, 책 소개 듣기. 261006-L5 여섯 문단 미리 받기. 261006-L4 목소리 열 가지·미리 듣기, 재생 위치 막대, 앞으로 30초와 뒤로 30초. 261006-L3 인터넷이 될 때는 늘 도서관 목소리(이사장님 지적). 261006-L2 세 겹의 문 목록 고침·독서기 떠나면 멈춤(도서관 창 클, 이사장님 지적)
+            versionName = "0.4.4"   // 261008-L8 아이폰과 견주어 네 묶음 고침 — 화면 꺼도 읽기·이어폰 단추, 내 서재 줄 수·책갈피 자리·모두 지우기 물음, 커서 머묾·더 보기, 처음부터·책갈피 지우기·도움말 찾기(도서관 창 클, 이사장님 승인 「1」). 261007-L7 새 판 알림과 업데이트(대장클, 이사장님 지시). 261006-L6 책 소개·지은이·출판사, 책 소개 듣기. 261006-L5 여섯 문단 미리 받기. 261006-L4 목소리 열 가지·미리 듣기, 재생 위치 막대, 앞으로 30초와 뒤로 30초. 261006-L3 인터넷이 될 때는 늘 도서관 목소리(이사장님 지적). 261006-L2 세 겹의 문 목록 고침·독서기 떠나면 멈춤(도서관 창 클, 이사장님 지적)
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/nas/doseo.php\"")
         }
     }
@@ -134,6 +134,7 @@ dependencies {
     "byodImplementation"("com.google.zxing:core:3.5.3")
     listOf("libImplementation", "byodImplementation").forEach { add(it, "androidx.work:work-runtime-ktx:2.9.1") }   // 261007 새 판 알림 뒤 일꾼(OllimWorker) — 도서관·BYOD에도   // 261006-B2 BYOD 접속 도구 — 큐알코드 만들기
     "libImplementation"("androidx.media3:media3-ui:1.4.1")          // 261002-L1 도서관 동영상 보기
+    "libImplementation"("androidx.media3:media3-session:1.4.1")     // 261008-L8 도서관 화면 꺼도 읽기·이어폰 단추·잠금 화면(DokseoService)
     gj.forEach { add(it, "com.google.android.gms:play-services-wearable:18.1.0") }   // 261002-A8 갤럭시 워치 길눈과 잇기
     gj.forEach { add(it, "io.getstream:stream-webrtc-android:1.3.8") }   // 261002-A9 길눈 긴급통화서비스 화상통화(org.webrtc)
     gj.forEach { add(it, "androidx.activity:activity-ktx:1.9.3") }       // 261002-B1 내 서류 보관함 사진 고르기(PickVisualMedia) — appcompat 이 끌어오는 것보다 분명히
