@@ -8,6 +8,9 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- 0.4.3(261007-L7) 새 판 업데이트 — 받은 새 판을 스스로 설치 화면에 넘김 -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- 0.4.4(261008-L8) 화면을 꺼도 계속 읽기 — 독서기 미디어 세션 서비스(포그라운드) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <application>
         <activity android:name="kr.or.ada.app.MainActivity" tools:node="remove" />
@@ -22,6 +25,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- 0.4.4 독서기 소리를 살려 두는 서비스 — 알림 칸·잠금 화면·이어폰 단추 -->
+        <service
+            android:name="kr.or.ada.app.lib.DokseoService"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
         <!-- 0.4.3 새 판 업데이트 — 설치 결과와 「새 판으로 바뀜」 알림 -->
         <receiver
             android:name="kr.or.ada.app.lib.OllimReceiver"
