@@ -559,6 +559,8 @@ final class MalHagi: ObservableObject {
             AnnaeEngine.shared.haneunIlMeomchum()
             return
         }
+        // 0-1. 2.58.0 차 부르기 — 배차 대답, 다음 수단, 복지카드 메일, 성적표, 이용 조건, 정기 호출(이사장님 승인 2026-10-09)
+        if ChaBureugi.shared.malCheori(alts, z, dap) { return }
         // 1. 여정 끝내기
         if sajeon.itda(alts, "yeojeong_kkeut") {
             mureum = .eopseum
@@ -1785,11 +1787,9 @@ final class MalHagi: ObservableObject {
 
     /// 2.39.0 고른 콜에 바로 걸기(지역 이름을 함께 알려 드림)
     private func kolGeolgiK(_ k: KolBeonho, _ dap: @escaping (String, Bool) -> Void) {
-        guard let u = URL(string: "tel:" + k.jeonhwa) else { return }
         Girok.shared.namgi("malhagi_kol_georeum", ["ireum": k.ireum])
-        let ap = sajeon.kolJiyeokMal()
-        dap(ap + " \(k.ireum)에 전화를 겁니다. 통화 확인이 뜨면 통화를 두 번 두드려 주십시오. 처음 쓰시는 곳이면 이용 등록을 먼저 하라고 할 수 있습니다. 그때는 설정 탭의 내 서류 보관함에서 서류를 보내실 수 있습니다. 차에 타시면 차에 탔어라고 말씀해 주십시오.", false)
-        SoriEngine.shared.kkeutnamyeon { UIApplication.shared.open(u) }
+        // 2.58.0 차 부르기 엔진으로 — 기록을 남기고, 상담원께 말할 것을 들려 드린 뒤 겁니다
+        ChaBureugi.shared.geolgi(k, dap: dap)
     }
 
     // MARK: 돕는 말
