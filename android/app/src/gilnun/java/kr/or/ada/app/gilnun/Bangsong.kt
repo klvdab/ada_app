@@ -91,7 +91,7 @@ object BangsongSeol {
         set(v) = bNoki("yeongsangKkeum", v)
     /** 2.12.7 차에 타면 지나는 고장 노래 저절로(처음부터 켜짐) */
     var gojangNorae: Boolean
-        get() = b("gojangNorae", true)
+        get() = b("gojangNorae", false)   // 2.28.0 처음값 끔(이사장님 지시, 아이폰 2.57.0과 같음)
         set(v) = bNoki("gojangNorae", v)
     /** 2.34.0 워치가 있으면 워치에서 동영상 틀기(처음부터 켜짐) */
     var dongyeongWatch: Boolean
