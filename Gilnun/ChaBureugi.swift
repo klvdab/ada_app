@@ -843,7 +843,7 @@ struct ChaBureugiView: View {
             gaeng += 1
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { meoriChojeom = true }
         }
-        .onChange(of: c.meilYeolgi) { _, v in if v { c.meilYeolgi = false; meil = true } }
+        .onChange(of: c.meilYeolgi) { v in if v { c.meilYeolgi = false; meil = true } }
         .sheet(isPresented: $meil) {
             SeoryuMeil(baneun: annae?.meil ?? "", jiyeok: annae?.ireum ?? "") { meil = false }
         }
