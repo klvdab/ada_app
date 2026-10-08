@@ -1,4 +1,4 @@
-// AI점자도서관 안드로이드 — 내 서재와 설정 보관 (0.2.0, 빌드 261002-L1) — 아이폰 Lib/Store.swift 와 같은 일
+// AI점자도서관 안드로이드 — 내 서재와 설정 보관 (0.4.4판, 빌드 261008-L8 — 책갈피 지우기, 불러왔는지 살피기) (0.2.0, 빌드 261002-L1) — 아이폰 Lib/Store.swift 와 같은 일
 package kr.or.ada.app.lib
 
 import android.content.Context
@@ -15,6 +15,8 @@ data class Mark(val i: Int, val t: String, val kind: String, val pos: Double, va
 
 object Store {
     lateinit var ctx: Context
+    /** 0.4.4 서비스가 먼저 깨어날 때 — 불러왔는지 */
+    fun itna() = this::ctx.isInitialized
     private val p get() = ctx.getSharedPreferences("lib_store", Context.MODE_PRIVATE)
     val reads = mutableListOf<ReadRec>()
     val marks = mutableListOf<Mark>()
@@ -58,6 +60,8 @@ object Store {
     fun addMark(i: Int, t: String, kind: String, pos: Double) {
         if (marks.none { it.i == i && kotlin.math.abs(it.pos - pos) < 0.5 }) { marks += Mark(i, t, kind, pos, System.currentTimeMillis()); save() }
     }
+    /** 0.4.4 책갈피 지우기 */
+    fun removeMark(m: Mark) { marks.removeAll { it.id == m.id }; save() }
     fun marksOf(i: Int) = marks.filter { it.i == i }.sortedBy { it.pos }
     /** 내 서재에서 지우기 — 되돌리기를 위해 돌려줌 */
     fun jiugi(i: Int): Pair<ReadRec, List<Mark>>? {
