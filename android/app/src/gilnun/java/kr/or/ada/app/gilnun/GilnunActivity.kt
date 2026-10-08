@@ -86,6 +86,7 @@ class GilnunActivity : AppCompatActivity() {
         TalgeotGamji.sijak(this)   // 2.9.0 탈것 저절로 알아채기(걸음 센서·가속도·기압계, 땅속에서도)
         KolJiyeok.sijak(this)   // 2.8.0 콜 번호 지역 알아보기
         NnKol.batgi {}          // 2.8.0 콜 번호표(나스 call.json)를 미리 받아 둠 — 말로 부를 때 바로 쓰게
+        ChaBureugi.sijak(this)  // 2.29.0 차 부르기 — 지역 이용 안내·이용 기록·차에 탄 것 알아채기·정기 호출(이사장님 승인)
         SinhogiEngine.sijak(this)   // 2.3.0 음향신호기 자동으로 잡기(설정에서 끔)
         MalHagi.sijak(this)         // 2.4.0 말로 하기 — 나스 알아듣기 사전을 받아 둠
         MalHagi.hwalseong = WeakReference(this)
@@ -189,11 +190,15 @@ class GilnunActivity : AppCompatActivity() {
     /** 2.27.0 앱 아이콘 바로가기(말로 하기·지금 내 자리 듣기) — 화면이 다 선 뒤 1.2초에 */
     private fun barogagi(i: Intent?) {
         val a = i?.action ?: return
-        if (a != "kr.or.ada.app.gilnun.MALHAGI" && a != "kr.or.ada.app.gilnun.JARI") return
+        if (a != "kr.or.ada.app.gilnun.MALHAGI" && a != "kr.or.ada.app.gilnun.JARI" && a != JeonggiHochul.YEOLGI) return
         i.action = null   // 화면을 돌려도 다시 하지 않게
         Girok.namgi("barogagi", mapOf("a" to a.substringAfterLast('.')))
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            if (a.endsWith("MALHAGI")) MalHagi.dudeurim() else AnnaeEngine.jigeumJari()
+            when {
+                a == JeonggiHochul.YEOLGI -> JeonggiHochul.geolgi()   // 2.29.0 정기 호출 알림을 두드리셨을 때 — 바로 그 콜에
+                a.endsWith("MALHAGI") -> MalHagi.dudeurim()
+                else -> AnnaeEngine.jigeumJari()
+            }
         }, 1200)
     }
 
@@ -211,11 +216,13 @@ class GilnunActivity : AppCompatActivity() {
         if (Seoljeong.hiGilnun && Seoljeong.hiJamgeum) WichiService.kyeogi(this)   // 2.27.0 화면이 꺼져도 듣기 — 앞에 있을 때 마이크 쓰임을 알림 칸에 다시 올림
         Wichi.wiseongDolligi()
         Ollim.dorawatda(this)   // 2.22.0 앱으로 돌아오면 새 판 살피기(1시간에 한 번까지), 설치 허용을 켜고 오셨으면 업데이트 이어 하기
+        ChaBureugi.dorawatda(this)   // 2.29.0 콜에 전화하고 돌아오시면 배차되었습니까 한 번
     }
 
     override fun onPause() {
         super.onPause()
         HaiGilnun.apDanggye(false)
+        ChaBureugi.naganda()
         Girok.jeojang()
     }
 
@@ -305,6 +312,12 @@ class GilnunActivity : AppCompatActivity() {
         SinhogiEngine.saerogochim()
         if (requestCode == GongjiEngine.HEORAK_BEON) {   // 2.7.0 b6 폰 알림 허락(알림 화면의 단추)
             GongjiEngine.heorakGyeolgwa(this)
+            return
+        }
+        if (requestCode == JeonggiHochul.HEORAK_BEON) {   // 2.29.0 정기 호출 — 전화 걸기·알림 허락
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED &&
+                permissions.contains(Manifest.permission.CALL_PHONE)) Sori.mal("전화 걸기를 허락하셨습니다. 이제 알림을 한 번 두드리시면 바로 걸립니다.")
+            dasiGeurigi()
             return
         }
         if (requestCode == 11) {
@@ -961,6 +974,10 @@ class DoumalHwamyeon : Hwamyeon("도움말") {
 
     companion object {
         val DOUMAL = listOf(
+            // 2.29.0 차 부르기(이사장님 승인 2026-10-09, 아이폰 2.58.0과 같음)
+            "차 부르기 — 복지콜, 교통약자 콜, 지역 이용 조건" to "길 찾기 탭의 즐겨찾기 바로 아래에 차 부르기가 있습니다. 열면 지금 계신 지역을 알려 드리고, 맨 위의 부르기 단추 하나로 그 지역 첫째 수단에 전화를 겁니다. 서울에서는 복지콜이 맨 앞입니다. 다른 수단 펼치기에는 나비콜, 장애인콜택시 같은 나머지 번호가 있습니다. 걸기 전에 상담원께 말할 것, 곧 출발 주소, 도착지, 보조견과 함께 타시는지를 들려 드리고, 통화 중에도 알림 칸에서 다시 보실 수 있게 남겨 둡니다. 전화 걸기를 허락하시면 말이 끝난 뒤 바로 걸리고, 허락하지 않으시면 전화 화면에서 통화 단추를 한 번 누르시면 됩니다. 그 밖에 펼치기에는 이 지역 이용 조건이 있습니다. 시각장애인도 탈 수 있는지, 미리 등록해야 하는지, 서류를 보내는 팩스와 메일을 알려 드립니다. 공식 누리집으로 확인한 곳만 조건을 말씀드리고, 확인하지 못한 곳은 전화로 먼저 물어보시라고 말씀드립니다. 메일로 등록받는 곳이면 복지카드를 이 메일로 보내기를 누르십시오. 보내는 창에서 지메일 같은 메일 앱을 고르시면 받는 곳과 내 서류 보관함의 복지카드가 채워져 있고, 확인하신 뒤 보내기를 누르시면 됩니다. 말로 하기에서 복지콜 불러 줘, 콜 이용 조건 알려 줘라고 하셔도 됩니다.",
+            "정기 호출 — 출퇴근처럼 정한 시각에 콜 부르기" to "차 부르기의 정기 호출에서 켜기, 부를 시각, 도착할 곳, 도착 희망 시각을 정하고 정하기를 누르십시오. 시각은 7시 30분, 또는 0730처럼 넣으시면 됩니다. 처음에는 월요일부터 금요일까지입니다. 정한 시각이 되면 알림과 소리로 깨워 드리고, 알림을 한 번 두드리시면 그 콜에 전화가 걸립니다. 전화 걸기 허락하기를 누르고 허락하시면 통화 단추를 다시 누르지 않아도 바로 걸립니다. 폰이 정확한 시각에 알리게 허락하기 단추가 보이면 눌러서 알람 및 리마인더를 허용해 주십시오. 허용하지 않으시면 몇 분 늦게 알릴 수 있습니다. 공휴일은 저절로 건너뜁니다. 그날만 바꾸실 때는 말로 하기에서 내일은 쉬어, 내일은 8시로 바꿔, 금요일은 병원으로라고 말씀하십시오. 병원처럼 도착을 바꾸실 곳은 즐겨찾기에 담아 두셔야 합니다. 처음 정하실 때도 말로 됩니다. 평일마다 아침 7시 30분에 복지콜 불러 줘, 사무실까지 9시. 정기 호출 꺼 줘, 정기 호출 켜 줘, 정기 호출 알려 줘도 됩니다. 요일, 출발, 수단, 보조견, 내일 하루 쉬기는 자세히 펼치기에 있습니다.",
+            "나의 이용 성적표 — 콜이 얼마나 잡히는지" to "길눈으로 콜을 부르시면 몇 시에 어디로 걸었는지 저절로 남깁니다. 통화를 마치고 길눈으로 돌아오시면 배차되었습니까 하고 한 번만 여쭙니다. 되었다, 기다리라고 했다, 안 된다고 했다 가운데 말씀하시거나 화면 단추를 누르십시오. 안 된다고 하면 나비콜처럼 다음 수단에 걸지 여쭙니다. 차에 타시면 길눈이 저절로 알아채 몇 분 기다리셨는지 남깁니다. 차 부르기의 그 밖에 펼치기에서 나의 이용 성적표를 보시거나, 말로 하기에서 콜 성적표 알려 줘라고 하시면 이번 달 부른 횟수, 탄 횟수, 평균 기다린 시간, 가장 안 잡힌 시간대를 알려 드립니다. 기록은 이 폰 안에만 있습니다. 이름 없이 협회로 보내기를 켜신 분의 기록만, 받는 곳이 준비되는 대로 이름과 번호 없이 협회로 모아 지역마다 얼마나 잡히는지 알리는 근거로 씁니다.",
             "하이 길눈 부르기 — 설정에서 켜기" to "설정 탭의 말하기 설정에 있는 「하이 길눈 부르기」를 켜시면, 길눈 화면이 켜져 있는 동안 하이 길눈이라고 부르시면 말로 하기 단추를 누른 것처럼 네 하고 명령을 듣습니다. 처음에는 꺼져 있습니다. 폰 안 받아쓰기로 들어 통신이 없어도 되고, 안드로이드 12 이상이면서 폰 안 받아쓰기가 있는 폰에서만 됩니다. 길눈이 말하는 동안, 말로 하기 중, 긴급통화 중에는 듣지 않습니다. 처음에는 길눈 화면이 켜져 있을 때만 듣고, 바로 아래 화면이 꺼져도 하이 길눈 듣기를 켜시면 화면이 꺼지거나 다른 앱을 쓰실 때도 알림 칸에 길눈이 떠 있는 동안 듣습니다. 안드로이드 11 이상에서 되고, 배터리를 조금 더 씁니다. 폰에 따라 듣기를 다시 열 때 작은 소리가 날 수 있습니다. 거슬리시면 끄시고 말로 하기 단추나 이어폰 단추 길게 누르기를 쓰십시오.",
             "도움말 찾기 — 낱말을 넣고 엔터" to "도움말 맨 위 찾기 칸에 찾고 싶은 낱말(예: 방송, 지하철, 문)을 넣고 엔터를 치시면 그 낱말이 든 도움말만 다섯 개씩 나오고 커서가 첫 결과로 갑니다. 아래의 더 보기와 이전 보기로 넘기시고, 찾기 지우기를 누르시면 도움말 전체로 돌아갑니다. 항목을 누르면 바로 아래에 내용이 펼쳐지고 다시 누르면 접힙니다.",
             "걷는 중 안내 — 하던 일 멈추기, 걸음 수, 건널목, 문 찾기" to "길 찾기 첫 화면 맨 위에는 하던 일 멈추기가 늘 있습니다. 무엇을 하고 있든 누르시면 길 안내, 문 찾기, 신호기 찾기 같은 모든 일을 멈추고 목적지 적는 칸으로 갑니다. 걸어서 가실 때 보폭을 재 두셨으면 걷는 동안 말씀드리는 모든 거리를 걸음 수로 말씀드리고, 300미터가 넘으면 미터도 함께 말씀드립니다. 협회 서버가 아는 건널목, 계단, 다리, 지하도는 열다섯 미터쯤 앞에서 몇 걸음 앞에 건널목이 있다고 미리 알리고, 닿으면 건널목 앞입니다, 신호와 차 소리를 확인하신 뒤 건너십시오라고 한 번 더 말씀드립니다. 건널목이 가까워지면 음향신호기를 저절로 8초 살펴 울릴 수 있는 신호기가 있는지 알려 드립니다. 도착한 뒤 카메라 문 찾기는 안드로이드 길눈에서 아직 관리자 시험 중이라 관리자 폰에서만 켜집니다. 관리자 폰에서는 8초마다 지금 문을 찾고 있다고 알리고, 30초 안에 문을 찾지 못하면 바로 말씀드린 뒤 사진 읽어 주기나 긴급통화를 권합니다. 다른 폰에서는 도착을 알린 뒤 문은 사진 읽어 주기나 긴급통화로 찾아 주십시오. 사거리는 아직 서버 자료에 없어 따로 알리지 못합니다.",
