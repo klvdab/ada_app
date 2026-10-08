@@ -131,6 +131,7 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
                     true
                 }
                 t.danchu("즐겨찾기 — 자주 가는 곳") { t.yeolgi(JeulgyeoHwamyeon()) }
+                t.danchu("차 부르기 — 복지콜, 교통약자 콜, 정기 호출") { t.yeolgi(ChaBureugiHwamyeon()) }   // 2.29.0 이사장님 승인
                 t.danchu("지금 내 자리 듣기") { AnnaeEngine.jigeumJari() }
             }
         }
