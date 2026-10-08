@@ -33,7 +33,7 @@ final class Seoljeong: ObservableObject {
     @Published var dongyeongWatch: Bool { didSet { d.set(dongyeongWatch, forKey: "gn.dongyeongWatch") } }
     /// 차 안에서 고장이 바뀌면 고장 이야기 한 번(처음부터 켜짐)
     @Published var gojangJadong: Bool { didSet { d.set(gojangJadong, forKey: "gn.gojangJadong") } }
-    /// 2.12.7 차에 타면 지나는 고장 노래 저절로 틀기(처음부터 켜짐, 나스 음악 열쇠가 있을 때만)
+    /// 2.12.7 차에 타면 지나는 고장 노래 저절로 틀기(2.57.0부터 처음엔 꺼짐, 켜신 분만)
     @Published var gojangNorae: Bool { didSet { d.set(gojangNorae, forKey: "gn.gojangNorae") } }
     /// 2.15.0 카메라 눈 말소리 — 끄면 문 찾기 등 카메라 기능이 말 없이 소리로만(처음부터 켜짐)
     @Published var kameraMal: Bool { didSet { d.set(kameraMal, forKey: "gn.kameraMal") } }
@@ -97,7 +97,7 @@ final class Seoljeong: ObservableObject {
         ieoponDanchu = (ud.object(forKey: "gn.ieoponDanchu") as? Bool) ?? true
         dongyeongWatch = (ud.object(forKey: "gn.dongyeongWatch") as? Bool) ?? true
         gojangJadong = (ud.object(forKey: "gn.gojangJadong") as? Bool) ?? true
-        gojangNorae = (ud.object(forKey: "gn.gojangNorae") as? Bool) ?? true
+        gojangNorae = (ud.object(forKey: "gn.gojangNorae") as? Bool) ?? false   // 2.57.0 처음값 끔(이사장님 지시 — 처음 받은 분이 다른 기능을 먼저 익히게)
         kameraMal = (ud.object(forKey: "gn.kameraMal") as? Bool) ?? true
         msMoksori = (ud.object(forKey: "gn.msMoksori") as? Bool) ?? true
         gisaMoksoriId = ud.string(forKey: "gn.gisaMoksori") ?? ""
