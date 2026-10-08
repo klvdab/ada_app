@@ -23,12 +23,16 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.27.0"
-    const val bild = "261007-A15"
+    const val pan = "2.28.0"
+    const val bild = "261008-A16"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.28.0", "261008-A16", "2026-10-08", listOf(
+            "차에 타면 지나는 고장 노래 저절로 틀기를 처음에는 꺼 둠(이사장님 지시, 아이폰 2.57.0과 같음) — 처음 앱을 받은 분이 다른 기능을 먼저 익히시게. 손으로 켜 두신 분은 그대로 켜짐",
+            "도움말 길 위의 음악 항목을 처음에는 꺼져 있다고 고침"
+        )),
         Gochim("2.27.0", "261007-A15", "2026-10-07", listOf(
             "★아이폰 길눈과 맞대어 안드로이드에서 빠지거나 덜 된 것을 채움(이사장님 허락 「그래 허락한다」)",
             "차 안 길 맞춤 — 택시나 남의 차가 바른 길로 가는지(100미터 넘게 15초 벗어나면 알림), 600미터쯤 남으면 내리는 곳의 길·건물·시계 방향·미터, 100미터 안이면 세워 달라고 하시라고. 말하기 설정에 차 안 안내 정도(간단·보통·자세히)",
