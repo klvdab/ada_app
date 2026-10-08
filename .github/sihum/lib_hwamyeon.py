@@ -1,4 +1,4 @@
-# 도서관 앱 안드로이드 화면 하나하나 눌러 보기 (판 0.1.5, 빌드 261008-4, 도서관 창 클) — 0.1.5: 화면 크기에 맞춘 쓸기, 덤프 다시 하기·오류 이유 남기기, 화면마다 앱 꺼짐 살피기, 끝까지 내려 읽기
+# 도서관 앱 안드로이드 화면 하나하나 눌러 보기 (판 0.1.6, 빌드 261008-5, 도서관 창 클) — 0.1.6: 독서기 안에서 읽기를 실제로 누르고 문단이 나아가는지로 소리 확인, 화면 끄기 2분·다른 앱 1분 뒤 이어 읽는지, 파일 이름 빈칸 없앰. 0.1.5: 화면 크기에 맞춘 쓸기, 덤프 다시 하기·오류 이유 남기기, 화면마다 앱 꺼짐 살피기, 끝까지 내려 읽기
 import subprocess,time,re,os,html
 def sh(c,t=60):
     try: return subprocess.run(c,shell=True,capture_output=True,text=True,timeout=t).stdout
@@ -6,7 +6,7 @@ def sh(c,t=60):
 P='kr.or.ada.lib'; os.makedirs('g',exist_ok=True); OUT=open('g/gyeolgwa.txt','w',encoding='utf8'); n=[0]
 def say(s): print(s,flush=True); OUT.write(s+'\n'); OUT.flush()
 def dump(name,show=True):
-    n[0]+=1; f='g/%02d_%s'%(n[0],name)
+    n[0]+=1; f='g/%02d_%s'%(n[0],name.replace(' ','_').replace('·','_'))
     x=''; er=''
     for k in range(4):
         sh('adb shell rm -f /sdcard/d.xml'); er=sh('adb shell uiautomator dump /sdcard/d.xml 2>&1'); sh('adb pull /sdcard/d.xml %s.xml'%f)
@@ -91,11 +91,23 @@ if True:
     x=dump('g',False)
     if tap('Pride and Prejudice - Austen, Jane (영어)'):
         x=dump('chaek_jeongbo'); say('-- 책 정보 스크롤 가능: '+str('scrollable="true"' in x))
-if tap('읽기') or tap('독서기로 듣기') or tap('듣기'):
-    time.sleep(30); dump('dokseogi'); ggeut('읽기 30초 뒤')
-    if tap('앞으로 30초'): time.sleep(5); ggeut('앞으로 30초 뒤')
-    sh('adb shell input keyevent 26'); time.sleep(25); ggeut('화면 끈 뒤 25초'); sh('adb shell input keyevent 224'); sh('adb shell input keyevent 82'); time.sleep(3)
-    dump('dokseogi_dasi')
+def munDan():
+    x=dump('mundan',False); m=re.search(r'(\d+)문단 가운데 (\d+)번째',x); d=re.search(r'text="(멈춤|읽기|목소리를 받는 중입니다, 멈춤)"',x)
+    return (int(m.group(2)) if m else -1, d.group(1) if d else '?')
+if tap('읽기'):
+    time.sleep(3); dump('dokseogi')
+    if tap('읽기'):
+        a=munDan(); time.sleep(60); b=munDan(); say('-- 읽기 누르고 1분: 문단 %s → %s, 단추 %s'%(a[0],b[0],b[1]))
+        if tap('앞으로 30초'): time.sleep(5); c=munDan(); say('-- 앞으로 30초: 문단 %s → %s'%(b[0],c[0]))
+        else: c=b
+        sh('adb shell input keyevent 26'); time.sleep(120); sh('adb shell input keyevent 224'); sh('adb shell wm dismiss-keyguard'); time.sleep(3)
+        d=munDan(); say('-- 화면 끄고 2분 뒤: 문단 %s → %s, 단추 %s, 앱 %s'%(c[0],d[0],d[1],'살아 있음' if salla() else '꺼짐'))
+        sh('adb shell input keyevent 3'); time.sleep(60); sh('adb shell monkey -p %s -c android.intent.category.LAUNCHER 1'%P); time.sleep(4)
+        e=munDan(); say('-- 다른 화면(홈)에 1분 뒤: 문단 %s → %s, 단추 %s'%(d[0],e[0],e[1]))
+        dump('dokseogi_dasi'); kkeojim('독서기')
+        if tap('이 자리에 책갈피 꽂기'): say('-- 책갈피 꽂음')
+        if tap('빠르기: 보통'): f=munDan(); dump('ppareugi')
+    else: say('!! 독서기 안의 읽기 단추를 못 찾음')
 sh('adb shell am force-stop '+P); sh('adb shell monkey -p %s -c android.intent.category.LAUNCHER 1'%P); time.sleep(15)
 for m in ['내 서재','설정·도움말']:
     if tap(m):
