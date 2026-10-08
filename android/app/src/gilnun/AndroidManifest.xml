@@ -16,6 +16,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     <!-- 2.22.0(261007-A5) 새 판 업데이트 — 길눈이 받은 새 판을 스스로 설치 화면에 넘김 -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- 2.29.0(261009-A17) 차 부르기 — 전화 걸기 허락을 주시면 말이 끝난 뒤·정기 호출 알림을 두드리면 바로 걸림(허락 없으면 전화 화면만 엶),
+         정기 호출을 정한 시각에(알람 및 리마인더), 폰을 다시 켜도 정기 호출을 이어 걺 -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
     <application>
         <!-- 261002-B1 카메라 눈 모델을 길눈을 깔 때 구글 플레이 서비스가 미리 받아 둠(글자·바코드·얼굴·사진 이름표) -->
@@ -92,6 +98,16 @@
             android:name="kr.or.ada.app.gilnun.OllimBakkwimReceiver"
             android:exported="true">
             <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 2.29.0 정기 호출 알림 때·폰을 다시 켰을 때·새 판으로 바뀌었을 때 다음 알림을 다시 걺 -->
+        <receiver
+            android:name="kr.or.ada.app.gilnun.JeonggiReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
