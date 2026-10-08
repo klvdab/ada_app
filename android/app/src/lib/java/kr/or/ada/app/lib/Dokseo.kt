@@ -1,4 +1,7 @@
-// AI점자도서관 안드로이드 — 독서기 (0.2.0, 빌드 261002-L1)
+// AI점자도서관 안드로이드 — 독서기 (0.4.4판, 빌드 261008-L8)
+// 0.4.4 (261008-L8, 이사장님 승인 「1」) 화면을 꺼도 계속 읽기(DokseoService 미디어 세션), 이어폰 단추·잠금 화면, 전화·이어폰 뽑기 때 멈춤 표시 맞춤,
+//       책갈피로 다른 책을 열 때 읽던 자리가 지워지던 것 바로잡음(open 의 at), 처음부터(cheoeum), 잠금 화면에 책 이름
+// 0.2.0 (261002-L1) 처음 판
 // 글자책: 문단마다 서버 목소리(수퍼톤)를 받아 틈 없이 이어 틂(ExoPlayer 줄 세우기) — 앞 네 문단을 미리 받아 둠
 // 소리책·동영상: 나스 주소를 그대로 틂. 듣던 자리는 내 서재에 저절로 남음
 package kr.or.ada.app.lib
@@ -36,12 +39,33 @@ object Dokseo {
     private fun cacheDir() = File(ctx.cacheDir, "sori").apply { mkdirs() }
     fun hash(t: String, v: Int): String = MessageDigest.getInstance("SHA-1").digest("st3|$v|$t".toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
 
-    private fun ensurePlayer(): ExoPlayer {
-        player?.let { return it }
+    private var sesPlayer: DokseoSessionPlayer? = null
+    /** 0.4.4 미디어 세션(DokseoService)에 내어 줄 재생기 */
+    internal fun sessionPlayer(c: Context): Player {
+        if (!this::ctx.isInitialized) ctx = c.applicationContext
+        ensurePlayer(false)
+        return sesPlayer!!
+    }
+    /** 0.4.4 잠금 화면·알림 칸에 책 이름이 나오게 */
+    private fun mi(uri: String, id: String): MediaItem = MediaItem.Builder().setUri(uri).setMediaId(id)
+        .setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(title).setArtist("AI점자도서관").build()).build()
+
+    private fun ensurePlayer(service: Boolean = true): ExoPlayer {
+        player?.let { if (service) DokseoService.kyeogi(ctx); return it }
         val ds = DefaultHttpDataSource.Factory().setUserAgent(Api.UA)
-        val p = ExoPlayer.Builder(ctx).setMediaSourceFactory(DefaultMediaSourceFactory(ds)).build()
+        val p = ExoPlayer.Builder(ctx).setMediaSourceFactory(DefaultMediaSourceFactory(ds))
+            .setAudioAttributes(androidx.media3.common.AudioAttributes.Builder().setUsage(androidx.media3.common.C.USAGE_MEDIA)
+                .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_SPEECH).build(), true)   // 0.4.4 전화가 오면 멈췄다가 끝나면 이어 읽음
+            .setHandleAudioBecomingNoisy(true)   // 0.4.4 이어폰을 뽑으면 멈춤(소리가 스피커로 새지 않게)
+            .build()
         p.setWakeMode(androidx.media3.common.C.WAKE_MODE_NETWORK)
         p.addListener(object : Player.Listener {
+            // 0.4.4 전화·이어폰 뽑기로 재생기가 스스로 멈추거나 다시 틀 때 「읽기」·「멈춤」 표시를 맞춤
+            override fun onPlayWhenReadyChanged(pwr: Boolean, reason: Int) {
+                if (kind != "geul") return
+                if (!pwr && (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS || reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY)) { playing = false; waiting = false; bakkwim?.invoke() }
+                else if (pwr && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS) { playing = true; bakkwim?.invoke() }
+            }
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
                 if (kind != "geul") return
                 val o = item?.mediaId?.toIntOrNull() ?: return
@@ -57,25 +81,29 @@ object Dokseo {
             override fun onIsPlayingChanged(isPlaying: Boolean) { if (kind != "geul") { playing = isPlaying; bakkwim?.invoke() } }
         })
         player = p
+        sesPlayer = DokseoSessionPlayer(p)
+        if (service) DokseoService.kyeogi(ctx)
         return p
     }
 
-    fun open(c: Context, bi: Int, bt: String, bk: String) {
+    /** at — 책갈피처럼 정해진 자리에서 열 때(0.4.4: 열기 전에 자리를 옮기면 읽던 자리가 첫 문단으로 지워지던 것 바로잡음) */
+    fun open(c: Context, bi: Int, bt: String, bk: String, at: Double? = null) {
         ctx = c.applicationContext
-        if (i == bi) return
+        if (i == bi) { if (at != null) gaPo(at.toInt()); return }
         stop()
         i = bi; title = bt; kind = bk; paras.clear(); gajineun.clear(); pageLoading.clear(); modu = 0
         val saved = Store.rec(bi)
         val p = ensurePlayer()
         p.setPlaybackParameters(PlaybackParameters(Store.rate))
         if (kind == "geul") {
-            pos = saved?.pos?.toInt() ?: 0
+            pos = at?.toInt() ?: saved?.pos?.toInt() ?: 0
             loadPage(pos) { Store.remember(i, title, kind, pos.toDouble(), modu); bakkwim?.invoke() }
         } else {
-            p.setMediaItem(MediaItem.Builder().setUri(Naeryeo.localMedia(c, bi)?.let { android.net.Uri.fromFile(it).toString() } ?: Api.mediaUrl(bi)).setMediaId("m").build())   // 0.3.0 — 내려받은 소리책은 폰 안 파일로
+            p.setMediaItem(mi(Naeryeo.localMedia(c, bi)?.let { android.net.Uri.fromFile(it).toString() } ?: Api.mediaUrl(bi), "m"))   // 0.3.0 — 내려받은 소리책은 폰 안 파일로
             p.prepare()
-            saved?.let { p.seekTo((it.pos * 1000).toLong()) }
-            Store.remember(i, title, kind, saved?.pos ?: 0.0, 0)
+            val st = at ?: saved?.pos
+            st?.let { p.seekTo((it * 1000).toLong()) }
+            Store.remember(i, title, kind, st ?: 0.0, 0)
         }
     }
 
@@ -139,7 +167,7 @@ object Dokseo {
         soriFile(at) { f ->
             if (tk != token) return@soriFile
             if (f == null) { ctx?.let { cx -> if (!Naeryeo.online(cx)) { speakPhone(at, tk); return@soriFile } }; playing = false; waiting = false; allim?.invoke("목소리를 받지 못했습니다. 인터넷을 확인한 뒤 다시 읽기를 눌러 주십시오."); bakkwim?.invoke(); return@soriFile }   // 0.3.2 — 폰 목소리는 인터넷이 끊겼을 때만
-            p.setMediaItem(MediaItem.Builder().setUri(android.net.Uri.fromFile(f)).setMediaId("$at").build())
+            p.setMediaItem(mi(android.net.Uri.fromFile(f).toString(), "$at"))
             queued = at; waiting = false
             p.prepare(); p.play()
             apseo(); bakkwim?.invoke()
@@ -162,7 +190,7 @@ object Dokseo {
         val p = player ?: return
         while (gidari.containsKey(queued + 1)) {
             val n = queued + 1
-            p.addMediaItem(MediaItem.Builder().setUri(android.net.Uri.fromFile(gidari.remove(n)!!)).setMediaId("$n").build())
+            p.addMediaItem(mi(android.net.Uri.fromFile(gidari.remove(n)!!).toString(), "$n"))
             queued = n
             if (waiting) { waiting = false; if (p.playbackState == Player.STATE_ENDED) { p.seekToNextMediaItem(); p.play() } }
         }
@@ -183,6 +211,8 @@ object Dokseo {
     fun next() { if (kind == "geul") { if (pos + 1 < modu) play(pos + 1) } else player?.let { it.seekTo(it.currentPosition + 30000) } }
     fun prev() { if (kind == "geul") { if (pos > 0) play(pos - 1) } else player?.let { it.seekTo((it.currentPosition - 30000).coerceAtLeast(0)) } }
     fun gaPo(o: Int) { if (kind == "geul") { pos = o.coerceIn(0, (modu - 1).coerceAtLeast(0)); if (playing) play(pos) else loadPage(pos) { bakkwim?.invoke() } ; Store.remember(i, title, kind, pos.toDouble(), modu) } else player?.seekTo((o * 1000).toLong()) }
+    /** 0.4.4 처음부터 — 글자책은 첫 문단, 소리책·동영상은 0초 */
+    fun cheoeum() { if (kind == "geul") gaPo(0) else player?.seekTo(0) }
     fun setRate() { player?.setPlaybackParameters(PlaybackParameters(Store.rate)) }
     fun markHere() {
         val ps = if (kind == "geul") pos.toDouble() else (player?.currentPosition ?: 0) / 1000.0
