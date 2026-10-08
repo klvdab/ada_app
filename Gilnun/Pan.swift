@@ -10,13 +10,17 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.56.0"
-    static let bild = "261007-I10"
+    static let pan = "2.57.0"
+    static let bild = "261008-I11"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.57.0", bild: "261008-I11", nal: "2026-10-08", naeyong: [
+            "차에 타면 지나는 고장 노래 저절로 틀기를 처음에는 꺼 둠(이사장님 지시) — 처음 앱을 받은 분이 음악에 끌려가지 않고 다른 기능을 먼저 익히시게. 손으로 켜 두신 분은 그대로 켜짐",
+            "도움말 길 위의 음악 항목을 처음에는 꺼져 있다고 고침"
+        ]),
         Gochim(pan: "2.56.0", bild: "261007-I10", nal: "2026-10-07", naeyong: [
             "차 안 길 맞춤(이사장님 허락, 웹 길눈 0.84.0과 같음) — 택시나 남의 차가 협회 서버가 받은 차 길에서 100미터 넘게 15초 벗어나면 알리고 길을 새로 받음",
             "길을 따라 600미터쯤 남으면 지금 달리는 길, 목적지가 어느 길로 들어가 몇 미터인지, 몇 시 방향인지, 마지막 꺾는 곳, 건물 이름과 문 쪽을 한 번에 — 기사님께 그대로 전하실 수 있게. 100미터 안이면 여기서 세워 달라고 하시라고",
