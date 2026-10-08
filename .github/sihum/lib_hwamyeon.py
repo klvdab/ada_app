@@ -1,4 +1,4 @@
-# 도서관 앱 안드로이드 화면 하나하나 눌러 보기 (판 0.1.6, 빌드 261008-5, 도서관 창 클) — 0.1.6: 독서기 안에서 읽기를 실제로 누르고 문단이 나아가는지로 소리 확인, 화면 끄기 2분·다른 앱 1분 뒤 이어 읽는지, 파일 이름 빈칸 없앰. 0.1.5: 화면 크기에 맞춘 쓸기, 덤프 다시 하기·오류 이유 남기기, 화면마다 앱 꺼짐 살피기, 끝까지 내려 읽기
+# 도서관 앱 안드로이드 화면 하나하나 눌러 보기 (판 0.1.7, 빌드 261008-6, 도서관 창 클) — 0.1.7: 0.4.4 화면 맞춤 — 독서기 더 보기·처음부터·책갈피 보기, 도움말 찾기, 모두 지우기 물음 없이 지나감. 0.1.6: 독서기 안에서 읽기를 실제로 누르고 문단이 나아가는지로 소리 확인, 화면 끄기 2분·다른 앱 1분 뒤 이어 읽는지, 파일 이름 빈칸 없앰. 0.1.5: 화면 크기에 맞춘 쓸기, 덤프 다시 하기·오류 이유 남기기, 화면마다 앱 꺼짐 살피기, 끝까지 내려 읽기
 import subprocess,time,re,os,html
 def sh(c,t=60):
     try: return subprocess.run(c,shell=True,capture_output=True,text=True,timeout=t).stdout
@@ -105,14 +105,32 @@ if tap('읽기'):
         sh('adb shell input keyevent 3'); time.sleep(60); sh('adb shell monkey -p %s -c android.intent.category.LAUNCHER 1'%P); time.sleep(4)
         e=munDan(); say('-- 다른 화면(홈)에 1분 뒤: 문단 %s → %s, 단추 %s'%(d[0],e[0],e[1]))
         dump('dokseogi_dasi'); kkeojim('독서기')
-        if tap('이 자리에 책갈피 꽂기'): say('-- 책갈피 꽂음')
-        if tap('빠르기: 보통'): f=munDan(); dump('ppareugi')
+        if tap('더 보기, 빠르기'):
+            dump('deobogi')
+            if tap('이 자리에 책갈피 꽂기'): say('-- 책갈피 꽂음')
+            if tap('더 빠르게, 지금'): dump('ppareugi')
+            if tap('처음부터'): time.sleep(3); g=munDan(); say('-- 처음부터: 문단 %s'%g[0])
+            if tap('책갈피 보기'): dump('chaekgalpi'); dwiro()
+        kkeojim('독서기 더 보기')
     else: say('!! 독서기 안의 읽기 단추를 못 찾음')
 sh('adb shell am force-stop '+P); sh('adb shell monkey -p %s -c android.intent.category.LAUNCHER 1'%P); time.sleep(15)
 for m in ['내 서재','설정·도움말']:
     if tap(m):
         time.sleep(3); kkeut('tab_'+m); kkeojim(m)
         if m=='내 서재' and tap('더 보기 — 다 읽은 책'): kkeut('seojae_deobogi'); kkeojim('내 서재 더 보기')
+wiro()
+x=dump('doum',False)
+eds=[tuple(map(int,b)) for b in re.findall(r'class="android.widget.EditText"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',x)]
+if not eds:
+    for i in range(8):
+        ol(); time.sleep(1); x=dump('doum',False)
+        eds=[tuple(map(int,b)) for b in re.findall(r'class="android.widget.EditText"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',x)]
+        if eds: break
+if eds:
+    l,t,r,b=eds[0]; sh('adb shell input tap %d %d'%((l+r)//2,(t+b)//2)); sh('adb shell input text bookmark'); sh('adb shell input keyevent 111'); time.sleep(1)
+    sh('adb shell input keyevent KEYCODE_MOVE_END')
+    tap('도움말 찾기'); time.sleep(2); dump('doum_chatgi'); tap('도움말 찾기 마치기'); kkeojim('도움말 찾기')
+else: say('!! 도움말 찾을 칸을 못 찾음')
 wiro()
 if tap('여자 2'): time.sleep(20); ggeut('여자 2 미리 듣기')
 kkeojim('미리 듣기')
