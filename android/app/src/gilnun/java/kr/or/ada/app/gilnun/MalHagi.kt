@@ -363,6 +363,8 @@ object MalHagi {
             AnnaeEngine.haneunIlMeomchum()   // 2.7.0 묶음 b1 — 여정·따라 걷기·지하철·되짚어 나가기·말로 그린 길·묻던 말·신호기 찾기·카메라 눈·길눈 말을 모두 멈추고 첫 화면으로(말은 한 번)
             return
         }
+        // 2.29.0 차 부르기 — 배차되었습니까의 대답, 다음 수단에 걸까요, 복지카드 메일, 콜 성적표, 이용 조건, 정기 호출(아이폰 2.58.0과 같은 자리)
+        if (ChaBureugi.malCheori(alts, z, dap)) return
         // 2.7.0 묶음 b1 — 여정이 있을 때의 여정 끝·도착, "점지도로 걸을까요"의 대답(아이폰 1번·1-2번·muleum)
         if (YeojeongMal.meonjeo(alts, z, dap)) { mureumChoGihwa(); return }
         // 1. 여정 끝·도착 — "도착", "다 왔어"를 가실 곳 이름으로 찾지 않고 따라 걷기를 마침(아이폰 2.12.7)
@@ -739,9 +741,8 @@ object MalHagi {
                 return true
             }
             Girok.namgi("malhagi_kol_georeum", mapOf("ireum" to k.ireum))
-            dap(KolJiyeok.mal(o) + " ${k.ireum}에 전화를 겁니다. 전화 화면이 열리면 통화 단추를 누르십시오. 처음 쓰시는 곳이면 이용 등록을 먼저 하라고 할 수 있습니다. 그때는 설정의 내 서류 보관함에서 서류를 보내실 수 있습니다. 차에 타시면 차에 탔어라고 말씀해 주십시오.", false)
-            val a = hwalseong?.get()
-            main.postDelayed({ a?.let { nnJeonhwa(it, k.jeonhwa) } }, 6500)
+            // 2.29.0 차 부르기로 — 상담원께 말할 것을 들려 드린 뒤 걸고, 이용 기록을 남김(돌아오시면 배차되었습니까)
+            ChaBureugi.geolgi(k, false, dap)
             return true
         }
         // 2.27.0 호칭 바꾸기(아이폰과 같음) — 아직 없다던 말을 걷어냄
