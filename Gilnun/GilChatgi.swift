@@ -22,6 +22,7 @@ enum GilHwamyeon: Hashable {
     case malgil       // 2.14.0 말로 그린 길(실내)
     case yudo         // 2.14.0 음성유도기와 승강기
     case munChatgi    // 2.15.0 문 찾기(카메라 눈)
+    case chaBureugi   // 2.58.0 차 부르기(복지콜·교통약자 콜·정기 호출)
 }
 
 /// 길 찾기 탭의 길(화면 쌓임) — 목적지를 정하면 첫 화면으로 곧장 돌아가게
@@ -56,6 +57,7 @@ struct GilChatgiTab: View {
                     case .malgil: MalgilView()
                     case .yudo: YudoView()
                     case .munChatgi: MunChatgiView()
+                    case .chaBureugi: ChaBureugiView()
                     }
                 }
         }
@@ -119,6 +121,8 @@ struct GilChatgiView: View {
                             if !q.isEmpty { GilGil.shared.path.append(GilHwamyeon.gyeolgwa(q)) }
                         }
                     NavigationLink(value: GilHwamyeon.jeulgyeo) { Text("즐겨찾기 — 자주 가는 곳") }
+                        .buttonStyle(KeunDanchu())
+                    NavigationLink(value: GilHwamyeon.chaBureugi) { Text("차 부르기 — 복지콜, 교통약자 콜, 정기 호출") }
                         .buttonStyle(KeunDanchu())
                     Button("지금 내 자리 듣기") { AnnaeEngine.shared.jigeumJari() }
                         .buttonStyle(KeunDanchu())
