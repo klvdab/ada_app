@@ -81,6 +81,9 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
     private var room = ""
     private var sijakTtae = Date()
     private var jindoTimer: Timer?
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 받으셨다는 소식 뒤 통화가 이어질 때까지 3초마다 받으신 분이 그대로인지 살핌
+    private var badeunJikimTimer: Timer?
+    private var badeunJikimJung = false
     private var sigTimer: Timer?
     private var sigN = 0
     private var sigMutneun = false
@@ -88,6 +91,8 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
     private var telMal = false
     private var junbiMal = false
     private var dasiHan = false
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 지인 쪽 신호가 닿지 않는다(targetOn 0)고 처음 들은 때(나스 secs) — 10초 이어지면 넘길지 여쭘
+    private var targetEopTtae: Double?
     private var pc: RTCPeerConnection?
     private var capturer: RTCCameraVideoCapturer?
 
@@ -109,6 +114,7 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
         telMal = false
         junbiMal = false
         dasiHan = false
+        targetEopTtae = nil
         room = "j" + String(UUID().uuidString.lowercased().filter { $0.isLetter || $0.isNumber }.prefix(10))
         sijakTtae = Date()
         sangtae = .yocheong
@@ -134,6 +140,8 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
         let target = (g == .jiin) ? (s?.k ?? "") : ""
         var q: [String: String] = ["a": "call", "room": room, "who": naIrum.isEmpty ? "길눈 이용자" : naIrum,
                                    "where": where_, "gil": malHan, "meonjeo": meonjeo, "galrae": g.rawValue, "target": target]
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 한 폰 표 — 같은 폰의 내 자봉 앱은 울리지 않게(나스가 가림)
+        if !HanPon.gd.isEmpty { q["gd"] = HanPon.gd }
         if let y = YeojeongEngine.shared.jigeum {
             q["mok"] = y.mokjeok.ireum
             q["mlat"] = String(y.mokjeok.lat)
@@ -168,8 +176,14 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
     /// 요청 그만두기 / 통화 끊기
     func geumanhagi() {
         guard sangtae != .eopseum else { return }
-        if pc != nil { sigPut(["t": "bye"]) }
-        hangup()
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 끊었다는 신호(bye)를 먼저 보내고 1.5초 뒤에 방을 닫음(a=hangup) —
+        //   함께 보내면 방이 먼저 지워져 자봉이 끊긴 줄 모르던 일
+        if pc != nil {
+            sigPut(["t": "bye"])
+            hangup(dwi: 1.5)
+        } else {
+            hangup()
+        }
         kkeut(sangtae == .tonghwa ? "통화를 끊었습니다." : "요청을 그만두었습니다.")
     }
 
@@ -206,13 +220,37 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
             geul = "\(t) 님이 받으셨습니다. 잇는 중입니다."
             SoriEngine.shared.mal("\(t) 님이 받으셨습니다. 카메라와 마이크를 켭니다.")
             Girok.shared.namgi("gingeup_badeum", [:])
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.tonghwaSijak() }
+            // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 3초 사이에 그만두고 새로 요청하셨으면 옛 방의 통화를 열지 않음(안드로이드와 같음)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+                guard let self = self, self.room == r else { return }
+                self.tonghwaSijak()
+            }
+            // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 받으신 분이 받기를 놓으면(나스 taken 이 비면) 40초를 기다리지 않고 곧바로 마침
+            badeunJikimTimer?.invalidate()
+            badeunJikimTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in self?.badeunJikim() }
             // 2.12.0 받으신 뒤 40초 안에 통화가 이어지지 않으면 마침
             DispatchQueue.main.asyncAfter(deadline: .now() + 40) {
                 guard self.sangtae == .yeongyeol, self.room == r else { return }
                 self.hangup()
                 self.kkeut("통화를 잇지 못했습니다. 다시 요청해 주십시오.")
             }
+            return
+        }
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 받는 분이 거절하시면(나스 a=geojeol) 1분 30초를 기다리지 않음 —
+        //   지인 한 분이면 한 번의 거절로, 여럿에게 갔으면 울린 분(dae) 모두가 거절하셨을 때
+        let geojeol = Int(Chatgi.su(j["geojeol"]) ?? 0)
+        let daeSu = Int(Chatgi.su(j["dae"]) ?? 0)
+        if galrae == .jiin && geojeol >= 1 {
+            let nm = saram?.name ?? "가족·지인"
+            hangup()
+            Girok.shared.namgi("gingeup_geojeol", ["g": galrae.rawValue])
+            neomgilkkaMutgi("\(nm) 님이 지금 받기 어렵다고 하셨습니다. 자원봉사자와 현장영상해설사에게 요청할까요?")
+            return
+        }
+        if galrae != .jiin && daeSu > 0 && geojeol >= daeSu {
+            hangup()
+            kkeut("\(galrae.ireum)가 지금 받기 어렵다고 하셨습니다. 다른 갈래를 고르시거나 잠시 뒤 다시 호출해 주십시오.")
+            Girok.shared.namgi("gingeup_geojeol", ["g": galrae.rawValue, "n": geojeol])
             return
         }
         if galrae == .jiin {
@@ -227,10 +265,22 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
                 junbiMal = true
                 SoriEngine.shared.mal("\(nm) 님은 아직 자봉 앱으로 받기를 켜지 않으셨거나 받지 않기로 해 두셔서 신호가 닿지 않을 수 있습니다.")
             }
+            // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 신호가 닿지 않는 지인(받기를 꺼 두셨거나 같은 폰의 내 자봉 앱)이면
+            //   1분 30초를 말없이 기다리지 않고 10초 뒤 자원봉사자와 현장영상해설사에게 넘길지 여쭘(받으신 분이 있으면 위에서 이미 이음)
+            if targetOn {
+                targetEopTtae = nil
+            } else if targetEopTtae == nil {
+                targetEopTtae = s
+            }
+            if let t0 = targetEopTtae, s - t0 >= 10 {
+                hangup()
+                Girok.shared.namgi("gingeup_target_eopseum", [:])
+                neomgilkkaMutgi("\(nm) 님께 지금 연결할 수 없습니다. 자원봉사자와 현장영상해설사에게 요청할까요?")
+                return
+            }
             if s >= GinGeup.HANDO {
                 hangup()
-                kkeut("\(nm) 님이 받지 않으십니다. 자원봉사자와 현장영상해설사에게 요청할까요?")
-                neomgilkka = true
+                neomgilkkaMutgi("\(nm) 님이 받지 않으십니다. 자원봉사자와 현장영상해설사에게 요청할까요?")
                 return
             }
         } else {
@@ -250,15 +300,61 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
         cheot = false
     }
 
-    private func hangup() {
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) dwi 초 뒤에 방을 닫을 수 있게 — 끊었다는 신호(bye)가 먼저 닿도록
+    private func hangup(dwi: Double = 0) {
         let r = room
         guard !r.isEmpty else { return }
-        Task { _ = try? await Tongsin.shared.getSae(REL, ["a": "hangup", "room": r]) }
+        let rel = REL
+        let bonae: () -> Void = { _ = Task { _ = try? await Tongsin.shared.getSae(rel, ["a": "hangup", "room": r]) } }
+        if dwi > 0 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + dwi, execute: bonae)
+        } else {
+            bonae()
+        }
+    }
+
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 가족·지인께 닿지 않았을 때 — 자원봉사자와 현장영상해설사에게 넘길지 여쭙고,
+    ///   말로 하기에도 「네·아니요」 물음으로 걸어 둠(다 여쭌 뒤 마이크를 한 번 엶). 단추(예·아니요)는 그대로
+    private func neomgilkkaMutgi(_ mal: String) {
+        kkeut(mal)
+        neomgilkka = true
+        MalHagi.shared.neomgilkkaMutgi(mal)
+    }
+
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 받으신 분이 받기를 놓았는지(자봉이 받기를 확인하지 못했거나 기다리는 사이 끊으면
+    ///   나스 a=geojeol 로 taken 을 비움), 방이 닫혔는지 살핌 — 통화가 이어지면(tonghwa) 그침
+    private func badeunJikim() {
+        guard sangtae == .yeongyeol, !room.isEmpty else {
+            badeunJikimTimer?.invalidate(); badeunJikimTimer = nil
+            return
+        }
+        guard !badeunJikimJung else { return }
+        badeunJikimJung = true
+        let r = room
+        Task {
+            let d = try? await Tongsin.shared.getSae(REL, ["a": "jindo", "room": r])
+            await MainActor.run {
+                self.badeunJikimJung = false
+                guard self.sangtae == .yeongyeol, self.room == r, let d = d,
+                      let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any], (j["ok"] as? Bool) == true else { return }
+                let sal = (j["sal"] as? Bool) ?? ((j["sal"] as? Int).map { $0 != 0 } ?? true)
+                // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 받은 분이 스스로 놓아 주었을 때(나스 pulrim = geojeol)만 끝냄 —
+                //   살아 있음 신호를 보내지 않는 옛 판 자봉은 25초 뒤 나스가 받은 분을 지우므로, 빈 taken 만으로는 끝내지 않음
+                let noeum = ((j["pulrim"] as? String) ?? "") == "geojeol" && ((j["taken"] as? String) ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+                if !sal || noeum {
+                    self.hangup()
+                    Girok.shared.namgi("gingeup_badeun_noeum", ["sal": sal])
+                    self.kkeut("받으신 분과 연결되지 못했습니다. 다시 요청해 주십시오.")
+                }
+            }
+        }
     }
 
     private func kkeut(_ mal: String) {
         jindoTimer?.invalidate()
         jindoTimer = nil
+        badeunJikimTimer?.invalidate()
+        badeunJikimTimer = nil
         sigTimer?.invalidate()
         sigTimer = nil
         capturer?.stopCapture()
@@ -376,6 +472,8 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
             let idx = Int32(Chatgi.su(c["sdpMLineIndex"]) ?? 0)
             p.add(RTCIceCandidate(sdp: cand, sdpMLineIndex: idx, sdpMid: c["sdpMid"] as? String)) { _ in }
         case "bye":
+            // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 받는 분이 끊으셨으면 방도 닫음(a=hangup) — 10분 동안 방이 남아 있던 일
+            hangup()
             kkeut("도와주시던 분이 끊었습니다.")
         default:
             break

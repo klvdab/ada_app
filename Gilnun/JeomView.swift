@@ -61,6 +61,11 @@ struct TtaraPan: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Button("여기 걸렸어요 — 다음 분께 알려 주기") { jeom.geollimNamgigi() }
                             .buttonStyle(KeunDanchu())
+                        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 점지도의 탈것 구간에서 내리셨을 때
+                        Button("탈것에서 내렸습니다 — 여기서부터 다시 걸음 안내") {
+                            if !jeom.naeryeotda() { SoriEngine.shared.mal("지금은 탈것 구간을 지나는 중이 아닙니다. 걸음 안내를 이어 갑니다.") }
+                        }
+                        .buttonStyle(KeunDanchu())
                         Button("지금 내 자리 듣기") { AnnaeEngine.shared.jigeumJari() }
                             .buttonStyle(KeunDanchu())
                         Button("이 길목은 어떻게 생겼습니까") { jeom.gilmok() }

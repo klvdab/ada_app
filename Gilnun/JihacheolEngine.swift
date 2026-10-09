@@ -68,6 +68,10 @@ final class JihacheolEngine {
     private var tamTtae = Date.distantPast
     /// 후보 열차가 내 길의 몇 번째 역에 있었는지(다음 물음에서 앞으로 나아갔는지 봄)
     private var huboJikyeo: [String: Int] = [:]
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 세대 번호 — 멈추거나 탈것을 바로잡으시면 올려, 늦게 돌아온 지하철 길 찾기를 버림
+    private(set) var sedae = 0
+    /// 2.61.0 앱을 다시 켜서 이어 가는 중(탄 때를 모름) — 땅 위로 나온 것을 15초 걷기로만 봄
+    private var ieoGamTamMoreum = false
 
     private var yj: YeojeongEngine { YeojeongEngine.shared }
     var gil: JihaGil? { yj.jigeum?.jiha }
@@ -172,11 +176,24 @@ final class JihacheolEngine {
     /// 열차에 탔습니다 — 누르셔도 되고, 저절로도 됨
     /// 2.60.0 역 입구를 거치지 않고 "이미 타고 가는 중"으로 짐작해 시작한 역 알림인가 — 땅 위를 차 빠르기로 달리면 차로 바로잡을 수 있음
     ///   (역 입구로 걸어 들어가 탄 것은 지상 구간을 달려도 그대로 둠)
-    private(set) var jungganJadong = false
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 여정 기록에도 담아 앱을 다시 켜도 이어 감
+    private(set) var jungganJadong = false {
+        didSet { if jungganJadong != oldValue { yj.jungganJadongNoki(jungganJadong) } }
+    }
+
+    /// 2.61.0 세대 번호를 올림(탈것을 바로잡으실 때)
+    func sedaeOllim() { sedae += 1 }
 
     func tatda(jadong: Bool) {
         jungganJadong = false
+        ieoGamTamMoreum = false
         guard var g = gil else { return }
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 이용자가 「지하철 탔어」라 하시거나 「열차에 탔습니다」를 누르신 때는
+        //   바로잡기와 같게 — 늦게 돌아온 길 찾기를 버리고 콜 차 못 박기(3시간)를 풂
+        if !jadong {
+            sedaeOllim()
+            ChaBureugi.shared.kolPulgi("barojapgi")
+        }
         g.i = -1
         g.kkeutnam = false
         g.ipguDochak = true
@@ -194,19 +211,28 @@ final class JihacheolEngine {
         dolligi()
     }
 
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 이용자가 지하철로 바로잡으심 — 짐작으로 시작한 안내가 아니므로 땅 위 구간(동호대교 등)에서 차로 되돌리지 않음
+    func jadongPulgi() { jungganJadong = false }
+
     /// 2.40.0 이미 열차를 타고 가는 중에 시작 — 땅속으로 내려가기 전 땅 위 자리에서 가까운 역을 타는 역으로 잡고 바로 역 알림
-    func jungganSijak(_ mok: Jangso, _ kkeut: @escaping (Bool, String) -> Void) {
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) jadong: 저절로 짐작해 시작했는가 — 이용자가 지하철이라고 하신 때(false)는 차로 저절로 되돌리지 않음
+    func jungganSijak(_ mok: Jangso, jadong: Bool = true, _ kkeut: @escaping (Bool, String) -> Void) {
         let buteo = TalgeotGamji.shared.jisangJari ?? TalgeotGamji.shared.chaSijakJari ?? WichiEngine.shared.jigeum
+        let sd = sedae   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 찾는 사이 멈추거나 차로 바로잡으셨으면 버림
         Task {
             let (gg, k) = await JihacheolEngine.gilChatgi(mok, buteo: buteo)
             await MainActor.run {
+                guard sd == self.sedae, let y = self.yj.jigeum, !(y.barojabeum && y.talgeot != .jihacheol) else {
+                    Girok.shared.namgi("jiha_junggan_beorim", [:])
+                    return
+                }
                 guard var g = gg else { kkeut(false, k); return }
                 g.ipguDochak = true
                 AnnaeEngine.shared.jihacheolGagi(mok, g, malEopsi: true)
                 Girok.shared.namgi("jiha_junggan", ["from": g.from, "to": g.to])
                 kkeut(true, "\(g.from)역에서 타신 것으로 보고 \(g.to)역까지 역을 알려 드립니다.")
-                self.tatda(jadong: true)
-                self.jungganJadong = true
+                self.tatda(jadong: jadong)
+                self.jungganJadong = jadong   // 2.61.0 (261009-I15) 이용자가 바로잡으신 지하철은 false — 땅 위 구간에서 차로 되돌리지 않음
             }
         }
     }
@@ -218,6 +244,9 @@ final class JihacheolEngine {
             junbi(g)
             majimak = Date()
             dolligi()
+            // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 짐작으로 시작한 안내였는지 되살리고, 탄 때를 모르니 땅 위로 나온 것은 15초 걷기로만 봄
+            jungganJadong = y.jungganJadong ?? false
+            ieoGamTamMoreum = true
         } else if y.danggye == .taneunGotKkaji && g.ipguDochak {
             tabeumGamsi = true
             heundeullimSijak()
@@ -226,6 +255,8 @@ final class JihacheolEngine {
 
     func meomchugi() {
         jungganJadong = false
+        ieoGamTamMoreum = false
+        sedae += 1   // 2.61.0 늦게 돌아온 길 찾기를 버림
         dolgo = false
         tabeumGamsi = false
         poller?.invalidate()
@@ -411,8 +442,10 @@ final class JihacheolEngine {
     // ③ 시간으로 셈하기
     private func sigan() {
         // 2.40.0 땅 위로 나와 걸으시거나 위성이 다시 잡히면 지하철 안내를 마치고 걷는 안내로
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 앱을 다시 켜 탄 때를 모르면 위성만으로 마치지 않고 15초 넘게 걸으셔야
         if dolgo, let g = gil, !g.kkeutnam, Date().timeIntervalSince(tamTtae) > 120,
-           !TalgeotGamji.shared.jiha, TalgeotGamji.shared.chujeong == .georeum, TalgeotGamji.wiseongJoeum {
+           !TalgeotGamji.shared.jiha, TalgeotGamji.shared.chujeong == .georeum, TalgeotGamji.wiseongJoeum,
+           !ieoGamTamMoreum || TalgeotGamji.shared.georeum15cho {
             Girok.shared.namgi("jiha_kkeut_jisang", ["i": g.i])
             meomchugi()
             var gg = g

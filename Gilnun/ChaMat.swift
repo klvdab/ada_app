@@ -225,13 +225,24 @@ final class ChaMat {
         let dMok = dist(la, lo, mokLat, mokLon)
         let g = gil
         if g == nil { gilBatgi(la, lo) }
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 시속 120킬로미터 넘게 달리거나 기차·고속버스로 알고 있으면 길 벗어남·멀어짐을 말하지 않음
+        //   (기차 선로는 찻길과 달라 "길에서 벗어났습니다"가 되풀이되던 일)
+        let tg = YeojeongEngine.shared.talgeot
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 10분 안에 기차 빠르기로 달렸거나 빠르기로 기차로 알아챘으면 기차로 봄
+        //   (이용자가 차·택시라고 하신 때만 빼고). 기차·고속버스에서는 「여기서 세워 달라고 하십시오」도 하지 않음
+        let yy = YeojeongEngine.shared.jigeum
+        let chaHwakjeong = (yy?.barojabeum ?? false) && yy?.talgeot == .cha
+        let gicha = tg == .gicha || tg == .gosokbeoseu
+            || (!chaHwakjeong && (YeojeongEngine.shared.choegeunGicha || YeojeongEngine.shared.sokdoChujeong == .gicha))
+        let gosok = sokM * 3.6 > 120 || gicha
+        if gosok { bulSijak = nil; meolSijak = nil }
 
         if let g = g {
             let (gd0, gi) = gilGeori(g, la, lo)
             let namM = namGil(g, gi, la, lo)
             // 내리는 곳 안내 — 모든 단계
             if !hacha500 && namM <= 600 && dMok > 120 { hacha500 = true; mal(hachaMal(g, la, lo, head, gi), true, malHagi); return true }
-            if !hacha100 && (namM <= 100 || dMok <= 80) {
+            if !hacha100 && !gicha && (namM <= 100 || dMok <= 80) {
                 hacha100 = true
                 let mp = munJari(g)
                 let bang = sigye(head, bearing(la, lo, mp.0, mp.1))
@@ -239,7 +250,7 @@ final class ChaMat {
                 return true
             }
             // 길 벗어남 — 모든 단계. 100미터 넘게 15초
-            if gd0 > 100 && sokM > 2 {
+            if gd0 > 100 && sokM > 2 && !gosok {
                 if bulSijak == nil { bulSijak = t }
                 if let b = bulSijak, t.timeIntervalSince(b) > 15, t.timeIntervalSince(bulMal) > 60 {
                     bulMal = t
@@ -274,7 +285,7 @@ final class ChaMat {
         }
 
         // 멀어짐 — 보통 이상. 30초 넘게 거리가 200미터 넘게 늘면
-        if lv >= 2 {
+        if lv >= 2 && !gosok {
             if meolSijak == nil || dMok < meolGeori { meolSijak = t; meolGeori = dMok }
             else if let m = meolSijak, t.timeIntervalSince(m) > 30, dMok - meolGeori > 200, t.timeIntervalSince(meolMal) > 90 {
                 meolMal = t; meolSijak = t; meolGeori = dMok

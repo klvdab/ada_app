@@ -220,12 +220,19 @@ struct YeojeongPan: View {
                         if yj.danggye == .namEunGil {
                             Button("차에 탔습니다 — 차 안 안내로") { a.chaTatda() }.buttonStyle(KeunDanchu())
                         }
-                        if yj.jiha != nil && yj.danggye == .taneunJung {
-                            Button("밖으로 나왔습니다 — 남은 길 걸어서 안내") { a.naeryeotda() }.buttonStyle(KeunDanchu())
-                        }
-                        if yj.jiha == nil && yj.danggye == .taneunJung {
+                        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 타고 가는 중이거나 지하철 안내 중이면 언제나 탈것 바로잡기 단추를 바로 둠
+                        //   (예전에는 지하철 안내 중에는 숨어 있어 잘못 본 지하철을 바로잡을 수 없었음)
+                        if yj.danggye == .taneunJung || (yj.jiha != nil && yj.danggye == .taneunGotKkaji) {
+                            // 걷기(내렸습니다)는 지하철 안내 중일 때만 — 차·버스 안이면 맨 위 큰 단추가 이미 「내렸습니다」
+                            if yj.jiha != nil {
+                                Button((yj.danggye == .taneunJung ? "밖으로 나왔습니다" : "걸어서 갑니다") + " — 남은 길 걸어서 안내") { a.naeryeotda() }.buttonStyle(KeunDanchu())
+                            }
+                            Button("택시·차입니다 — 차 안 안내로") { a.talgeotBarojapgi(.cha) }.buttonStyle(KeunDanchu())
+                            Button("버스입니다 — 버스 안 안내로") { a.talgeotBarojapgi(.beoseu) }.buttonStyle(KeunDanchu())
+                            Button("지하철입니다 — 지나는 역 알려 주기") { a.talgeotBarojapgi(.jihacheol) }.buttonStyle(KeunDanchu())
+                            Button("기차입니다 — 기차 안 안내로") { a.talgeotBarojapgi(.gicha) }.buttonStyle(KeunDanchu())
                             NavigationLink(value: GilHwamyeon.talgeot) {
-                                Text("탈것 바로잡기 — 지금 \(YeojeongEngine.shared.talgeot.ireum)로 알고 있습니다")
+                                Text("그 밖의 탈것 바로잡기 — 지금 \(YeojeongEngine.shared.talgeot.ireum)로 알고 있습니다")
                             }
                             .buttonStyle(KeunDanchu())
                         }

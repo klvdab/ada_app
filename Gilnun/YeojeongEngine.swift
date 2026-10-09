@@ -48,6 +48,8 @@ struct Yeojeong: Codable {
     var gaengsin: Date
     var jiha: JihaGil? = nil      // 지하철로 가는 여정이면 그 길
     var beoseu: BeoseuGil? = nil  // 버스로 가는 여정이면 그 정류장
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 지하철 안내를 역 입구 없이 짐작으로 시작했는가 — 앱을 다시 켜도 잇도록 담음
+    var jungganJadong: Bool? = nil
 }
 
 final class YeojeongEngine: ObservableObject {
@@ -60,6 +62,9 @@ final class YeojeongEngine: ObservableObject {
     private var ssak = Set<AnyCancellable>()
     private var ppareunTtae: Date?
     private var neurinTtae: Date?
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 시속 150킬로미터 넘게 달린 마지막 때 — 10분 안이면 기차를 타고 계신 것으로 보고 지하철 짐작을 하지 않음
+    private var gichaTtae: Date?
+    var choegeunGicha: Bool { gichaTtae.map { Date().timeIntervalSince($0) < 600 } ?? false }
     private let pail: URL
 
     init() {
@@ -77,6 +82,7 @@ final class YeojeongEngine: ObservableObject {
             .sink { [weak self] t in
                 guard let self = self, TalgeotGamji.shared.sseulSuItda else { return }
                 if self.sokdoChujeong == .gicha && t == .cha { return }   // 기차는 빠르기로만 알아챔
+                if self.sokdoChujeong == .gicha && t == .jihacheol && self.choegeunGicha { return }   // 2.61.0 기차 터널을 지하철로 보지 않음
                 if t != self.sokdoChujeong { self.sokdoChujeong = t }
             }
             .store(in: &ssak)
@@ -153,6 +159,21 @@ final class YeojeongEngine: ObservableObject {
         jeojang()
     }
 
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 짐작으로 시작한 지하철 안내인지 담기
+    func jungganJadongNoki(_ b: Bool) {
+        guard var y = jigeum, (y.jungganJadong ?? false) != b else { return }
+        y.jungganJadong = b
+        jigeum = y
+        jeojang()
+    }
+
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 여정 끝·하던 일 멈춤 — 빠르기로 알아챈 탈것을 처음부터(기차 기억 10분은 그대로)
+    func talgeotChoGihwa() {
+        ppareunTtae = nil
+        neurinTtae = nil
+        if sokdoChujeong != .georeum { sokdoChujeong = .georeum }
+    }
+
     /// 탈것 정하기 — barojabeum 이 참이면 이용자가 바로잡은 것(가장 앞섬)
     func talgeotJeonghagi(_ t: Talgeot, barojabeum: Bool) {
         guard var y = jigeum else { return }
@@ -198,6 +219,7 @@ final class YeojeongEngine: ObservableObject {
         guard !w.georeumChu, w.ochae <= 30 else { return }
         let kmh = w.sokdo * 3.6
         let now = Date()
+        if kmh > 150 { gichaTtae = now }   // 2.61.0 기차 기억(잠깐이라도 시속 150 넘으면)
         // 2.40.0 움직임 감지기가 있는 폰은 걷기·차·버스·지하철을 TalgeotGamji 가 가림 — 여기서는 기차(시속 150 넘게 15초)만 봄
         if TalgeotGamji.shared.sseulSuItda {
             if kmh > 150 {

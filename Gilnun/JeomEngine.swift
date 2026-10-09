@@ -130,6 +130,24 @@ final class JeomEngine: ObservableObject {
     private var geoAcc0: Double = 5
     private var geoS0: Double = 0
     private var dwiNeolge = false
+    // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 탈것 구간 — 점지도 안의 「지하철 탐 … 지하철 내림」, 「버스 탐 … 버스 내림」(또는 탈것 점)을
+    //   걸음으로 안내하지 않음("직진 3킬로미터" 같은 헛말을 막음). 타는 곳에서 한 번 알리고, 내리실 곳 30미터 안이나 「내렸습니다」에서 다시 걸음 안내
+    private struct Tagi { let i0: Int; let i1: Int; let kind: String; let naerimMal: String; let lat: Double; let lon: Double }
+    private var tagiGugan: [Tagi] = []
+    private var tagiHan = Set<Int>()
+    private var tagiJung: Tagi?
+    /// 탈것 구간을 지나는 중(걸음 안내를 쉬는 중)
+    var tagoGaneunJung: Bool { tagiJung != nil }
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 이번 점지도 걷기에서 "차를 타셨으면 택시야라고 말씀해 주십시오."를 했는가(걷기마다 한 번)
+    var chaMalHam = false
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 걷는 빠르기보다 빠르게(시속 15킬로미터 넘게) 움직이기 시작한 때와 마지막으로 그렇게 잡힌 때
+    private var bareunSijak: Date?
+    private var bareunMajimak = Date.distantPast
+    /// 시속 15킬로미터 넘게 10초 넘게 움직이는 중 — 점지도 벗어남 경고를 쉼(차 안에서 5초마다 되풀이하지 않게)
+    private var chaBareum: Bool {
+        guard let t = bareunSijak, Date().timeIntervalSince(bareunMajimak) < 10 else { return false }
+        return Date().timeIntervalSince(t) >= 10
+    }
 
     // 확신음(hwaksin.js 의 S)
     private struct HS {
@@ -286,6 +304,7 @@ final class JeomEngine: ObservableObject {
 
     func sijak(_ g0: JeomGil, dwit dw: Bool, mok: Jangso? = nil, ieumYuji: Bool = false) {
         muleumJiugi()
+        chaMalHam = false; bareunSijak = nil   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 걷기마다 새로
         let sd = sedae
         bulleoneun = false
         geumanSok(malHam: false)
@@ -302,6 +321,13 @@ final class JeomEngine: ObservableObject {
         }
         kkeoks = JeomEngine.kkeokChatgi(p)
         kkeokHan = []
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 탈것 구간을 찾고, 그 안의 꺾임은 걸음 안내에서 뺌
+        tagiGugan = tagiChatgi()
+        tagiHan = []
+        tagiJung = nil
+        if !tagiGugan.isEmpty {
+            kkeoks = kkeoks.filter { k in !tagiGugan.contains { k.i > $0.i0 && k.i < $0.i1 } }
+        }
         gilRaw = g0.id + (dw ? "|r" : "")
         dwit = dw
         dochakHam = false
@@ -395,6 +421,7 @@ final class JeomEngine: ObservableObject {
         momSseum = false
         WichiEngine.shared.momBbareum = false
         munOn = false; mun = nil; munList = []; munSu = 0; munKamera = false
+        tagiJung = nil; tagiGugan = []; tagiHan = []   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09)
         gil = nil
         dochakHam = false
         sangMal = ""
@@ -467,6 +494,13 @@ final class JeomEngine: ObservableObject {
     private func wichiBatda(_ w: Wichi) {
         guard gil != nil, !dochakHam else { return }
         if w.georeumChu { return }   // 위치 엔진이 곧게 이어 셈한 자리는 쓰지 않고, 점지도 위로 걸음을 셈(아래 jikim)
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 걷는 빠르기보다 빠른가(시속 15킬로미터 넘게, 위성 오차 30미터 안)
+        if w.ochae <= 30 && w.sokdo * 3.6 > 15 {
+            if bareunSijak == nil { bareunSijak = Date() }
+            bareunMajimak = Date()
+        } else {
+            bareunSijak = nil
+        }
         if geoMode && w.ochae > 25 { return }   // 걸음으로 가는 동안 흐린 위성은 받지 않음
         if w.ochae <= 25 { wiseongTtae = Date() }
         if geoMode { dwiNeolge = true }   // 걸음으로 가다 위성이 돌아온 첫 자리 — 뒤로도 넓게 찾음
@@ -474,7 +508,7 @@ final class JeomEngine: ObservableObject {
         let hd: Double? = (w.banghyang >= 0 && w.sokdo > 0.3) ? w.banghyang : nil
         onMove(w.lat, w.lon, w.ochae, hd)
         // 2.11.1 사거리·갈림길 알림 — 문까지 가는 동안은 쉼
-        if gil != nil && !dochakHam && !munOn { AnnaeEngine.shared.neagoriBakkeseo(w) }
+        if gil != nil && !dochakHam && !munOn && tagiJung == nil { AnnaeEngine.shared.neagoriBakkeseo(w) }   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 탈것 구간에서는 쉼
     }
 
     private func onMove(_ la: Double, _ lo: Double, _ ac: Double, _ course: Double?) {
@@ -492,6 +526,16 @@ final class JeomEngine: ObservableObject {
             }
         } else {
             lastP = (la, lo, now)
+        }
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 탈것을 타고 가는 동안 — 내리실 곳 30미터 안에 오시면 다시 걸음 안내, 그 전에는 아무 걸음 안내도 하지 않음
+        if let t = tagiJung {
+            let d = WichiEngine.geori(la, lo, t.lat, t.lon)
+            if d <= 30 && ac <= 30 {
+                tagiKkeut()
+            } else {
+                sangMal = "\(t.kind) 타고 가는 중. 내리실 곳까지 약 \(tagiGeori(d))."
+                return
+            }
         }
         // 길 위에서 가장 가까운 점(처음에는 길 전체에서, 그 뒤로는 앞쪽만)
         var best = idx, bestD = 1e9
@@ -513,6 +557,11 @@ final class JeomEngine: ObservableObject {
         if firstFix {
             firstFix = false
             for i in pyo.indices where pyo[i].i < idx { pyo[i].said = true; pyo[i].near = true; pyo[i].said30 = true }
+        }
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 타는 곳에 닿으면(3미터 안이거나 지나쳤으면) 탈것 구간으로
+        if let t = tagiGugan.first(where: { !tagiHan.contains($0.i0) && idx < $0.i1 && (idx >= $0.i0 || ap(idx, $0.i0) <= 3) }) {
+            tagiSijak(t)
+            return
         }
         hamkkeBonaegi()
         let rest = namEun
@@ -590,6 +639,8 @@ final class JeomEngine: ObservableObject {
     private func jikim() {
         guard gil != nil, !dochakHam else { return }
         let now = Date()
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 탈것을 타고 가는 동안은 끊김·제자리·벗어남 말을 하지 않음
+        if tagiJung != nil { tikT = now; return }
         // 폰이 멈췄다 깨어나 시계가 10초 넘게 건너뛰면 — 안내가 끊겼던 것(끌 수 없음)
         if now.timeIntervalSince(tikT) > 10 && now.timeIntervalSince(kkeunMalT) >= 10 {
             kkeunMalT = now
@@ -598,6 +649,8 @@ final class JeomEngine: ObservableObject {
         }
         tikT = now
         garikiAllim(now)
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 시속 15킬로미터 넘게 10초 넘게 움직이는 중(차를 타신 듯)에는 벗어남·확인 어려움 경고를 되풀이하지 않음
+        if chaBareum { return }
         // 위성이 6초 넘게 끊기면 걸음으로 점지도 위를 나아감(georeum_iego.js)
         if now.timeIntervalSince(wiseongTtae) > 6 && S.stepSu > 0 {
             if !geoMode {
@@ -726,7 +779,7 @@ final class JeomEngine: ObservableObject {
 
     /// 발을 한 번 디딜 때마다
     private func georeum() {
-        guard gil != nil, !dochakHam, !munOn else { return }
+        guard gil != nil, !dochakHam, !munOn, tagiJung == nil else { return }   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 탈것 구간에서는 걸음으로 셈하지 않음
         let now = Date()
         if now.timeIntervalSince(S.stepT) > 10 {
             S.yeop = 0
@@ -819,6 +872,7 @@ final class JeomEngine: ObservableObject {
     }
 
     private func beoseoMal(cheot: Bool) {
+        if chaBareum { return }   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 차 빠르기로 움직이는 중에는 벗어남 말을 하지 않음
         let ap = cheot ? "점지도에서 벗어났습니다. 멈추고 방향을 다시 잡으십시오. " : ""
         let oreun = S.yeop > 0
         // 2.12.0 돌아갈 방향은 몸이 향한 쪽 기준 — 점지도 방향과 벗어난 거리로 셈(모르면 11시·1시)
@@ -1132,6 +1186,84 @@ final class JeomEngine: ObservableObject {
             dolgiMok = nil
             mal("직진입니다. " + daeumMalGil())
         }
+    }
+
+    // MARK: 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 탈것 구간
+
+    /// 표시 짝(탐·내림)으로, 없으면 자봉이 탈것 이름(m)을 단 점이 이어진 곳으로 구간을 찾음
+    private func tagiChatgi() -> [Tagi] {
+        var out: [Tagi] = []
+        for kind in ["지하철", "버스"] {
+            var sseun = Set<Int>()
+            for (a, t) in pyo.enumerated() where t.p.ireum.contains("\(kind) 탐") {
+                var e: Int?
+                for (b, q) in pyo.enumerated() where b != a && !sseun.contains(b) && q.i >= t.i && q.p.ireum.contains("\(kind) 내림") {
+                    if e == nil || q.i < pyo[e!].i { e = b }
+                }
+                guard let eb = e else { continue }
+                sseun.insert(eb)
+                let n = pyo[eb]
+                let la = n.p.lat ?? pts[n.i].lat, lo = n.p.lon ?? pts[n.i].lon
+                out.append(Tagi(i0: t.i, i1: n.i, kind: kind, naerimMal: (n.p.mal ?? "").trimmingCharacters(in: .whitespaces), lat: la, lon: lo))
+            }
+        }
+        // 표시 짝이 없는 탈것 점 — 이어진 동안을 한 구간으로(에스컬레이터는 짧아 그대로 걸음 안내)
+        var k = 0
+        while k < pts.count {
+            let m = pts[k].m ?? ""
+            guard m == "지하철" || m == "버스" else { k += 1; continue }
+            var e = k
+            while e + 1 < pts.count && (pts[e + 1].m ?? "") == m { e += 1 }
+            let i0 = max(0, k - 1), i1 = min(pts.count - 1, e + 1)
+            if i1 > i0 && !out.contains(where: { i0 <= $0.i1 && i1 >= $0.i0 }) {
+                out.append(Tagi(i0: i0, i1: i1, kind: m, naerimMal: "", lat: pts[i1].lat, lon: pts[i1].lon))
+            }
+            k = e + 1
+        }
+        return out.sorted { $0.i0 < $1.i0 }
+    }
+
+    private func tagiGeori(_ m: Double) -> String {
+        m >= 1000 ? String(format: "%.1f킬로미터", m / 1000) : "\(max(1, Int(m.rounded())))미터"
+    }
+
+    private func tagiSijak(_ t: Tagi) {
+        tagiHan.insert(t.i0)
+        tagiJung = t
+        // 구간 안의 표시는 걸음 안내로 말하지 않음(내림 표시까지)
+        for i in pyo.indices where pyo[i].i <= t.i1 && pyo[i].i >= min(t.i0, idx) { pyo[i].said = true; pyo[i].near = true; pyo[i].said30 = true }
+        S.gyeol = ""; S.yeop = 0; S.gidarim = false; S.offSu = 0; S.gpsNeomSu = 0
+        geonneolOn = false; geonneol = nil; geoMode = false; offSu = 0
+        dolgiKkeut()
+        let naerim = t.naerimMal.isEmpty ? "여기서 약 \(tagiGeori(ap(t.i0, t.i1))) 떨어진 \(t.kind) 내림 자리" : t.naerimMal
+        sangMal = "\(t.kind) 타고 가는 중."
+        mal("\(t.kind) 타는 곳입니다. 타신 뒤 내리실 곳은 \(naerim)입니다. 타고 가시는 동안은 걸음 안내를 쉽니다. 내리실 곳 가까이 오시면 다시 안내합니다.")
+        Girok.shared.namgi("jeom_tagi_sijak", ["kind": t.kind, "m": Int(ap(t.i0, t.i1))])
+    }
+
+    /// 내리실 곳에 닿았거나 「내렸습니다」 — 내림 자리부터 다시 걸음 안내
+    private func tagiKkeut() {
+        guard let t = tagiJung else { return }
+        tagiJung = nil
+        idx = t.i1
+        firstFix = false
+        dwiNeolge = true
+        lastP = nil; spd = 0; offSu = 0
+        geoMode = false
+        wiseongTtae = Date(); jariTtae = Date(); tikT = Date()
+        S.gyeol = ""; S.yeop = 0; S.jin = nil; S.jinSijak = nil; S.kijun = nil; S.malKijun = nil
+        S.segKijun = nil; S.offSu = 0; S.gpsNeomSu = 0; S.sinho = Date(); S.wdMal = Date()
+        for i in pyo.indices where pyo[i].i <= t.i1 { pyo[i].said = true; pyo[i].near = true; pyo[i].said30 = true }
+        mal("\(t.kind)에서 내리실 곳입니다. 여기서부터 다시 걸음으로 안내합니다. " + daeumMalGil())
+        Girok.shared.namgi("jeom_tagi_kkeut", ["kind": t.kind])
+    }
+
+    /// 「내렸습니다」 — 탈것 구간을 지나는 중이면 내림 자리부터 다시 걸음 안내. 탈것 구간이 아니면 false
+    @discardableResult
+    func naeryeotda() -> Bool {
+        guard tagiJung != nil else { return false }
+        tagiKkeut()
+        return true
     }
 
     // MARK: 표시

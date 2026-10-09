@@ -4,6 +4,29 @@
 import Foundation
 import Combine
 import UIKit
+import CryptoKit
+
+/// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 한 폰 표(gd) — 같은 폰에 길눈과 자봉 앱을 함께 둔 분이
+/// 내 길눈의 긴급통화 요청에 내 자봉 앱이 울리지 않게, 두 앱이 같은 값을 냄.
+/// identifierForVendor(같은 팀 앱끼리 한 폰에서 같음)에 "klvdab-gd" 를 섞은 SHA-256 앞 16자.
+/// 길눈(GinGeup a=call)과 자봉(JabongDaegi a=daegi)이 함께 씀 — 자봉 앱도 이 파일을 싣습니다.
+/// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 빈 값은 담아 두지 않음 — 첫 잠금 해제 전에 알림으로 깨어 identifierForVendor 가 없을 때
+///   빈 표를 앱이 꺼질 때까지 쓰던 일. 얻을 때까지 다음에 다시 셈(안드로이드 HanPon 과 같음)
+enum HanPon {
+    private static var gap = ""
+    private static let jamgeum = NSLock()
+
+    static var gd: String {
+        jamgeum.lock()
+        defer { jamgeum.unlock() }
+        if !gap.isEmpty { return gap }
+        guard let v = UIDevice.current.identifierForVendor?.uuidString, !v.isEmpty else { return "" }
+        let h = SHA256.hash(data: Data(("klvdab-gd" + v).utf8))
+        let r = String(h.map { String(format: "%02x", $0) }.joined().prefix(16))
+        gap = r
+        return r
+    }
+}
 
 final class Girok {
     static let shared = Girok()

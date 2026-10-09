@@ -153,7 +153,7 @@ struct JeongryujangView: View {
 /// 탈것 바로잡기 — 바로잡은 것이 가장 앞섭니다
 struct TalgeotView: View {
     @Environment(\.dismiss) private var dismiss
-    private let goreul: [Talgeot] = [.cha, .beoseu, .gicha, .gosokbeoseu]
+    private let goreul: [Talgeot] = [.cha, .beoseu, .jihacheol, .gicha, .gosokbeoseu]   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 지하철 더함
 
     var body: some View {
         ScrollView {

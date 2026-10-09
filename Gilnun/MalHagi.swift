@@ -34,11 +34,18 @@ final class MalHagi: ObservableObject {
     @Published private(set) var deureunMal = ""
     @Published private(set) var dapMal = ""
 
-    private enum Mureum { case eopseum, mokjeok, bangsik, chaYocheong, kol, galrae, hoching, hubo, jeom, eumakBiseut, kolHwagin }
+    // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) neomgilkka — 긴급통화 「자원봉사자와 현장영상해설사에게 요청할까요?」
+    private enum Mureum { case eopseum, mokjeok, bangsik, chaYocheong, kol, galrae, hoching, hubo, jeom, eumakBiseut, kolHwagin, neomgilkka }
     /// 2.60.0 "○○에 전화할까요?"라고 여쭌 콜
     private var kolDaegi: KolBeonho?
     private var mureum: Mureum = .eopseum
-    private var mureumTtae = Date.distantPast
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 새로 여쭐 때마다 차 부르기의 묵은 물음(다음 수단에 걸까요·복지카드 메일)을 거둠
+    ///   — 10분 전 「다음 수단에 걸까요」가 뒤에 여쭌 「목적지를 변경하실 건가요?」의 「네」를 가로채 다른 콜에 걸던 일
+    private var mureumTtae = Date.distantPast {
+        didSet { if mureumTtae > oldValue { ChaBureugi.shared.mureumBiugi() } }
+    }
+    /// 2.61.0 (261009-I15) 말로 하기가 마지막으로 여쭌 때 — 차 부르기는 이보다 뒤에 여쭌 물음일 때만 네·아니오를 씀
+    var majimakMureumTtae: Date { mureumTtae }
     private var mok: Jangso?
     private var talgeotDaegi: Talgeot?
     private var hubo: [Jangso] = []
@@ -62,6 +69,14 @@ final class MalHagi: ObservableObject {
     private var dasiHanbeon = false
     private var ssak = Set<AnyCancellable>()
     private var sijakham = false
+    // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 명령 차례 번호 — 전화가 오거나 편집을 시작하면 하나 올려 늦게 온 대답을 버림
+    private var myeongBeon = 0
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 「알아보는 중입니다」를 기다리는 명령 번호(대답이 나오면 0)
+    private var araboGidarim = 0
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 한 마디(맞장구)에 마지막으로 대답한 때 — 20초 안에 또 오면 조용히 물러남
+    private var geunyangTtae = Date.distantPast
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 기억해 둔 가실 곳(mok)을 정한 때 — 여정이 없으면 3분 안의 것만 씀
+    private var mokTtae = Date.distantPast
 
     private var sajeon: MalSajeon { MalSajeon.shared }
     private var ho: String { Seoljeong.shared.ho }
@@ -98,7 +113,7 @@ final class MalHagi: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] j in
                 guard let self = self else { return }
-                if j { self.moduMeomchum() } else { self.bureumDasi(1.5) }
+                if j { self.jeonhwaOm() } else { self.bureumDasi(1.5) }
             }
             .store(in: &ssak)
         // 긴급통화 중에는 마이크를 통화에 내어 줌
@@ -143,6 +158,11 @@ final class MalHagi: ObservableObject {
     func dudeurim() {
         DispatchQueue.main.async {
             self.sijak()
+            // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 전화 중이면 단추를 누르셔도 아무 말 없이 마이크를 열지 않음(통화 말을 명령으로 듣지 않게)
+            if JeonhwaGamsi.shared.jeonhwaJung {
+                Girok.shared.namgi("malhagi_jeonhwa", ["dan": "dudeurim"])
+                return
+            }
             if self.sangtae == .deutneun {
                 self.myeongryeongChwiso()
                 SoriEngine.shared.sori(.ttaeng)
@@ -158,25 +178,88 @@ final class MalHagi: ObservableObject {
 
     /// 2.60.0 (261009-I14, 이사장님 승인 2026-10-09 남산) 길 찾기 편집창에 글자를 넣으시는 중 — 마이크 듣기를 쉼
     ///   (말을 잘못 알아들어 목적지가 정해졌다 풀렸다 하며 편집창이 사라졌다 나타나 커서가 옆으로 밀리던 일)
-    private(set) var pyeonjipJung = false
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 편집을 시작한 때 — 안드로이드와 같이 5분이 지나면 저절로 풂
+    private var pyeonjipTtae: Date?
+    var pyeonjipJung: Bool {
+        guard let t = pyeonjipTtae else { return false }
+        return Date().timeIntervalSince(t) < 300
+    }
 
     func pyeonjipSijak() {
         guard !pyeonjipJung else { return }
-        pyeonjipJung = true
+        pyeonjipTtae = Date()
         if sangtae == .deutneun { myeongryeongChwiso() }
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 알아보던 명령의 대답이 편집을 시작한 뒤에 오면 조용히 버림
+        myeongBeon += 1
+        araboGidarim = 0
+        if sangtae == .araboneun { sangtae = .swim }
         moduMeomchum()
         Girok.shared.namgi("pyeonjip", ["on": true])
     }
 
     func pyeonjipKkeut() {
-        guard pyeonjipJung else { return }
-        pyeonjipJung = false
+        guard pyeonjipTtae != nil else { return }
+        pyeonjipTtae = nil
         Girok.shared.namgi("pyeonjip", ["on": false])
         bureumDasi(1.0)
     }
 
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 전화가 옴 — 마이크를 닫고, 알아보던 명령과 묻던 말(목적지 바꾸기·콜 걸기)을 모두 거둠
+    private func jeonhwaOm() {
+        moduMeomchum()
+        myeongBeon += 1
+        araboGidarim = 0
+        malbeotGidarim = 0
+        jadongYeolim = 0
+        ieoSu = 0
+        dasiHanbeon = false
+        if sangtae != .swim { sangtae = .swim }
+        hwaginBiugi()
+        Girok.shared.namgi("malhagi_jeonhwa", ["dan": "om"])
+    }
+
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 긴급통화가 가족·지인께 닿지 않아 「자원봉사자와 현장영상해설사에게 요청할까요?」를 여쭘(GinGeup 이 말함) —
+    ///   네·아니오 물음으로 걸어 두고(마지막 물음 하나, 2분), 그 말을 다 한 뒤 마이크를 한 번 엶. 전화 중·편집 중·마이크 허락이 없으면 열지 않음(단추는 그대로)
+    func neomgilkkaMutgi(_ q: String) {
+        hwaginBiugi()
+        mureum = .neomgilkka
+        mureumTtae = Date()
+        Girok.shared.namgi("malhagi_neomgilkka", [:])
+        let yeolgi = { [weak self] in
+            guard let self = self, self.sijakham, self.mureum == .neomgilkka, self.sangtae == .swim,
+                  GinGeup.shared.neomgilkka, GinGeup.shared.sangtae == .eopseum,
+                  !self.pyeonjipJung, !JeonhwaGamsi.shared.jeonhwaJung, MalDeutgi.heorakItda else { return }
+            self.dasiHanbeon = false
+            self.jadongYeolim = 1   // 저절로 연 마이크 — 딩동, 10초 기다리고 말씀이 없으면 조용히 닫음
+            self.myeongryeongYeolgi(sori: true)
+        }
+        if Seoljeong.shared.malKyeojim {
+            SoriEngine.shared.kkeutnamyeon { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: yeolgi) }
+        } else {
+            // 말소리를 꺼 두셨으면 보이스오버가 단추를 읽을 만큼 기다림
+            DispatchQueue.main.asyncAfter(deadline: .now() + min(8, 1.2 + Double(q.count) * 0.09), execute: yeolgi)
+        }
+    }
+
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 네·아니오를 기다리던 물음(목적지 바꾸기·콜 걸기·후보)을 비움
+    private func hwaginBiugi() {
+        mureum = .eopseum
+        ChaBureugi.shared.mureumBiugi()   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 차 부르기의 물음(다음 수단·복지카드 메일)도 거둠
+        kolDaegi = nil
+        hubo = []
+        huboI = 0
+        huboHwagin = false
+    }
+
     private func myeongryeongYeolgi(sori: Bool) {
         guard GinGeup.shared.sangtae == .eopseum else { return }
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 전화 중이면 어떤 길로도 마이크를 열지 않음(이어 듣기·하이 길눈·지킴이·단추 모두)
+        if JeonhwaGamsi.shared.jeonhwaJung {
+            if sangtae == .deutneun { myeongryeongChwiso() }
+            jadongYeolim = 0
+            Girok.shared.namgi("malhagi_jeonhwa", ["dan": "yeolgi"])
+            return
+        }
         if !sori && pyeonjipJung { return }   // 2.60.0 편집 중에는 저절로 이어 듣지 않음
         if !MalDeutgi.heorakItda {
             MalDeutgi.heorak { [weak self] ok in
@@ -197,6 +280,8 @@ final class MalHagi: ObservableObject {
         SoriEngine.shared.myeongryeongDeutneunJung = true   // 2.12.0 마이크를 여는 틈에 다른 말이 끼어 닫지 않게
         let yeolgi = { [weak self] in
             guard let self = self, self.sangtae == .deutneun else { return }
+            // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 「네」를 말하는 사이에 전화가 왔으면 열지 않음
+            if JeonhwaGamsi.shared.jeonhwaJung { self.myeongryeongChwiso(); return }
             SoriEngine.shared.myeongryeongDeutneunJung = true
             MalDeutgi.shared.doumMal = self.doumMal()   // 2.12.5 가까운 역·즐겨찾기
             let gidarim: Double = self.jadongYeolim > 0 ? 10 : 6   // 2.12.5 되물은 뒤에는 10초 기다림
@@ -283,11 +368,14 @@ final class MalHagi: ObservableObject {
             return
         }
         // 2.49.0 말씀이 있으면 이어 듣기를 새로 셈, 「됐어」면 그침, 같은 말 세 번이면 부드럽게 끊음
-        ieoSu = 0
         let zz = MalSajeon.ttuk(alts[0])
-        if ["됐어", "됐어요", "됐습니다", "고마워", "고마워요", "고맙습니다", "알았어", "알겠어", "이제됐어", "충분해"].contains(zz) {
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 한 마디(맞장구·잡소리)는 새 대화로 치지 않아 이어 듣기 셈을 새로 하지 않음
+        if !MalHagi.geunyangMal(zz) { ieoSu = 0 }
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 「배차됐어」「배차 됐어」「배차되었어」는 대화 끝이 아니라 배차 대답으로(차 부르기가 먼저 받음)
+        if !MalHagi.baechaDapMal(alts) && ["됐어", "됐어요", "됐습니다", "고마워", "고마워요", "고맙습니다", "알았어", "알겠어", "이제됐어", "충분해"].contains(zz) {
             ieoGeumman = true
             sangtae = .swim
+            hwaginBiugi()   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 대화를 마치면 묻던 목적지·콜 확인도 비움
             dapHagi("네, 필요하시면 하이 길눈이라고 불러 주십시오.", false)
             return
         }
@@ -302,6 +390,16 @@ final class MalHagi: ObservableObject {
         }
         deureunMal = alts[0]
         sangtae = .araboneun
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 명령 차례 번호 — 전화·편집으로 거둔 뒤 늦게 온 대답은 조용히 버림.
+        //   말씀을 마치신 때부터 3초가 지나도 대답이 없으면 「알아보는 중입니다」를 한 번(어떤 대답이든 나오면 그만)
+        myeongBeon += 1
+        let mb = myeongBeon
+        araboGidarim = mb
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+            guard let self = self, self.araboGidarim == mb, self.myeongBeon == mb else { return }
+            self.araboGidarim = 0
+            self.malHamMan("알아보는 중입니다.")
+        }
         if Seoljeong.shared.malKyeojim {
             // 2.30.0 (대표님 지시) 땡 대신 「잠깐만 기다려 주세요」 — 귀는 이미 닫음
             // 2.31.0 (대표님 승인) 결과가 1초 안에 나오면 곧바로 말씀드리고, 1초 넘게 걸릴 때만 「잠깐만 기다려 주세요」
@@ -309,18 +407,20 @@ final class MalHagi: ObservableObject {
             var malKkeut = false
             var dap: (String, Bool)?
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-                guard dap == nil else { return }
+                guard dap == nil, self?.myeongBeon == mb else { return }
                 malSijak = true
                 SoriEngine.shared.daehwaMal("잠깐만 기다려 주세요") {
                     malKkeut = true
-                    if let d = dap { self?.dapHagi(d.0, d.1) }
+                    if let d = dap, self?.myeongBeon == mb { self?.dapHagi(d.0, d.1) }
                 }
             }
             cheori(alts) { [weak self] t, mutneun in
                 DispatchQueue.main.async {
                     guard dap == nil else { return }
                     dap = (t, mutneun)
-                    if !malSijak || malKkeut { self?.dapHagi(t, mutneun) }
+                    guard let self = self, self.myeongBeon == mb else { return }   // 2.61.0 거둔 명령의 대답은 버림
+                    self.araboGidarim = 0
+                    if !malSijak || malKkeut { self.dapHagi(t, mutneun) }
                 }
             }
             return
@@ -329,8 +429,24 @@ final class MalHagi: ObservableObject {
         SoriEngine.shared.sori(.ttaeng)
         let ttaengT = Date()
         cheori(alts) { [weak self] t, mutneun in
-            let nameun = max(0, 0.35 - Date().timeIntervalSince(ttaengT))
-            DispatchQueue.main.asyncAfter(deadline: .now() + nameun) { self?.dapHagi(t, mutneun) }
+            DispatchQueue.main.async {
+                guard let self = self, self.myeongBeon == mb else { return }   // 2.61.0 거둔 명령의 대답은 버림
+                self.araboGidarim = 0
+                let nameun = max(0, 0.35 - Date().timeIntervalSince(ttaengT))
+                DispatchQueue.main.asyncAfter(deadline: .now() + nameun) { [weak self] in
+                    guard let self = self, self.myeongBeon == mb else { return }
+                    self.dapHagi(t, mutneun)
+                }
+            }
+        }
+    }
+
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 기다리게 하는 짧은 알림 — 말소리를 꺼 두셨으면 보이스오버로(안드로이드는 톡백)
+    private func malHamMan(_ t: String) {
+        if Seoljeong.shared.malKyeojim {
+            SoriEngine.shared.mal(t, .jeongbo)
+        } else {
+            UIAccessibility.post(notification: .announcement, argument: t)
         }
     }
 
@@ -341,7 +457,9 @@ final class MalHagi: ObservableObject {
         malHam(t) { [weak self] in
             guard let self = self else { return }
             // 2.49.0 묻는 말이든 아니든 대답 뒤에는 하이 길눈 없이 10초 이어 들음(딩동으로 알림). 말씀이 없으면 조용히 닫음
-            if GinGeup.shared.sangtae == .eopseum && !self.ieoGeumman && !self.watchMal && self.ieoSu < 20 {
+            // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 편집 중이거나 전화 중이면 이어 듣지 않음(안드로이드와 같이 이 자리에서 바로 봄)
+            if GinGeup.shared.sangtae == .eopseum && !self.ieoGeumman && !self.watchMal && self.ieoSu < 20
+                && !self.pyeonjipJung && !JeonhwaGamsi.shared.jeonhwaJung {
                 self.ieoSu += 1
                 self.jadongYeolim += 1
                 self.myeongryeongYeolgi(sori: true)
@@ -460,6 +578,7 @@ final class MalHagi: ObservableObject {
     private func bureumDeureum() {
         bureumDolgo = false
         guard sangtae == .swim, GinGeup.shared.sangtae == .eopseum else { return }
+        guard !JeonhwaGamsi.shared.jeonhwaJung else { return }   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 전화 중에 들린 부름은 버림
         jadongYeolim = 0
         dasiHanbeon = false
         ijeonMal = SoriEngine.shared.majimak
@@ -479,7 +598,8 @@ final class MalHagi: ObservableObject {
     // MARK: 2.12.4 멈춤 풀기 — 어디서 막히든 하이 길눈이 영영 먹통이 되지 않게
 
     private func gamsi() {
-        guard Seoljeong.shared.haiGilnun, GinGeup.shared.sangtae == .eopseum else { bureumEopseumTtae = nil; return }
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 전화 중에는 지킴이도 마이크를 다시 열지 않음
+        guard Seoljeong.shared.haiGilnun, GinGeup.shared.sangtae == .eopseum, !JeonhwaGamsi.shared.jeonhwaJung else { bureumEopseumTtae = nil; return }
         let now = Date()
         if sangtae != .swim {
             bureumEopseumTtae = nil
@@ -508,6 +628,8 @@ final class MalHagi: ObservableObject {
         bureumYeyak = false
         bureumSoriDollim()
         guard Seoljeong.shared.haiGilnun, sangtae == .swim, !bureumDolgo, !pyeonjipJung, MalDeutgi.heorakItda else { return }   // 2.60.0 편집 중 쉼, 2.52.1 하이 길눈이 꺼져 있으면(자봉 앱 포함) 열지 않음
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 전화 중·긴급통화 중이면 열지 않음
+        guard !JeonhwaGamsi.shared.jeonhwaJung, GinGeup.shared.sangtae == .eopseum else { return }
         SoriEngine.shared.deutgiKyeojim = true
         let ok = MalDeutgi.shared.bureum(deureum: { [weak self] in
             self?.bureumDeureum()
@@ -582,12 +704,21 @@ final class MalHagi: ObservableObject {
         Girok.shared.namgi("malhagi", ["mal": String(t.prefix(60))])
         let z = MalSajeon.ttuk(t)
         let y = YeojeongEngine.shared.jigeum
-        if Date().timeIntervalSince(mureumTtae) > 180 { mureum = .eopseum }
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 묻던 말을 잊는 때를 안드로이드와 맞춤 — 점지도로 걸을까요·호칭은 1분, 그 밖(목적지·콜 확인 등)은 2분
+        let sumyeong: TimeInterval = (mureum == .jeom || mureum == .hoching) ? 60 : 120
+        if Date().timeIntervalSince(mureumTtae) > sumyeong { mureum = .eopseum; kolDaegi = nil }
 
         // 0. 2.12.6 하던 일 멈추기 — 안내·따라 걷기·묻던 말을 모두 멈춤(음악·방송은 그대로)
         if sajeon.itda(alts, "hadeon_meomchum") && z.count <= 10 {
             dap("", false)
             AnnaeEngine.shared.haneunIlMeomchum()
+            return
+        }
+        // 0-0. 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 콜 취소 — "콜 취소", "콜 취소했어", "택시 취소"(아래 「그만」의 취소보다 먼저)
+        if MalHagi.kolChwisoMal(z) {
+            hwaginBiugi()
+            ChaBureugi.shared.kolPulgi("malro")
+            dap("알겠습니다. 콜을 취소하신 것으로 남겼습니다.", false)
             return
         }
         // 0-1. 2.58.0 차 부르기 — 배차 대답, 다음 수단, 복지카드 메일, 성적표, 이용 조건, 정기 호출(이사장님 승인 2026-10-09)
@@ -644,7 +775,9 @@ final class MalHagi: ObservableObject {
         // 2.10.0 점지도 — 점지도로 걸을까요의 대답, 따라 걷는 중의 명령("그만 걷기"는 아래 "그만"보다 먼저)
         let jm = JeomEngine.shared
         if jm.muleum != nil {
-            let ye0 = sajeon.tteut(alts, "ye") != nil, ani0 = sajeon.tteut(alts, "ani") != nil
+            // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 네·아니오는 말 전체로만(응급실·예술의전당을 네로 듣지 않게)
+            let hd0 = MalHagi.hwaginDap(alts)
+            let ye0 = hd0 == .ye, ani0 = hd0 == .ani
             if z.contains("위성") || (mureum == .jeom && ani0 && !ye0 && z.count <= 10) {
                 mureum = .eopseum
                 dap("위성으로 걷습니다.", false)
@@ -659,6 +792,14 @@ final class MalHagi: ObservableObject {
             }
         }
         if jm.gil != nil {
+            // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 점지도의 탈것 구간을 지나는 중 「내렸어」 — 내림 자리부터 다시 걸음 안내
+            // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 「밖으로 나왔어」「나왔어」도 내림으로
+            //   2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 「나왔어」는 말 전체이거나 짧은 말의 끝일 때만, 「안 나왔어」는 받지 않음
+            if jm.tagoGaneunJung && (z.contains("내렸") || z.contains("하차") || MalSajeon.naoatdaMal(alts)) {
+                dap("", false)
+                jm.naeryeotda()
+                return
+            }
             if z.contains("그만걷") || z.contains("따라걷기그만") || z.contains("따라걷기끝") || z.contains("걷기그만") {
                 dap("", false)
                 jm.geuman()
@@ -710,7 +851,7 @@ final class MalHagi: ObservableObject {
         }
         // 3. 그만 — 어디서나
         if sajeon.itda(alts, "geuman") && z.count <= 8 {
-            mureum = .eopseum
+            hwaginBiugi()   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 묻던 목적지·콜 확인도 비움
             SinhogiEngine.shared.chatgiKkeugi()
             SoriEngine.shared.modu_geodugi()
             if BangsongEngine.shared.naneunJung { BangsongEngine.shared.meomchumTogeul() }   // 2.8.0 방송도 멈춤(이어서 틀어로 다시)
@@ -729,8 +870,10 @@ final class MalHagi: ObservableObject {
         }
 
         // 4. 묻던 말의 대답
-        let ye = sajeon.tteut(alts, "ye") != nil
-        let ani = sajeon.tteut(alts, "ani") != nil
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 네·아니오는 말 전체가 대답일 때만(앞에 붙은 「응」「네」로 응급실·예술의전당·길 안내해 줘를 네로 듣지 않게)
+        let hd = MalHagi.hwaginDap(alts)
+        let ye = hd == .ye
+        let ani = hd == .ani
         let jjalbeun = z.count <= 10
         switch mureum {
         case .hoching:
@@ -812,7 +955,18 @@ final class MalHagi: ObservableObject {
                 gagi(h, huboTalgeot, dap, apMal: "\(h.ireum)\(MalHagi.ro(h.ireum)) 안내합니다. ")
                 return
             }
-            if (ani && jjalbeun) || z.contains("다른곳") || z.contains("다른데") {
+            if z.contains("다른곳") || z.contains("다른데") {
+                daeumHubo(dap)
+                return
+            }
+            // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 가시는 중에 「목적지를 ○○로 변경하실 건가요?」에 아니라고 하시면
+            //   다음 후보로 넘기지 않고 지금 목적지로 계속 안내함(다른 곳·다른 데라고 하실 때만 다음 후보)
+            if ani && jjalbeun, huboHwagin, let yy = y {
+                hwaginBiugi()
+                dap("알겠습니다. \(yy.mokjeok.ireum)\(MalHagi.ro(yy.mokjeok.ireum)) 계속 안내합니다.", false)
+                return
+            }
+            if ani && jjalbeun {
                 daeumHubo(dap)
                 return
             }
@@ -829,6 +983,26 @@ final class MalHagi: ObservableObject {
                 kolDaegi = nil
                 dap("알겠습니다. 걸지 않겠습니다.", false)
                 return
+            }
+        case .neomgilkka:
+            // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 「자원봉사자와 현장영상해설사에게 요청할까요?」의 대답 — 네면 예 단추와 같이 두 갈래 함께 호출
+            let g = GinGeup.shared
+            if !g.neomgilkka || g.sangtae != .eopseum {
+                mureum = .eopseum   // 단추로 이미 고르셨음 — 아래로 흘려 보통 말로 받음
+            } else if ye && !ani && jjalbeun {
+                mureum = .eopseum
+                dap("", false)
+                g.yocheong(.dowum)
+                return
+            } else if ani && jjalbeun {
+                mureum = .eopseum
+                g.neomgilkka = false
+                dap("알겠습니다.", false)
+                return
+            } else {
+                // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 딱 떨어지는 네·아니오가 아니면 물음을 거두고 보통 말로 받음 —
+                //   2분 동안 남겨 두면 나중에 다른 뜻으로 한 「네」가 긴급통화를 걸 수 있음(안드로이드와 같음)
+                mureum = .eopseum
             }
         case .eumakBiseut:
             // 2.46.0 "비슷한 제목으로 옛사랑이 있습니다. 틀까요?" — 네면 틂, 아니면 그만
@@ -851,6 +1025,14 @@ final class MalHagi: ObservableObject {
         // 4-1. 2.60.0 (261009-I14, 이사장님 승인 2026-10-09 남산) 한 마디 대답("그럼", "그래", "응" 등)은 곳 이름으로 찾지 않음
         //      — "그럼"을 곳 이름으로 찾아 상봉역 길을, "그래"에 비자변경 학원 길을 잡던 일
         if MalHagi.geunyangMal(z) {
+            // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 잡소리가 되풀이되어 헛돌지 않게 — 한 번만 대답하고, 20초 안에 또 오면 조용히 듣기를 그침
+            if Date().timeIntervalSince(geunyangTtae) < 20 {
+                Girok.shared.namgi("geunyang_dasi", [:])
+                ieoGeumman = true
+                dap("", false)
+                return
+            }
+            geunyangTtae = Date()
             dap(mureum == .mokjeok ? "가실 곳의 이름을 말씀해 주십시오." : "네, 말씀하십시오. 가실 곳이나 하실 일을 말씀해 주십시오.", true)
             return
         }
@@ -882,6 +1064,14 @@ final class MalHagi: ObservableObject {
         if g2 && MalSajeon.ttuk(q2).count >= 2 { q = q2 }
         // "지금 가는 길 알려 줘"처럼 떼고 나서 남는 것이 없으면 명령으로 봄
         if (!gagiMal || MalSajeon.ttuk(q).count <= 2) && myeongryeong(alts, z, tg, dap) { return }
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) "그럼 가자", "어 가자" — 가자를 떼고 남은 것이 한 마디(맞장구)이거나 없으면 찾지 않고 이름을 여쭘
+        let qz0 = MalSajeon.ttuk(q)
+        if gagiMal && tg == nil && (qz0.isEmpty || MalHagi.geunyangMal(qz0)) {
+            mureum = .mokjeok
+            mureumTtae = Date()
+            dap("가실 곳의 이름을 말씀해 주십시오.", true)
+            return
+        }
 
         // 7. 목적지 — 이름 끝의 로(종로·을지로)는 되살려 한 번 더 찾아봄
         var qB: String? = roTtem ? q + "로" : nil
@@ -1203,7 +1393,8 @@ final class MalHagi: ObservableObject {
             kolHwaginMutgi(jong: nil, k: k, bureum: MalHagi.kolBureumMal(alts), dap)
             return true
         }
-        if s.itda(alts, "naerim") {
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 「나왔어」 갈래는 말 전체이거나 짧은 말의 끝일 때만 내림(「소리가 안 나왔어」는 내림 아님)
+        if s.itda(alts, "naerim") || MalSajeon.naoatdaMal(alts) {
             if let yy = y, yy.danggye == .taneunJung || yy.danggye == .taneunGotKkaji {
                 dap("", false)
                 AnnaeEngine.shared.naeryeotda()
@@ -1214,17 +1405,22 @@ final class MalHagi: ObservableObject {
             return true
         }
         if s.itda(alts, "tatda") {
+            // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 「차에 탔어」「택시 탔어」는 여정에 지하철 길이 있어도 늘 차 안 안내로.
+            //   지하철 역 알림은 「지하철 탔어」「열차 탔어」「전철 탔어」라고 하실 때만
+            let jihaMal = z.contains("지하철") || z.contains("열차") || z.contains("전철")
+            let beoseuMal = !jihaMal && z.contains("버스") && !z.contains("고속버스")
+            let chaMal = !jihaMal && !beoseuMal && (z.contains("차") || z.contains("택시"))
             if let yy = y {
                 dap("", false)
-                if yy.jiha != nil {
-                    JihacheolEngine.shared.tatda(jadong: false)
-                } else if yy.beoseu != nil {
-                    AnnaeEngine.shared.beoseuTatda()
+                if jihaMal {
+                    if yy.jiha != nil { JihacheolEngine.shared.tatda(jadong: false) } else { AnnaeEngine.shared.talgeotBarojapgi(.jihacheol) }
+                } else if beoseuMal || (!chaMal && yy.beoseu != nil) {
+                    if yy.beoseu != nil { AnnaeEngine.shared.beoseuTatda() } else { AnnaeEngine.shared.talgeotBarojapgi(.beoseu) }
                 } else {
                     AnnaeEngine.shared.chaTatda()
                 }
                 GilGil.shared.cheotHwamyeon()
-            } else if let m = mok {
+            } else if let m = mokSaengsaeng {   // 2.61.0 여정이 없으면 3분 안에 정한 곳만(끝난 여정의 옛 목적지로 가지 않게)
                 dap("", false)
                 AnnaeEngine.shared.chaTagi(m)
                 GilGil.shared.cheotHwamyeon()
@@ -1419,7 +1615,7 @@ final class MalHagi: ObservableObject {
                 } else {
                     gagi(j, tg, dap)
                 }
-            } else if let m = mok {
+            } else if let m = mokSaengsaeng {   // 2.61.0 여정이 없으면 3분 안에 정한 곳만(끝난 여정의 옛 목적지로 가지 않게)
                 gagi(m, tg, dap)
             } else {
                 talgeotDaegi = tg
@@ -1429,14 +1625,15 @@ final class MalHagi: ObservableObject {
             }
             return true
         }
-        // 네·아니오만
-        if s.tteut(alts, "ye") == .gatda && z.count <= 4 {
+        // 네·아니오만 — 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 말 전체가 대답일 때만
+        let hdM = MalHagi.hwaginDap(alts)
+        if hdM == .ye {
             mureum = .mokjeok
             mureumTtae = Date()
             dap("네, \(ho). 어디로 가실까요?", true)
             return true
         }
-        if s.tteut(alts, "ani") == .gatda && z.count <= 4 {
+        if hdM == .ani {
             dap("알겠습니다.", false)
             return true
         }
@@ -1611,8 +1808,17 @@ final class MalHagi: ObservableObject {
     }
 
     /// 탈것에 맞춰 안내 시작 — 대답을 먼저 하고 안내 엔진을 움직임(말 차례가 맞게)
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 기억해 둔 가실 곳 — 여정이 있거나, 이번 물음 흐름에서 3분 안에 정한 것만
+    ///   (여정이 끝난 뒤 「택시 탔어」「걸어가자」로 옛 목적지를 향해 안내를 시작하던 일)
+    private var mokSaengsaeng: Jangso? {
+        guard let m = mok else { return nil }
+        if YeojeongEngine.shared.jigeum != nil || Date().timeIntervalSince(mokTtae) < 180 { return m }
+        return nil
+    }
+
     private func gagi(_ j: Jangso, _ tg0: Talgeot?, _ dap: @escaping (String, Bool) -> Void, apMal: String = "") {
         mok = j
+        mokTtae = Date()
         Jeulgyeo.shared.sseum(j)
         let d: Double? = WichiEngine.shared.jigeum.map { WichiEngine.geori($0.lat, $0.lon, j.lat, j.lon) }
         let yj = YeojeongEngine.shared
@@ -1662,22 +1868,36 @@ final class MalHagi: ObservableObject {
             GilGil.shared.cheotHwamyeon()
         case .jihacheol:
             // 2.40.0 이미 열차를 타고 가는 중이면(움직임 감지기가 탈것, 또는 땅속에서 탈것) 역 입구 안내를 건너뛰고 곧장 역 알림
+            // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 땅속 승강장에 서 계실 때 곧장 역 알림을 시작하던 일 —
+            //   움직임 감지기가 지하철로 보고 30초 안에 탈것이 실제로 움직였을 때만 타고 가는 중으로 봄.
+            //   아니면 역 입구에 닿은 것으로 보아(ipguDochak) 열차가 움직이면 저절로 역 알림을 시작
             let tg2 = TalgeotGamji.shared
-            if tg2.chujeong == .jihacheol || (tg2.jiha && tg2.jigeumUmjigim != "걸음") {
+            let umjigimNa = tg2.majimakTalgeot.map { Date().timeIntervalSince($0) < 30 } ?? false
+            if tg2.chujeong == .jihacheol && umjigimNa {
                 SoriEngine.shared.mal(apMal + "타고 가시는 중이니 지하철 길을 찾아 곧장 역 알림을 시작합니다.", .jeongbo)
-                JihacheolEngine.shared.jungganSijak(j) { ok, mal in
+                // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 이용자가 지하철로 가자고 하셨으니 짐작 안내가 아님(땅 위 구간에서 차로 되돌리지 않음)
+                JihacheolEngine.shared.jungganSijak(j, jadong: false) { ok, mal in
                     GilGil.shared.cheotHwamyeon()
                     dap(ok ? mal : mal + " 잠시 뒤 다시 지하철로 가자고 말씀해 주십시오.", false)
                 }
                 return
             }
+            let ttangsok = tg2.jiha
+            let buteo: Wichi? = ttangsok ? tg2.jisangJari : nil
             SoriEngine.shared.mal(apMal + "지하철 길을 찾는 중입니다.", .jeongbo)
             Task {
-                let (gg, k) = await JihacheolEngine.gilChatgi(j)
+                let (gg, k) = await JihacheolEngine.gilChatgi(j, buteo: buteo)
                 DispatchQueue.main.async {
                     if let gg = gg {
-                        dap("\(gg.mal) 들어갈 곳은 \(gg.ipgu.ireum)입니다.", false)
-                        AnnaeEngine.shared.jihacheolGagi(j, gg)
+                        if ttangsok {
+                            // 이미 땅속(역 안) — 걷는 안내 없이 역 입구에 닿은 것으로
+                            dap(gg.mal, false)
+                            AnnaeEngine.shared.jihacheolGagi(j, gg, malEopsi: true)
+                            JihacheolEngine.shared.ipguDochak()
+                        } else {
+                            dap("\(gg.mal) 들어갈 곳은 \(gg.ipgu.ireum)입니다.", false)
+                            AnnaeEngine.shared.jihacheolGagi(j, gg)
+                        }
                         GilGil.shared.cheotHwamyeon()
                     } else {
                         yj.jeonghagi(mk)
@@ -1857,10 +2077,64 @@ final class MalHagi: ObservableObject {
     /// 2.60.0 곳 이름으로 찾지 않을 한 마디(맞장구·망설임·대답)
     static let geunyangMalDeul: Set<String> = ["그럼", "그럼요", "그래", "그래요", "그래그래", "그래서", "그러면", "그러니까", "그렇지", "그렇죠", "그렇구나",
         "응", "응응", "어", "어어", "음", "음음", "으음", "글쎄", "글쎄요",
-        "좋아", "좋아요", "알았어", "알았어요", "알겠어", "알겠어요", "알겠습니다", "됐어", "됐어요", "맞아", "맞아요", "오케이", "잠깐", "잠깐만",
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 「됐어」「됐어요」는 뺌 — 맞장구가 아니라 아니오·그만으로 받음(「네, 말씀하십시오」라 하던 일)
+        "좋아", "좋아요", "알았어", "알았어요", "알겠어", "알겠어요", "알겠습니다", "맞아", "맞아요", "오케이", "잠깐", "잠깐만",
         "뭐", "뭐야", "왜", "저기", "저기요", "있잖아", "여보세요", "나는그래", "아", "아아", "에", "야", "자", "참", "글쎄다", "그래서요"]
     static func geunyangMal(_ z: String) -> Bool {
         geunyangMalDeul.contains(z)
+    }
+
+    // MARK: 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 네·아니오는 말 전체로만 — 안드로이드 MalHagi.hwaginDap 과 같은 낱말, 같은 잣대
+
+    enum HwaginDap { case ye, ani }
+    /// 네로 받는 말(띄어쓰기를 뺀 꼴)
+    static let yeMalDeul: [String] = ["네", "예", "응", "그래", "그래요", "좋아", "좋아요", "맞아", "맞아요", "그렇게해", "그렇게해줘",
+        "가자", "안내해", "안내해줘", "걸어줘", "전화해", "전화해줘", "부탁해", "오케이", "네네", "응응", "예예", "그럼요"]
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 배차되었다는 대답인가 — 「배차됐어」「배차 됐어」「배차되었어」(알아들은 말 가운데 하나라도)
+    static func baechaDapMal(_ alts: [String]) -> Bool {
+        alts.contains { a in
+            let z = MalSajeon.ttuk(a)
+            return z.count <= 12 && (z.contains("배차됐") || z.contains("배차되었") || z.contains("배차돼"))
+        }
+    }
+
+    /// 아니오로 받는 말(띄어쓰기를 뺀 꼴)
+    static let aniMalDeul: [String] = ["아니", "아니요", "아니오", "아뇨", "됐어", "안해", "싫어", "그만", "하지마"]
+    /// 대답 낱말 뒤에 붙어도 되는 끝 글자(두 자까지) — 「네요」「아니야」는 받고 「응급실」「예술」「네거리」는 받지 않음
+    private static let kkoriGeulja: Set<Character> = ["요", "네", "예", "응", "죠", "지", "야", "어", "에", "해", "줘", "다", "니", "세", "용", "여"]
+
+    /// 한 마디가 네인가 아니오인가 — 말 전체가 대답 낱말이거나, 대답 낱말 뒤에 끝 글자 두 자까지, 또는 대답 낱말 둘(네 좋아요)
+    static func hwaginDap1(_ z0: String) -> HwaginDap? {
+        let z = MalSajeon.ttuk(z0)
+        guard !z.isEmpty else { return nil }
+        if aniMalDeul.contains(z) { return .ani }
+        if yeMalDeul.contains(z) { return .ye }
+        let mokrok: [([String], HwaginDap)] = [(aniMalDeul, .ani), (yeMalDeul, .ye)]
+        for (l, d) in mokrok {
+            for w in l.sorted(by: { $0.count > $1.count }) where z.hasPrefix(w) {
+                let kkori = String(z.dropFirst(w.count))
+                if kkori.count <= 2 && kkori.allSatisfy({ kkoriGeulja.contains($0) }) { return d }
+                if l.contains(kkori) || (d == .ye && ["알겠어", "알겠어요", "알겠습니다", "알았어", "알았어요"].contains(kkori)) { return d }
+            }
+        }
+        return nil
+    }
+
+    /// 알아들은 말(맨 앞의 것)이 네인가 아니오인가 — 다른 후보 말로는 셈하지 않음
+    static func hwaginDap(_ alts: [String]) -> HwaginDap? {
+        guard let a = alts.first else { return nil }
+        return hwaginDap1(a)
+    }
+
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 콜을 취소했다는 말 — "콜 취소", "콜 취소했어", "택시 취소", "복지콜 취소했어"
+    static func kolChwisoMal(_ z: String) -> Bool {
+        (z.contains("콜") || z.contains("택시")) && z.contains("취소") && z.count <= 12
+    }
+
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 묻는 말인가 — 곳 이름으로 다시 찾지 않음
+    static func mutneunMal(_ t: String) -> Bool {
+        let z = MalSajeon.ttuk(t)
+        return ["어때", "알려줘", "어떻게", "얼마", "가격", "예약", "몇시"].contains { z.contains($0) }
     }
 
     /// 2.60.0 목적지를 바꾸자는 말("변경", "목적지 변경", "목적지 바꿔", "다른 데로 바꿔")
@@ -1965,7 +2239,7 @@ final class MalHagi: ObservableObject {
         huboHwagin = false
     }
 
-    static let doumalMal = "이렇게 말씀하시면 됩니다. 집으로 가자. 걸어서 가자. 지하철로 가자. 버스로 가자. 차에 탔어. 내렸어. 자세히 안내해, 간단히 안내해, 보통으로 안내해. 얼마나 남았어. 지금 어디야. 지금 가는 길 알려 줘. 즐겨찾기 목록. 즐겨찾기에 담아 줘. 복지콜에 전화해 줘. 콜 번호 알려 줘. 신호기 울려 줘. 신호기 찾아 줘. 근처 약국. 음악 틀어 줘. 트롯 틀어 줘. 다음 곡. 라디오 틀어 줘. MBC 라디오. 뉴스 들려줘. 음악 꺼. 고장 노래 틀어 줘. 기분이 꿀꿀해. 날씨에 맞게 틀어 줘. 날씨 어때. 길 기억해 줘. 되짚어 나가자. QR 찾아 줘. 말로 그린 길. 음성유도기 어디 있어. 현장영상해설 받고 싶어. 문 찾아 줘. 글자 읽어 줘. 가리키는 거 읽어 줘. 사람 있어. 바코드 읽어 줘, 이 상품 뭐야. 무슨 색이야, 얼마짜리야. 불 켜져 있어, 밝은 쪽 찾아 줘. 이게 뭐야, 뭐가 보여. 도착. 목적지 바꿔. 도와줘, 또는 가족 이름과 화상통화. 몇 시야. 말 빠르게, 말 느리게. 다시 말해. 그만. 여정 끝. 하던 일 멈춰. 점지도를 따라 걸을 때는 다음에 무엇, 그만 걷기, 여기 문제 있어, 여기 걸렸어. 가까운 점지도 찾아 줘."
+    static let doumalMal = "이렇게 말씀하시면 됩니다. 집으로 가자. 걸어서 가자. 지하철로 가자. 버스로 가자. 차에 탔어. 내렸어. 자세히 안내해, 간단히 안내해, 보통으로 안내해. 얼마나 남았어. 지금 어디야. 지금 가는 길 알려 줘. 즐겨찾기 목록. 즐겨찾기에 담아 줘. 복지콜에 전화해 줘. 콜 번호 알려 줘. 콜 취소. 신호기 울려 줘. 신호기 찾아 줘. 근처 약국. 음악 틀어 줘. 트롯 틀어 줘. 다음 곡. 라디오 틀어 줘. MBC 라디오. 뉴스 들려줘. 음악 꺼. 고장 노래 틀어 줘. 기분이 꿀꿀해. 날씨에 맞게 틀어 줘. 날씨 어때. 길 기억해 줘. 되짚어 나가자. QR 찾아 줘. 말로 그린 길. 음성유도기 어디 있어. 현장영상해설 받고 싶어. 문 찾아 줘. 글자 읽어 줘. 가리키는 거 읽어 줘. 사람 있어. 바코드 읽어 줘, 이 상품 뭐야. 무슨 색이야, 얼마짜리야. 불 켜져 있어, 밝은 쪽 찾아 줘. 이게 뭐야, 뭐가 보여. 도착. 목적지 바꿔. 도와줘, 또는 가족 이름과 화상통화. 몇 시야. 말 빠르게, 말 느리게. 다시 말해. 그만. 여정 끝. 하던 일 멈춰. 점지도를 따라 걸을 때는 다음에 무엇, 그만 걷기, 여기 문제 있어, 여기 걸렸어. 가까운 점지도 찾아 줘."
 
     /// 2.29.0 인공지능이 풀어 본 때(거듭 묻지 않으려고)
     private var aiTtae = Date.distantPast
@@ -1975,27 +2249,29 @@ final class MalHagi: ObservableObject {
         motAradeureum(t)
         mureum = .mokjeok
         mureumTtae = Date()
-        if hwagin {
-            // 2.60.0 (261009-I14, 이사장님 승인) 곳 이름 같은 말("남산 산책로 B코스")을 못 찾으면 말벗으로 넘기지 않고
-            //   앞 낱말(남산)로 다시 찾아 가까운 곳을 여쭘
-            let nat = t.split(separator: " ").map(String.init)
-            if MalHagi.jangsoGateunMal(t), nat.count >= 2, let ap = nat.first, ap.count >= 2 {
-                Task {
-                    let r = await Chatgi.jangso(ap)
-                    await MainActor.run {
-                        if let r = r, !r.isEmpty {
-                            self.hubo = Array(r.prefix(3))
-                            self.huboI = 0
-                            self.huboTalgeot = nil
-                            let ap2 = "\(q)\(MalHagi.eul(q)) 찾지 못했습니다. 비슷한 곳으로 "
-                            self.huboAnnae({ m, b in dap(ap2 + (m.hasPrefix("네, ") ? String(m.dropFirst(3)) : m), b) }, hwagin: true)
-                        } else {
-                            dap("죄송합니다. \(q)\(MalHagi.eul(q)) 찾지 못했습니다. 다른 이름으로 말씀해 주십시오.", true)
-                        }
+        // 2.60.0 (261009-I14, 이사장님 승인) 곳 이름 같은 말("남산 산책로 B코스")을 못 찾으면 말벗으로 넘기지 않고
+        //   앞 낱말(남산)로 다시 찾아 가까운 곳을 여쭘
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 가자고 하셨든, 어디로 가실까요의 대답이든 늘 다시 찾음(말벗으로 넘기는 것만 가자는 말이 없을 때).
+        //   다만 묻는 말(어때·알려 줘·어떻게·얼마·가격·예약·몇 시)이면 다시 찾지 않음
+        let nat = t.split(separator: " ").map(String.init)
+        if MalHagi.jangsoGateunMal(t), !MalHagi.mutneunMal(t), nat.count >= 2, let ap = nat.first, ap.count >= 2 {
+            Task {
+                let r = await Chatgi.jangso(ap)
+                await MainActor.run {
+                    if let r = r, !r.isEmpty {
+                        self.hubo = Array(r.prefix(3))
+                        self.huboI = 0
+                        self.huboTalgeot = nil
+                        let ap2 = "\(q)\(MalHagi.eul(q)) 찾지 못했습니다. 비슷한 곳으로 "
+                        self.huboAnnae({ m, b in dap(ap2 + (m.hasPrefix("네, ") ? String(m.dropFirst(3)) : m), b) }, hwagin: true)
+                    } else {
+                        dap("죄송합니다. \(q)\(MalHagi.eul(q)) 찾지 못했습니다. 다른 이름으로 말씀해 주십시오.", true)
                     }
                 }
-                return
             }
+            return
+        }
+        if hwagin {
             // 2.49.0 명령도 곳 이름도 아니면 말벗(서버 인공지능)에게 물어 끝까지 대답함
             malbeotMutgi(t) { [weak self] d in
                 guard let self = self else { return }
@@ -2026,22 +2302,29 @@ final class MalHagi: ObservableObject {
         }
         c?.queryItems = q
         guard let u = c?.url else { kkeut(nil); return }
-        // 2.60.0 (261009-I14, 이사장님 승인 2026-10-09 남산) 대답이 20초 넘게 걸리는 동안 아무 말이 없던 일 —
-        //   3초가 지나도 대답이 없으면 "알아보는 중입니다"를 한 번, 10초가 넘으면 그만두고 다시 여쭘
+        // 2.60.0 (261009-I14, 이사장님 승인 2026-10-09 남산) 대답이 20초 넘게 걸리는 동안 아무 말이 없던 일 — 10초가 넘으면 그만두고 다시 여쭘
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 「알아보는 중입니다」는 말씀을 마치신 때부터 셈(deureum 에서).
+        //   URLRequest 의 기다림은 「소식이 끊긴 동안」만 세므로, 부른 때부터 10초가 넘으면 꼭 그만두는 마감을 따로 둠
         var r = URLRequest(url: u)
         r.timeoutInterval = 10
         r.cachePolicy = .reloadIgnoringLocalCacheData
         malbeotBeon += 1
         let beon = malbeotBeon
         malbeotGidarim = beon
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
-            if self?.malbeotGidarim == beon { SoriEngine.shared.mal("알아보는 중입니다.", .jeongbo) }
+        let magam = DispatchWorkItem { [weak self] in
+            guard let self = self, self.malbeotGidarim == beon else { return }
+            self.malbeotGidarim = 0
+            Girok.shared.namgi("malbeot_mot", ["magam": true])
+            kkeut(nil)
         }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10, execute: magam)
         Task {
             let dr = try? await URLSession.shared.data(for: r)
             let o = dr.flatMap { (try? JSONSerialization.jsonObject(with: $0.0)) as? [String: Any] }
             await MainActor.run {
-                if self.malbeotGidarim == beon { self.malbeotGidarim = 0 }
+                magam.cancel()
+                guard self.malbeotGidarim == beon else { return }   // 마감이 이미 대답했거나, 전화로 거둔 물음
+                self.malbeotGidarim = 0
                 if let o = o, (o["ok"] as? Bool) == true, let d = o["dap"] as? String, !d.isEmpty {
                     self.daehwaGirok.append([t, d])
                     if self.daehwaGirok.count > 6 { self.daehwaGirok.removeFirst() }

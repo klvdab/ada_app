@@ -50,6 +50,9 @@ final class MalSajeon {
             for (k, v) in t {
                 if let l = v as? [String], !l.isEmpty { m[k] = l }
             }
+            // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 「나왔어」 갈래는 사전의 들어 있음 찾기로 받지 않고 naoatdaMal 로만 받음 —
+            //   나스 사전에 들어 있어도 빼서 「라디오 소리가 안 나왔어」가 내림이 되지 않게
+            m["naerim"] = (m["naerim"] ?? []).filter { !MalSajeon.naerimDeoMal.contains($0) && !MalSajeon.ttuk($0).hasSuffix("나왔어") && !MalSajeon.ttuk($0).hasSuffix("나왔습니다") }
             mokrok = m
         }
         if let k = o["kkeunmal"] as? [String], !k.isEmpty { kkeunmal = k }
@@ -182,6 +185,26 @@ final class MalSajeon {
     static let gibonKkeunmal = ["으로 가자", "로 가자", "에 가자", "까지 가자", "으로 가 줘", "로 가 줘", "가자", "가 줘", "갈래",
                                 "가고 싶어", "데려다 줘", "안내해 줘", "가는 길 알려 줘", "가는 길", "찾아 줘", "까지", "으로", "로", "에"]
 
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 내림으로 알아들을 「나왔어」 갈래 — 들어 있음 찾기로 받지 않고 naoatdaMal 로만 받음
+    static let naerimDeoMal = ["밖으로 나왔어", "나왔어", "밖으로 나왔습니다", "나왔습니다"]
+
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 「나왔어」를 내림으로 받는 때 — 말 전체(띄어쓰기 뺌)가 그 말이거나,
+    ///   8자 이하의 짧은 말이 그 말로 끝날 때만. 「안 나왔」「못 나왔」이 들어 있으면 받지 않음(「라디오 소리가 안 나왔어」 등)
+    static func naoatdaMal(_ alts: [String]) -> Bool {
+        let ms = naerimDeoMal.map { ttuk($0) }
+        let ls = alts.map { ttuk($0) }.filter { !$0.isEmpty }
+        if ls.contains(where: { $0.contains("안나왔") || $0.contains("못나왔") }) { return false }
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 짧은 말 끝 맞춤은 「차에서·역에서·밖에·이제·다」처럼 내림을 뜻하는 앞말일 때만(「소리 나왔어」를 내림으로 받지 않게, 안드로이드와 같음)
+        let ap = ["차에서", "역에서", "지하철에서", "버스에서", "밖에", "밖으로", "이제", "다", "방금", "지금"]
+        return ls.contains { t in
+            ms.contains(t) || (t.count <= 8 && ms.contains { m in
+                guard t.hasSuffix(m) else { return false }
+                let a = String(t.dropLast(m.count))
+                return a.isEmpty || ap.contains(a)
+            })
+        }
+    }
+
     static let gibonTteut: [String: [String]] = [
         "ye": ["네", "예", "응", "그래", "좋아", "맞아", "맞습니다", "그렇게 해", "부탁해", "오케이", "해 줘"],
         "ani": ["아니", "아니요", "아니오", "아뇨", "아냐", "싫어", "됐어", "괜찮아", "말고", "다른 곳", "다른 데", "틀렸어"],
@@ -192,7 +215,7 @@ final class MalSajeon {
         "kol_jangaein": ["장애인콜", "장애인 콜택시", "장애인택시", "교통약자", "이동지원센터", "특별교통수단"],
         "kol_nabi": ["나비콜", "나비 콜", "바우처택시", "바우처 택시"],
         "tatda": ["탔어", "탔습니다", "차에 탔어", "승차", "타고 있어"],
-        "naerim": ["내렸어", "내렸습니다", "하차", "차에서 내렸"],
+        "naerim": ["내렸어", "내렸습니다", "하차", "차에서 내렸"],   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 밖으로 나왔어·나왔어는 들어 있음 찾기가 아니라 naoatdaMal 로 받음
         "jigeum_gil": ["지금 가는 길", "경로 알려", "남은 길", "어떻게 가야"],
         "sigan": ["얼마나 걸려", "얼마나 걸리", "얼마나 남았", "언제 도착", "몇 분"],
         "eodi": ["여기가 어디", "지금 어디", "내 위치", "어디쯤"],

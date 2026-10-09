@@ -14,6 +14,7 @@ struct JeomJeom: Codable {
     var acc: Double?
     var h: Double?
     var t: Double?
+    var m: String? = nil      // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 자봉이 탈것을 타고 가는 동안 찍힌 점(지하철·버스·에스컬레이터) — 걸음으로 안내하지 않음
 }
 
 struct JeomPyo: Codable {
@@ -54,7 +55,8 @@ struct JeomGil: Codable, Identifiable {
     static func batgi(_ o: [String: Any]) -> JeomGil? {
         let pts: [JeomJeom] = ((o["pts"] as? [[String: Any]]) ?? []).compactMap { p in
             guard let la = Chatgi.su(p["lat"]), let lo = Chatgi.su(p["lon"]), la != 0, lo != 0 else { return nil }
-            return JeomJeom(lat: la, lon: lo, acc: Chatgi.su(p["acc"]), h: Chatgi.su(p["h"]), t: Chatgi.su(p["t"]))
+            let tm = (p["m"] as? String) ?? ""
+            return JeomJeom(lat: la, lon: lo, acc: Chatgi.su(p["acc"]), h: Chatgi.su(p["h"]), t: Chatgi.su(p["t"]), m: tm.isEmpty ? nil : tm)
         }
         // 2.59.0 (점검 — 자봉 앱과 잇기) 자봉은 위성이 흐린 자리(지하·실내)의 표시를 위치 없이 올림. 예전엔 길눈이 그런 표시를 버려
         // 지하 계단·문 표시가 사라졌음 — 같은 걸음 자리(st), 없으면 가까운 때(t)의 위치 있는 점으로 채움(안드로이드와 같음)
@@ -118,20 +120,30 @@ struct JeomGil: Codable, Identifiable {
         let ix = marks.map(jari)
         func gyedan(_ n: String) -> Bool { n.contains("계단") }
         func geonneol(_ n: String) -> Bool { n.contains("횡단보도") || n.contains("건널목") }
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 에스컬레이터도 계단처럼 짝을 바꿈 — 예전엔 오름·내림만 그 자리에서 뒤집어
+        //   거꾸로 걸을 때 먼저 닿는 원래 내림 자리에서 "에스컬레이터 내림", 원래 타던 자리에서 "내려감"으로 거꾸로 알렸음.
+        //   이제 원래 내림 자리가 타는 곳(방향을 뒤집어 "에스컬레이터 내려감/올라감"), 원래 타던 자리가 "에스컬레이터 내림"
+        func eseu(_ n: String) -> Bool { n.contains("에스컬레이터") }
+        func kkeutIn(_ n: String) -> Bool { eseu(n) ? n.contains("내림") : n.contains("끝") }
         var sseun = Set<Int>()
         for (n, m) in marks.enumerated() {
             let nm = m.ireum
-            let gy = gyedan(nm), gn = geonneol(nm)
-            guard (gy || gn), !nm.contains("끝"), ix[n] >= 0 else { continue }
+            let gy = gyedan(nm), gn = geonneol(nm), es = eseu(nm)
+            guard (gy || gn || es), !kkeutIn(nm), ix[n] >= 0 else { continue }
             var e: Int?
-            for (k, q) in marks.enumerated() where k != n && !sseun.contains(k) && ix[k] >= ix[n] && q.ireum.contains("끝") {
+            for (k, q) in marks.enumerated() where k != n && !sseun.contains(k) && ix[k] >= ix[n] && kkeutIn(q.ireum) {
                 let qn = q.ireum
-                guard gy ? gyedan(qn) : geonneol(qn) else { continue }
+                guard es ? eseu(qn) : (gy ? gyedan(qn) : geonneol(qn)) else { continue }
                 if e == nil || ix[k] < ix[e!] { e = k }
             }
             guard let ek = e else { continue }
             sseun.insert(ek); sseun.insert(n)
-            if gy {
+            if es {
+                out[ek].name = JeomGil.DWIT[nm] ?? nm
+                out[ek].kind = marks[n].kind.map { JeomGil.DWIT[$0] ?? $0 }
+                out[n].name = marks[ek].ireum
+                out[n].kind = marks[ek].kind
+            } else if gy {
                 out[ek].name = JeomGil.DWIT[nm] ?? nm
                 out[ek].cnt = m.cnt
                 out[n].name = "계단 끝"

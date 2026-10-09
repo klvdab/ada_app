@@ -108,6 +108,8 @@ struct KolGirokHang: Codable, Identifiable, Equatable {
     var gyeolgwa: String?       // baecha 배차됨, gidarim 기다리라 함, andoem 안 된다 함
     var tan: Date?              // 차에 탄 때(저절로 알아챔)
     var naerim: Date?           // 2.60.0 탄 뒤 걸어서 내린 때(저절로 알아챔)
+    var gyeolgwaTtae: Date?     // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 배차·기다리라 함을 남긴 때(차 못 박기 3시간을 여기서 셈)
+    var pulrim: Date?           // 2.61.0 차 못 박기를 푼 때(내렸어·여정 끝·하던 일 멈춤·땅속·콜 취소)
     var yeojjum = false         // 끊은 뒤 여쭈었는지
 }
 
@@ -154,7 +156,11 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
         TalgeotGamji.shared.$chujeong
             .receive(on: DispatchQueue.main)
             .sink { [weak self] t in
-                if t == .cha { self?.chaTatda() }
+                // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 지하철 안내 중(땅 위 구간)에는 "차에 타셨습니다"를 하지 않음
+                // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 여정의 탈것이 지하철·버스·기차·고속버스이면(지하철로 바로잡으셨는데 지하철 길을 못 찾은 때 포함) 하지 않음
+                let yt = YeojeongEngine.shared.jigeum?.talgeot
+                let dareunTalgeot = yt == .jihacheol || yt == .beoseu || yt == .gicha || yt == .gosokbeoseu
+                if t == .cha && YeojeongEngine.shared.jigeum?.jiha == nil && !JihacheolEngine.shared.dolgo && !dareunTalgeot { self?.chaTatda() }
                 else if t == .georeum && TalgeotGamji.shared.jigeumUmjigim == "걸음" { self?.chaNaerim() }
             }
             .store(in: &mukkeum)
@@ -289,7 +295,7 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
     func dapBatgi(_ g: String) {
         guard let id = mureumId ?? girok.last?.id else { return }
         mureumId = nil
-        gochigi(id) { $0.gyeolgwa = g }
+        gochigi(id) { $0.gyeolgwa = g; $0.gyeolgwaTtae = Date() }
         Girok.shared.namgi("kol_gyeolgwa", ["g": g])
         switch g {
         case "baecha":
@@ -322,14 +328,21 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
         SoriEngine.shared.mal("알겠습니다.")
     }
 
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 말로 하기가 새로 여쭙거나 묻던 말을 거둘 때 — 「다음 수단에 걸까요」「복지카드 메일」을 말 대답으로는 받지 않음
+    ///   (화면의 다음 수단 단추는 그대로 둠)
+    func mureumBiugi() {
+        daeumTtae = .distantPast
+        meilMureumTtae = .distantPast
+    }
+
     // MARK: 차에 탄 것을 저절로
 
     private func chaTatda() {
-        guard let h = girok.last, h.tan == nil, h.gyeolgwa != "andoem" else { return }
+        guard let h = girok.last, h.tan == nil, h.gyeolgwa != "andoem", h.pulrim == nil else { return }
         let jinan = Date().timeIntervalSince(h.ttae)
         guard jinan > 60, jinan < 3 * 3600 else { return }
         gochigi(h.id) { $0.tan = Date() }
-        if mureumId == h.id { mureumId = nil; gochigi(h.id) { if $0.gyeolgwa == nil { $0.gyeolgwa = "baecha" } } }
+        if mureumId == h.id { mureumId = nil; gochigi(h.id) { if $0.gyeolgwa == nil { $0.gyeolgwa = "baecha"; $0.gyeolgwaTtae = Date() } } }
         let bun = max(1, Int((jinan / 60).rounded()))
         SoriEngine.shared.mal("차에 타셨습니다. \(JeonggiHochul.sigakMal(Calendar.current.component(.hour, from: h.ttae), Calendar.current.component(.minute, from: h.ttae)))에 부르셔서 \(bun)분 기다리셨습니다.", .jeongbo)
         Girok.shared.namgi("kol_tan", ["bun": bun])
@@ -342,18 +355,29 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
         Girok.shared.namgi("kol_naerim", [:])
     }
 
-    /// 2.60.0 (261009, 이사장님 승인 — 남산 가실 때 복지콜을 지하철로 안 일) 콜을 불러 배차되었거나 통화가 이어진 뒤 3시간 안이고
+    /// 2.60.0 (261009, 이사장님 승인 — 남산 가실 때 복지콜을 지하철로 안 일) 콜을 불러 배차된 뒤 3시간 안이고
     ///   아직 걸어서 내리지 않으셨으면 — 탈것을 차로 못 박음(땅속으로 내려간 때만 빼고)
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 통화가 이어진 것만으로는 못 박지 않음(안드로이드와 같음),
+    ///   3시간은 부른 때가 아니라 탄 때(없으면 배차를 남긴 때)부터 셈, 푼 기록(kolPulgi)이 있으면 못 박지 않음
     var chaGojeong: Bool {
-        guard let h = girok.last, h.gyeolgwa != "andoem", h.naerim == nil else { return false }
-        guard Date().timeIntervalSince(h.ttae) < 3 * 3600 else { return false }
-        return h.gyeolgwa == "baecha" || h.gyeolgwa == "gidarim" || h.yeongyeol == true || h.tan != nil
+        guard let h = girok.last, h.gyeolgwa != "andoem", h.naerim == nil, h.pulrim == nil else { return false }
+        guard Date().timeIntervalSince(h.tan ?? h.gyeolgwaTtae ?? h.ttae) < 3 * 3600 else { return false }
+        return h.gyeolgwa == "baecha" || h.gyeolgwa == "gidarim" || h.tan != nil
     }
 
     /// 2.60.0 가장 최근 콜(3시간 안, 안 된다고 하지 않은 것) — "복지콜 기다리는 중"처럼 말씀하시면 다시 걸지 않고 형편을 알려 드림
     var choegeun: KolGirokHang? {
-        guard let h = girok.last, h.gyeolgwa != "andoem", h.naerim == nil, Date().timeIntervalSince(h.ttae) < 3 * 3600 else { return nil }
+        guard let h = girok.last, h.gyeolgwa != "andoem", h.naerim == nil, h.pulrim == nil, Date().timeIntervalSince(h.ttae) < 3 * 3600 else { return nil }
         return h
+    }
+
+    /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 콜 차 못 박기를 풂 — 내렸어, 여정 끝, 하던 일 멈춤, 땅속에서 탈것이 움직임, 「콜 취소」, 차 아닌 탈것으로 바로잡음
+    ///   iyu: naerim, naerim_jadong, kkeut, meomchum, jiha_talgeot, malro, barojapgi
+    func kolPulgi(_ iyu: String) {
+        guard let h = girok.last, h.naerim == nil, h.pulrim == nil,
+              Date().timeIntervalSince(h.tan ?? h.gyeolgwaTtae ?? h.ttae) < 3 * 3600 else { return }
+        gochigi(h.id) { $0.pulrim = Date() }
+        Girok.shared.namgi("kol_pulgi", ["iyu": iyu])
     }
 
     // MARK: 나의 이용 성적표
@@ -398,10 +422,25 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
 
     /// 말로 하기에서 차 부르기·정기 호출·성적표에 해당하면 처리하고 true
     func malCheori(_ alts: [String], _ z: String, _ dap: @escaping (String, Bool) -> Void) -> Bool {
-        let ye = ["응", "네", "예", "그래", "걸어", "보내", "좋아", "부탁"].contains { z.hasPrefix($0) || z.contains($0 + "줘") }
-        let ani = z.hasPrefix("아니") || z.contains("하지마") || z.contains("됐어그만") || z == "아뇨"
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 네·아니오는 말로 하기와 같은 잣대로 말 전체만(「걸어가자」「응급실」을 네로 듣지 않게).
+        //   차 부르기에서만 쓰는 대답 「걸어」「보내 줘」는 말 전체가 그것일 때만
+        let hd = MalHagi.hwaginDap1(z)
+        let ye = hd == .ye || ["걸어", "걸어요", "보내", "보내요", "보내줘", "보내줘요", "보내주세요"].contains(z)
+        let ani = hd == .ani || z.contains("됐어그만")
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 말로 하기가 그 뒤에 다른 것을 여쭈었으면 받지 않음(마지막에 여쭌 물음에만 대답)
+        let majimakMal = MalHagi.shared.majimakMureumTtae
         // 1. 배차되었습니까 — 여쭌 지 10분 안의 말만(그 뒤 다른 말을 대답으로 잘못 듣지 않게. 화면 단추는 그대로)
-        if mureumId != nil, Date().timeIntervalSince(mureumTtae) < 600 {
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 다른 차 부르기 물음과 같게 마지막에 여쭌 물음일 때만, 12자 이하의 짧은 말만
+        //   (10분 동안 「못」이 든 아무 말이나 안 됨으로 받던 일)
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 「배차됐어」「배차 됐어」「배차되었어」는 「됐어」(대화 끝)보다 먼저 배차 대답으로 —
+        //   여쭌 물음이 있거나, 2시간 안에 부르고 아직 결과를 모르는 콜이 있으면
+        if MalHagi.baechaDapMal(alts) {
+            let yeojjumJung = mureumId != nil && Date().timeIntervalSince(mureumTtae) < 600
+            if yeojjumJung || (girok.last.map { $0.gyeolgwa == nil && $0.tan == nil && Date().timeIntervalSince($0.ttae) < 7200 } ?? false) {
+                dap("", false); dapBatgi("baecha"); return true
+            }
+        }
+        if mureumId != nil, Date().timeIntervalSince(mureumTtae) < 600, mureumTtae > majimakMal, z.count <= 12 {
             if z.contains("안돼") || z.contains("안된") || z.contains("안됐") || z.contains("안되") || z.contains("없대") || z.contains("없다") || z.contains("못") {
                 dap("", false); dapBatgi("andoem"); return true
             }
@@ -413,12 +452,12 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
             }
         }
         // 2. 다음 수단에 걸까요
-        if daeum != nil, Date().timeIntervalSince(daeumTtae) < 600, z.count <= 12 {
+        if daeum != nil, Date().timeIntervalSince(daeumTtae) < 600, daeumTtae > majimakMal, z.count <= 12 {
             if ani { dap("", false); daeumGeuman(); return true }
             if ye { dap("", false); daeumGeolgi(); return true }
         }
         // 3. 복지카드 메일로 보낼까요
-        if Date().timeIntervalSince(meilMureumTtae) < 300, z.count <= 12 {
+        if Date().timeIntervalSince(meilMureumTtae) < 300, meilMureumTtae > majimakMal, z.count <= 12 {
             if ani { meilMureumTtae = .distantPast; dap("알겠습니다.", false); return true }
             if ye {
                 meilMureumTtae = .distantPast
