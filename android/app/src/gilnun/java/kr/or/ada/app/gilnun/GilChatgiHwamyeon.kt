@@ -47,9 +47,14 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
     private var geuBakkPyeol = false
     private var geurinGiun = ""
     private var cheot: View? = null
+    // 2.31.0 (261009-A19, 이사장님 승인 2026-10-09 남산, 아이폰 2.60.0과 같음) 편집창에 글자를 넣으시는 동안 화면을 다시 그리지 않음 —
+    //   위아래 줄이 생기거나 사라지지 않고 편집창이 여정 칸으로 바뀌지 않음. 편집을 마치시면 미뤄 둔 다시 그리기를 함
+    private var pyeonjip = false
+    private var miruneun = false
 
     override fun chaeugi(t: GilnunActivity) {
         cheot = null
+        pyeonjip = false
         geurinGiun = giun()
         val jm = JeomEngine
         val y = YeojeongEngine.jigeum
@@ -118,15 +123,29 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
             else -> {
                 val e = t.ipryeok("어디로 가실까요 — 이름이나 주소를 넣고 엔터", false)
                 e.setText(mal)
+                // 2.31.0 여러 줄 — 긴 이름을 넣어도 글자가 옆으로 밀려 흐르지 않고 아래로 줄을 바꿈(엔터는 그대로 찾기)
+                e.setSingleLine(false)
+                e.setHorizontallyScrolling(false)
+                e.maxLines = 4
+                e.setRawInputType(android.text.InputType.TYPE_CLASS_TEXT)
                 e.imeOptions = EditorInfo.IME_ACTION_SEARCH
-                e.setSingleLine(true)
                 e.doAfterTextChanged { mal = it?.toString() ?: "" }
+                e.setOnFocusChangeListener { _, f ->
+                    pyeonjip = f
+                    if (f) MalHagi.pyeonjipSijak()
+                    else {
+                        MalHagi.pyeonjipKkeut()
+                        if (miruneun) { miruneun = false; if (t.wiHwamyeon === this && giun() != geurinGiun) t.dasiGeurigi() }
+                    }
+                }
                 e.setOnEditorActionListener { v, actionId, ev ->
                     val enter = actionId == EditorInfo.IME_ACTION_SEARCH || actionId == EditorInfo.IME_ACTION_DONE ||
                         (ev != null && ev.keyCode == KeyEvent.KEYCODE_ENTER && ev.action == KeyEvent.ACTION_DOWN)
                     if (!enter) return@setOnEditorActionListener false
-                    val q = v.text.toString().trim()
+                    val q = v.text.toString().replace("\n", " ").trim()
                     if (q.isNotEmpty()) {
+                        pyeonjip = false
+                        MalHagi.pyeonjipKkeut()
                         try {
                             (t.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)?.hideSoftInputFromWindow(v.windowToken, 0)
                         } catch (x: Exception) {}
@@ -169,7 +188,10 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
         }
 
         // 차례가 바뀔 때만 다시 그림(톡백 커서가 흔들리지 않게)
-        val dasi: () -> Unit = { if (t.wiHwamyeon === this && giun() != geurinGiun) t.dasiGeurigi() }
+        val dasi: () -> Unit = {
+            if (pyeonjip) miruneun = true   // 2.31.0 편집 중에는 미룸
+            else if (t.wiHwamyeon === this && giun() != geurinGiun) t.dasiGeurigi()
+        }
         YeojeongEngine.byeonhwa = dasi
         JeomEngine.byeonhwa = dasi
 

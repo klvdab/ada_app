@@ -6,6 +6,7 @@ package kr.or.ada.app.gilnun
 //   가속도: 걸음 없이 흔들리며 움직임이 20초 이어지면 탈것
 //   기압계: 90초 안에 3.5미터 넘게 내려가면 땅속(계단·에스컬레이터)
 //   탈것이면 — 땅속이거나 위성이 30초 넘게 끊겼거나 역 200미터 안에서 탔으면 지하철, 버스 정류장 25미터 안에서 두 번 넘게 섰다 떠나면 버스, 아니면 차
+//   2.31.0 역 200미터는 위성이 좋지 않을 때만, 위성 끊김은 땅 위에서 차로 알아채기 전에만, 콜 배차 뒤에는 차로 못 박음
 
 import android.content.Context
 import android.hardware.Sensor
@@ -52,6 +53,9 @@ object TalgeotGamji : SensorEventListener {
     // 2.30.0 (261009-A18, 이사장님 승인) 마지막으로 걸음이 늘어난 때 — 걸어서 내려간 때만 땅속으로 봄
     private var majimakGeoreumTtae = 0L
     private var jeonGeoreumSu = -1
+    /** 2.31.0 마지막으로 탈것이 움직인 때 — 새 목적지를 정할 때 묵은 판단을 지울지 가림 */
+    var majimakTalgeot = 0L
+        private set
 
     val wiseongJoeum: Boolean
         get() {
@@ -118,6 +122,7 @@ object TalgeotGamji : SensorEventListener {
             jihaHwagin()
         } else if (georeum20 <= 3 && (ppareum || (heundeulim && !neurim))) {
             jigeumUmjigim = "탈것"
+            majimakTalgeot = now
             georeumSijak = 0L
             if (meomchumSijak > 0) {
                 val t = (now - meomchumSijak) / 1000.0
@@ -150,13 +155,32 @@ object TalgeotGamji : SensorEventListener {
         JihacheolEngine.gakkaunYeokGeori(w.lat, w.lon) { d -> yeokGeuncheo = (d ?: 9999.0) <= 200 }
     }
 
+    // 2.31.0 (261009-A19, 이사장님 승인 2026-10-09 남산 — 약수역 위 댁 앞에서 복지콜을 탔는데 "지하철을 타신 것 같습니다", 아이폰과 같은 뜻)
+    //   ① 콜을 불러 배차된 뒤(3시간 안, 아직 내리지 않음)에는 땅속으로 내려가지 않는 한 차로 못 박음
+    //   ② 역 200미터 안에서 탔다는 것만으로는 지하철로 보지 않음 — 위성이 좋지 않을 때만 셈
+    //   ③ 땅 위에서 차로 알아챈 뒤에는 터널·가방 속처럼 위성만 끊겨도 지하철로 바꾸지 않음(땅속으로 내려갔을 때만)
     private fun chongPandan(kkadak: String) {
+        val kolCha = ChaBureugi.chaGojeong && !jiha
+        val yeok = yeokGeuncheo && !wiseongJoeum
+        val wiseongMan = wiseongEopseum && chujeong != Talgeot.CHA && chujeong != Talgeot.BEOSEU
         val t = when {
-            jiha || wiseongEopseum || yeokGeuncheo -> Talgeot.JIHACHEOL
+            kolCha -> Talgeot.CHA
+            jiha || wiseongMan || yeok -> Talgeot.JIHACHEOL
             jeongryujangSeom >= 2 || chujeong == Talgeot.BEOSEU -> Talgeot.BEOSEU
             else -> Talgeot.CHA
         }
-        if (t != chujeong) bakkugi(t, kkadak + (if (jiha) ", 땅속" else "") + (if (yeokGeuncheo) ", 역 근처에서 탐" else ""))
+        if (t != chujeong) bakkugi(t, kkadak + (if (jiha) ", 땅속" else "") + (if (yeok) ", 역 근처에서 탐" else "") + (if (kolCha) ", 콜 배차" else ""))
+    }
+
+    /** 2.31.0 새 목적지를 정할 때 — 30초 안에 탈것이 움직이지 않았으면 묵은 탈것 판단(지하철 등)을 지움
+     *  (2026-10-09 남산: 25분 전 잘못 본 "지하철"이 남아 길 위에서 목적지를 정할 때마다 "열차가 움직이는 것 같습니다") */
+    fun saeYeojeong() {
+        val umjigimNa = majimakTalgeot > 0 && System.currentTimeMillis() - majimakTalgeot < 30_000
+        if (umjigimNa || jiha || chujeong == Talgeot.GEOREUM) return
+        if (chujeong == Talgeot.CHA && ChaBureugi.chaGojeong) return   // 콜 차 안에서 신호 대기 중일 수 있음
+        chaSijak = 0L; meomchumSijak = 0L
+        yeokGeuncheo = false; jeongryujangSeom = 0
+        bakkugi(Talgeot.GEOREUM, "새 목적지 — 묵은 판단 지움")
     }
 
     private fun bakkugi(t: Talgeot, kkadak: String) {

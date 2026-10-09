@@ -115,16 +115,17 @@ class KolGirokHang(
     val id: String, val ttae: Long, val ireum: String, val jeonhwa: String, val sido: String, val sigungu: String, val jeonggi: Boolean,
     var gyeolgwa: String? = null,   // baecha 배차됨, gidarim 기다리라 함, andoem 안 된다 함
     var tan: Long = 0L,             // 차에 탄 때(저절로 알아챔)
-    var yeojjum: Boolean = false    // 돌아오신 뒤 여쭈었는지
+    var yeojjum: Boolean = false,   // 돌아오신 뒤 여쭈었는지
+    var naerim: Long = 0L           // 2.31.0 탄 뒤 걸어서 내린 때(저절로 알아챔)
 ) {
     fun json(): JSONObject = JSONObject().put("id", id).put("ttae", ttae).put("ireum", ireum).put("jeonhwa", jeonhwa)
         .put("sido", sido).put("sigungu", sigungu).put("jeonggi", jeonggi).put("gyeolgwa", gyeolgwa ?: "")
-        .put("tan", tan).put("yeojjum", yeojjum)
+        .put("tan", tan).put("yeojjum", yeojjum).put("naerim", naerim)
 
     companion object {
         fun bat(o: JSONObject): KolGirokHang = KolGirokHang(o.optString("id"), o.optLong("ttae"), o.optString("ireum"), o.optString("jeonhwa"),
             o.optString("sido"), o.optString("sigungu"), o.optBoolean("jeonggi"),
-            o.optString("gyeolgwa").ifEmpty { null }, o.optLong("tan"), o.optBoolean("yeojjum"))
+            o.optString("gyeolgwa").ifEmpty { null }, o.optLong("tan"), o.optBoolean("yeojjum"), o.optLong("naerim"))
     }
 }
 
@@ -180,6 +181,7 @@ internal object ChaBureugi {
             override fun run() {
                 val cha = TalgeotGamji.chujeong == Talgeot.CHA || TalgeotGamji.chujeong == Talgeot.BEOSEU
                 if (cha && !jinanCha) chaTatda()
+                if (!cha && TalgeotGamji.chujeong == Talgeot.GEOREUM && TalgeotGamji.jigeumUmjigim == "걸음") chaNaerim()
                 jinanCha = cha
                 main.postDelayed(this, 10_000)
             }
@@ -415,6 +417,32 @@ internal object ChaBureugi {
         Girok.namgi("kol_tan", mapOf("bun" to bun))
         byeonhwa?.invoke()
     }
+
+    /** 2.31.0 탄 뒤 걸으심 — 내리신 것으로 남김(차 못 박기를 풂) */
+    private fun chaNaerim() {
+        val h = girok.lastOrNull() ?: return
+        if (h.tan == 0L || h.naerim != 0L) return
+        gochigi(h.id) { it.naerim = System.currentTimeMillis() }
+        Girok.namgi("kol_naerim", mapOf())
+    }
+
+    /** 2.31.0 (261009, 이사장님 승인 — 남산 가실 때 복지콜을 지하철로 안 일, 아이폰과 같은 뜻) 콜을 불러 배차되었거나 탄 뒤 3시간 안이고
+     *  아직 걸어서 내리지 않으셨으면 — 탈것을 차로 못 박음(땅속으로 내려간 때만 빼고) */
+    val chaGojeong: Boolean
+        get() {
+            val h = girok.lastOrNull() ?: return false
+            if (h.gyeolgwa == "andoem" || h.naerim != 0L) return false
+            if (System.currentTimeMillis() - h.ttae > 3 * 3_600_000L) return false
+            return h.gyeolgwa == "baecha" || h.gyeolgwa == "gidarim" || h.tan != 0L
+        }
+
+    /** 2.31.0 가장 최근 콜(3시간 안, 안 된다고 하지 않은 것) — "복지콜 기다리는 중"처럼 말씀하시면 다시 걸지 않고 형편을 알려 드림 */
+    val choegeun: KolGirokHang?
+        get() {
+            val h = girok.lastOrNull() ?: return null
+            if (h.gyeolgwa == "andoem" || h.naerim != 0L || System.currentTimeMillis() - h.ttae > 3 * 3_600_000L) return null
+            return h
+        }
 
     // MARK: 나의 이용 성적표
 

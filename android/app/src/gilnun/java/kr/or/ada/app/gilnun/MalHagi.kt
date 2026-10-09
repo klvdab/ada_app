@@ -98,6 +98,16 @@ object MalHagi {
     /** 2.27.0 호칭을 여쭌 뒤(아이폰 mureum = .hoching) */
     private var hochingMutneun = false
     private var hochingTtae = 0L
+    // 2.31.0 (261009-A19, 이사장님 승인 2026-10-09 남산, 아이폰 2.60.0과 같음)
+    /** 「여기로 안내할까요?」「목적지를 ○○로 변경하실 건가요?」라고 여쭌 곳(곳, 탈것) */
+    private var mokjeokDaegi: Pair<Jangso, Talgeot?>? = null
+    private var mokjeokDaegiTtae = 0L
+    /** 「○○에 전화할까요?」라고 여쭌 콜 */
+    private var kolDaegi: NnKol.Kol? = null
+    private var kolDaegiTtae = 0L
+    /** 말벗 대답을 기다리는 차례 번호(0이면 기다리지 않음) */
+    private var malbeotBeon = 0
+    private var malbeotGidarim = 0
     private val ho: String get() = Seoljeong.ho
 
     private fun bakkum(s: MalSangtae) {
@@ -142,6 +152,24 @@ object MalHagi {
             gakkaunYeokGaengsin()   // 2.27.0 아이폰 2.12.5 — 가까운 역 이름을 받아쓰기에 미리 알려 줌
             yeolgi(true)
         }
+    }
+
+    // 2.31.0 (261009-A19, 이사장님 승인 2026-10-09 남산, 아이폰 2.60.0과 같음) 길 찾기 편집창에 글자를 넣으시는 중 — 마이크 듣기를 쉼
+    //   (말을 잘못 알아들어 목적지가 정해졌다 풀렸다 하며 편집창이 사라졌다 나타나 커서가 옆으로 밀리던 일). 5분이 지나면 저절로 풂
+    private var pyeonjipTtae = 0L
+    val pyeonjipJung: Boolean get() = pyeonjipTtae > 0 && System.currentTimeMillis() - pyeonjipTtae < 300_000
+
+    fun pyeonjipSijak() {
+        if (pyeonjipJung) return
+        pyeonjipTtae = System.currentTimeMillis()
+        if (sangtae == MalSangtae.DEUTNEUN) chwiso()
+        Girok.namgi("pyeonjip", mapOf("on" to true))
+    }
+
+    fun pyeonjipKkeut() {
+        if (pyeonjipTtae == 0L) return
+        pyeonjipTtae = 0L
+        Girok.namgi("pyeonjip", mapOf("on" to false))
     }
 
     /** 화면이 가려지면 마이크를 닫음(안드로이드는 뒤에서 마이크를 못 씀) */
@@ -316,7 +344,7 @@ object MalHagi {
         // 2.17.0 묻는 말이든 아니든 대답 뒤에는 하이 길눈 없이 10초 이어 들음(딩동). 말씀이 없으면 조용히 닫음
         if (!ieoGeumman && ieoSu < 20 && GinGeup.sangtae == GinGeupSangtae.EOPSEUM) {
             malHuHagi(t) {
-                if (sd == sedae && sangtae == MalSangtae.SWIM) {
+                if (sd == sedae && sangtae == MalSangtae.SWIM && !pyeonjipJung) {   // 2.31.0 편집 중에는 저절로 이어 듣지 않음
                     ieoSu += 1
                     jadongYeolim += 1
                     yeolgi(true)
@@ -380,6 +408,24 @@ object MalHagi {
             }
             return
         }
+        // 1-1-2. 2.31.0 (261009-A19, 이사장님 승인 2026-10-09, 아이폰 2.44.0 1-3과 같음) 탈것 바로잡는 말 — "택시야", "택시 탔어", "기차야", "케이티엑스", "고속버스야"
+        //      어떤 상태(지하철로 잘못 알고 있을 때 포함)에서도 받음. 곳 찾기와 섞이지 않게 가자·가줘·까지·으로가 든 말은 뺌
+        if (YeojeongEngine.jigeum != null && z.length <= 14 && !z.contains("가자") && !z.contains("가줘") && !z.contains("까지") && !z.contains("으로")) {
+            val lz = z.lowercase()
+            val tk = when {
+                lz.contains("ktx") || z.contains("케이티엑스") || lz.contains("srt") || z.contains("에스알티") ||
+                    listOf("기차탔", "기차야", "기차예요", "기차에요", "기차입니다", "기차타고").any { z.contains(it) } -> Talgeot.GICHA
+                listOf("고속버스탔", "고속버스야", "고속버스예요", "고속버스에요", "고속버스입니다", "고속버스타고").any { z.contains(it) } -> Talgeot.GOSOKBEOSEU
+                listOf("택시탔", "택시야", "택시예요", "택시에요", "택시입니다", "택시타고").any { z.contains(it) } -> Talgeot.CHA
+                else -> null
+            }
+            if (tk != null) {
+                mureumChoGihwa()
+                dap("", false)
+                AnnaeEngine.talgeotBarojapgi(tk)
+                return
+            }
+        }
         // 1-2. 2.6.0 긴급통화 중 그만·끊어(아이폰 2번과 같음)
         if (GinGeup.sangtae != GinGeupSangtae.EOPSEUM && (s.itda(alts, "geuman") || z.contains("끊어"))) {
             dap("", false)
@@ -395,6 +441,32 @@ object MalHagi {
                 val ani = s.tteut(alts, "ani") != null
                 if (ye && !ani && z.length <= 10) { YeojeongMal.gagi(dn, chulguDaeanTg, dap, "네, "); return }
                 if (ani && z.length <= 10) { dap("알겠습니다. ${ho}, 어디로 가실까요?", true); return }
+            }
+        }
+        // 1-2-3. 2.31.0 「여기로 안내할까요?」「목적지를 변경하실 건가요?」의 대답 — 네일 때만 그곳으로(아이폰 case .hubo 와 같음)
+        val md = mokjeokDaegi
+        if (md != null) {
+            mokjeokDaegi = null
+            if (now - mokjeokDaegiTtae < 120000) {
+                val ye = s.tteut(alts, "ye") != null
+                val ani = s.tteut(alts, "ani") != null
+                if (ye && !ani && z.length <= 10) { YeojeongMal.gagi(md.first, md.second, dap, "${md.first.ireum}${roTo(md.first.ireum)} 안내합니다. "); return }
+                if (ani && z.length <= 10) { dap("알겠습니다. 다른 곳을 말씀해 주십시오.", true); return }
+            }
+        }
+        // 1-2-4. 2.31.0 「○○에 전화할까요?」의 대답 — 네일 때만 겁니다
+        val kd = kolDaegi
+        if (kd != null) {
+            kolDaegi = null
+            if (now - kolDaegiTtae < 120000) {
+                val ye = s.tteut(alts, "ye") != null
+                val ani = s.tteut(alts, "ani") != null
+                if (ye && !ani && z.length <= 10) {
+                    Girok.namgi("malhagi_kol_georeum", mapOf("ireum" to kd.ireum))
+                    ChaBureugi.geolgi(kd, false, dap)
+                    return
+                }
+                if (ani && z.length <= 10) { dap("알겠습니다. 걸지 않겠습니다.", false); return }
             }
         }
         // 1-3. 2.27.0 호칭을 여쭌 말의 대답(아이폰 case .hoching 과 같음)
@@ -503,6 +575,18 @@ object MalHagi {
         if (s.itda(alts, "doum") || z.contains("화상통화") || z.contains("영상통화") || z.contains("긴급통화")) {
             if (gingeupJikjeop(z, dap)) return
             gingeup(t, dap)
+            return
+        }
+
+        // 5-1. 2.31.0 (이사장님 승인 2026-10-09 남산, 아이폰 2.60.0과 같음) 한 마디 대답("그럼", "그래", "응" 등)은 곳 이름으로 찾지 않음
+        if (geunyangMal(z)) {
+            dap("네, 말씀하십시오. 가실 곳이나 하실 일을 말씀해 주십시오.", true)
+            return
+        }
+        // 5-2. 2.31.0 "변경", "목적지 변경", "목적지 바꿔" — 곳 이름이 아니라 목적지를 바꾸자는 명령
+        if (byeongyeongMal(z)) {
+            val yy = YeojeongEngine.jigeum
+            dap(if (yy != null) "지금 ${yy.mokjeok.ireum}${roTo(yy.mokjeok.ireum)} 가시는 중입니다. 어디로 바꿀까요?" else "$ho, 어디로 가실까요?", true)
             return
         }
 
@@ -740,9 +824,9 @@ object MalHagi {
                 dap(if (KolJiyeok.mok(o).isEmpty()) KolJiyeok.mal(o) else "그 콜은 이 지역 목록에 없습니다. 콜 번호 알려 줘라고 말씀하시면 이 지역 번호를 읽어 드립니다.", false)
                 return true
             }
-            Girok.namgi("malhagi_kol_georeum", mapOf("ireum" to k.ireum))
-            // 2.29.0 차 부르기로 — 상담원께 말할 것을 들려 드린 뒤 걸고, 이용 기록을 남김(돌아오시면 배차되었습니까)
-            ChaBureugi.geolgi(k, false, dap)
+            // 2.31.0 (이사장님 승인 2026-10-09 남산) "복지 콜 기다리는 중"을 부르라는 말로 알아듣고 한 번 더 걸던 일 —
+            //   부르는 말(전화·불러·걸어·연결·호출)이 있을 때만 여쭙고, 없으면 형편만 알려 드림. 걸기 전에는 늘 한 번 여쭘(아이폰과 같음)
+            kolHwaginMutgi(k, kolBureumMal(alts), dap)
             return true
         }
         // 2.27.0 호칭 바꾸기(아이폰과 같음) — 아직 없다던 말을 걷어냄
@@ -769,7 +853,12 @@ object MalHagi {
     private fun mokjeokChatgi(t: String, q: String, qB: String?, gagiMal: Boolean, dap: (String, Boolean) -> Unit) {
         // 2.7.0 묶음 b1 — 즐겨찾기 이름이 들리면 그곳으로, 탈것을 말씀하셨으면 그 탈것으로(아이폰 gagi)
         val tg = YeojeongMal.talgeotChatgi(MalSajeon.ttuk(t))
-        YeojeongMal.jeulgyeoChatgi(MalSajeon.ttuk(q))?.let { j -> YeojeongMal.gagi(j, tg, dap, "네, "); return }
+        YeojeongMal.jeulgyeoChatgi(MalSajeon.ttuk(q))?.let { j ->
+            // 2.31.0 가시는 곳이 있으면(또는 가자는 말이 없으면) 바꿀지 먼저 여쭘
+            if (!(gagiMal || tg != null) || YeojeongEngine.jigeum != null) mokjeokMutgi(j, tg, jariMalMandeulgi(j), dap)
+            else YeojeongMal.gagi(j, tg, dap, "네, ")
+            return
+        }
         val w = Wichi.jigeum
         if (w == null) {
             dap("아직 위치를 잡는 중이라 가까운 점지도를 찾지 못했습니다. 잠시 뒤 다시 말씀해 주십시오.", false)
@@ -786,7 +875,8 @@ object MalHagi {
                 hubo = ireumMat
                 huboI = 0
                 Girok.namgi("malhagi_jeom", mapOf("dan" to "ireum", "su" to ireumMat.size))
-                huboMutgi(dap, "네, ")
+                val yy0 = YeojeongEngine.jigeum   // 2.31.0 가시는 곳이 있으면 바꾸는 것임을 분명히
+                huboMutgi(dap, "네, " + (if (yy0 != null) "지금은 ${yy0.mokjeok.ireum}${roTo(yy0.mokjeok.ireum)} 가시는 중입니다. 목적지를 바꿔 " else ""))
                 return@gakkaun
             }
             // 2.27.0 (아이폰 2.12.5) "제기역 2번 출구", "제기 전철역" → 지하철역 목록의 바른 이름(제기동역)으로 바로잡고 찾음
@@ -862,13 +952,19 @@ object MalHagi {
             else "네, ${j.first}${eun(j.first)} ${bangMal(w2, j.second, j.third)}${Jeomjido.geoMal(d)}에 있습니다. "
         val jm = jariMatchugi(r, j.second, j.third, w2)
         Girok.namgi("malhagi_jeom", mapOf("dan" to "jangso", "su" to jm.size))
+        val yy = YeojeongEngine.jigeum
         if (jm.isNotEmpty() && (tg == null || tg == Talgeot.GEOREUM)) {
             hubo = jm
             huboI = 0
-            huboMutgi(dap, jariMal)
+            // 2.31.0 이미 가시는 곳이 있으면 바꾸는 것임을 분명히 말씀드림
+            huboMutgi(dap, jariMal + (if (yy != null) "지금은 ${yy.mokjeok.ireum}${roTo(yy.mokjeok.ireum)} 가시는 중입니다. 목적지를 바꿔 " else ""))
         } else {
             // 2.7.0 묶음 b1 — 점지도가 없으면 위성 걷는 안내·차·지하철·버스로(아이폰 gagi — 2킬로미터가 넘으면 어떻게 가실지 여쭘)
-            YeojeongMal.gagi(Jangso(j.first, jusoB, j.second, j.third), tg, dap, jariMal)
+            // 2.31.0 (이사장님 승인 2026-10-09) 목적지가 정해진 뒤에는 어떤 말이 들려도 "목적지를 변경하실 건가요?"라고 먼저 여쭘.
+            //   목적지가 없을 때도 "가자"라는 말 없이 이름만 들렸으면 한 번 여쭘(아이폰과 같음)
+            val jj = Jangso(j.first, jusoB, j.second, j.third)
+            if (!(gagiMal || tg != null) || yy != null) mokjeokMutgi(jj, tg, jariMal, dap)
+            else YeojeongMal.gagi(jj, tg, dap, jariMal)
         }
     }
 
@@ -1027,6 +1123,8 @@ object MalHagi {
 
     private fun mureumChoGihwa() {
         chulguDaean = null
+        mokjeokDaegi = null
+        kolDaegi = null
         mutneunJung = false
         hochingMutneun = false
         hubo = emptyList()
@@ -1092,6 +1190,17 @@ object MalHagi {
         if (gagiMal) {
             dap("죄송합니다. $q${eul(q)} 찾지 못했습니다. 다른 이름으로 말씀해 주십시오.", true)
         } else {
+            // 2.31.0 (이사장님 승인) 곳 이름 같은 말("남산 산책로 B코스")을 못 찾으면 말벗으로 넘기지 않고 앞 낱말(남산)로 다시 찾아 여쭘(아이폰과 같음)
+            val nat = t.split(" ").filter { it.isNotBlank() }
+            val ap = nat.firstOrNull() ?: ""
+            if (jangsoGateunMal(t) && nat.size >= 2 && ap.length >= 2) {
+                Chatgi.jangso(ap) { rs ->
+                    val h = rs?.firstOrNull()
+                    if (h != null) mokjeokMutgi(h, null, "$q${eul(q)} 찾지 못했습니다. 비슷한 곳으로 " + jariMalMandeulgi(h).removePrefix("네, "), dap)
+                    else dap("죄송합니다. $q${eul(q)} 찾지 못했습니다. 다른 이름으로 말씀해 주십시오.", true)
+                }
+                return
+            }
             // 2.17.0 명령도 곳 이름도 아니면 말벗(서버 인공지능)에게 물어 끝까지 대답함
             malbeotMutgi(t) { d ->
                 if (d != null) dap(d, false)
@@ -1115,7 +1224,14 @@ object MalHagi {
         val ij = org.json.JSONArray()
         for (p in daehwaGirok.takeLast(4)) ij.put(org.json.JSONArray().put(p.first).put(p.second))
         q["ijeon"] = ij.toString()
-        Tongsin.json("malbeot.php", q, 40000) { o ->
+        // 2.31.0 (이사장님 승인 2026-10-09 남산) 대답이 20초 넘게 걸리는 동안 아무 말이 없던 일 —
+        //   3초가 지나도 대답이 없으면 "알아보는 중입니다"를 한 번, 10초가 넘으면 그만두고 다시 여쭘(아이폰과 같음)
+        malbeotBeon += 1
+        val beon = malbeotBeon
+        malbeotGidarim = beon
+        main.postDelayed({ if (malbeotGidarim == beon) Sori.mal("알아보는 중입니다.", MalGeup.JEONGBO) }, 3000)
+        Tongsin.json("malbeot.php", q, 10000) { o ->
+            if (malbeotGidarim == beon) malbeotGidarim = 0
             val d = o?.optString("dap", "") ?: ""
             if (o != null && o.optBoolean("ok", false) && d.isNotEmpty()) {
                 daehwaGirok.add(Pair(t, d))
@@ -1153,6 +1269,75 @@ object MalHagi {
         val j = c % 28
         return (j != 0) to (j == 8)
     }
+    /** 으로·로 */
+    fun roTo(w: String): String { val b = batchim(w); return if (b.first && !b.second) "으로" else "로" }
+
+    /** 2.31.0 곳 이름으로 찾지 않을 한 마디(맞장구·망설임·대답) — 아이폰 MalHagi.geunyangMalDeul 과 같음 */
+    private val GEUNYANG = setOf("그럼", "그럼요", "그래", "그래요", "그래그래", "그래서", "그러면", "그러니까", "그렇지", "그렇죠", "그렇구나",
+        "응", "응응", "어", "어어", "음", "음음", "으음", "글쎄", "글쎄요",
+        "좋아", "좋아요", "알았어", "알았어요", "알겠어", "알겠어요", "알겠습니다", "됐어", "됐어요", "맞아", "맞아요", "오케이", "잠깐", "잠깐만",
+        "뭐", "뭐야", "왜", "저기", "저기요", "있잖아", "여보세요", "나는그래", "아", "아아", "에", "야", "자", "참", "글쎄다", "그래서요")
+    fun geunyangMal(z: String) = GEUNYANG.contains(z)
+
+    /** 2.31.0 목적지를 바꾸자는 말("변경", "목적지 변경", "목적지 바꿔") */
+    fun byeongyeongMal(z: String): Boolean {
+        if (z in setOf("변경", "변경해", "변경해줘", "바꿔", "바꿔줘", "바꾸자", "목적지", "목적지변경", "목적지바꿔", "목적지바꿔줘", "목적지바꾸자", "목적지변경해줘",
+                "목적지를변경", "목적지를바꿔", "목적지를바꿔줘", "목적지를변경해줘", "가는곳바꿔", "가는곳변경", "다른곳으로바꿔", "다른데로바꿔")) return true
+        return z.length <= 10 && (z.startsWith("목적지") || z.startsWith("가는곳")) && (z.contains("변경") || z.contains("바꿔") || z.contains("바꾸"))
+    }
+
+    /** 2.31.0 곳 이름 같은 말인가 */
+    fun jangsoGateunMal(t: String) = listOf("코스", "입구", "산책로", "공원", "출구", "정류장", "광장", "시장", "병원", "센터", "둘레길", "주차장", "매표소").any { t.contains(it) }
+
+    /** 2.31.0 부르는 말인가 — 전화·불러·걸어·연결·호출·콜 해 */
+    fun kolBureumMal(alts: List<String>) = alts.any { a ->
+        val z = MalSajeon.ttuk(a)
+        listOf("전화", "불러", "부르", "걸어", "걸자", "걸까", "연결", "호출", "콜해", "콜좀", "콜불", "잡아", "요청").any { z.contains(it) }
+    }
+
+    /** 2.31.0 "네, ○○는 3시 방향 1.2킬로미터에 있습니다. " */
+    private fun jariMalMandeulgi(j: Jangso): String {
+        val w = Wichi.jigeum ?: return "네, ${j.ireum}. "
+        val d = Wichi.geori(w.lat, w.lon, j.lat, j.lon)
+        return if (d < 30) "네, ${j.ireum}${eun(j.ireum)} 지금 계신 곳 바로 가까이에 있습니다. "
+            else "네, ${j.ireum}${eun(j.ireum)} ${bangMal(w, j.lat, j.lon)}${Jeomjido.geoMal(d)}에 있습니다. "
+    }
+
+    /** 2.31.0 찾은 곳으로 가기 전 한 번 여쭘 — 가시는 곳이 있으면 "목적지를 ○○로 변경하실 건가요?" */
+    private fun mokjeokMutgi(j: Jangso, tg: Talgeot?, apMal: String, dap: (String, Boolean) -> Unit) {
+        mokjeokDaegi = Pair(j, tg)
+        mokjeokDaegiTtae = System.currentTimeMillis()
+        val yy = YeojeongEngine.jigeum
+        if (yy != null && MalSajeon.ttuk(yy.mokjeok.ireum) != MalSajeon.ttuk(j.ireum)) {
+            dap(apMal + "지금은 ${yy.mokjeok.ireum}${roTo(yy.mokjeok.ireum)} 가시는 중입니다. 목적지를 ${j.ireum}${roTo(j.ireum)} 변경하실 건가요?", true)
+        } else {
+            dap(apMal + "여기로 안내할까요?", true)
+        }
+    }
+
+    /** 2.31.0 콜에 걸기 전 — 3시간 안에 이미 부르셨으면 형편을 알려 드리고, 걸 때는 늘 한 번 여쭘(아이폰 kolHwaginMutgi 와 같음) */
+    private fun kolHwaginMutgi(k: NnKol.Kol, bureum: Boolean, dap: (String, Boolean) -> Unit) {
+        var hp = ""
+        val h = ChaBureugi.choegeun
+        if (h != null) {
+            val c = java.util.Calendar.getInstance().apply { timeInMillis = h.ttae }
+            hp = "${JeonggiHochul.sigakMal(c.get(java.util.Calendar.HOUR_OF_DAY), c.get(java.util.Calendar.MINUTE))}에 ${h.ireum}에 전화하셨습니다. "
+            hp += when {
+                h.tan != 0L -> "지금 차에 타고 계신 것으로 압니다. "
+                h.gyeolgwa == "baecha" -> "배차되어 차를 기다리시는 중입니다. "
+                h.gyeolgwa == "gidarim" -> "기다리라고 해서 기다리시는 중입니다. "
+                else -> ""
+            }
+        }
+        if (!bureum && hp.isNotEmpty()) {
+            dap(hp + "다시 거시려면 ${k.ireum}에 전화해 줘라고 말씀해 주십시오.", false)
+            return
+        }
+        kolDaegi = k
+        kolDaegiTtae = System.currentTimeMillis()
+        dap(hp + (if (hp.isEmpty()) "" else "그래도 다시 ") + "${k.ireum}에 전화할까요?", true)
+    }
+
     fun eul(w: String) = if (batchim(w).first) "을" else "를"
     fun eun(w: String) = if (batchim(w).first) "은" else "는"
     /** 2.27.0 호칭 뒤 「이라고·라고」(아이폰 MalHagi.irago) */
@@ -1163,7 +1348,7 @@ object MalHagi {
     private fun kkajiTo(w: String) = if (w.endsWith("까지")) "" else "까지"
 
     /** 말로 하는 도움말 — 안드로이드 길눈에서 되는 말만 */
-    const val DOUMAL_MAL = "이렇게 말씀하시면 됩니다. 지금 어디야. 약수역 가자. 가까운 점지도 찾아 줘. 점지도를 따라 걸을 때는 다음에 무엇, 다음 갈림길, 어디쯤이야, 그만 걷기, 도착하면 되돌아가자. 신호기 울려 줘. 신호 알려 줘. 신호기 찾아 줘. 도와줘, 또는 가족 이름과 화상통화. 날씨 어때. 몇 시야. 말 빠르게, 말 느리게. 말소리 꺼. 다시 말해. 그만. 하던 일 멈춰. 걸어서 가자, 차로 가자, 지하철로 가자, 버스로 가자. 차에 탔어, 내렸어. 자세히 안내해, 간단히 안내해, 보통으로 안내해. 얼마나 걸려, 지금 가는 길. 여정 끝, 도착했어. 즐겨찾기 목록, 즐겨찾기에 담아 줘. 점지도로, 위성으로. 점지도를 따라 걸을 때는 여기 문제 있어, 여기 걸렸어, 길목, 정류장, 다른 문. 길 기억해 줘. 되짚어 나가자. 말로 그린 길. 음성유도기 어디 있어. QR 찾아 줘. 글자 읽어 줘. 사람 있어. 빛 알려 줘. 바코드 읽어 줘. 무슨 색이야. 얼마짜리야. 이게 뭐야. 가리키는 거 읽어 줘. 근처 약국. 축제 알려 줘. 고장 이야기. 마실 가자. 사진 읽어 줘. 안면인식. 음악 틀어 줘. 트롯 틀어 줘, 또는 가수나 곡 이름. 다음 곡, 이전 곡. 무슨 곡이야. 이어서 틀어. 고장 노래 틀어 줘. 라디오 틀어 줘. KBS 1라디오 틀어 줘. TV 틀어 줘. 뉴스 들려줘. 장애 소식, 속보, 경제 뉴스. 기분이 꿀꿀해. 음악 꺼, 라디오 꺼. 목소리 바꿔. 호칭 바꿔. 현장영상해설 받고 싶어. 새로고침."
+    const val DOUMAL_MAL = "이렇게 말씀하시면 됩니다. 지금 어디야. 약수역 가자. 가까운 점지도 찾아 줘. 점지도를 따라 걸을 때는 다음에 무엇, 다음 갈림길, 어디쯤이야, 그만 걷기, 도착하면 되돌아가자. 신호기 울려 줘. 신호 알려 줘. 신호기 찾아 줘. 도와줘, 또는 가족 이름과 화상통화. 날씨 어때. 몇 시야. 말 빠르게, 말 느리게. 말소리 꺼. 다시 말해. 그만. 하던 일 멈춰. 걸어서 가자, 차로 가자, 지하철로 가자, 버스로 가자. 차에 탔어, 내렸어. 자세히 안내해, 간단히 안내해, 보통으로 안내해. 얼마나 걸려, 지금 가는 길. 여정 끝, 도착했어. 목적지 바꿔. 즐겨찾기 목록, 즐겨찾기에 담아 줘. 점지도로, 위성으로. 점지도를 따라 걸을 때는 여기 문제 있어, 여기 걸렸어, 길목, 정류장, 다른 문. 길 기억해 줘. 되짚어 나가자. 말로 그린 길. 음성유도기 어디 있어. QR 찾아 줘. 글자 읽어 줘. 사람 있어. 빛 알려 줘. 바코드 읽어 줘. 무슨 색이야. 얼마짜리야. 이게 뭐야. 가리키는 거 읽어 줘. 근처 약국. 축제 알려 줘. 고장 이야기. 마실 가자. 사진 읽어 줘. 안면인식. 음악 틀어 줘. 트롯 틀어 줘, 또는 가수나 곡 이름. 다음 곡, 이전 곡. 무슨 곡이야. 이어서 틀어. 고장 노래 틀어 줘. 라디오 틀어 줘. KBS 1라디오 틀어 줘. TV 틀어 줘. 뉴스 들려줘. 장애 소식, 속보, 경제 뉴스. 기분이 꿀꿀해. 음악 꺼, 라디오 꺼. 목소리 바꿔. 호칭 바꿔. 현장영상해설 받고 싶어. 새로고침."
 }
 
 // MARK: 받아쓰기 — 안드로이드 자체 SpeechRecognizer(아이폰 MalDeutgi)

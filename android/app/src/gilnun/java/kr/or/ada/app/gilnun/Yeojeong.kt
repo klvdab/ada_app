@@ -151,7 +151,18 @@ object YeojeongEngine {
         }
     }
 
+    /** 2.31.0 (261009-A19, 이사장님 승인 2026-10-09 남산) 새 목적지를 정할 때 — 지금 탈것이 움직이고 있지 않으면 묵은 탈것 판단을 지우고 새로 봄 */
+    fun talgeotSaeroBogi() {
+        TalgeotGamji.saeYeojeong()
+        if (sokdoChujeong != Talgeot.GICHA && sokdoChujeong != TalgeotGamji.chujeong) sokdoChujeong = TalgeotGamji.chujeong
+    }
+
+    /** 2.31.0 2분 안에 탈것이 움직였는가 */
+    val choegeunTalgeotUmjigim: Boolean
+        get() = TalgeotGamji.majimakTalgeot > 0 && System.currentTimeMillis() - TalgeotGamji.majimakTalgeot < 120_000
+
     fun jeonghagi(m: Mokjeok) {
+        talgeotSaeroBogi()
         val now = System.currentTimeMillis()
         jigeum = Yeojeong(m, Danggye.EOTTEOKE, Talgeot.GEOREUM, false, now, now)
         Girok.namgi("yeojeong_sijak", mapOf("mok" to m.ireum))

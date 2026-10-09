@@ -204,6 +204,15 @@ object ChaMat {
         return s.joinToString(" ")
     }
 
+    /** 2.31.0 (261009-A19, 이사장님 승인) 받아 둔 차 길을 따라 남은 거리 — 길 위(100미터 안)에 있을 때만, 아니면 null(아이폰과 같음) */
+    fun namEunGilGeori(w: Jari): Double? {
+        val g = gil ?: return null
+        if (!itda) return null
+        val (gd0, gi) = gilGeori(g, w.lat, w.lon)
+        if (gd0 > 100) return null
+        return namGil(g, gi, w.lat, w.lon)
+    }
+
     /** 차 안 안내가 위치를 받을 때마다 부름(AnnaeEngine.chaAnnae). 말했으면 참 */
     fun salpim(w: Jari, malHagi: (String) -> Unit): Boolean {
         if (!itda) return false

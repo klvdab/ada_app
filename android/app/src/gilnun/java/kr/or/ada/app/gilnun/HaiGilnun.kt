@@ -66,7 +66,8 @@ object HaiGilnun {
             ContextCompat.checkSelfPermission(c, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED &&
             !Sori.malhaneunJung && !Sori.deutneunJung && MalHagi.sangtae == MalSangtae.SWIM &&
             GinGeup.sangtae == GinGeupSangtae.EOPSEUM && !MalDeutgi.dolgoItda &&
-            !JeonhwaGamsi.jeonhwaJung   // 2.30.0 전화 중에는 듣지 않음(통화 말을 명령으로 알아듣지 않게)
+            !JeonhwaGamsi.jeonhwaJung &&   // 2.30.0 전화 중에는 듣지 않음(통화 말을 명령으로 알아듣지 않게)
+            !MalHagi.pyeonjipJung          // 2.31.0 길 찾기 편집창에 글자를 넣으시는 중에는 듣지 않음
         if (!deureoya) { datgi(); return }
         if (sr == null && System.currentTimeMillis() >= dasiTtae) yeolgi(c)
     }

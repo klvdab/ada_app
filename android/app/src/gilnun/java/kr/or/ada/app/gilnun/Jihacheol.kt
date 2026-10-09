@@ -96,6 +96,7 @@ object JihacheolEngine : SensorEventListener {
             Girok.namgi("jiha_junggan", mapOf("from" to g.from, "to" to g.to))
             kkeut(true, "${g.from}역에서 타신 것으로 보고 ${g.to}역까지 역을 알려 드립니다.")
             tatda(true)
+            jungganJadong = true
         }
     }
 
@@ -194,7 +195,12 @@ object JihacheolEngine : SensorEventListener {
     }
 
     /** 열차에 탔습니다 — 누르셔도 되고, 저절로도 됨 */
+    /** 2.31.0 역 입구를 거치지 않고 "이미 타고 가는 중"으로 짐작해 시작한 역 알림인가(아이폰과 같음) */
+    var jungganJadong = false
+        private set
+
     fun tatda(jadong: Boolean) {
+        jungganJadong = false
         val g0 = gil ?: return
         val g = g0.copy(i = -1, kkeutnam = false, ipguDochak = true)
         yj.jihaNoki(g)
@@ -204,7 +210,8 @@ object JihacheolEngine : SensorEventListener {
         majimak = System.currentTimeMillis()
         tamTtae = majimak
         val apmal = if (jadong) "열차가 움직이는 것 같습니다. " else ""
-        Sori.mal(apmal + "역 알림을 시작합니다. 내리실 역은 ${g.to}역, ${g.jina.size} 정거장 뒤입니다. 지나는 역마다 알려 드립니다.")
+        val dwimal = if (jadong) " 지하철이 아니면 택시야라고 말씀해 주십시오." else ""   // 2.31.0 단정하지 않고 바로잡는 말을 함께
+        Sori.mal(apmal + "역 알림을 시작합니다. 내리실 역은 ${g.to}역, ${g.jina.size} 정거장 뒤입니다. 지나는 역마다 알려 드립니다." + dwimal)
         Girok.namgi("jiha_tam", mapOf("jadong" to jadong))
         dolligi()
     }
@@ -224,6 +231,7 @@ object JihacheolEngine : SensorEventListener {
     }
 
     fun meomchugi() {
+        jungganJadong = false
         dolgo = false
         tabeumGamsi = false
         sedae += 1

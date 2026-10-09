@@ -128,7 +128,8 @@ object NasMoksori {
         if (!sseum(m.t)) { daesinHagi(b0, m); return }
         val (u, pail) = juso(m.t)
         if (pail != null && pail.exists() && pail.length() > 500) { teulgi(b0, m, pail); return }
-        val handO = if (m.geup == MalGeup.JEONGBO) 3000 else 2500
+        // 2.31.0 (261009-A19, 이사장님 승인) 긴 말(말벗 대답 등)은 만드는 데 오래 걸림 — 글자 수에 맞춰 더 기다림(한 자에 0.03초, 많아야 8초, 아이폰과 같음)
+        val handO = minOf(8000, (if (m.geup == MalGeup.JEONGBO) 3000 else 2500) + m.t.length * 30)
         il.execute {
             val ok = batgiDongi(u, pail, handO)
             main.post {
@@ -137,9 +138,9 @@ object NasMoksori {
                     silpae = 0
                     teulgi(b0, m, pail)
                 } else {
-                    silpae += 1
+                    if (m.t.length <= 60) silpae += 1   // 긴 말을 못 받은 것은 세 번 실패(5분 쉼)에 셈하지 않음
                     if (silpae >= 3) swimTtae = System.currentTimeMillis()
-                    Girok.namgi("ms_moksori_mot", mapOf("silpae" to silpae))
+                    Girok.namgi("ms_moksori_mot", mapOf("silpae" to silpae, "geulja" to m.t.length))
                     daesinHagi(b0, m)
                 }
             }

@@ -182,7 +182,8 @@ object YeojeongMal {
         val d: Double? = if (w != null) Wichi.geori(w.lat, w.lon, j.lat, j.lon) else null
         val yj = YeojeongEngine
         val yy = yj.jigeum
-        val taneunJung = yj.sokdoChujeong != Talgeot.GEOREUM || (yy != null && yy.danggye == Danggye.TANEUN_JUNG && yy.jiha == null)
+        yj.talgeotSaeroBogi()   // 2.31.0 묵은 탈것 판단을 지우고 새로 봄(이사장님 승인 2026-10-09)
+        val taneunJung = yj.sokdoChujeong != Talgeot.GEOREUM || (yy != null && yy.danggye == Danggye.TANEUN_JUNG && yy.jiha == null && yj.choegeunTalgeotUmjigim)
         var tg = tg0 ?: talgeotDaegi
         talgeotDaegi = null
         if (tg == null) {
