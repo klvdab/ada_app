@@ -62,6 +62,10 @@ object JabongDaegi {
     /** 나스 대기에 올릴 갈래와 이름 — 봉사 역할이 없으면 가족·지인(jiin)으로 */
     private val daegiKind: String get() = if (kind.isEmpty()) (if (gajok.isEmpty()) "" else "jiin") else kind
     private val daegiWho: String get() = byeol.ifEmpty { gajokIreum }
+    /** 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 받기·거절 때 나스에 알릴 내 이름 — 아이폰과 같게, 비었으면 "자봉" */
+    private val batneunIreum: String get() = daegiWho.ifEmpty { "자봉" }
+    /** 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 이 폰의 한 폰 표(gd) — 같은 폰의 내 길눈 요청은 울리지 않게 */
+    private val naGd: String get() = kr.or.ada.app.gilnun.HanPon.gd(ctx)
 
     /** 이음 번호로 가족·지인 등록 — 성공하면 null, 안 되면 까닭(카메라·마이크·알림 허락은 화면이 먼저 여쭘) */
     fun gajokDeungrok(beonho: String, ireum: String, kkeut: (String?) -> Unit) {
@@ -155,6 +159,7 @@ object JabongDaegi {
         if (b.isEmpty()) { kkeut("길눈님 별명을 적어 주십시오."); return }
         val q = hashMapOf("a" to "daegi", "k" to k, "on" to "1", "kind" to kind0, "who" to b, "hangsang" to "1")
         if (kind0 == "haeseolsa") q["tel"] = hwagin else q["surye"] = hwagin
+        val gd0 = naGd; if (gd0.isNotEmpty()) q["gd"] = gd0   // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 한 폰 표
         il.execute {
             val t = JbTongsin.getText(REL, q)
             val j = try { if (t == null) null else JSONObject(t) } catch (e: Exception) { null }
@@ -189,7 +194,9 @@ object JabongDaegi {
         if (ki.isEmpty() || by.isEmpty()) { kkeut?.let { main.post(it) }; return }
         val kk = k
         il.execute {
-            JbTongsin.getText(REL, mapOf("a" to "daegi", "k" to kk, "on" to if (on) "1" else "0", "kind" to ki, "who" to by, "hangsang" to "1"))
+            val q = hashMapOf("a" to "daegi", "k" to kk, "on" to (if (on) "1" else "0"), "kind" to ki, "who" to by, "hangsang" to "1")
+            val gd0 = naGd; if (gd0.isNotEmpty()) q["gd"] = gd0   // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 한 폰 표
+            JbTongsin.getText(REL, q)
             if (on) majimakDaegi = System.currentTimeMillis()
             kkeut?.let { main.post(it) }
         }
@@ -206,7 +213,9 @@ object JabongDaegi {
         salpineun = true
         val kk = k
         il.execute {
-            val t = JbTongsin.getText(REL, mapOf("a" to "calls", "room" to "all", "k" to kk), 8000)
+            val q = hashMapOf("a" to "calls", "room" to "all", "k" to kk)
+            val gd0 = naGd; if (gd0.isNotEmpty()) q["gd"] = gd0   // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 한 폰 표(나스가 가림)
+            val t = JbTongsin.getText(REL, q, 8000)
             main.post {
                 salpineun = false
                 if (t != null) bureumBatda(t)
@@ -229,9 +238,27 @@ object JabongDaegi {
             if (room.isEmpty()) continue
             if (chamgap(x.opt("taken")) || chamgap(x.opt("takenK")) || chamgap(x.opt("taken_k"))) continue
             if (room in bon) continue
-            if (ulim != null || JabongTonghwa.tonghwaJung) continue
+            // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 같은 폰의 내 길눈이 청한 것이면 울리지 않음(나스가 못 가렸을 때를 대비)
+            val gd = if (x.isNull("gd")) "" else x.optString("gd", "")
+            if (gd.isNotEmpty() && gd == naGd) { bon.add(room); continue }
+            // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 통화 중(받기 확인 중 포함)에 온 부름은 말없이 넘기지 않고 나스에 거절로 알림 —
+            //   길눈님이 1분 30초를 기다리지 않고 곧바로 다른 분께 넘기시게(아이폰과 같음). 지금 내가 받은 그 방이면 보내지 않음
+            if (JabongTonghwa.tonghwaJung || batgiRoom.isNotEmpty()) {
+                if (room != batgiRoom && room != JabongTonghwa.room) {
+                    bon.add(room)
+                    geojeolBonaegi(room)
+                    Girok.namgi("jabong_bappeum", mapOf("android" to true))
+                }
+                continue
+            }
+            if (ulim != null) continue
             val mok = if (x.isNull("mok")) (if (x.isNull("gil")) "" else x.optString("gil", "")) else x.optString("mok", "")
-            ulimSijak(room, mok, if (x.isNull("galrae")) "" else x.optString("galrae", ""), if (x.isNull("who")) "" else x.optString("who", ""))
+            // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 부르신 분 이름은 아이폰 알림처럼 byeol(나스가 실어 준 길눈님 이름)을 먼저,
+            //   없으면 who — who 가 기본값 「길눈 이용자」면 「길눈님」으로(「길눈 이용자 님이」로 울리던 일)
+            val byeol0 = if (x.isNull("byeol")) "" else x.optString("byeol", "").trim()
+            val who0 = if (x.isNull("who")) "" else x.optString("who", "").trim()
+            val buleun = byeol0.ifEmpty { if (who0 == "길눈 이용자") "" else who0 }
+            ulimSijak(room, mok, if (x.isNull("galrae")) "" else x.optString("galrae", ""), buleun)
         }
         // 오래된 방 이름은 덜어 냄
         while (bon.size > 200) bon.remove(bon.first())
@@ -278,7 +305,11 @@ object JabongDaegi {
                         if (j != null) {
                             val sal = if (j.has("sal")) j.optBoolean("sal", true) else true
                             val takenK = if (j.isNull("takenK")) "" else j.optString("takenK", "")
-                            if (takenK.isNotEmpty() && takenK != k) {
+                            val gd = if (j.isNull("gd")) "" else j.optString("gd", "")
+                            if (gd.isNotEmpty() && gd == naGd) {
+                                ulimKkeut()   // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 이 폰의 길눈이 청한 것 — 말없이 멈춤
+                                return@post
+                            } else if (takenK.isNotEmpty() && takenK != k) {
                                 ulimKkeut()
                                 Sori.mal("다른 분께 연결되었습니다. 감사합니다.")
                                 return@post
@@ -311,14 +342,21 @@ object JabongDaegi {
         salpimR = null
         ulim = null
         ctx?.let { JabongUlim.kkeugi(it) }
-        val by = daegiWho
+        val by = batneunIreum   // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09)
         val kk = k
+        batgiRoom = u.room   // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 받기 확인 중 — 그동안은 통화 중과 같게 봄
         il.execute {
-            val t = JbTongsin.getText(REL, mapOf("a" to "take", "room" to u.room, "who" to by, "k" to kk))
-            val j = try { if (t == null) null else JSONObject(t) } catch (e: Exception) { null }
+            // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 받기 다툼 — 내 것임이 확인될 때만 통화를 엶.
+            //   진 쪽이 통화를 열었다가 닫으며 보낸 끊기 신호가 진짜 통화를 끊던 일(아이폰과 같음)
+            val g = batgiDatum(u.room, by, kk)
             main.post {
-                if (j != null && j.has("ok") && !j.optBoolean("ok", true)) {
-                    Sori.mal("다른 분께 연결되었습니다. 감사합니다.")
+                if (batgiRoom == u.room) batgiRoom = ""
+                if (g != BatgiGyeolgwa.NAE) {
+                    // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 확인하지 못했으면(받기 답을 잃었을 수 있음) 나스에 받기를 놓아 줌(a=geojeol) —
+                    //   길눈님이 40초를 기다리지 않게(아이폰과 같음)
+                    if (g == BatgiGyeolgwa.MOTHAM) geojeolBonaegi(u.room)
+                    Sori.mal(if (g == BatgiGyeolgwa.NAM) "다른 분이 먼저 받으셨습니다." else "연결되지 않았습니다.")
+                    Girok.namgi("jabong_batgi_jim", mapOf("g" to (if (g == BatgiGyeolgwa.NAM) "nam" else "motham"), "android" to true))
                     byeonhwa?.invoke()
                     return@post
                 }
@@ -330,11 +368,63 @@ object JabongDaegi {
         }
     }
 
-    /** 거절 — 이 부름은 울리지 않음(아이폰 전화 화면의 거절과 같이 나스에는 알리지 않음, 다른 길눈님은 그대로 울림) */
+    /** 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 받기 다툼의 결과 — 내 것, 다른 분 것, 확인하지 못함(통신·방 없음) */
+    private enum class BatgiGyeolgwa { NAE, NAM, MOTHAM }
+
+    /** 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) a=take 를 보내고(답이 없으면 한 번 더), 답으로 내 것임이 분명하지 않으면
+     *  a=jindo(&k=내 열쇠)로 takenK 가 내 열쇠인지 확인함(두 번까지). 일하는 줄에서만 부름(아이폰 batgiDatum 과 같음) */
+    private fun batgiDatum(room: String, by: String, kk: String): BatgiGyeolgwa {
+        // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 모두 합쳐 8초 안에 — 받기를 누르고 오래 기다리지 않게(아이폰과 같음)
+        val handoTtae = System.currentTimeMillis() + BATGI_HANDO
+        val q = mapOf("a" to "take", "room" to room, "who" to by, "k" to kk)
+        val j = relJson(q, handoTtae) ?: relJson(q, handoTtae)
+        if (j != null) {
+            if (j.has("ok") && !j.optBoolean("ok", true)) return BatgiGyeolgwa.NAM
+            val tk = (if (!j.isNull("takenK")) j.optString("takenK", "") else if (!j.isNull("taken_k")) j.optString("taken_k", "") else "").trim()
+            if (tk.isNotEmpty()) return if (tk == kk) BatgiGyeolgwa.NAE else BatgiGyeolgwa.NAM
+        }
+        repeat(2) {
+            val jj = relJson(mapOf("a" to "jindo", "room" to room, "k" to kk), handoTtae)
+            if (jj != null) {
+                val tk = (if (jj.isNull("takenK")) "" else jj.optString("takenK", "")).trim()
+                return when {
+                    tk == kk -> BatgiGyeolgwa.NAE
+                    tk.isEmpty() -> BatgiGyeolgwa.MOTHAM
+                    else -> BatgiGyeolgwa.NAM
+                }
+            }
+        }
+        return BatgiGyeolgwa.MOTHAM
+    }
+
+    /** 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 받기 확인 한도(밀리초) */
+    private const val BATGI_HANDO = 8000L
+    /** 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 받기 확인 중인 방(빈 글이면 없음) — 일하는 줄과 화면 줄이 함께 봄 */
+    @Volatile private var batgiRoom = ""
+
+    /** 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 한도 시각을 넘기지 않게 — 잇기·읽기를 합쳐 남은 시간 안에 끝나도록 한 번에 나누어 기다림 */
+    private fun relJson(q: Map<String, String>, handoTtae: Long): JSONObject? {
+        val namun = handoTtae - System.currentTimeMillis()
+        if (namun < 300) return null
+        val t = JbTongsin.getText(REL, q, minOf(2500L, namun / 2).toInt()) ?: return null
+        return try { JSONObject(t) } catch (e: Exception) { null }
+    }
+
+    /** 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 나스에 거절을 알림(a=geojeol) — 받기를 놓아 주거나, 통화 중에 온 부름을 넘김 */
+    private fun geojeolBonaegi(room: String) {
+        if (room.isEmpty()) return
+        val q = mapOf("a" to "geojeol", "room" to room, "k" to k, "who" to batneunIreum)
+        il.execute { JbTongsin.getText(REL, q) }
+    }
+
+    /** 거절 — 이 부름은 울리지 않음(다른 길눈님은 그대로 울림).
+     *  2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 나스에 거절을 알림(a=geojeol) — 길눈님이 1분 30초를 기다리지 않게 */
     fun geojeol() {
-        if (ulim == null) return
+        val u = ulim ?: return
         Girok.namgi("jabong_geojeol", mapOf("android" to true))
         ulimKkeut()
+        val q = mapOf("a" to "geojeol", "room" to u.room, "k" to k, "who" to batneunIreum)
+        il.execute { JbTongsin.getText(REL, q) }
     }
 }
 

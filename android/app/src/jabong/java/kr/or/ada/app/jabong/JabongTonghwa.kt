@@ -52,7 +52,9 @@ object JabongTonghwa {
     var geulByeonhwa: (() -> Unit)? = null
 
     private var ctx: Context? = null
-    private var room = ""
+    /** 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 받기에서 지금 통화 중인 방을 알 수 있게 읽기만 엶 */
+    var room = ""
+        private set
     private var pc: PeerConnection? = null
     private var factory: PeerConnectionFactory? = null
     private var egl: EglBase? = null
@@ -63,6 +65,23 @@ object JabongTonghwa {
     private var sigMutneun = false
     private var sijakT = 0L
     private var sorijariBakkum = false
+    // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 잇는 동안 지킴 — 길손님의 제안(offer)이 30초 안에 오지 않거나, 나스에서 방이 닫혔거나 다른 분 것이 되면
+    // 통화 화면에 갇히지 않게 "연결되지 않았습니다."로 닫음(길눈은 hangup 만 보내고 bye 를 못 보낼 때가 있음). 아이폰과 같음
+    private var offerOm = false
+    @Volatile private var jindoMutneun = false
+    /** 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 지킴으로 닫을 때 마지막에 할 말(없으면 빈 글) — 옛 motIeum 을 넓힘(아이폰과 같음) */
+    private var kkeutMal = ""
+    /** 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 참이면 닫을 때 길눈에 끊었다는 신호(bye)를 보내지 않음 —
+     *  다른 분이 받은 방이거나 길눈이 이미 닫은 방이면, 내 bye 가 진짜 통화를 끊어 버리던 일(아이폰과 같음) */
+    private var byeEopsi = false
+    /** 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 이어진 뒤에도 통화 내내 3초마다 지킴(아이폰과 같음) */
+    private val jikimR = object : Runnable {
+        override fun run() {
+            if (!tonghwaJung || room.isEmpty()) return
+            jikim()
+            if (tonghwaJung) main.postDelayed(this, 3000)
+        }
+    }
 
     /** 1초마다 신호 받기 */
     private val sigR = object : Runnable {
@@ -116,7 +135,64 @@ object JabongTonghwa {
         sigMutneun = false
         main.removeCallbacks(sigR)
         main.postDelayed(sigR, 1000)
+        // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 잇는 동안, 그리고 이어진 뒤에도 통화 내내 3초마다 지킴
+        offerOm = false
+        jindoMutneun = false
+        kkeutMal = ""
+        byeEopsi = false
+        main.removeCallbacks(jikimR)
+        main.postDelayed(jikimR, 3000)
         byeonhwa?.invoke()
+    }
+
+    /** 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 통화 내내 지킴 — a=jindo 에 내 열쇠(k)를 실어 나스가 "받은 분이 살아 있다"고 알게 함
+     *  (나스는 25초 동안 소식이 없으면 받은 분을 지워 다른 자봉 폰이 진행 중인 통화로 울렸음).
+     *  방이 지워졌으면(sal 거짓 — 길눈이 마침) 곧바로 닫고, 다른 분 것이 되었으면 끊었다는 신호 없이 말없이 닫음(아이폰과 같음) */
+    private fun jikim() {
+        if (!iEojim) {
+            val jinan = (System.currentTimeMillis() - sijakT) / 1000
+            // 제안이 30초 안에 안 오거나, 왔어도 45초가 되도록 이어지지 않으면(길눈은 받은 뒤 40초에 그만둠) 닫음
+            if ((!offerOm && jinan >= 30) || jinan >= 45) { motIeumKkeut(); return }
+        }
+        if (jindoMutneun) return
+        jindoMutneun = true
+        val r = room
+        val naK = JabongDaegi.k
+        il.execute {
+            val t = JbTongsin.getText(REL, mapOf("a" to "jindo", "room" to r, "k" to naK), 8000)
+            val j = try { if (t == null) null else JSONObject(t) } catch (e: Exception) { null }
+            main.post {
+                jindoMutneun = false
+                if (j == null || r != room || !tonghwaJung) return@post
+                val sal = when (val v = j.opt("sal")) { is Boolean -> v; is Number -> v.toInt() != 0; else -> true }
+                val takenK = if (j.isNull("takenK")) "" else j.optString("takenK", "").trim()
+                if (takenK.isNotEmpty() && takenK != naK) {
+                    // 다른 분이 받은 방 — 그분의 통화를 끊지 않게 신호 없이 닫음
+                    if (iEojim) jikimKkeut("연결이 끝났습니다.", "", false, "nam")
+                    else jikimKkeut("다른 분이 먼저 받으셨습니다.", "다른 분이 먼저 받으셨습니다.", false, "nam")
+                } else if (!sal) {
+                    // 방이 지워짐 — 이어진 뒤면 길손님이 마치신 것, 잇는 중이면 길손님이 그만두신 것(이미 닫힌 방이니 신호 없이)
+                    if (iEojim) jikimKkeut("길손님이 통화를 마쳤습니다.", "", false, "kkeut")
+                    else jikimKkeut("연결되지 않았습니다.", "연결되지 않았습니다.", false, "eopseum")
+                }
+            }
+        }
+    }
+
+    private fun motIeumKkeut() {
+        Girok.namgi("jabong_mot_ieum", mapOf("offer" to offerOm, "android" to true))
+        jikimKkeut("연결되지 않았습니다.", "연결되지 않았습니다.", true, "sigan")
+    }
+
+    /** 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 지킴으로 닫음 — bye 가 거짓이면 길눈에 끊었다는 신호를 보내지 않음(아이폰과 같음) */
+    private fun jikimKkeut(g: String, mal: String, bye: Boolean, why: String) {
+        main.removeCallbacks(jikimR)
+        if (!tonghwaJung) return
+        kkeutMal = mal
+        byeEopsi = !bye
+        geulBakkum(g)
+        Girok.namgi("jabong_jikim_kkeut", mapOf("why" to why, "ieojim" to iEojim, "android" to true))
+        kkeutnaegi()
     }
 
     private fun factoryJunbi(c: Context): PeerConnectionFactory? {
@@ -180,10 +256,11 @@ object JabongTonghwa {
     /** 통화를 정리. bonaegi 면 길손님 쪽에 끊었다고 알림 */
     fun kkeunki(bonaegi: Boolean) {
         if (!tonghwaJung) return
-        if (bonaegi) sigPut(JSONObject().put("t", "bye"))
+        if (bonaegi && !byeEopsi) sigPut(JSONObject().put("t", "bye"))   // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 남의 통화·닫힌 방이면 보내지 않음
         val gil = (System.currentTimeMillis() - sijakT) / 1000
         val eojeotna = iEojim
         main.removeCallbacks(sigR)
+        main.removeCallbacks(jikimR)
         hwamyeonTteoki()
         yeongsang = null
         try { pc?.dispose() } catch (x: Throwable) {}
@@ -199,6 +276,11 @@ object JabongTonghwa {
             val b = JabongDaegi.byeol
             Sori.mal("고맙습니다. ${if (b.isEmpty()) "" else "$b 님, "}오늘 덕분에 한 분이 길을 찾았습니다.")
         }
+        if (kkeutMal.isNotEmpty()) {
+            Sori.mal(kkeutMal)   // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09)
+            kkeutMal = ""
+        }
+        byeEopsi = false
         room = ""
         byeonhwa?.invoke()
     }
@@ -241,6 +323,7 @@ object JabongTonghwa {
             "offer" -> {
                 val sdp = m.optString("sdp", "")
                 if (sdp.isEmpty()) return
+                offerOm = true   // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09)
                 p.setRemoteDescription(object : SdpPyeon() {
                     override fun onSetSuccess() { main.post { if (pc === p) dapBonaegi(p) } }
                 }, SessionDescription(SessionDescription.Type.OFFER, sdp))
