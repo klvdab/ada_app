@@ -37,6 +37,7 @@ final class JabongBonche {
         Girok.shared.sijak()
         Tongsin.shared.sijak()
         WichiEngine.shared.sijak()
+        JeonhwaGamsi.shared.sijak()  // 2.15.0 전화가 오거나 걸면 자봉 안내 말도 멈춤(길눈과 같음, 이사장님 지시)
         JabongDaegi.shared.sijak()   // 2.1.0 긴급통화 받기 — 애플 알림(VoIP) 받을 준비
         Task { @MainActor in OllimEngine.shared.sijak() }   // 2.12.0 새 판 알림(이사장님 승인)
         Girok.shared.namgi("jabong_app_sijak", ["pan": JabongPan.pan, "bild": JabongPan.bild, "beonho": JabongNae.shared.beonho])

@@ -2,12 +2,15 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.14.0"
-    static let bild = "261007-I8"
+    static let pan = "2.15.0"
+    static let bild = "261009-I9"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.15.0", bild: "261009-I9", nal: "2026-10-09", naeyong: [
+            "길눈 2.59.0과 함께 — 전화가 오거나 걸면 자봉 안내 말을 멈춤(전화 지킴이를 자봉 앱에서도 켬, 이사장님 지시), 앱 기록 이름표를 자봉으로 바로 적음"
+        ]),
         Gochim(pan: "2.14.0", bild: "261007-I8", nal: "2026-10-07", naeyong: [
             "그려 주세요와 그린 길 잇기(이사장님 지시) — 그려 주세요 한 건에서 이 길 그리러 가기를 누르면, 다음 걷기 시작에 출발지·도착지 이름이 부탁대로 들어가고 그리기 화면 맨 위에 부탁 길 안내와 부탁 길 그만두기 단추",
             "그 길을 올려 협회 점검을 통과하면 저절로 길눈님 부탁에 다 그렸습니다(그린 점지도 번호와 자봉 번호를 함께)로 알리고 큰 박수",
