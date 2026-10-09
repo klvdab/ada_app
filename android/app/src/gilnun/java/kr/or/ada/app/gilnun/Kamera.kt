@@ -568,7 +568,7 @@ object KameraNun {
     /** 짧은 소리 하나(높이 헤르츠, 길이 초, 크기 0~1) — 길 안내 소리 자리(음악을 들으셔도 들림) */
     fun ttil(hz: Double, gilCho: Double, keugi: Float) {
         main.post {
-            if (Sori.tonghwaJung) return@post
+            if (Sori.malAnham) return@post
             if (Sori.deutneunJung) return@post
             val sr = 22050
             val n = (sr * gilCho).toInt()

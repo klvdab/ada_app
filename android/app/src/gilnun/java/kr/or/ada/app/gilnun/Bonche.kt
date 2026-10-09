@@ -23,12 +23,21 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.29.0"
-    const val bild = "261009-A17"
+    const val pan = "2.30.0"
+    const val bild = "261009-A18"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.30.0", "261009-A18", "2026-10-09", listOf(
+            "★전화가 오거나 걸면 길눈의 모든 소리를 멈춤(이사장님 지시, 아이폰 2.59.0과 같음) — 벨·걸기·통화·다른 앱 인터넷 통화 중에는 방송·음악·기사·동영상·안내 말·알림 소리·목소리 토막을 멈추고 하이 길눈도 듣지 않음. 위험 경고는 진동으로",
+            "통화가 끝나면 방송은 저절로 틀지 않고 길 찾기 첫 화면·음악·방송 첫 화면 맨 위에 방송 이어 듣기 단추. 음악·방송 첫 화면 맨 아래 통화 뒤 방송 저절로 이어 듣기(처음 끔)",
+            "땅속 판단 바로잡음 — 걸어서 내려갈 때만(최근 90초 안 걸음, 탈것 아닐 때) 땅속으로 봄. 나온 뒤 곧바로 다시 들어가던 것 고침",
+            "교통편 지역 찾기는 800미터 안이면 한 시간에 한 번만, 바뀐 때만 기록. 탈것 기록의 시각이 지워지던 칸 겹침 고침",
+            "자봉 점지도 잇기 점검 — 위치 없이 올라온 표시를 걸음 자리로 채움, 되돌아가는 길에 에스컬레이터·지하철·버스 짝 바꿈, 폰 안에 담은 길에 목소리 토막과 걸음 자리도 담음",
+            "기록 이름표를 자봉 앱과 길눈 앱으로 가림. 관리자 아침 기록(설정 더 보기). 볼거리 좌표가 비면 건너뜀(목적지 자리를 덮지 않게)",
+            "도움말 두 항목 더함(전화가 오거나 걸 때, 아침 기록)"
+        )),
         Gochim("2.29.0", "261009-A17", "2026-10-09", listOf(
             "★차 부르기(이사장님 승인 「클이 제안한 방법을 모두 승인한다」, 아이폰 2.58.0과 같음) — 길 찾기 탭 즐겨찾기 아래",
             "지역 이용 안내 — 지금 시·군의 시각장애인 이용 조건과 등록하는 곳(팩스·메일). 공식 확인분만 조건을 말하고 아니면 전화로 먼저 물어보시라고",
@@ -532,7 +541,9 @@ object Girok {
         }
         val body = JSONObject()
         body.put("dev", Seoljeong.dev)
-        body.put("app", "gilnun-android ${Pan.pan}(${Pan.bild})")
+        // 2.30.0 (점검) 자봉 앱도 이 기록 부품을 함께 써서 「gilnun-android 길눈 판」으로 잘못 찍혔음 — 앱 번호로 가림
+        body.put("app", if (kr.or.ada.app.BuildConfig.APPLICATION_ID.contains("jabong")) "jabong-android ${kr.or.ada.app.BuildConfig.VERSION_NAME}"
+            else "gilnun-android ${Pan.pan}(${Pan.bild})")
         body.put("ios", "android " + Build.VERSION.RELEASE + " " + Build.MODEL)
         body.put("ev", mukeum)
         Tongsin.bonaegi(URL_, body.toString()) { ok ->

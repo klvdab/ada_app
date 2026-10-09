@@ -42,6 +42,10 @@ object Sori {
 
     /** 2.6.0 긴급통화 중 — 길눈 말소리를 내지 않음(GinGeup 이 켜고 끔) */
     @Volatile var tonghwaJung = false
+    /** 2.30.0 폰 전화 중(벨·걸기·통화) — JeonhwaGamsi 가 켜고 끔. 긴급통화 때와 같이 말하지 않고 경고는 진동 */
+    @Volatile var jeonhwaJung = false
+    /** 지금 길눈이 소리를 내면 안 됨(긴급통화 중이거나 전화 중) */
+    val malAnham: Boolean get() = tonghwaJung || jeonhwaJung
 
     /** 2.4.0 말로 하기가 마이크를 열어 둔 동안 */
     @Volatile var deutneunJung = false
@@ -99,7 +103,7 @@ object Sori {
         if (t.isEmpty()) { kkeutnamyeon?.let { main.post(it) }; return }
         main.post {
             // 2.6.0 긴급통화 중 — 말하지 않고, 경고는 길게 진동
-            if (tonghwaJung) {
+            if (malAnham) {   // 2.30.0 전화 중에도
                 majimak = t
                 if (geup == MalGeup.GYEONGGO) GinGeup.jindongGilge(true)
                 kkeutnamyeon?.let { main.post(it) }

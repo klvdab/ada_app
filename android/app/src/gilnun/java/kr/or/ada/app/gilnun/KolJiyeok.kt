@@ -69,7 +69,8 @@ internal object KolJiyeok {
         val c = ctx ?: return
         if (w == null || chatneunJung || !Geocoder.isPresent()) return
         val m = majimak
-        if (m != null && Wichi.geori(m.lat, m.lon, w.lat, w.lon) < 800 && System.currentTimeMillis() - m.ttae < 600_000) return
+        // 2.30.0 (261009-A18, 이사장님 승인) 밤새 가만히 놓인 폰이 10분마다 주소를 다시 찾던 것 — 800미터 안이면 한 시간에 한 번만
+        if (m != null && Wichi.geori(m.lat, m.lon, w.lat, w.lon) < 800 && System.currentTimeMillis() - m.ttae < 3_600_000) return
         chatneunJung = true
         Thread {
             try {
@@ -82,12 +83,16 @@ internal object KolJiyeok {
                     if (sd != null) {
                         val sg = ArrayList<String>()
                         for (x in listOf(p.locality, p.subAdminArea, p.subLocality)) if (!x.isNullOrEmpty() && x != sd && x !in sg) sg.add(x)
-                        val j = Jiyeok(sidoJeongni(sd, sg), sg, w.lat, w.lon, System.currentTimeMillis())
+                        val sdj = sidoJeongni(sd, sg)
+                        // 2.30.0 같은 시·도에서 시·군·구가 비어 오면(주소 찾기가 가끔 빈칸을 줌) 앞서 알아낸 시·군·구를 그대로 둠
+                        val sgj: List<String> = if (sg.isEmpty() && m != null && m.sido == sdj) m.sigungu else sg
+                        val j = Jiyeok(sdj, sgj, w.lat, w.lon, System.currentTimeMillis())
                         main.post {
+                            val bakkwim = m == null || m.sido != j.sido || m.sigungu != j.sigungu   // 2.30.0 지역이 바뀐 때만 기록
                             majimak = j
                             d?.edit()?.putString("majimak", JSONObject().put("sido", j.sido).put("sg", JSONArray(j.sigungu))
                                 .put("lat", j.lat).put("lon", j.lon).put("ttae", j.ttae).toString())?.apply()
-                            Girok.namgi("kol_jiyeok", mapOf("sido" to j.sido, "sg" to j.sigungu.joinToString(",")))
+                            if (bakkwim) Girok.namgi("kol_jiyeok", mapOf("sido" to j.sido, "sg" to j.sigungu.joinToString(",")))
                         }
                     }
                 }

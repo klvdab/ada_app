@@ -86,6 +86,8 @@ data class JeomGil(
             m.name?.let { d.put("name", it) }; m.kind?.let { d.put("kind", it) }
             m.cnt?.let { d.put("cnt", it) }; m.mal?.let { d.put("mal", it) }
             m.t?.let { d.put("t", it) }; m.acc?.let { d.put("acc", it) }; m.dist?.let { d.put("dist", it) }
+            // 2.30.0 (점검) 걸음 자리와 목소리 토막도 담음 — 예전엔 빠져 나만의 점지도·맡긴 길에서 목소리 토막이 사라졌음(아이폰은 담고 있었음)
+            m.st?.let { d.put("st", it) }; m.sori?.let { d.put("sori", it) }
             ma.put(d)
         }
         o.put("marks", ma)
@@ -165,7 +167,11 @@ data class JeomGil(
             "올라가는 계단 시작" to "내려가는 계단 시작", "내려가는 계단 시작" to "올라가는 계단 시작",
             "오름턱" to "내림턱", "내림턱" to "오름턱",
             "횡단보도 건너기 시작" to "횡단보도 건너기 끝", "횡단보도 건너기 끝" to "횡단보도 건너기 시작",
-            "엘리베이터 올라감" to "엘리베이터 내려감", "엘리베이터 내려감" to "엘리베이터 올라감"
+            "엘리베이터 올라감" to "엘리베이터 내려감", "엘리베이터 내려감" to "엘리베이터 올라감",
+            // 2.30.0 (점검) 자봉 표시의 탈것 짝 — 거꾸로 걸으면 오름과 내림, 탐과 내림이 바뀜(아이폰과 같음)
+            "에스컬레이터 올라감" to "에스컬레이터 내려감", "에스컬레이터 내려감" to "에스컬레이터 올라감",
+            "지하철 탐" to "지하철 내림", "지하철 내림" to "지하철 탐",
+            "버스 탐" to "버스 내림", "버스 내림" to "버스 탐"
         )
 
         fun batgi(o: JSONObject): JeomGil {
@@ -178,17 +184,39 @@ data class JeomGil(
                 if (la == 0.0 || lo == 0.0) continue
                 pts.add(JeomJeom(la, lo, Jeomjido.su(p, "acc"), Jeomjido.su(p, "h"), Jeomjido.su(p, "t")))
             }
+            // 2.30.0 (점검 — 자봉 앱과 잇기) 자봉은 위성이 흐린 자리(지하·실내)의 표시를 위치 없이 올림. 예전엔 그런 표시를 버려
+            // 지하 계단·문 표시가 사라졌음 — 같은 걸음 자리(st), 없으면 가까운 때(t)의 위치 있는 점으로 채움(아이폰과 같음)
+            class WonJeom(val st: Double?, val t: Double?, val lat: Double, val lon: Double)
+            val won = ArrayList<WonJeom>()
+            if (pa != null) for (i in 0 until pa.length()) {
+                val p = pa.optJSONObject(i) ?: continue
+                val la = Jeomjido.su(p, "lat") ?: continue
+                val lo = Jeomjido.su(p, "lon") ?: continue
+                if (la == 0.0 || lo == 0.0) continue
+                won.add(WonJeom(Jeomjido.su(p, "st"), Jeomjido.su(p, "t"), la, lo))
+            }
+            fun chaeum(m: JSONObject): Pair<Double, Double>? {
+                Jeomjido.su(m, "st")?.let { st -> won.filter { it.st != null }.minByOrNull { Math.abs(it.st!! - st) }?.let { return it.lat to it.lon } }
+                Jeomjido.su(m, "t")?.let { t -> won.filter { it.t != null }.minByOrNull { Math.abs(it.t!! - t) }?.let { return it.lat to it.lon } }
+                return null
+            }
             val marks = ArrayList<JeomPyo>()
             val ma: JSONArray? = o.optJSONArray("marks")
             if (ma != null) for (i in 0 until ma.length()) {
                 val m = ma.optJSONObject(i) ?: continue
+                var mla = Jeomjido.su(m, "lat")
+                var mlo = Jeomjido.su(m, "lon")
+                if (mla == null || mlo == null || mla == 0.0 || mlo == 0.0) chaeum(m)?.let { mla = it.first; mlo = it.second }
                 marks.add(JeomPyo(
-                    Jeomjido.su(m, "lat"), Jeomjido.su(m, "lon"),
+                    mla, mlo,
                     Jeomjido.geulOrNull(m, "name"), Jeomjido.geulOrNull(m, "kind"),
                     Jeomjido.su(m, "cnt")?.toInt(), Jeomjido.geulOrNull(m, "mal"),
                     Jeomjido.su(m, "t"), Jeomjido.su(m, "acc"), Jeomjido.su(m, "dist"),
                     Jeomjido.su(m, "st")?.toInt()
                 ))
+                // 2.30.0 폰 안에 담아 둔 길(json())은 목소리 토막을 표시 안에 담음
+                val ms = m.optString("sori", "")
+                if (ms.endsWith(".mp3")) marks.last().sori = ms
             }
             // 2.23.0 목소리 따라 걷기 — 받아쓰기·mp3 를 거친 토막만, 같은 걸음 자리의 표시에 붙임(이사장님 확정 방식)
             val sa: JSONArray? = o.optJSONArray("sori")

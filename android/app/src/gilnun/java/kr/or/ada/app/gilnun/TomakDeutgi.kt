@@ -50,7 +50,19 @@ object TomakDeutgi {
         teulgi(f)
     }
 
+    /** 2.30.0 전화가 오거나 걸면 곧바로 멈춤 */
+    fun meomchugi() {
+        main.post {
+            val p = player ?: return@post
+            player = null
+            try { p.stop() } catch (e: Exception) {}
+            try { p.release() } catch (e: Exception) {}
+            BangsongDuck.malKkeut()
+        }
+    }
+
     private fun teulgi(f: File) {
+        if (Sori.malAnham) return   // 2.30.0 긴급통화·전화 중에는 틀지 않음
         try {
             player?.release()
             val m = MediaPlayer()
