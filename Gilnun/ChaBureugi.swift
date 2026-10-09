@@ -107,6 +107,7 @@ struct KolGirokHang: Codable, Identifiable, Equatable {
     var kkeunnam: Date?         // 통화가 끝난 때(폰이 알려 줄 때만)
     var gyeolgwa: String?       // baecha 배차됨, gidarim 기다리라 함, andoem 안 된다 함
     var tan: Date?              // 차에 탄 때(저절로 알아챔)
+    var naerim: Date?           // 2.60.0 탄 뒤 걸어서 내린 때(저절로 알아챔)
     var yeojjum = false         // 끊은 뒤 여쭈었는지
 }
 
@@ -152,7 +153,10 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
         }
         TalgeotGamji.shared.$chujeong
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] t in if t == .cha { self?.chaTatda() } }
+            .sink { [weak self] t in
+                if t == .cha { self?.chaTatda() }
+                else if t == .georeum && TalgeotGamji.shared.jigeumUmjigim == "걸음" { self?.chaNaerim() }
+            }
             .store(in: &mukkeum)
         JeonggiHochul.shared.sijak()
     }
@@ -329,6 +333,27 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
         let bun = max(1, Int((jinan / 60).rounded()))
         SoriEngine.shared.mal("차에 타셨습니다. \(JeonggiHochul.sigakMal(Calendar.current.component(.hour, from: h.ttae), Calendar.current.component(.minute, from: h.ttae)))에 부르셔서 \(bun)분 기다리셨습니다.", .jeongbo)
         Girok.shared.namgi("kol_tan", ["bun": bun])
+    }
+
+    /// 2.60.0 탄 뒤 15초 넘게 걸으심 — 내리신 것으로 남김(차 못 박기를 풂)
+    private func chaNaerim() {
+        guard let h = girok.last, h.tan != nil, h.naerim == nil else { return }
+        gochigi(h.id) { $0.naerim = Date() }
+        Girok.shared.namgi("kol_naerim", [:])
+    }
+
+    /// 2.60.0 (261009, 이사장님 승인 — 남산 가실 때 복지콜을 지하철로 안 일) 콜을 불러 배차되었거나 통화가 이어진 뒤 3시간 안이고
+    ///   아직 걸어서 내리지 않으셨으면 — 탈것을 차로 못 박음(땅속으로 내려간 때만 빼고)
+    var chaGojeong: Bool {
+        guard let h = girok.last, h.gyeolgwa != "andoem", h.naerim == nil else { return false }
+        guard Date().timeIntervalSince(h.ttae) < 3 * 3600 else { return false }
+        return h.gyeolgwa == "baecha" || h.gyeolgwa == "gidarim" || h.yeongyeol == true || h.tan != nil
+    }
+
+    /// 2.60.0 가장 최근 콜(3시간 안, 안 된다고 하지 않은 것) — "복지콜 기다리는 중"처럼 말씀하시면 다시 걸지 않고 형편을 알려 드림
+    var choegeun: KolGirokHang? {
+        guard let h = girok.last, h.gyeolgwa != "andoem", h.naerim == nil, Date().timeIntervalSince(h.ttae) < 3 * 3600 else { return nil }
+        return h
     }
 
     // MARK: 나의 이용 성적표

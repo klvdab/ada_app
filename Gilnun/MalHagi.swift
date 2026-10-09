@@ -34,7 +34,9 @@ final class MalHagi: ObservableObject {
     @Published private(set) var deureunMal = ""
     @Published private(set) var dapMal = ""
 
-    private enum Mureum { case eopseum, mokjeok, bangsik, chaYocheong, kol, galrae, hoching, hubo, jeom, eumakBiseut }
+    private enum Mureum { case eopseum, mokjeok, bangsik, chaYocheong, kol, galrae, hoching, hubo, jeom, eumakBiseut, kolHwagin }
+    /// 2.60.0 "○○에 전화할까요?"라고 여쭌 콜
+    private var kolDaegi: KolBeonho?
     private var mureum: Mureum = .eopseum
     private var mureumTtae = Date.distantPast
     private var mok: Jangso?
@@ -154,8 +156,28 @@ final class MalHagi: ObservableObject {
         }
     }
 
+    /// 2.60.0 (261009-I14, 이사장님 승인 2026-10-09 남산) 길 찾기 편집창에 글자를 넣으시는 중 — 마이크 듣기를 쉼
+    ///   (말을 잘못 알아들어 목적지가 정해졌다 풀렸다 하며 편집창이 사라졌다 나타나 커서가 옆으로 밀리던 일)
+    private(set) var pyeonjipJung = false
+
+    func pyeonjipSijak() {
+        guard !pyeonjipJung else { return }
+        pyeonjipJung = true
+        if sangtae == .deutneun { myeongryeongChwiso() }
+        moduMeomchum()
+        Girok.shared.namgi("pyeonjip", ["on": true])
+    }
+
+    func pyeonjipKkeut() {
+        guard pyeonjipJung else { return }
+        pyeonjipJung = false
+        Girok.shared.namgi("pyeonjip", ["on": false])
+        bureumDasi(1.0)
+    }
+
     private func myeongryeongYeolgi(sori: Bool) {
         guard GinGeup.shared.sangtae == .eopseum else { return }
+        if !sori && pyeonjipJung { return }   // 2.60.0 편집 중에는 저절로 이어 듣지 않음
         if !MalDeutgi.heorakItda {
             MalDeutgi.heorak { [weak self] ok in
                 guard let self = self else { return }
@@ -377,7 +399,7 @@ final class MalHagi: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + dwi) { [weak self] in
             guard let self = self else { return }
             self.bureumYeyak = false
-            guard Seoljeong.shared.haiGilnun, self.sangtae == .swim, !self.bureumDolgo,
+            guard Seoljeong.shared.haiGilnun, self.sangtae == .swim, !self.bureumDolgo, !self.pyeonjipJung,
                   GinGeup.shared.sangtae == .eopseum, !JeonhwaGamsi.shared.jeonhwaJung, MalDeutgi.heorakItda else {
                 if !Seoljeong.shared.haiGilnun {
                     SoriEngine.shared.deutgiKyeojim = false
@@ -485,7 +507,7 @@ final class MalHagi: ObservableObject {
     private func bureumDasiGangje() {
         bureumYeyak = false
         bureumSoriDollim()
-        guard Seoljeong.shared.haiGilnun, sangtae == .swim, !bureumDolgo, MalDeutgi.heorakItda else { return }   // 2.52.1 하이 길눈이 꺼져 있으면(자봉 앱 포함) 열지 않음
+        guard Seoljeong.shared.haiGilnun, sangtae == .swim, !bureumDolgo, !pyeonjipJung, MalDeutgi.heorakItda else { return }   // 2.60.0 편집 중 쉼, 2.52.1 하이 길눈이 꺼져 있으면(자봉 앱 포함) 열지 않음
         SoriEngine.shared.deutgiKyeojim = true
         let ok = MalDeutgi.shared.bureum(deureum: { [weak self] in
             self?.bureumDeureum()
@@ -794,6 +816,20 @@ final class MalHagi: ObservableObject {
                 daeumHubo(dap)
                 return
             }
+        case .kolHwagin:
+            // 2.60.0 (261009-I14, 이사장님 승인) "○○에 전화할까요?"의 대답 — 네일 때만 겁니다
+            if ye && !ani && jjalbeun, let k = kolDaegi {
+                mureum = .eopseum
+                kolDaegi = nil
+                kolGeolgiK(k, dap)
+                return
+            }
+            if ani && jjalbeun {
+                mureum = .eopseum
+                kolDaegi = nil
+                dap("알겠습니다. 걸지 않겠습니다.", false)
+                return
+            }
         case .eumakBiseut:
             // 2.46.0 "비슷한 제목으로 옛사랑이 있습니다. 틀까요?" — 네면 틂, 아니면 그만
             let b = BangsongEngine.shared
@@ -810,6 +846,24 @@ final class MalHagi: ObservableObject {
             if ani && jjalbeun { dap("알겠습니다.", false); return }
         case .mokjeok, .eopseum, .jeom:
             break
+        }
+
+        // 4-1. 2.60.0 (261009-I14, 이사장님 승인 2026-10-09 남산) 한 마디 대답("그럼", "그래", "응" 등)은 곳 이름으로 찾지 않음
+        //      — "그럼"을 곳 이름으로 찾아 상봉역 길을, "그래"에 비자변경 학원 길을 잡던 일
+        if MalHagi.geunyangMal(z) {
+            dap(mureum == .mokjeok ? "가실 곳의 이름을 말씀해 주십시오." : "네, 말씀하십시오. 가실 곳이나 하실 일을 말씀해 주십시오.", true)
+            return
+        }
+        // 4-2. 2.60.0 "변경", "목적지 변경", "목적지 바꿔" — 곳 이름이 아니라 목적지를 바꾸자는 명령
+        if MalHagi.byeongyeongMal(z) {
+            mureum = .mokjeok
+            mureumTtae = Date()
+            if let yy = y {
+                dap("지금 \(yy.mokjeok.ireum)\(MalHagi.ro(yy.mokjeok.ireum)) 가시는 중입니다. 어디로 바꿀까요?", true)
+            } else {
+                dap("\(ho), 어디로 가실까요?", true)
+            }
+            return
         }
 
         // 5. 긴급통화 — 가장 급한 일
@@ -844,7 +898,10 @@ final class MalHagi: ObservableObject {
             dap("\(ho), 어디로 가실까요?", true)
             return
         }
-        let hwagin = !(gagiMal || mureunJung || tg != nil)
+        // 2.60.0 (이사장님 승인 2026-10-09) 목적지가 정해진 뒤에는 어떤 말이 들려도 "목적지를 변경하실 건가요?"라고 먼저 여쭘.
+        //   목적지가 없을 때도 "가자"라는 말 없이 이름만 들렸으면(대답으로 말씀하신 이름 포함) 한 번 여쭘
+        let hwagin = !(gagiMal || tg != nil) || y != nil
+        let malbeotGa = !(gagiMal || mureunJung || tg != nil)
         let taltgeot = tg ?? talgeotDaegi
         // 즐겨찾기 먼저
         let favs = Jeulgyeo.shared.mokrok.sorted { $0.ireum.count > $1.ireum.count }
@@ -915,13 +972,13 @@ final class MalHagi: ObservableObject {
                                     self.cheori([s], dap)
                                 } else {
                                     Girok.shared.namgi("mal_ai", ["jeon": String(t.prefix(40)), "hu": ""])
-                                    self.motChatgiDap(t, q, hwagin, dap)
+                                    self.motChatgiDap(t, q, malbeotGa, dap)
                                 }
                             }
                         }
                         return
                     }
-                    self.motChatgiDap(t, q, hwagin, dap)
+                    self.motChatgiDap(t, q, malbeotGa, dap)
                     return
                 }
                 // 2.12.7 주소로 말씀하시면(동호로 7길 14) 그 건물 안 가게 이름(주전) 대신 주소를 이름으로(이사장님 승인 1)
@@ -1136,12 +1193,14 @@ final class MalHagi: ObservableObject {
             return true
         }
         if let jong = kolJong(alts) {
-            kolGeolgi(jong, dap)
+            // 2.60.0 (261009-I14, 이사장님 승인 2026-10-09 남산) "복지 콜 기다리는 중"을 부르라는 말로 알아듣고 한 번 더 걸던 일 —
+            //   부르는 말(전화·불러·걸어·연결·호출)이 있을 때만 여쭙고, 없으면 형편만 알려 드림. 걸기 전에는 늘 한 번 여쭘
+            kolHwaginMutgi(jong: jong, k: nil, bureum: MalHagi.kolBureumMal(alts), dap)
             return true
         }
         // 2.39.0 지역 콜 이름(두리발, 나드리콜, 새빛콜 등)으로 부르기 — 목적지 이름과 헷갈리지 않게 콜·전화·불러가 함께 있을 때만
         if alts.contains(where: { $0.contains("콜") || $0.contains("전화") || $0.contains("불러") }), let k = s.kolIreumChatgi(alts) {
-            kolGeolgiK(k, dap)
+            kolHwaginMutgi(jong: nil, k: k, bureum: MalHagi.kolBureumMal(alts), dap)
             return true
         }
         if s.itda(alts, "naerim") {
@@ -1528,7 +1587,12 @@ final class MalHagi: ObservableObject {
         mureumTtae = Date()
         huboHwagin = hwagin
         if hwagin {
-            dap(m + " 여기로 안내할까요?", true)
+            // 2.60.0 (이사장님 승인 2026-10-09) 이미 가시는 곳이 있으면 바꿀지를 분명히 여쭘
+            if let yy = YeojeongEngine.shared.jigeum, MalSajeon.ttuk(yy.mokjeok.ireum) != MalSajeon.ttuk(h.ireum) {
+                dap(m + " 지금은 \(yy.mokjeok.ireum)\(MalHagi.ro(yy.mokjeok.ireum)) 가시는 중입니다. 목적지를 \(h.ireum)\(MalHagi.ro(h.ireum)) 변경하실 건가요?", true)
+            } else {
+                dap(m + " 여기로 안내할까요?", true)
+            }
             return
         }
         let dareun = hubo.count > huboI + 1 ? " 다른 곳이면 불러서 다른 곳이라고 하십시오." : ""
@@ -1552,7 +1616,8 @@ final class MalHagi: ObservableObject {
         Jeulgyeo.shared.sseum(j)
         let d: Double? = WichiEngine.shared.jigeum.map { WichiEngine.geori($0.lat, $0.lon, j.lat, j.lon) }
         let yj = YeojeongEngine.shared
-        let taneunJung = yj.sokdoChujeong != .georeum || (yj.jigeum?.danggye == .taneunJung && yj.jigeum?.jiha == nil)
+        yj.talgeotSaeroBogi()   // 2.60.0 묵은 탈것 판단을 지우고 새로 봄(이사장님 승인 2026-10-09)
+        let taneunJung = yj.sokdoChujeong != .georeum || (yj.jigeum?.danggye == .taneunJung && yj.jigeum?.jiha == nil && yj.choegeunTalgeotUmjigim)
         var tg = tg0 ?? talgeotDaegi
         talgeotDaegi = nil
         if tg == nil {
@@ -1784,6 +1849,63 @@ final class MalHagi: ObservableObject {
         return sajeon.kolJiyeokMal() + " 어디에 전화할까요? " + l.prefix(5).map { $0.ireum }.joined(separator: ", ") + " 가운데 말씀해 주십시오. 복지콜이라고만 하셔도 이 지역 센터로 겁니다."
     }
 
+    /// 2.60.0 곳 이름 같은 말인가(코스·입구·산책로·공원·출구·정류장·광장·시장·병원·센터·둘레길)
+    static func jangsoGateunMal(_ t: String) -> Bool {
+        ["코스", "입구", "산책로", "공원", "출구", "정류장", "광장", "시장", "병원", "센터", "둘레길", "주차장", "매표소"].contains { t.contains($0) }
+    }
+
+    /// 2.60.0 곳 이름으로 찾지 않을 한 마디(맞장구·망설임·대답)
+    static let geunyangMalDeul: Set<String> = ["그럼", "그럼요", "그래", "그래요", "그래그래", "그래서", "그러면", "그러니까", "그렇지", "그렇죠", "그렇구나",
+        "응", "응응", "어", "어어", "음", "음음", "으음", "글쎄", "글쎄요",
+        "좋아", "좋아요", "알았어", "알았어요", "알겠어", "알겠어요", "알겠습니다", "됐어", "됐어요", "맞아", "맞아요", "오케이", "잠깐", "잠깐만",
+        "뭐", "뭐야", "왜", "저기", "저기요", "있잖아", "여보세요", "나는그래", "아", "아아", "에", "야", "자", "참", "글쎄다", "그래서요"]
+    static func geunyangMal(_ z: String) -> Bool {
+        geunyangMalDeul.contains(z)
+    }
+
+    /// 2.60.0 목적지를 바꾸자는 말("변경", "목적지 변경", "목적지 바꿔", "다른 데로 바꿔")
+    static func byeongyeongMal(_ z: String) -> Bool {
+        if ["변경", "변경해", "변경해줘", "바꿔", "바꿔줘", "바꾸자", "목적지", "목적지변경", "목적지바꿔", "목적지바꿔줘", "목적지바꾸자", "목적지변경해줘",
+            "목적지를변경", "목적지를바꿔", "목적지를바꿔줘", "목적지를변경해줘", "가는곳바꿔", "가는곳변경", "다른곳으로바꿔", "다른데로바꿔"].contains(z) { return true }
+        return z.count <= 10 && (z.hasPrefix("목적지") || z.hasPrefix("가는곳")) && (z.contains("변경") || z.contains("바꿔") || z.contains("바꾸"))
+    }
+
+    /// 2.60.0 부르는 말인가 — 전화·불러·걸어·연결·호출·콜 해
+    static func kolBureumMal(_ alts: [String]) -> Bool {
+        alts.contains { a in
+            let z = MalSajeon.ttuk(a)
+            return ["전화", "불러", "부르", "걸어", "걸자", "걸까", "연결", "호출", "콜해", "콜좀", "콜불", "잡아", "요청"].contains { z.contains($0) }
+        }
+    }
+
+    /// 2.60.0 (261009-I14, 이사장님 승인) 콜에 걸기 전 — 3시간 안에 이미 부르셨으면 형편을 알려 드리고, 걸 때는 늘 한 번 여쭘
+    private func kolHwaginMutgi(jong: String?, k k0: KolBeonho?, bureum: Bool, _ dap: @escaping (String, Bool) -> Void) {
+        var k = k0
+        if k == nil, let jong = jong { k = sajeon.kolChatgi(jong) }
+        guard let kk = k else {
+            if let jong = jong { kolGeolgi(jong, dap) }   // 이 지역 목록에 없음 등의 대답
+            return
+        }
+        var hyeongpyeon = ""
+        if let h = ChaBureugi.shared.choegeun {
+            let cal = Calendar.current
+            let si = JeonggiHochul.sigakMal(cal.component(.hour, from: h.ttae), cal.component(.minute, from: h.ttae))
+            hyeongpyeon = "\(si)에 \(h.ireum)에 전화하셨습니다. "
+            if h.tan != nil { hyeongpyeon += "지금 차에 타고 계신 것으로 압니다. " }
+            else if h.gyeolgwa == "baecha" { hyeongpyeon += "배차되어 차를 기다리시는 중입니다. " }
+            else if h.gyeolgwa == "gidarim" { hyeongpyeon += "기다리라고 해서 기다리시는 중입니다. " }
+        }
+        if !bureum && !hyeongpyeon.isEmpty {
+            mureum = .eopseum
+            dap(hyeongpyeon + "다시 거시려면 \(kk.ireum)에 전화해 줘라고 말씀해 주십시오.", false)
+            return
+        }
+        kolDaegi = kk
+        mureum = .kolHwagin
+        mureumTtae = Date()
+        dap(hyeongpyeon + (hyeongpyeon.isEmpty ? "" : "그래도 다시 ") + "\(kk.ireum)에 전화할까요?", true)
+    }
+
     private func kolGeolgi(_ jong: String, _ dap: @escaping (String, Bool) -> Void) {
         guard let k = sajeon.kolChatgi(jong) else {
             if sajeon.kolDeul().isEmpty { dap(sajeon.kolJiyeokMal(), false); return }
@@ -1843,7 +1965,7 @@ final class MalHagi: ObservableObject {
         huboHwagin = false
     }
 
-    static let doumalMal = "이렇게 말씀하시면 됩니다. 집으로 가자. 걸어서 가자. 지하철로 가자. 버스로 가자. 차에 탔어. 내렸어. 자세히 안내해, 간단히 안내해, 보통으로 안내해. 얼마나 남았어. 지금 어디야. 지금 가는 길 알려 줘. 즐겨찾기 목록. 즐겨찾기에 담아 줘. 복지콜에 전화해 줘. 콜 번호 알려 줘. 신호기 울려 줘. 신호기 찾아 줘. 근처 약국. 음악 틀어 줘. 트롯 틀어 줘. 다음 곡. 라디오 틀어 줘. MBC 라디오. 뉴스 들려줘. 음악 꺼. 고장 노래 틀어 줘. 기분이 꿀꿀해. 날씨에 맞게 틀어 줘. 날씨 어때. 길 기억해 줘. 되짚어 나가자. QR 찾아 줘. 말로 그린 길. 음성유도기 어디 있어. 현장영상해설 받고 싶어. 문 찾아 줘. 글자 읽어 줘. 가리키는 거 읽어 줘. 사람 있어. 바코드 읽어 줘, 이 상품 뭐야. 무슨 색이야, 얼마짜리야. 불 켜져 있어, 밝은 쪽 찾아 줘. 이게 뭐야, 뭐가 보여. 도착. 도와줘, 또는 가족 이름과 화상통화. 몇 시야. 말 빠르게, 말 느리게. 다시 말해. 그만. 여정 끝. 하던 일 멈춰. 점지도를 따라 걸을 때는 다음에 무엇, 그만 걷기, 여기 문제 있어, 여기 걸렸어. 가까운 점지도 찾아 줘."
+    static let doumalMal = "이렇게 말씀하시면 됩니다. 집으로 가자. 걸어서 가자. 지하철로 가자. 버스로 가자. 차에 탔어. 내렸어. 자세히 안내해, 간단히 안내해, 보통으로 안내해. 얼마나 남았어. 지금 어디야. 지금 가는 길 알려 줘. 즐겨찾기 목록. 즐겨찾기에 담아 줘. 복지콜에 전화해 줘. 콜 번호 알려 줘. 신호기 울려 줘. 신호기 찾아 줘. 근처 약국. 음악 틀어 줘. 트롯 틀어 줘. 다음 곡. 라디오 틀어 줘. MBC 라디오. 뉴스 들려줘. 음악 꺼. 고장 노래 틀어 줘. 기분이 꿀꿀해. 날씨에 맞게 틀어 줘. 날씨 어때. 길 기억해 줘. 되짚어 나가자. QR 찾아 줘. 말로 그린 길. 음성유도기 어디 있어. 현장영상해설 받고 싶어. 문 찾아 줘. 글자 읽어 줘. 가리키는 거 읽어 줘. 사람 있어. 바코드 읽어 줘, 이 상품 뭐야. 무슨 색이야, 얼마짜리야. 불 켜져 있어, 밝은 쪽 찾아 줘. 이게 뭐야, 뭐가 보여. 도착. 목적지 바꿔. 도와줘, 또는 가족 이름과 화상통화. 몇 시야. 말 빠르게, 말 느리게. 다시 말해. 그만. 여정 끝. 하던 일 멈춰. 점지도를 따라 걸을 때는 다음에 무엇, 그만 걷기, 여기 문제 있어, 여기 걸렸어. 가까운 점지도 찾아 줘."
 
     /// 2.29.0 인공지능이 풀어 본 때(거듭 묻지 않으려고)
     private var aiTtae = Date.distantPast
@@ -1854,6 +1976,26 @@ final class MalHagi: ObservableObject {
         mureum = .mokjeok
         mureumTtae = Date()
         if hwagin {
+            // 2.60.0 (261009-I14, 이사장님 승인) 곳 이름 같은 말("남산 산책로 B코스")을 못 찾으면 말벗으로 넘기지 않고
+            //   앞 낱말(남산)로 다시 찾아 가까운 곳을 여쭘
+            let nat = t.split(separator: " ").map(String.init)
+            if MalHagi.jangsoGateunMal(t), nat.count >= 2, let ap = nat.first, ap.count >= 2 {
+                Task {
+                    let r = await Chatgi.jangso(ap)
+                    await MainActor.run {
+                        if let r = r, !r.isEmpty {
+                            self.hubo = Array(r.prefix(3))
+                            self.huboI = 0
+                            self.huboTalgeot = nil
+                            let ap2 = "\(q)\(MalHagi.eul(q)) 찾지 못했습니다. 비슷한 곳으로 "
+                            self.huboAnnae({ m, b in dap(ap2 + (m.hasPrefix("네, ") ? String(m.dropFirst(3)) : m), b) }, hwagin: true)
+                        } else {
+                            dap("죄송합니다. \(q)\(MalHagi.eul(q)) 찾지 못했습니다. 다른 이름으로 말씀해 주십시오.", true)
+                        }
+                    }
+                }
+                return
+            }
             // 2.49.0 명령도 곳 이름도 아니면 말벗(서버 인공지능)에게 물어 끝까지 대답함
             malbeotMutgi(t) { [weak self] d in
                 guard let self = self else { return }
@@ -1869,6 +2011,10 @@ final class MalHagi: ObservableObject {
         }
     }
 
+    /// 2.60.0 말벗 대답을 기다리는 차례 번호(0이면 기다리지 않음)
+    private var malbeotBeon = 0
+    private var malbeotGidarim = 0
+
     /// 2.49.0 말벗 — 명령이 아닌 질문은 협회 리눅스 서버의 인공지능(엑사원)에게. 지금 자리·가는 곳·앞의 대화 넉 마디를 함께 넘김
     private func malbeotMutgi(_ t: String, _ kkeut: @escaping (String?) -> Void) {
         var c = URLComponents(string: "https://lvd.ada.or.kr/jeom/malbeot.php")
@@ -1880,13 +2026,22 @@ final class MalHagi: ObservableObject {
         }
         c?.queryItems = q
         guard let u = c?.url else { kkeut(nil); return }
+        // 2.60.0 (261009-I14, 이사장님 승인 2026-10-09 남산) 대답이 20초 넘게 걸리는 동안 아무 말이 없던 일 —
+        //   3초가 지나도 대답이 없으면 "알아보는 중입니다"를 한 번, 10초가 넘으면 그만두고 다시 여쭘
         var r = URLRequest(url: u)
-        r.timeoutInterval = 40
+        r.timeoutInterval = 10
         r.cachePolicy = .reloadIgnoringLocalCacheData
+        malbeotBeon += 1
+        let beon = malbeotBeon
+        malbeotGidarim = beon
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+            if self?.malbeotGidarim == beon { SoriEngine.shared.mal("알아보는 중입니다.", .jeongbo) }
+        }
         Task {
             let dr = try? await URLSession.shared.data(for: r)
             let o = dr.flatMap { (try? JSONSerialization.jsonObject(with: $0.0)) as? [String: Any] }
             await MainActor.run {
+                if self.malbeotGidarim == beon { self.malbeotGidarim = 0 }
                 if let o = o, (o["ok"] as? Bool) == true, let d = o["dap"] as? String, !d.isEmpty {
                     self.daehwaGirok.append([t, d])
                     if self.daehwaGirok.count > 6 { self.daehwaGirok.removeFirst() }

@@ -71,17 +71,33 @@ struct GilChatgiView: View {
     @ObservedObject private var jeom = JeomEngine.shared
     @ObservedObject private var sj = Seoljeong.shared   // 2.52.0 처음 안내 줄
     @ObservedObject private var bs = BangsongEngine.shared   // 2.59.0 방송 이어 듣기
+    @ObservedObject private var gongji = GongjiEngine.shared   // 2.60.0 편집 중 화면 굳히기에 씀
+    @ObservedObject private var ollim = OllimEngine.shared
     @AppStorage("gn.cheotAnnae") private var cheotNajung = false
     @State private var mal = ""
     @AccessibilityFocusState private var meoriChojeom: Bool
+    // 2.60.0 (261009-I14, 이사장님 승인 2026-10-09 남산) 편집창에 글자를 넣으시는 동안 화면을 굳혀 둠 —
+    //   위아래 줄이 새로 생기거나 사라지지 않고, 편집창이 여정 칸으로 바뀌지 않으며, 마이크 듣기도 쉼
+    @FocusState private var pyeonjip: Bool
+    @State private var gut: Gut?
+    private struct Gut { let gongji: Bool; let ollim: Bool; let ieo: Bool; let cheot: Bool; let malgil: Bool; let doe: Bool }
+    private func boim(_ k: KeyPath<Gut, Bool>, _ jigeum: Bool) -> Bool { gut?[keyPath: k] ?? jigeum }
+    private func gutHigi() -> Gut {
+        Gut(gongji: gongji.gingeupSae != nil, ollim: ollim.saePan != nil, ieo: bs.itda && bs.jeonhwaDwi,
+            cheot: !cheotNajung && !sj.bopokJaem, malgil: malgil.geotneun, doe: doe.sangtae != .swim)
+    }
+    private func chatgi() {
+        let q = mal.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces)
+        if !q.isEmpty { pyeonjip = false; GilGil.shared.path.append(GilHwamyeon.gyeolgwa(q)) }
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                GingeupGongjiJul()   // 2.9.0 읽지 않은 긴급 공지 — 맨 위
-                OllimJul()           // 2.54.0 새 판이 있을 때만 — 두드리면 테스트플라이트에서 업데이트
+                if boim(\.gongji, gongji.gingeupSae != nil) { GingeupGongjiJul() }   // 2.9.0 읽지 않은 긴급 공지 — 맨 위
+                if boim(\.ollim, ollim.saePan != nil) { OllimJul() }                 // 2.54.0 새 판이 있을 때만 — 두드리면 테스트플라이트에서 업데이트
                 // 2.59.0 통화로 멈춘 방송이 있으면 — 통화가 끝난 뒤 한 번 누르면 이어 들음(이사장님 승인 2026-10-09)
-                if bs.itda && bs.jeonhwaDwi {
+                if boim(\.ieo, bs.itda && bs.jeonhwaDwi) {
                     Button("방송 이어 듣기 — \(bs.jemok.isEmpty ? "듣던 방송" : bs.jemok)") { bs.ieoDeutgi() }
                         .buttonStyle(KeunDanchu())
                 }
@@ -93,39 +109,40 @@ struct GilChatgiView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { meoriChojeom = true }
                 }
                 .buttonStyle(KeunDanchu())
-                if !cheotNajung && !sj.bopokJaem {
+                if boim(\.cheot, !cheotNajung && !sj.bopokJaem) {
                     // 2.52.0 처음 안내는 화면 전체를 덮지 않고 첫 화면 안 한 줄로
                     NavigationLink { CheotAnnaeView { } } label: { Text("처음 안내 — 흰지팡이 당부와 보폭 재기, 처음 한 번") }
                         .buttonStyle(KeunDanchu())
                 }
-                if malgil.geotneun {
+                if boim(\.malgil, malgil.geotneun) {
                     // 2.14.0 말로 그린 길을 걷는 중이면 맨 위에
                     NavigationLink(value: GilHwamyeon.malgil) { Text("말로 그린 길 — 따라 걷는 중, \(malgil.jemok)") }
                         .buttonStyle(KeunDanchu())
                 }
-                if doe.sangtae != .swim {
+                if boim(\.doe, doe.sangtae != .swim) {
                     // 2.13.0 되짚어 나가기 기억·안내 중이면 맨 위에(속 화면을 떠나도 찾기 쉽게)
                     NavigationLink(value: GilHwamyeon.doe) {
                         Text(doe.sangtae == .gieok ? "되짚어 나가기 — 길을 기억하는 중, 나가실 때 누르십시오" : "되짚어 나가기 — 나가는 길 안내 중")
                     }
                     .buttonStyle(KeunDanchu())
                 }
-                if let m = jeom.muleum {
+                if gut == nil, let m = jeom.muleum {
                     JeomMuleumPan(m: m, chojeom: $meoriChojeom)   // 2.10.0 점지도로 걸을까요
-                } else if let g = jeom.gil {
+                } else if gut == nil, let g = jeom.gil {
                     TtaraPan(g: g, chojeom: $meoriChojeom)        // 2.10.0 점지도 따라 걷는 중
-                } else if let yj = y.jigeum {
+                } else if gut == nil, let yj = y.jigeum {
                     YeojeongPan(yj: yj, chojeom: $meoriChojeom)
                 } else {
-                    TextField("어디로 가실까요 — 이름이나 주소를 넣고 엔터", text: $mal)
+                    // 2.60.0 여러 줄 — 긴 이름을 넣어도 글자가 옆으로 밀려 흐르지 않고 아래로 줄을 바꿈(엔터는 찾기)
+                    TextField("어디로 가실까요 — 이름이나 주소를 넣고 엔터", text: $mal, axis: .vertical)
+                        .lineLimit(1...4)
                         .textFieldStyle(.roundedBorder)
                         .font(.title3)
                         .submitLabel(.search)
+                        .focused($pyeonjip)
                         .accessibilityFocused($meoriChojeom)
-                        .onSubmit {
-                            let q = mal.trimmingCharacters(in: .whitespaces)
-                            if !q.isEmpty { GilGil.shared.path.append(GilHwamyeon.gyeolgwa(q)) }
-                        }
+                        .onSubmit { chatgi() }
+                        .onChange(of: mal) { _, v in if v.contains("\n") { chatgi(); mal = mal.replacingOccurrences(of: "\n", with: "") } }
                     NavigationLink(value: GilHwamyeon.jeulgyeo) { Text("즐겨찾기 — 자주 가는 곳") }
                         .buttonStyle(KeunDanchu())
                     NavigationLink(value: GilHwamyeon.chaBureugi) { Text("차 부르기 — 복지콜, 교통약자 콜, 정기 호출") }
@@ -168,9 +185,15 @@ struct GilChatgiView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
+            guard !pyeonjip else { return }   // 2.60.0 편집 중에는 커서를 옮기지 않음
             meoriChojeom = false   // 2.12.1 탭을 고를 때마다 첫 줄로
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { meoriChojeom = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { if !pyeonjip { meoriChojeom = true } }
         }
+        .onChange(of: pyeonjip) { _, p in
+            if p { gut = gutHigi(); MalHagi.shared.pyeonjipSijak() }
+            else { gut = nil; MalHagi.shared.pyeonjipKkeut() }
+        }
+        .onDisappear { if pyeonjip { pyeonjip = false; gut = nil; MalHagi.shared.pyeonjipKkeut() } }
     }
 }
 

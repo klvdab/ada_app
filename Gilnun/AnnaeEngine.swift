@@ -187,7 +187,7 @@ final class AnnaeEngine: ObservableObject {
         jigeumBoda()
     }
 
-    func chaTatda() {
+    func chaTatda(mal: String? = nil) {
         guard yj.jigeum != nil else { return }
         JeomEngine.shared.yeojeongKkeut()
         JihacheolEngine.shared.meomchugi()
@@ -196,7 +196,8 @@ final class AnnaeEngine: ObservableObject {
         yj.talgeotJeonghagi(.cha, barojabeum: true)
         yj.danggyeBakkugi(.taneunJung)
         dasiSijak()
-        malHagi("차 안 안내를 시작합니다.")
+        let m = mal ?? "차 안 안내를 시작합니다."
+        if !m.isEmpty { malHagi(m) }
         jigeumBoda()
     }
 
@@ -422,10 +423,15 @@ final class AnnaeEngine: ObservableObject {
             }
             guard y.danggye == .namEunGil || y.danggye == .eotteoke || (y.danggye == .taneunJung && y.talgeot != .beoseu) else { return }
             let mok = Jangso(ireum: y.mokjeok.ireum, juso: y.mokjeok.juso, lat: y.mokjeok.lat, lon: y.mokjeok.lon)
-            malHagi("지하철을 타신 것 같습니다. 지하철 길을 찾습니다.")
+            // 2.60.0 (261009-I14, 이사장님 승인 2026-10-09 남산) 짐작은 단정하지 않고 바로잡는 말을 함께,
+            //   지하철 길을 못 찾으면 말만 하지 않고 실제로 차 안 안내로 넘어감
+            malHagi("지하철을 타신 것 같습니다. 지하철 길을 찾습니다. 지하철이 아니면 택시야라고 말씀해 주십시오.")
             JihacheolEngine.shared.jungganSijak(mok) { [weak self] ok, mal in
                 if ok { Girok.shared.namgi("jadong_jihacheol", [:]) }
-                else { self?.malHagi(mal + " 차 안 안내로 잇습니다.") }
+                else {
+                    self?.malHagi(mal + " 차 안 안내로 잇습니다.")
+                    self?.chaTatda(mal: "")
+                }
             }
             return
         }
@@ -435,7 +441,7 @@ final class AnnaeEngine: ObservableObject {
             yj.talgeotJeonghagi(.beoseu, barojabeum: false)
             yj.danggyeBakkugi(.taneunJung)
             dasiSijak()
-            malHagi("정류장마다 서는 것을 보니 버스를 타신 것 같습니다. 버스 안 안내로 잇습니다.")
+            malHagi("정류장마다 서는 것을 보니 버스를 타신 것 같습니다. 버스 안 안내로 잇습니다. 버스가 아니면 택시야라고 말씀해 주십시오.")
             Girok.shared.namgi("jadong_beoseu", ["gil": "umjigim"])
             jigeumBoda()
             return
@@ -459,9 +465,30 @@ final class AnnaeEngine: ObservableObject {
         yj.talgeotJeonghagi(t, barojabeum: false)
         yj.danggyeBakkugi(.taneunJung)
         dasiSijak()
-        malHagi("빠르게 움직이고 계십니다. \(t == .gicha ? "기차" : "차") 안 안내로 바꿉니다.")
+        // 2.60.0 (이사장님 승인) 앱으로 부른 콜이면 그 이름으로 — "복지콜에 타신 것으로 보고 ○○까지 차 안 안내를 합니다"
+        if t == .cha, let h = ChaBureugi.shared.choegeun {
+            malHagi("\(h.ireum)에 타신 것으로 보고 \(y.mokjeok.ireum)까지 차 안 안내를 합니다.")
+        } else {
+            malHagi("빠르게 움직이고 계십니다. \(t == .gicha ? "기차" : "차") 안 안내로 바꿉니다.")
+        }
         Girok.shared.namgi("jadong_cha", ["t": t.rawValue])
         jigeumBoda()
+    }
+
+    /// 2.60.0 (261009-I14, 이사장님 승인 2026-10-09 남산) 짐작으로 시작한 지하철 안내 중인데 땅 위에서 위성이 좋고 시속 20킬로미터 넘게 30초 넘게 달리면
+    ///   차로 보고 차 안 안내로 바꿈(잘못 시작된 지하철 안내가 신호 대기마다 "역 하나 지남"으로 세던 일)
+    private var jihaChaTtae: Date?
+    private func jihaChaBoda(_ w: Wichi, _ y: Yeojeong) {
+        guard JihacheolEngine.shared.jungganJadong else { jihaChaTtae = nil; return }   // 역 입구로 들어가 탄 것은 지상 구간이어도 그대로
+        guard !TalgeotGamji.shared.jiha, TalgeotGamji.wiseongJoeum, w.ochae <= 30, w.sokdo * 3.6 > 20 else {
+            if w.sokdo * 3.6 < 5 || TalgeotGamji.shared.jiha { jihaChaTtae = nil }   // 신호 대기는 그대로 둠
+            return
+        }
+        if jihaChaTtae == nil { jihaChaTtae = Date() }
+        guard let t = jihaChaTtae, Date().timeIntervalSince(t) >= 30 else { return }
+        jihaChaTtae = nil
+        Girok.shared.namgi("jiha_cha_barojapgi", ["kmh": Int(w.sokdo * 3.6)])
+        chaTatda(mal: "땅 위를 차 빠르기로 달리고 계셔서 차로 가시는 것 같습니다. 차 안 안내로 바꿉니다.")
     }
 
     private func wichiBatda(_ w: Wichi) {
@@ -481,6 +508,7 @@ final class AnnaeEngine: ObservableObject {
             case .taneunGotKkaji:
                 if !g.ipguDochak { georeumAnnae(w, ireum: g.ipgu.ireum, lat: g.ipgu.lat, lon: g.ipgu.lon, jungan: true, y) }
             case .taneunJung:
+                jihaChaBoda(w, y)   // 2.60.0 땅 위를 차 빠르기로 달리면 차로 바로잡음
                 if g.kkeutnam { naonGeotBoda(w) }
             case .namEunGil:
                 let t = bgJari(w, y.mokjeok.lat, y.mokjeok.lon, y.mokjeok.ireum)   // 2.48.0 볼거리 자리
@@ -932,8 +960,10 @@ final class AnnaeEngine: ObservableObject {
 
     // MARK: 차 안
 
-    private func chaAnnae(_ w: Wichi, _ d: Double, _ y: Yeojeong) {
+    private func chaAnnae(_ w: Wichi, _ d0: Double, _ y: Yeojeong) {
         GanpanAllim.shared.chaAn(w)   // 2.25.0 차 안 간판 알림
+        // 2.60.0 (261009-I14, 이사장님 승인) 승용차·택시는 받아 둔 차 길을 따라 남은 거리로 셈(돌아가는 길에서 "곧 부근입니다"가 너무 이르던 일)
+        let d = (y.talgeot == .cha && ChaMat.shared.gatEun(y.mokjeok.lat, y.mokjeok.lon) ? ChaMat.shared.namEunGilGeori(w) : nil) ?? d0
         let mok = y.mokjeok.ireum
         let now = Date()
         // 2.56.0 차 안 길 맞춤(웹 길눈 0.84.0과 같음, 이사장님 허락) — 바른 길로 가는지, 내리는 곳의 길·건물·시계 방향·미터.
@@ -959,7 +989,7 @@ final class AnnaeEngine: ObservableObject {
                 if beoseu && g == 500 {
                     malHagi("\(mok)까지 \(Annae.geoMal(d)) 남았습니다. 버스 안내 방송을 잘 들으시고 내리실 준비를 하십시오.")
                 } else if beoseu && g == 300 {
-                    malHagi("곧 \(mok) 부근입니다. 다음 정류장에서 내리시면 됩니다. 남은 거리 \(Annae.geoMal(d)).")
+                    malHagi("곧 \(mok) 부근입니다. 버스 안내 방송을 잘 들으시고 가까운 정류장에서 내리십시오. 남은 거리 \(Annae.geoMal(d)).")   // 2.60.0 "다음 정류장"이라 단정하지 않음
                 } else if g == 300 {
                     malHagi("곧 \(mok) 부근입니다. 내리실 준비를 하십시오. 남은 거리 \(Annae.geoMal(d)).")
                 } else if g == 150 {

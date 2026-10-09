@@ -6,6 +6,7 @@
 // 이제:
 //   걷기 15초 → 걸음(묵은 "차" 판단을 바로 지움)
 //   탈것 20초 → 땅속이거나(기압으로 내려간 뒤) 위성이 30초 넘게 끊겼거나 역 200미터 안에서 탔으면 지하철
+//              2.60.0 역 200미터는 위성이 좋지 않을 때만, 위성 끊김은 땅 위에서 차로 알아채기 전에만, 콜 배차 뒤에는 차로 못 박음
 //              땅 위에서 버스 정류장 25미터 안에서 두 번 넘게 섰다 떠나면 버스, 아니면 차
 //   멈춤 — 앞선 판단을 그대로 둠(신호 대기·역 정차)
 import CoreMotion
@@ -42,6 +43,8 @@ final class TalgeotGamji: ObservableObject {
     private var jihaMin = 0.0
     /// 2.59.0 (261009-I13, 이사장님 승인) 마지막으로 걸은 때 — 걸어서 내려간 때만 땅속으로 봄
     private var majimakGeoreum: Date?
+    /// 2.60.0 마지막으로 탈것이 움직인 때 — 새 목적지를 정할 때 묵은 판단을 지울지 가림
+    private(set) var majimakTalgeot: Date?
 
     var sseulSuItda: Bool { CMMotionActivityManager.isActivityAvailable() }
 
@@ -92,6 +95,7 @@ final class TalgeotGamji: ObservableObject {
             jihaHwagin()
         } else if a.automotive && !a.stationary {
             jigeumUmjigim = "탈것"
+            majimakTalgeot = now
             georeumSijak = nil
             if let m = meomchumSijak {
                 let t = now.timeIntervalSince(m)
@@ -124,6 +128,19 @@ final class TalgeotGamji: ObservableObject {
         }
     }
 
+    /// 2.60.0 새 목적지를 정할 때 — 30초 안에 탈것이 움직이지 않았으면 묵은 탈것 판단(지하철 등)을 지움
+    ///   (2026-10-09 남산: 25분 전 잘못 본 "지하철"이 남아 길 위에서 목적지를 정할 때마다 "열차가 움직이는 것 같습니다")
+    func saeYeojeong() {
+        let umjigimNa = majimakTalgeot.map { Date().timeIntervalSince($0) < 30 } ?? false
+        guard !umjigimNa, !jiha, chujeong != .georeum else { return }
+        if chujeong == .cha && ChaBureugi.shared.chaGojeong { return }   // 콜 차 안에서 신호 대기 중일 수 있음
+        chaSijak = nil
+        meomchumSijak = nil
+        yeokGeuncheo = false
+        jeongryujangSeom = 0
+        bakkugi(.georeum, "새 목적지 — 묵은 판단 지움")
+    }
+
     private func yeokGeuncheoBoda() {
         yeokGeuncheo = false
         guard let w = (jiha ? jisangJari : nil) ?? chaSijakJari ?? jisangJari else { return }
@@ -135,7 +152,16 @@ final class TalgeotGamji: ObservableObject {
 
     private func pandan(_ kkadak: String) {
         let t: Talgeot
-        if jiha || TalgeotGamji.wiseongEopseum || yeokGeuncheo {
+        // 2.60.0 (261009-I14, 이사장님 승인 2026-10-09 남산 — 약수역 위 댁 앞에서 복지콜을 탔는데 "지하철을 타신 것 같습니다")
+        //   ① 콜을 불러 배차된 뒤(3시간 안, 아직 내리지 않음)에는 땅속으로 내려가지 않는 한 차로 못 박음
+        //   ② 역 200미터 안에서 탔다는 것만으로는 지하철로 보지 않음 — 위성이 좋지 않을 때만 셈
+        //   ③ 땅 위에서 차로 알아챈 뒤에는 터널·가방 속처럼 위성만 끊겨도 지하철로 바꾸지 않음(땅속으로 내려갔을 때만)
+        let kolCha = ChaBureugi.shared.chaGojeong && !jiha
+        let yeok = yeokGeuncheo && !TalgeotGamji.wiseongJoeum
+        let wiseongMan = TalgeotGamji.wiseongEopseum && chujeong != .cha && chujeong != .beoseu
+        if kolCha {
+            t = .cha
+        } else if jiha || wiseongMan || yeok {
             t = .jihacheol
         } else if jeongryujangSeom >= 2 {
             t = .beoseu
@@ -144,7 +170,7 @@ final class TalgeotGamji: ObservableObject {
         } else {
             t = .cha
         }
-        if t != chujeong { bakkugi(t, kkadak + (jiha ? ", 땅속" : "") + (yeokGeuncheo ? ", 역 근처에서 탐" : "")) }
+        if t != chujeong { bakkugi(t, kkadak + (jiha ? ", 땅속" : "") + (yeok ? ", 역 근처에서 탐" : "") + (kolCha ? ", 콜 배차" : "")) }
     }
 
     private func bakkugi(_ t: Talgeot, _ kkadak: String) {

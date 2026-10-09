@@ -94,10 +94,30 @@ final class YeojeongEngine: ObservableObject {
     }
 
     func jeonghagi(_ m: Mokjeok) {
+        talgeotSaeroBogi()
         jigeum = Yeojeong(mokjeok: m, danggye: .eotteoke, talgeot: .georeum, barojabeum: false,
                           sijak: Date(), gaengsin: Date())
         Girok.shared.namgi("yeojeong_sijak", ["mok": m.ireum])
         jeojang()
+    }
+
+    /// 2.60.0 (261009-I14, 이사장님 승인 2026-10-09 남산) 새 목적지를 정할 때 — 지금 탈것이 움직이고 있지 않으면 묵은 탈것 판단을 지우고 새로 봄
+    ///   (25분 전 잘못 본 "지하철"이 남아, 길 위에서 목적지를 정할 때마다 "열차가 움직이는 것 같습니다"라던 일)
+    func talgeotSaeroBogi() {
+        let tg = TalgeotGamji.shared
+        tg.saeYeojeong()
+        if tg.sseulSuItda {
+            if sokdoChujeong != .gicha && sokdoChujeong != tg.chujeong { sokdoChujeong = tg.chujeong }
+        } else if ppareunTtae == nil && sokdoChujeong != .georeum {
+            sokdoChujeong = .georeum
+        }
+    }
+
+    /// 2.60.0 2분 안에 탈것이 움직였는가(움직임 감지기가 없는 폰은 빠르기 판단을 그대로 믿음)
+    var choegeunTalgeotUmjigim: Bool {
+        let tg = TalgeotGamji.shared
+        guard tg.sseulSuItda else { return sokdoChujeong != .georeum }
+        return tg.majimakTalgeot.map { Date().timeIntervalSince($0) < 120 } ?? false
     }
 
     func danggyeBakkugi(_ d: Danggye) {

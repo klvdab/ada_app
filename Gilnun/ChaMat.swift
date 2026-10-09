@@ -205,6 +205,15 @@ final class ChaMat {
         return s.joined(separator: " ")
     }
 
+    /// 2.60.0 (261009-I14, 이사장님 승인) 받아 둔 차 길을 따라 남은 거리 — 길 위(100미터 안)에 있을 때만, 아니면 nil
+    ///   (차 안 "남은 거리·곧 부근입니다"를 곧은 거리 대신 실제 갈 길로 셈)
+    func namEunGilGeori(_ w: Wichi) -> Double? {
+        guard itda, let g = gil else { return nil }
+        let (gd0, gi) = gilGeori(g, w.lat, w.lon)
+        guard gd0 <= 100 else { return nil }
+        return namGil(g, gi, w.lat, w.lon)
+    }
+
     /// 차 안 안내가 위치를 받을 때마다 부름(AnnaeEngine.chaAnnae). 말했으면 참
     func salpim(_ w: Wichi, _ malHagi: (String) -> Void) -> Bool {
         guard itda else { return false }

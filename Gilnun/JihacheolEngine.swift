@@ -170,7 +170,12 @@ final class JihacheolEngine {
     }
 
     /// 열차에 탔습니다 — 누르셔도 되고, 저절로도 됨
+    /// 2.60.0 역 입구를 거치지 않고 "이미 타고 가는 중"으로 짐작해 시작한 역 알림인가 — 땅 위를 차 빠르기로 달리면 차로 바로잡을 수 있음
+    ///   (역 입구로 걸어 들어가 탄 것은 지상 구간을 달려도 그대로 둠)
+    private(set) var jungganJadong = false
+
     func tatda(jadong: Bool) {
+        jungganJadong = false
         guard var g = gil else { return }
         g.i = -1
         g.kkeutnam = false
@@ -182,7 +187,9 @@ final class JihacheolEngine {
         majimak = Date()
         tamTtae = Date()
         let apmal = jadong ? "열차가 움직이는 것 같습니다. " : ""
-        SoriEngine.shared.mal(apmal + "역 알림을 시작합니다. 내리실 역은 \(g.to)역, \(g.jina.count) 정거장 뒤입니다. 지나는 역마다 알려 드립니다.")
+        // 2.60.0 (이사장님 승인) 저절로 시작할 때는 단정하지 않고 바로잡는 말을 함께
+        let dwimal = jadong ? " 지하철이 아니면 택시야라고 말씀해 주십시오." : ""
+        SoriEngine.shared.mal(apmal + "역 알림을 시작합니다. 내리실 역은 \(g.to)역, \(g.jina.count) 정거장 뒤입니다. 지나는 역마다 알려 드립니다." + dwimal)
         Girok.shared.namgi("jiha_tam", ["jadong": jadong])
         dolligi()
     }
@@ -199,6 +206,7 @@ final class JihacheolEngine {
                 Girok.shared.namgi("jiha_junggan", ["from": g.from, "to": g.to])
                 kkeut(true, "\(g.from)역에서 타신 것으로 보고 \(g.to)역까지 역을 알려 드립니다.")
                 self.tatda(jadong: true)
+                self.jungganJadong = true
             }
         }
     }
@@ -217,6 +225,7 @@ final class JihacheolEngine {
     }
 
     func meomchugi() {
+        jungganJadong = false
         dolgo = false
         tabeumGamsi = false
         poller?.invalidate()

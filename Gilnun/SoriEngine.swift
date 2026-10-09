@@ -271,7 +271,9 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
             return
         }
         guard let url = url else { msDaesin(b0, u); return }
-        let handO: Double = m.geup == .jeongbo ? 3.0 : 2.5
+        // 2.60.0 (261009-I14, 이사장님 승인) 말벗 대답처럼 긴 말은 만드는 데 오래 걸려 3초 안에 못 받고 늘 폰 목소리로 나가던 일 —
+        //   글자 수에 맞춰 더 기다림(한 자에 0.03초, 많아야 8초). 긴 말을 못 받은 것은 세 번 실패(5분 쉼)에 셈하지 않음
+        let handO: Double = min(8.0, (m.geup == .jeongbo ? 3.0 : 2.5) + Double(m.t.count) * 0.03)
         var rq = URLRequest(url: url, timeoutInterval: handO)
         rq.cachePolicy = .reloadIgnoringLocalCacheData
         URLSession.shared.dataTask(with: rq) { [weak self] d, res, _ in
@@ -283,9 +285,9 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
                     self.msSilpae = 0
                     self.msTeulgi(d, b0, u)
                 } else {
-                    self.msSilpae += 1
+                    if m.t.count <= 60 { self.msSilpae += 1 }
                     if self.msSilpae >= 3 { self.msSwimTtae = Date() }
-                    Girok.shared.namgi("ms_moksori_mot", ["silpae": self.msSilpae])
+                    Girok.shared.namgi("ms_moksori_mot", ["silpae": self.msSilpae, "geulja": m.t.count])
                     self.msDaesin(b0, u)
                 }
             }
