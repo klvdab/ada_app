@@ -142,7 +142,7 @@ struct GilChatgiView: View {
                         .focused($pyeonjip)
                         .accessibilityFocused($meoriChojeom)
                         .onSubmit { chatgi() }
-                        .onChange(of: mal) { _, v in if v.contains("\n") { chatgi(); mal = mal.replacingOccurrences(of: "\n", with: "") } }
+                        .onChange(of: mal) { v in if v.contains("\n") { chatgi(); mal = mal.replacingOccurrences(of: "\n", with: "") } }
                     NavigationLink(value: GilHwamyeon.jeulgyeo) { Text("즐겨찾기 — 자주 가는 곳") }
                         .buttonStyle(KeunDanchu())
                     NavigationLink(value: GilHwamyeon.chaBureugi) { Text("차 부르기 — 복지콜, 교통약자 콜, 정기 호출") }
@@ -189,7 +189,7 @@ struct GilChatgiView: View {
             meoriChojeom = false   // 2.12.1 탭을 고를 때마다 첫 줄로
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { if !pyeonjip { meoriChojeom = true } }
         }
-        .onChange(of: pyeonjip) { _, p in
+        .onChange(of: pyeonjip) { p in
             if p { gut = gutHigi(); MalHagi.shared.pyeonjipSijak() }
             else { gut = nil; MalHagi.shared.pyeonjipKkeut() }
         }
