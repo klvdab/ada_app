@@ -2,12 +2,15 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.15.0"
-    static let bild = "261009-I9"
+    static let pan = "2.16.0"
+    static let bild = "261009-I10"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.16.0", bild: "261009-I10", nal: "2026-10-09", naeyong: [
+            "길눈 2.60.0과 함께 — 함께 쓰는 부품(탈것 판단·말로 하기·차 부르기) 손질, 자봉 화면과 그리기는 그대로(이사장님 승인 2026-10-09)"
+        ]),
         Gochim(pan: "2.15.0", bild: "261009-I9", nal: "2026-10-09", naeyong: [
             "길눈 2.59.0과 함께 — 전화가 오거나 걸면 자봉 안내 말을 멈춤(전화 지킴이를 자봉 앱에서도 켬, 이사장님 지시), 앱 기록 이름표를 자봉으로 바로 적음"
         ]),
