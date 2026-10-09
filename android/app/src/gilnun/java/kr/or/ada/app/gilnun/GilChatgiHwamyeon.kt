@@ -83,6 +83,10 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
             }
         }
 
+        // 2.30.0 통화로 멈춘 방송이 있으면 — 통화가 끝난 뒤 한 번 누르면 이어 들음(이사장님 승인 2026-10-09)
+        if (Bangsong.jeonhwaDwi && Bangsong.itda) {
+            t.danchu("방송 이어 듣기 — ${Bangsong.jemok.ifEmpty { Bangsong.jong.ireum }}") { Bangsong.ieoDeutgi(); t.dasiGeurigi() }
+        }
         // ③ 하던 일 멈추기 — 접지 않고(이사장님 승인 1)
         // 2.20.0 무엇이 진행 중이든 아니든 늘 맨 위에(이사장님 승인 2026-10-06, 아이폰 2.52.0과 같음)
         t.danchu("하던 일 멈추기 — 안내를 모두 멈추고 새 목적지 찾기") { AnnaeEngine.haneunIlMeomchum() }
@@ -187,6 +191,7 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
         val y = YeojeongEngine.jigeum
         val sb = StringBuilder()
         sb.append(if (JeomEngine.muleum != null) "M" else "-")
+        sb.append(if (Bangsong.jeonhwaDwi && Bangsong.itda) "J" else "-")   // 2.30.0 방송 이어 듣기
         sb.append(if (jm.bulleoneun) "B" else "-")
         sb.append(if (MalgilEngine.geotneun) "L" else "-").append(DoeEngine.sangtae.name)
         sb.append(if (jm.gil != null) (if (jm.dochakHam) "D" else (if (jm.dwit) "R" else "G")) else "-")

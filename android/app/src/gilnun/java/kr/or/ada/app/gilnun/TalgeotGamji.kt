@@ -49,6 +49,9 @@ object TalgeotGamji : SensorEventListener {
     private var jeongryujangSeom = 0
     private val gido = ArrayList<Pair<Long, Double>>()
     private var jihaMin = 0.0
+    // 2.30.0 (261009-A18, 이사장님 승인) 마지막으로 걸음이 늘어난 때 — 걸어서 내려간 때만 땅속으로 봄
+    private var majimakGeoreumTtae = 0L
+    private var jeonGeoreumSu = -1
 
     val wiseongJoeum: Boolean
         get() {
@@ -95,6 +98,8 @@ object TalgeotGamji : SensorEventListener {
         val now = System.currentTimeMillis()
         if (!jiha && wiseongJoeum) jisangJari = Wichi.jigeum
         georeumGirok.add(now to Wichi.georeumSu)
+        if (jeonGeoreumSu >= 0 && Wichi.georeumSu > jeonGeoreumSu) majimakGeoreumTtae = now
+        jeonGeoreumSu = Wichi.georeumSu
         georeumGirok.removeAll { now - it.first > 25000 }
         val georeum15 = georeumGirok.lastOrNull()!!.second - (georeumGirok.firstOrNull { now - it.first <= 16000 }?.second ?: Wichi.georeumSu)
         val georeum20 = georeumGirok.lastOrNull()!!.second - (georeumGirok.firstOrNull()?.second ?: Wichi.georeumSu)
@@ -156,7 +161,7 @@ object TalgeotGamji : SensorEventListener {
 
     private fun bakkugi(t: Talgeot, kkadak: String) {
         chujeong = t
-        Girok.namgi("talgeot_gamji", mapOf("t" to t.raw, "kkadak" to kkadak))
+        Girok.namgi("talgeot_gamji", mapOf("talgeot" to t.raw, "kkadak" to kkadak))   // 2.30.0 칸 이름 "t" 가 기록 시각 칸을 덮어써 시각이 지워지던 것 고침
         YeojeongEngine.gamjiBatda(t)
     }
 
@@ -176,7 +181,11 @@ object TalgeotGamji : SensorEventListener {
         gido.removeAll { now - it.first > 120000 }
         if (!jiha) {
             val jeonMax = gido.filter { now - it.first <= 90000 }.maxOfOrNull { it.second } ?: h
-            if (jeonMax - h >= 3.5 && !wiseongJoeum) {
+            // 2.30.0 (261009-A18, 이사장님 승인) 밤새 집 안에 놓인 폰이 20분마다 땅속 들어감·나옴을 되풀이하고(10/9 기록),
+            // 차를 타고 내리막·터널을 지날 때도 땅속으로 봄 — 땅속은 사람이 걸어서(계단·에스컬레이터) 내려갈 때만:
+            // 최근 90초 안에 걸음이 있었고, 지금 탈것을 타고 있지 않을 때
+            val georeoNaeryeogam = majimakGeoreumTtae > 0 && now - majimakGeoreumTtae <= 90_000 && jigeumUmjigim != "탈것"
+            if (jeonMax - h >= 3.5 && !wiseongJoeum && georeoNaeryeogam) {
                 if (naeryeogaTtae == 0L) naeryeogaTtae = now
                 if (now - naeryeogaTtae < 10000) return
                 naeryeogaTtae = 0L
@@ -198,6 +207,7 @@ object TalgeotGamji : SensorEventListener {
         if (wiseongJoeum || (h - jihaMin >= 3.5 && jigeumUmjigim == "걸음")) {
             jiha = false
             jisangJari = Wichi.jigeum
+            gido.clear()   // 2.30.0 나온 뒤 묵은 높이로 곧바로 다시 들어감을 막음(1초 간격 들락날락)
             Girok.namgi("jiha_naom", mapOf("wiseong" to wiseongJoeum))
         }
     }

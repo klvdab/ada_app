@@ -93,6 +93,10 @@ object BangsongSeol {
     var gojangNorae: Boolean
         get() = b("gojangNorae", false)   // 2.28.0 처음값 끔(이사장님 지시, 아이폰 2.57.0과 같음)
         set(v) = bNoki("gojangNorae", v)
+    /** 2.30.0 통화가 끝난 뒤 방송을 저절로 이어 들음(처음엔 꺼짐 — 맨 위 「방송 이어 듣기」 단추로 이어 들으심, 이사장님 승인) */
+    var tonghwaDwiIeum: Boolean
+        get() = b("tonghwaDwiIeum", false)
+        set(v) = bNoki("tonghwaDwiIeum", v)
     /** 2.34.0 워치가 있으면 워치에서 동영상 틀기(처음부터 켜짐) */
     var dongyeongWatch: Boolean
         get() = b("dongyeongWatch", true)
@@ -450,6 +454,38 @@ object Bangsong {
 
     /** 말로 하기가 명령을 듣는 동안 멈춤 */
     fun deutgiMeomchum(t: Boolean) = naebu("deutgi", t)
+
+    // MARK: 2.30.0 전화(이사장님 지시 2026-10-09) — 전화 중에는 멈추고, 끝나면 저절로 틀지 않고 「방송 이어 듣기」 단추
+
+    /** 통화로 멈춘 방송이 있음 — 길 찾기 첫 화면·음악·방송 화면 맨 위에 「방송 이어 듣기」 */
+    var jeonhwaDwi = false
+        private set
+    private var jeonhwaJeonNaneun = false
+
+    fun jeonhwa(on: Boolean) = mainEseo2 {
+        if (on) {
+            jeonhwaJeonNaneun = naneunJung
+            naebu("jeonhwa", true)
+            return@mainEseo2
+        }
+        if (!naebuMeomchum.contains("jeonhwa")) return@mainEseo2
+        if (!itda || !jeonhwaJeonNaneun || BangsongSeol.tonghwaDwiIeum) { naebu("jeonhwa", false); return@mainEseo2 }
+        // 저절로 다시 틀지 않음 — 이용자 멈춤으로 돌려 두고 단추를 보임
+        meomchum = true
+        if (meomchunTtae == 0L) meomchunTtae = System.currentTimeMillis()
+        naebuMeomchum.remove("jeonhwa")
+        jeonhwaDwi = true
+        Girok.namgi("jeonhwa_dwi", mapOf("jong" to jong.ireum))
+        allim()
+    }
+
+    /** 「방송 이어 듣기」 — 통화 전에 듣던 것을 다시 */
+    fun ieoDeutgi() {
+        jeonhwaDwi = false
+        if (itda && meomchum) meomchumTogeul() else allim()
+    }
+
+    private fun mainEseo2(f: () -> Unit) { if (Looper.myLooper() == Looper.getMainLooper()) f() else main.post(f) }
     /** 2.12.2 부름을 들은 때부터 명령을 마칠 때까지 멈춤 */
     fun bureumMeomchum(t: Boolean) { bureumIl = t; naebu("bureum", t) }
 
@@ -496,6 +532,7 @@ object Bangsong {
     /** 멈춤과 다시 틀기 */
     fun meomchumTogeul() {
         if (!itda) return
+        jeonhwaDwi = false   // 2.30.0 멈춤·이어서 틀기를 손수 누르시면 이어 듣기 단추는 거둠
         if (meomchum) {
             meomchum = false
             if (naebuMeomchum.isEmpty()) dasiTeulgi() else allim()

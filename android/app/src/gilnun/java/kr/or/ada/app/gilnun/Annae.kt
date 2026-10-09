@@ -571,7 +571,10 @@ object AnnaeEngine {
                 val ls = ArrayList<Bolgeori>()
                 if (rows != null) for (i in 0 until rows.length()) {
                     val r = rows.optJSONObject(i) ?: continue
-                    ls.add(Bolgeori(r.optString("ireum", ""), r.optString("mal", ""), r.optDouble("lat"), r.optDouble("lon")))
+                    // 2.30.0 (점검) 좌표가 비거나 0이면 건너뜀 — 예전엔 숫자 아님(NaN)이 목적지 자리를 덮을 수 있었음(아이폰은 거르고 있었음)
+                    val bla = r.optDouble("lat", Double.NaN); val blo = r.optDouble("lon", Double.NaN)
+                    if (bla.isNaN() || blo.isNaN() || bla == 0.0 || blo == 0.0) continue
+                    ls.add(Bolgeori(r.optString("ireum", ""), r.optString("mal", ""), bla, blo))
                 }
                 val nm = ireum.replace(" ", "")
                 bg = ls.firstOrNull { it.ireum.isNotEmpty() && nm.contains(it.ireum.replace(" ", "")) }
