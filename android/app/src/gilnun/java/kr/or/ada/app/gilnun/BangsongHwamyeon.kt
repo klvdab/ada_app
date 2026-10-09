@@ -122,9 +122,14 @@ private class BsGoreugi(jemok: String, private val l: List<String>, private val 
 // MARK: 첫 화면
 
 class BangsongCheot : BangsongBada("음악·방송") {
-    override fun moyang() = "${Bangsong.itda}|${Bangsong.jemok}"
+    override fun moyang() = "${Bangsong.itda}|${Bangsong.jemok}|${Bangsong.jeonhwaDwi}|${Bangsong.meomchum}"
     override fun geurigi(t: GilnunActivity) {
         val b = Bangsong
+        // 2.30.0 통화로 멈춘 방송 — 맨 위 한 줄, 누르면 이어 들음(이사장님 승인 2026-10-09)
+        if (b.itda && b.jeonhwaDwi) {
+            val ie = danchu(t, "ieoDeutgi", "방송 이어 듣기 — ${b.jemok.ifEmpty { b.jong.ireum }}") { b.ieoDeutgi() }
+            t.chojeomJul(ie)
+        }
         if (b.itda) {
             // 지금 나오는 것 — 안내와 단추를 한 줄에
             val g = danchu(t, "geuman", "지금 나오는 것 — ${b.jemok.ifEmpty { "연결 중" }}. 그만 듣기") { b.geuman() }
@@ -138,6 +143,12 @@ class BangsongCheot : BangsongBada("음악·방송") {
         danchu(t, "tv", "TV 보기") { t.yeolgi(ChaeneolHwamyeon("tv")) }
         danchu(t, "sesang", "지금 세상 이야기") { t.yeolgi(SesangHwamyeon()) }
         danchu(t, "dongyeong", "동영상 틀기") { t.yeolgi(DongyeongHwamyeon()) }   // 2.34.0
+        // 2.30.0 통화 뒤 저절로 이어 듣기(처음 꺼짐)
+        danchu(t, "tonghwaDwi", "통화 뒤 방송 저절로 이어 듣기 — 지금 " + (if (BangsongSeol.tonghwaDwiIeum) "켜짐, 누르면 꺼짐" else "꺼짐, 누르면 켜짐")) {
+            BangsongSeol.tonghwaDwiIeum = !BangsongSeol.tonghwaDwiIeum
+            Sori.mal(if (BangsongSeol.tonghwaDwiIeum) "통화가 끝나면 방송을 저절로 이어 드립니다." else "통화가 끝나도 방송을 저절로 틀지 않습니다. 맨 위 방송 이어 듣기를 누르시면 이어집니다.")
+            t.dasiGeurigi()
+        }
     }
 }
 

@@ -58,7 +58,7 @@ object Eum {
     /** 소리 하나 내기 — 겹쳐도 되고, 다 나면 스스로 치움 */
     fun naegi(j: EumJong) {
         main.post {
-            if (Sori.tonghwaJung) return@post   // 2.6.0 긴급통화 중에는 알림 소리도 내지 않음(아이폰과 같음)
+            if (Sori.malAnham) return@post   // 2.6.0 긴급통화 중에는 알림 소리도 내지 않음(아이폰과 같음)
             if (Sori.deutneunJung && j != EumJong.GYEONGGO && j != EumJong.BEOSEO && j != EumJong.DINGDONG && j != EumJong.TTAENG) return@post
             val s = gotgan.getOrPut(j) { mandeulgi(jogak(j)) }
             if (s.isEmpty()) return@post

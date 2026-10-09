@@ -196,6 +196,8 @@ class DongyeongActivity : AppCompatActivity() {
         Seoljeong.sijak(this)
         Sori.sijak(this)
         BangsongSeol.sijak(this)
+        JeonhwaGamsi.sijak(this)   // 2.30.0 전화가 오거나 걸면 동영상도 멈춤(저절로 다시 틀지 않음 — 재생 단추로)
+        JeonhwaGamsi.deullim.add(jeonhwaDeullim)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val bburi = LinearLayout(this).apply {
@@ -232,6 +234,8 @@ class DongyeongActivity : AppCompatActivity() {
 
         batgi(intent)
     }
+
+    private val jeonhwaDeullim: (Boolean) -> Unit = { on -> if (on) { player?.pause(); if (::jaesaengB.isInitialized) jaesaengGeul() } }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -357,6 +361,7 @@ class DongyeongActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        JeonhwaGamsi.deullim.remove(jeonhwaDeullim)   // 2.30.0
         pv.player = null
         player?.release()
         player = null
