@@ -56,8 +56,27 @@ struct JeomGil: Codable, Identifiable {
             guard let la = Chatgi.su(p["lat"]), let lo = Chatgi.su(p["lon"]), la != 0, lo != 0 else { return nil }
             return JeomJeom(lat: la, lon: lo, acc: Chatgi.su(p["acc"]), h: Chatgi.su(p["h"]), t: Chatgi.su(p["t"]))
         }
+        // 2.59.0 (점검 — 자봉 앱과 잇기) 자봉은 위성이 흐린 자리(지하·실내)의 표시를 위치 없이 올림. 예전엔 길눈이 그런 표시를 버려
+        // 지하 계단·문 표시가 사라졌음 — 같은 걸음 자리(st), 없으면 가까운 때(t)의 위치 있는 점으로 채움(안드로이드와 같음)
+        let wonJeom: [(st: Double?, t: Double?, lat: Double, lon: Double)] = ((o["pts"] as? [[String: Any]]) ?? []).compactMap { p in
+            guard let la = Chatgi.su(p["lat"]), let lo = Chatgi.su(p["lon"]), la != 0, lo != 0 else { return nil }
+            return (Chatgi.su(p["st"]), Chatgi.su(p["t"]), la, lo)
+        }
+        func chaeum(_ m: [String: Any]) -> (Double, Double)? {
+            if let st = Chatgi.su(m["st"]) {
+                let h = wonJeom.filter { $0.st != nil }.min { abs($0.st! - st) < abs($1.st! - st) }
+                if let h = h { return (h.lat, h.lon) }
+            }
+            if let t = Chatgi.su(m["t"]) {
+                let h = wonJeom.filter { $0.t != nil }.min { abs($0.t! - t) < abs($1.t! - t) }
+                if let h = h { return (h.lat, h.lon) }
+            }
+            return nil
+        }
         let marks: [JeomPyo] = ((o["marks"] as? [[String: Any]]) ?? []).map { m in
-            JeomPyo(lat: Chatgi.su(m["lat"]), lon: Chatgi.su(m["lon"]), name: m["name"] as? String, kind: m["kind"] as? String,
+            var la = Chatgi.su(m["lat"]), lo = Chatgi.su(m["lon"])
+            if la == nil || lo == nil || la == 0 || lo == 0, let c = chaeum(m) { la = c.0; lo = c.1 }
+            return JeomPyo(lat: la, lon: lo, name: m["name"] as? String, kind: m["kind"] as? String,
                     cnt: Chatgi.su(m["cnt"]).map { Int($0) }, mal: m["mal"] as? String, t: Chatgi.su(m["t"]),
                     acc: Chatgi.su(m["acc"]), dist: Chatgi.su(m["dist"]), st: Chatgi.su(m["st"]).map { Int($0) })
         }
@@ -143,7 +162,11 @@ struct JeomGil: Codable, Identifiable {
         "올라가는 계단 시작": "내려가는 계단 시작", "내려가는 계단 시작": "올라가는 계단 시작",
         "오름턱": "내림턱", "내림턱": "오름턱",
         "횡단보도 건너기 시작": "횡단보도 건너기 끝", "횡단보도 건너기 끝": "횡단보도 건너기 시작",
-        "엘리베이터 올라감": "엘리베이터 내려감", "엘리베이터 내려감": "엘리베이터 올라감"
+        "엘리베이터 올라감": "엘리베이터 내려감", "엘리베이터 내려감": "엘리베이터 올라감",
+        // 2.59.0 (점검) 자봉 표시의 탈것 짝 — 거꾸로 걸으면 오름과 내림, 탐과 내림이 바뀜(안드로이드와 같음)
+        "에스컬레이터 올라감": "에스컬레이터 내려감", "에스컬레이터 내려감": "에스컬레이터 올라감",
+        "지하철 탐": "지하철 내림", "지하철 내림": "지하철 탐",
+        "버스 탐": "버스 내림", "버스 내림": "버스 탐"
     ]
 }
 

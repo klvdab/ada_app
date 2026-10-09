@@ -30,7 +30,16 @@ final class TomakDeutgi: NSObject, AVAudioPlayerDelegate {
         }
     }
 
+    /// 2.59.0 전화가 오거나 걸면 곧바로 멈춤
+    func meomchugi() {
+        DispatchQueue.main.async {
+            self.player?.stop()
+            self.player = nil
+        }
+    }
+
     private func teulgi(_ d: Data) {
+        guard !SoriEngine.shared.malAnham else { return }   // 2.59.0 화상통화·전화 중에는 틀지 않음
         guard let p = try? AVAudioPlayer(data: d) else { return }
         try? AVAudioSession.sharedInstance().setActive(true)
         p.delegate = self

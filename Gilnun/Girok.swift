@@ -67,7 +67,11 @@ final class Girok {
         q.async {
             guard !self.bonaeneunJung, !self.jul.isEmpty else { return }
             let mukeum = Array(self.jul.prefix(100))
-            let body: [String: Any] = ["dev": self.dev, "app": "gilnun-app " + Pan.pan + "(" + Pan.bild + ")",
+            // 2.59.0 (점검) 자봉 앱도 이 기록 부품을 함께 써서 「gilnun-app 길눈 판」으로 잘못 찍혔음 — 앱 번호로 가림
+            let jabong = (Bundle.main.bundleIdentifier ?? "").contains("jabong")
+            let ireum = jabong ? "jabong-app " + ((Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "")
+                               : "gilnun-app " + Pan.pan + "(" + Pan.bild + ")"
+            let body: [String: Any] = ["dev": self.dev, "app": ireum,
                                        "ios": self.ios, "ev": mukeum]
             guard let data = try? JSONSerialization.data(withJSONObject: body) else {
                 self.jul.removeFirst(mukeum.count)

@@ -70,6 +70,7 @@ struct GilChatgiView: View {
     @ObservedObject private var malgil = MalgilEngine.shared
     @ObservedObject private var jeom = JeomEngine.shared
     @ObservedObject private var sj = Seoljeong.shared   // 2.52.0 처음 안내 줄
+    @ObservedObject private var bs = BangsongEngine.shared   // 2.59.0 방송 이어 듣기
     @AppStorage("gn.cheotAnnae") private var cheotNajung = false
     @State private var mal = ""
     @AccessibilityFocusState private var meoriChojeom: Bool
@@ -79,6 +80,11 @@ struct GilChatgiView: View {
             VStack(alignment: .leading, spacing: 14) {
                 GingeupGongjiJul()   // 2.9.0 읽지 않은 긴급 공지 — 맨 위
                 OllimJul()           // 2.54.0 새 판이 있을 때만 — 두드리면 테스트플라이트에서 업데이트
+                // 2.59.0 통화로 멈춘 방송이 있으면 — 통화가 끝난 뒤 한 번 누르면 이어 들음(이사장님 승인 2026-10-09)
+                if bs.itda && bs.jeonhwaDwi {
+                    Button("방송 이어 듣기 — \(bs.jemok.isEmpty ? "듣던 방송" : bs.jemok)") { bs.ieoDeutgi() }
+                        .buttonStyle(KeunDanchu())
+                }
                 // 2.12.6 하던 일 멈추기 — 접지 않고 맨 위에(이사장님 승인 1)
                 // 2.52.0 무엇이 진행 중이든 아니든 늘 맨 위에(이사장님 승인 2026-10-06 — 문 찾기 중에 줄이 사라졌던 일)
                 Button("하던 일 멈추기 — 안내를 모두 멈추고 새 목적지 찾기") {

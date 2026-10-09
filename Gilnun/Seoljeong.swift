@@ -35,6 +35,8 @@ final class Seoljeong: ObservableObject {
     @Published var gojangJadong: Bool { didSet { d.set(gojangJadong, forKey: "gn.gojangJadong") } }
     /// 2.12.7 차에 타면 지나는 고장 노래 저절로 틀기(2.57.0부터 처음엔 꺼짐, 켜신 분만)
     @Published var gojangNorae: Bool { didSet { d.set(gojangNorae, forKey: "gn.gojangNorae") } }
+    /// 2.59.0 통화가 끝난 뒤 방송을 저절로 이어 들음(처음엔 꺼짐 — 맨 위 「방송 이어 듣기」 단추로, 이사장님 승인)
+    @Published var tonghwaDwiIeum: Bool { didSet { d.set(tonghwaDwiIeum, forKey: "gn.tonghwaDwiIeum") } }
     /// 2.15.0 카메라 눈 말소리 — 끄면 문 찾기 등 카메라 기능이 말 없이 소리로만(처음부터 켜짐)
     @Published var kameraMal: Bool { didSet { d.set(kameraMal, forKey: "gn.kameraMal") } }
     /// 2.28.0 길눈 목소리(마이크로소프트 선희) 쓰기 — 처음부터 켜짐(애저 정식 열쇠 전에는 나스 음악 열쇠가 있는 폰에서만)
@@ -97,6 +99,7 @@ final class Seoljeong: ObservableObject {
         ieoponDanchu = (ud.object(forKey: "gn.ieoponDanchu") as? Bool) ?? true
         dongyeongWatch = (ud.object(forKey: "gn.dongyeongWatch") as? Bool) ?? true
         gojangJadong = (ud.object(forKey: "gn.gojangJadong") as? Bool) ?? true
+        tonghwaDwiIeum = (ud.object(forKey: "gn.tonghwaDwiIeum") as? Bool) ?? false   // 2.59.0
         gojangNorae = (ud.object(forKey: "gn.gojangNorae") as? Bool) ?? false   // 2.57.0 처음값 끔(이사장님 지시 — 처음 받은 분이 다른 기능을 먼저 익히게)
         kameraMal = (ud.object(forKey: "gn.kameraMal") as? Bool) ?? true
         msMoksori = (ud.object(forKey: "gn.msMoksori") as? Bool) ?? true

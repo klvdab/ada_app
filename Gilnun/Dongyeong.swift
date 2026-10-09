@@ -134,6 +134,8 @@ struct DongyeongJaesaengView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true }
         }
         .onDisappear { player?.pause() }
+        // 2.59.0 전화가 오거나 걸면 동영상도 멈춤(저절로 다시 틀지 않음 — 재생 단추로)
+        .onReceive(JeonhwaGamsi.shared.$jeonhwaJung) { j in if j { player?.pause(); naoneunJung = false } }
         .accessibilityAction(.escape) { player?.pause(); dwiro() }
     }
 

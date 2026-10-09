@@ -51,6 +51,10 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
     private var meomchum = false
     /// 화상통화 중 — 길눈 말소리를 내지 않음(통화 소리 보호, 2026-09-11 이사장님 지시: 통화 중에는 화면 글로만)
     var tonghwaJung = false
+    /// 2.59.0 폰 전화 중(벨·걸기·통화) — JeonhwaGamsi 가 켜고 끔. 화상통화 때와 같이 말하지 않고 경고는 진동
+    var jeonhwaJung = false
+    /// 지금 길눈이 소리를 내면 안 됨(화상통화 중이거나 전화 중)
+    var malAnham: Bool { tonghwaJung || jeonhwaJung }
     private(set) var majimak = ""
     private(set) var malHaneunSu = 0
 
@@ -134,7 +138,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
         let t = t.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty else { return }
         DispatchQueue.main.async {
-            if self.tonghwaJung {
+            if self.malAnham {   // 2.59.0 전화 중에도
                 self.majimak = t
                 if geup == .gyeonggo { Jindong.hagi("long") }   // 2.12.0 통화 중 경고는 진동으로
                 return
@@ -371,7 +375,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
                 guard let self = self, b0 == self.daehwaBeon else { return }
                 self.daehwaKkeut()
             }
-            if self.tonghwaJung { self.daehwaKkeut(); return }
+            if self.malAnham { self.daehwaKkeut(); return }
             self.naerigiJakeop?.cancel()
             self.sesyeonKyeogi()   // 마이크가 열려 있으면 소리 자리를 바꾸지 않고 켜기만 함
             // 길눈 목소리(선희)를 받아 둔 것이 있으면 그것으로, 없으면 폰 목소리로 곧바로(기다리지 않음)
@@ -396,6 +400,17 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
             u.rate = Seoljeong.shared.malBbareugi
             u.preUtteranceDelay = 0
             self.daehwaSynth.speak(u)
+        }
+    }
+
+    /// 2.59.0 전화가 오거나 걸면 — 줄에 선 말을 비우고 하던 말·알림 소리·대화 말을 곧바로 끊음
+    func jeonhwaMeomchum() {
+        DispatchQueue.main.async {
+            self.jul.removeAll()
+            self.jigeumMalKkeunki(.immediate)
+            self.player?.stop()
+            self.player = nil
+            self.daehwaGeuman()
         }
     }
 
@@ -454,7 +469,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
     // MARK: 알림 소리
 
     func sori(_ j: SoriJong) {
-        if tonghwaJung { return }
+        if malAnham { return }   // 2.59.0 전화 중에도
         let data: Data
         var gil = 0.3
         switch j {

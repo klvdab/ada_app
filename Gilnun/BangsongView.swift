@@ -52,10 +52,16 @@ struct JigeumNaoneun: View {
 
 struct BangsongCheot: View {
     @ObservedObject private var b = BangsongEngine.shared
+    @ObservedObject private var s = Seoljeong.shared   // 2.59.0
     @AccessibilityFocusState private var chojeom: Bool
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                // 2.59.0 통화로 멈춘 방송 — 맨 위 한 줄, 누르면 이어 들음(이사장님 승인 2026-10-09)
+                if b.itda && b.jeonhwaDwi {
+                    Button("방송 이어 듣기 — \(b.jemok.isEmpty ? "듣던 방송" : b.jemok)") { b.ieoDeutgi() }
+                        .buttonStyle(KeunDanchu())
+                }
                 if b.itda {
                     JigeumNaoneun().accessibilityFocused($chojeom)
                     NavigationLink(value: BangsongHwamyeon.eumak) { Text("길 위의 음악") }.buttonStyle(KeunDanchu())
@@ -68,6 +74,10 @@ struct BangsongCheot: View {
                 NavigationLink(value: BangsongHwamyeon.tv) { Text("TV 보기") }.buttonStyle(KeunDanchu())
                 NavigationLink(value: BangsongHwamyeon.sesang) { Text("지금 세상 이야기") }.buttonStyle(KeunDanchu())
                 NavigationLink(value: BangsongHwamyeon.dongyeong) { Text("동영상 틀기") }.buttonStyle(KeunDanchu())   // 2.34.0
+                // 2.59.0 통화 뒤 저절로 이어 듣기(처음 꺼짐)
+                Toggle(isOn: $s.tonghwaDwiIeum) { Text("통화 뒤 방송 저절로 이어 듣기").font(.title3.weight(.semibold)) }
+                    .padding(.horizontal, 4)
+                    .frame(minHeight: 60)
             }
             .padding()
         }

@@ -29,6 +29,7 @@ final class Bonche {
         ChaBureugi.shared.sijak()    // 2.58.0 차 부르기 — 지역 이용 안내, 이용 기록, 정기 호출 알림
         MalHagi.shared.sijak()       // 말로 하기 — 사전 받기, 하이 길눈을 켜 두셨으면 부름 기다리기
         GojangEngine.shared.sijak()  // 2.7.0 탈것으로 지나는 고장 이야기(설정에서 끔)
+        JeonhwaGamsi.shared.sijak()     // 2.59.0 전화가 오거나 걸면 길눈의 모든 소리를 멈춤(이사장님 지시)
         BangsongEngine.shared.sijak()   // 2.8.0 음악·방송 — 멈춤 지킴이, 긴급통화 중 멈춤
         GongjiEngine.shared.sijak()     // 2.9.0 알림 — 15분마다, 긴급 공지는 첫 화면 맨 위
         Heundeul.shared.sijak()         // 2.9.0 흔들면(설정에서 켬)

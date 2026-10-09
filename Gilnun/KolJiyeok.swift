@@ -54,9 +54,11 @@ final class JiyeokEngine {
     /// 지금 자리를 넣으면, 지난번과 800미터 넘게 떨어졌거나 10분이 지났을 때만 주소를 다시 찾음
     func gaengsin(_ w: Wichi?) {
         guard let w = w, !chatneunJung else { return }
+        // 2.59.0 (261009-I13, 이사장님 승인) 밤새 가만히 놓인 폰이 10분마다 주소를 다시 찾던 것 — 800미터 안이면 한 시간에 한 번만
         if let m = majimak,
            WichiEngine.geori(m.lat, m.lon, w.lat, w.lon) < 800,
-           Date().timeIntervalSince(m.ttae) < 600 { return }
+           Date().timeIntervalSince(m.ttae) < 3600 { return }
+        let ap = majimak
         chatneunJung = true
         let loc = CLLocation(latitude: w.lat, longitude: w.lon)
         geo.reverseGeocodeLocation(loc, preferredLocale: Locale(identifier: "ko_KR")) { [weak self] pm, _ in
@@ -70,11 +72,15 @@ final class JiyeokEngine {
             for c in [p.locality, p.subAdministrativeArea, p.subLocality] {
                 if let c = c, !c.isEmpty, c != sd, !sg.contains(c) { sg.append(c) }
             }
-            let j = Jiyeok(sido: JiyeokEngine.sidoJeongni(sd, sg), sigungu: sg, lat: w.lat, lon: w.lon, ttae: Date())
+            let sdj = JiyeokEngine.sidoJeongni(sd, sg)
+            // 2.59.0 같은 시·도에서 시·군·구가 비어 오면(주소 찾기가 가끔 빈칸을 줌) 앞서 알아낸 시·군·구를 그대로 둠
+            let sgj: [String] = (sg.isEmpty && ap?.sido == sdj) ? (ap?.sigungu ?? []) : sg
+            let j = Jiyeok(sido: sdj, sigungu: sgj, lat: w.lat, lon: w.lon, ttae: Date())
+            let bakkwim = ap == nil || ap?.sido != j.sido || ap?.sigungu != j.sigungu   // 2.59.0 지역이 바뀐 때만 기록
             DispatchQueue.main.async {
                 self.majimak = j
                 if let d = try? JSONEncoder().encode(j) { UserDefaults.standard.set(d, forKey: self.jeojangKi) }
-                Girok.shared.namgi("kol_jiyeok", ["sido": j.sido, "sg": j.sigungu.joined(separator: ",")])
+                if bakkwim { Girok.shared.namgi("kol_jiyeok", ["sido": j.sido, "sg": j.sigungu.joined(separator: ",")]) }
             }
         }
     }

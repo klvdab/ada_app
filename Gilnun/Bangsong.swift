@@ -67,6 +67,9 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
     @Published private(set) var jemok = ""            // 지금 나오는 곡·채널·기사 이름
     @Published private(set) var sangtaeMal = ""       // 한 번만 알릴 상태(연결 중, 다시 잇는 중)
     @Published private(set) var meomchum = false      // 이용자가 멈춤
+    /// 2.59.0 통화로 멈춘 방송이 있음 — 길 찾기 첫 화면·음악·방송 첫 화면 맨 위에 「방송 이어 듣기」
+    @Published private(set) var jeonhwaDwi = false
+    private var jeonhwaJeonNaneun = false
     @Published private(set) var eumakDeureom = false  // 나스 음악 열쇠로 들어옴
     @Published private(set) var cheoumIra = false     // 나스 음악 열쇠가 아직 정해지지 않음
     @Published private(set) var galraeDeul: [String] = []
@@ -215,9 +218,40 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
 
     // MARK: 이용자 단추
 
+    // MARK: 2.59.0 전화(이사장님 지시 2026-10-09) — 전화 중에는 멈추고(지킴이도 다시 틀지 않음), 끝나면 저절로 틀지 않고 「방송 이어 듣기」
+
+    func jeonhwa(_ on: Bool) {
+        DispatchQueue.main.async {
+            if on {
+                self.jeonhwaJeonNaneun = self.naneunJung
+                self.naebu("jeonhwa", true)
+                return
+            }
+            guard self.naebuMeomchum.contains("jeonhwa") else { return }
+            if !self.itda || !self.jeonhwaJeonNaneun || Seoljeong.shared.tonghwaDwiIeum {
+                self.naebu("jeonhwa", false)
+                return
+            }
+            // 저절로 다시 틀지 않음 — 이용자 멈춤으로 돌려 두고 단추를 보임
+            self.meomchum = true
+            if self.meomchunTtae == nil { self.meomchunTtae = Date() }
+            self.naebuMeomchum.remove("jeonhwa")
+            self.jeonhwaDwi = true
+            Girok.shared.namgi("jeonhwa_dwi", ["jong": self.jong.rawValue])
+            self.pyosiGaengsin()
+        }
+    }
+
+    /// 「방송 이어 듣기」 — 통화 전에 듣던 것을 다시
+    func ieoDeutgi() {
+        jeonhwaDwi = false
+        if itda && meomchum { meomchumTogeul() }
+    }
+
     /// 멈춤과 다시 틀기
     func meomchumTogeul() {
         guard itda else { return }
+        jeonhwaDwi = false   // 2.59.0 손수 누르시면 이어 듣기 단추는 거둠
         if meomchum {
             meomchum = false
             if naebuMeomchum.isEmpty { dasiTeulgi() }

@@ -18,6 +18,9 @@ struct SeoljeongView: View {
                 NavigationLink { GichoSiheomView() } label: { Text("기초 시험") }
                     .buttonStyle(KeunDanchu())
                 if TeokAllim.boim {   // 2.24.0 관리자 시험 중 — 나스 음악 열쇠가 있는 폰에서만
+                    // 2.59.0 아침 기록 — 지난 24시간 길눈·자봉 쓰임과 오류(이사장님 승인 2026-10-09)
+                    NavigationLink { AchimGirokView() } label: { Text("아침 기록 — 지난 24시간 길눈과 자봉 쓰임, 오류") }
+                        .buttonStyle(KeunDanchu())
                     NavigationLink { TeokAllimView() } label: { Text("관리자 시험 — 발 앞 계단·턱 알림, 프로 모델 아이폰") }
                         .buttonStyle(KeunDanchu())
                     NavigationLink { MalbeotGyeonjugiView() } label: { Text("관리자 시험 — 말벗 견주기, 서버와 폰 안 인공지능") }   // 2.51.0

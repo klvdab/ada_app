@@ -90,6 +90,15 @@ final class MalHagi: ObservableObject {
                 self.bureumDasi(0.5)
             }
             .store(in: &ssak)
+        // 2.59.0 폰 전화 중에도 마이크를 통화에 내어 줌(통화 말을 명령으로 알아듣지 않게)
+        JeonhwaGamsi.shared.$jeonhwaJung
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] j in
+                guard let self = self else { return }
+                if j { self.moduMeomchum() } else { self.bureumDasi(1.5) }
+            }
+            .store(in: &ssak)
         // 긴급통화 중에는 마이크를 통화에 내어 줌
         GinGeup.shared.$sangtae
             .receive(on: DispatchQueue.main)
@@ -369,7 +378,7 @@ final class MalHagi: ObservableObject {
             guard let self = self else { return }
             self.bureumYeyak = false
             guard Seoljeong.shared.haiGilnun, self.sangtae == .swim, !self.bureumDolgo,
-                  GinGeup.shared.sangtae == .eopseum, MalDeutgi.heorakItda else {
+                  GinGeup.shared.sangtae == .eopseum, !JeonhwaGamsi.shared.jeonhwaJung, MalDeutgi.heorakItda else {
                 if !Seoljeong.shared.haiGilnun {
                     SoriEngine.shared.deutgiKyeojim = false
                     // 2.12.1 하이 길눈을 꺼 두셨으면 말로 하기를 마친 뒤 마이크를 닫음

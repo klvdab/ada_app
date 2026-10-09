@@ -40,6 +40,8 @@ final class TalgeotGamji: ObservableObject {
     private var jeongryujangSeom = 0
     private var gido: [(Date, Double)] = []
     private var jihaMin = 0.0
+    /// 2.59.0 (261009-I13, 이사장님 승인) 마지막으로 걸은 때 — 걸어서 내려간 때만 땅속으로 봄
+    private var majimakGeoreum: Date?
 
     var sseulSuItda: Bool { CMMotionActivityManager.isActivityAvailable() }
 
@@ -78,6 +80,7 @@ final class TalgeotGamji: ObservableObject {
         if !jiha && TalgeotGamji.wiseongJoeum { jisangJari = WichiEngine.shared.jigeum }
         if (a.walking || a.running) && !a.automotive {
             jigeumUmjigim = "걸음"
+            majimakGeoreum = now
             chaSijak = nil
             meomchumSijak = nil
             if georeumSijak == nil { georeumSijak = now }
@@ -146,7 +149,7 @@ final class TalgeotGamji: ObservableObject {
 
     private func bakkugi(_ t: Talgeot, _ kkadak: String) {
         chujeong = t
-        Girok.shared.namgi("talgeot_gamji", ["t": t.rawValue, "kkadak": kkadak])
+        Girok.shared.namgi("talgeot_gamji", ["talgeot": t.rawValue, "kkadak": kkadak])   // 2.59.0 칸 이름 "t" 가 기록 시각 칸을 덮어써 시각이 지워지던 것 고침
     }
 
     // MARK: 기압 — 땅속으로 내려감·올라옴
@@ -159,7 +162,10 @@ final class TalgeotGamji: ObservableObject {
         if !jiha {
             // 90초 안에 3.5미터 넘게 내려가면 땅속(계단·에스컬레이터)
             let jeonMax = gido.filter { now.timeIntervalSince($0.0) <= 90 }.map { $0.1 }.max() ?? h
-            if jeonMax - h >= 3.5 && !TalgeotGamji.wiseongJoeum {
+            // 2.59.0 (261009-I13, 이사장님 승인) 집 안에 놓인 폰·차 타고 내리막을 지날 때 땅속으로 잘못 보던 것(10/8~9 기록) —
+            // 땅속은 사람이 걸어서(계단·에스컬레이터) 내려갈 때만: 최근 90초 안에 걸었고, 지금 탈것을 타고 있지 않을 때
+            let georeoNaeryeogam = (majimakGeoreum.map { now.timeIntervalSince($0) <= 90 } ?? false) && jigeumUmjigim != "탈것"
+            if jeonMax - h >= 3.5 && !TalgeotGamji.wiseongJoeum && georeoNaeryeogam {
                 jiha = true
                 jihaTtae = now
                 jihaMin = h
@@ -180,6 +186,7 @@ final class TalgeotGamji: ObservableObject {
         if TalgeotGamji.wiseongJoeum || (ollaom && jigeumUmjigim == "걸음") {
             jiha = false
             jisangJari = WichiEngine.shared.jigeum
+            gido.removeAll()   // 2.59.0 나온 뒤 묵은 높이로 곧바로 다시 들어감을 막음(1초 간격 들락날락)
             Girok.shared.namgi("jiha_naom", ["wiseong": TalgeotGamji.wiseongJoeum])
         }
     }
