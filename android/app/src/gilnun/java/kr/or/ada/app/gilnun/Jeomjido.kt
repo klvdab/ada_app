@@ -26,7 +26,8 @@ import kotlin.math.max
 import kotlin.math.sin
 
 /** 점지도의 점 하나 */
-data class JeomJeom(val lat: Double, val lon: Double, val acc: Double?, val h: Double?, val t: Double?)
+data class JeomJeom(val lat: Double, val lon: Double, val acc: Double?, val h: Double?, val t: Double?,
+                    val m: String? = null)   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 자봉이 탈것을 타고 가는 동안 찍힌 점(지하철·버스·에스컬레이터) — 걸음으로 안내하지 않음
 
 /** 점지도의 표시 하나(계단, 건널목, 꺾임 등) */
 data class JeomPyo(
@@ -76,6 +77,7 @@ data class JeomGil(
             val d = JSONObject()
             d.put("lat", p.lat); d.put("lon", p.lon)
             p.acc?.let { d.put("acc", it) }; p.h?.let { d.put("h", it) }; p.t?.let { d.put("t", it) }
+            p.m?.let { d.put("m", it) }   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09)
             pa.put(d)
         }
         o.put("pts", pa)
@@ -121,23 +123,34 @@ data class JeomGil(
         val ix = marks.map { jari(it) }
         fun gyedan(n: String) = n.contains("계단")
         fun geonneol(n: String) = n.contains("횡단보도") || n.contains("건널목")
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 에스컬레이터도 계단처럼 짝을 바꿈 — 예전엔 오름·내림만 그 자리에서 뒤집어
+        //   거꾸로 걸을 때 먼저 닿는 원래 내림 자리에서 "에스컬레이터 내림", 원래 타던 자리에서 "내려감"으로 거꾸로 알렸음.
+        //   이제 원래 내림 자리가 타는 곳(방향을 뒤집어 "에스컬레이터 내려감/올라감"), 원래 타던 자리가 "에스컬레이터 내림"
+        fun eseu(n: String) = n.contains("에스컬레이터")
+        fun kkeutIn(n: String) = if (eseu(n)) n.contains("내림") else n.contains("끝")
         val sseun = HashSet<Int>()
         for ((n, m) in marks.withIndex()) {
             val nm = m.ireum
             val gy = gyedan(nm)
             val gn = geonneol(nm)
-            if (!(gy || gn) || nm.contains("끝") || ix[n] < 0) continue
+            val es = eseu(nm)
+            if (!(gy || gn || es) || kkeutIn(nm) || ix[n] < 0) continue
             var e: Int? = null
             for ((k, q) in marks.withIndex()) {
-                if (k == n || sseun.contains(k) || ix[k] < ix[n] || !q.ireum.contains("끝")) continue
+                if (k == n || sseun.contains(k) || ix[k] < ix[n] || !kkeutIn(q.ireum)) continue
                 val qn = q.ireum
-                if (!(if (gy) gyedan(qn) else geonneol(qn))) continue
+                if (!(if (es) eseu(qn) else if (gy) gyedan(qn) else geonneol(qn))) continue
                 val ee = e
                 if (ee == null || ix[k] < ix[ee]) e = k
             }
             val ek = e ?: continue
             sseun.add(ek); sseun.add(n)
-            if (gy) {
+            if (es) {
+                out[ek].name = DWIT[nm] ?: nm
+                out[ek].kind = m.kind?.let { DWIT[it] ?: it }
+                out[n].name = marks[ek].ireum
+                out[n].kind = marks[ek].kind
+            } else if (gy) {
                 out[ek].name = DWIT[nm] ?: nm
                 out[ek].cnt = m.cnt
                 out[n].name = "계단 끝"
@@ -182,7 +195,8 @@ data class JeomGil(
                 val la = Jeomjido.su(p, "lat") ?: continue
                 val lo = Jeomjido.su(p, "lon") ?: continue
                 if (la == 0.0 || lo == 0.0) continue
-                pts.add(JeomJeom(la, lo, Jeomjido.su(p, "acc"), Jeomjido.su(p, "h"), Jeomjido.su(p, "t")))
+                val tm = if (p.isNull("m")) "" else p.optString("m", "")
+                pts.add(JeomJeom(la, lo, Jeomjido.su(p, "acc"), Jeomjido.su(p, "h"), Jeomjido.su(p, "t"), tm.ifEmpty { null }))
             }
             // 2.30.0 (점검 — 자봉 앱과 잇기) 자봉은 위성이 흐린 자리(지하·실내)의 표시를 위치 없이 올림. 예전엔 그런 표시를 버려
             // 지하 계단·문 표시가 사라졌음 — 같은 걸음 자리(st), 없으면 가까운 때(t)의 위치 있는 점으로 채움(아이폰과 같음)

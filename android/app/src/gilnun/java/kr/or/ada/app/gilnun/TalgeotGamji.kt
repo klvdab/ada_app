@@ -7,6 +7,9 @@ package kr.or.ada.app.gilnun
 //   기압계: 90초 안에 3.5미터 넘게 내려가면 땅속(계단·에스컬레이터)
 //   탈것이면 — 땅속이거나 위성이 30초 넘게 끊겼거나 역 200미터 안에서 탔으면 지하철, 버스 정류장 25미터 안에서 두 번 넘게 섰다 떠나면 버스, 아니면 차
 //   2.31.0 역 200미터는 위성이 좋지 않을 때만, 위성 끊김은 땅 위에서 차로 알아채기 전에만, 콜 배차 뒤에는 차로 못 박음
+//   2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 땅속은 내려가는 동안 걸음이 늘어야(승강기 빼냄), 30분 넘게 위성·탈것 없으면 땅속 판단 지움,
+//          역 근처 판단은 이번에 타고 처음 판단할 때만, 서서 폰을 만지는 흔들림을 탈것으로 보지 않음, 여정 끝·하던 일 멈춤 때 처음부터(saeroSijak),
+//          바로잡으신 탈것을 받음(barojapgi)
 
 import android.content.Context
 import android.hardware.Sensor
@@ -56,6 +59,15 @@ object TalgeotGamji : SensorEventListener {
     /** 2.31.0 마지막으로 탈것이 움직인 때 — 새 목적지를 정할 때 묵은 판단을 지울지 가림 */
     var majimakTalgeot = 0L
         private set
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 땅속에 들어간 때 — 30분 넘게 위성·탈것이 없으면 땅속 판단을 지움 */
+    private var jihaTtae = 0L
+    /** 2.32.0 기압을 받을 때마다 남기는 걸음 — 내려가는 동안 걸음이 늘었는지 봄(승강기는 걸음이 없음) */
+    private val gidoGeoreum = ArrayList<Pair<Long, Int>>()
+    private var georeumNeuneunTtae = 0L
+    private var gidoJeonGeoreum = -1
+    /** 2.32.0 센 흔들림(표준편차 0.08g 넘게)이 이어진 때 — 폰을 만지작거리는 잔 흔들림을 탈것으로 보지 않게 */
+    private var ganghanSijak = 0L
+    private var ganghanMajimak = 0L
 
     val wiseongJoeum: Boolean
         get() {
@@ -89,7 +101,14 @@ object TalgeotGamji : SensorEventListener {
                 if (chang.size > 30) chang.removeAt(0)
                 if (chang.size >= 20) {
                     val p = chang.sum() / chang.size
-                    heundeulim = sqrt(chang.sumOf { (it - p) * (it - p) } / chang.size) > 0.04
+                    val pc = sqrt(chang.sumOf { (it - p) * (it - p) } / chang.size)
+                    heundeulim = pc > 0.04
+                    // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 센 흔들림이 이어지는지(2초 넘게 끊기면 처음부터)
+                    val now = System.currentTimeMillis()
+                    if (pc > 0.08) {
+                        if (ganghanSijak == 0L || now - ganghanMajimak > 2000) ganghanSijak = now
+                        ganghanMajimak = now
+                    }
                 }
             }
             Sensor.TYPE_PRESSURE -> gidoBatda(e.values[0].toDouble())
@@ -109,7 +128,12 @@ object TalgeotGamji : SensorEventListener {
         val georeum20 = georeumGirok.lastOrNull()!!.second - (georeumGirok.firstOrNull()?.second ?: Wichi.georeumSu)
         val w = Wichi.jigeum
         val ppareum = w != null && wiseongJoeum && w.sokdo * 3.6 > 15
-        val neurim = w != null && wiseongJoeum && w.sokdo * 3.6 < 5
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 위성이 약한 데서 서서 폰을 만지는 흔들림을 탈것으로 보던 것 —
+        //   흔들림만으로 탈것으로 보려면 위성 빠르기를 모르고(위성이 좋으면 빠르기로만 봄), 센 흔들림(0.08g 넘게)이 10초 넘게 이어지고, 20초 동안 걸음이 하나도 없어야 함.
+        //   위성이 좋고 시속 5킬로미터 아래면 흔들림과 상관없이 멈춤
+        val wiseongSokdo = w != null && wiseongJoeum
+        val ganghanJisok = ganghanSijak > 0 && now - ganghanMajimak <= 2000 && now - ganghanSijak >= 10000
+        val heundeulimCha = !wiseongSokdo && ganghanJisok && georeum20 == 0
 
         if (georeum15 >= 12) {
             jigeumUmjigim = "걸음"
@@ -120,7 +144,7 @@ object TalgeotGamji : SensorEventListener {
                 bakkugi(Talgeot.GEOREUM, "걷기 15초")
             }
             jihaHwagin()
-        } else if (georeum20 <= 3 && (ppareum || (heundeulim && !neurim))) {
+        } else if (georeum20 <= 3 && (ppareum || heundeulimCha)) {
             jigeumUmjigim = "탈것"
             majimakTalgeot = now
             georeumSijak = 0L
@@ -160,8 +184,12 @@ object TalgeotGamji : SensorEventListener {
     //   ② 역 200미터 안에서 탔다는 것만으로는 지하철로 보지 않음 — 위성이 좋지 않을 때만 셈
     //   ③ 땅 위에서 차로 알아챈 뒤에는 터널·가방 속처럼 위성만 끊겨도 지하철로 바꾸지 않음(땅속으로 내려갔을 때만)
     private fun chongPandan(kkadak: String) {
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 콜 차 못 박기는 땅속이라는 것만으로는 풀지 않고, 땅속(위성 없음)에서 탈것이 실제로 20초 넘게 움직일 때(지하철) 풂
+        //   (11층 댁에서 승강기로 지하 사무실에 내려가 몇 걸음 걸으신 것만으로 콜 차 못 박기가 풀리던 일, 아이폰과 같음)
+        if (jiha && !wiseongJoeum && ChaBureugi.chaGojeong) ChaBureugi.kolPulgi("jiha_talgeot")
         val kolCha = ChaBureugi.chaGojeong && !jiha
-        val yeok = yeokGeuncheo && !wiseongJoeum
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 역 근처에서 탔다는 것은 이번에 타고 처음 판단할 때만 — 차·버스로 본 뒤에는(터널 등) 다시 쓰지 않음
+        val yeok = yeokGeuncheo && !wiseongJoeum && chujeong != Talgeot.CHA && chujeong != Talgeot.BEOSEU
         val wiseongMan = wiseongEopseum && chujeong != Talgeot.CHA && chujeong != Talgeot.BEOSEU
         val t = when {
             kolCha -> Talgeot.CHA
@@ -183,6 +211,32 @@ object TalgeotGamji : SensorEventListener {
         bakkugi(Talgeot.GEOREUM, "새 목적지 — 묵은 판단 지움")
     }
 
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 여정을 끝내거나 하던 일을 멈출 때 — 묵은 탈것 판단을 모두 지우고 처음부터
+     *  (땅속 판단은 위성이 잘 잡힐 때만 지움) */
+    fun saeroSijak() {
+        chaSijak = 0L; meomchumSijak = 0L
+        yeokGeuncheo = false; jeongryujangSeom = 0
+        if (jiha && wiseongJoeum) {
+            jiha = false
+            gido.clear()
+            Girok.namgi("jiha_naom", mapOf("wiseong" to true, "kkadak" to "새로 시작"))
+        }
+        if (chujeong != Talgeot.GEOREUM) bakkugi(Talgeot.GEOREUM, "새로 시작 — 여정 끝·하던 일 멈춤")
+    }
+
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 이용자가 탈것을 바로잡으심 — 판단만 그 탈것으로 맞춤(안내 바꾸기는 AnnaeEngine 이 이미 함) */
+    fun barojapgi(t: Talgeot) {
+        if (t == Talgeot.GEOREUM) {
+            chaSijak = 0L; meomchumSijak = 0L
+            yeokGeuncheo = false; jeongryujangSeom = 0
+        }
+        if (t != chujeong) bakkugi(t, "이용자가 바로잡음")
+    }
+
+    /** 2.32.0 15초 넘게 걷고 있는가(앱을 다시 켠 뒤 지하철 안내를 마칠지 볼 때) */
+    val georeum15cho: Boolean
+        get() = jigeumUmjigim == "걸음" && georeumSijak > 0 && System.currentTimeMillis() - georeumSijak >= 15000
+
     private fun bakkugi(t: Talgeot, kkadak: String) {
         chujeong = t
         Girok.namgi("talgeot_gamji", mapOf("talgeot" to t.raw, "kkadak" to kkadak))   // 2.30.0 칸 이름 "t" 가 기록 시각 칸을 덮어써 시각이 지워지던 것 고침
@@ -203,25 +257,74 @@ object TalgeotGamji : SensorEventListener {
         val h = gidoNal.sumOf { it.second } / gidoNal.size   // 높을수록 큰 값(상대 높이), 10초 평균
         gido.add(now to h)
         gido.removeAll { now - it.first > 120000 }
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 높이와 함께 걸음도 남김
+        val georeumSu = Wichi.georeumSu
+        if (gidoJeonGeoreum >= 0 && georeumSu > gidoJeonGeoreum) georeumNeuneunTtae = now
+        gidoJeonGeoreum = georeumSu
+        gidoGeoreum.add(now to georeumSu)
+        gidoGeoreum.removeAll { now - it.first > 120000 }
         if (!jiha) {
-            val jeonMax = gido.filter { now - it.first <= 90000 }.maxOfOrNull { it.second } ?: h
+            val chang90 = gido.filter { now - it.first <= 90000 }
+            val jeonMax = chang90.maxOfOrNull { it.second } ?: h
             // 2.30.0 (261009-A18, 이사장님 승인) 밤새 집 안에 놓인 폰이 20분마다 땅속 들어감·나옴을 되풀이하고(10/9 기록),
-            // 차를 타고 내리막·터널을 지날 때도 땅속으로 봄 — 땅속은 사람이 걸어서(계단·에스컬레이터) 내려갈 때만:
-            // 최근 90초 안에 걸음이 있었고, 지금 탈것을 타고 있지 않을 때
-            val georeoNaeryeogam = majimakGeoreumTtae > 0 && now - majimakGeoreumTtae <= 90_000 && jigeumUmjigim != "탈것"
+            // 차를 타고 내리막·터널을 지날 때도 땅속으로 봄 — 땅속은 사람이 걸어서(계단·에스컬레이터) 내려갈 때만, 지금 탈것을 타고 있지 않을 때
+            // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 승강기를 땅속으로 잘못 보던 것 — 가장 높던 때부터 지금까지 걸음이 여섯 걸음 넘게 늘었고
+            //   지금도 걸음이 늘고 있어야(10초 안) 땅속으로 봄(아이폰과 같음)
+            // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09 — 11층 댁에서 승강기로 지하 사무실에 내려간 뒤 여섯 걸음 걸으시면 땅속으로 보던 일, 아이폰과 같음)
+            //   걸음은 내려가는 동안(가장 높던 때부터 바닥에 닿은 때까지)에 늘어난 것만 셈 — 승강기는 내려가는 동안 걸음이 없음.
+            //   내려간 채로 10초 넘게 머물러야 땅속으로 보는 것은 그대로
+            val maxTtae = chang90.lastOrNull { it.second >= jeonMax }?.first ?: now
+            val dwi = chang90.filter { it.first >= maxTtae }
+            val badak = dwi.minOfOrNull { it.second } ?: h
+            val badakTtae = dwi.firstOrNull { it.second <= badak + 0.5 }?.first ?: now
+            val maxGeoreum = gidoGeoreum.firstOrNull { it.first >= maxTtae }?.second ?: georeumSu
+            val badakGeoreum = gidoGeoreum.lastOrNull { it.first <= badakTtae }?.second ?: georeumSu
+            val naeryeoGaneunGeoreum = badakGeoreum - maxGeoreum
+            // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 에스컬레이터에 가만히 서서 내려가면 걸음이 없어 땅속으로 못 보던 일 —
+            //   내려간 높이를 걸린 때(가장 높던 때부터 바닥에 닿은 때까지)로 나눈 빠르기가 초속 0.6미터보다 느리고 3미터 넘게 내려갔으면 땅속.
+            //   승강기는 초속 1~2미터, 에스컬레이터·계단은 초속 0.3~0.5미터(아이폰과 같음). 높이를 10초 평균으로 고르므로
+            //   평균이 늘여 놓은 10초를 빼고 셈(짧은 승강기를 느리게 내려간 것으로 잘못 보지 않게)
+            val naeryeoNopi = jeonMax - badak
+            // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 승강기가 중간 층에 서며 내려가면 평균 빠르기가 낮아져 땅속으로 잘못 보던 것 —
+            //   걸린 때는 실제로 높이가 줄고 있던 때(초속 0.1미터 넘게 내려가던 사이)만 더해 셈, 10초 평균이 늘인 10초는 그대로 뺌(아이폰과 같음)
+            var umjikMs = 0L
+            val naeryeoJeom = dwi.filter { it.first <= badakTtae }
+            for (i in 1 until naeryeoJeom.size) {
+                val dt = naeryeoJeom[i].first - naeryeoJeom[i - 1].first
+                val dh = naeryeoJeom[i - 1].second - naeryeoJeom[i].second
+                if (dt > 0 && dh / (dt / 1000.0) > 0.1) umjikMs += dt
+            }
+            val naeryeoSigan = umjikMs / 1000.0 - 10.0
+            val neurinNaeryeogam = naeryeoNopi >= 3 && naeryeoSigan > 0 && naeryeoNopi / naeryeoSigan < 0.6
+            val georeoNaeryeogam = (naeryeoGaneunGeoreum >= 6 || neurinNaeryeogam) && jigeumUmjigim != "탈것"
             if (jeonMax - h >= 3.5 && !wiseongJoeum && georeoNaeryeogam) {
                 if (naeryeogaTtae == 0L) naeryeogaTtae = now
                 if (now - naeryeogaTtae < 10000) return
                 naeryeogaTtae = 0L
                 jiha = true
+                jihaTtae = now
                 jihaMin = h
-                Girok.namgi("jiha_jinip", mapOf("naeryeogam" to ((jeonMax - h) * 10).toInt()))
+                Girok.namgi("jiha_jinip", mapOf("naeryeogam" to ((jeonMax - h) * 10).toInt(), "georeum" to naeryeoGaneunGeoreum,
+                    "ppareugi" to (if (naeryeoSigan > 0) (naeryeoNopi / naeryeoSigan * 100).toInt() else -1)))   // 2.32.0 초속 센티미터(아이폰과 같음)
                 jihaJinip?.invoke()
+                // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 땅속이라는 것만으로는 콜 차 못 박기를 풀지 않음 — 땅속에서 탈것이 움직일 때(chongPandan) 풂(아이폰과 같음)
             } else naeryeogaTtae = 0L
         } else {
             if (h < jihaMin) jihaMin = h
             jihaHwagin()
+            jihaSumyeong(now)
         }
+    }
+
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 땅속 판단의 수명 — 위성도 없고 탈것도 움직이지 않은 채 30분이 넘으면 지움
+     *  (지하 사무실·지하 주차장에 오래 머물 때 땅속 판단이 하루 종일 남던 일, 아이폰과 같음) */
+    private fun jihaSumyeong(now: Long) {
+        if (!jiha || wiseongJoeum || jihaTtae == 0L) return
+        val gijun = maxOf(jihaTtae, majimakTalgeot)
+        if (now - gijun <= 30 * 60_000L) return
+        jiha = false
+        gido.clear()
+        Girok.namgi("jiha_sumyeong", mapOf("bun" to ((now - jihaTtae) / 60_000L).toInt()))
     }
 
     /** 땅 위로 나왔는가 — 3.5미터 넘게 올라오고 걷거나, 위성이 다시 잡혀야 함 */

@@ -191,6 +191,10 @@ class JeomGeotgiHwamyeon : Hwamyeon("점지도 따라 걷기") {
                 t.danchu(if (deoPyeol) "따라 걷기 다른 할 일 접기" else "따라 걷기 다른 할 일 펼치기") { deoPyeol = !deoPyeol; t.dasiGeurigi() }
                 if (deoPyeol) {
                     t.danchu("지금 내 자리 듣기") { JeomPan.jariMal() }
+                    // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 점지도의 탈것 구간에서 내리셨을 때(아이폰과 같음)
+                    t.danchu("탈것에서 내렸습니다 — 여기서부터 다시 걸음 안내") {
+                        if (!e.naeryeotda()) Sori.mal("지금은 탈것 구간을 지나는 중이 아닙니다. 걸음 안내를 이어 갑니다.")
+                    }
                     JeomPan.ttaraPyeolChuga(t)   // 여기 걸렸어요, 길목, 버스 정류장, 함께 시험
                     t.danchu("그만 걷기 — 따라 걷기를 마칩니다") { e.geuman(); t.dwiro() }
                 }

@@ -16,6 +16,16 @@ object YeojeongMal {
         private set
     /** 탈것만 먼저 말씀하셨을 때 기억 */
     private var talgeotDaegi: Talgeot? = null
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) mok 을 정한 때 — 여정이 없으면 3분 안의 것만 씀(아이폰과 같음) */
+    private var mokTtae = 0L
+
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 기억해 둔 가실 곳 — 여정이 있거나, 이번 물음 흐름에서 3분 안에 정한 것만
+     *  (여정이 끝난 뒤 「택시 탔어」「걸어가자」로 옛 목적지를 향해 안내를 시작하던 일) */
+    private val mokSaengsaeng: Jangso?
+        get() {
+            val m = mok ?: return null
+            return if (YeojeongEngine.jigeum != null || System.currentTimeMillis() - mokTtae < 180_000) m else null
+        }
 
     /** 하던 일 멈추기 때 — 묻던 말과 기다리던 목적지·탈것을 모두 비움 */
     fun mureumChoGihwa() {
@@ -24,16 +34,27 @@ object YeojeongMal {
         talgeotDaegi = null
     }
 
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 전화·「그만」·「됐어」 때 — 묻던 말(점지도로 걸을까요·어떻게 가실까요)만 비움(아이폰 hwaginBiugi 와 같음) */
+    fun mureumBiugi() {
+        mureum = Mureum.EOPSEUM
+    }
+
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 「점지도로 걸을까요」를 여쭌 때(여쭌 것이 없으면 0) — 마지막에 여쭌 물음을 가리는 데 씀 */
+    fun jeomMureumTtae(): Long = if (mureum == Mureum.JEOM && JeomEngine.muleum != null) mureumTtae else 0L
+
     private fun yeoJjum(m: Mureum) {
         mureum = m
         mureumTtae = System.currentTimeMillis()
+        ChaBureugi.mureumBiugi()   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 새로 여쭈었으니 차 부르기의 묵은 물음을 거둠(아이폰과 같음)
     }
 
     private fun hwalseong(): GilnunActivity? = MalHagi.hwalseong?.get()
 
     /** 여정 끝·도착, 점지도로 걸을까요의 대답 — 하면 참 */
-    fun meonjeo(alts: List<String>, z: String, dap: (String, Boolean) -> Unit): Boolean {
-        if (System.currentTimeMillis() - mureumTtae > 180000) mureum = Mureum.EOPSEUM
+    fun meonjeo(alts: List<String>, z: String, dap: (String, Boolean) -> Unit, jeomDap: Boolean = true): Boolean {
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 묻던 말을 잊는 때를 아이폰과 맞춤 — 점지도로 걸을까요는 1분, 어떻게 가실까요는 2분
+        val sumyeong = if (mureum == Mureum.JEOM) 60000L else 120000L
+        if (System.currentTimeMillis() - mureumTtae > sumyeong) mureum = Mureum.EOPSEUM
         val s = MalSajeon
         val y = YeojeongEngine.jigeum
         // 여정 끝내기(여정이 있을 때만 — 없으면 MalHagi 의 따라 걷기 끝으로 넘김)
@@ -53,8 +74,10 @@ object YeojeongMal {
         }
         // 점지도로 걸을까요의 대답
         if (JeomEngine.muleum != null) {
-            val ye0 = s.tteut(alts, "ye") != null
-            val ani0 = s.tteut(alts, "ani") != null
+            // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 네·아니오는 말 전체로만, 그리고 마지막에 여쭌 물음이 이것일 때만(jeomDap)
+            val hd0 = if (jeomDap) MalHagi.hwaginDap(alts) else null
+            val ye0 = hd0 == HwaginDap.YE
+            val ani0 = hd0 == HwaginDap.ANI
             if (z.contains("위성") || (mureum == Mureum.JEOM && ani0 && !ye0 && z.length <= 10)) {
                 mureum = Mureum.EOPSEUM
                 dap("위성으로 걷습니다.", false)
@@ -83,7 +106,8 @@ object YeojeongMal {
             gagi(m0, tg, dap)
             return true
         }
-        if (s.itda(alts, "naerim")) {
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 「나왔어」 갈래는 말 전체이거나 짧은 말의 끝일 때만 내림(「소리가 안 나왔어」는 내림 아님, 아이폰과 같음)
+        if (s.itda(alts, "naerim") || s.naoatdaMal(alts)) {
             if (y != null && (y.danggye == Danggye.TANEUN_JUNG || y.danggye == Danggye.TANEUN_GOT_KKAJI)) {
                 dap("", false)
                 AnnaeEngine.naeryeotda()
@@ -94,12 +118,18 @@ object YeojeongMal {
             return true
         }
         if (s.itda(alts, "tatda")) {
-            val m = mok
+            val m = mokSaengsaeng   // 2.32.0 여정이 없으면 3분 안에 정한 곳만(끝난 여정의 옛 목적지로 가지 않게, 아이폰과 같음)
+            // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 「차에 탔어」「택시 탔어」는 여정에 지하철 길이 있어도 늘 차 안 안내로.
+            //   지하철 역 알림은 「지하철 탔어」「열차 탔어」「전철 탔어」라고 하실 때만(아이폰과 같음)
+            val jihaMal = z.contains("지하철") || z.contains("열차") || z.contains("전철")
+            val beoseuMal = !jihaMal && z.contains("버스") && !z.contains("고속버스")
+            val chaMal = !jihaMal && !beoseuMal && (z.contains("차") || z.contains("택시"))
             if (y != null) {
                 dap("", false)
                 when {
-                    y.jiha != null -> JihacheolEngine.tatda(false)
-                    y.beoseu != null -> AnnaeEngine.beoseuTatda()
+                    jihaMal -> if (y.jiha != null) JihacheolEngine.tatda(false) else AnnaeEngine.talgeotBarojapgi(Talgeot.JIHACHEOL)
+                    beoseuMal || (!chaMal && y.beoseu != null) ->
+                        if (y.beoseu != null) AnnaeEngine.beoseuTatda() else AnnaeEngine.talgeotBarojapgi(Talgeot.BEOSEU)
                     else -> AnnaeEngine.chaTatda()
                 }
                 hwalseong()?.cheotHwamyeonEuro(null)
@@ -148,7 +178,7 @@ object YeojeongMal {
         }
         // 탈것만 말씀하심 — "걸어가자", "지하철로 가자"
         if (tg != null && z.length <= 8) {
-            val m = mok
+            val m = mokSaengsaeng   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 여정이 없으면 3분 안에 정한 곳만(아이폰과 같음)
             if (y != null) {
                 if (tg == Talgeot.GEOREUM) {
                     dap("", false)
@@ -177,6 +207,7 @@ object YeojeongMal {
     /** 탈것에 맞춰 안내 시작 — 대답을 먼저 하고 안내 엔진을 움직임(말 차례가 맞게). tg0 이 없으면 말 속에서 찾은 것이나 기억한 것 */
     fun gagi(j: Jangso, tg0: Talgeot?, dap: (String, Boolean) -> Unit, apMal: String = "") {
         mok = j
+        mokTtae = System.currentTimeMillis()
         Jeulgyeo.sseum(j)
         val w = Wichi.jigeum
         val d: Double? = if (w != null) Wichi.geori(w.lat, w.lon, j.lat, j.lon) else null
@@ -224,19 +255,33 @@ object YeojeongMal {
             }
             Talgeot.JIHACHEOL -> {
                 // 2.9.0 이미 열차를 타고 가는 중이면 역 입구 안내를 건너뛰고 곧장 역 알림(아이폰 2.40.0과 같음)
-                if (TalgeotGamji.chujeong == Talgeot.JIHACHEOL || (TalgeotGamji.jiha && TalgeotGamji.jigeumUmjigim != "걸음")) {
+                // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 땅속 승강장에 서 계실 때 곧장 역 알림을 시작하던 일 —
+                //   움직임 감지기가 지하철로 보고 30초 안에 탈것이 실제로 움직였을 때만 타고 가는 중으로 봄.
+                //   아니면 역 입구에 닿은 것으로 보아(ipguDochak) 열차가 움직이면 저절로 역 알림을 시작(아이폰과 같음)
+                val umjigimNa = TalgeotGamji.majimakTalgeot > 0 && System.currentTimeMillis() - TalgeotGamji.majimakTalgeot < 30_000
+                if (TalgeotGamji.chujeong == Talgeot.JIHACHEOL && umjigimNa) {
                     Sori.mal(apMal + "타고 가시는 중이니 지하철 길을 찾아 곧장 역 알림을 시작합니다.", MalGeup.JEONGBO)
-                    JihacheolEngine.jungganSijak(j) { ok, mal ->
+                    // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 이용자가 지하철로 가자고 하셨으니 짐작 안내가 아님(땅 위 구간에서 차로 되돌리지 않음, 아이폰과 같음)
+                    JihacheolEngine.jungganSijak(j, false) { ok, mal ->
                         hwalseong()?.cheotHwamyeonEuro(null)
                         dap(if (ok) mal else "$mal 잠시 뒤 다시 지하철로 가자고 말씀해 주십시오.", false)
                     }
                     return
                 }
+                val ttangsok = TalgeotGamji.jiha
+                val buteo: Jari? = if (ttangsok) TalgeotGamji.jisangJari else null
                 Sori.mal(apMal + "지하철 길을 찾는 중입니다.", MalGeup.JEONGBO)
-                JihacheolEngine.gilChatgi(j) { gg, k ->
+                JihacheolEngine.gilChatgi(j, buteo) { gg, k ->
                     if (gg != null) {
-                        dap("${gg.mal} 들어갈 곳은 ${gg.ipgu.ireum}입니다.", false)
-                        AnnaeEngine.jihacheolGagi(j, gg)
+                        if (ttangsok) {
+                            // 이미 땅속(역 안) — 걷는 안내 없이 역 입구에 닿은 것으로
+                            dap(gg.mal, false)
+                            AnnaeEngine.jihacheolGagi(j, gg, true)
+                            JihacheolEngine.ipguDochak()
+                        } else {
+                            dap("${gg.mal} 들어갈 곳은 ${gg.ipgu.ireum}입니다.", false)
+                            AnnaeEngine.jihacheolGagi(j, gg)
+                        }
                         hwalseong()?.cheotHwamyeonEuro(null)
                     } else {
                         yj.jeonghagi(mk)

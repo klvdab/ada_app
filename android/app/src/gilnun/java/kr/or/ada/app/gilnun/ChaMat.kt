@@ -225,13 +225,24 @@ object ChaMat {
         val dMok = dist(la, lo, mokLat, mokLon)
         val g = gil
         if (g == null) gilBatgi(la, lo)
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 시속 120킬로미터 넘게 달리거나 기차·고속버스로 알고 있으면 길 벗어남·멀어짐을 말하지 않음
+        //   (기차 선로는 찻길과 달라 "길에서 벗어났습니다"가 되풀이되던 일, 아이폰과 같음)
+        val tg = YeojeongEngine.talgeot
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 10분 안에 기차 빠르기로 달렸거나 빠르기로 기차로 알아챘으면 기차로 봄
+        //   (이용자가 차·택시라고 하신 때만 빼고). 기차·고속버스에서는 「여기서 세워 달라고 하십시오」도 하지 않음(아이폰과 같음)
+        val yy = YeojeongEngine.jigeum
+        val chaHwakjeong = yy != null && yy.barojabeum && yy.talgeot == Talgeot.CHA
+        val gicha = tg == Talgeot.GICHA || tg == Talgeot.GOSOKBEOSEU ||
+            (!chaHwakjeong && (YeojeongEngine.choegeunGicha || YeojeongEngine.sokdoChujeong == Talgeot.GICHA))
+        val gosok = sokM * 3.6 > 120 || gicha
+        if (gosok) { bulSijak = 0L; meolSijak = 0L }
 
         if (g != null) {
             val (gd0, gi) = gilGeori(g, la, lo)
             val namM = namGil(g, gi, la, lo)
             // 내리는 곳 안내 — 모든 단계
             if (!hacha500 && namM <= 600 && dMok > 120) { hacha500 = true; mal(hachaMal(g, la, lo, head, gi), true, malHagi); return true }
-            if (!hacha100 && (namM <= 100 || dMok <= 80)) {
+            if (!hacha100 && !gicha && (namM <= 100 || dMok <= 80)) {
                 hacha100 = true
                 val mp = munJari(g)
                 val bang = sigye(head, bearing(la, lo, mp.first, mp.second))
@@ -239,7 +250,7 @@ object ChaMat {
                 return true
             }
             // 길 벗어남 — 모든 단계. 100미터 넘게 15초
-            if (gd0 > 100 && sokM > 2) {
+            if (gd0 > 100 && sokM > 2 && !gosok) {
                 if (bulSijak == 0L) bulSijak = t
                 if (t - bulSijak > 15000 && t - bulMal > 60000) {
                     bulMal = t
@@ -275,7 +286,7 @@ object ChaMat {
         }
 
         // 멀어짐 — 보통 이상. 30초 넘게 거리가 200미터 넘게 늘면
-        if (lv >= 2) {
+        if (lv >= 2 && !gosok) {
             if (meolSijak == 0L || dMok < meolGeori) { meolSijak = t; meolGeori = dMok }
             else if (t - meolSijak > 30000 && dMok - meolGeori > 200 && t - meolMal > 90000) {
                 meolMal = t; meolSijak = t; meolGeori = dMok

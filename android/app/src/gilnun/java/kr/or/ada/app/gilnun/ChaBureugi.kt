@@ -116,16 +116,22 @@ class KolGirokHang(
     var gyeolgwa: String? = null,   // baecha 배차됨, gidarim 기다리라 함, andoem 안 된다 함
     var tan: Long = 0L,             // 차에 탄 때(저절로 알아챔)
     var yeojjum: Boolean = false,   // 돌아오신 뒤 여쭈었는지
-    var naerim: Long = 0L           // 2.31.0 탄 뒤 걸어서 내린 때(저절로 알아챔)
+    var naerim: Long = 0L,          // 2.31.0 탄 뒤 걸어서 내린 때(저절로 알아챔)
+    var gyeolgwaTtae: Long = 0L,    // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 배차·기다리라 함을 남긴 때(차 못 박기 3시간을 여기서 셈)
+    var pulrim: Long = 0L           // 2.32.0 차 못 박기를 푼 때(내렸어·여정 끝·하던 일 멈춤·땅속·콜 취소)
 ) {
     fun json(): JSONObject = JSONObject().put("id", id).put("ttae", ttae).put("ireum", ireum).put("jeonhwa", jeonhwa)
         .put("sido", sido).put("sigungu", sigungu).put("jeonggi", jeonggi).put("gyeolgwa", gyeolgwa ?: "")
-        .put("tan", tan).put("yeojjum", yeojjum).put("naerim", naerim)
+        .put("tan", tan).put("yeojjum", yeojjum).put("naerim", naerim).put("gyeolgwaTtae", gyeolgwaTtae).put("pulrim", pulrim)
+
+    /** 2.32.0 차 못 박기 3시간을 세는 때 — 탄 때, 없으면 배차를 남긴 때, 없으면 부른 때 */
+    val gijunTtae: Long get() = if (tan != 0L) tan else if (gyeolgwaTtae != 0L) gyeolgwaTtae else ttae
 
     companion object {
         fun bat(o: JSONObject): KolGirokHang = KolGirokHang(o.optString("id"), o.optLong("ttae"), o.optString("ireum"), o.optString("jeonhwa"),
             o.optString("sido"), o.optString("sigungu"), o.optBoolean("jeonggi"),
-            o.optString("gyeolgwa").ifEmpty { null }, o.optLong("tan"), o.optBoolean("yeojjum"), o.optLong("naerim"))
+            o.optString("gyeolgwa").ifEmpty { null }, o.optLong("tan"), o.optBoolean("yeojjum"), o.optLong("naerim"),
+            o.optLong("gyeolgwaTtae", 0L), o.optLong("pulrim", 0L))
     }
 }
 
@@ -179,8 +185,12 @@ internal object ChaBureugi {
         // 차에 탄 것을 저절로 — 탈것 알아채기가 차·버스로 바뀌는 때
         main.postDelayed(object : Runnable {
             override fun run() {
-                val cha = TalgeotGamji.chujeong == Talgeot.CHA || TalgeotGamji.chujeong == Talgeot.BEOSEU
-                if (cha && !jinanCha) chaTatda()
+                // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 차로 알아챘을 때만(아이폰과 같음), 지하철 안내 중(땅 위 구간)에는 "차에 타셨습니다"를 하지 않음
+                val cha = TalgeotGamji.chujeong == Talgeot.CHA
+                // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 여정의 탈것이 지하철·버스·기차·고속버스이면(지하철로 바로잡으셨는데 지하철 길을 못 찾은 때 포함) 하지 않음(아이폰과 같음)
+                val yt = YeojeongEngine.jigeum?.talgeot
+                val dareunTalgeot = yt == Talgeot.JIHACHEOL || yt == Talgeot.BEOSEU || yt == Talgeot.GICHA || yt == Talgeot.GOSOKBEOSEU
+                if (cha && !jinanCha && YeojeongEngine.jigeum?.jiha == null && !JihacheolEngine.dolgo && !dareunTalgeot) chaTatda()
                 if (!cha && TalgeotGamji.chujeong == Talgeot.GEOREUM && TalgeotGamji.jigeumUmjigim == "걸음") chaNaerim()
                 jinanCha = cha
                 main.postDelayed(this, 10_000)
@@ -363,7 +373,7 @@ internal object ChaBureugi {
     fun dapBatgi(g: String) {
         val id = mureumId ?: girok.lastOrNull()?.id ?: return
         mureumId = null
-        gochigi(id) { it.gyeolgwa = g }
+        gochigi(id) { it.gyeolgwa = g; it.gyeolgwaTtae = System.currentTimeMillis() }
         Girok.namgi("kol_gyeolgwa", mapOf("g" to g))
         when (g) {
             "baecha" -> Sori.mal("배차되었다고 남겼습니다. 차에 타시면 저절로 알아채 기다리신 시간을 남겨 드립니다.")
@@ -399,17 +409,28 @@ internal object ChaBureugi {
         byeonhwa?.invoke()
     }
 
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 말로 하기가 새로 여쭙거나 묻던 말을 거둘 때 — 「다음 수단에 걸까요」「복지카드 메일」을 말 대답으로는 받지 않음
+     *  (화면의 다음 수단 단추는 그대로 둠, 아이폰과 같음) */
+    fun mureumBiugi() {
+        daeumTtae = 0L
+        meilMureumTtae = 0L
+    }
+
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 말로 하기의 「마지막에 여쭌 물음」 가리기에 씀 — 살아 있는 물음이면 여쭌 때, 아니면 0 */
+    fun daeumMureumSigak(now: Long): Long = if (daeum != null && daeumTtae > 0L && now - daeumTtae < 600_000L) daeumTtae else 0L
+    fun meilMureumSigak(now: Long): Long = if (meilMureumTtae > 0L && now - meilMureumTtae < 300_000L) meilMureumTtae else 0L
+
     // MARK: 차에 탄 것을 저절로
 
     private fun chaTatda() {
         val h = girok.lastOrNull() ?: return
-        if (h.tan != 0L || h.gyeolgwa == "andoem") return
+        if (h.tan != 0L || h.gyeolgwa == "andoem" || h.pulrim != 0L) return
         val jinan = System.currentTimeMillis() - h.ttae
         if (jinan < 60_000L || jinan > 3 * 3_600_000L) return
         gochigi(h.id) { it.tan = System.currentTimeMillis() }
         if (mureumId == h.id) {
             mureumId = null
-            gochigi(h.id) { if (it.gyeolgwa == null) it.gyeolgwa = "baecha" }
+            gochigi(h.id) { if (it.gyeolgwa == null) { it.gyeolgwa = "baecha"; it.gyeolgwaTtae = System.currentTimeMillis() } }
         }
         val bun = maxOf(1, Math.round(jinan / 60_000.0).toInt())
         val cal = Calendar.getInstance().apply { timeInMillis = h.ttae }
@@ -428,11 +449,12 @@ internal object ChaBureugi {
 
     /** 2.31.0 (261009, 이사장님 승인 — 남산 가실 때 복지콜을 지하철로 안 일, 아이폰과 같은 뜻) 콜을 불러 배차되었거나 탄 뒤 3시간 안이고
      *  아직 걸어서 내리지 않으셨으면 — 탈것을 차로 못 박음(땅속으로 내려간 때만 빼고) */
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 3시간은 부른 때가 아니라 탄 때(없으면 배차를 남긴 때)부터 셈, 푼 기록(kolPulgi)이 있으면 못 박지 않음 */
     val chaGojeong: Boolean
         get() {
             val h = girok.lastOrNull() ?: return false
-            if (h.gyeolgwa == "andoem" || h.naerim != 0L) return false
-            if (System.currentTimeMillis() - h.ttae > 3 * 3_600_000L) return false
+            if (h.gyeolgwa == "andoem" || h.naerim != 0L || h.pulrim != 0L) return false
+            if (System.currentTimeMillis() - h.gijunTtae > 3 * 3_600_000L) return false
             return h.gyeolgwa == "baecha" || h.gyeolgwa == "gidarim" || h.tan != 0L
         }
 
@@ -440,9 +462,19 @@ internal object ChaBureugi {
     val choegeun: KolGirokHang?
         get() {
             val h = girok.lastOrNull() ?: return null
-            if (h.gyeolgwa == "andoem" || h.naerim != 0L || System.currentTimeMillis() - h.ttae > 3 * 3_600_000L) return null
+            if (h.gyeolgwa == "andoem" || h.naerim != 0L || h.pulrim != 0L || System.currentTimeMillis() - h.ttae > 3 * 3_600_000L) return null
             return h
         }
+
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 콜 차 못 박기를 풂 — 내렸어, 여정 끝, 하던 일 멈춤, 땅속에서 탈것이 움직임, 「콜 취소」, 차 아닌 탈것으로 바로잡음(아이폰과 같음)
+     *  iyu: naerim, naerim_jadong, kkeut, meomchum, jiha_talgeot, malro, barojapgi */
+    fun kolPulgi(iyu: String) {
+        val h = girok.lastOrNull() ?: return
+        if (h.naerim != 0L || h.pulrim != 0L || System.currentTimeMillis() - h.gijunTtae > 3 * 3_600_000L) return
+        gochigi(h.id) { it.pulrim = System.currentTimeMillis() }
+        Girok.namgi("kol_pulgi", mapOf("iyu" to iyu))
+        byeonhwa?.invoke()
+    }
 
     // MARK: 나의 이용 성적표
 
@@ -530,10 +562,26 @@ internal object ChaBureugi {
     /** 말로 하기에서 차 부르기·정기 호출·성적표에 해당하면 처리하고 true */
     fun malCheori(alts: List<String>, z: String, dap: (String, Boolean) -> Unit): Boolean {
         val now = System.currentTimeMillis()
-        val ye = listOf("응", "네", "예", "그래", "걸어", "보내", "좋아", "부탁").any { z.startsWith(it) || z.contains(it + "줘") }
-        val ani = z.startsWith("아니") || z.contains("하지마") || z.contains("됐어그만") || z == "아뇨"
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 네·아니오는 말로 하기와 같은 잣대로 말 전체만(「걸어가자」「응급실」을 네로 듣지 않게, 아이폰과 같음).
+        //   차 부르기에서만 쓰는 대답 「걸어」「보내 줘」는 말 전체가 그것일 때만
+        val hd = MalHagi.hwaginDap1(z)
+        val ye = hd == HwaginDap.YE || z in setOf("걸어", "걸어요", "보내", "보내요", "보내줘", "보내줘요", "보내주세요")
+        val ani = hd == HwaginDap.ANI || z.contains("됐어그만")
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 말로 하기의 다른 물음보다 뒤에 여쭌 것일 때만(마지막에 여쭌 물음에만 대답, 아이폰과 같음)
+        val majimak = MalHagi.majimakMureumBoda()
         // 1. 배차되었습니까 — 여쭌 지 10분 안의 말만(그 뒤 다른 말을 대답으로 잘못 듣지 않게. 화면 단추는 그대로)
-        if (mureumId != null && now - mureumTtae < 600_000L) {
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 다른 차 부르기 물음과 같게 마지막에 여쭌 물음일 때만, 12자 이하의 짧은 말만
+        //   (10분 동안 「못」이 든 아무 말이나 안 됨으로 받던 일, 아이폰과 같음)
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 「배차됐어」「배차 됐어」「배차되었어」는 「됐어」(대화 끝)보다 먼저 배차 대답으로 —
+        //   여쭌 물음이 있거나, 2시간 안에 부르고 아직 결과를 모르는 콜이 있으면(아이폰과 같음)
+        if (MalHagi.baechaDapMal(alts)) {
+            val yeojjumJung = mureumId != null && now - mureumTtae < 600_000L
+            val h = girok.lastOrNull()
+            if (yeojjumJung || (h != null && h.gyeolgwa == null && h.tan == 0L && now - h.ttae < 7_200_000L)) {
+                dap("", false); dapBatgi("baecha"); return true
+            }
+        }
+        if (mureumId != null && now - mureumTtae < 600_000L && mureumTtae > MalHagi.majimakMureumSigakBoda() && z.length <= 12) {
             if (z.contains("안돼") || z.contains("안된") || z.contains("안됐") || z.contains("안되") || z.contains("없대") || z.contains("없다") || z.contains("못")) {
                 dap("", false); dapBatgi("andoem"); return true
             }
@@ -545,12 +593,12 @@ internal object ChaBureugi {
             }
         }
         // 2. 다음 수단에 걸까요
-        if (daeum != null && now - daeumTtae < 600_000L && z.length <= 12) {
+        if (daeum != null && now - daeumTtae < 600_000L && majimak == "kol_daeum" && z.length <= 12) {
             if (ani) { dap("", false); daeumGeuman(); return true }
             if (ye) { dap("", false); daeumGeolgi(); return true }
         }
         // 3. 복지카드 메일로 보낼까요
-        if (now - meilMureumTtae < 300_000L && z.length <= 12) {
+        if (now - meilMureumTtae < 300_000L && majimak == "kol_meil" && z.length <= 12) {
             if (ani) { meilMureumTtae = 0L; dap("알겠습니다.", false); return true }
             if (ye) {
                 meilMureumTtae = 0L

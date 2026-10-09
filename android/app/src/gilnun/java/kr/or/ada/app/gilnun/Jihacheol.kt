@@ -54,6 +54,11 @@ object JihacheolEngine : SensorEventListener {
     private var tabeumGamsi = false
     private var silsiMutneunJung = false
     private var sedae = 0
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 앱을 다시 켜서 이어 가는 중(탄 때를 모름) — 땅 위로 나온 것을 15초 걷기로만 봄 */
+    private var ieoGamTamMoreum = false
+
+    /** 2.32.0 세대 번호를 올림(탈것을 바로잡으실 때 — 늦게 돌아온 지하철 길 찾기를 버림) */
+    fun sedaeOllim() { sedae += 1 }
 
     private val yj get() = YeojeongEngine
     val gil: JihaGil? get() = yj.jigeum?.jiha
@@ -86,17 +91,27 @@ object JihacheolEngine : SensorEventListener {
         gakkaun(lat, lon) { y -> kkeut(y?.let { Wichi.geori(lat, lon, it.lat, it.lon) }) }
     }
 
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 이용자가 지하철로 바로잡으심 — 짐작으로 시작한 안내가 아니므로 땅 위 구간(동호대교 등)에서 차로 되돌리지 않음(아이폰과 같음) */
+    fun jadongPulgi() { jungganJadong = false }
+
     /** 2.9.0 이미 열차를 타고 가는 중에 시작 — 땅속으로 내려가기 전 땅 위 자리에서 가까운 역을 타는 역으로 */
-    fun jungganSijak(mok: Jangso, kkeut: (Boolean, String) -> Unit) {
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) jadong: 저절로 짐작해 시작했는가 — 이용자가 지하철이라고 하신 때(false)는 차로 저절로 되돌리지 않음(아이폰과 같음) */
+    fun jungganSijak(mok: Jangso, jadong: Boolean = true, kkeut: (Boolean, String) -> Unit) {
         val buteo = TalgeotGamji.jisangJari ?: TalgeotGamji.chaSijakJari ?: Wichi.jigeum
+        val sd = sedae   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 찾는 사이 멈추거나 차로 바로잡으셨으면 버림
         gilChatgi(mok, buteo) { gg, k ->
+            val y = yj.jigeum
+            if (sd != sedae || y == null || (y.barojabeum && y.talgeot != Talgeot.JIHACHEOL)) {
+                Girok.namgi("jiha_junggan_beorim")
+                return@gilChatgi
+            }
             if (gg == null) { kkeut(false, k); return@gilChatgi }
             val g = gg.copy(ipguDochak = true)
             AnnaeEngine.jihacheolGagi(mok, g, malEopsi = true)
             Girok.namgi("jiha_junggan", mapOf("from" to g.from, "to" to g.to))
             kkeut(true, "${g.from}역에서 타신 것으로 보고 ${g.to}역까지 역을 알려 드립니다.")
-            tatda(true)
-            jungganJadong = true
+            tatda(jadong)
+            jungganJadong = jadong   // 2.32.0 (261009-A20) 이용자가 바로잡으신 지하철은 false — 땅 위 구간에서 차로 되돌리지 않음(아이폰과 같음)
         }
     }
 
@@ -197,11 +212,22 @@ object JihacheolEngine : SensorEventListener {
     /** 열차에 탔습니다 — 누르셔도 되고, 저절로도 됨 */
     /** 2.31.0 역 입구를 거치지 않고 "이미 타고 가는 중"으로 짐작해 시작한 역 알림인가(아이폰과 같음) */
     var jungganJadong = false
-        private set
+        private set(v) {
+            field = v
+            // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 여정 기록에도 담아 앱을 다시 켜도 이어 감
+            if ((yj.jigeum?.jungganJadong ?: false) != v) yj.jungganJadongNoki(v)
+        }
 
     fun tatda(jadong: Boolean) {
         jungganJadong = false
+        ieoGamTamMoreum = false
         val g0 = gil ?: return
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 이용자가 「지하철 탔어」라 하시거나 「열차에 탔습니다」를 누르신 때는
+        //   바로잡기와 같게 — 늦게 돌아온 길 찾기를 버리고 콜 차 못 박기(3시간)를 풂(아이폰과 같음)
+        if (!jadong) {
+            sedaeOllim()
+            ChaBureugi.kolPulgi("barojapgi")
+        }
         val g = g0.copy(i = -1, kkeutnam = false, ipguDochak = true)
         yj.jihaNoki(g)
         yj.talgeotJeonghagi(Talgeot.JIHACHEOL, true)
@@ -224,6 +250,9 @@ object JihacheolEngine : SensorEventListener {
             junbi(g)
             majimak = System.currentTimeMillis()
             dolligi()
+            // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 짐작으로 시작한 안내였는지 되살리고, 탄 때를 모르니 땅 위로 나온 것은 15초 걷기로만 봄
+            jungganJadong = y.jungganJadong
+            ieoGamTamMoreum = true
         } else if (y.danggye == Danggye.TANEUN_GOT_KKAJI && g.ipguDochak) {
             tabeumGamsi = true
             heundeullimSijak()
@@ -232,6 +261,7 @@ object JihacheolEngine : SensorEventListener {
 
     fun meomchugi() {
         jungganJadong = false
+        ieoGamTamMoreum = false
         dolgo = false
         tabeumGamsi = false
         sedae += 1
@@ -430,7 +460,8 @@ object JihacheolEngine : SensorEventListener {
         // 2.9.0 땅 위로 나와 걸으시거나 위성이 다시 잡히면 지하철 안내를 마치고 걷는 안내로
         val g0 = gil
         if (dolgo && g0 != null && !g0.kkeutnam && System.currentTimeMillis() - tamTtae > 120000 &&
-            !TalgeotGamji.jiha && TalgeotGamji.chujeong == Talgeot.GEOREUM && TalgeotGamji.wiseongJoeum) {
+            !TalgeotGamji.jiha && TalgeotGamji.chujeong == Talgeot.GEOREUM && TalgeotGamji.wiseongJoeum &&
+            (!ieoGamTamMoreum || TalgeotGamji.georeum15cho)) {   // 2.32.0 앱을 다시 켜 탄 때를 모르면 위성만으로 마치지 않고 15초 넘게 걸으셔야
             Girok.namgi("jiha_kkeut_jisang", mapOf("i" to g0.i))
             meomchugi()
             yj.jihaNoki(g0.copy(kkeutnam = true))

@@ -149,6 +149,8 @@ object GinGeup {
     private var telMal = false
     private var junbiMal = false
     private var dasiHan = false
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 지인 쪽 신호가 닿지 않는다(targetOn 0)고 처음 들은 때(나스 secs) — 10초 이어지면 넘길지 여쭘(아이폰과 같음) */
+    private var targetEopTtae: Double? = null
 
     private var factory: PeerConnectionFactory? = null
     private var egl: EglBase? = null
@@ -165,6 +167,36 @@ object GinGeup {
             if (sangtae != GinGeupSangtae.YOCHEONG || room.isEmpty()) return
             jindo()
             if (sangtae == GinGeupSangtae.YOCHEONG) main.postDelayed(this, 3000)
+        }
+    }
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 받으셨다는 소식 뒤 통화가 이어질 때까지 3초마다 받으신 분이 그대로인지 살핌 —
+     *  자봉이 받기를 확인하지 못했거나 기다리는 사이 끊으면 나스 a=geojeol 로 taken 이 비고, 방이 닫히면 sal 이 거짓(아이폰과 같음) */
+    @Volatile private var badeunJikimJung = false
+    private val badeunJikimR = object : Runnable {
+        override fun run() {
+            if (sangtae != GinGeupSangtae.YEONGYEOL || room.isEmpty()) return
+            main.postDelayed(this, 3000)
+            if (badeunJikimJung) return
+            badeunJikimJung = true
+            val r = room
+            il.execute {
+                val t = getText(REL, mapOf("a" to "jindo", "room" to r))
+                val j = try { if (t == null) null else JSONObject(t) } catch (e: Exception) { null }
+                main.post {
+                    badeunJikimJung = false
+                    if (j == null || !j.optBoolean("ok", false)) return@post
+                    if (sangtae != GinGeupSangtae.YEONGYEOL || room != r) return@post
+                    // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) sal 은 참거짓·0/1 모두 읽음, 받은 분이 스스로 놓아 주었을 때(pulrim = geojeol)만 끝냄(아이폰과 같음)
+                    val sv = j.opt("sal")
+                    val sal = when (sv) { is Boolean -> sv; is Number -> sv.toInt() != 0; else -> true }
+                    val noeum = j.optString("pulrim", "") == "geojeol" && (j.isNull("taken") || j.optString("taken", "").trim().isEmpty())
+                    if (!sal || noeum) {
+                        hangup()
+                        Girok.namgi("gingeup_badeun_noeum", mapOf("sal" to sal))
+                        kkeut("받으신 분과 연결되지 못했습니다. 다시 요청해 주십시오.")
+                    }
+                }
+            }
         }
     }
     /** 1초마다 신호 받기 — 통화를 여는 동안·통화 중에만 이어 돎 */
@@ -223,6 +255,7 @@ object GinGeup {
         telMal = false
         junbiMal = false
         dasiHan = false
+        targetEopTtae = null
         room = "j" + UUID.randomUUID().toString().lowercase(Locale.US).filter { it.isLetterOrDigit() }.take(10)
         sijakTtae = System.currentTimeMillis()
         if (g == GinGeupGalrae.JIIN && s != null) Jiin.majimakNoki(s.id)   // 워치 긴급통화가 부를 한 분
@@ -253,6 +286,9 @@ object GinGeup {
         val target = if (g == GinGeupGalrae.JIIN) (s?.k ?: "") else ""
         val q = hashMapOf("a" to "call", "room" to room, "who" to naIrum.ifEmpty { "길눈 이용자" },
             "where" to where, "gil" to malHan, "meonjeo" to meonjeo, "galrae" to g.kod, "target" to target)
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 한 폰 표 — 같은 폰의 내 자봉 앱은 울리지 않게(나스가 가림)
+        val gd = HanPon.gd(ctx)
+        if (gd.isNotEmpty()) q["gd"] = gd
         // 아이폰은 여정의 목적지를 실음 — 안드로이드는 점지도 따라 걷는 중이면 그 길의 도착지
         val jg = JeomEngine.gil
         if (JeomEngine.georeoJung && jg != null && jg.to.isNotEmpty()) {
@@ -288,9 +324,15 @@ object GinGeup {
     fun geumanhagi() {
         main.post {
             if (sangtae == GinGeupSangtae.EOPSEUM) return@post
-            if (pc != null) sigPut(JSONObject().put("t", "bye"))
             val tonghwa = sangtae == GinGeupSangtae.TONGHWA
-            hangup()
+            // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 끊었다는 신호(bye)를 먼저 보내고 1.5초 뒤에 방을 닫음(a=hangup) —
+            //   함께 보내면 방이 먼저 지워져 자봉이 끊긴 줄 모르던 일(아이폰과 같음)
+            if (pc != null) {
+                sigPut(JSONObject().put("t", "bye"))
+                hangup(1500)
+            } else {
+                hangup()
+            }
             kkeut(if (tonghwa) "통화를 끊었습니다." else "요청을 그만두었습니다.")
         }
     }
@@ -298,8 +340,13 @@ object GinGeup {
     /** 길눈 화면이 닫힐 때 — 받는 분께 끊었다고 알리고 모두 치움 */
     fun dateum() {
         if (sangtae == GinGeupSangtae.EOPSEUM) return
-        if (pc != null) sigPut(JSONObject().put("t", "bye"))
-        hangup()
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) bye 먼저, 방 닫기는 1.5초 뒤
+        if (pc != null) {
+            sigPut(JSONObject().put("t", "bye"))
+            hangup(1500)
+        } else {
+            hangup()
+        }
         kkeut("통화를 끊었습니다.")
     }
 
@@ -375,6 +422,9 @@ object GinGeup {
             Sori.mal("$taken 님이 받으셨습니다. 카메라와 마이크를 켭니다.")
             Girok.namgi("gingeup_badeum")
             main.postDelayed({ if (room == r) tonghwaSijak() }, 3000)
+            // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 받으신 분이 받기를 놓으면(나스 taken 이 비면) 40초를 기다리지 않고 곧바로 마침(아이폰과 같음)
+            main.removeCallbacks(badeunJikimR)
+            main.postDelayed(badeunJikimR, 3000)
             // 받으신 뒤 40초 안에 통화가 이어지지 않으면 마침
             main.postDelayed({
                 if (sangtae == GinGeupSangtae.YEONGYEOL && room == r) {
@@ -382,6 +432,23 @@ object GinGeup {
                     kkeut("통화를 잇지 못했습니다. 다시 요청해 주십시오.")
                 }
             }, 40000)
+            return
+        }
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 받는 분이 거절하시면(나스 a=geojeol) 1분 30초를 기다리지 않음 —
+        //   지인 한 분이면 한 번의 거절로, 여럿에게 갔으면 울린 분(dae) 모두가 거절하셨을 때
+        val geojeol = (Jeomjido.su(j, "geojeol") ?: 0.0).toInt()
+        val daeSu = (Jeomjido.su(j, "dae") ?: 0.0).toInt()
+        if (galrae == GinGeupGalrae.JIIN && geojeol >= 1) {
+            val nm = saram?.name ?: "가족·지인"
+            hangup()
+            Girok.namgi("gingeup_geojeol", mapOf("g" to galrae.kod))
+            neomgilkkaMutgi("$nm 님이 지금 받기 어렵다고 하셨습니다. 자원봉사자와 현장영상해설사에게 요청할까요?")
+            return
+        }
+        if (galrae != GinGeupGalrae.JIIN && daeSu > 0 && geojeol >= daeSu) {
+            hangup()
+            Girok.namgi("gingeup_geojeol", mapOf("g" to galrae.kod, "n" to geojeol))
+            kkeut("${galrae.ireum}가 지금 받기 어렵다고 하셨습니다. 다른 갈래를 고르시거나 잠시 뒤 다시 호출해 주십시오.")
             return
         }
         if (galrae == GinGeupGalrae.JIIN) {
@@ -400,10 +467,20 @@ object GinGeup {
                 junbiMal = true
                 Sori.mal("$nm 님은 아직 자봉 앱으로 받기를 켜지 않으셨거나 받지 않기로 해 두셔서 신호가 닿지 않을 수 있습니다.")
             }
+            // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 신호가 닿지 않는 지인(받기를 꺼 두셨거나 같은 폰의 내 자봉 앱)이면
+            //   1분 30초를 말없이 기다리지 않고 10초 뒤 자원봉사자와 현장영상해설사에게 넘길지 여쭘(받으신 분이 있으면 위에서 이미 이음, 아이폰과 같음)
+            if (targetOn) targetEopTtae = null
+            else if (targetEopTtae == null) targetEopTtae = s
+            val t0 = targetEopTtae
+            if (t0 != null && s - t0 >= 10) {
+                hangup()
+                Girok.namgi("gingeup_target_eopseum")
+                neomgilkkaMutgi("$nm 님께 지금 연결할 수 없습니다. 자원봉사자와 현장영상해설사에게 요청할까요?")
+                return
+            }
             if (s >= HANDO) {
                 hangup()
-                neomgilkka = true
-                kkeut("$nm 님이 받지 않으십니다. 자원봉사자와 현장영상해설사에게 요청할까요?")
+                neomgilkkaMutgi("$nm 님이 받지 않으십니다. 자원봉사자와 현장영상해설사에게 요청할까요?")
                 return
             }
         } else {
@@ -424,14 +501,26 @@ object GinGeup {
         cheot = false
     }
 
-    private fun hangup() {
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) dwi 밀리초 뒤에 방을 닫을 수 있게 — 끊었다는 신호(bye)가 먼저 닿도록(아이폰과 같음) */
+    private fun hangup(dwi: Long = 0L) {
         val r = room
         if (r.isEmpty()) return
-        il.execute { getText(REL, mapOf("a" to "hangup", "room" to r)) }
+        val bonae = Runnable { il.execute { getText(REL, mapOf("a" to "hangup", "room" to r)) } }
+        if (dwi > 0L) main.postDelayed(bonae, dwi) else bonae.run()
     }
 
-    private fun kkeut(mal: String) {
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 가족·지인께 닿지 않았을 때 — 자원봉사자와 현장영상해설사에게 넘길지 여쭙고,
+     *  말로 하기에도 「네·아니요」 물음으로 걸어 둠(말로 하기가 여쭌 뒤 마이크를 한 번 엶). 단추(예·아니요)는 그대로(아이폰과 같음) */
+    private fun neomgilkkaMutgi(mal: String) {
+        neomgilkka = true
+        kkeut(mal, malEopsi = true)
+        MalHagi.neomgilkkaMutgi(mal)
+    }
+
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) malEopsi 면 말은 하지 않음(말로 하기가 대신 말하고 다 말한 뒤 마이크를 엶) */
+    private fun kkeut(mal: String, malEopsi: Boolean = false) {
         main.removeCallbacks(jindoR)
+        main.removeCallbacks(badeunJikimR)   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09)
         main.removeCallbacks(sigR)
         chiugi()
         room = ""
@@ -439,7 +528,7 @@ object GinGeup {
         Sori.tonghwaJung = false
         geul = mal
         bakkum(GinGeupSangtae.EOPSEUM)
-        Sori.mal(mal)
+        if (!malEopsi) Sori.mal(mal)
         Girok.namgi("gingeup_kkeut")
     }
 
@@ -647,7 +736,11 @@ object GinGeup {
                 val mid = if (c.isNull("sdpMid")) "" else c.optString("sdpMid", "")
                 p.addIceCandidate(IceCandidate(mid, idx, cand))
             }
-            "bye" -> kkeut("도와주시던 분이 끊었습니다.")
+            "bye" -> {
+                // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 받는 분이 끊으셨으면 방도 닫음(a=hangup) — 10분 동안 방이 남아 있던 일(아이폰과 같음)
+                hangup()
+                kkeut("도와주시던 분이 끊었습니다.")
+            }
         }
     }
 

@@ -80,7 +80,9 @@ data class Yeojeong(
     val sijak: Long,
     val gaengsin: Long,
     val jiha: JihaGil? = null,
-    val beoseu: BeoseuGil? = null
+    val beoseu: BeoseuGil? = null,
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 지하철 안내를 역 입구 없이 짐작으로 시작했는가 — 앱을 다시 켜도 잇도록 담음 */
+    val jungganJadong: Boolean = false
 )
 
 object YeojeongEngine {
@@ -101,6 +103,10 @@ object YeojeongEngine {
 
     private var ppareunTtae = 0L
     private var neurinTtae = 0L
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 시속 150킬로미터 넘게 달린 마지막 때 — 10분 안이면 기차를 타고 계신 것으로 보고 지하철 짐작을 하지 않음 */
+    private var gichaTtae = 0L
+    val choegeunGicha: Boolean
+        get() = gichaTtae > 0 && System.currentTimeMillis() - gichaTtae < 600_000L
     private var allimDaegi = false
 
     /** 길눈이 켜질 때 한 번 — 즐겨찾기·안내·지하철 엔진을 함께 세우고 지난 여정을 되살림 */
@@ -195,6 +201,21 @@ object YeojeongEngine {
         jeojang()
     }
 
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 짐작으로 시작한 지하철 안내인지 담기 */
+    fun jungganJadongNoki(b: Boolean) {
+        val y = jigeum ?: return
+        if (y.jungganJadong == b) return
+        jigeum = y.copy(jungganJadong = b)
+        jeojang()
+    }
+
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 여정 끝·하던 일 멈춤 — 빠르기로 알아챈 탈것을 처음부터(기차 기억 10분은 그대로) */
+    fun talgeotChoGihwa() {
+        ppareunTtae = 0L
+        neurinTtae = 0L
+        sokdoChujeong = Talgeot.GEOREUM
+    }
+
     /** 탈것 정하기 — barojabeum 이 참이면 이용자가 바로잡은 것(가장 앞섬) */
     fun talgeotJeonghagi(t: Talgeot, barojabeum: Boolean) {
         val y = jigeum ?: return
@@ -253,6 +274,7 @@ object YeojeongEngine {
     /** 2.9.0 탈것 알아채기(TalgeotGamji — 걸음 센서·가속도·기압계)가 알아챈 탈것 — 위성 빠르기보다 먼저 */
     fun gamjiBatda(t: Talgeot) {
         if (sokdoChujeong == Talgeot.GICHA && t == Talgeot.CHA) return   // 기차는 빠르기로만
+        if (sokdoChujeong == Talgeot.GICHA && t == Talgeot.JIHACHEOL && choegeunGicha) return   // 2.32.0 기차 터널을 지하철로 보지 않음
         if (t == sokdoChujeong) return
         sokdoChujeong = t
         AnnaeEngine.talgeotBakkwim(t)
@@ -263,6 +285,7 @@ object YeojeongEngine {
         if (w.georeumChu || w.ochae > 30) return
         val kmh = w.sokdo * 3.6
         val now = System.currentTimeMillis()
+        if (kmh > 150) gichaTtae = now   // 2.32.0 기차 기억(잠깐이라도 시속 150 넘으면)
         // 2.9.0 걷기·차·버스·지하철은 TalgeotGamji 가 가림 — 여기서는 기차(시속 150 넘게 15초)만
         if (kmh > 150) {
             if (ppareunTtae == 0L) ppareunTtae = now
@@ -321,6 +344,7 @@ object YeojeongEngine {
                 .put("jina", JSONArray(g.jina)).put("gugan", gu).put("ipgu", g.ipgu.json())
                 .put("naeril", g.naeril).put("ipguDochak", g.ipguDochak).put("i", g.i).put("kkeutnam", g.kkeutnam))
         }
+        if (y.jungganJadong) o.put("jungganJadong", true)   // 2.32.0 아이폰 Codable 과 같은 이름
         y.beoseu?.let { b ->
             val j = b.jeongryujang
             o.put("beoseu", JSONObject()
@@ -366,7 +390,8 @@ object YeojeongEngine {
             o.optBoolean("barojabeum", false),
             o.optLong("sijak", now),
             o.optLong("gaengsin", 0L),
-            jiha, beoseu
+            jiha, beoseu,
+            o.optBoolean("jungganJadong", false)
         )
     }
 }

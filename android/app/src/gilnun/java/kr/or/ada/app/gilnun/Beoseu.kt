@@ -148,7 +148,8 @@ class JeongryujangHwamyeon(private val mok: Jangso, private val j: Jeongryujang)
 /** 탈것 바로잡기 — 바로잡은 것이 가장 앞섭니다 */
 class TalgeotHwamyeon : Hwamyeon("지금 타신 것") {
     override fun chaeugi(t: GilnunActivity) {
-        for (tg in listOf(Talgeot.CHA, Talgeot.BEOSEU, Talgeot.GICHA, Talgeot.GOSOKBEOSEU)) {
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 지하철 더함(아이폰과 같음)
+        for (tg in listOf(Talgeot.CHA, Talgeot.BEOSEU, Talgeot.JIHACHEOL, Talgeot.GICHA, Talgeot.GOSOKBEOSEU)) {
             t.danchu("${tg.ireum}입니다") {
                 AnnaeEngine.talgeotBarojapgi(tg)
                 t.dwiro()

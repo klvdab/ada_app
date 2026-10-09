@@ -1038,6 +1038,7 @@ object Bangsong {
             if (ls.isEmpty() && bs != null && bs.bsGeul("q").isNotEmpty()) {
                 biseutQ = bs.bsGeul("q")
                 biseutTtae = System.currentTimeMillis()
+                ChaBureugi.mureumBiugi()   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 새로 여쭈었으니 차 부르기의 묵은 물음을 거둠(아이폰과 같음)
                 kkeut(bs.bsGeul("mal").ifEmpty { "비슷한 곡이 있습니다. 틀까요?" })
                 return@eumakMutgi
             }

@@ -129,6 +129,10 @@ object AnnaeEngine {
         jeomKkeut()
         JihacheolEngine.meomchugi()
         yj.kkeut()
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 콜 차 못 박기를 풀고, 묵은 탈것 판단을 처음부터
+        ChaBureugi.kolPulgi("meomchum")
+        TalgeotGamji.saeroSijak()
+        yj.talgeotChoGihwa()
         namEunGeori = null
         dasiSijak()
         YeojeongMal.mureumChoGihwa()
@@ -187,6 +191,8 @@ object AnnaeEngine {
     /** 버스에 탔습니다 */
     fun beoseuTatda() {
         if (yj.jigeum == null) return
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 지하철 안내·열차 탐 살피기를 멈춤(버스 흔들림을 "열차가 움직이는 것 같습니다"로 보지 않게)
+        JihacheolEngine.meomchugi()
         yj.talgeotJeonghagi(Talgeot.BEOSEU, true)
         yj.danggyeBakkugi(Danggye.TANEUN_JUNG)
         dasiSijak()
@@ -196,11 +202,24 @@ object AnnaeEngine {
 
     /** 탈것 바로잡기 — 바로잡은 것이 가장 앞섬 */
     fun talgeotBarojapgi(t: Talgeot) {
-        if (yj.jigeum == null) return
+        val y0 = yj.jigeum ?: return
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 찾던 지하철 길이 늦게 돌아와 바로잡으신 것을 덮지 않게 세대 번호를 올림
+        JihacheolEngine.sedaeOllim()
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 지하철·버스·기차·고속버스·걸음으로 바로잡으시면 콜 차 못 박기를 풂(아이폰과 같음)
+        //   (지하철로 바로잡아도 콜 차로 남아 "차에 타셨습니다"라 하고 탈것 판단이 다시 차로 기울던 일)
+        if (t != Talgeot.CHA) ChaBureugi.kolPulgi("barojapgi")
+        // 2.32.0 지하철로 바로잡으시면 — 지하철 길을 찾아 타고 가는 중의 역 알림으로(아이폰과 같음)
+        if (t == Talgeot.JIHACHEOL) {
+            jihacheolBarojapgi(y0)
+            TalgeotGamji.barojapgi(t)
+            return
+        }
         // 2.31.0 (261009-A19, 이사장님 승인 2026-10-09, 아이폰 2.44.0과 같게) 전에는 이름표만 바꾸고 돌던 지하철 안내를 그대로 두었음 —
         //   차·기차·고속버스로 바로잡으시면 지하철·버스 안내를 멈추고 곧바로 탄 안내로 넘어감
-        if (t != Talgeot.CHA && t != Talgeot.GICHA && t != Talgeot.GOSOKBEOSEU) {
+        // 2.32.0 버스로 바로잡으셔도 같게(지하철 안내 중 버스로 바로잡으면 이름표만 바뀌고 역 알림이 이어지던 일)
+        if (t != Talgeot.CHA && t != Talgeot.GICHA && t != Talgeot.GOSOKBEOSEU && t != Talgeot.BEOSEU) {
             yj.talgeotBarojapgi(t)
+            TalgeotGamji.barojapgi(t)
             malHagi("${t.ireum}로 알겠습니다.")
             return
         }
@@ -213,12 +232,41 @@ object AnnaeEngine {
         dasiSijak()
         malHagi("${t.ireum}로 알겠습니다. ${t.ireum} 안 안내를 시작합니다.")
         Girok.namgi("barojapgi_tal", mapOf("t" to t.raw))
+        TalgeotGamji.barojapgi(t)   // 2.32.0 탈것 알아채기에도 알림(안내는 다시 바꾸지 않음)
         jigeumBoda()
+    }
+
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 지하철로 바로잡으심 — 지하철 길이 있으면 역 알림을, 없으면 타고 가는 중으로 길을 찾아 역 알림 */
+    private fun jihacheolBarojapgi(y: Yeojeong) {
+        Girok.namgi("barojapgi_tal", mapOf("t" to Talgeot.JIHACHEOL.raw))
+        val g = y.jiha
+        if (g != null && !g.kkeutnam && (y.danggye == Danggye.TANEUN_GOT_KKAJI || y.danggye == Danggye.TANEUN_JUNG)) {
+            yj.talgeotBarojapgi(Talgeot.JIHACHEOL)
+            JihacheolEngine.jadongPulgi()   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 바로잡으신 지하철은 땅 위 구간에서 차로 되돌리지 않음(아이폰과 같음)
+            if (y.danggye == Danggye.TANEUN_JUNG && JihacheolEngine.dolgo) malHagi("지하철로 알겠습니다.")
+            else JihacheolEngine.tatda(false)
+            return
+        }
+        jeomKkeut()
+        GanpanAllim.kkeut()
+        yj.jihaNoki(null)
+        yj.beoseuNoki(null)
+        yj.talgeotBarojapgi(Talgeot.JIHACHEOL)
+        yj.danggyeBakkugi(Danggye.TANEUN_JUNG)
+        dasiSijak()
+        malHagi("지하철로 알겠습니다. 지하철 길을 찾습니다.")
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 이용자가 바로잡으신 지하철 — 짐작 안내가 아니므로 jadong = false(아이폰과 같음)
+        JihacheolEngine.jungganSijak(y.mokjeok.jangso, false) { ok, mal ->
+            if (ok) Girok.namgi("barojapgi_jihacheol")
+            else malHagi("$mal 남은 거리를 알려 드립니다.")
+        }
     }
 
     fun georeoGagi() {
         if (yj.jigeum == null) return
         if (JeomEngine.dochakHam) jeomKkeut()   // 점지도로 닿은 뒤 다시 걸으시면 위성 안내로
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 걸어서 가시면 지하철 안내·열차 탐 살피기를 멈춤(뒤에 버스·차 흔들림을 "열차가 움직이는 것 같습니다"로 보지 않게)
+        JihacheolEngine.meomchugi()
         yj.talgeotJeonghagi(Talgeot.GEOREUM, false)
         yj.danggyeBakkugi(Danggye.NAM_EUN_GIL)
         dasiSijak()
@@ -227,13 +275,14 @@ object AnnaeEngine {
         jigeumBoda()
     }
 
-    fun chaTatda(mal: String? = null) {
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) barojabeum: 이용자가 차라고 하셨는가 — 지하철 짐작이 빗나가 차 안 안내로 넘어갈 때는 false(아이폰과 같음) */
+    fun chaTatda(mal: String? = null, barojabeum: Boolean = true) {
         if (yj.jigeum == null) return
         jeomKkeut()
         JihacheolEngine.meomchugi()
         yj.jihaNoki(null)
         yj.beoseuNoki(null)
-        yj.talgeotJeonghagi(Talgeot.CHA, true)
+        yj.talgeotJeonghagi(Talgeot.CHA, barojabeum)
         yj.danggyeBakkugi(Danggye.TANEUN_JUNG)
         dasiSijak()
         val m = mal ?: "차 안 안내를 시작합니다."
@@ -247,6 +296,9 @@ object AnnaeEngine {
         GanpanAllim.kkeut()   // 창밖 간판 읽기 카메라 끔
         yj.talgeotJeonghagi(Talgeot.GEOREUM, false)
         yj.danggyeBakkugi(Danggye.NAM_EUN_GIL)
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 내리셨으니 콜 차 못 박기를 풀고, 탈것 알아채기도 걸음으로
+        ChaBureugi.kolPulgi(if (jadong) "naerim_jadong" else "naerim")
+        TalgeotGamji.barojapgi(Talgeot.GEOREUM)
         dasiSijak()
         malHagi(mal ?: (if (jadong) "차에서 내리신 것 같습니다. 남은 길을 걸어서 안내합니다." else "남은 길을 걸어서 안내합니다."))
         Girok.namgi("naerim", mapOf("jadong" to jadong))
@@ -257,6 +309,10 @@ object AnnaeEngine {
         jeomKkeut()   // 점지도 따라 걷기도 함께 마침
         JihacheolEngine.meomchugi()
         yj.kkeut()
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 콜 차 못 박기를 풀고, 묵은 탈것 판단을 처음부터
+        ChaBureugi.kolPulgi("kkeut")
+        TalgeotGamji.saeroSijak()
+        yj.talgeotChoGihwa()
         namEunGeori = null
         dasiSijak()
         malHagi("여정을 끝냈습니다.")
@@ -464,12 +520,29 @@ object AnnaeEngine {
     }
 
     /** 빠르기로 알아챈 탈것이 바뀜(YeojeongEngine 이 부름) */
-    fun talgeotBakkwim(t: Talgeot) {
+    fun talgeotBakkwim(t: Talgeot, jeomHeoyong: Boolean = false) {
         val y = yj.jigeum ?: return
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 점지도를 따라 걷는 중(탈것 구간을 타고 가는 중 포함)에는 저절로 알아챈 탈것으로
+        //   점지도 걷기를 끝내지 않음 — 탈것 구간은 점지도가 「내렸어」로 잇고, 이용자가 바로잡으시는 것(talgeotBarojapgi)은 그대로 됨(아이폰과 같음)
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 늘 막는 것은 점지도의 탈것 구간을 타고 가는 중일 때뿐. 탈것 구간이 없는 점지도를 걷다
+        //   실제로 차를 타시면 증거가 뚜렷할 때(jeomChaBoda) 차 안 안내로 바꿈 — 차 안에서 "점지도에서 벗어났습니다"를 5초마다 하던 일(아이폰과 같음)
+        if (JeomEngine.tagoGaneunJung || (JeomEngine.georeoJung && !jeomHeoyong)) {
+            Girok.namgi("talgeot_bakkwim_jeom", mapOf("t" to t.raw))
+            if (t == Talgeot.CHA && !JeomEngine.tagoGaneunJung) jeomChaBoda(null)
+            return
+        }
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 바로잡으신 탈것과 같은 것을 알아챘으면 그대로(바로잡음을 알아채기에 알릴 때 안내가 겹치지 않게)
+        if (y.barojabeum && y.talgeot == t && y.danggye == Danggye.TANEUN_JUNG) return
         // 2.9.0 탈것 알아채기가 알아챈 지하철·버스도 이어 받음(아이폰 2.40.0과 같음)
         if (t == Talgeot.JIHACHEOL) {
             // 2.25.0 아이폰 2.44.0과 같게 — 기차·고속버스를 타고 가는 중 터널에서 「지하철을 타신 것 같습니다」로 덮지 않음, 차로 바로잡으신 때도 그대로
             if (y.danggye == Danggye.TANEUN_JUNG && (y.talgeot == Talgeot.GICHA || y.talgeot == Talgeot.GOSOKBEOSEU || yj.sokdoChujeong == Talgeot.GICHA)) return
+            // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 위 막음이 듣지 않던 것 — 지하철 판단이 빠르기 판단(기차)을 먼저 덮어써 버렸음.
+            //   10분 안에 시속 150킬로미터 넘게 달렸으면(기차) 지하철 길이 없는 한 "지하철을 타신 것 같습니다"를 하지 않음
+            if (yj.choegeunGicha && y.jiha == null) {
+                Girok.namgi("jiha_mageum_gicha")
+                return
+            }
             if (y.barojabeum && y.talgeot == Talgeot.CHA && y.danggye == Danggye.TANEUN_JUNG) return
             if (y.barojabeum && y.talgeot == Talgeot.BEOSEU && !TalgeotGamji.jiha) return
             val g = y.jiha
@@ -486,7 +559,7 @@ object AnnaeEngine {
             malHagi("지하철을 타신 것 같습니다. 지하철 길을 찾습니다. 지하철이 아니면 택시야라고 말씀해 주십시오.")
             JihacheolEngine.jungganSijak(y.mokjeok.jangso) { ok, mal ->
                 if (ok) Girok.namgi("jadong_jihacheol")
-                else { malHagi("$mal 차 안 안내로 잇습니다."); chaTatda("") }
+                else { malHagi("$mal 차 안 안내로 잇습니다."); chaTatda("", false) }   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 짐작이 빗나간 것이니 이용자가 바로잡은 차로 남기지 않음(아이폰과 같음)
             }
             return
         }
@@ -547,7 +620,41 @@ object AnnaeEngine {
         if (now - jihaChaTtae < 30_000) return
         jihaChaTtae = 0L
         Girok.namgi("jiha_cha_barojapgi", mapOf("kmh" to (w.sokdo * 3.6).toInt()))
-        chaTatda("땅 위를 차 빠르기로 달리고 계셔서 차로 가시는 것 같습니다. 차 안 안내로 바꿉니다.")
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 저절로 판단해 차로 되돌린 것이니 이용자가 바로잡은 차로 남기지 않음(아이폰과 같음)
+        chaTatda("땅 위를 차 빠르기로 달리고 계셔서 차로 가시는 것 같습니다. 차 안 안내로 바꿉니다.", false)
+    }
+
+    /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 탈것 구간이 없는 점지도를 걷는 중 차를 타셨는가 —
+     *  증거가 뚜렷하면(배차된 콜 차를 못 박아 두었고 차를 알아챘거나, 위성이 좋고 시속 25킬로미터 넘게 30초 넘게 달림) 차 안 안내로 바꾸고,
+     *  덜 뚜렷하면 바꾸지 않고 점지도 걷기 한 번에 한 번만 "차를 타셨으면 택시야라고 말씀해 주십시오."(아이폰과 같음) */
+    private var jeomChaTtae = 0L
+    private fun jeomChaBoda(w: Jari?) {
+        val y = yj.jigeum
+        if (!JeomEngine.georeoJung || JeomEngine.tagoGaneunJung || y == null) { jeomChaTtae = 0L; return }
+        val now = System.currentTimeMillis()
+        if (w != null) {
+            if (!w.georeumChu && TalgeotGamji.wiseongJoeum && w.ochae <= 30 && w.sokdo * 3.6 > 25) {
+                if (jeomChaTtae == 0L) jeomChaTtae = now
+            } else {
+                jeomChaTtae = 0L
+            }
+        }
+        val chaGamji = yj.sokdoChujeong == Talgeot.CHA || TalgeotGamji.chujeong == Talgeot.CHA
+        val sokdoGeunge = jeomChaTtae != 0L && now - jeomChaTtae >= 30_000
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 내리신 뒤 남은 묵은 「차」 판단으로 걷는 분을 바꾸지 않게 — 10초 안에 탈것 움직임이 있었을 때만(아이폰과 같음)
+        val talgeotGeumbang = TalgeotGamji.majimakTalgeot > 0 && System.currentTimeMillis() - TalgeotGamji.majimakTalgeot < 10_000
+        val kolGeunge = ChaBureugi.chaGojeong && chaGamji && talgeotGeumbang
+        if (sokdoGeunge || kolGeunge) {
+            if (y.danggye != Danggye.NAM_EUN_GIL && y.danggye != Danggye.EOTTEOKE) return
+            jeomChaTtae = 0L
+            Girok.namgi("jeom_cha_jeonhwan", mapOf("kol" to kolGeunge))
+            talgeotBakkwim(Talgeot.CHA, true)
+            return
+        }
+        if (chaGamji && !JeomEngine.chaMalHam) {
+            JeomEngine.chaMalHam = true
+            malHagi("차를 타셨으면 택시야라고 말씀해 주십시오.")
+        }
     }
 
     private fun wichiBatda(w: Jari) {
@@ -555,6 +662,7 @@ object AnnaeEngine {
         if (y == null) { namEunGeori = null; return }
         val d = Wichi.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
         namEunGeori = d
+        jeomChaBoda(w)   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 탈것 구간이 없는 점지도를 걷다 차를 타셨는가(아이폰과 같음)
         // 점지도를 따라 걷는 동안(도착 전)과 점지도로 걸을지 여쭙는 동안에는 점지도 엔진이 안내를 맡음
         // 점지도로 닿은 뒤에는 이 엔진이 다시 맡음(차를 타시거나 다시 걸으실 때 조용하지 않게)
         if (JeomEngine.georeoJung || JeomEngine.muleum != null || JeomEngine.bulleoneun) return

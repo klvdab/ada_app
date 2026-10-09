@@ -301,11 +301,18 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
                 if (yj.danggye == Danggye.NAM_EUN_GIL) {
                     t.danchu("차에 탔습니다 — 차 안 안내로") { a.chaTatda() }
                 }
-                if (g != null && yj.danggye == Danggye.TANEUN_JUNG) {
-                    t.danchu("밖으로 나왔습니다 — 남은 길 걸어서 안내") { a.naeryeotda() }
-                }
-                if (g == null && yj.danggye == Danggye.TANEUN_JUNG) {
-                    t.danchu("탈것 바로잡기 — 지금 ${YeojeongEngine.talgeot.ireum}로 알고 있습니다") { t.yeolgi(TalgeotHwamyeon()) }
+                // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 타고 가는 중이거나 지하철 안내 중이면 언제나 탈것 바로잡기 단추를 바로 둠
+                //   (예전에는 지하철 안내 중에는 숨어 있어 잘못 본 지하철을 바로잡을 수 없었음, 아이폰과 같음)
+                if (yj.danggye == Danggye.TANEUN_JUNG || (g != null && yj.danggye == Danggye.TANEUN_GOT_KKAJI)) {
+                    // 걷기(내렸습니다)는 지하철 안내 중일 때만 — 차·버스 안이면 맨 위 큰 단추가 이미 「내렸습니다」
+                    if (g != null) {
+                        t.danchu((if (yj.danggye == Danggye.TANEUN_JUNG) "밖으로 나왔습니다" else "걸어서 갑니다") + " — 남은 길 걸어서 안내") { a.naeryeotda() }
+                    }
+                    t.danchu("택시·차입니다 — 차 안 안내로") { a.talgeotBarojapgi(Talgeot.CHA) }
+                    t.danchu("버스입니다 — 버스 안 안내로") { a.talgeotBarojapgi(Talgeot.BEOSEU) }
+                    t.danchu("지하철입니다 — 지나는 역 알려 주기") { a.talgeotBarojapgi(Talgeot.JIHACHEOL) }
+                    t.danchu("기차입니다 — 기차 안 안내로") { a.talgeotBarojapgi(Talgeot.GICHA) }
+                    t.danchu("그 밖의 탈것 바로잡기 — 지금 ${YeojeongEngine.talgeot.ireum}로 알고 있습니다") { t.yeolgi(TalgeotHwamyeon()) }
                 }
                 t.danchu("지금 내 자리 듣기") { a.jigeumJari() }
                 t.danchu("여정 끝내기 — 목적지를 바꾸실 때도") { a.kkeut() }
