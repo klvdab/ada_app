@@ -3,12 +3,15 @@
 package kr.or.ada.app.jabong
 
 object JabongPan {
-    const val pan = "2.15.0"
-    const val bild = "261009-A11"
+    const val pan = "2.16.0"
+    const val bild = "261009-A12"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.16.0", "261009-A12", "2026-10-09", listOf(
+            "길눈 2.31.0과 함께 — 함께 쓰는 부품(탈것 판단·말로 하기·차 부르기) 손질, 자봉 화면과 그리기는 그대로(이사장님 승인 2026-10-09)"
+        )),
         Gochim("2.15.0", "261009-A11", "2026-10-09", listOf(
             "올릴 때 보폭 방식(혼자·동반자)을 바르게 보냄 — 늘 jaem 으로 박혀 있던 것 고침(아이폰과 같음)",
             "길눈 2.30.0과 함께 — 전화가 오거나 걸면 자봉 안내 말을 멈춤(전화 지킴이를 자봉 앱에서도 켬, 이사장님 지시), 앱 기록 이름표를 자봉으로 바로 적음"
