@@ -40,6 +40,16 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
     /// 지금 울리는 부름
     private var ulim: (uuid: UUID, room: String, mok: String)?
     private var salpimTimer: Timer?
+    /// 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 울리기 시작한 때 — 안드로이드와 같이 100초가 넘으면 스스로 멈춤
+    private var ulimTtae = Date()
+    /// 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 받기를 누르고 내 것인지 확인하는 중인 전화(그동안은 통화 중과 같게 봄)와 그 받기 동작.
+    ///   batgiChwiso 는 기다리는 사이 끊으셨거나 전화 화면이 시간을 넘긴 것 — 결과가 와도 통화를 열지 않음
+    private var batgiUuid: UUID?
+    private var batgiRoom = ""
+    private var batgiAction: CXAnswerCallAction?
+    private var batgiChwiso = false
+    /// 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 받기 확인에 쓰는 시간 한도(초) — 전화 화면이 기다려 주는 동안 끝나게
+    private static let BATGI_HANDO: TimeInterval = 8
 
     private override init() {
         kind = d.string(forKey: "jb.daegiKind") ?? ""
@@ -81,6 +91,9 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
     /// 나스 대기에 올릴 갈래와 이름 — 봉사 역할이 없으면 가족·지인(jiin)으로
     private var daegiKind: String { kind.isEmpty ? (gajok.isEmpty ? "" : "jiin") : kind }
     private var daegiWho: String { byeol.isEmpty ? gajokIreum : byeol }
+    /// 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 받기·거절 때 나스에 알릴 내 이름 — 가족·지인만 등록하신 분은 별명이 비어 있어
+    /// 길눈이 받았다는 것(taken)을 못 보고 1분 30초를 기다렸음. 안드로이드와 같게 daegiWho, 그것도 없으면 "자봉"
+    private var batneunIreum: String { daegiWho.isEmpty ? "자봉" : daegiWho }
 
     // MARK: 2.4.0 가족·지인으로 받기 / 긴급통화 받지 않기
 
@@ -143,6 +156,7 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
             AVAudioSession.sharedInstance().requestRecordPermission { c.resume(returning: $0) }
         }
         var q = ["a": "daegi", "k": k, "on": "1", "kind": kind, "who": b, "hangsang": "1"]
+        if !HanPon.gd.isEmpty { q["gd"] = HanPon.gd }   // 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 한 폰 표 — 같은 폰의 내 길눈 요청은 울리지 않게
         if kind == "haeseolsa" { q["tel"] = hwagin } else { q["surye"] = hwagin }
         guard let dt = try? await Tongsin.shared.getSae(REL, q),
               let j = try? JSONSerialization.jsonObject(with: dt) as? [String: Any] else {
@@ -172,7 +186,9 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
     private func daegiAllim(on: Bool) async {
         let kd = daegiKind, w = daegiWho
         guard !kd.isEmpty, !w.isEmpty else { return }
-        _ = try? await Tongsin.shared.getSae(REL, ["a": "daegi", "k": k, "on": on ? "1" : "0", "kind": kd, "who": w, "hangsang": "1"])
+        var q = ["a": "daegi", "k": k, "on": on ? "1" : "0", "kind": kd, "who": w, "hangsang": "1"]
+        if !HanPon.gd.isEmpty { q["gd"] = HanPon.gd }   // 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 한 폰 표
+        _ = try? await Tongsin.shared.getSae(REL, q)
     }
 
     /// 폰 알림 주소를 나스에 맡김
@@ -196,6 +212,9 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
         let mok = (p["mok"] as? String) ?? ""
         let gal = (p["galrae"] as? String) ?? ""
         let buleun = (p["byeol"] as? String) ?? ""
+        // 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 같은 폰의 내 길눈이 청한 것 — 애플 약속대로 전화 화면은 알리되 곧바로 말없이 닫음
+        let gd = (p["gd"] as? String) ?? ""
+        let naPon = !gd.isEmpty && gd == HanPon.gd
         IceJuso.gaengsin()   // 2.5.0 받기 전에 영상 다리 주소를 새로
         let uuid = UUID()
         // 애플 약속: 이 알림을 받으면 반드시 전화 화면을 띄워야 함
@@ -214,11 +233,26 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
         provider.reportNewIncomingCall(with: uuid, update: u) { [weak self] e in
             completion()
             guard let self = self else { return }
-            if e != nil || room.isEmpty || JabongTonghwa.shared.tonghwaJung {
+            if naPon {
+                self.provider.reportCall(with: uuid, endedAt: nil, reason: .remoteEnded)
+                Girok.shared.namgi("jabong_napon", [:])
+                return
+            }
+            // 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 통화 중(받기 확인 중 포함)에 온 부름은 말없이 버리지 않고 나스에 거절로 알림 —
+            //   길눈님이 1분 30초를 기다리지 않고 곧바로 다른 분께 넘기시게
+            let bappeum = JabongTonghwa.shared.tonghwaJung || self.batgiUuid != nil
+            if e != nil || room.isEmpty || bappeum {
                 self.provider.reportCall(with: uuid, endedAt: nil, reason: .failed)
+                // 지금 내가 받은 그 방이면(알림이 겹쳐 온 것) 거절을 보내지 않음 — 내 받기가 풀리지 않게
+                let naBang = room == JabongTonghwa.shared.room || room == self.batgiRoom
+                if bappeum && !room.isEmpty && !naBang {
+                    self.geojeolAllim(room)
+                    Girok.shared.namgi("jabong_bappeum", [:])
+                }
                 return
             }
             self.ulim = (uuid, room, mok)
+            self.ulimTtae = Date()
             Girok.shared.namgi("jabong_ulim", ["gal": gal])
             self.salpigi()
         }
@@ -229,14 +263,24 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
         salpimTimer?.invalidate()
         salpimTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] t in
             guard let self = self, let u = self.ulim else { t.invalidate(); return }
+            // 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 100초 넘게 울리면 받지 않은 전화로 닫고 벨을 멈춤(안드로이드와 같음)
+            if Date().timeIntervalSince(self.ulimTtae) > 100 {
+                self.ulimKkeut(.unanswered)
+                Girok.shared.namgi("jabong_ulim_hando", [:])
+                return
+            }
             Task {
                 guard let dt = try? await Tongsin.shared.getSae(self.REL, ["a": "jindo", "room": u.room]),
                       let j = try? JSONSerialization.jsonObject(with: dt) as? [String: Any] else { return }
                 let sal = (j["sal"] as? Bool) ?? true
                 let takenK = (j["takenK"] as? String) ?? ""
+                let gd = (j["gd"] as? String) ?? ""
                 await MainActor.run {
                     guard let cur = self.ulim, cur.uuid == u.uuid else { return }
-                    if !takenK.isEmpty && takenK != self.k {
+                    if !gd.isEmpty && gd == HanPon.gd {
+                        // 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 나스가 알려 준 요청 폰이 이 폰이면 말없이 닫음
+                        self.ulimKkeut(.remoteEnded)
+                    } else if !takenK.isEmpty && takenK != self.k {
                         self.ulimKkeut(.answeredElsewhere)
                         SoriEngine.shared.mal("다른 분께 연결되었습니다. 감사합니다.")
                     } else if !sal {
@@ -255,12 +299,35 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
 
     /// 통화를 마칠 때 전화 화면도 닫음
     func tonghwaKkeut(_ uuid: UUID) {
-        callCtrl.request(CXTransaction(action: CXEndCallAction(call: uuid))) { _ in }
+        // 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 전화 화면 닫기가 안 되면(이미 닫힌 전화 등) 통화 화면을 직접 정리 — 화면이 남지 않게
+        callCtrl.request(CXTransaction(action: CXEndCallAction(call: uuid))) { e in
+            guard e != nil else { return }
+            DispatchQueue.main.async {
+                Girok.shared.namgi("jabong_kkeut_oryu", [:])
+                JabongTonghwa.shared.kkeunki(bonaegi: true)
+            }
+        }
+    }
+
+    /// 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 전화 화면의 이 전화가 아직 살아 있는지(끊기지 않았는지)
+    private func jeonhwaSalainna(_ uuid: UUID) -> Bool {
+        guard let c = callCtrl.callObserver.calls.first(where: { $0.uuid == uuid }) else { return false }
+        return !c.hasEnded
+    }
+
+    /// 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 받기 확인을 그만둠 — 받기 동작은 실패로 돌려주고, 결과가 오면 열지 않음
+    private func batgiGeumanduki(_ why: String) {
+        guard batgiUuid != nil else { return }
+        batgiChwiso = true
+        batgiAction?.fail()
+        batgiAction = nil
+        Girok.shared.namgi("jabong_batgi_chwiso", ["why": why])
     }
 
     // MARK: CXProviderDelegate
 
     func providerDidReset(_ provider: CXProvider) {
+        batgiGeumanduki("reset")   // 2.17.0 (261009-I11, 이사장님 승인 2026-10-09)
         JabongTonghwa.shared.kkeunki(bonaegi: true)
     }
 
@@ -268,30 +335,111 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
         guard let u = ulim, u.uuid == action.callUUID else { action.fail(); return }
         salpimTimer?.invalidate(); salpimTimer = nil
         ulim = nil
+        // 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 받기 확인 중 표시 — 8초 안에 끝냄. 그사이 끊으시거나 전화 화면이 시간을 넘기면 그만둠
+        batgiUuid = u.uuid
+        batgiRoom = u.room
+        batgiAction = action
+        batgiChwiso = false
         Task {
-            let dt = try? await Tongsin.shared.getSae(REL, ["a": "take", "room": u.room, "who": byeol, "k": k])
-            let j = dt.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+            // 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 받기 다툼 — 내 것임이 확인될 때만 통화를 엶.
+            //   진 쪽이 통화를 열었다가 닫으며 보낸 끊기 신호가 진짜 통화를 끊던 일. 지면 전화 화면도 닫음
+            let g = await self.batgiDatum(u.room)
             await MainActor.run {
-                if let j = j, (j["ok"] as? Bool) == false {
-                    action.fail()
-                    SoriEngine.shared.mal("다른 분께 연결되었습니다. 감사합니다.")
+                let chwiso = self.batgiChwiso || self.batgiUuid != u.uuid
+                if self.batgiUuid == u.uuid {
+                    self.batgiUuid = nil; self.batgiRoom = ""; self.batgiAction = nil; self.batgiChwiso = false
+                }
+                if chwiso {
+                    // 기다리는 사이 끊으셨거나 전화 화면이 시간을 넘김 — 내 받기가 되었을 수 있으면 나스에 놓아 줌(a=geojeol)
+                    if g != .nam { self.geojeolAllim(u.room) }
+                    Girok.shared.namgi("jabong_batgi_jim", ["g": "chwiso"])
                     return
                 }
-                action.fulfill()
-                JabongTonghwa.shared.sijak(room: u.room, mok: u.mok, uuid: u.uuid)
-                Girok.shared.namgi("jabong_batum", [:])
+                if g == .nae && self.jeonhwaSalainna(u.uuid) {
+                    action.fulfill()
+                    JabongTonghwa.shared.sijak(room: u.room, mok: u.mok, uuid: u.uuid)
+                    Girok.shared.namgi("jabong_batum", [:])
+                    return
+                }
+                // 확인하지 못했거나(받기 답을 잃었을 수 있음), 내 것인데 전화가 이미 닫혔으면 받기를 놓아 줌 — 길눈님이 40초를 기다리지 않게
+                if g != .nam { self.geojeolAllim(u.room) }
+                action.fail()
+                self.provider.reportCall(with: u.uuid, endedAt: nil, reason: g == .nam ? .answeredElsewhere : .failed)
+                SoriEngine.shared.mal(g == .nam ? "다른 분이 먼저 받으셨습니다." : "연결되지 않았습니다.")
+                Girok.shared.namgi("jabong_batgi_jim", ["g": g == .nam ? "nam" : (g == .nae ? "datim" : "motham")])
             }
         }
     }
 
+    /// 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 전화 화면이 받기를 기다리다 시간을 넘김 — 받기를 실패로 돌리고 전화를 닫음
+    func provider(_ provider: CXProvider, timedOutPerforming action: CXAction) {
+        if let a = action as? CXAnswerCallAction, batgiUuid == a.callUUID {
+            batgiGeumanduki("sigan")
+            provider.reportCall(with: a.callUUID, endedAt: nil, reason: .failed)
+        }
+    }
+
     func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
+        // 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 받기 확인을 기다리는 사이 끊으심 — 확인 결과가 와도 열지 않음(받기가 되었으면 그때 놓아 줌)
+        if let b = batgiUuid, b == action.callUUID {
+            batgiGeumanduki("kkeum")
+            action.fulfill()
+            return
+        }
         if let u = ulim, u.uuid == action.callUUID {
             salpimTimer?.invalidate(); salpimTimer = nil
             ulim = nil
+            // 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 받기 전에 거절하심 — 나스에 알려 길눈님이 1분 30초를 기다리지 않게
+            geojeolAllim(u.room)
         } else {
             JabongTonghwa.shared.kkeunki(bonaegi: true)
         }
         action.fulfill()
+    }
+
+    /// 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 받기 다툼의 결과 — 내 것, 다른 분 것, 확인하지 못함(통신·방 없음)
+    enum BatgiGyeolgwa { case nae, nam, motham }
+
+    /// 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) a=take 를 보내고(답이 없으면 한 번 더), 답으로 내 것임이 분명하지 않으면
+    ///   a=jindo(&k=내 열쇠)로 takenK 가 내 열쇠인지 확인함(두 번까지). 안드로이드 JabongDaegi.batgiDatum 과 같음
+    ///   2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 모두 합쳐 8초 안에(한 번 묻기는 3초까지) — 전화 화면이 받기를 기다려 주는 동안 끝나게
+    private func batgiDatum(_ room: String) async -> BatgiGyeolgwa {
+        let handoTtae = Date().addingTimeInterval(JabongDaegi.BATGI_HANDO)
+        let q = ["a": "take", "room": room, "who": batneunIreum, "k": k]
+        var j = await relJson(q, handoTtae)
+        if j == nil { j = await relJson(q, handoTtae) }
+        if let j = j {
+            if (j["ok"] as? Bool) == false { return .nam }
+            let tk = ((j["takenK"] as? String) ?? (j["taken_k"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+            if !tk.isEmpty { return tk == k ? .nae : .nam }
+        }
+        for _ in 0..<2 {
+            guard let jj = await relJson(["a": "jindo", "room": room, "k": k], handoTtae) else { continue }
+            let tk = ((jj["takenK"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+            if tk == k { return .nae }
+            return tk.isEmpty ? .motham : .nam
+        }
+        return .motham
+    }
+
+    /// 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 받기 확인용 물음 — 한도 시각(handoTtae)을 넘기지 않게 한 번에 3초까지만 기다림
+    private func relJson(_ q: [String: String], _ handoTtae: Date) async -> [String: Any]? {
+        let namun = handoTtae.timeIntervalSinceNow
+        guard namun > 0.3, var c = URLComponents(string: "https://lvd.ada.or.kr" + REL) else { return nil }
+        c.queryItems = q.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) }
+        guard let u = c.url else { return nil }
+        let r = URLRequest(url: u, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: min(3, namun))
+        guard let dap = try? await URLSession.shared.data(for: r),
+              (dap.1 as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return try? JSONSerialization.jsonObject(with: dap.0) as? [String: Any]
+    }
+
+    /// 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 거절을 나스에 알림(a=geojeol) — 길눈은 jindo 의 geojeol 수로 알아챔
+    private func geojeolAllim(_ room: String) {
+        guard !room.isEmpty else { return }
+        let q = ["a": "geojeol", "room": room, "k": k, "who": batneunIreum]
+        Task { _ = try? await Tongsin.shared.getSae(self.REL, q) }
+        Girok.shared.namgi("jabong_geojeol", [:])
     }
 
     func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {

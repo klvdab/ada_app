@@ -758,7 +758,9 @@ final class JeomGeurigi: ObservableObject {
         let saeks = heum.filter { !(($0["mal"] as? String) ?? "").isEmpty }.map { ($0["saek"] as? String) ?? "빨강" }
         if (r["olim"] as? Bool) == true {
             geurinGil[i].olim = true
-            geurinGil[i].seobeoId = r["id"] as? String
+            // 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 나스가 번호를 숫자로 줘도 놓치지 않게(부탁 다 그렸습니다 잇기)
+            let seobeoBeonho = Nas.gul(r["id"])
+            geurinGil[i].seobeoId = seobeoBeonho.isEmpty ? nil : seobeoBeonho
             geurinGil[i].heum = mals.isEmpty ? nil : mals
             geurinGil[i].heumSaek = mals.isEmpty ? nil : saeks
             mokJeojang()

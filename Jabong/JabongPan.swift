@@ -2,12 +2,20 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.16.0"
-    static let bild = "261009-I10"
+    static let pan = "2.17.0"
+    static let bild = "261009-I11"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.17.0", bild: "261009-I11", nal: "2026-10-09", naeyong: [
+            "다시 점검 고침 — 두 분이 함께 받으면 먼저 받은 한 분만 이어지고 다른 분 화면은 끊기 신호 없이 닫힘, 통화 내내 살아 있음을 알려 다른 폰이 다시 울리지 않음, 길손님이 마치시면 곧바로 닫힘",
+            "아이폰 울림 100초 한도, 안드로이드 울림 이름은 별명 먼저, 한 폰 표가 빈 값으로 굳지 않음",
+            "★긴급통화 — 거절하시면 길눈님께 곧바로 알림, 30초 안에 받지 않으면 닫힘, 받은 뒤 45초 안에 이어지지 않으면 알리고 닫음(이사장님 승인 2026-10-09)",
+            "같은 폰에 길눈과 자봉이 함께 있으면 그 폰에서 보낸 요청은 울리지 않음(한 폰 표). 받으시면 별명, 없으면 이름으로 길눈님께 알림",
+            "점지도 되돌아가기의 에스컬레이터 오름·내림 바로잡음. 도움말 — 긴급통화 거절과 끊김",
+            "길눈 2.61.0과 함께 — 함께 쓰는 부품 손질"
+        ]),
         Gochim(pan: "2.16.0", bild: "261009-I10", nal: "2026-10-09", naeyong: [
             "길눈 2.60.0과 함께 — 함께 쓰는 부품(탈것 판단·말로 하기·차 부르기) 손질, 자봉 화면과 그리기는 그대로(이사장님 승인 2026-10-09)"
         ]),
