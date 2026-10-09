@@ -217,7 +217,7 @@ object Geurigi {
             put("sijak", sijakMs / 1000.0 - 978307200.0)      // 아이폰 기록과 같은 기준(2001년 1월 1일부터 초)
             put("sijak_unix", sijakMs / 1000.0)
             put("from", ""); put("to", "")
-            put("bopok", Seoljeong.bopok); put("bopokMode", "jaem")
+            put("bopok", Seoljeong.bopok); put("bopokMode", Seoljeong.bopokMode)   // 2.15.0 (점검) 아이폰처럼 혼자(honja)·동반자(dongban) — 예전엔 늘 "jaem" 으로 박혀 있었음
             put("beonho", JabongNae.beonho); put("georeum", 0); put("olim", false); put("meomchum", false)
             put("gigi", MomSensor.gigiJeongbo(c))
         }
@@ -753,7 +753,7 @@ object Geurigi {
         b.put("from", from); b.put("to", to)
         b.put("who", JabongNae.ireum); b.put("who_kind", "jabong"); b.put("jabong", g.optString("beonho"))
         b.put("secs", (kkeut - sijak).toInt()); b.put("steps", g.optInt("georeum", 0)); b.put("stride", g.optDouble("bopok", Seoljeong.bopok))
-        b.put("bopokMode", g.optString("bopokMode", "jaem"))
+        b.put("bopokMode", g.optString("bopokMode", Seoljeong.bopokMode).let { if (it == "jaem") Seoljeong.bopokMode else it })   // 2.15.0 옛 길의 "jaem" 도 바로잡아 보냄
         b.put("pts", g.optJSONArray("pts") ?: JSONArray()); b.put("marks", g.optJSONArray("marks") ?: JSONArray())
         b.put("gs", g.optJSONArray("gs") ?: JSONArray()); b.put("sori", sori)
         b.put("app", "android-jabong-" + JabongPan.pan)

@@ -3,12 +3,16 @@
 package kr.or.ada.app.jabong
 
 object JabongPan {
-    const val pan = "2.14.0"
-    const val bild = "261007-A10"
+    const val pan = "2.15.0"
+    const val bild = "261009-A11"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.15.0", "261009-A11", "2026-10-09", listOf(
+            "올릴 때 보폭 방식(혼자·동반자)을 바르게 보냄 — 늘 jaem 으로 박혀 있던 것 고침(아이폰과 같음)",
+            "길눈 2.30.0과 함께 — 전화가 오거나 걸면 자봉 안내 말을 멈춤(전화 지킴이를 자봉 앱에서도 켬, 이사장님 지시), 앱 기록 이름표를 자봉으로 바로 적음"
+        )),
         Gochim("2.14.0", "261007-A10", "2026-10-07", listOf(
             "그려 주세요와 그린 길 잇기(이사장님 지시) — 그려 주세요 한 건에서 이 길 그리러 가기를 누르면, 다음 걷기 시작에 출발지·도착지 이름이 부탁대로 들어가고 그리기 화면 맨 위에 부탁 길 안내와 부탁 길 그만두기 단추",
             "그 길을 올려 협회 점검을 통과하면 저절로 길눈님 부탁에 다 그렸습니다(그린 점지도 번호와 자봉 번호를 함께)로 알리고 큰 박수",

@@ -89,6 +89,7 @@ class JabongActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         JabongBonche.sijak(this)
         Wichi.sijak(this)
+        kr.or.ada.app.gilnun.JeonhwaGamsi.sijak(this)   // 2.15.0 전화가 오거나 걸면 자봉 안내 말도 멈춤(길눈과 같음, 이사장님 지시)
 
         bburi = FrameLayout(this).apply { setBackgroundColor(Color.WHITE) }
         bon = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.WHITE) }
