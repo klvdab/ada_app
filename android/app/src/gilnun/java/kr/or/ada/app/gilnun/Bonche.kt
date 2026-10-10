@@ -23,12 +23,16 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.32.0"
-    const val bild = "261009-A20"
+    const val pan = "2.33.0"
+    const val bild = "261010-A21"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.33.0", "261010-A21", "2026-10-10", listOf(
+            "고장 노래 저절로 틀기가 예전에 켜짐으로 저장된 폰에서 켜져 있던 일 — 이 판을 처음 열 때 한 번만 끔으로 되돌림(이사장님 승인 2026-10-10)",
+            "말로 하기 — 대답 뒤 이어 들을 때도 딩동 대신 「네」(말소리를 끈 분만 딩동, 10월 1일 결정대로). 도움말 고침"
+        )),
         Gochim("2.32.0", "261009-A20", "2026-10-09", listOf(
             "다시 점검 고침 — 승강기로 내려간 것은 땅속으로 보지 않음(11층·지하 1층), 땅속에서 열차가 실제로 움직일 때만 콜 차 묶음을 풂, 지하철로 바로잡으면 콜 차 묶음 풂",
             "바로잡은 지하철 안내는 동호대교 같은 땅 위 구간에서도 차로 뒤집히지 않음. 점지도를 걷는 중에는 탈것을 저절로 알아채도 점지도를 끊지 않음",

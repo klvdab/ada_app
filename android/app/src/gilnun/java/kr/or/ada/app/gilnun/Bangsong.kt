@@ -78,6 +78,12 @@ object BangsongSeol {
         if (d == null) d = ctx.applicationContext.getSharedPreferences("gilnun_bangsong", Context.MODE_PRIVATE)
         if (gilnunD == null) gilnunD = ctx.applicationContext.getSharedPreferences("gilnun", Context.MODE_PRIVATE)
         Yeolsoe.sijak(ctx)
+        // 2.33.0 (261010-A21, 이사장님 승인 2026-10-10) 예전에 켜짐으로 저장된 폰이 그대로 켜져 있던 일 — 이 판을 처음 열 때 한 번만
+        //   차에 타면 고장 노래 저절로 틀기를 끔으로 되돌림(그 뒤 켜시는 것은 지킴, 아이폰과 같음)
+        val dd = d
+        if (dd != null && !dd.getBoolean("gojangNorae_dolim261010", false)) {
+            dd.edit().putBoolean("gojangNorae_dolim261010", true).putBoolean("gojangNorae", false).apply()
+        }
     }
 
     private fun b(k: String, gibon: Boolean) = d?.getBoolean(k, gibon) ?: gibon

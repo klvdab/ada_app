@@ -257,7 +257,8 @@ object MalHagi {
         val sd = sedae
         bakkum(MalSangtae.DEUTNEUN)
         val yeol: () -> Unit = { if (sd == sedae && sangtae == MalSangtae.DEUTNEUN) maikYeolgi(sd) }
-        if (sori && Seoljeong.malKyeojim && jadongYeolim == 0) {
+        // 2.33.0 (261010-A21, 이사장님 승인 2026-10-10) 대답 뒤 이어 들을 때도 딩동 대신 「네」(10월 1일 결정 — 말소리를 끈 분만 딩동, 아이폰과 같음)
+        if (sori && Seoljeong.malKyeojim) {
             malHuHagi("네", yeol)   // 아이폰 2.30.0 딩동 대신 또렷한 「네」 — 다 말한 뒤 곧바로 엶
         } else if (sori) {
             Eum.naegi(EumJong.DINGDONG)   // 이제 말씀하십시오(말소리를 끈 분, 되물은 뒤)
