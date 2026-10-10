@@ -84,6 +84,172 @@ android {
             dimension = "ap"
             applicationId = "kr.or.ada.lib"
             resValue("string", "app_name", "AI점자도서관")
+            versionName = "0.5.0"   // 261010-L9 첫 화면에 고른 문의 서가 목록·형태별 갈래와 보일 책 뺌·톡백 목록 넘기기(도서관 창 클, 이사장님 승인 「1」). 261008-L8 아이폰과 견주어 네 묶음 고침 — 화면 꺼도 읽기·이어폰 단추, 내 서재 줄 수·책갈피 자리·모두 지우기 물음, 커서 머묾·더 보기, 처음부터·책갈피 지우기·도움말 찾기(도서관 창 클, 이사장님 승인 「1」). 261007-L7 새 판 알림과 업데이트(대장클, 이사장님 지시). 261006-L6 책 소개·지은이·출판사, 책 소개 듣기. 261006-L5 여섯 문단 미리 받기. 261006-L4 목소리 열 가지·미리 듣기, 재생 위치 막대, 앞으로 30초와 뒤로 30초. 261006-L3 인터넷이 될 때는 늘 도서관 목소리(이사장님 지적). 261006-L2 세 겹의 문 목록 고침·독서기 떠나면 멈춤(도서관 창 클, 이사장님 지적)
+            buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/nas/doseo.php\"")
+        }
+    }
+
+    // 261001-A2 자봉 갈래도 길눈 부품(말소리·위치·설정·기록·나스 통신)을 함께 씀 — 아이폰에서 Gilnun 폴더를 함께 싣는 것과 같음
+    sourceSets {
+        getByName("jabong") {
+            java.srcDirs("src/jabong/java", "src/gilnun/java")
+        }
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            if (keyFile.exists()) {
+                signingConfig = signingConfigs.getByName("olligi")
+            }
+        }
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    // 261002-B1 APK 속 기계어 부품(.so)을 눌러 담아 받는 파일 크기를 줄임(깔 때 풀림)
+    packaging {
+        jniLibs { useLegacyPackaging = true }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+
+dependencies {
+    // 261002-B2 길눈·자봉에만 쓰는 부품은 그 둘에만 넣음(배프 앱이 쓸데없이 커지지 않게) — 배프는 웹 껍데기라 아래 넷만 씀
+    val gj = listOf("gilnunImplementation", "jabongImplementation")
+    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("com.google.android.material:material:1.12.0")
+    implementation("androidx.webkit:webkit:1.12.1")   // 260926-1 다리를 문서 맨 처음에 심기
+    "libImplementation"("androidx.media3:media3-exoplayer:1.4.1")   // 261002-L1 도서관 독서기 — 문단 사이 틈 없이 이어 틀기
+    "byodImplementation"("com.google.zxing:core:3.5.3")
+    listOf("libImplementation", "byodImplementation").forEach { add(it, "androidx.work:work-runtime-ktx:2.9.1") }   // 261007 새 판 알림 뒤 일꾼(OllimWorker) — 도서관·BYOD에도   // 261006-B2 BYOD 접속 도구 — 큐알코드 만들기
+    "libImplementation"("androidx.media3:media3-ui:1.4.1")          // 261002-L1 도서관 동영상 보기
+    "libImplementation"("androidx.media3:media3-session:1.4.1")     // 261008-L8 도서관 화면 꺼도 읽기·이어폰 단추·잠금 화면(DokseoService)
+    gj.forEach { add(it, "com.google.android.gms:play-services-wearable:18.1.0") }   // 261002-A8 갤럭시 워치 길눈과 잇기
+    gj.forEach { add(it, "io.getstream:stream-webrtc-android:1.3.8") }   // 261002-A9 길눈 긴급통화서비스 화상통화(org.webrtc)
+    gj.forEach { add(it, "androidx.activity:activity-ktx:1.9.3") }       // 261002-B1 내 서류 보관함 사진 고르기(PickVisualMedia) — appcompat 이 끌어오는 것보다 분명히
+
+    // 261002-B1 카메라 눈(QR 찾기·사람 감지·즉석 글자 읽기·빛 알아보기·가리키고 말하기·상품 바코드·지폐와 색깔·한마디 설명·안면인식·사진 읽어 주기,
+    //   관리자 시험 문 찾기·발 앞 턱) — 폰 안에서만, 모델은 앱 안에(가리키고 말하기 손 마디 모델만 처음 한 번 받음)
+    gj.forEach { add(it, "androidx.camera:camera-core:1.3.4") }
+    gj.forEach { add(it, "androidx.camera:camera-camera2:1.3.4") }
+    gj.forEach { add(it, "androidx.camera:camera-lifecycle:1.3.4") }
+    gj.forEach { add(it, "androidx.camera:camera-view:1.3.4") }
+    gj.forEach { add(it, "androidx.annotation:annotation-experimental:1.4.1") }        // Camera2Interop·미디어3 OptIn 표시
+    gj.forEach { add(it, "com.google.mlkit:text-recognition-korean:16.0.1") }   // 2.25.0 모델을 앱 안에 실음(시험판 APK 로 깔면 플레이 서비스 모델이 없어 말없이 실패하던 일)          // 즉석 글자 읽기·간판·문 글자·지폐(한글+영어)
+    gj.forEach { add(it, "com.google.mlkit:barcode-scanning:17.3.0") }   // 2.25.0 앱 안에 실음                 // QR 찾기·상품 바코드
+    gj.forEach { add(it, "com.google.mlkit:pose-detection:18.0.0-beta5") }             // 사람 감지
+    gj.forEach { add(it, "com.google.mlkit:face-detection:16.1.7") }   // 2.25.0 앱 안에 실음                   // 안면인식, 한마디 설명의 사람 수
+    gj.forEach { add(it, "com.google.mlkit:image-labeling:17.0.9") }   // 2.25.0 앱 안에 실음                   // 한마디 설명
+    gj.forEach { add(it, "com.google.mediapipe:tasks-vision:0.10.14") }                // 가리키고 말하기 — 손 마디(검지 끝)
+    gj.forEach { add(it, "com.google.ar:core:1.44.0") }                                // 발 앞 계단·턱 알림(관리자 시험) — AR 없어도 앱은 깔림(매니페스트 optional)
+
+    // 261002-B1 음악·방송(길 위의 음악·라디오·TV·지금 세상 이야기)과 동영상 틀기 — 미디어3 1.4.1(compileSdk 34 이상)
+    gj.forEach { add(it, "androidx.media3:media3-exoplayer:1.4.1") }
+    gj.forEach { add(it, "androidx.media3:media3-exoplayer-hls:1.4.1") }   // 라디오·TV 생방송(HLS m3u8)
+    gj.forEach { add(it, "androidx.media3:media3-session:1.4.1") }         // 알림 칸·잠금 화면·이어폰 단추(미디어 세션 서비스)
+    gj.forEach { add(it, "androidx.media3:media3-ui:1.4.1") }              // TV 화면·동영상 화면(PlayerView)
+
+    gj.forEach { add(it, "androidx.javascriptengine:javascriptengine:1.0.0") }   // 261002-B1 마실 — 나스 masil_*.js 를 웹뷰 없이(안드로이드 8 이상, 아래는 웹뷰)
+    gj.forEach { add(it, "androidx.work:work-runtime-ktx:2.9.1") }               // 261002-B1 길눈 긴급 공지 뒤 일꾼(GongjiWorker)
+    gj.forEach { add(it, "androidx.browser:browser:1.8.0") }                     // 261002-B1 현장영상해설 받기 — 앱 안 웹 화면(크롬 맞춤 탭)
+}
+// 협회 안드로이드 앱 — 앱 설정 (1.6.0판, 빌드 261002-B1 — 길눈 2.7.0 아이폰 길눈 나머지 기능 통합, 대표님 지시 「안드로이드에서도 이 원칙 지켜서 동일하게」)
+// 1.6.0판(261002-B1) 길눈 2.7.0 — 카메라 눈(CameraX·ML Kit·ARCore·미디어파이프), 음악·방송(미디어3), 긴급 공지 뒤 일꾼(WorkManager),
+//   현장영상해설 받기 앱 안 웹 화면(맞춤 탭), 마실 자바스크립트 칸(javascriptengine). 자봉 갈래도 src/gilnun 을 싣으므로 세 갈래 모두에 넣음
+// 1.5.0판(261002-A9) 화상통화(WebRTC) 부품 stream-webrtc-android(org.webrtc) 를 더함 — 길눈 긴급통화서비스. 옛 org.webrtc:google-webrtc 는 끊겨 쓰지 않음
+//   자봉 갈래도 src/gilnun 을 함께 싣으므로 세 갈래 모두에 넣음(자봉·배프는 쓰지 않음)
+// 1.4.0판(261002-A8) 구글 웨어러블 데이터 층(play-services-wearable)을 더함 — 폰 길눈 ↔ 갤럭시 워치 길눈(:wear 모듈, 같은 앱 번호 kr.or.ada.app)
+//   자봉 갈래도 src/gilnun 을 함께 싣으므로 세 갈래 모두에 넣음(자봉·배프는 쓰지 않음)
+// 1.3.0판(261001-A3) 길눈 2.1.0 몸 센서를 길눈에도
+// 1.2.0판(261001-A2) 자봉 갈래 점지도 그리기 속까지 앱, 몸 센서 극대화
+// 1.1.0판(261001-A1) 길눈 갈래 속까지 앱
+// 한 프로젝트에 세 앱을 담습니다(갈래=flavor).
+//   gilnun  길눈 (kr.or.ada.app)     대문 https://lvd.ada.or.kr/app/
+//   jabong  자봉 (kr.or.ada.jabong)  대문 https://lvd.ada.or.kr/jabong/
+//   bfb     배프 (kr.or.ada.bfb)     대문 https://lvd.ada.or.kr/bfb/
+import java.io.FileInputStream
+import java.util.Properties
+
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+
+val keyProps = Properties()
+val keyFile = rootProject.file("keystore.properties")
+if (keyFile.exists()) {
+    keyProps.load(FileInputStream(keyFile))
+}
+
+android {
+    namespace = "kr.or.ada.app"
+    compileSdk = 35
+
+    defaultConfig {
+        minSdk = 24
+        targetSdk = 35
+        versionCode = (System.getenv("BUILD_NUMBER") ?: "1").toInt()
+        versionName = "1.2.1"
+        // 261002-A10 화상통화 부품(WebRTC)이 폰 종류별 부품을 넷 다 실어 APK 가 47메가바이트가 되던 것을 줄임 —
+        //   요즘 폰(64비트)과 옛 폰(32비트) 두 가지만 실음. 플레이 스토어(AAB)는 폰마다 맞는 것만 따로 내려 보냄
+        ndk { abiFilters += listOf("arm64-v8a") }   // 261002-B1 64비트 폰만(2016년 뒤 거의 모든 폰) — 카메라 눈 부품이 커서 APK 크기를 줄임
+    }
+
+    signingConfigs {
+        create("olligi") {
+            if (keyFile.exists()) {
+                storeFile = rootProject.file(keyProps.getProperty("storeFile"))
+                storePassword = keyProps.getProperty("storePassword")
+                keyAlias = keyProps.getProperty("keyAlias")
+                keyPassword = keyProps.getProperty("keyPassword")
+            }
+        }
+    }
+
+    flavorDimensions += "ap"
+    productFlavors {
+        create("gilnun") {
+            dimension = "ap"
+            applicationId = "kr.or.ada.app"
+            resValue("string", "app_name", "길눈")
+            versionName = "2.33.0"   // 261010-A21 고장 노래 저절로 틀기 한 번 끔으로 되돌림·이어 들을 때도 네(이사장님 승인). 261009-A20 탈것 바로잡기 단추·콜 못 박기 풂·땅속 판단·전화 중 마이크·엄격한 네 아니오·긴급통화 거절 알림·한 폰 표·점지도 탈것 구간(이사장님 승인). 261009-A19 목적지 바꾸기 전 여쭘·한 마디 거름·콜 다시 걸기 막음·콜 배차 뒤 차 못 박기·차 안 안내 바로잡기·말로 탈것 바로잡기·편집 중 화면 굳히기(이사장님 승인). 261009-A18 전화 오거나 걸면 모든 소리 멈춤·방송 이어 듣기, 땅속 판단·지역 찾기·탈것 기록 바로잡음, 자봉 점지도 잇기 점검, 아침 기록(이사장님 승인). 261009-A17 차 부르기 — 지역 이용 안내·복지카드 메일·서울 복지콜 먼저·상담원께 말할 것·이용 기록과 성적표·정기 호출(이사장님 승인). 261008-A16 차에 타면 고장 노래 저절로 틀기 처음값 끔(이사장님 지시). 261007-A15 아이폰과 맞대어 빠진 것 채움 — 차 안 길 맞춤·안내 정도, 호칭, 역 이름·출구 바로잡기, 보폭 둘, 말 자르기, 첫 날씨, 30분 기초 시험, 화면 꺼져도 하이 길눈(따로 켬), 바로가기, 내 자리 듣기, 기기 설정, 워치 동영상, 도움말(이사장님 허락). 261007-A14 하이 길눈 부르기(설정에서 켬, 처음 끔), 도움말 찾기·다섯 개씩, 보기 문장 시계 방향, 입력칸 톡백(이사장님 승인). 261007-A13 안드로이드 전체 점검 고침(이사장님 지시) — 모든 통신 이름표, 폰 목소리·선희 목소리 지킴이, 방향 진북·세운 폰·센서 대체, 길 안내 중 깨어 있기, 기압 땅속 판정 고르기, 기차 터널 지하철 덮기 막기, 걸음 15초 저절로 내리기 뺌, 카메라 눈 모델 앱 안에, 긴급통화 잠가도 이어짐, 업데이트 확인 화면 이어 열기, 동서남북 말 뺌, 하이 길눈 안내 고침. 261007-A12 음악·방송이 안드로이드에서 안 나오던 것 고침 — 서버 이름표, 길눈 제 말에 뺏긴 소리 자리 되찾기, 15초 소리 안 남 알림(이사장님 지적). 261007-A11 목소리 따라 걷기 — 자봉 목소리 토막(이사장님 확정 방식). 261007-A7 업데이트 시험판. 261007-A5 새 판 알림과 업데이트(이사장님 승인). 261007-A2 방향은 늘 시계 방향으로(이사장님 지시). 261006-A12 하던 일 멈추기 늘 위·걸음 수·건널목 알림·문 찾기 30초(이사장님 승인). 261006-A11 말벗 견주기(이사장님 승인). 261006-A10 처음 안내·흰지팡이·보폭 재기 전 미터 안내(이사장님 승인). 261006-A9 말로 하기 대화 이어 가기·말벗(이사장님 승인). 261006-A7 마지막 스무 걸음과 볼거리(이사장님 승인). 261006-A6 걸을 수 있는 길로 이끌기(이사장님 승인). 261006-A5 비슷한 곡 권하기(이사장님 승인). 261006-A4 주변 신호기 살피기(있는지, 블루투스로 울릴 수 있는지), 이사장님 승인. 261004-I1 영상 다리 주소를 나스 설정 쪽지에서(이사장님 승인). 261004-G1 긴급통화 자봉 앱 하나로 받기 — 가족·지인 이음 번호, 넘길지 여쭙기(이사장님 승인). 261003-W1 워치 지금 형편 대답(이사장님 지시). 261003-T1 탈것 저절로 알아채기·지하철 바로잡음(TalgeotGamji, 이사장님 승인). 261003-K1 지방 콜 부르기 바로잡음(KolJiyeok — 주소 찾기로 시·군 센터, 말로 교통편 부르기, 이사장님 지시). 261002-B1 아이폰 길눈의 나머지 기능을 한꺼번에(묶음 b1~b6 — 목적지·여정·안내·지하철·버스, 점지도 마저, 카메라 눈, 둘러보기, 음악·방송·동영상, 나눔·알림·설정, 대표님 지시 「안드로이드에서도 이 원칙 지켜서 동일하게」). 261002-A9 긴급통화서비스를 안드로이드 길눈에도(GinGeup·GinGeupHwamyeon — 가족·지인·자원봉사자·현장영상해설사 화상통화, 나스 rel.php·턴 서버, 대표님 지시). 261002-A8 갤럭시 워치 길눈과 잇기(WatchLink — 안내·진동·걸음·손목 가리키기·지팡이 떨림 기록, 대표님 지시). 261002-A7 말로 하기를 안드로이드 길눈에도(MalHagi — 받아쓰기·나스 알아듣기 사전·점지도 찾기, 이어폰 단추 길게, 대표님 지시). 261002-A6 음향신호기를 안드로이드 길눈에도(SinhogiEngine — 자동으로 잡기·손으로 울리기·찾기, 대표님 지시). 261002-A4 점지도 따라 걷기를 안드로이드에도(JeomEngine·Jeomjido·Eum·JeomHwamyeon, 대표님 지시). 261001-A3 몸 센서를 길눈에도(MomSensor.kt 를 src/gilnun 으로). 261001-A1 길눈은 속까지 앱(GilnunActivity, src/gilnun)으로 새로 지음 — 자봉·배프는 웹 판 그대로
+            buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/jeom/jeom.html\"")   // 260926-3 길눈 첫 화면으로 곧바로
+        }
+        create("jabong") {
+            dimension = "ap"
+            applicationId = "kr.or.ada.jabong"
+            resValue("string", "app_name", "자봉")
+            versionName = "2.17.0"   // 261009-A13 긴급통화 거절 알림·30초 닫힘·한 폰 표·에스컬레이터 되돌아가기(이사장님 승인). 261009-A12 길눈과 함께 쓰는 부품 손질(이사장님 승인). 261009-A11 보폭 방식 바로 보냄, 전화 중 소리 멈춤, 기록 이름표(이사장님 승인). 261007-A10 그려 주세요와 그린 길 잇기(이사장님 지시). 261007-A9 보완 부탁(이사장님 지시). 261007-A8 업데이트 시험판·그리는 중 업데이트 막기. 261007-A6 새 판 알림과 업데이트(이사장님 승인). 261007-A4 봉사자 요청 여섯 가지(이사장님 승인). 261007-A3 방향은 늘 시계 방향으로(이사장님 지시). 261007-A1 점지도 일곱 가지 약속·확인 문제 아홉 개(이사장님 승인). 261006-A8 볼거리 표시(이사장님 승인). 261006-A3 나눔 마당·함께하기를 앱 화면으로(이사장님 승인). 261006-A2 함께한 기록판·걸음 나눔 응원 박수(뒷단 리눅스 서버), 이사장님 승인. 261006-A1 아이폰 자봉 2.7.0과 같이 — 짧은 교육 소리로·크고 선명하게·정답 박수·환영 화면·나눔 탭(그려 주세요·걸음 나눔), 이사장님 승인. 261004-I1 영상 다리 주소를 나스 설정 쪽지에서. 261004-G1 가족·지인으로 받기(이음 번호)·긴급통화 받지 않기(이사장님 승인). 261002-J1 아이폰 자봉 2.3.0과 똑같이 — 처음 등록·탭 넷·긴급통화 받기(JabongDaegi·JabongTonghwa, 알림 칸의 자봉이 나스 부름을 살핌)·점지도 그리기 마저(주소·말로 표시·그린 길 목록), 대표님 지시. 261001-A2 점지도 그리기를 속까지 앱(JabongActivity, src/jabong) — 몸 센서 극대화
+            buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/jabong/\"")
+        }
+        create("bfb") {
+            dimension = "ap"
+            applicationId = "kr.or.ada.bfb"
+            resValue("string", "app_name", "배프")
+            buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/bfb/\"")
+        }
+        create("byod") {   // 261003-B1 BYOD 방송 — 삼성 태블릿이 노트북 대신 현장 방송 서버를 맡음(ByodActivity·ByodService, src/byod), 이사장님 승인 2026-10-03
+            dimension = "ap"
+            applicationId = "kr.or.ada.byod"
+            resValue("string", "app_name", "BYOD 방송")
+            versionName = "1.1.4"   // 261007-B6 실제로 받는 소리 장치 알림, 사운드카드 안 잡힐 때 할 일 한 줄, 어떤 소리 장치든 꽂고 빼면 다시 고름, 기기 점검 판단·결과 복사(방송클, 이사장님 승인). 261007-B5 기기 점검(소리 장치·USB·연결 보기), USB 없으면 3.5밀리 마이크·라인 입력도(허브 CT118 시험). 261007-B4 새 판 알림과 업데이트(대장클, 이사장님 지시). 261006-B3 스티커 쓰기 고침(엔디프 확인 건너뛰기 뺌, 엔태그 칩 직접 쓰기 더함). 261006-B2 접속 도구(엔에프시 스티커 쓰기·큐알코드 만들기, 도서클이 방송클 일을 이어 맡음)
+            buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/bfblive/hyeonjang/\"")
+        }
+        create("lib") {   // 261002-L1 AI점자도서관 안드로이드 — 속까지 앱(LibActivity, src/lib), 아이폰 0.2.0 과 동시에(이사장님 승인 "2")
+            dimension = "ap"
+            applicationId = "kr.or.ada.lib"
+            resValue("string", "app_name", "AI점자도서관")
             versionName = "0.4.4"   // 261008-L8 아이폰과 견주어 네 묶음 고침 — 화면 꺼도 읽기·이어폰 단추, 내 서재 줄 수·책갈피 자리·모두 지우기 물음, 커서 머묾·더 보기, 처음부터·책갈피 지우기·도움말 찾기(도서관 창 클, 이사장님 승인 「1」). 261007-L7 새 판 알림과 업데이트(대장클, 이사장님 지시). 261006-L6 책 소개·지은이·출판사, 책 소개 듣기. 261006-L5 여섯 문단 미리 받기. 261006-L4 목소리 열 가지·미리 듣기, 재생 위치 막대, 앞으로 30초와 뒤로 30초. 261006-L3 인터넷이 될 때는 늘 도서관 목소리(이사장님 지적). 261006-L2 세 겹의 문 목록 고침·독서기 떠나면 멈춤(도서관 창 클, 이사장님 지적)
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/nas/doseo.php\"")
         }
