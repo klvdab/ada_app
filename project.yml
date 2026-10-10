@@ -1,4 +1,5 @@
 # 협회 앱 · 자봉 앱 · 배프 앱 · AI점자도서관 — XcodeGen 설계도 (1.7.4판, 빌드 261002-7 — 길눈 2.38.0 꺾는 곳 진동·음향신호기 기록)
+# 1.8.0 (261010-BI1, 이사장님 승인 「아이폰용도 진행」, 방송클) BYOD 방송 아이폰(kr.or.ada.byod) 더함 — Byod 폴더의 자체 코드, 짓기는 eoneu=byod
 # 1.7.9 (261004-I1, 이사장님 승인) 길눈 2.43.0·자봉 2.5.0 — 영상 다리 주소를 나스 설정 쪽지에서 읽음. 설정 바뀐 것 없음
 # 1.7.8 (261004-G1, 이사장님 승인) 길눈 2.42.0·자봉 2.4.0 — 긴급통화 자봉 앱 하나로 받기(가족·지인 이음 번호, 받지 않기, 고르게 울리기). 설정 바뀐 것 없음
 # 1.7.7 (261003-W1, 이사장님 지시) 길눈 2.41.0 — 애플워치 두 번 집기 바로잡음(설정 바뀐 것 없음)
@@ -34,6 +35,7 @@
 #   JabongApp  자봉 앱  (kr.or.ada.jabong)  대문 https://lvd.ada.or.kr/jabong/
 #   BfbApp     배프 앱  (kr.or.ada.bfb)     대문 https://lvd.ada.or.kr/bfb/
 #   LibApp     AI점자도서관 (kr.or.ada.lib)  Lib 폴더의 자체 코드, iOS 17 이상
+#   ByodApp    BYOD 방송 (kr.or.ada.byod)  Byod 폴더의 자체 코드 — 현장영상해설을 같은 공유기의 폰들에 나눠 보냄(안드로이드 BYOD와 같은 방식)
 # 배프 앱만 App 폴더의 소스를 씁니다(협회 앱·자봉 앱은 속까지 앱). 대문 주소는 각자 Info.plist 의 AdaHomeURL 로 갈라집니다.
 name: AdaApp
 options:
@@ -223,6 +225,42 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.lib
         TARGETED_DEVICE_FAMILY: "1"
         MARKETING_VERSION: "0.5.0"   # 261010-L9 첫 화면에 고른 문의 서가 목록·형태별 갈래와 보일 책 뺌·세 손가락 쓸기로 목록 넘기기(도서관 창 클, 이사장님 승인 「1」). 261007-L7 새 판 알림(대장클, 이사장님 지시). 261006-6 책 소개·지은이·출판사, 책 소개 듣기. 261006-5 여섯 문단 미리 받기(소리 멈춤 줄이기). 261006-4 목소리 열 가지·미리 듣기, 재생 위치 막대, 앞으로 30초와 뒤로 30초(이사장님 지시). 261006-3 인터넷이 될 때는 늘 도서관(서버) 목소리, 폰 목소리는 인터넷이 끊겼을 때만(이사장님 지적). 261006-2 세 겹의 문 목록 고침·탭 고르면 맨 위로·독서기 떠나면 멈춤(도서관 창 클, 이사장님 지적)
+  ByodApp:
+    # 1.1.5 (261010-BI1, 2026-10-10 이사장님 승인 「아이폰용도 진행」, 방송클) BYOD 방송 아이폰 — 안드로이드 BYOD 방송 1.1.5와 같은 기능
+    # 화면을 잠가도 해설 소리 받기와 나눠 보내기가 이어지도록 뒤에서 소리(audio), 엔에프시 스티커 쓰기(TAG)
+    type: application
+    platform: iOS
+    sources:
+      - path: Byod
+    info:
+      path: Byod/Info.plist
+      properties:
+        CFBundleDisplayName: BYOD 방송
+        CFBundleName: ByodApp
+        CFBundleDevelopmentRegion: ko
+        CFBundleLocalizations: [ko]
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIBackgroundModes: [audio]
+        UIRequiresPersistentWiFi: true
+        NSMicrophoneUsageDescription: 현장영상해설사의 해설 소리(수신기 선을 꽂은 사운드카드나 아이폰 마이크)를 받아 같은 공유기에 붙은 듣는 분 폰들에 보내는 데 마이크를 씁니다.
+        NSLocalNetworkUsageDescription: 같은 공유기에 붙은 듣는 분 폰들에 현장영상해설을 보내는 데 로컬 네트워크를 씁니다.
+        NFCReaderUsageDescription: 접수대에서 듣는 분 안드로이드폰이 한 번에 방송 와이파이에 붙도록 엔에프시 스티커에 와이파이와 듣기 주소를 쓰는 데 씁니다.
+        NSPhotoLibraryAddUsageDescription: 인쇄할 큐알코드 그림을 사진 앱에 저장하는 데 씁니다.
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+    entitlements:
+      path: Byod/ByodApp.entitlements
+      properties:
+        com.apple.developer.nfc.readersession.formats: [TAG]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.byod
+        TARGETED_DEVICE_FAMILY: "1"
+        MARKETING_VERSION: "1.1.5"   # 261010-BI1 아이폰 첫 판 — 방송·현장 점검·소리 크기·멈춘 폰 빼기·접속 도구(엔에프시·큐알)·기기 점검·도움말·새 판 알림(방송클, 이사장님 승인)
   AdaWatch:
     type: application
     platform: watchOS
@@ -268,5 +306,11 @@ schemes:
     build:
       targets:
         LibApp: all
+    archive:
+      config: Release
+  ByodApp:
+    build:
+      targets:
+        ByodApp: all
     archive:
       config: Release
