@@ -16,6 +16,7 @@ import android.os.Looper
 import kr.or.ada.app.gilnun.EumJong
 import kr.or.ada.app.gilnun.Eum
 import kr.or.ada.app.gilnun.Girok
+import kr.or.ada.app.gilnun.GeoreumGijun
 import kr.or.ada.app.gilnun.Jindong
 import kr.or.ada.app.gilnun.MalDeutgi
 import kr.or.ada.app.gilnun.MalGeup
@@ -111,6 +112,11 @@ object Geurigi {
     var geurinGil = JSONArray(); private set
     private var sijakMs = 0L
     private var stGijun = 0
+    /** 자봉 2.18.0 (261010-A14, 이사장님 승인 2026-10-10 — 이다현 님 신고) 걷기를 시작한 뒤 15초 동안 폰 걸음 센서 걸음을 몸 센서 걸음과 견줌.
+     *  폰 걸음 센서가 시작 전에 쌓아 둔 걸음을 한꺼번에 보내 출발하자마자 수십 걸음이 얹히던 일 — 그 헛걸음은 기준에 더해 뺌 */
+    private var gijunBoneun = 0L
+    private var st2Gijun = -1
+    private var gijunGeomsa: GeoreumGijun? = null
     private var meomchumSt0 = 0
     private var openPair: JSONObject? = null   // name, st, lat, lon, idx, t, pi
     private var rideMode = ""
@@ -151,7 +157,33 @@ object Geurigi {
     private val chobun: Int get() = ((System.currentTimeMillis() - sijakMs) / 1000).toInt()
     private fun r1(v: Double) = Math.round(v * 10) / 10.0
 
+    private fun heotgeoreumBaegi() {
+        if (gijunBoneun == 0L) return
+        if (System.currentTimeMillis() > gijunBoneun) { gijunBoneun = 0L; gijunGeomsa = null; return }
+        // 1) 사람이 걸을 수 없는 빠르기로 늘어난 걸음(1초에 2.5걸음 넘게)
+        gijunGeomsa?.let { val n = it.geomsa(); if (n > 0) stGijun += n }
+        if (!MomSensor.dollyeo) return
+        // 2) 몸 센서 걸음보다 훨씬 많이 늘어난 걸음
+        if (st2Gijun < 0) { st2Gijun = MomSensor.georeumSu; return }
+        val manbo = Wichi.georeumSu - stGijun
+        val mom = MomSensor.georeumSu - st2Gijun
+        val neom = manbo - mom
+        // 몸 센서는 처음 몇 걸음을 늦게 알아채므로 넉넉히 — 몸 센서 걸음의 두 배보다 10걸음 넘게 많고, 차이가 15걸음 넘을 때만
+        if (neom > 15 && manbo > mom * 2 + 10) {
+            stGijun += neom
+            gijunBoneun = 0L; gijunGeomsa = null
+            Girok.namgi("jb_heotgeoreum", mapOf("neom" to neom, "manbo" to manbo))
+        }
+    }
+
+    private fun gijunBogiSijak() {
+        gijunBoneun = System.currentTimeMillis() + 15000
+        gijunGeomsa = GeoreumGijun()
+        st2Gijun = if (MomSensor.dollyeo) MomSensor.georeumSu else -1
+    }
+
     private fun jigeumJari(): JSONObject {
+        heotgeoreumBaegi()
         val p = JSONObject()
         p.put("t", chobun); p.put("st", georeum)
         if (Wichi.nachimban >= 0) p.put("h", r1(Wichi.nachimban))
@@ -236,6 +268,7 @@ object Geurigi {
         sangtae = Sangtae.GEOREUM
         dolligi()
         momKyeogi()
+        gijunBogiSijak()
         Girok.namgi("jb_geurigi_sijak", mapOf("id" to gil?.optString("id")))
         alrigi((if (bt != null) "길눈님 부탁 길, ${bt.second}에서 ${bt.third}까지 그립니다. " else "") + "걷기 시작했습니다. 평소 걸음으로 걸으시고, 꺾이는 곳과 계단, 건널목, 문에 닿는 순간 표시를 남겨 주십시오.")
         // 출발한 자리 주소를 저절로 적음 — 2.11.0 봉사자가 이름을 넣었으면 그대로 둠
@@ -272,10 +305,11 @@ object Geurigi {
         meomchumSt0 = 0
         sangtae = Sangtae.GEOREUM
         gil?.put("meomchum", false)
+        momKyeogi()
+        gijunBogiSijak()
         val p = jigeumJari(); p.put("cut", 1)   // 멈췄다 이은 자리 — 이 사이는 이어 그리지 않음(웹과 같음)
         pts.put(p)
         dolligi()
-        momKyeogi()
         alrigi("다시 걷습니다. 지금까지 ${georeum}걸음입니다.")
     }
 
