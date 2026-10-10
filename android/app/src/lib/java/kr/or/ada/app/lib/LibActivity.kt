@@ -1,4 +1,6 @@
-// AI점자도서관 안드로이드 — 화면 (0.4.4판, 빌드 261008-L8)
+// AI점자도서관 안드로이드 — 화면 (0.5.0판, 빌드 261010-L9)
+// 0.5.0 (261010-L9, 도서관 창 클, 이사장님 승인 「1」) 첫 화면에 고른 문(주제별·장르별·테마별, 설정의 첫 화면 목록, 처음 값 장르별)의 서가 목록을 바로,
+//       형태별 갈래 목록과 「보일 책」 거르기를 뺌(늘 모든 책), 목록은 톡백 목록 넘기기(앞으로·뒤로) 동작으로 넘기고 넘기면 커서는 첫 줄, 맨 아래 「다음 목록」 하나만
 // 0.4.4 (261008-L8, 도서관 창 클, 이사장님 승인 「1」 — 아이폰판과 하나하나 견주어 찾은 것을 네 묶음으로 고침)
 //   묶음 1 화면을 꺼도 계속 읽기·이어폰 단추·잠금 화면(DokseoService)
 //   묶음 2 내 서재가 목록 줄 수를 따름, 책갈피로 다른 책을 열 때 읽던 자리 지켜짐, 내려받은 책 모두 지우기는 한 번 더 물음,
@@ -47,7 +49,7 @@ sealed class Hm {
 }
 
 class LibActivity : Activity() {
-    companion object { const val PAN = "0.4.4"; const val BILDEU = "261008-L8" }   // 0.4.4 아이폰과 견주어 네 묶음 고침(도서관 창 클, 이사장님 승인 「1」). 0.4.3 새 판 알림과 업데이트(대장클, 이사장님 지시)
+    companion object { const val PAN = "0.5.0"; const val BILDEU = "261010-L9" }   // 0.4.4 아이폰과 견주어 네 묶음 고침(도서관 창 클, 이사장님 승인 「1」). 0.4.3 새 판 알림과 업데이트(대장클, 이사장님 지시)
     private val main = Handler(Looper.getMainLooper())
     private val pool = Executors.newFixedThreadPool(3)
     private val stacks = arrayOf(mutableListOf<Hm>(Hm.Home), mutableListOf<Hm>(Hm.Seojae), mutableListOf<Hm>(Hm.Seoljeong))
@@ -168,6 +170,7 @@ class LibActivity : Activity() {
     private fun draw() {
         if (cur() !is Hm.Reader && Dokseo.playing) Dokseo.pause()   // 0.3.1 — 독서기 화면을 떠나면 멈춤
         playerView?.player = null; playerView = null
+        ViewCompat.setAccessibilityDelegate(body, null)   // 0.5.0 목록 넘기기 대리자는 목록 화면에서만
         body.removeAllViews(); tabs()
         if (!Hoewon.deungrokdoem(this)) { tabbar.visibility = View.GONE; deungrok(); return }   // 0.4.4 등록 전에는 탭 바를 감춤(아이폰과 같게)
         tabbar.visibility = View.VISIBLE
@@ -183,7 +186,7 @@ class LibActivity : Activity() {
             is Hm.Reader -> reader(h)
             is Hm.Marks -> marks(h.i)
             is Hm.Mun -> munHwamyeon(h)
-            is Hm.Seoga -> paged(h.t) { o -> Api.seoga(h.mun, h.k, Naeryeo.hyeongtae(this), o) }
+            is Hm.Seoga -> paged(h.t) { o -> Api.seoga(h.mun, h.k, "all", o) }   // 0.5.0 보일 책 거르기를 뺌
         }
     }
 
@@ -248,10 +251,32 @@ class LibActivity : Activity() {
         Store.last?.let { l ->
             cheot = chaekJul(l, "이어 듣기, ${l.t}, ${l.wichiMal}부터", "이어 듣기 · ${l.wichiMal}부터", { go(Hm.Reader(l.i, l.t, l.kind)) }, false)
         }
-        danchu("주제별로 찾기, 십진분류") { go(Hm.Mun("jujae", "주제별")) }
-        danchu("장르별로 찾기") { go(Hm.Mun("jangreu", "장르별")) }
-        danchu("테마별로 찾기") { go(Hm.Mun("tema", "테마별")) }
-        danchu("보일 책: ${Naeryeo.hyeongtaeMal(this)}") { Naeryeo.nextHyeongtae(this); malhagi("보일 책, ${Naeryeo.hyeongtaeMal(this)}"); dasi("보일 책") }
+        // 0.5.0 고른 문의 서가 목록을 바로(설정의 첫 화면 목록), 다른 두 문은 그 아래 한 줄씩
+        val cm = cheotMun()
+        geul(MUN.first { it.first == cm }.second, jemok = true)
+        val munMal = geul("가져오는 중입니다.", jakge = true)
+        val munJari = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        body.addView(munJari, lp(0))
+        for ((k, t) in MUN) if (k != cm) danchu(if (k == "jujae") "주제별로 찾기, 십진분류" else "${t}로 찾기") { go(Hm.Mun(k, t)) }
+        pool.execute {
+            val r = runCatching { Api.mun("all") }
+            main.post {
+                if (cur() != Hm.Home) return@post
+                r.onFailure { munMal.text = "도서관에 닿지 못했습니다. 인터넷을 확인한 뒤 설정의 새로고침을 눌러 주십시오." }.onSuccess { all ->
+                    val sg = all[cm].orEmpty().filter { it.third > 0 }
+                    if (sg.isEmpty()) munMal.text = "이 문에는 아직 책이 없습니다." else body.removeView(munMal)
+                    for ((k, tt, n) in sg) {
+                        val b = Button(this).apply {
+                            text = "$tt, ${n}권"; isAllCaps = false; gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f); setTextColor(Saek.geulja(this@LibActivity)); background = kadeuBg()
+                            setPadding(dp(16), dp(12), dp(16), dp(12)); minHeight = dp(52)
+                            setOnClickListener { go(Hm.Seoga(cm, k, tt)) }
+                        }
+                        munJari.addView(b, lp(6))
+                    }
+                }
+            }
+        }
         val chaj = EditText(this).apply {
             hint = "찾을 책 이름"; inputType = InputType.TYPE_CLASS_TEXT; imeOptions = EditorInfo.IME_ACTION_SEARCH
             background = kadeuBg(); setPadding(dp(14), dp(12), dp(14), dp(12)); setTextColor(Saek.geulja(this@LibActivity))
@@ -260,22 +285,6 @@ class LibActivity : Activity() {
         chaj.setOnEditorActionListener { _, a, _ -> if (a == EditorInfo.IME_ACTION_SEARCH) { chajgi(); true } else false }
         body.addView(chaj, lp(10))
         danchu("찾기") { chajgi() }
-        geul("갈래", jemok = true)
-        val galMal = geul("가져오는 중입니다.", jakge = true)
-        pool.execute {
-            val g = runCatching { Api.gal() }
-            main.post {
-                if (cur() != Hm.Home) return@post
-                g.onSuccess { list ->
-                    body.removeView(galMal)
-                    for (x in list) {
-                        val b = danchu("${x.g} ${"%,d".format(x.n)}${x.dan}") { go(Hm.Gal(x.g)) }
-                        b.setCompoundDrawablesRelativeWithIntrinsicBounds(GradientDrawable().apply { setColor(Saek.pyoji(x.g)); cornerRadius = dp(3).toFloat(); setSize(dp(8), dp(28)) }, null, null, null)
-                        b.compoundDrawablePadding = dp(12)
-                    }
-                }.onFailure { galMal.text = "도서관에 닿지 못했습니다. 인터넷을 확인한 뒤 설정의 새로고침을 눌러 주십시오." }
-            }
-        }
         cheotJul(cheot)
     }
 
@@ -293,14 +302,34 @@ class LibActivity : Activity() {
                 var first: View? = null
                 for (it in lr.items) {
                     val b = danchu(it.t) { if (it.i != null) go(Hm.Book(it.i)) else if (it.j != null) go(Hm.Jakbon(it.j, it.t)) }
-                    if (first == null) first = b
+                    if (first == null) { first = b; if (lr.o > 0) b.contentDescription = "${lr.o + 1}번부터, ${it.t}" }   // 0.5.0 넘긴 뒤 첫 줄에서 몇 번부터인지 들림
                 }
-                if (lr.o + Api.PER < lr.modu) danchu("더 보기") { listO = lr.o + Api.PER; draw() }
-                if (lr.o > 0) danchu("이전 보기") { listO = (lr.o - Api.PER).coerceAtLeast(0); draw() }
+                val dam = lr.o + Api.PER < lr.modu
+                if (dam) danchu("다음 목록") { listO = lr.o + Api.PER; draw() }   // 0.5.0 손짓이 안 될 때를 위해 하나만 남김
+                neomgigi(lr.o > 0, dam, { listO = lr.o + Api.PER; draw() }, { listO = (lr.o - Api.PER).coerceAtLeast(0); draw() })
                 cheotJul(first)
             }
         }
     }
+
+    // 0.5.0 목록 넘기기 — 톡백의 목록 넘기기(앞으로·뒤로) 동작을 받아 다음·앞 목록을 그림. 목록 줄에 커서가 있을 때 가장 가까운 넘길 수 있는 자리가 이 목록이 되게 함
+    private fun neomgigi(ap: Boolean, dwi: Boolean, daeum: () -> Unit, ijeon: () -> Unit) {
+        ViewCompat.setAccessibilityDelegate(body, object : androidx.core.view.AccessibilityDelegateCompat() {
+            override fun onInitializeAccessibilityNodeInfo(host: View, info: androidx.core.view.accessibility.AccessibilityNodeInfoCompat) {
+                super.onInitializeAccessibilityNodeInfo(host, info)
+                info.isScrollable = ap || dwi
+                if (dwi) info.addAction(androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SCROLL_FORWARD)
+                if (ap) info.addAction(androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SCROLL_BACKWARD)
+            }
+            override fun performAccessibilityAction(host: View, action: Int, args: Bundle?): Boolean {
+                if (action == AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) { if (dwi) daeum() else scroll.announceForAccessibility("마지막 목록입니다"); return true }
+                if (action == AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) { if (ap) ijeon() else scroll.announceForAccessibility("첫 목록입니다"); return true }
+                return super.performAccessibilityAction(host, action, args)
+            }
+        })
+    }
+    private fun cheotMun(): String = getSharedPreferences("naeryeo", MODE_PRIVATE).getString("cheotMun", "jangreu") ?: "jangreu"
+    private val MUN = listOf("jujae" to "주제별", "jangreu" to "장르별", "tema" to "테마별")
 
     private fun book(i: Int) {
         val mal = geul("책 정보를 가져오는 중입니다.", jakge = true)
@@ -394,7 +423,7 @@ class LibActivity : Activity() {
     private fun munHwamyeon(h: Hm.Mun) {
         val t = geul(h.t, jemok = true)
         val mal = geul("가져오는 중입니다.", jakge = true)
-        val hy = Naeryeo.hyeongtae(this)
+        val hy = "all"   // 0.5.0 보일 책 거르기를 뺌
         pool.execute {
             val r = runCatching { Api.mun(hy) }
             main.post {
@@ -545,6 +574,10 @@ class LibActivity : Activity() {
         danchu("더 빠르게 읽기, 지금 $rn") { if (Store.rateIndex < Store.rates.size - 1) { Store.rateIndex += 1; Dokseo.setRate() }; malhagi(Store.rateNames[Store.rateIndex]); dasi("더 빠르게 읽기") }
         danchu("재생 위치 막대 한 번에: " + pctStep() + "퍼센트") { getSharedPreferences("naeryeo", MODE_PRIVATE).edit().putInt("pctStep", if (pctStep() == 5) 1 else 5).apply(); malhagi("재생 위치 막대 한 번에 " + pctStep() + "퍼센트"); dasi("재생 위치 막대") }
         danchu("앱 안내 말: ${if (Store.speechOn) "켜짐" else "꺼짐"}") { Store.speechOn = !Store.speechOn; dasi("앱 안내 말") }
+        danchu("첫 화면 목록: ${MUN.first { it.first == cheotMun() }.second}") {   // 0.5.0 누를 때마다 주제별 → 장르별 → 테마별
+            val n = MUN[(MUN.indexOfFirst { it.first == cheotMun() } + 1) % MUN.size]
+            getSharedPreferences("naeryeo", MODE_PRIVATE).edit().putString("cheotMun", n.first).apply(); malhagi("첫 화면 목록, ${n.second}"); dasi("첫 화면 목록")
+        }
         danchu("목록 줄 수: ${Api.PER}줄") { Naeryeo.nextJul(this); malhagi("목록 줄 수, ${Api.PER}줄"); dasi("목록 줄 수") }   // 0.3.0
         danchu("와이파이에서만 내려받기: ${if (Naeryeo.wifiOnly(this)) "켜짐" else "꺼짐"}") { Naeryeo.setWifiOnly(this, !Naeryeo.wifiOnly(this)); dasi("와이파이에서만") }
         Naeryeo.items(this).let { nr ->
@@ -583,9 +616,9 @@ class LibActivity : Activity() {
         "책 찾기" to "도서관 첫 화면의 찾을 책 이름 칸에 낱말을 적고 찾기를 누릅니다. 찾은 결과만 나오고 커서가 첫 줄에 놓입니다. 다시 찾을 때는 뒤로를 누릅니다.",
         "갈래" to "글자책, 소리책, 대본, 입체낭독, 인터넷소설, 점자책으로 나뉩니다. 대본에는 드라마, 영화, 연극·뮤지컬, 라디오 드라마 대본이 들어 있습니다. 인터넷소설은 한 줄에 작품 하나로 나오고, 누르면 권이 차례로 나옵니다.",
         "책 묶어 보기" to "목록에는 파일 이름이 아니라 책 제목과 권수가 한 줄로 나옵니다. 보기: 야인시대, 전 117회. 그 줄을 누르면 야인시대 1회, 야인시대 2회처럼 제목과 번호가 차례대로 나옵니다. 찾기를 해도 같은 책은 묶음 한 줄로 나옵니다.",
-        "목록 넘기기" to "목록은 처음에 한 쪽 15줄입니다. 설정의 목록 줄 수를 누를 때마다 5, 10, 15, 20, 30줄로 바뀝니다. 아래의 더 보기로 다음 쪽, 그 아래 이전 보기로 앞쪽을 봅니다. 내 서재도 같은 줄 수로 넘깁니다.",
+        "첫 화면 목록" to "도서관 첫 화면에는 설정의 첫 화면 목록에서 고른 목록(주제별, 장르별, 테마별 가운데 하나)의 서가가 바로 나옵니다. 처음 값은 장르별이고, 누를 때마다 바뀝니다. 다른 두 목록은 그 아래 한 줄씩 있습니다.",
+        "목록 넘기기" to "목록은 처음에 한 쪽 15줄입니다. 설정의 목록 줄 수를 누를 때마다 5, 10, 15, 20, 30줄로 바뀝니다. 목록 줄에서 톡백의 목록 넘기기 동작(앞으로, 뒤로)을 하면 다음 목록과 앞 목록이 나오고 커서는 그 목록 첫 줄에 놓입니다. 손짓이 안 될 때는 맨 아래 다음 목록을 누릅니다. 내 서재는 더 보기와 이전 보기로 넘깁니다.",
         "세 겹의 문" to "도서관 첫 화면에 주제별, 장르별, 테마별 세 문이 있습니다. 문을 누르면 서가와 책 수가, 서가를 누르면 책 목록이 나옵니다. 주제별은 도서관 십진분류, 장르별은 판타지·무협 같은 갈래, 테마별은 이달의 새 책 같은 모음입니다.",
-        "보일 책 거르기" to "첫 화면의 보일 책을 누를 때마다 모든 책, 소리로 듣는 책만, 점자책만으로 바뀌고 문과 서가에 그 책만 나옵니다.",
         "책 정보" to "책을 고르면 갈래, 들어온 날, 읽던 자리가 나오고, 책 소개가 있으면 지은이, 출판사, 책 소개와 책 소개 듣기가 나옵니다. 독서기로 들을 수 없는 형식이면 그렇다고 알려 드립니다.",
         "독서기" to "글자책은 사람 목소리로 문단마다 읽어 줍니다. 앞 문단을 읽는 동안 뒤 문단을 미리 만들어 둡니다. 겉에는 읽기, 앞으로 30초, 뒤로 30초, 재생 위치가 있고 그 아래에 지금 읽는 글이 나옵니다. 빠르기, 목소리, 책갈피, 처음부터는 더 보기 안에 있습니다.",
         "처음부터" to "독서기의 더 보기 안에 있습니다. 글자책은 첫 문단으로, 소리책과 동영상은 맨 처음으로 갑니다.",
