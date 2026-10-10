@@ -1,4 +1,5 @@
-// AI점자도서관 앱 — 화면들 (판 0.5.0, 빌드 261010-L9: 첫 화면에 고른 문의 서가 목록, 형태별 갈래·보일 책 뺌, 목록은 세 손가락 위아래 쓸기로 넘김·넘기면 커서 첫 줄 — 도서관 창 클, 이사장님 승인 「1」)
+// AI점자도서관 앱 — 화면들 (판 0.5.1, 빌드 261010-L10: 첫 화면 맨 위 이름 줄·바로 아래 찾기 칸, 목록 넘긴 뒤 커서를 첫 줄로 옮김(목록을 맨 위로 다시 그림), 목록에서 책을 한 번 두드리면 독서기가 열려 바로 읽음·책 정보는 독서기 더 보기 안 — 도서관 창 클, 이사장님 승인 「1」)
+// 0.5.0 (빌드 261010-L9: 첫 화면에 고른 문의 서가 목록, 형태별 갈래·보일 책 뺌, 목록은 세 손가락 위아래 쓸기로 넘김·넘기면 커서 첫 줄 — 도서관 창 클, 이사장님 승인 「1」)
 // 0.2.0 (빌드 261002-1: 디자인 바탕(남색·금빛·로고·책 표지), 첫 화면 머리와 이어 듣기 카드, 내 서재 15개씩·지우기·되돌리기·다 읽은 책)
 // 0.1.0 (260930-3) 도움말 갈래에 「대본」, 독서기에 한글·데이지
 // 규칙: 한 줄에 이름 하나 단추 하나, 목록은 한 쪽에 15줄(아래에 더 보기, 그 아래 이전 보기),
@@ -21,11 +22,16 @@ struct HomeView: View {
     var body: some View {
         List {
             LibOllimJul()   // 0.4.3 새 판이 있을 때만 맨 위 한 줄(대장클, 이사장님 지시)
-            MunSection()   // 0.3.0 — 세 겹의 문
-            Section {
+            Section {   // 0.5.1 맨 위 이름 줄, 바로 아래 찾기 칸(이사장님 지시)
                 Meori()
                     .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
                     .listRowBackground(Color.clear)
+                HStack {
+                    TextField("찾을 책 이름", text: $s)
+                        .submitLabel(.search)
+                        .onSubmit(chatgi)
+                    Button("찾기", action: chatgi)
+                }
                 if let l = store.last {
                     Button {
                         nav.lib.append(Route.reader(l.i, l.t, l.kind))
@@ -47,14 +53,7 @@ struct HomeView: View {
                     .listRowBackground(Saek.kadeu)
                 }
             }
-            Section {
-                HStack {
-                    TextField("찾을 책 이름", text: $s)
-                        .submitLabel(.search)
-                        .onSubmit(chatgi)
-                    Button("찾기", action: chatgi)
-                }
-            }
+            MunSection()   // 0.3.0 — 세 겹의 문(0.5.0 고른 문의 서가 목록)
             Section {
                 DisclosureGroup("더 보기", isExpanded: $more) {
                     Text("AI점자도서관은 두 가지를 합니다. 하나, 책을 사람 목소리로 읽어 주고 AI로 쉽고 빠르게 정보를 얻게 합니다. 둘, 책이 되지 못한 세상(영화, 드라마, 궁궐, 전시, 관광지)을 현장영상해설로 책으로 만듭니다.")
@@ -85,6 +84,7 @@ struct PagedList: View {
     @State private var modu = 0
     @State private var msg = "가져오는 중입니다."
     @AccessibilityFocusState private var first: String?
+    @State private var gen = 0   // 0.5.1 넘길 때마다 목록을 새로 그려 맨 위에서 시작(커서를 첫 줄에 놓으려고)
 
     var body: some View {
         List {
@@ -105,6 +105,7 @@ struct PagedList: View {
                 }
             }
         }
+        .id(gen)
         .task { if items.isEmpty { await load(0) } }
     }
     // 0.5.0 세 손가락 위아래 쓸기 — 위로 쓸면(아래쪽 내용) 다음 목록, 아래로 쓸면 앞 목록
@@ -119,19 +120,26 @@ struct PagedList: View {
         }
     }
     func go(_ it: Item) {
-        if let i = it.i { nav.push(Route.book(i)) }
+        if let i = it.i { nav.push(Route.reader(i, it.t, "")) }   // 0.5.1 한 번 두드리면 독서기가 열려 바로 읽음(형식은 독서기가 알아냄)
         else if let j = it.j { nav.push(Route.jakbon(j, it.t)) }
     }
     func load(_ off: Int, malhagi: Bool = false) async {
         do {
             let r = try await loader(off)
+            first = nil
             o = r.o ?? off; items = r.items ?? []; modu = r.modu ?? items.count
-            if malhagi { UIAccessibility.post(notification: .pageScrolled, argument: "\(o + 1)번부터 \(o + items.count)번, 모두 \(modu.formatted())개") }
+            if malhagi { gen += 1 }   // 0.5.1 목록을 맨 위부터 다시 그림 — 첫 줄 라벨이 「N번부터, 제목」이라 몇 번부터인지 커서가 놓이며 들림
             if let t = r.ttl { onTitle?(t) }
             msg = items.isEmpty ? "찾은 것이 없습니다." : ""
             if let f = items.first?.id {
-                try? await Task.sleep(nanoseconds: 400_000_000)
+                try? await Task.sleep(nanoseconds: 450_000_000)
                 first = f
+                if malhagi {   // 0.5.1 보이스오버가 쪽 넘김 뒤 커서를 잃지 않게 한 번 더
+                    try? await Task.sleep(nanoseconds: 350_000_000)
+                    first = nil
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                    first = f
+                }
             }
         } catch { msg = "목록을 가져오지 못했습니다. 인터넷을 확인해 주십시오." }
     }
@@ -183,7 +191,7 @@ struct BookView: View {
             if let b, b.ok, let t = b.t {
                 let kind = b.kind ?? "etc"
                 if kind != "etc" {
-                    Button(kind == "geul" ? "독서기로 듣기" : "틀기") {
+                    Button(kind == "geul" ? "독서기로 듣기" : "틀기") {   // 0.5.1 누르면 바로 읽음
                         nav.push(Route.reader(i, t, kind))
                     }
                     .accessibilityFocused($focus)
@@ -229,14 +237,39 @@ struct BookView: View {
 struct ReaderView: View {
     let i: Int
     let title: String
-    let kind: String
+    @State private var kind: String
     @EnvironmentObject var r: Reader
     @EnvironmentObject var store: Store
     @EnvironmentObject var nav: Nav
     @State private var more = false
+    @State private var bulga = false     // 0.5.1 독서기로 들을 수 없는 형식
+    @State private var yeolligo = false  // 0.5.1 처음 한 번만 저절로 읽기
     @AccessibilityFocusState private var focus: Bool
+    init(i: Int, title: String, kind: String) { self.i = i; self.title = title; _kind = State(initialValue: kind) }
 
     var body: some View {
+        if bulga {
+            List {
+                Text("이 형식은 아직 독서기로 들을 수 없습니다.").accessibilityFocused($focus)
+                Button("책 정보") { nav.push(Route.book(i)) }
+            }
+            .navigationTitle(title)
+        } else if kind.isEmpty {
+            List { Text("책을 여는 중입니다.") }
+                .navigationTitle(title)
+                .task { await hyeongsik() }
+        } else {
+            boneun
+        }
+    }
+    // 0.5.1 목록에서 바로 왔을 때 — 책 형식을 알아내 연다
+    func hyeongsik() async {
+        let b = try? await API.book(i)
+        let k = b?.kind ?? "etc"
+        if k == "etc" || k.isEmpty { bulga = true; try? await Task.sleep(nanoseconds: 400_000_000); focus = true }
+        else { kind = k }
+    }
+    var boneun: some View {
         List {
             Section {
                 Button(r.playing ? "멈춤" : (r.waiting ? "소리 만드는 중" : "읽기")) { r.toggle() }
@@ -273,13 +306,15 @@ struct ReaderView: View {
                     }
                     Button("책갈피 보기") { nav.push(Route.marks(i)) }
                     Button("처음부터") { r.fromStart() }
+                    Button("책 정보, 책 소개·지은이·내려받기") { nav.push(Route.book(i)) }   // 0.5.1 책 정보는 여기 안에
                 }
             }
         }
         .navigationTitle(title)
         .task {
             await r.open(i: i, title: title, kind: kind)
-            try? await Task.sleep(nanoseconds: 400_000_000); focus = true
+            if !yeolligo { yeolligo = true; if !r.playing { r.toggle() } }   // 0.5.1 열리면 바로 읽음(이사장님 지시 — 한 번 두드리면)
+            try? await Task.sleep(nanoseconds: 500_000_000); focus = true   // 커서는 멈춤 단추에
         }
     }
 }
@@ -462,13 +497,14 @@ struct SettingsView: View {
 
 enum Doum {
     static let items: [(String, String)] = [
-        ("이어 읽기", "읽던 책이 있으면 도서관 첫 화면 맨 위에 이어 읽기가 나옵니다. 누르면 독서기가 열리고 커서가 읽기 단추에 놓입니다. 읽기를 누르면 읽던 자리부터 읽습니다."),
-        ("책 찾기", "도서관 첫 화면의 찾을 책 이름 칸에 낱말을 쓰고 찾기를 누릅니다. 찾은 결과만 나오고 커서가 첫 줄에 놓입니다. 다시 찾을 때는 뒤로를 누릅니다."),
+        ("이어 듣기", "읽던 책이 있으면 도서관 첫 화면 찾기 칸 아래에 이어 듣기가 나옵니다. 누르면 독서기가 열리면서 읽던 자리부터 바로 읽고, 커서는 멈춤 단추에 놓입니다."),
+        ("책 고르면 바로 읽기", "목록에서 책 이름을 한 번 두드리면 독서기가 열리면서 바로 읽습니다. 읽던 책이면 읽던 자리부터 읽습니다. 소리책과 동영상도 바로 틉니다. 커서는 멈춤 단추에 놓이니 잘못 고르셨으면 바로 멈추십시오. 책 소개, 지은이, 출판사, 내려받기는 독서기 더 보기 안의 책 정보에 있습니다."),
+        ("책 찾기", "도서관 첫 화면 맨 위 이름 줄 바로 아래의 찾을 책 이름 칸에 낱말을 쓰고 찾기를 누릅니다. 찾은 결과만 나오고 커서가 첫 줄에 놓입니다. 다시 찾을 때는 뒤로를 누릅니다."),
         ("갈래", "글자책, 소리책, 대본, 인터넷소설, 점자책으로 나뉩니다. 대본에는 드라마, 영화, 연극·뮤지컬, 라디오 드라마 대본이 들어 있습니다. 인터넷소설은 한 줄에 작품 하나로 나오고, 누르면 권이 차례로 나옵니다."),
-        ("첫 화면 목록", "도서관 첫 화면에는 설정의 첫 화면 목록에서 고른 목록(주제별, 장르별, 테마별 가운데 하나)의 서가가 바로 나옵니다. 처음 값은 장르별입니다. 다른 두 목록은 그 아래 한 줄씩 있습니다."),
+        ("첫 화면 목록", "도서관 첫 화면에는 찾기 칸과 이어 듣기 아래에 설정의 첫 화면 목록에서 고른 목록(주제별, 장르별, 테마별 가운데 하나)의 서가가 바로 나옵니다. 처음 값은 장르별입니다. 다른 두 목록은 그 아래 한 줄씩 있습니다."),
         ("목록 넘기기", "목록은 처음에 한 쪽 15줄입니다. 설정의 목록 줄 수에서 5, 10, 15, 20, 30줄 가운데 고를 수 있습니다. 목록에서 세 손가락으로 위로 쓸면 다음 목록, 아래로 쓸면 앞 목록이 나오고 커서는 그 목록 첫 줄에 놓입니다. 손짓이 안 될 때는 맨 아래 다음 목록을 누릅니다."),
-        ("세 겹의 문", "도서관 첫 화면 맨 위에 주제별, 장르별, 테마별 세 문이 있습니다. 문을 누르면 서가와 책 수가 나오고, 서가를 누르면 책 목록이 나옵니다. 주제별은 도서관 십진분류, 장르별은 판타지·무협 같은 갈래, 테마별은 이달의 새 책 같은 모음입니다."),
-        ("내려받기", "책 정보 화면의 폰에 내려받기를 누르면 책을 폰에 받아 둡니다. 글자책은 글 전체를, 소리책은 소리 파일을 받습니다. 받은 책은 이 앱 안에만 있고 다른 앱이나 파일 앱에서는 보이지 않습니다. 내 서재 맨 위 내려받은 책에 모입니다."),
+        ("세 겹의 문", "도서관 첫 화면에 주제별, 장르별, 테마별 세 문이 있습니다. 문을 누르면 서가와 책 수가 나오고, 서가를 누르면 책 목록이 나옵니다. 주제별은 도서관 십진분류, 장르별은 판타지·무협 같은 갈래, 테마별은 이달의 새 책 같은 모음입니다."),
+        ("내려받기", "독서기 더 보기 안의 책 정보 화면에서 폰에 내려받기를 누르면 책을 폰에 받아 둡니다. 글자책은 글 전체를, 소리책은 소리 파일을 받습니다. 받은 책은 이 앱 안에만 있고 다른 앱이나 파일 앱에서는 보이지 않습니다. 내 서재 맨 위 내려받은 책에 모입니다."),
         ("인터넷 없이 듣기", "인터넷이 끊기거나 데이터가 모자라도 내려받은 책은 들을 수 있습니다. 소리책은 받은 파일 그대로, 글자책은 폰 목소리로 읽습니다. 인터넷이 다시 되면 도서관 목소리로 읽습니다."),
         ("와이파이에서만 내려받기", "설정에서 켜 두면 휴대폰 데이터로는 내려받지 않습니다. 처음에는 켜져 있습니다. 데이터로도 받으려면 끄십시오."),
         ("내려받은 책 지우기", "책 정보 화면의 폰에서 지우기로 한 권씩, 설정의 내려받은 책 모두 지우기로 한꺼번에 지웁니다. 설정에 내려받은 책 권수와 차지한 크기가 나옵니다."),
@@ -478,7 +514,7 @@ enum Doum {
         ("앞으로 30초와 뒤로 30초", "앞으로 30초는 지금 읽는 곳에서 30초 뒤의 내용으로 건너뛰고, 뒤로 30초는 30초 전의 내용으로 되돌아갑니다. 글자책은 읽는 빠르기로 30초 분량의 글만큼 움직입니다."),
         ("책 묶어 보기", "목록에는 파일 이름이 아니라 책 제목과 권수가 한 줄로 나옵니다. 보기: 야인시대, 전 117회. 그 줄을 누르면 야인시대 1회, 야인시대 2회처럼 제목과 번호가 차례대로 나옵니다. 찾기를 해도 같은 책은 묶음 한 줄로 나옵니다."),
         ("입체낭독", "드라마 대본을 인물마다 다른 목소리로 연기하듯 읽은 소리 드라마입니다. 이야기꾼과 주인공이 서로 다른 목소리로 나옵니다. 지금은 야인시대가 날마다 몇 회씩 늘어납니다. 소리책처럼 독서기에서 틀고, 듣던 자리를 기억합니다."),
-        ("독서기", "글자책은 사람 목소리로 문단마다 읽어 줍니다. 한글 파일(hwp, hwpx)과 데이지 책도 읽습니다. 옛 한글 3.0 파일도 읽지만, 배포용이나 암호가 걸린 한글 파일은 읽지 못합니다. 앞 문단을 읽는 동안 뒤 문단을 미리 만들어 둡니다. 겉에는 읽기, 다음 문단, 앞 문단이 있고 빠르기, 목소리, 책갈피, 처음부터는 더 보기 안에 있습니다."),
+        ("독서기", "글자책은 사람 목소리로 문단마다 읽어 줍니다. 한글 파일(hwp, hwpx)과 데이지 책도 읽습니다. 옛 한글 3.0 파일도 읽지만, 배포용이나 암호가 걸린 한글 파일은 읽지 못합니다. 앞 문단을 읽는 동안 뒤 문단을 미리 만들어 둡니다. 겉에는 멈춤과 읽기, 앞으로 30초, 뒤로 30초가 있고 빠르기, 목소리, 책갈피, 처음부터, 책 정보는 더 보기 안에 있습니다."),
         ("화면을 꺼도 읽기", "읽는 중에 화면을 끄거나 폰을 주머니에 넣어도 계속 읽습니다. 이어폰 단추와 잠금 화면으로 멈춤, 다음 문단, 앞 문단을 쓸 수 있습니다."),
         ("소리책과 동영상", "소리책과 동영상도 같은 독서기에서 틉니다. 다음과 앞은 30초씩 건너뜁니다. 읽던 자리는 5초마다 기억합니다."),
         ("폰에 내려받기", "책 정보에서 폰에 내려받기를 누르면 글자와 소리를 폰에 담아 인터넷이 없는 곳에서도 듣습니다. 책이 길면 오래 걸립니다."),
