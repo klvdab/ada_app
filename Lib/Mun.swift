@@ -1,4 +1,6 @@
-// AI점자도서관 앱 — 세 겹의 문(주제별, 장르별, 테마별)과 형태 거르기 (판 0.3.0, 빌드 261006-1)
+// AI점자도서관 앱 — 세 겹의 문(주제별, 장르별, 테마별) (판 0.5.0, 빌드 261010-L9)
+// 0.5.0 (261010-L9, 도서관 창 클, 이사장님 승인 「1」) 첫 화면에 고른 문의 서가 목록을 바로 보임(설정의 첫 화면 목록, 처음 값 장르별),
+//       「보일 책」 거르기를 뺌(늘 모든 책). 0.3.0 (261006-1) 처음 판
 // 나스 도서관 창구 doseo.php 의 j_mun(문과 서가 수), j_seoga(서가 안 책 목록)를 쓴다. 파일은 옮기지 않고 목록 카드로 분류한 것.
 import SwiftUI
 
@@ -17,20 +19,34 @@ extension API {
     }
 }
 
-// 도서관 첫 화면 맨 위 — 세 겹의 문
+// 0.5.0 — 세 문의 이름(설정의 첫 화면 목록과 함께 씀)
+enum MunIreum {
+    static let modu: [(String, String)] = [("jujae", "주제별"), ("jangreu", "장르별"), ("tema", "테마별")]
+    static func t(_ k: String) -> String { modu.first(where: { $0.0 == k })?.1 ?? "장르별" }
+}
+
+// 도서관 첫 화면 — 고른 문의 서가 목록을 바로(0.5.0, 이사장님 승인 「1」), 다른 두 문은 그 아래 한 줄씩
 struct MunSection: View {
     @EnvironmentObject var nav: Nav
-    @AppStorage("hyeongtae") private var h = "all"
+    @AppStorage("cheotMun") private var cheot = "jangreu"
+    @State private var sg: [Seoga] = []
+    @State private var msg = "가져오는 중입니다."
     var body: some View {
-        Section {   // 0.4.0 — 머리말 「세 겹의 문」은 빼서 손가락짓 한 번 줄임(이사장님)
-            Button("주제별로 찾기, 십진분류") { nav.push(Route.mun("jujae", "주제별")) }
-            Button("장르별로 찾기") { nav.push(Route.mun("jangreu", "장르별")) }
-            Button("테마별로 찾기") { nav.push(Route.mun("tema", "테마별")) }
-            Picker("보일 책", selection: $h) {
-                Text("모든 책").tag("all")
-                Text("소리로 듣는 책만").tag("sori")
-                Text("점자책만").tag("jeom")
+        Section {
+            if sg.isEmpty { Text(msg) }
+            ForEach(sg.filter { $0.n > 0 }) { s in
+                Button("\(s.t), \(s.n)권") { nav.push(Route.seoga(cheot, s.k, s.t)) }
             }
+            ForEach(MunIreum.modu.filter { $0.0 != cheot }, id: \.0) { m in
+                Button(m.0 == "jujae" ? "주제별로 찾기, 십진분류" : "\(m.1)로 찾기") { nav.push(Route.mun(m.0, m.1)) }
+            }
+        } header: { Text("\(MunIreum.t(cheot))") }
+        .task(id: cheot) {
+            do {
+                let r = try await API.munGet("all")
+                sg = r.mun?.first(where: { $0.k == cheot })?.seoga ?? []
+                msg = sg.isEmpty ? "이 문에는 아직 책이 없습니다." : ""
+            } catch { msg = "도서관에 닿지 못했습니다. 인터넷을 확인한 뒤 설정의 새로고침을 눌러 주십시오." }
         }
     }
 }
@@ -40,7 +56,7 @@ struct MunView: View {
     let mun: String
     let ttl: String
     @EnvironmentObject var nav: Nav
-    @AppStorage("hyeongtae") private var h = "all"
+    private let h = "all"   // 0.5.0 보일 책 거르기를 뺌
     @State private var sg: [Seoga] = []
     @State private var msg = "가져오는 중입니다."
     @AccessibilityFocusState private var focus: String?
@@ -69,7 +85,7 @@ struct SeogaView: View {
     let mun: String
     let k: String
     let ttl: String
-    @AppStorage("hyeongtae") private var h = "all"
+    private let h = "all"   // 0.5.0
     var body: some View {
         PagedList(loader: { o in try await API.seoga(mun, k, h, o) })
             .navigationTitle(ttl)
