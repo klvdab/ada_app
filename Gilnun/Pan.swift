@@ -10,13 +10,17 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.61.0"
-    static let bild = "261009-I15"
+    static let pan = "2.62.0"
+    static let bild = "261010-I16"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.62.0", bild: "261010-I16", nal: "2026-10-10", naeyong: [
+            "고장 노래 저절로 틀기가 예전에 켜짐으로 저장된 폰에서 켜져 있던 일 — 이 판을 처음 열 때 한 번만 끔으로 되돌림(이사장님 승인 2026-10-10)",
+            "말로 하기 — 대답 뒤 이어 들을 때도 딩동 대신 「네」(말소리를 끈 분만 딩동, 10월 1일 결정대로). 도움말 고침"
+        ]),
         Gochim(pan: "2.61.0", bild: "261009-I15", nal: "2026-10-09", naeyong: [
             "다시 점검 고침 — 승강기로 내려간 것은 땅속으로 보지 않음(11층·지하 1층), 땅속에서 열차가 실제로 움직일 때만 콜 차 묶음을 풂, 지하철로 바로잡으면 콜 차 묶음 풂",
             "바로잡은 지하철 안내는 동호대교 같은 땅 위 구간에서도 차로 뒤집히지 않음. 점지도를 걷는 중에는 탈것을 저절로 알아채도 점지도를 끊지 않음",

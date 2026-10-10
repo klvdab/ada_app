@@ -101,6 +101,12 @@ final class Seoljeong: ObservableObject {
         gojangJadong = (ud.object(forKey: "gn.gojangJadong") as? Bool) ?? true
         tonghwaDwiIeum = (ud.object(forKey: "gn.tonghwaDwiIeum") as? Bool) ?? false   // 2.59.0
         gojangNorae = (ud.object(forKey: "gn.gojangNorae") as? Bool) ?? false   // 2.57.0 처음값 끔(이사장님 지시 — 처음 받은 분이 다른 기능을 먼저 익히게)
+        // 2.62.0 (261010-I16, 이사장님 승인 2026-10-10) 예전에 켜짐으로 저장된 폰이 그대로 켜져 있던 일 — 이 판을 처음 열 때 한 번만 끔으로 되돌림(그 뒤 켜시는 것은 지킴)
+        if !ud.bool(forKey: "gn.gojangNorae.dolim261010") {
+            ud.set(true, forKey: "gn.gojangNorae.dolim261010")
+            ud.set(false, forKey: "gn.gojangNorae")
+            gojangNorae = false
+        }
         kameraMal = (ud.object(forKey: "gn.kameraMal") as? Bool) ?? true
         msMoksori = (ud.object(forKey: "gn.msMoksori") as? Bool) ?? true
         gisaMoksoriId = ud.string(forKey: "gn.gisaMoksori") ?? ""

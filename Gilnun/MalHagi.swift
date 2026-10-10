@@ -293,7 +293,8 @@ final class MalHagi: ObservableObject {
                 self.malHam("지금은 마이크를 열지 못했습니다. 잠시 뒤 다시 해 주십시오.") { [weak self] in self?.bureumDasi(1.0) }
             }
         }
-        if sori && Seoljeong.shared.malKyeojim && jadongYeolim == 0 {
+        // 2.62.0 (261010-I16, 이사장님 승인 2026-10-10) 대답 뒤 이어 들을 때도 딩동 대신 「네」(10월 1일 결정 — 딩동 자리는 「네」, 말소리를 끈 분만 딩동)
+        if sori && Seoljeong.shared.malKyeojim {
             // 2.30.0 딩동 대신 또렷한 「네」 — 말하는 동안 귀를 닫고, 다 말한 뒤 곧바로 엶
             MalDeutgi.shared.gwiDatgi(true)
             Girok.shared.namgi("ne", ["gwi": MalDeutgi.shared.saeIeum ? "hana" : "sae"])
