@@ -1,10 +1,12 @@
-// AI점자도서관 앱 — 화면들 (판 0.2.0, 빌드 261002-1: 디자인 바탕(남색·금빛·로고·책 표지), 첫 화면 머리와 이어 듣기 카드, 내 서재 15개씩·지우기·되돌리기·다 읽은 책)
+// AI점자도서관 앱 — 화면들 (판 0.5.0, 빌드 261010-L9: 첫 화면에 고른 문의 서가 목록, 형태별 갈래·보일 책 뺌, 목록은 세 손가락 위아래 쓸기로 넘김·넘기면 커서 첫 줄 — 도서관 창 클, 이사장님 승인 「1」)
+// 0.2.0 (빌드 261002-1: 디자인 바탕(남색·금빛·로고·책 표지), 첫 화면 머리와 이어 듣기 카드, 내 서재 15개씩·지우기·되돌리기·다 읽은 책)
 // 0.1.0 (260930-3) 도움말 갈래에 「대본」, 독서기에 한글·데이지
 // 규칙: 한 줄에 이름 하나 단추 하나, 목록은 한 쪽에 15줄(아래에 더 보기, 그 아래 이전 보기),
 // 결과가 나오면 커서를 첫 줄에, 겉에는 급한 것만 두고 나머지는 더 보기에 접는다.
 import SwiftUI
 import AVKit
 import AVFoundation
+import UIKit   // 0.5.0 UIAccessibility(쪽 넘김 알림)
 
 // MARK: 첫 화면
 struct HomeView: View {
@@ -54,19 +56,6 @@ struct HomeView: View {
                 }
             }
             Section {
-                ForEach(gal) { g in
-                    NavigationLink(value: Route.list(g.g)) {
-                        HStack(spacing: 12) {
-                            RoundedRectangle(cornerRadius: 4).fill(Saek.pyoji(g.g))
-                                .frame(width: 8, height: 28).accessibilityHidden(true)
-                            Text("\(g.g) \(g.n.formatted())\(g.dan)")
-                        }
-                    }
-                    .listRowBackground(Saek.kadeu)
-                }
-                if !msg.isEmpty { Text(msg) }
-            }
-            Section {
                 DisclosureGroup("더 보기", isExpanded: $more) {
                     Text("AI점자도서관은 두 가지를 합니다. 하나, 책을 사람 목소리로 읽어 주고 AI로 쉽고 빠르게 정보를 얻게 합니다. 둘, 책이 되지 못한 세상(영화, 드라마, 궁궐, 전시, 관광지)을 현장영상해설로 책으로 만듭니다.")
                     Text(Pan.mal)
@@ -78,24 +67,15 @@ struct HomeView: View {
         .tint(Saek.ganjo)
         .navigationTitle("AI점자도서관")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await load() }
-        .refreshable { await load() }
     }
     func chatgi() {
         let q = s.trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else { return }
         nav.lib.append(Route.find(q))
     }
-    func load() async {
-        do {
-            let r = try await API.gal()
-            gal = r.gal ?? []
-            msg = gal.isEmpty ? "갈래를 가져오지 못했습니다." : ""
-        } catch { msg = "도서관에 닿지 못했습니다. 인터넷을 확인한 뒤 설정의 새로고침을 눌러 주십시오." }
-    }
 }
 
-// MARK: 한 쪽 15줄 목록(공통)
+// MARK: 한 쪽 15줄 목록(공통) — 0.5.0 보이스오버 세 손가락 위로 쓸기는 다음 목록, 아래로 쓸기는 앞 목록, 넘기면 커서는 첫 줄
 struct PagedList: View {
     let loader: (Int) async throws -> ListResp
     var onTitle: ((String) -> Void)? = nil
@@ -115,26 +95,38 @@ struct PagedList: View {
                     .font(.footnote)
                 ForEach(items) { it in
                     Button(it.t) { go(it) }
+                        .accessibilityLabel(it.id == items.first?.id && o > 0 ? "\(o + 1)번부터, \(it.t)" : it.t)
                         .accessibilityFocused($first, equals: it.id)
+                        .accessibilityScrollAction { edge in neomgigi(edge) }
                 }
                 if o + API.perPage < modu {
-                    Button("더 보기") { Task { await load(o + API.perPage) } }
-                }
-                if o > 0 {
-                    Button("이전 보기") { Task { await load(max(0, o - API.perPage)) } }
+                    Button("다음 목록") { Task { await load(o + API.perPage) } }   // 0.5.0 손짓이 안 먹을 때를 위해 하나만 남김
+                        .accessibilityScrollAction { edge in neomgigi(edge) }
                 }
             }
         }
         .task { if items.isEmpty { await load(0) } }
     }
+    // 0.5.0 세 손가락 위아래 쓸기 — 위로 쓸면(아래쪽 내용) 다음 목록, 아래로 쓸면 앞 목록
+    func neomgigi(_ edge: Edge) {
+        switch edge {
+        case .bottom, .trailing:
+            if o + API.perPage < modu { Task { await load(o + API.perPage, malhagi: true) } }
+            else { UIAccessibility.post(notification: .pageScrolled, argument: "마지막 목록입니다") }
+        case .top, .leading:
+            if o > 0 { Task { await load(max(0, o - API.perPage), malhagi: true) } }
+            else { UIAccessibility.post(notification: .pageScrolled, argument: "첫 목록입니다") }
+        }
+    }
     func go(_ it: Item) {
         if let i = it.i { nav.push(Route.book(i)) }
         else if let j = it.j { nav.push(Route.jakbon(j, it.t)) }
     }
-    func load(_ off: Int) async {
+    func load(_ off: Int, malhagi: Bool = false) async {
         do {
             let r = try await loader(off)
             o = r.o ?? off; items = r.items ?? []; modu = r.modu ?? items.count
+            if malhagi { UIAccessibility.post(notification: .pageScrolled, argument: "\(o + 1)번부터 \(o + items.count)번, 모두 \(modu.formatted())개") }
             if let t = r.ttl { onTitle?(t) }
             msg = items.isEmpty ? "찾은 것이 없습니다." : ""
             if let f = items.first?.id {
@@ -435,8 +427,14 @@ struct SettingsView: View {
     @EnvironmentObject var store: Store
     @EnvironmentObject var r: Reader
     @State private var q = ""
+    @AppStorage("cheotMun") private var cheotMun = "jangreu"
     var body: some View {
         List {
+            Section {   // 0.5.0 첫 화면에 바로 나올 목록(이사장님 승인 「1」)
+                Picker("첫 화면 목록", selection: $cheotMun) {
+                    ForEach(MunIreum.modu, id: \.0) { Text($0.1).tag($0.0) }
+                }
+            }
             NaeryeoSeoljeong()   // 0.3.0 — 목록 줄 수, 와이파이에서만 내려받기, 저장 공간
             MoksoriSection()   // 0.4.0 — 목소리 열 가지 고르기와 미리 듣기
             JaesaengSeoljeong()   // 0.4.0 — 재생 위치 막대 한 번에 움직이는 양
@@ -467,9 +465,9 @@ enum Doum {
         ("이어 읽기", "읽던 책이 있으면 도서관 첫 화면 맨 위에 이어 읽기가 나옵니다. 누르면 독서기가 열리고 커서가 읽기 단추에 놓입니다. 읽기를 누르면 읽던 자리부터 읽습니다."),
         ("책 찾기", "도서관 첫 화면의 찾을 책 이름 칸에 낱말을 쓰고 찾기를 누릅니다. 찾은 결과만 나오고 커서가 첫 줄에 놓입니다. 다시 찾을 때는 뒤로를 누릅니다."),
         ("갈래", "글자책, 소리책, 대본, 인터넷소설, 점자책으로 나뉩니다. 대본에는 드라마, 영화, 연극·뮤지컬, 라디오 드라마 대본이 들어 있습니다. 인터넷소설은 한 줄에 작품 하나로 나오고, 누르면 권이 차례로 나옵니다."),
-        ("목록 넘기기", "목록은 처음에 한 쪽 15줄입니다. 설정의 목록 줄 수에서 5, 10, 15, 20, 30줄 가운데 고를 수 있습니다. 아래의 더 보기로 다음 쪽, 그 아래 이전 보기로 앞쪽을 봅니다."),
+        ("첫 화면 목록", "도서관 첫 화면에는 설정의 첫 화면 목록에서 고른 목록(주제별, 장르별, 테마별 가운데 하나)의 서가가 바로 나옵니다. 처음 값은 장르별입니다. 다른 두 목록은 그 아래 한 줄씩 있습니다."),
+        ("목록 넘기기", "목록은 처음에 한 쪽 15줄입니다. 설정의 목록 줄 수에서 5, 10, 15, 20, 30줄 가운데 고를 수 있습니다. 목록에서 세 손가락으로 위로 쓸면 다음 목록, 아래로 쓸면 앞 목록이 나오고 커서는 그 목록 첫 줄에 놓입니다. 손짓이 안 될 때는 맨 아래 다음 목록을 누릅니다."),
         ("세 겹의 문", "도서관 첫 화면 맨 위에 주제별, 장르별, 테마별 세 문이 있습니다. 문을 누르면 서가와 책 수가 나오고, 서가를 누르면 책 목록이 나옵니다. 주제별은 도서관 십진분류, 장르별은 판타지·무협 같은 갈래, 테마별은 이달의 새 책 같은 모음입니다."),
-        ("보일 책 거르기", "세 겹의 문 아래 보일 책에서 모든 책, 소리로 듣는 책만, 점자책만을 고르면 문과 서가에 그 책만 나옵니다."),
         ("내려받기", "책 정보 화면의 폰에 내려받기를 누르면 책을 폰에 받아 둡니다. 글자책은 글 전체를, 소리책은 소리 파일을 받습니다. 받은 책은 이 앱 안에만 있고 다른 앱이나 파일 앱에서는 보이지 않습니다. 내 서재 맨 위 내려받은 책에 모입니다."),
         ("인터넷 없이 듣기", "인터넷이 끊기거나 데이터가 모자라도 내려받은 책은 들을 수 있습니다. 소리책은 받은 파일 그대로, 글자책은 폰 목소리로 읽습니다. 인터넷이 다시 되면 도서관 목소리로 읽습니다."),
         ("와이파이에서만 내려받기", "설정에서 켜 두면 휴대폰 데이터로는 내려받지 않습니다. 처음에는 켜져 있습니다. 데이터로도 받으려면 끄십시오."),
