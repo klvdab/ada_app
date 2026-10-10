@@ -44,7 +44,9 @@ object Geurigi {
     /** 표시 스물두 가지 — 아이폰·웹과 같음 */
     val MARKS = listOf("올라가는 계단 시작", "내려가는 계단 시작", "계단 끝", "오름턱", "내림턱", "횡단보도 건너기 시작", "횡단보도 건너기 끝",
         "9시 방향으로 꺾임", "3시 방향으로 꺾임", "점자블록 끊김", "문", "엘리베이터", "버스 정류장", "지하철 개찰구", "조심할 곳",
-        "에스컬레이터 올라감", "에스컬레이터 내려감", "에스컬레이터 내림", "지하철 탐", "지하철 내림", "버스 탐", "버스 내림")
+        "에스컬레이터 올라감", "에스컬레이터 내려감", "에스컬레이터 내림", "지하철 탐", "지하철 내림", "버스 탐", "버스 내림",
+        // 2.20.0 (261010-A16, 이사장님 승인 2026-10-10 — 청계천 첫 따라 걷기 뒤) 낙상 주의 구간(어느 쪽인지 시계 방향으로)·길 폭·되돌아가는 곳
+        "낙상 주의 시작 3시 쪽", "낙상 주의 시작 9시 쪽", "낙상 주의 시작 양쪽", "낙상 주의 끝", "길 폭 좁음", "길 폭 보통", "길 폭 넓음", "되돌아가는 곳")
     /** 자주 쓰는 표시 — 겉에 크게 */
     val JAJU = listOf("9시 방향으로 꺾임", "3시 방향으로 꺾임", "올라가는 계단 시작", "내려가는 계단 시작", "계단 끝", "횡단보도 건너기 시작", "횡단보도 건너기 끝", "문")
     class Jjak(val end: String, val kind: String, val up: String, val ride: Boolean)
@@ -81,7 +83,15 @@ object Geurigi {
         "개찰구" to "지하철 개찰구", "조심" to "조심할 곳", "위험" to "조심할 곳", "조심할곳" to "조심할 곳",
         "에스컬레이터올라감" to "에스컬레이터 올라감", "에스컬레이터내려감" to "에스컬레이터 내려감", "에스컬레이터내림" to "에스컬레이터 내림",
         "지하철탐" to "지하철 탐", "지하철탔어" to "지하철 탐", "지하철내림" to "지하철 내림", "지하철내렸어" to "지하철 내림",
-        "버스탐" to "버스 탐", "버스탔어" to "버스 탐", "버스내림" to "버스 내림", "버스내렸어" to "버스 내림"
+        "버스탐" to "버스 탐", "버스탔어" to "버스 탐", "버스내림" to "버스 내림", "버스내렸어" to "버스 내림",
+        // 2.20.0 낙상 주의·길 폭·되돌아가는 곳
+        "낙상주의3시쪽" to "낙상 주의 시작 3시 쪽", "3시쪽낙상" to "낙상 주의 시작 3시 쪽", "낙상3시쪽" to "낙상 주의 시작 3시 쪽",
+        "낙상주의9시쪽" to "낙상 주의 시작 9시 쪽", "9시쪽낙상" to "낙상 주의 시작 9시 쪽", "낙상9시쪽" to "낙상 주의 시작 9시 쪽",
+        "낙상주의양쪽" to "낙상 주의 시작 양쪽", "양쪽낙상" to "낙상 주의 시작 양쪽", "낙상주의" to "낙상 주의 시작 양쪽", "낙상" to "낙상 주의 시작 양쪽",
+        "낙상주의끝" to "낙상 주의 끝", "낙상끝" to "낙상 주의 끝", "낙상구간끝" to "낙상 주의 끝",
+        "길폭좁음" to "길 폭 좁음", "좁은길" to "길 폭 좁음", "길이좁아" to "길 폭 좁음", "길좁음" to "길 폭 좁음",
+        "길폭보통" to "길 폭 보통", "보통길" to "길 폭 보통", "길폭넓음" to "길 폭 넓음", "넓은길" to "길 폭 넓음", "길이넓어" to "길 폭 넓음", "길넓음" to "길 폭 넓음",
+        "되돌아가는곳" to "되돌아가는 곳", "유턴" to "되돌아가는 곳", "돌아서는곳" to "되돌아가는 곳", "되돌아감" to "되돌아가는 곳"
     )
 
     /** 2.10.0 jari·malo — 말로 찍은 표시를 되물을 때 말한 순간의 자리 */
@@ -119,6 +129,8 @@ object Geurigi {
     private var gijunGeomsa: GeoreumGijun? = null
     private var meomchumSt0 = 0
     private var openPair: JSONObject? = null   // name, st, lat, lon, idx, t, pi
+    /** 2.20.0 열려 있는 낙상 주의 구간(name, st, lat, lon, idx) — 계단·건널목 짝과 따로 셈(구간 안에 계단이 있어도 됨) */
+    private var nakOpen: JSONObject? = null
     private var rideMode = ""
     private var majimakMureum = 0L
     private var majimakKkeokim = 0L
@@ -254,7 +266,7 @@ object Geurigi {
             put("gigi", MomSensor.gigiJeongbo(c))
         }
         stGijun = Wichi.georeumSu
-        openPair = null; rideMode = ""; mureum = null
+        openPair = null; nakOpen = null; rideMode = ""; mureum = null
         gilJari = null; gilIreum = ""
         majimakId = null
         var cb = chulbal.trim().take(40)
@@ -336,6 +348,8 @@ object Geurigi {
             mal += if (cha <= 0.1) " 몸 센서로 센 걸음도 ${n2}걸음으로 잘 맞습니다." else " 몸 센서로 센 걸음은 ${n2}걸음이라 차이가 큽니다. 올리기 전 점검에서 살펴보겠습니다."
         }
         openPair?.let { o -> mal += " ${o.optString("name")}의 짝인 ${PAIR[o.optString("name")]?.end ?: "끝"} 표시가 없습니다. 올리기 전 점검에서 다시 여쭙겠습니다." }
+        if (nakOpen != null) mal += " 낙상 주의 시작 뒤에 낙상 주의 끝 표시가 없습니다. 길눈은 그 표시부터 열 걸음을 낙상 주의 구간으로 봅니다."   // 2.20.0
+        nakOpen = null
         mal += " 그린 길은 폰에 담아 두었습니다. 바로 아래 방금 그린 길 올리기를 누르시면 협회 점검을 거쳐 길눈에 실립니다."
         openPair = null; rideMode = ""
         val sae = JSONArray(); sae.put(g); for (i in 0 until geurinGil.length()) sae.put(geurinGil.get(i))
@@ -481,6 +495,42 @@ object Geurigi {
         Tomak.dakgi()                 // 2.10.0 앞 표시의 토막을 듣는 중이면 닫음
         tomakDaegi = name to st       // 안내 말이 끝나면 짧게 귀를 엶(alrigi 가 이어 받음)
 
+        // 2.20.0 (261010-A16, 이사장님 승인 2026-10-10) 낙상 주의 구간 — 시작(어느 쪽인지)과 끝을 짝지어 그 사이 걸음과 거리를 시작 표시에 적음.
+        //   길눈은 이 구간 앞에서 미리 알리고, 구간 안에서는 위험한 쪽으로 반 걸음만 비켜나도 끌 수 없는 경고로 겹으로 살핌
+        if (name.startsWith("낙상 주의 시작")) {
+            val no = nakOpen
+            if (no != null) {
+                tomakDaegi = null
+                alrigi("이미 ${no.optString("name")} 구간 안입니다. 위험이 끝나는 곳에서 먼저 낙상 주의 끝을 눌러 주십시오."); return
+            }
+            m.put("kind", "낙상 주의")
+            nakOpen = JSONObject().apply {
+                put("name", name); put("st", st); put("idx", marks.length())
+                if (m.has("lat")) { put("lat", m.get("lat")); put("lon", m.get("lon")) }
+            }
+            marks.put(m); jeojang()
+            alrigi(name + "을 남겼습니다. 위험이 끝나는 곳에서 낙상 주의 끝을 눌러 주십시오.")
+            return
+        }
+        if (name == "낙상 주의 끝") {
+            val no = nakOpen
+            if (no != null) {
+                val n = st - no.optInt("st")
+                val d = geori(no, m)
+                marks.optJSONObject(no.optInt("idx"))?.apply { put("cnt", n); put("dist", d) }
+                m.put("pairOf", no.optString("name")); m.put("kind", "낙상 주의")
+                marks.put(m); nakOpen = null; jeojang()
+                alrigi("낙상 주의 구간을 ${n}걸음, 약 ${d}미터로 적었습니다. 길눈이 이 구간을 겹으로 살핍니다.")
+                return
+            }
+            marks.put(m); jeojang()
+            alrigi("낙상 주의 끝을 눌렀으나 시작 표시가 없습니다. 그냥 표시로만 남깁니다."); return
+        }
+        if (name == "되돌아가는 곳") {
+            marks.put(m); jeojang()
+            alrigi("되돌아가는 곳을 남겼습니다. 6시 방향으로 돌아서서 이어 걸어 주십시오. 길눈이 이 자리 앞에서 돌아서실 곳을 알려 드립니다.")
+            return
+        }
         // 시작 표시면 짝을 열어 둠
         val jj = PAIR[name]
         if (jj != null) {
@@ -651,6 +701,7 @@ object Geurigi {
         Sangtae.GEOREUM -> {
             var m = "그리는 중입니다. ${chobun / 60}분 ${chobun % 60}초 동안 ${georeum}걸음, 약 ${(georeum * Seoljeong.bopok).toInt()}미터, 표시 ${marks.length()}개입니다."
             openPair?.let { m += " ${it.optString("name")} 뒤에 ${PAIR[it.optString("name")]?.end ?: "끝"}을 아직 남기지 않으셨습니다." }
+            nakOpen?.let { m += " ${it.optString("name")} 구간 안입니다. 위험이 끝나는 곳에서 낙상 주의 끝을 눌러 주십시오." }   // 2.20.0
             Wichi.jigeum?.let { w -> m += if (w.ochae <= 15) " 위성이 잘 잡혀 있습니다." else " 위성이 흐려 걸음으로 이어 셉니다." }
             if (MomSensor.dollyeo) m += " 몸 센서로 센 걸음은 ${MomSensor.georeumSu}걸음입니다."
             m
