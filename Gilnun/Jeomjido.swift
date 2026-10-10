@@ -14,6 +14,7 @@ struct JeomJeom: Codable {
     var acc: Double?
     var h: Double?
     var t: Double?
+    var st: Double? = nil     // 2.63.0 (261010-I17, 이사장님 승인 2026-10-10) 그린 이의 걸음 자리 — 점지도 거리를 걸음으로 셈
     var m: String? = nil      // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 자봉이 탈것을 타고 가는 동안 찍힌 점(지하철·버스·에스컬레이터) — 걸음으로 안내하지 않음
 }
 
@@ -51,12 +52,13 @@ struct JeomGil: Codable, Identifiable {
     var nae: Bool = false
     var matgim: Bool = false
     var ollim: Bool = false
+    var stride: Double? = nil   // 2.63.0 그린 이의 보폭(미터) — 그린 이 걸음 × 그린 이 보폭 ÷ 내 보폭으로 걸음 수를 말씀드림
 
     static func batgi(_ o: [String: Any]) -> JeomGil? {
         let pts: [JeomJeom] = ((o["pts"] as? [[String: Any]]) ?? []).compactMap { p in
             guard let la = Chatgi.su(p["lat"]), let lo = Chatgi.su(p["lon"]), la != 0, lo != 0 else { return nil }
             let tm = (p["m"] as? String) ?? ""
-            return JeomJeom(lat: la, lon: lo, acc: Chatgi.su(p["acc"]), h: Chatgi.su(p["h"]), t: Chatgi.su(p["t"]), m: tm.isEmpty ? nil : tm)
+            return JeomJeom(lat: la, lon: lo, acc: Chatgi.su(p["acc"]), h: Chatgi.su(p["h"]), t: Chatgi.su(p["t"]), st: Chatgi.su(p["st"]), m: tm.isEmpty ? nil : tm)
         }
         // 2.59.0 (점검 — 자봉 앱과 잇기) 자봉은 위성이 흐린 자리(지하·실내)의 표시를 위치 없이 올림. 예전엔 길눈이 그런 표시를 버려
         // 지하 계단·문 표시가 사라졌음 — 같은 걸음 자리(st), 없으면 가까운 때(t)의 위치 있는 점으로 채움(안드로이드와 같음)
@@ -91,9 +93,11 @@ struct JeomGil: Codable, Identifiable {
                 marks2[k].sori = pail
             }
         }
-        return JeomGil(id: Nas.gul(o["id"]), title: Nas.gul(o["title"]), from: Nas.gul(o["from"]), to: Nas.gul(o["to"]),
+        var gg = JeomGil(id: Nas.gul(o["id"]), title: Nas.gul(o["title"]), from: Nas.gul(o["from"]), to: Nas.gul(o["to"]),
                        who: Nas.gul(o["who"]), made: Nas.gul(o["made"]), dist: Chatgi.su(o["dist"]) ?? 0,
                        pts: pts, marks: marks2)
+        if let sb = Chatgi.su(o["stride"]), sb > 0.3, sb < 1.2 { gg.stride = sb }
+        return gg
     }
 
     /// 되돌아가는 길 — 점을 거꾸로, 표시 이름도 거꾸로(오른쪽 꺾임 ↔ 왼쪽 꺾임 등)
@@ -173,6 +177,7 @@ struct JeomGil: Codable, Identifiable {
         "11시 방향으로 꺾임": "1시 방향으로 꺾임",
         "올라가는 계단 시작": "내려가는 계단 시작", "내려가는 계단 시작": "올라가는 계단 시작",
         "오름턱": "내림턱", "내림턱": "오름턱",
+        "낙상 주의 시작 3시 쪽": "낙상 주의 시작 9시 쪽", "낙상 주의 시작 9시 쪽": "낙상 주의 시작 3시 쪽",   // 2.63.0 거꾸로 걸으면 위험한 쪽도 거울처럼
         "횡단보도 건너기 시작": "횡단보도 건너기 끝", "횡단보도 건너기 끝": "횡단보도 건너기 시작",
         "엘리베이터 올라감": "엘리베이터 내려감", "엘리베이터 내려감": "엘리베이터 올라감",
         // 2.59.0 (점검) 자봉 표시의 탈것 짝 — 거꾸로 걸으면 오름과 내림, 탐과 내림이 바뀜(안드로이드와 같음)
