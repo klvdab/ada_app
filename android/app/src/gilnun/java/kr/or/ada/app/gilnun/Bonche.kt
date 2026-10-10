@@ -23,12 +23,16 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.33.0"
-    const val bild = "261010-A21"
+    const val pan = "2.34.0"
+    const val bild = "261010-A22"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.34.0", "261010-A22", "2026-10-10", listOf(
+            "보폭 재기와 걸음 오차 재기 — 시작을 누른 뒤 15초 동안, 폰 걸음 센서가 시작 전에 걸은 걸음을 몰아 보내 걸음이 갑자기 수십 걸음 늘면 그만큼 뺌(사람이 1초에 2.5걸음 넘게 걸을 수 없음을 기준으로). 자봉 앱 점지도 그리기와 같은 부품(이사장님 승인 2026-10-10, 이다현 님 신고)",
+            "도움말 내 보폭 재기 고침"
+        )),
         Gochim("2.33.0", "261010-A21", "2026-10-10", listOf(
             "고장 노래 저절로 틀기가 예전에 켜짐으로 저장된 폰에서 켜져 있던 일 — 이 판을 처음 열 때 한 번만 끔으로 되돌림(이사장님 승인 2026-10-10)",
             "말로 하기 — 대답 뒤 이어 들을 때도 딩동 대신 「네」(말소리를 끈 분만 딩동, 10월 1일 결정대로). 도움말 고침"

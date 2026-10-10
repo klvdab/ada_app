@@ -304,6 +304,7 @@ class JaegiHwamyeon : JeomAllimHwamyeon("걸음 오차 재기") {
     private var doneun = false
     private var t0Ms = 0L
     private var georeum0 = 0
+    private var gijunGeomsa: GeoreumGijun? = null
     private var gyeolgwa: List<String> = emptyList()
     private var mal: List<Pair<String, String>> = emptyList()
     private var mok: List<JaegiJul>? = null
@@ -366,6 +367,7 @@ class JaegiHwamyeon : JeomAllimHwamyeon("걸음 오차 재기") {
         Wichi.wiseongDolligi()
         JaegiWiseong.sijak()
         georeum0 = Wichi.georeumSu
+        gijunGeomsa?.meomchum(); gijunGeomsa = GeoreumGijun().seuseuro()   // 2.34.0 (261010-A22) 시작 직후 몰려 들어오는 헛걸음 빼기
         t0Ms = System.currentTimeMillis()
         doneun = true
         alrigi("재고 있습니다. 끝까지 걸으신 뒤 다 걸었습니다를 누르십시오.")
@@ -378,7 +380,8 @@ class JaegiHwamyeon : JeomAllimHwamyeon("걸음 오차 재기") {
         val bp = bopokCm.trim().toDoubleOrNull() ?: 70.0
         val cho = (System.currentTimeMillis() - t0Ms) / 1000.0
         val seol = Wichi.georeumHeorak
-        val n = if (seol) Wichi.georeumSu - georeum0 else 0
+        val n = if (seol) (gijunGeomsa?.georeum() ?: (Wichi.georeumSu - georeum0)) else 0
+        gijunGeomsa = null
         val chu = n * bp / 100
         val og = if (s > 0) abs(chu - s) / s * 100 else 0.0
         val wiGil = JaegiWiseong.gil

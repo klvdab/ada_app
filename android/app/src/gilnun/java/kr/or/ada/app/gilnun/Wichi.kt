@@ -382,3 +382,42 @@ class WichiService : Service() {
         }
     }
 }
+
+/** 2.34.0 / 자봉 2.18.0 (261010, 이사장님 승인 2026-10-10 — 이다현 님 신고) 걸음 세기를 시작한 뒤 15초 동안 헛걸음 빼기.
+ *  폰 걸음 센서는 걸음을 모았다가 한꺼번에 보내므로, 시작 전에 걸은 걸음이 시작 직후에 몰려 들어와 수십 걸음이 얹힐 수 있음.
+ *  사람은 1초에 2.5걸음 넘게 걷지 못하므로, 시작한 뒤 지난 초 × 2.5 + 6걸음을 넘게 늘었으면 넘은 만큼을 기준에 더해 뺌 */
+class GeoreumGijun {
+    var gijun = Wichi.georeumSu; private set
+    private val sijak = System.currentTimeMillis()
+    /** 시작한 뒤 뺀 헛걸음 — 기록용 */
+    var ppaen = 0; private set
+    fun geomsa(): Int {
+        val cho = (System.currentTimeMillis() - sijak) / 1000.0
+        if (cho > 15) return 0
+        val neureum = Wichi.georeumSu - gijun
+        val hando = (cho * 2.5 + 6).toInt()
+        if (neureum > hando) {
+            val neom = neureum - hando
+            gijun += neom; ppaen += neom
+            Girok.namgi("heotgeoreum", mapOf("neom" to neom, "cho" to cho.toInt()))
+            return neom
+        }
+        return 0
+    }
+    /** 기준을 옮김(자봉 그리기 — 몸 센서와 견준 헛걸음) */
+    fun deohagi(n: Int) { gijun += n; ppaen += n }
+    /** 15초 동안 1초마다 스스로 살핌(보폭 재기·걸음 오차 재기처럼 따로 1초 셈이 없는 곳) */
+    private val hm = android.os.Handler(android.os.Looper.getMainLooper())
+    private var dolgo = false
+    private val r = object : Runnable {
+        override fun run() {
+            if (!dolgo) return
+            geomsa()
+            if (System.currentTimeMillis() - sijak <= 15000) hm.postDelayed(this, 1000) else dolgo = false
+        }
+    }
+    fun seuseuro(): GeoreumGijun { dolgo = true; hm.postDelayed(r, 1000); return this }
+    fun meomchum() { dolgo = false; hm.removeCallbacks(r) }
+    /** 끝낼 때 — 마지막으로 살피고 시작 뒤 걸음을 돌려줌 */
+    fun georeum(): Int { geomsa(); meomchum(); return maxOf(0, Wichi.georeumSu - gijun) }
+}
