@@ -99,7 +99,9 @@ final class JeomGeurigi: ObservableObject {
     /// 표시 스물두 가지 — 웹 jeom_rec.js 와 같음
     static let MARKS = ["올라가는 계단 시작", "내려가는 계단 시작", "계단 끝", "오름턱", "내림턱", "횡단보도 건너기 시작", "횡단보도 건너기 끝",
                         "9시 방향으로 꺾임", "3시 방향으로 꺾임", "점자블록 끊김", "문", "엘리베이터", "버스 정류장", "지하철 개찰구", "조심할 곳",
-                        "에스컬레이터 올라감", "에스컬레이터 내려감", "에스컬레이터 내림", "지하철 탐", "지하철 내림", "버스 탐", "버스 내림"]
+                        "에스컬레이터 올라감", "에스컬레이터 내려감", "에스컬레이터 내림", "지하철 탐", "지하철 내림", "버스 탐", "버스 내림",
+                        // 2.19.0 (261010-I13, 이사장님 승인 2026-10-10 — 청계천 첫 따라 걷기 뒤) 낙상 주의 구간(어느 쪽인지 시계 방향으로)·길 폭·되돌아가는 곳
+                        "낙상 주의 시작 3시 쪽", "낙상 주의 시작 9시 쪽", "낙상 주의 시작 양쪽", "낙상 주의 끝", "길 폭 좁음", "길 폭 보통", "길 폭 넓음", "되돌아가는 곳"]
     /// 자주 쓰는 표시 — 겉에 크게
     static let JAJU = ["9시 방향으로 꺾임", "3시 방향으로 꺾임", "올라가는 계단 시작", "내려가는 계단 시작", "계단 끝", "횡단보도 건너기 시작", "횡단보도 건너기 끝", "문"]
     struct Jjak { let end: String; let kind: String; let up: String; let ride: Bool }
@@ -136,7 +138,15 @@ final class JeomGeurigi: ObservableObject {
         "개찰구": "지하철 개찰구", "조심": "조심할 곳", "위험": "조심할 곳", "조심할곳": "조심할 곳",
         "에스컬레이터올라감": "에스컬레이터 올라감", "에스컬레이터내려감": "에스컬레이터 내려감", "에스컬레이터내림": "에스컬레이터 내림",
         "지하철탐": "지하철 탐", "지하철탔어": "지하철 탐", "지하철내림": "지하철 내림", "지하철내렸어": "지하철 내림",
-        "버스탐": "버스 탐", "버스탔어": "버스 탐", "버스내림": "버스 내림", "버스내렸어": "버스 내림"
+        "버스탐": "버스 탐", "버스탔어": "버스 탐", "버스내림": "버스 내림", "버스내렸어": "버스 내림",
+        // 2.19.0 낙상 주의·길 폭·되돌아가는 곳
+        "낙상주의3시쪽": "낙상 주의 시작 3시 쪽", "3시쪽낙상": "낙상 주의 시작 3시 쪽", "낙상3시쪽": "낙상 주의 시작 3시 쪽",
+        "낙상주의9시쪽": "낙상 주의 시작 9시 쪽", "9시쪽낙상": "낙상 주의 시작 9시 쪽", "낙상9시쪽": "낙상 주의 시작 9시 쪽",
+        "낙상주의양쪽": "낙상 주의 시작 양쪽", "양쪽낙상": "낙상 주의 시작 양쪽", "낙상주의": "낙상 주의 시작 양쪽", "낙상": "낙상 주의 시작 양쪽",
+        "낙상주의끝": "낙상 주의 끝", "낙상끝": "낙상 주의 끝", "낙상구간끝": "낙상 주의 끝",
+        "길폭좁음": "길 폭 좁음", "좁은길": "길 폭 좁음", "길이좁아": "길 폭 좁음", "길좁음": "길 폭 좁음",
+        "길폭보통": "길 폭 보통", "보통길": "길 폭 보통", "길폭넓음": "길 폭 넓음", "넓은길": "길 폭 넓음", "길이넓어": "길 폭 넓음", "길넓음": "길 폭 넓음",
+        "되돌아가는곳": "되돌아가는 곳", "유턴": "되돌아가는 곳", "돌아서는곳": "되돌아가는 곳", "되돌아감": "되돌아가는 곳"
     ]
 
     @Published private(set) var sangtae: Sangtae = .swim
@@ -171,6 +181,8 @@ final class JeomGeurigi: ObservableObject {
     private var stGijun = 0          // 걸음 센서 기준(앱이 켜진 뒤 센 걸음)
     private var meomchumSt0 = 0
     private var openPair: (name: String, st: Int, lat: Double?, lon: Double?, idx: Int, t: Int)?
+    /// 2.19.0 열려 있는 낙상 주의 구간 — 계단·건널목 짝과 따로 셈(구간 안에 계단이 있어도 됨)
+    private var nakOpen: (name: String, st: Int, lat: Double?, lon: Double?, idx: Int)?
     private var rideMode = ""
     private var sigye: Timer?
     private var jeojangSigye: Timer?
@@ -263,6 +275,7 @@ final class JeomGeurigi: ObservableObject {
                     georeum: 0, olim: false, meomchum: false, gs: [], gigi: MomSensor.gigiJeongbo())
         stGijun = WichiEngine.shared.georeumSu
         openPair = nil
+        nakOpen = nil
         rideMode = ""
         gilJari = nil
         gilIreum = ""
@@ -349,6 +362,8 @@ final class JeomGeurigi: ObservableObject {
         if let o = openPair {
             mal += " \(o.name)의 짝인 \(JeomGeurigi.PAIR[o.name]?.end ?? "끝") 표시가 없습니다. 올리기 전 점검에서 다시 여쭙겠습니다."
         }
+        if nakOpen != nil { mal += " 낙상 주의 시작 뒤에 낙상 주의 끝 표시가 없습니다. 길눈은 그 표시부터 열 걸음을 낙상 주의 구간으로 봅니다." }   // 2.19.0
+        nakOpen = nil
         mal += " 그린 길은 폰에 담아 두었습니다. 바로 아래 방금 그린 길 올리기를 누르시면 협회 점검을 거쳐 길눈에 실립니다."
         openPair = nil
         rideMode = ""
@@ -498,6 +513,43 @@ final class JeomGeurigi: ObservableObject {
         var tomakHal = true
         defer { if tomakHal { tomakYeolgi(name, st: st) } }   // 2.10.0 안내 말이 끝나면 짧게 귀를 엶
 
+        // 2.19.0 (261010-I13, 이사장님 승인 2026-10-10) 낙상 주의 구간 — 시작(어느 쪽인지)과 끝을 짝지어 그 사이 걸음과 거리를 시작 표시에 적음.
+        //   길눈은 이 구간 앞에서 미리 알리고, 구간 안에서는 위험한 쪽으로 반 걸음만 비켜나도 끌 수 없는 경고로 겹으로 살핌
+        if name.hasPrefix("낙상 주의 시작") {
+            if let no = nakOpen {
+                tomakHal = false
+                alrigi("이미 \(no.name) 구간 안입니다. 위험이 끝나는 곳에서 먼저 낙상 주의 끝을 눌러 주십시오.")
+                return
+            }
+            m.kind = "낙상 주의"
+            nakOpen = (name, st, m.lat, m.lon, gil?.marks.count ?? 0)
+            gil?.marks.append(m)
+            alrigi(name + "을 남겼습니다. 위험이 끝나는 곳에서 낙상 주의 끝을 눌러 주십시오.")
+            return
+        }
+        if name == "낙상 주의 끝" {
+            if let no = nakOpen {
+                let n = st - no.st
+                let d = JeomGeurigi.geori(no.lat, no.lon, m.lat, m.lon)
+                if no.idx < (gil?.marks.count ?? 0) {
+                    gil?.marks[no.idx].cnt = n
+                    gil?.marks[no.idx].dist = d
+                }
+                m.pairOf = no.name; m.kind = "낙상 주의"
+                gil?.marks.append(m)
+                nakOpen = nil
+                alrigi("낙상 주의 구간을 \(n)걸음, 약 \(d)미터로 적었습니다. 길눈이 이 구간을 겹으로 살핍니다.")
+                return
+            }
+            gil?.marks.append(m)
+            alrigi("낙상 주의 끝을 눌렀으나 시작 표시가 없습니다. 그냥 표시로만 남깁니다.")
+            return
+        }
+        if name == "되돌아가는 곳" {
+            gil?.marks.append(m)
+            alrigi("되돌아가는 곳을 남겼습니다. 6시 방향으로 돌아서서 이어 걸어 주십시오. 길눈이 이 자리 앞에서 돌아서실 곳을 알려 드립니다.")
+            return
+        }
         // 시작 표시면 짝을 열어 둠
         if let jj = JeomGeurigi.PAIR[name] {
             openPair = (name, st, m.lat, m.lon, gil?.marks.count ?? 0, m.t)
@@ -697,6 +749,7 @@ final class JeomGeurigi: ObservableObject {
         case .georeum:
             var m = "그리는 중입니다. \(chobun / 60)분 \(chobun % 60)초 동안 \(georeum)걸음, 약 \(Int(Double(georeum) * Seoljeong.shared.bopok))미터, 표시 \(gil?.marks.count ?? 0)개입니다."
             if let o = openPair { m += " \(o.name) 뒤에 \(JeomGeurigi.PAIR[o.name]?.end ?? "끝")을 아직 남기지 않으셨습니다." }
+            if let o = nakOpen { m += " \(o.name) 구간 안입니다. 위험이 끝나는 곳에서 낙상 주의 끝을 눌러 주십시오." }   // 2.19.0
             if let w = WichiEngine.shared.jigeum { m += w.ochae <= 15 ? " 위성이 잘 잡혀 있습니다." : " 위성이 흐려 걸음으로 이어 셉니다." }
             if MomSensor.shared.dollyeo { m += " 몸 센서로 센 걸음은 \(MomSensor.shared.georeumSu)걸음입니다." }
             return m
