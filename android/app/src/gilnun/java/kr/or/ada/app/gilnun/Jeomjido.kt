@@ -27,7 +27,8 @@ import kotlin.math.sin
 
 /** 점지도의 점 하나 */
 data class JeomJeom(val lat: Double, val lon: Double, val acc: Double?, val h: Double?, val t: Double?,
-                    val m: String? = null)   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 자봉이 탈것을 타고 가는 동안 찍힌 점(지하철·버스·에스컬레이터) — 걸음으로 안내하지 않음
+                    val m: String? = null,
+                    val st: Double? = null)   // 2.35.0 (261010-A23, 이사장님 승인 2026-10-10) 그린 이의 걸음 자리 — 점지도 거리를 걸음으로 셈   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 자봉이 탈것을 타고 가는 동안 찍힌 점(지하철·버스·에스컬레이터) — 걸음으로 안내하지 않음
 
 /** 점지도의 표시 하나(계단, 건널목, 꺾임 등) */
 data class JeomPyo(
@@ -65,7 +66,8 @@ data class JeomGil(
     val marks: List<JeomPyo>,
     val nae: Boolean = false,       // 2.7.0 나만의 점지도(폰 안)
     val matgim: Boolean = false,    // 2.7.0 잠금말을 걸어 협회 서버에 맡겨 둠
-    val ollim: Boolean = false      // 2.7.0 모두가 쓰도록 점지도에 올림
+    val ollim: Boolean = false,     // 2.7.0 모두가 쓰도록 점지도에 올림
+    val stride: Double? = null      // 2.35.0 그린 이의 보폭(미터) — 그린 이 걸음 × 그린 이 보폭 ÷ 내 보폭으로 걸음 수를 말씀드림
 ) {
     /** 2.7.0 아이폰 JSONEncoder(JeomGil Codable)와 같은 꼴 — 맡기기(잠가 보냄)와 폰 안 담기에 씀. 없는 값은 넣지 않음 */
     fun json(): JSONObject {
@@ -78,9 +80,11 @@ data class JeomGil(
             d.put("lat", p.lat); d.put("lon", p.lon)
             p.acc?.let { d.put("acc", it) }; p.h?.let { d.put("h", it) }; p.t?.let { d.put("t", it) }
             p.m?.let { d.put("m", it) }   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09)
+            p.st?.let { d.put("st", it) }   // 2.35.0
             pa.put(d)
         }
         o.put("pts", pa)
+        stride?.let { o.put("stride", it) }   // 2.35.0
         val ma = JSONArray()
         for (m in marks) {
             val d = JSONObject()
@@ -179,6 +183,7 @@ data class JeomGil(
         "11시 방향으로 꺾임" to "1시 방향으로 꺾임",
             "올라가는 계단 시작" to "내려가는 계단 시작", "내려가는 계단 시작" to "올라가는 계단 시작",
             "오름턱" to "내림턱", "내림턱" to "오름턱",
+            "낙상 주의 시작 3시 쪽" to "낙상 주의 시작 9시 쪽", "낙상 주의 시작 9시 쪽" to "낙상 주의 시작 3시 쪽",   // 2.35.0 거꾸로 걸으면 위험한 쪽도 거울처럼
             "횡단보도 건너기 시작" to "횡단보도 건너기 끝", "횡단보도 건너기 끝" to "횡단보도 건너기 시작",
             "엘리베이터 올라감" to "엘리베이터 내려감", "엘리베이터 내려감" to "엘리베이터 올라감",
             // 2.30.0 (점검) 자봉 표시의 탈것 짝 — 거꾸로 걸으면 오름과 내림, 탐과 내림이 바뀜(아이폰과 같음)
@@ -196,7 +201,7 @@ data class JeomGil(
                 val lo = Jeomjido.su(p, "lon") ?: continue
                 if (la == 0.0 || lo == 0.0) continue
                 val tm = if (p.isNull("m")) "" else p.optString("m", "")
-                pts.add(JeomJeom(la, lo, Jeomjido.su(p, "acc"), Jeomjido.su(p, "h"), Jeomjido.su(p, "t"), tm.ifEmpty { null }))
+                pts.add(JeomJeom(la, lo, Jeomjido.su(p, "acc"), Jeomjido.su(p, "h"), Jeomjido.su(p, "t"), tm.ifEmpty { null }, Jeomjido.su(p, "st")))
             }
             // 2.30.0 (점검 — 자봉 앱과 잇기) 자봉은 위성이 흐린 자리(지하·실내)의 표시를 위치 없이 올림. 예전엔 그런 표시를 버려
             // 지하 계단·문 표시가 사라졌음 — 같은 걸음 자리(st), 없으면 가까운 때(t)의 위치 있는 점으로 채움(아이폰과 같음)
@@ -247,7 +252,8 @@ data class JeomGil(
             return JeomGil(
                 Jeomjido.gul(o, "id"), Jeomjido.gul(o, "title"), Jeomjido.gul(o, "from"), Jeomjido.gul(o, "to"),
                 Jeomjido.gul(o, "who"), Jeomjido.gul(o, "made"), Jeomjido.su(o, "dist") ?: 0.0, pts, marks,
-                o.optBoolean("nae", false), o.optBoolean("matgim", false), o.optBoolean("ollim", false)
+                o.optBoolean("nae", false), o.optBoolean("matgim", false), o.optBoolean("ollim", false),
+                Jeomjido.su(o, "stride")?.takeIf { it > 0.3 && it < 1.2 }
             )
         }
     }

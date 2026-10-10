@@ -256,6 +256,24 @@ object JeomEngine {
     private var moWi = false
     private var moT = 0L
 
+    // 2.35.0 (261010-A23, 이사장님 승인 2026-10-10 — 청계천 첫 따라 걷기 뒤 「1」) 점지도의 바탕은 걸음(아이폰 2.63.0과 같음)
+    //   ① 점지도 거리는 그린 이 걸음 × 그린 이 보폭 ② 걸음 감지가 되면 내 걸음 × 내 보폭으로 나아가고 위성은 크게 어긋날 때만 바로잡음
+    //   ③ 좌우 한 걸음은 걸음과 방향으로 잼(위성 몇 미터 흔들림으로 경고하지 않음) ④ 돌아서면 알리고 남은 걸음이 늘어남 ⑤ 10초마다 자리 기록·들려 드린 말 기록
+    private var georeumGil = false
+    private var gilBopok = 0.0
+    private var dwiro = false
+    private var dwiroMalT = 0L
+    private val hdJul = ArrayList<Double>()
+    private var gpsTeulSu = 0
+    private var jariGirokT = 0L
+    /** 2.35.0 낙상 주의 구간(점지도 처음부터 s0~s1미터, 위험한 쪽은 그린 이가 걸은 쪽 기준 시계 방향) — 자봉 낙상 주의 시작·끝 표시로 만듦 */
+    private class Naksang(val s0: Double, val s1: Double, val jjok: String) { var yego = false; var an = false; var gyeongT = 0L }
+    private var naksang: List<Naksang> = emptyList()
+    /** 2.35.0 되돌아가는 곳(점지도 처음부터 몇 미터) — 이 둘레에서 돌아서는 것은 길대로 가는 것 */
+    private var dolgot: List<Double> = emptyList()
+    private val georeumUseon: Boolean
+        get() = georeumSalanna && S.jin != null && !firstFix && System.currentTimeMillis() - S.stepT < 4000 && !munOn && tagiJung == null
+
     private const val RAD = PI / 180
     /** "제대로 가고 있습니다" 간격(미터) — 2.7.0 설정(JeomSeol.hwaksinGan 5·10·20, 처음 10) */
     private val HWAKSIN_GAN: Double get() = JeomSeol.hwaksinGan.toDouble()
@@ -385,10 +403,60 @@ object JeomEngine {
         nu.clear()
         nu.add(0.0)
         for (i in 1 until p.size) nu.add(nu[i - 1] + Wichi.geori(p[i - 1].lat, p[i - 1].lon, p[i].lat, p[i].lon))
+        // 2.35.0 점지도 거리를 그린 이 걸음 × 그린 이 보폭으로(탈것 구간은 위성 거리). 걸음 자리가 거의 다 있고 위성 거리와 크게 다르지 않을 때만
+        georeumGil = false; gilBopok = 0.0
+        val sb = g.stride
+        if (sb != null && sb > 0.3 && sb < 1.2 && p.count { it.st != null } >= p.size * 8 / 10) {
+            val nu2 = ArrayList<Double>(); nu2.add(0.0)
+            for (i in 1 until p.size) {
+                var d = Wichi.geori(p[i - 1].lat, p[i - 1].lon, p[i].lat, p[i].lon)
+                val a = p[i - 1].st; val b = p[i].st
+                if (p[i].m == null && p[i - 1].m == null && a != null && b != null) d = abs(b - a) * sb
+                nu2.add(nu2[i - 1] + d)
+            }
+            val wi = nu.lastOrNull() ?: 0.0; val ge = nu2.lastOrNull() ?: 0.0
+            if (wi > 0 && ge > wi * 0.6 && ge < wi * 1.6) { nu.clear(); nu.addAll(nu2); georeumGil = true; gilBopok = sb }
+        }
         pyo = g.marks.mapNotNull { m ->
             val la = m.lat
             val lo = m.lon
-            if (la == null || lo == null || la == 0.0) null else Pyo(m, gakkaunJeom(la, lo))
+            if (la == null || lo == null || la == 0.0) null else {
+                // 2.35.0 표시 자리도 그린 이의 걸음 자리로(위성 자리보다 정확)
+                var bi = -1; var bd = 1e9
+                val mst = m.st
+                if (georeumGil && mst != null) for (k in p.indices) { val s = p[k].st ?: continue; if (abs(s - mst) < bd) { bd = abs(s - mst); bi = k } }
+                if (bi >= 0 && bd <= 3) Pyo(m, bi) else Pyo(m, gakkaunJeom(la, lo))
+            }
+        }
+        // 2.35.0 낙상 주의 구간 만들기 — 시작(쪽)과 끝 표시를 짝지음. 거꾸로 걸을 때는 끝 표시가 먼저 옴. 끝이 없으면 그린 이 걸음 수(없으면 열 걸음)
+        run {
+            val ns = ArrayList<Naksang>()
+            val sseun = HashSet<Pyo>()
+            val srt = pyo.sortedBy { it.i }
+            val last = nu.lastOrNull() ?: 0.0
+            for (q in srt) {
+                val nm = q.p.ireum
+                if (!nm.startsWith("낙상 주의 시작")) continue
+                val jj = if (nm.contains("3시")) "3시" else if (nm.contains("9시")) "9시" else "양쪽"
+                val s = nu[min(q.i, nu.size - 1)]
+                val e = if (!dw) srt.firstOrNull { it.p.ireum == "낙상 주의 끝" && it.i >= q.i && it !in sseun }
+                        else srt.lastOrNull { it.p.ireum == "낙상 주의 끝" && it.i <= q.i && it !in sseun }
+                var s0: Double; var s1: Double
+                if (e != null) {
+                    sseun.add(e)
+                    val se = nu[min(e.i, nu.size - 1)]
+                    s0 = min(s, se); s1 = max(s, se)
+                } else {
+                    val cn = q.p.cnt
+                    val L = if (cn != null && cn > 0) cn * (if (gilBopok > 0) gilBopok else 0.7) else (q.p.dist ?: (10 * (if (gilBopok > 0) gilBopok else 0.7)))
+                    if (!dw) { s0 = s; s1 = s + L } else { s0 = s - L; s1 = s }
+                }
+                s0 = max(0.0, s0); s1 = min(last, max(s1, s0 + 1))
+                ns.add(Naksang(s0, s1, jj))
+            }
+            naksang = ns
+            pyo = pyo.filter { !it.p.ireum.startsWith("낙상 주의") }   // 낙상 주의는 아래 naksangBoda가 따로 겹으로 살핌
+            dolgot = pyo.filter { it.p.ireum == "되돌아가는 곳" }.map { nu[min(it.i, nu.size - 1)] }
         }
         kkeoks = kkeokChatgi(p)
         kkeokHan.clear()
@@ -402,6 +470,7 @@ object JeomEngine {
         dwit = dw
         dochakHam = false
         idx = 0; firstFix = true; me = null; spd = 0.0; lastT = 0L; offSu = 0; beoseoSu = 0
+        dwiro = false; hdJul.clear(); gpsTeulSu = 0; jariGirokT = 0L
         jeop30 = false; jeop20 = false; cheotBang = false; dolgiMok = null; geonneolOn = false; geonneolI = -1
         geoMode = false; dwiNeolge = false; geollimJari = null; geollimHan.clear()
         munOn = false; mun = null; munList = emptyList(); munSu = 0; munIdx = 0; munDasi = false; munGakkaum = null; munKamera = false
@@ -416,7 +485,7 @@ object JeomEngine {
         val doIreum = if (mok == null || mok.ireum.isEmpty()) (if (g.to.isEmpty()) g.title else g.to) else mok.ireum
         yeojeongJeonghagi?.invoke(JeomMokjeok(doIreum, mok?.juso ?: "", mok?.lat ?: e.lat, mok?.lon ?: e.lon))
         if (!g0.id.startsWith("nae_")) Tongsin.json("ttara.php", mapOf("a" to "put", "id" to g0.id)) { }
-        Girok.namgi("jeom_sijak", mapOf("id" to g0.id, "dwit" to dw, "m" to (nu.lastOrNull() ?: 0.0).toInt()))
+        Girok.namgi("jeom_sijak", mapOf("id" to g0.id, "dwit" to dw, "m" to (nu.lastOrNull() ?: 0.0).toInt(), "georeum" to georeumGil, "gbo" to gilBopok, "bo" to bocok))
         // 안전 경고 — 끌 수 없음
         hwakinDoen(g0.id) { hwakin ->
             if (sd != sedae || gil == null) return@hwakinDoen
@@ -426,6 +495,7 @@ object JeomEngine {
             var m = if (ieum.isEmpty()) "" else "이어진 길 ${ieum.size}구간 가운데 ${ieumIdx + 1}번째 구간입니다. "
             m += (if (dw) "되돌아가기를 시작합니다. " else "따라 걷기를 시작합니다. ") + "모두 ${Jeomjido.bannol(nu.lastOrNull() ?: 0.0).toInt()}미터입니다."
             m += if (Seoljeong.bopokJaem) " 걸음 수는 ${Seoljeong.bopokModeIreum()} 보폭으로 알려 드립니다." else " 보폭을 아직 재지 않으셔서 걸음 수 대신 미터로 알려 드립니다."   // 2.18.0
+            if (Seoljeong.bopokJaem && georeumGil) m += " 그린 분 보폭 ${Jeomjido.bannol(gilBopok * 100).toInt()}센티, 내 보폭 ${Jeomjido.bannol(bocok * 100).toInt()}센티로 맞춰 셉니다."   // 2.35.0 보폭 상대 비교
             if (kkeoks.isNotEmpty()) m += " 이 길에 꺾이는 자리가 ${kkeoks.size}곳 있습니다. 미리 알려 드리겠습니다."
             mal(m)
         }
@@ -577,6 +647,21 @@ object JeomEngine {
             bareunSijak = 0L
         }
         if (geoMode && w.ochae > 25) return   // 걸음으로 가는 동안 흐린 위성은 받지 않음
+        // 2.35.0 걸음으로 나아가는 동안 위성은 바로잡기만 — 앞뒤 10미터(오차 1.5배)나 옆 10미터(오차 2배) 넘는 어긋남이 네 번 거듭될 때만
+        val jj = S.jin
+        if (georeumUseon && jj != null) {
+            if (w.ochae <= 25) wiseongTtae = System.currentTimeMillis()
+            val an = anchigi(w.lat, w.lon)
+            val s = an.s
+            if (w.ochae <= 12 && s != null && (abs(s - jj) > max(10.0, w.ochae * 1.5) || an.d > max(10.0, w.ochae * 2))) gpsTeulSu += 1 else gpsTeulSu = 0
+            if (gpsTeulSu < 4) {
+                if (!munOn && tagiJung == null) neagoriBakkeseo?.invoke(w)   // 지상 갈림길 알림은 그대로
+                return
+            }
+            gpsTeulSu = 0
+            Girok.namgi("jeom_wiseong_barojapgi", mapOf("jin" to jj.toInt(), "s" to (s ?: -1.0).toInt(), "d" to an.d.toInt(), "acc" to w.ochae.toInt()))
+            dwiNeolge = true
+        }
         if (w.ochae <= 25) wiseongTtae = System.currentTimeMillis()
         if (geoMode) dwiNeolge = true   // 걸음으로 가다 위성이 돌아온 첫 자리 — 뒤로도 넓게 찾음
         geoMode = false
@@ -616,7 +701,7 @@ object JeomEngine {
         var best = idx
         var bestD = 1e9
         val jeon = idx
-        val k0 = if (firstFix) 0 else max(0, idx - (if (dwiNeolge) 40 else 3))
+        val k0 = if (firstFix) 0 else max(0, idx - (if (dwiNeolge || dwiro) 40 else 3))
         val k1 = if (firstFix) pts.size else min(pts.size, idx + 40)
         for (k in k0 until k1) {
             val d = Wichi.geori(la, lo, pts[k].lat, pts[k].lon)
@@ -727,8 +812,14 @@ object JeomEngine {
         garikiAllim(now)   // 2.5.0
         // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 시속 15킬로미터 넘게 10초 넘게 움직이는 중(차를 타신 듯)에는 벗어남·확인 어려움 경고를 되풀이하지 않음(아이폰과 같음)
         if (chaBareum) return
-        // 위성이 6초 넘게 끊기면 걸음으로 점지도 위를 나아감(georeum_iego.js)
-        if (now - wiseongTtae > 6000 && S.stepSu > 0) {
+        jariGirok(now)
+        naksangBoda(now)
+        if (dwiro && now - dwiroMalT >= 15000 && now - malT >= 4000) {   // 2.35.0 돌아서 걷는 동안 15초마다
+            dwiroMalT = now
+            mal("출발 쪽으로 가고 계십니다. 목적지까지 ${georeum(max(0.0, (nu.lastOrNull() ?: 0.0) - (S.jin ?: 0.0)))}입니다.", MalGeup.GYEONGGO)
+        }
+        // 위성이 6초 넘게 끊기면 걸음으로 점지도 위를 나아감(georeum_iego.js) — 2.35.0 걸음으로 나아가는 중이면 여기서 또 셈하지 않음
+        if (now - wiseongTtae > 6000 && S.stepSu > 0 && !georeumUseon) {
             if (!geoMode) {
                 geoMode = true
                 geoSu = S.stepSu
@@ -763,7 +854,7 @@ object JeomEngine {
         }
         if (S.gyeol == "beoseo") {
             if (now - S.offT >= 2500) { S.offT = now; eum(EumJong.BEOSEO); S.sinho = now }
-            if (now - S.offMalT >= 5000) { S.offMalT = now; beoseoMal(false) }
+            if (now - S.offMalT >= (if (georeumSalanna) 5000 else 15000)) { S.offMalT = now; beoseoMal(false) }   // 2.35.0 위성으로만 잴 때는 15초마다
             return
         }
         if (S.gidarim) return
@@ -853,12 +944,45 @@ object JeomEngine {
         S.stepT = now
         S.stepSu += 1
         val seg = S.segBang ?: return
-        if (now < S.dolgiKkaji) { S.gyeolgwa.clear(); S.dallaSu = 0; S.majaSu = 0; return }
+        if (now < S.dolgiKkaji) { S.gyeolgwa.clear(); S.dallaSu = 0; S.majaSu = 0; georeumNaagagi(); return }   // 2.35.0 도는 동안에도 걸음은 나아감
         val h = nachimban ?: return
         val nal = chai(h, seg)
         S.gyeolgwa.add(Pair(nal, S.jin))
         if (S.gyeolgwa.size > 8) S.gyeolgwa.removeAt(0)
         val df = chai(h - S.dolrim, seg)
+        // 2.35.0 돌아섬 — 앞 두 걸음은 진행 방향(60도 안), 뒤 세 걸음은 거꾸로(135도 넘게)면 돌아선 것. 다시 돌아서면 끝
+        hdJul.add(df); if (hdJul.size > 6) hdJul.removeAt(0)
+        val jn = S.jin
+        if (S.stepSu > 12 && hdJul.size >= 6 && (jn == null || dolgot.none { abs(it - jn) < 8 })) {   // 되돌아가는 곳 둘레에서 돌아서는 것은 길대로 가는 것
+            fun pyeong(a: List<Double>): Double { var sx = 0.0; var sy = 0.0; for (x in a) { sx += sin(x * RAD); sy += cos(x * RAD) }; return atan2(sx, sy) / RAD }
+            val jeonB = pyeong(hdJul.subList(0, 2)); val jigeumB = pyeong(hdJul.subList(3, 6))
+            if (!dwiro && abs(jigeumB) > 135 && abs(jeonB) < 60) {
+                dwiro = true; hdJul.clear(); dwiroMalT = now
+                S.dallaSu = 0; S.majaSu = 0; S.jumeoni = false; S.yeop = 0.0; S.gyeolgwa.clear()
+                if (S.gyeol == "beoseo" || S.gyeol == "heundeul") S.gyeol = ""
+                val rest = max(0.0, (nu.lastOrNull() ?: 0.0) - (S.jin ?: 0.0))
+                mal("돌아서셨습니다. 지금은 출발 쪽으로 가고 계십니다. 걸을수록 목적지까지 남은 걸음이 늘어납니다. 지금 목적지까지 ${georeum(rest)}입니다.", MalGeup.GYEONGGO)
+                Girok.namgi("jeom_dwiro", mapOf("on" to true, "jin" to (S.jin ?: -1.0).toInt()))
+                return
+            }
+            if (dwiro && abs(jigeumB) < 45 && abs(jeonB) > 120) {
+                dwiro = false; hdJul.clear()
+                S.dallaSu = 0; S.majaSu = 0; S.yeop = 0.0; S.gyeolgwa.clear()
+                for (q in pyo) if (q.i >= idx) { q.said = false; q.near = false; q.said30 = false }   // 다시 오는 길의 표시는 다시 알림
+                val jj2 = S.jin ?: 0.0
+                for (z in naksang) if (z.s1 > jj2) { z.yego = false }
+                val rest = max(0.0, (nu.lastOrNull() ?: 0.0) - (S.jin ?: 0.0))
+                mal("다시 목적지 쪽으로 걸으십니다. 목적지까지 ${georeum(rest)}입니다.")
+                Girok.namgi("jeom_dwiro", mapOf("on" to false, "jin" to (S.jin ?: -1.0).toInt()))
+                return
+            }
+        }
+        if (dwiro) {   // 거꾸로 걷는 동안은 옆 거리만 쌓고 앞으로 나아감은 뒤로
+            S.yeop += bocok * sin(df * RAD)
+            pandan()
+            georeumNaagagi()
+            return
+        }
         if (abs(df) > 70) {
             S.dallaSu += 1; S.majaSu = 0
             if (S.dallaSu >= 6) {
@@ -893,6 +1017,11 @@ object JeomEngine {
             return
         }
         if (abs(df) < 30) { S.majaSu += 1; if (S.majaSu >= 3) { S.dallaSu = 0; if (S.jumeoni) { S.jumeoni = false; S.yeop = 0.0 } } }
+        if (S.pokgiMal && georeumSalanna && S.majaSu >= 3) {   // 2.35.0 위성 안내에서 한 걸음 안내로 돌아옴을 알림
+            S.pokgiMal = false
+            mal("다시 한 걸음 안내입니다. 좌우 한 걸음 벗어남을 알려 드립니다.")
+            Girok.namgi("jeom_georeum_dorawa")
+        }
         if (S.jumeoni) return
         // 폰이 흔들려 방향이 들쭉날쭉한 걸음은 셈에 넣지 않음(헛경고를 막음)
         val gg = S.gyeolgwa
@@ -909,12 +1038,80 @@ object JeomEngine {
                     S.jumeoniMal = true; S.hwakMalT = System.currentTimeMillis()
                     mal("점지도 확인이 어렵습니다. 멈추고 주변을 확인하십시오. 폰이 향한 쪽이 자꾸 바뀝니다. 가슴 주머니에 세워 넣거나 가슴 앞에 들어 주십시오.", MalGeup.GYEONGGO)
                 }
+                georeumNaagagi()   // 2.35.0 폰이 흔들려도 걸음은 나아감(옆 거리만 쌓지 않음)
                 return
             }
         }
         S.heundeulSu = 0
         S.yeop += bocok * sin(df * RAD)
         pandan()
+        georeumNaagagi()
+    }
+
+    /** 2.35.0 한 걸음 — 점지도 위를 내 보폭만큼 앞으로(돌아서 걸으면 뒤로). 점지도 거리가 그린 이 걸음으로 셈한 것이므로
+     *  남은 걸음은 「그린 이 걸음 × 그린 이 보폭 ÷ 내 보폭」이 됨 */
+    private fun georeumNaagagi() {
+        val j = S.jin ?: return
+        if (!georeumUseon || nu.isEmpty()) return
+        val last = nu[nu.size - 1]
+        val nj = max(0.0, min(last, j + (if (dwiro) -bocok else bocok)))
+        S.jin = nj
+        val q = jeomAt(nj)
+        val jeon = idx
+        onMove(q.first, q.second, 0.0)
+        if (dwiro && idx > jeon) idx = jeon
+    }
+
+    /** 2.35.0 (261010-A23, 이사장님 승인 2026-10-10) 낙상 주의 겹 감시 — 자봉이 남긴 구간 앞에서 미리, 구간 안에서는 위험한 쪽으로
+     *  반 걸음(보폭의 반)만 비켜나도 3초마다 끌 수 없는 경고, 구간을 벗어나면 알림. 한 걸음 안내가 안 될 때는 그렇다고 솔직히 */
+    private fun naksangBoda(now: Long) {
+        val j = S.jin ?: return
+        if (naksang.isEmpty() || munOn || tagiJung != null) return
+        for (z in naksang) {
+            val momJjok = if (z.jjok == "양쪽") "양쪽" else if (dwiro) (if (z.jjok == "3시") "9시" else "3시") else z.jjok
+            val mom = if (momJjok == "양쪽") "양쪽에" else "$momJjok 쪽에"
+            if (!dwiro && !z.yego && !z.an && j < z.s0 && z.s0 - j <= max(8.0, bocok * 10)) {
+                z.yego = true
+                mal("낙상 주의. ${georeum(z.s0 - j)} 앞부터 ${georeum(z.s1 - z.s0)} 동안 $mom 낙상 위험이 있습니다. 천천히 걸으십시오.", MalGeup.GYEONGGO)
+                Girok.namgi("jeom_naksang", mapOf("e" to "yego", "s0" to z.s0.toInt(), "s1" to z.s1.toInt(), "jjok" to z.jjok, "jin" to j.toInt()))
+            }
+            val anIn = j >= z.s0 && j <= z.s1
+            if (anIn && !z.an) {
+                z.an = true; z.yego = true; z.gyeongT = 0L
+                var m = "낙상 주의 구간입니다. $mom 낙상 위험이 있습니다."
+                m += if (!georeumSalanna) " 지금은 한 걸음 안내가 되지 않아 정확히 살필 수 없습니다. 지팡이로 살피며 천천히 걸으십시오."
+                     else if (momJjok == "양쪽") " 좌우로 반 걸음만 비켜나도 알려 드립니다." else " $momJjok 쪽으로 반 걸음만 비켜나도 알려 드립니다."
+                mal(m, MalGeup.GYEONGGO)
+                Girok.namgi("jeom_naksang", mapOf("e" to "an", "s0" to z.s0.toInt(), "s1" to z.s1.toInt(), "jjok" to z.jjok, "jin" to j.toInt(), "georeum" to georeumSalanna))
+            } else if (!anIn && z.an) {
+                z.an = false
+                mal("낙상 주의 구간을 벗어났습니다.")
+                Girok.namgi("jeom_naksang", mapOf("e" to "kkeut", "jin" to j.toInt()))
+            }
+            if (anIn && georeumSalanna && now - z.gyeongT >= 3000 && now - S.offMalT >= 2000) {
+                val y = S.yeop
+                val half = bocok * 0.5
+                val wiheom = when (z.jjok) { "3시" -> y > half; "9시" -> y < -half; else -> abs(y) > half }
+                if (wiheom) {
+                    z.gyeongT = now
+                    val momOreun = if (dwiro) y < 0 else y > 0
+                    val bi = if (momOreun) "3시" else "9시"
+                    val dol = if (momOreun) "9시" else "3시"
+                    eum(EumJong.BEOSEO); S.sinho = now
+                    mal("낙상 주의. $bi 쪽으로 비켜나셨습니다. $dol 방향으로 반 걸음 옮기십시오.", MalGeup.GYEONGGO)
+                    Girok.namgi("jeom_naksang", mapOf("e" to "gyeonggo", "yeop" to Jeomjido.bannol(y * 10) / 10.0, "jin" to j.toInt()))
+                }
+            }
+        }
+    }
+
+    /** 2.35.0 따라 걷는 동안 10초마다 자리 기록 */
+    private fun jariGirok(now: Long) {
+        if (now - jariGirokT < 10000) return
+        jariGirokT = now
+        val mo = if (georeumUseon) "georeum" else if (geoMode) "iego" else if (georeumSalanna) "wiseong+georeum" else "wiseong"
+        Girok.namgi("jeom_jari", mapOf("su" to S.stepSu, "jin" to (S.jin ?: -1.0).toInt(), "rest" to max(0.0, (nu.lastOrNull() ?: 0.0) - (S.jin ?: 0.0)).toInt(),
+            "yeop" to Jeomjido.bannol(S.yeop * 10) / 10.0, "gyeol" to S.gyeol, "dwi" to dwiro, "mo" to mo, "acc" to acc.toInt(), "idx" to idx))
     }
 
     private fun pandan() {
@@ -947,13 +1144,13 @@ object JeomEngine {
     private fun beoseoMal(cheot: Boolean) {
         if (chaBareum) return   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 차 빠르기로 움직이는 중에는 벗어남 말을 하지 않음(아이폰과 같음)
         val apm = if (cheot) "점지도에서 벗어났습니다. 멈추고 방향을 다시 잡으십시오. " else ""
-        val oreun = S.yeop > 0
+        val oreun = if (dwiro) S.yeop < 0 else S.yeop > 0   // 2.35.0 돌아서 걸을 때는 몸 기준 좌우가 뒤바뀜
         // 아이폰 2.12.0 돌아갈 방향은 몸이 향한 쪽 기준 — 점지도 방향과 벗어난 거리로 셈(모르면 11시·1시)
         var bangM = if (oreun) "11시 방향" else "1시 방향"
         val seg = S.segBang
         val h = jigeumHead
         if (seg != null && h != null) {
-            val mok = seg + atan2(-S.yeop, 3.0) / RAD
+            val mok = if (dwiro) seg + 180 + atan2(S.yeop, 3.0) / RAD else seg + atan2(-S.yeop, 3.0) / RAD
             bangM = sigyeGak(chai(mok, h))
         }
         if (!georeumSalanna) {
@@ -995,7 +1192,7 @@ object JeomEngine {
             S.segBang = bg
             val k = S.segKijun
             if (k != null) {
-                if (abs(chai(bg, k)) > 30) { S.segKijun = bg; if (S.gyeol != "beoseo") S.yeop = 0.0 }
+                if (abs(chai(bg, k)) > 30) { S.segKijun = bg; hdJul.clear(); if (S.gyeol != "beoseo") S.yeop = 0.0 }   // 2.35.0 구간이 꺾이면 돌아섬 셈도 새로
             } else {
                 S.segKijun = bg
             }
@@ -1015,7 +1212,7 @@ object JeomEngine {
             if (!S.pokgiMal && now - S.sijakT > 15000 && j != null && j0 != null && abs(j - j0) >= 8) {
                 S.pokgiMal = true
                 val kkadak = if (S.jumeoni) "폰이 향한 쪽이 자꾸 바뀌어" else (if (S.stepSu == 0) "걸음 감지를 쓸 수 없어" else (if (nachimban == null) "나침반을 쓸 수 없어" else "걸음 감지가 끊겨"))
-                mal("$kkadak 한 걸음 안내가 되지 않습니다. 지금부터 위성 안내입니다. 몇 미터 오차가 있을 수 있습니다.", MalGeup.GYEONGGO)
+                mal("$kkadak 지금은 좌우 한 걸음 벗어남을 알려 드릴 수 없습니다. 위성으로 크게 벗어날 때만 알려 드립니다. 폰을 가슴 앞에 세워 들어 주시면 한 걸음 안내로 돌아갑니다.", MalGeup.GYEONGGO)   // 2.35.0 솔직하게
                 Girok.namgi("jeom_wiseongsem", mapOf("k" to kkadak))
             }
             val beoseo = g > max(8.0, ac * 1.2)
@@ -1347,6 +1544,11 @@ object JeomEngine {
         if (nm.contains("내림턱")) return "내려서는 턱입니다"
         if (nm.contains("점자블록 끊김")) return "점자블록이 끊깁니다"
         if (nm.contains("조심할 곳")) return "조심할 곳입니다"
+        // 2.35.0 자봉 새 표시 — 길 폭과 되돌아가는 곳
+        if (nm == "길 폭 좁음") return "길 폭이 좁아집니다"
+        if (nm == "길 폭 보통") return "길 폭이 보통이 됩니다"
+        if (nm == "길 폭 넓음") return "길 폭이 넓어집니다"
+        if (nm == "되돌아가는 곳") return "6시 방향으로 돌아서는 곳입니다"
         return nm + "입니다"
     }
 
@@ -1388,6 +1590,10 @@ object JeomEngine {
             return "다 건넜습니다. " + daeumMalGil()
         }
         if (nm.contains("계단 끝")) return "계단 끝입니다. " + daeumMalGil()
+        if (nm == "되돌아가는 곳") { dolgi(8.0); return "지금 6시 방향으로 돌아서십시오. " + daeumMalGil() }   // 2.35.0
+        if (nm == "길 폭 좁음") return "여기부터 길 폭이 좁습니다."
+        if (nm == "길 폭 보통") return "여기부터 길 폭이 보통입니다."
+        if (nm == "길 폭 넓음") return "여기부터 길 폭이 넓습니다."
         if (nm.contains("횡단보도") || nm.contains("건널목")) {
             var kkeut: Pyo? = null
             for (q in pyo) {
@@ -1947,6 +2153,7 @@ object JeomEngine {
     private fun mal(t: String, g: MalGeup = MalGeup.ANNAE) {
         Sori.mal(t, g)
         malT = System.currentTimeMillis()
+        if (gil != null) Girok.namgi("jeom_mal", mapOf("m" to t.take(60), "su" to S.stepSu, "jin" to (S.jin ?: -1.0).toInt()))   // 2.35.0 들려 드린 말
     }
 
     /** 확신음 — 말하는 동안에는 쉬어 말과 겹치지 않게(벗어남 경고음은 늘). 2.7.0 아이폰과 같이 확신음 끄기(JeomSeol.hwaksinEum) */
