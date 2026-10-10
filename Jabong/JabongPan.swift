@@ -2,12 +2,16 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.17.0"
-    static let bild = "261009-I11"
+    static let pan = "2.18.0"
+    static let bild = "261010-I12"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.18.0", bild: "261010-I12", nal: "2026-10-10", naeyong: [
+            "★점지도 올리기 — 협회 점검에서 고칠 곳이 나와도 모두 받음(협회 받는 곳 0.4.0과 함께, 이사장님 승인 2026-10-10). 올린 뒤 「손볼 곳이 나와 보완 목록에도 올렸습니다. 누구든 이어서 보완할 수 있습니다」로 알리고 고칠 곳을 들려 드림",
+            "보완 필요로 받은 길은 길눈님 부탁 「다 그렸습니다」로 잇지 않음(점검을 통과한 길만). 도움말 보완 부탁 고침"
+        ]),
         Gochim(pan: "2.17.0", bild: "261009-I11", nal: "2026-10-09", naeyong: [
             "다시 점검 고침 — 두 분이 함께 받으면 먼저 받은 한 분만 이어지고 다른 분 화면은 끊기 신호 없이 닫힘, 통화 내내 살아 있음을 알려 다른 폰이 다시 울리지 않음, 길손님이 마치시면 곧바로 닫힘",
             "아이폰 울림 100초 한도, 안드로이드 울림 이름은 별명 먼저, 한 폰 표가 빈 값으로 굳지 않음",

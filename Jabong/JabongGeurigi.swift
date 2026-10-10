@@ -767,7 +767,9 @@ final class JeomGeurigi: ObservableObject {
             if majimakId == id { majimakId = nil }
             Hamkke.geurimAllim(gil: g.id, geori: Int(Double(g.georeum) * g.bopok))   // 함께한 기록판은 올린 길만 셈
             Girok.shared.namgi("jb_olim", ["id": id, "seobeo": geurinGil[i].seobeoId ?? ""])
-            if let bid = g.butakId, let sid = geurinGil[i].seobeoId {   // 2.14.0 점검을 통과한 길만 길눈님 부탁에 다 그렸습니다로
+            // 2.18.0 (261010-I12, 이사장님 승인 2026-10-10) 흠이 있어도 받은 길(보완 필요)은 부탁 다 그렸습니다로 잇지 않음
+            let bowanPilyo = (r["bowanPilyo"] as? Bool) ?? false
+            if !bowanPilyo, let bid = g.butakId, let sid = geurinGil[i].seobeoId {   // 2.14.0 점검을 통과한 길만 길눈님 부탁에 다 그렸습니다로
                 let beonho = JabongNae.shared.beonho
                 Task {
                     let ok = await GilButak.hagi("doen", bid, [("gil", sid), ("nugu", "자봉 \(beonho)")])
@@ -782,6 +784,12 @@ final class JeomGeurigi: ObservableObject {
             }
             let bm = (r["bowanMachim"] as? Int) ?? 0   // 2.13.0 같은 출발지·도착지 보완 부탁이 있었으면 보완 완료
             if bm > 0 { Task { await JbBowan.shared.bulleo(gangje: true) } }
+            if bowanPilyo {   // 2.18.0 받기는 했지만 손볼 곳이 있음 — 보완 목록에도 올라가 누구든 이어서 보완
+                Task { await JbBowan.shared.bulleo(gangje: true) }
+                Girok.shared.namgi("jb_olim_bowan", ["id": id, "seobeo": geurinGil[i].seobeoId ?? ""])
+                alrigi("올렸습니다. 고맙습니다. 다만 협회 점검에서 손볼 곳이 나와 보완 목록에도 올렸습니다. 그린 분이나 다른 봉사자 누구든 이어서 보완할 수 있습니다. " + mals.joined(separator: " "))
+                return
+            }
             alrigi("올렸습니다. 협회 점검을 통과해 길눈에 실렸습니다. 고맙습니다." + (bm > 0 ? " 보완 부탁 \(bm)건이 보완 완료되었습니다." : "") + (mals.isEmpty ? "" : " 다음에 손보시면 좋을 곳도 알려 드립니다. " + mals.joined(separator: " ")))
         } else {
             geurinGil[i].heum = mals
