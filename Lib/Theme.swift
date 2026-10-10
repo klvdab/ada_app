@@ -114,7 +114,7 @@ struct Meori: View {
                 Text("AI점자도서관")
                     .font(.title2.weight(.bold))
                     .foregroundStyle(.white)
-                Text("주관 사단법인 한국시각장애인현장영상해설협회")
+                Text("사단법인 한국시각장애인현장영상해설협회")   // 0.5.1 「주관」 뺌(이사장님 지시)
                     .font(.footnote)
                     .foregroundStyle(Saek.geum)
                     .fixedSize(horizontal: false, vertical: true)
@@ -124,7 +124,7 @@ struct Meori: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 18).fill(Saek.namsaek))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("AI점자도서관. 주관 사단법인 한국시각장애인현장영상해설협회")
+        .accessibilityLabel("AI점자도서관, 사단법인 한국시각장애인현장영상해설협회")
         .accessibilityAddTraits(.isHeader)
     }
 }
