@@ -26,6 +26,7 @@ class Seobeo(private val ctx: Context) {
     private class Deut(val s: Socket, val out: OutputStream) {
         val jul = ArrayBlockingQueue<ByteArray>(40)   // 4초까지 쌓아 둠
         @Volatile var jugeum = false
+        @Volatile var sseuneunTtae = 0L   // 1.1.5 쓰기를 시작한 때(쓰는 중이 아니면 0)
     }
 
     private var ss: ServerSocket? = null
@@ -33,6 +34,8 @@ class Seobeo(private val ctx: Context) {
     private val deutneun = CopyOnWriteArrayList<Deut>()
 
     fun su(): Int = deutneun.size
+
+    companion object { const val MAKHIM = 10_000L }   // 1.1.5 쓰기가 이만큼(밀리초) 막히면 끊긴 폰으로 봄
 
     fun sijak() {
         if (dolgo) return
@@ -42,6 +45,14 @@ class Seobeo(private val ctx: Context) {
         ss = s
         dolgo = true
         Thread({ batneunIl(s) }, "byod-mun").start()
+        // 1.1.5 (261009-B7) 와이파이 밖으로 나가 버린 폰은 쓰기가 막힌 채 남아 "듣는 분"으로 세어졌음 — 10초 넘게 막히면 끊고 빼고 셈
+        Thread({
+            while (dolgo) {
+                try { Thread.sleep(2000) } catch (_: InterruptedException) { }
+                val now = System.currentTimeMillis()
+                for (d in deutneun) { val t = d.sseuneunTtae; if (t > 0 && now - t > MAKHIM) kkeutnaegi(d) }
+            }
+        }, "byod-salpim").apply { isDaemon = true }.start()
     }
 
     fun meomchugi() {
@@ -173,8 +184,10 @@ class Seobeo(private val ctx: Context) {
                 while (dolgo && !d.jugeum) {
                     val b = d.jul.poll(5, TimeUnit.SECONDS)
                     // 5초 넘게 조각이 없으면(해설 쉬는 중) 소리 없음 한 조각을 보내 끊긴 폰을 가려냄
+                    d.sseuneunTtae = System.currentTimeMillis()
                     out.write(b ?: MuLaw.goyo(160))
                     out.flush()
+                    d.sseuneunTtae = 0L
                 }
             } catch (_: Exception) {
             } finally {

@@ -192,6 +192,7 @@ class ByodActivity : Activity() {
         mom.removeAllViews()
         bangDanchu = danchu("BYOD 방송 시작", keun = true, norang = true) { bangDanchuNullim() }
         mom.addView(bangDanchu)
+        mom.addView(danchu("현장 점검") { hyeonjangJeomgeom() })   // 1.1.5 (261009-B7) 방송 전 살필 것을 단추 하나로
         Ollim.julMal(this)?.let { m -> mom.addView(danchu(m) { Ollim.olligi(this) }) }   // 1.1.2 새 판이 있을 때만 — 안내와 단추를 한 자리에
 
         sangtae = geul("", 22f, true)
@@ -227,6 +228,18 @@ class ByodActivity : Activity() {
         boyeojunYocheong = Bang.yocheongSeq
         sangtaeGochigi(true)
         gyeorugi(bangDanchu)
+    }
+
+    // 1.1.5 (261009-B7) 현장 점검 — 맨 앞 판단 한 줄을 말로 알리고, 확인할 것부터 보여 줌
+    private fun hyeonjangJeomgeom() {
+        val t = Hyeonjang.geul(this)
+        malhagi(t.lineSequence().first())
+        android.app.AlertDialog.Builder(this).setTitle("현장 점검").setMessage(t)
+            .setPositiveButton("닫기", null)
+            .setNegativeButton("다시 점검") { _, _ -> h.postDelayed({ hyeonjangJeomgeom() }, 300) }
+            .setNeutralButton("결과 복사") { _, _ ->
+                try { (getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("현장 점검", t)); malhagi("현장 점검 결과를 복사했습니다.") } catch (_: Exception) { }
+            }.show()
     }
 
     private fun deoBogi(yeolgi: Boolean) {

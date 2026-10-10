@@ -68,6 +68,18 @@ class Sori(private val ctx: Context, private val batgi: (ByteArray) -> Unit) {
         return if (unp == "true") MediaRecorder.AudioSource.UNPROCESSED else MediaRecorder.AudioSource.VOICE_RECOGNITION
     }
 
+    // 1.1.5 (261009-B7) 들어오는 소리 크기 — 0.1초 조각의 가장 큰 값을 dB로, 3초 동안 가장 큰 것을 남김
+    private val keugiJul = IntArray(30) { -99 }
+    private var keugiJari = 0
+    private fun keugiJaegi(b: ShortArray) {
+        var m = 0
+        for (v in b) { val a = if (v < 0) -v.toInt() else v.toInt(); if (a > m) m = a }
+        val db = if (m <= 0) -99 else (20.0 * Math.log10(m / 32768.0)).toInt()
+        keugiJul[keugiJari] = db; keugiJari = (keugiJari + 1) % keugiJul.size
+        Bang.sorikeugi = keugiJul.maxOrNull() ?: -99
+        Bang.sorikeugiTtae = System.currentTimeMillis()
+    }
+
     @SuppressLint("MissingPermission")
     private fun dolligi() {
         val buf = ShortArray(JOGAK)
@@ -98,6 +110,7 @@ class Sori(private val ctx: Context, private val batgi: (ByteArray) -> Unit) {
                         if (n < 0) throw IllegalStateException("마이크 읽기 오류 $n")
                         chaeum += n
                     }
+                    if (chaeum == JOGAK) keugiJaegi(buf)   // 1.1.5 현장 점검용 소리 크기
                     if (chaeum == JOGAK && Bang.keu) batgi(MuLaw.jurigi(buf, JOGAK))
                 }
             } catch (e: Exception) {

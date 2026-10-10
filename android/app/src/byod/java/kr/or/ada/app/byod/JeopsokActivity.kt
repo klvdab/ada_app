@@ -59,11 +59,11 @@ class JeopsokActivity : Activity() {
         allim.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         geul("엔에프시 스티커(안드로이드폰용)")
         danchu("스티커 쓰기: 와이파이 붙기") { sseugiJunbi(wifiMessage(), "와이파이 붙기") }
-        danchu("스티커 쓰기: 듣기 주소 열기") { sseugiJunbi(NdefMessage(arrayOf(NdefRecord.createUri(jusoCan.text.toString().trim()))), "듣기 주소") }
+        danchu("스티커 쓰기: 듣기 주소 열기") { Hyeonjang.stickerGieok(this, jusoCan.text.toString().trim()); sseugiJunbi(NdefMessage(arrayOf(NdefRecord.createUri(jusoCan.text.toString().trim()))), "듣기 주소") }   // 1.1.5 쓴 주소를 기억해 현장 점검에서 견줌
         danchu("스티커 쓰기 멈추기") { sseugiMeomchum() }
         geul("큐알코드(아이폰은 카메라로 비추면 와이파이에 붙음)")
         danchu("큐알 보기: 와이파이 붙기") { qrBoyeogi(wifiQr(), "와이파이붙기") }
-        danchu("큐알 보기: 듣기 주소 열기") { qrBoyeogi(jusoCan.text.toString().trim(), "듣기주소") }
+        danchu("큐알 보기: 듣기 주소 열기") { Hyeonjang.stickerGieok(this, jusoCan.text.toString().trim()); qrBoyeogi(jusoCan.text.toString().trim(), "듣기주소") }   // 1.1.5
         danchu("큐알 그림 저장(인쇄용)") { qrJeojang() }
         qrGeurim = ImageView(this).apply { adjustViewBounds = true; setBackgroundColor(Color.WHITE); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES }
         body.addView(qrGeurim, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))

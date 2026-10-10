@@ -5,8 +5,8 @@ package kr.or.ada.app.byod
 import java.util.concurrent.CopyOnWriteArrayList
 
 object Bang {
-    const val PAN = "1.1.4"   // 1.1.4(261007-B6) 실제로 받는 소리 장치 알림·사운드카드 안 잡힐 때 할 일·어떤 장치든 꽂고 빼면 다시 고름·기기 점검 판단과 결과 복사(방송클). 1.1.3(261007-B5) 기기 점검. 1.1.2(261007-B4) 새 판 알림과 업데이트(대장클, 이사장님 지시)
-    const val BILD = "261007-B6"
+    const val PAN = "1.1.5"   // 1.1.5(261009-B7) 현장 점검 단추·멈춘 폰 10초 안에 빼고 세기·스티커 주소 기억과 견주기·소리 크기 재기·듣는 화면 안드로이드 안내(방송클, 이사장님 승인). 1.1.4(261007-B6) 실제로 받는 소리 장치 알림·사운드카드 안 잡힐 때 할 일·어떤 장치든 꽂고 빼면 다시 고름·기기 점검 판단과 결과 복사(방송클). 1.1.3(261007-B5) 기기 점검. 1.1.2(261007-B4) 새 판 알림과 업데이트(대장클, 이사장님 지시)
+    const val BILD = "261009-B7"
     const val PORT = 8080
 
     @Volatile var kyeojim = false          // 방송 일꾼이 돌고 있는가
@@ -16,6 +16,8 @@ object Bang {
     @Volatile var jalmot = ""              // 잘못된 일(없으면 빈 글)
     @Volatile var deutnunSu = 0            // 지금 듣는 분 수
     @Volatile var sigakTtae = 0L           // 방송 시작 시각
+    @Volatile var sorikeugi = -99          // 1.1.5 들어오는 소리 크기(최근 3초 가장 큰 값, dB, 0이 가장 큼)
+    @Volatile var sorikeugiTtae = 0L       // 1.1.5 소리 크기를 잰 때
 
     data class Yocheong(val ttae: Long, val beonho: String, val jongryu: String)
     val yocheong = CopyOnWriteArrayList<Yocheong>()   // 듣는 분의 도움 요청(최근 것 뒤)

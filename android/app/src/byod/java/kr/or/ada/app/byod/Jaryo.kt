@@ -61,6 +61,7 @@ p{font-size:18px;line-height:1.7}
 </style></head><body>
 <button id="b">현장영상해설 듣기</button>
 <p id="m" aria-live="polite">단추를 누르면 현장영상해설이 들립니다.</p>
+<p>안드로이드 폰에서 인터넷이 없다며 연결을 유지할지 물으면 예를 누르십시오.</p>
 <script>
 var DEC=new Float32Array(256);
 for(var i=0;i<256;i++){var u=~i&0xFF,s=u&0x80,e=(u>>4)&7,m=u&0x0F;var x=(((m<<3)+0x84)<<e)-0x84;DEC[i]=(s?-x:x)/32768;}
