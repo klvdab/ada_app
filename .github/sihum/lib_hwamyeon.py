@@ -1,4 +1,4 @@
-# 도서관 앱 안드로이드 화면 하나하나 눌러 보기 (판 0.1.7, 빌드 261008-6, 도서관 창 클) — 0.1.7: 0.4.4 화면 맞춤 — 독서기 더 보기·처음부터·책갈피 보기, 도움말 찾기, 모두 지우기 물음 없이 지나감. 0.1.6: 독서기 안에서 읽기를 실제로 누르고 문단이 나아가는지로 소리 확인, 화면 끄기 2분·다른 앱 1분 뒤 이어 읽는지, 파일 이름 빈칸 없앰. 0.1.5: 화면 크기에 맞춘 쓸기, 덤프 다시 하기·오류 이유 남기기, 화면마다 앱 꺼짐 살피기, 끝까지 내려 읽기
+# 도서관 앱 안드로이드 화면 하나하나 눌러 보기 (판 0.1.8, 빌드 261010-7, 도서관 창 클) — 0.1.8: 0.5.0 첫 화면은 고른 문 서가가 길어 찾을 책 이름 칸이 아래에 있음, 칸이 보일 때까지 내려 감. 0.1.7: 0.4.4 화면 맞춤 — 독서기 더 보기·처음부터·책갈피 보기, 도움말 찾기, 모두 지우기 물음 없이 지나감. 0.1.6: 독서기 안에서 읽기를 실제로 누르고 문단이 나아가는지로 소리 확인, 화면 끄기 2분·다른 앱 1분 뒤 이어 읽는지, 파일 이름 빈칸 없앰. 0.1.5: 화면 크기에 맞춘 쓸기, 덤프 다시 하기·오류 이유 남기기, 화면마다 앱 꺼짐 살피기, 끝까지 내려 읽기
 import subprocess,time,re,os,html
 def sh(c,t=60):
     try: return subprocess.run(c,shell=True,capture_output=True,text=True,timeout=t).stdout
@@ -82,8 +82,13 @@ for m in ['주제별로 찾기','장르별로 찾기','테마별로 찾기']:
     wiro()
     if tap(m): kkeut('mun_'+m[:3]); kkeojim(m); dwiro()
 wiro()
-x=dump('chatgi_hwamyeon',False)
-eds=[tuple(map(int,b)) for b in re.findall(r'class="android.widget.EditText"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',x)]
+eds=[]
+for _ in range(8):
+    x=dump('chatgi_hwamyeon',False)
+    eds=[tuple(map(int,b)) for b in re.findall(r'class="android.widget.EditText"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',x)]
+    if eds: break
+    ol(); time.sleep(1)
+if not eds: say('!! 찾을 책 이름 칸을 못 찾음')
 if eds:
     l,t,r,b=eds[0]; sh('adb shell input tap %d %d'%((l+r)//2,(t+b)//2)); sh('adb shell input text Pride'); sh('adb shell input keyevent 111'); time.sleep(1)
     tap('찾기'); time.sleep(8); dump('chatgi_gyeolgwa')
