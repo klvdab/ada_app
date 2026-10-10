@@ -742,8 +742,10 @@ object Geurigi {
             if (majimakId == id) majimakId = null
             Hamkke.geurimAllim(g.optString("id"), (g.optInt("georeum", 0) * g.optDouble("bopok", Seoljeong.bopok)).toInt())   // 함께한 기록판은 올린 길만 셈
             Girok.namgi("jb_olim", mapOf("id" to id, "seobeo" to r.optString("id")))
+            // 2.19.0 (261010-A15, 이사장님 승인 2026-10-10) 흠이 있어도 받은 길(보완 필요)은 부탁 다 그렸습니다로 잇지 않음
+            val bowanPilyo = r.optBoolean("bowanPilyo", false)
             val bid = g.optString("butakId")   // 2.14.0 점검을 통과한 길만 길눈님 부탁에 다 그렸습니다로
-            if (bid.isNotEmpty()) {
+            if (bid.isNotEmpty() && !bowanPilyo) {
                 NnGilButak.hagi("doen", bid, listOf("gil" to r.optString("id"), "nugu" to "자봉 ${JabongNae.beonho}")) { ok ->
                     main.post {
                         if (ok) {
@@ -756,6 +758,12 @@ object Geurigi {
             }
             val bm = r.optInt("bowanMachim", 0)   // 2.13.0 같은 출발지·도착지 보완 부탁이 있었으면 보완 완료
             if (bm > 0) ctx?.let { c -> JbBowan.bulleo(c, true) { bakkwim?.invoke() } }
+            if (bowanPilyo) {   // 2.19.0 받기는 했지만 손볼 곳이 있음 — 보완 목록에도 올라가 누구든 이어서 보완
+                ctx?.let { c -> JbBowan.bulleo(c, true) { bakkwim?.invoke() } }
+                Girok.namgi("jb_olim_bowan", mapOf("id" to id, "seobeo" to r.optString("id")))
+                alrigi("올렸습니다. 고맙습니다. 다만 협회 점검에서 손볼 곳이 나와 보완 목록에도 올렸습니다. 그린 분이나 다른 봉사자 누구든 이어서 보완할 수 있습니다. $malMok")
+                return
+            }
             alrigi("올렸습니다. 협회 점검을 통과해 길눈에 실렸습니다. 고맙습니다." + (if (bm > 0) " 보완 부탁 ${bm}건이 보완 완료되었습니다." else "") + if (mals.length() > 0) " 다음에 손보시면 좋을 곳도 알려 드립니다. $malMok" else "")
         } else {
             o.put("heum", mals); o.put("heumSaek", saeks); mokJeojang()
