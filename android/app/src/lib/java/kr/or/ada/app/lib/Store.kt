@@ -57,6 +57,18 @@ object Store {
         } else reads += ReadRec(i, t, kind, pos, modu, System.currentTimeMillis(), done)
         save()
     }
+    /** 0.5.2 (261012) 글 판 4 — 옛 판 문단 번호로 적힌 읽던 자리·책갈피를 책을 처음 열 때 한 번만 새 판으로 옮김(내려받은 책은 그대로) */
+    fun gulPan4Ok(i: Int) = p.getStringSet("gulPan4Ok", emptySet())!!.contains("$i")
+    fun gulPan4Ol(i: Int): List<Int> = (reads.filter { it.i == i && it.kind == "geul" }.map { it.pos.toInt() } + marks.filter { it.i == i && it.kind == "geul" }.map { it.pos.toInt() }).distinct().sorted()
+    fun gulPan4Bakkugi(i: Int, mp: Map<Int, Int>) {
+        if (gulPan4Ok(i)) return
+        if (mp.isNotEmpty()) {
+            for (r in reads) if (r.i == i && r.kind == "geul") mp[r.pos.toInt()]?.let { r.pos = it.toDouble() }
+            val nm = marks.map { m -> if (m.i == i && m.kind == "geul") (mp[m.pos.toInt()]?.let { m.copy(pos = it.toDouble()) } ?: m) else m }
+            marks.clear(); marks.addAll(nm); save()
+        }
+        p.edit().putStringSet("gulPan4Ok", HashSet(p.getStringSet("gulPan4Ok", emptySet())!!) + "$i").apply()
+    }
     fun addMark(i: Int, t: String, kind: String, pos: Double) {
         if (marks.none { it.i == i && kotlin.math.abs(it.pos - pos) < 0.5 }) { marks += Mark(i, t, kind, pos, System.currentTimeMillis()); save() }
     }
