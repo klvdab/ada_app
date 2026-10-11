@@ -499,6 +499,8 @@ object MalHagi {
                 lz.contains("ktx") || z.contains("케이티엑스") || lz.contains("srt") || z.contains("에스알티") ||
                     listOf("기차탔", "기차야", "기차예요", "기차에요", "기차입니다", "기차타고").any { z.contains(it) } -> Talgeot.GICHA
                 listOf("고속버스탔", "고속버스야", "고속버스예요", "고속버스에요", "고속버스입니다", "고속버스타고").any { z.contains(it) } -> Talgeot.GOSOKBEOSEU
+                // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 배 — 아이폰과 같음
+                listOf("배탔", "배야", "배예요", "배에요", "배입니다", "배타고", "여객선", "페리", "선박").any { z.contains(it) } -> Talgeot.SEONBAK
                 listOf("택시탔", "택시야", "택시예요", "택시에요", "택시입니다", "택시타고").any { z.contains(it) } -> Talgeot.CHA
                 else -> null
             }

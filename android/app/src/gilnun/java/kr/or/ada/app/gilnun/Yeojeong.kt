@@ -14,11 +14,13 @@ import org.json.JSONObject
 import java.io.File
 
 enum class Talgeot(val ireum: String) {
-    GEOREUM("걸어서"), CHA("차"), JIHACHEOL("지하철"), BEOSEU("버스"), GICHA("기차"), GOSOKBEOSEU("고속버스");
+    GEOREUM("걸어서"), CHA("차"), JIHACHEOL("지하철"), BEOSEU("버스"), GICHA("기차"), GOSOKBEOSEU("고속버스"),
+    /** 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 배(여객선·도선) — 아이폰 2.64.0 과 같음 */
+    SEONBAK("배");
 
     /** 아이폰 rawValue 와 같은 이름(기록·파일에 씀) */
     val raw: String get() = when (this) {
-        GEOREUM -> "georeum"; CHA -> "cha"; JIHACHEOL -> "jihacheol"; BEOSEU -> "beoseu"; GICHA -> "gicha"; GOSOKBEOSEU -> "gosokbeoseu"
+        GEOREUM -> "georeum"; CHA -> "cha"; JIHACHEOL -> "jihacheol"; BEOSEU -> "beoseu"; GICHA -> "gicha"; GOSOKBEOSEU -> "gosokbeoseu"; SEONBAK -> "seonbak"
     }
 
     companion object {
@@ -82,7 +84,10 @@ data class Yeojeong(
     val jiha: JihaGil? = null,
     val beoseu: BeoseuGil? = null,
     /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 지하철 안내를 역 입구 없이 짐작으로 시작했는가 — 앱을 다시 켜도 잇도록 담음 */
-    val jungganJadong: Boolean = false
+    val jungganJadong: Boolean = false,
+    /** 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 탈것 지킴(기차·배) — 알아챘거나 「기차입니다」·「배입니다」를 누르시면 바꾸실 때까지 지킴.
+     *  기차·배 안에서 걸어 다니셔도 풀지 않음. 다른 탈것으로 바로잡으시거나 내렸습니다·도착·여정 끝에만 풂(아이폰과 같음) */
+    val jikim: Talgeot? = null
 )
 
 object YeojeongEngine {
@@ -106,7 +111,14 @@ object YeojeongEngine {
     /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 시속 150킬로미터 넘게 달린 마지막 때 — 10분 안이면 기차를 타고 계신 것으로 보고 지하철 짐작을 하지 않음 */
     private var gichaTtae = 0L
     val choegeunGicha: Boolean
-        get() = gichaTtae > 0 && System.currentTimeMillis() - gichaTtae < 600_000L
+        get() = gichaJikimJung || (gichaTtae > 0 && System.currentTimeMillis() - gichaTtae < 600_000L)
+    /** 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 지키는 탈것(기차·배) */
+    val jikimTalgeot: Talgeot? get() = jigeum?.jikim
+    val gichaJikimJung: Boolean get() = jikimTalgeot == Talgeot.GICHA
+    val jikimJung: Boolean get() = jikimTalgeot != null
+    /** 2.36.0 시속 150 넘은 자료 수(20초 안) — 두 번이면 기차 */
+    private var gichaSu = 0
+    private var gichaSuTtae = 0L
     private var allimDaegi = false
 
     /** 길눈이 켜질 때 한 번 — 즐겨찾기·안내·지하철 엔진을 함께 세우고 지난 여정을 되살림 */
@@ -168,16 +180,24 @@ object YeojeongEngine {
         get() = TalgeotGamji.majimakTalgeot > 0 && System.currentTimeMillis() - TalgeotGamji.majimakTalgeot < 120_000
 
     fun jeonghagi(m: Mokjeok) {
+        // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 기차·배 안에서 목적지를 바꾸셔도 지킴은 그대로
+        val jikimIeum: Talgeot? = if (jigeum?.danggye == Danggye.TANEUN_JUNG) jigeum?.jikim else null
         talgeotSaeroBogi()
         val now = System.currentTimeMillis()
-        jigeum = Yeojeong(m, Danggye.EOTTEOKE, Talgeot.GEOREUM, false, now, now)
+        jigeum = Yeojeong(m, Danggye.EOTTEOKE, jikimIeum ?: Talgeot.GEOREUM, false, now, now, jikim = jikimIeum)
+        if (jikimIeum != null) {
+            if (jikimIeum == Talgeot.GICHA) sokdoChujeong = Talgeot.GICHA
+            main.post { AnnaeEngine.jikimRo(jikimIeum, "${jikimIeum.ireum} 안에서 목적지를 바꾸심") }
+        }
         Girok.namgi("yeojeong_sijak", mapOf("mok" to m.ireum))
         jeojang()
     }
 
     fun danggyeBakkugi(d: Danggye) {
         val y = jigeum ?: return
-        jigeum = y.copy(danggye = d, gaengsin = System.currentTimeMillis())
+        // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 내리셨거나 도착하면 지킴을 풂
+        val jk = if (d == Danggye.NAM_EUN_GIL || d == Danggye.DOCHAK || d == Danggye.EOTTEOKE) null else y.jikim
+        jigeum = y.copy(danggye = d, gaengsin = System.currentTimeMillis(), jikim = jk)
         Girok.namgi("yeojeong_danggye", mapOf("d" to d.raw))
         jeojang()
         val tg = talgeot
@@ -226,8 +246,11 @@ object YeojeongEngine {
     /** 이용자가 탈것을 바로잡음 — 가장 앞섬 */
     fun talgeotBarojapgi(t: Talgeot) {
         val y = jigeum ?: return
-        jigeum = y.copy(talgeot = t, barojabeum = true, gaengsin = System.currentTimeMillis())
-        Girok.namgi("yeojeong_barojapgi", mapOf("t" to t.raw))
+        // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 「기차입니다」·「배입니다」는 바꾸실 때까지 지킴, 다른 탈것으로 바로잡으시면 풂
+        val jk = if (t == Talgeot.GICHA || t == Talgeot.SEONBAK) t else null
+        if (t != Talgeot.GICHA && sokdoChujeong == Talgeot.GICHA) { gichaTtae = 0L; sokdoChujeong = Talgeot.GEOREUM }
+        jigeum = y.copy(talgeot = t, barojabeum = true, gaengsin = System.currentTimeMillis(), jikim = jk)
+        Girok.namgi("yeojeong_barojapgi", mapOf("tal" to t.raw))
         jeojang()
     }
 
@@ -239,11 +262,27 @@ object YeojeongEngine {
         allim()
     }
 
-    /** 지금 탈것 — 바로잡은 것이 가장 앞서고, 그다음이 빠르기로 알아챈 것 */
+    /** 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 탈것 지킴 시작(기차·배) — 바꾸실 때까지 지킴 */
+    fun jikimSijak(t: Talgeot, kkadak: String) {
+        val y = jigeum
+        if (y == null || y.jikim == t) {
+            if (t == Talgeot.GICHA && sokdoChujeong != Talgeot.GICHA) sokdoChujeong = Talgeot.GICHA
+            return
+        }
+        if (y.barojabeum && y.talgeot != t) return   // 이용자가 다른 탈것으로 바로잡으신 것이 가장 앞섬
+        jigeum = y.copy(jikim = t, talgeot = t, gaengsin = System.currentTimeMillis())
+        jeojang()
+        if (t == Talgeot.GICHA) { gichaTtae = System.currentTimeMillis(); sokdoChujeong = Talgeot.GICHA }
+        Girok.namgi("jikim", mapOf("tal" to t.raw, "kkadak" to kkadak))
+        main.post { AnnaeEngine.jikimRo(t, kkadak) }
+    }
+
+    /** 지금 탈것 — 바로잡은 것이 가장 앞서고, 그다음이 기차·배 지킴, 그다음이 빠르기로 알아챈 것 */
     val talgeot: Talgeot
         get() {
             val y = jigeum
             if (y != null && y.barojabeum) return y.talgeot
+            jikimTalgeot?.let { return it }
             if (sokdoChujeong != Talgeot.GEOREUM) return sokdoChujeong
             return y?.talgeot ?: Talgeot.GEOREUM
         }
@@ -273,6 +312,16 @@ object YeojeongEngine {
 
     /** 2.9.0 탈것 알아채기(TalgeotGamji — 걸음 센서·가속도·기압계)가 알아챈 탈것 — 위성 빠르기보다 먼저 */
     fun gamjiBatda(t: Talgeot) {
+        // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 지킴 중에는 움직임 감지기의 판단으로 바꾸지 않음
+        if (jikimJung) return
+        // 2.36.0 기차역 근처에서 탔고 목적지가 멀리 있는 기차역이면 처음부터 기차(부산역에서 지하철로 알던 일 — 아이폰과 같음)
+        val y = jigeum
+        if ((t == Talgeot.CHA || t == Talgeot.JIHACHEOL) && (sokdoChujeong == Talgeot.GEOREUM || sokdoChujeong == Talgeot.JIHACHEOL)
+            && y != null && (!y.barojabeum || y.talgeot == Talgeot.GICHA)) {
+            val w = TalgeotGamji.chaSijakJari ?: Wichi.jigeum
+            val yeok = if (w != null) GichaYeok.gichaInga(w.lat, w.lon, y.mokjeok.ireum, y.mokjeok.lat, y.mokjeok.lon) else null
+            if (yeok != null) { jikimSijak(Talgeot.GICHA, "${yeok}역에서 탐"); return }
+        }
         if (sokdoChujeong == Talgeot.GICHA && t == Talgeot.CHA) return   // 기차는 빠르기로만
         if (sokdoChujeong == Talgeot.GICHA && t == Talgeot.JIHACHEOL && choegeunGicha) return   // 2.32.0 기차 터널을 지하철로 보지 않음
         if (t == sokdoChujeong) return
@@ -282,16 +331,29 @@ object YeojeongEngine {
 
     /** 시속 15킬로미터를 15초 넘게 넘으면 차(시속 150을 넘으면 기차), 시속 8 아래로 3분이면 걸음 */
     private fun sokdoBoda(w: Jari) {
-        if (w.georeumChu || w.ochae > 30) return
+        if (w.georeumChu || w.ochae > 50) return
         val kmh = w.sokdo * 3.6
         val now = System.currentTimeMillis()
         if (kmh > 150) gichaTtae = now   // 2.32.0 기차 기억(잠깐이라도 시속 150 넘으면)
+        // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 예전에는 시속 150을 15초 동안 한 번도 끊기지 않고 넘어야 기차였음 —
+        //   이제 20초 안에 시속 150 넘은 자료가 두 번이면 기차로 보고 지킴(아이폰과 같음)
+        if (kmh > 150 && w.ochae <= 30) {
+            if (gichaSuTtae > 0 && now - gichaSuTtae > 20_000) gichaSu = 0
+            if (gichaSu == 0) gichaSuTtae = now
+            gichaSu += 1
+            if (gichaSu >= 2 && !gichaJikimJung && jikimTalgeot != Talgeot.SEONBAK) {
+                Girok.namgi("talgeot_chujeong", mapOf("tal" to "gicha", "kmh" to kmh.toInt()))
+                jikimSijak(Talgeot.GICHA, "시속 ${kmh.toInt()}킬로미터")
+                if (jigeum == null && sokdoChujeong != Talgeot.GICHA) sokdoChujeong = Talgeot.GICHA
+            }
+        }
+        if (jikimJung) return
         // 2.9.0 걷기·차·버스·지하철은 TalgeotGamji 가 가림 — 여기서는 기차(시속 150 넘게 15초)만
         if (kmh > 150) {
             if (ppareunTtae == 0L) ppareunTtae = now
             if (now - ppareunTtae >= 15000 && sokdoChujeong != Talgeot.GICHA) {
                 sokdoChujeong = Talgeot.GICHA
-                Girok.namgi("talgeot_chujeong", mapOf("t" to "gicha", "kmh" to kmh.toInt()))
+                Girok.namgi("talgeot_chujeong", mapOf("tal" to "gicha", "kmh" to kmh.toInt()))
                 AnnaeEngine.talgeotBakkwim(Talgeot.GICHA)
             }
         } else {
@@ -306,7 +368,7 @@ object YeojeongEngine {
                 val sae = if (kmh > 150) Talgeot.GICHA else (if (sokdoChujeong == Talgeot.GICHA) Talgeot.GICHA else Talgeot.CHA)
                 if (sae != sokdoChujeong) {
                     sokdoChujeong = sae
-                    Girok.namgi("talgeot_chujeong", mapOf("t" to sae.raw, "kmh" to kmh.toInt()))
+                    Girok.namgi("talgeot_chujeong", mapOf("tal" to sae.raw, "kmh" to kmh.toInt()))
                     AnnaeEngine.talgeotBakkwim(sae)
                 }
             }
@@ -315,7 +377,7 @@ object YeojeongEngine {
             if (neurinTtae == 0L) neurinTtae = now
             if (now - neurinTtae >= 180000 && sokdoChujeong != Talgeot.GEOREUM) {
                 sokdoChujeong = Talgeot.GEOREUM
-                Girok.namgi("talgeot_chujeong", mapOf("t" to "georeum", "kmh" to kmh.toInt()))
+                Girok.namgi("talgeot_chujeong", mapOf("tal" to "georeum", "kmh" to kmh.toInt()))
                 AnnaeEngine.talgeotBakkwim(Talgeot.GEOREUM)
             }
         }
@@ -345,6 +407,7 @@ object YeojeongEngine {
                 .put("naeril", g.naeril).put("ipguDochak", g.ipguDochak).put("i", g.i).put("kkeutnam", g.kkeutnam))
         }
         if (y.jungganJadong) o.put("jungganJadong", true)   // 2.32.0 아이폰 Codable 과 같은 이름
+        y.jikim?.let { o.put("jikim", it.raw) }   // 2.36.0
         y.beoseu?.let { b ->
             val j = b.jeongryujang
             o.put("beoseu", JSONObject()
@@ -391,7 +454,8 @@ object YeojeongEngine {
             o.optLong("sijak", now),
             o.optLong("gaengsin", 0L),
             jiha, beoseu,
-            o.optBoolean("jungganJadong", false)
+            o.optBoolean("jungganJadong", false),
+            o.optString("jikim", "").let { if (it.isEmpty()) null else Talgeot.batgi(it) }
         )
     }
 }

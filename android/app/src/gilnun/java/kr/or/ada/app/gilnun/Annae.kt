@@ -59,6 +59,8 @@ object AnnaeSeoljeong {
     var chaJeongdo: Int get() = i("chaJeongdo", 2); set(v) = si("chaJeongdo", v)
     /** 차 안 간판 알림 */
     var ganpanOn: Boolean get() = b("ganpanOn", true); set(v) = sb("ganpanOn", v)
+    /** 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 배 안에서 지금 자리 말하는 간격(분) — 0이면 끔, 처음 10분(아이폰과 같음) */
+    var baeGap: Int get() = i("baeGap", 10); set(v) = si("baeGap", v)
     /** 서 있을 때 창밖 간판 읽기(카메라) */
     var ganpanKamera: Boolean get() = b("ganpanKamera", false); set(v) = sb("ganpanKamera", v)
     /** 걷는 안내 확신음 */
@@ -113,6 +115,26 @@ object AnnaeEngine {
         AnnaeSeoljeong.sijak(c)
         Jindong.sijak(c)
         Wichi.deutgi { w -> wichiBatda(w) }
+        TalgeotJikimi.sijak()   // 2.36.0 배 알아보기·내리셨는지 여쭙기
+    }
+
+    /** 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 기차·배로 알았음 — 지하철·차 안내를 멈추고 그 탈것 안 안내로, 바로잡는 단추를 그 자리에(아이폰과 같음) */
+    fun jikimRo(t: Talgeot, kkadak: String) {
+        val y = yj.jigeum ?: return
+        if (y.barojabeum && y.talgeot != t) return
+        if (JeomEngine.tagoGaneunJung) return
+        val iMi = y.danggye == Danggye.TANEUN_JUNG && y.jiha == null && y.beoseu == null && y.talgeot == t && !kkadak.contains("목적지")
+        jeomKkeut()
+        JihacheolEngine.meomchugi()
+        yj.jihaNoki(null)
+        yj.beoseuNoki(null)
+        yj.talgeotJeonghagi(t, y.barojabeum && y.talgeot == t)
+        if (y.danggye != Danggye.TANEUN_JUNG) yj.danggyeBakkugi(Danggye.TANEUN_JUNG)
+        dasiSijak()
+        if (!iMi) malHagi("${t.ireum}를 타신 것으로 압니다. ${y.mokjeok.ireum}까지 ${t.ireum} 안 안내를 합니다. ${t.ireum}가 아니면 바로 아래 단추로 바로잡으십시오.")
+        else if (kkadak.contains("목적지")) malHagi("${t.ireum}로 가시는 중이니 ${y.mokjeok.ireum}까지 ${t.ireum} 안 안내를 합니다.")
+        Girok.namgi("jadong_jikim", mapOf("tal" to t.raw, "kkadak" to kkadak))
+        jigeumBoda()
     }
 
     // MARK: 이용자가 누르는 일
@@ -217,7 +239,7 @@ object AnnaeEngine {
         // 2.31.0 (261009-A19, 이사장님 승인 2026-10-09, 아이폰 2.44.0과 같게) 전에는 이름표만 바꾸고 돌던 지하철 안내를 그대로 두었음 —
         //   차·기차·고속버스로 바로잡으시면 지하철·버스 안내를 멈추고 곧바로 탄 안내로 넘어감
         // 2.32.0 버스로 바로잡으셔도 같게(지하철 안내 중 버스로 바로잡으면 이름표만 바뀌고 역 알림이 이어지던 일)
-        if (t != Talgeot.CHA && t != Talgeot.GICHA && t != Talgeot.GOSOKBEOSEU && t != Talgeot.BEOSEU) {
+        if (t != Talgeot.CHA && t != Talgeot.GICHA && t != Talgeot.GOSOKBEOSEU && t != Talgeot.BEOSEU && t != Talgeot.SEONBAK) {
             yj.talgeotBarojapgi(t)
             TalgeotGamji.barojapgi(t)
             malHagi("${t.ireum}로 알겠습니다.")
@@ -231,14 +253,14 @@ object AnnaeEngine {
         yj.danggyeBakkugi(Danggye.TANEUN_JUNG)
         dasiSijak()
         malHagi("${t.ireum}로 알겠습니다. ${t.ireum} 안 안내를 시작합니다.")
-        Girok.namgi("barojapgi_tal", mapOf("t" to t.raw))
+        Girok.namgi("barojapgi_tal", mapOf("tal" to t.raw))
         TalgeotGamji.barojapgi(t)   // 2.32.0 탈것 알아채기에도 알림(안내는 다시 바꾸지 않음)
         jigeumBoda()
     }
 
     /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 지하철로 바로잡으심 — 지하철 길이 있으면 역 알림을, 없으면 타고 가는 중으로 길을 찾아 역 알림 */
     private fun jihacheolBarojapgi(y: Yeojeong) {
-        Girok.namgi("barojapgi_tal", mapOf("t" to Talgeot.JIHACHEOL.raw))
+        Girok.namgi("barojapgi_tal", mapOf("tal" to Talgeot.JIHACHEOL.raw))
         val g = y.jiha
         if (g != null && !g.kkeutnam && (y.danggye == Danggye.TANEUN_GOT_KKAJI || y.danggye == Danggye.TANEUN_JUNG)) {
             yj.talgeotBarojapgi(Talgeot.JIHACHEOL)
@@ -278,6 +300,9 @@ object AnnaeEngine {
     /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) barojabeum: 이용자가 차라고 하셨는가 — 지하철 짐작이 빗나가 차 안 안내로 넘어갈 때는 false(아이폰과 같음) */
     fun chaTatda(mal: String? = null, barojabeum: Boolean = true) {
         if (yj.jigeum == null) return
+        // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 기차·배 안에서 목적지를 바꾸시면 차로 덮지 않음(아이폰과 같음)
+        val jt = yj.jikimTalgeot
+        if (jt != null && mal == null) { jikimRo(jt, "목적지를 바꾸심"); return }
         jeomKkeut()
         JihacheolEngine.meomchugi()
         yj.jihaNoki(null)
@@ -324,6 +349,7 @@ object AnnaeEngine {
         if (JeomEngine.georeoJung) { JeomEngine.jigeumEodiDeutgi(); return }
         val y = yj.jigeum ?: run { jigeumJari(); return }
         val mok = y.mokjeok.ireum
+        if (y.danggye == Danggye.TANEUN_JUNG && yj.talgeot == Talgeot.SEONBAK) { TalgeotJikimi.jigeumBaeJari(); return }   // 2.36.0
         if (y.danggye == Danggye.DOCHAK) {
             malHagi("${mok}에 도착했습니다. 여정을 끝내시려면 여정 끝내기를 누르십시오.")
             return
@@ -358,6 +384,7 @@ object AnnaeEngine {
 
     /** 지금 내 자리 듣기 — 도로명 주소와 가까운 출구·건물, 위성 오차, 날씨 한 마디(아이폰 jigeumJari) */
     fun jigeumJari() {
+        if (yj.jigeum?.danggye == Danggye.TANEUN_JUNG && yj.talgeot == Talgeot.SEONBAK) { TalgeotJikimi.jigeumBaeJari(); return }   // 2.36.0 배 안이면 바다 위 자리
         val w = Wichi.jigeum
         if (w == null) {
             malHagi(if (!Wichi.heorakItda) "위치 허락이 없어 자리를 알 수 없습니다. 폰 설정의 앱, 길눈, 권한에서 위치를 허용해 주십시오."
@@ -533,6 +560,8 @@ object AnnaeEngine {
         }
         // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 바로잡으신 탈것과 같은 것을 알아챘으면 그대로(바로잡음을 알아채기에 알릴 때 안내가 겹치지 않게)
         if (y.barojabeum && y.talgeot == t && y.danggye == Danggye.TANEUN_JUNG) return
+        // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 기차·배 지킴 중에는 짐작으로 안내를 바꾸지 않음(아이폰과 같음)
+        if (yj.jikimJung) return
         // 2.9.0 탈것 알아채기가 알아챈 지하철·버스도 이어 받음(아이폰 2.40.0과 같음)
         if (t == Talgeot.JIHACHEOL) {
             // 2.25.0 아이폰 2.44.0과 같게 — 기차·고속버스를 타고 가는 중 터널에서 「지하철을 타신 것 같습니다」로 덮지 않음, 차로 바로잡으신 때도 그대로
@@ -556,7 +585,7 @@ object AnnaeEngine {
             if (!(y.danggye == Danggye.NAM_EUN_GIL || y.danggye == Danggye.EOTTEOKE || (y.danggye == Danggye.TANEUN_JUNG && y.talgeot != Talgeot.BEOSEU))) return
             // 2.31.0 (이사장님 승인 2026-10-09 남산, 아이폰과 같음) 짐작은 단정하지 않고 바로잡는 말을 함께,
             //   지하철 길을 못 찾으면 말만 하지 않고 실제로 차 안 안내로 넘어감
-            malHagi("지하철을 타신 것 같습니다. 지하철 길을 찾습니다. 지하철이 아니면 택시야라고 말씀해 주십시오.")
+            malHagi("지하철을 타신 것 같습니다. 지하철 길을 찾습니다. 지하철이 아니면 바로 아래 단추로 바로잡으십시오.")
             JihacheolEngine.jungganSijak(y.mokjeok.jangso) { ok, mal ->
                 if (ok) Girok.namgi("jadong_jihacheol")
                 else { malHagi("$mal 차 안 안내로 잇습니다."); chaTatda("", false) }   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 짐작이 빗나간 것이니 이용자가 바로잡은 차로 남기지 않음(아이폰과 같음)
@@ -569,7 +598,7 @@ object AnnaeEngine {
             yj.talgeotJeonghagi(Talgeot.BEOSEU, false)
             yj.danggyeBakkugi(Danggye.TANEUN_JUNG)
             dasiSijak()
-            malHagi("정류장마다 서는 것을 보니 버스를 타신 것 같습니다. 버스 안 안내로 잇습니다. 버스가 아니면 택시야라고 말씀해 주십시오.")
+            malHagi("정류장마다 서는 것을 보니 버스를 타신 것 같습니다. 버스 안 안내로 잇습니다. 버스가 아니면 바로 아래 단추로 바로잡으십시오.")
             Girok.namgi("jadong_beoseu", mapOf("gil" to "umjigim"))
             jigeumBoda()
             return
@@ -601,7 +630,7 @@ object AnnaeEngine {
         // 2.31.0 (이사장님 승인) 앱으로 부른 콜이면 그 이름으로 — "복지콜에 타신 것으로 보고 ○○까지 차 안 안내를 합니다"
         val kh = ChaBureugi.choegeun
         if (t == Talgeot.CHA && kh != null) malHagi("${kh.ireum}에 타신 것으로 보고 ${y.mokjeok.ireum}까지 차 안 안내를 합니다.")
-        else malHagi("빠르게 움직이고 계십니다. ${if (t == Talgeot.GICHA) "기차" else "차"} 안 안내로 바꿉니다.")
+        else malHagi("빠르게 움직이고 계십니다. ${if (t == Talgeot.GICHA) "기차" else "차"} 안 안내로 바꿉니다. 아니면 바로 아래 단추로 바로잡으십시오.")
         Girok.namgi("jadong_cha", mapOf("t" to t.raw))
         jigeumBoda()
     }
@@ -683,7 +712,8 @@ object AnnaeEngine {
             return
         }
         when (y.danggye) {
-            Danggye.TANEUN_JUNG -> chaAnnae(w, d, y)
+            // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 배 안에서는 길 벗어남·사거리·간판 대신 바다 위 지금 자리(아이폰과 같음)
+            Danggye.TANEUN_JUNG -> if (yj.talgeot == Talgeot.SEONBAK) TalgeotJikimi.baeAnnae(w, d, y) else chaAnnae(w, d, y)
             Danggye.NAM_EUN_GIL -> { val t = bgJari(w, y.mokjeok.lat, y.mokjeok.lon, y.mokjeok.ireum); georeumAnnae(w, y.mokjeok.ireum, t.first, t.second, false, y) }   // 2.16.0 볼거리 자리
             else -> {}
         }

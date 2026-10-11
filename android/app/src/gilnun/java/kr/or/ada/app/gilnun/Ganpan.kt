@@ -58,6 +58,9 @@ object GanpanAllim {
         }
         // ① 달릴 때 — 위치로
         if (!st.ganpanOn || w.georeumChu || w.sokdo < 4 || w.banghyang < 0 || mutneunJung) return
+        // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 기차·고속버스·배이거나 시속 80킬로미터를 넘으면 간판을 쉼(아이폰과 같음)
+        val tg = YeojeongEngine.talgeot
+        if (tg == Talgeot.GICHA || tg == Talgeot.GOSOKBEOSEU || tg == Talgeot.SEONBAK || YeojeongEngine.choegeunGicha || w.sokdo * 3.6 > 80) return
         val gan = max(15, st.gilGap / 3) * 1000L          // 지나는 곳 간격의 3분의 1, 적어도 15초
         if (now - malT < gan || now - mureunT < 8000) return
         val j = mureunJari

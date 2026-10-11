@@ -296,7 +296,9 @@ object TalgeotGamji : SensorEventListener {
             }
             val naeryeoSigan = umjikMs / 1000.0 - 10.0
             val neurinNaeryeogam = naeryeoNopi >= 3 && naeryeoSigan > 0 && naeryeoNopi / naeryeoSigan < 0.6
-            val georeoNaeryeogam = (naeryeoGaneunGeoreum >= 6 || neurinNaeryeogam) && jigeumUmjigim != "탈것"
+            // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 기차 터널의 기압 내림을 땅속으로 보던 일 — 기차 지킴 중·10분 안에 기차 빠르기·1분 안에 탈것이 움직였으면 아님(아이폰과 같음)
+            val taneunJung = YeojeongEngine.choegeunGicha || (majimakTalgeot > 0 && now - majimakTalgeot < 60_000)
+            val georeoNaeryeogam = (naeryeoGaneunGeoreum >= 6 || neurinNaeryeogam) && jigeumUmjigim != "탈것" && !taneunJung
             if (jeonMax - h >= 3.5 && !wiseongJoeum && georeoNaeryeogam) {
                 if (naeryeogaTtae == 0L) naeryeogaTtae = now
                 if (now - naeryeogaTtae < 10000) return

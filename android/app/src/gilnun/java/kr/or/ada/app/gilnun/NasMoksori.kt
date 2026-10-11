@@ -129,7 +129,9 @@ object NasMoksori {
         val (u, pail) = juso(m.t)
         if (pail != null && pail.exists() && pail.length() > 500) { teulgi(b0, m, pail); return }
         // 2.31.0 (261009-A19, 이사장님 승인) 긴 말(말벗 대답 등)은 만드는 데 오래 걸림 — 글자 수에 맞춰 더 기다림(한 자에 0.03초, 많아야 8초, 아이폰과 같음)
-        val handO = minOf(8000, (if (m.geup == MalGeup.JEONGBO) 3000 else 2500) + m.t.length * 30)
+        // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 기다림을 늘림(처음 4초, 타고 가는 중 1.5초 더, 많아야 10초) — 아이폰과 같음
+        val tagoGam = if (YeojeongEngine.jigeum?.danggye == Danggye.TANEUN_JUNG) 1500 else 0
+        val handO = minOf(10000, (if (m.geup == MalGeup.JEONGBO) 4500 else 4000) + tagoGam + m.t.length * 40)
         il.execute {
             val ok = batgiDongi(u, pail, handO)
             main.post {

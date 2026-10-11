@@ -62,6 +62,7 @@ object SeoljeongDeo {
     var gilOn: Boolean get() = b("gilOn", true); set(v) = sb("gilOn", v)
     var gilGap: Int get() = i("gilGap", 60); set(v) = si("gilGap", v)
     var ganpanOn: Boolean get() = b("ganpanOn", true); set(v) = sb("ganpanOn", v)
+    var baeGap: Int get() = i("baeGap", 10); set(v) = si("baeGap", v)   // 2.36.0
     var ganpanKamera: Boolean get() = b("ganpanKamera", false); set(v) = sb("ganpanKamera", v)
     var hwaksinEum: Boolean get() = b("hwaksinEum", true); set(v) = sb("hwaksinEum", v)
 
@@ -236,6 +237,11 @@ class MalSeolHwamyeon : Hwamyeon("말하기 설정") {
         dolligi(t, { "차 안에서 지나는 곳 말하는 간격 — 지금 ${s.gilGap}초 (누르면 바뀝니다)" }) {
             s.gilGap = if (s.gilGap == 30) 60 else if (s.gilGap == 60) 120 else 30
             "${s.gilGap}초에 한 번까지 지금 달리는 길을 말씀드립니다."
+        }
+        // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 배 안 지금 자리 간격(아이폰과 같음)
+        dolligi(t, { "배 안에서 지금 자리 말하는 간격 — ${if (s.baeGap == 0) "꺼져 있음" else "지금 ${s.baeGap}분"} (누르면 바뀝니다)" }) {
+            s.baeGap = when (s.baeGap) { 10 -> 20; 20 -> 30; 30 -> 0; 0 -> 5; else -> 10 }
+            if (s.baeGap == 0) "배 안에서 지금 자리는 섬이나 등대를 지날 때와 물으실 때만 말씀드립니다." else "배 안에서 ${s.baeGap}분에 한 번 지금 자리를 말씀드립니다."
         }
         kyeogi(t, "차 안 간판 알림", { s.ganpanOn }, { s.ganpanOn = it }) {
             if (it) "달릴 때 지나는 가게와 건물을 시계 방향으로 알려 드립니다." else "지나는 가게와 건물을 알리지 않습니다."

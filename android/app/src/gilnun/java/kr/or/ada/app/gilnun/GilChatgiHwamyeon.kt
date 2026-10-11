@@ -194,6 +194,7 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
         }
         YeojeongEngine.byeonhwa = dasi
         JeomEngine.byeonhwa = dasi
+        TalgeotJikimi.byeonhwa = dasi   // 2.36.0
 
         // 지금 차례가 있으면 커서를 그 차례의 첫 단추로(화면을 처음 그릴 때)
         cheot?.let { t.chojeomJul(it) }
@@ -222,6 +223,7 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
             y.jiha?.let { sb.append("|j").append(it.ipguDochak).append(it.kkeutnam).append(it.to) }
             y.beoseu?.let { sb.append("|b").append(it.dochak).append(it.jeongryujang.ireum) }
         }
+        sb.append(if (TalgeotJikimi.naerimMureum) "N" else "-")   // 2.36.0 내리셨는지 여쭙기
         sb.append(JeomPan.giun())   // 2.7.0 b2 — 문이 여럿이 되거나 함께 시험 번호가 생기면 다시 그림
         return sb.toString()
     }
@@ -295,6 +297,19 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
                 }
             }
         }
+        // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 「내리셨습니까」를 여쭌 바로 그 자리에 대답 단추(아이폰과 같음)
+        if (TalgeotJikimi.naerimMureum && yj.danggye == Danggye.TANEUN_JUNG) {
+            t.danchu("아직 ${YeojeongEngine.talgeot.ireum}에 타고 있습니다 — 안내 이어 가기") { TalgeotJikimi.ajikTago() }
+        }
+        // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 탈것 바로잡기를 펼치기 밖, 맨 위 큰 단추 바로 아래에 — 지금 알고 있는 탈것은 빼고 나머지만(아이폰과 같음)
+        if (yj.danggye == Danggye.TANEUN_JUNG || (g != null && yj.danggye == Danggye.TANEUN_GOT_KKAJI)) {
+            val jigeum = YeojeongEngine.talgeot
+            val namjeo = listOf(Talgeot.GICHA to "기차", Talgeot.CHA to "택시·차", Talgeot.BEOSEU to "버스", Talgeot.JIHACHEOL to "지하철", Talgeot.SEONBAK to "배")
+                .filter { it.first != jigeum }
+            namjeo.forEachIndexed { i, (tg, ireum) ->
+                t.danchu(if (i == 0) "${ireum}입니다 — 바로잡기, 지금은 ${jigeum.ireum}로 알고 있습니다" else "${ireum}입니다 — 바로잡기") { a.talgeotBarojapgi(tg) }
+            }
+        }
         if (yj.danggye != Danggye.DOCHAK) {
             t.pyeolchigi("여정 다른 할 일", yeojeongPyeol) { yeojeongPyeol = !yeojeongPyeol }
             if (yeojeongPyeol) {
@@ -308,10 +323,6 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
                     if (g != null) {
                         t.danchu((if (yj.danggye == Danggye.TANEUN_JUNG) "밖으로 나왔습니다" else "걸어서 갑니다") + " — 남은 길 걸어서 안내") { a.naeryeotda() }
                     }
-                    t.danchu("택시·차입니다 — 차 안 안내로") { a.talgeotBarojapgi(Talgeot.CHA) }
-                    t.danchu("버스입니다 — 버스 안 안내로") { a.talgeotBarojapgi(Talgeot.BEOSEU) }
-                    t.danchu("지하철입니다 — 지나는 역 알려 주기") { a.talgeotBarojapgi(Talgeot.JIHACHEOL) }
-                    t.danchu("기차입니다 — 기차 안 안내로") { a.talgeotBarojapgi(Talgeot.GICHA) }
                     t.danchu("그 밖의 탈것 바로잡기 — 지금 ${YeojeongEngine.talgeot.ireum}로 알고 있습니다") { t.yeolgi(TalgeotHwamyeon()) }
                 }
                 t.danchu("지금 내 자리 듣기") { a.jigeumJari() }

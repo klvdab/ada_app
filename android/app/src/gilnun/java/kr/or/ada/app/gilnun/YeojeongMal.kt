@@ -218,7 +218,7 @@ object YeojeongMal {
         var tg = tg0 ?: talgeotDaegi
         talgeotDaegi = null
         if (tg == null) {
-            if (taneunJung) tg = if (yj.sokdoChujeong == Talgeot.JIHACHEOL) Talgeot.JIHACHEOL else Talgeot.CHA   // 2.9.0 땅속에서 타고 가는 중이면 지하철로
+            if (taneunJung) tg = yj.jikimTalgeot ?: (if (yj.sokdoChujeong == Talgeot.JIHACHEOL) Talgeot.JIHACHEOL else Talgeot.CHA)   // 2.9.0 땅속이면 지하철로, 2.36.0 기차·배 지킴이면 그 탈것
             else if (d == null || d <= 2000) tg = Talgeot.GEOREUM
         }
         val mk = Mokjeok(j.ireum, j.lat, j.lon, j.juso)
@@ -243,9 +243,9 @@ object YeojeongMal {
                     }
                 }
             }
-            Talgeot.CHA, Talgeot.GICHA, Talgeot.GOSOKBEOSEU -> {
+            Talgeot.CHA, Talgeot.GICHA, Talgeot.GOSOKBEOSEU, Talgeot.SEONBAK -> {
                 if (taneunJung) {
-                    dap(apMal + "타고 가시는 중이니 차 안 안내로 잇습니다.", false)
+                    dap(apMal + "타고 가시는 중이니 ${if (tg == Talgeot.CHA) "차" else tg.ireum} 안 안내로 잇습니다.", false)
                     AnnaeEngine.chaTagi(j)
                 } else {
                     yj.jeonghagi(mk)
@@ -333,6 +333,7 @@ object YeojeongMal {
             Talgeot.BEOSEU -> 5.0 to 1.4
             Talgeot.GICHA -> 25.0 to 1.2
             Talgeot.GOSOKBEOSEU -> 20.0 to 1.2
+            Talgeot.SEONBAK -> 8.0 to 1.15   // 2.36.0 배(시속 약 29킬로미터)
             Talgeot.CHA -> 7.0 to 1.35
         }
         val bun = maxOf(1, Math.round(d * doragam / sokdo / 60).toInt())
