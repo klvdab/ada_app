@@ -68,7 +68,7 @@ object Naeryeo {
             val d = dir(ac, i); d.mkdirs()
             val ok = runCatching {
                 if (kind == "geul") {
-                    val j = Api.getJson("dokseo.php", mapOf("m" to "gul", "i" to "$i", "all" to "1"))
+                    val j = Api.getJson("dokseo.php", mapOf("m" to "gul", "i" to "$i", "all" to "1", "gp" to "4"))
                     val a = j.optJSONArray("mun")
                     if (j.optBoolean("ok") && a != null && a.length() > 0) { File(d, "paras.json").writeText(a.toString(), Charsets.UTF_8); true } else false
                 } else Api.naeryeo(Api.mediaUrl(i), File(d, "sori.mp3")) { meomchum }
