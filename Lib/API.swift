@@ -1,4 +1,4 @@
-// AI점자도서관 앱 — 나스 창구 부르기 (판 0.3.0, 빌드 261006-1) — 목록 줄 수, 책 전체 글 받기
+// AI점자도서관 앱 — 나스 창구 부르기 (판 0.5.2, 빌드 261012-L11 — 글 판 4: 강제 줄바꿈 바로잡은 글, 옛 자리 옮기기) (판 0.3.0, 빌드 261006-1) — 목록 줄 수, 책 전체 글 받기
 // 앱은 나스(lvd.ada.or.kr)로 요청만 넣고, 목소리 굽기는 서버 일꾼이 맡는다.
 import Foundation
 
@@ -38,8 +38,10 @@ enum API {
     static func book(_ i: Int) async throws -> BookResp { try await get("doseo.php", ["m": "j_book", "i": String(i)], as: BookResp.self) }
 
     // 독서기: 글자 한 쪽(60문단), 소리 요청, 소리 받기, 소리책·동영상 주소
-    static func gulAll(_ i: Int) async throws -> GulResp { try await get("dokseo.php", ["m": "gul", "i": String(i), "all": "1"], as: GulResp.self) }   // 0.3.0 — 내려받기: 책 전체 글을 한 번에
-    static func gul(_ i: Int, _ o: Int) async throws -> GulResp { try await get("dokseo.php", ["m": "gul", "i": String(i), "o": String(o)], as: GulResp.self) }
+    static func gulAll(_ i: Int) async throws -> GulResp { try await get("dokseo.php", ["m": "gul", "i": String(i), "all": "1", "gp": "4"], as: GulResp.self) }   // 0.3.0 — 내려받기: 책 전체 글을 한 번에
+    static func gul(_ i: Int, _ o: Int) async throws -> GulResp { try await get("dokseo.php", ["m": "gul", "i": String(i), "o": String(o), "gp": "4"], as: GulResp.self) }
+    // 0.5.2 (261012) 글 판 4 — 옛 판 문단 자리(여럿)를 새 판 문단 자리로
+    static func jari(_ i: Int, _ o: [Int]) async throws -> JariResp { try await get("dokseo.php", ["m": "jari", "i": String(i), "o": o.map { String($0) }.joined(separator: ",")], as: JariResp.self) }
 
     static func yocheong(_ text: String, voice: Int) async throws -> YoResp {
         var r = request(url("dokseo.php", ["m": "yocheong"]))
@@ -81,6 +83,7 @@ struct Item: Decodable, Identifiable, Hashable {
     let g: String?
     var id: String { if let i { return "b\(i)" }; return "j\(j ?? t)" }
 }
+struct JariResp: Decodable { let ok: Bool; let jari: [Int]? }   // 0.5.2
 struct ListResp: Decodable { let ok: Bool; let modu: Int?; let o: Int?; let items: [Item]?; let ttl: String?; let msg: String? }
 struct BookResp: Decodable { let ok: Bool; let i: Int?; let t: String?; let g: String?; let meg: Double?; let nal: String?; let kind: String?; let sogae: String?; let jieun: String?; let chulpan: String?; let msg: String? }
 struct GulResp: Decodable { let ok: Bool; let ttl: String?; let modu: Int?; let o: Int?; let mun: [String]?; let msg: String? }
