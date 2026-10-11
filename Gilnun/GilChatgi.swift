@@ -202,8 +202,11 @@ struct YeojeongPan: View {
     let yj: Yeojeong
     var chojeom: AccessibilityFocusState<Bool>.Binding
     @ObservedObject private var a = AnnaeEngine.shared
+    @ObservedObject private var jikimi = TalgeotJikimi.shared   // 2.64.0 내리셨는지 여쭙기
 
     private var mok: String { yj.mokjeok.ireum }
+    /// 2.64.0 (261011-I18) 바로잡기 단추 — 기차를 맨 앞에
+    private let barojapgiMokrok: [(Talgeot, String)] = [(.gicha, "기차"), (.cha, "택시·차"), (.beoseu, "버스"), (.jihacheol, "지하철"), (.seonbak, "배")]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -213,6 +216,22 @@ struct YeojeongPan: View {
                 jihaDanchu(g)
             } else {
                 gibonDanchu
+            }
+            // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 「내리셨습니까」를 여쭌 바로 그 자리에 대답 단추
+            if jikimi.naerimMureum && yj.danggye == .taneunJung {
+                Button("아직 \(YeojeongEngine.shared.talgeot.ireum)에 타고 있습니다 — 안내 이어 가기") { jikimi.ajikTago() }
+                    .buttonStyle(KeunDanchu())
+            }
+            // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 탈것 바로잡기를 펼치기 밖, 맨 위 큰 단추 바로 아래에 둠 —
+            //   KTX에서 바로잡는 단추를 찾지 못해 내렸습니다로 여정을 끝내셔야 했던 일. 지금 알고 있는 탈것은 빼고 나머지만
+            if yj.danggye == .taneunJung || (yj.jiha != nil && yj.danggye == .taneunGotKkaji) {
+                let jigeum = YeojeongEngine.shared.talgeot
+                let namjeo = barojapgiMokrok.filter { $0.0 != jigeum }
+                // 지금 알고 있는 탈것은 첫 단추에만 붙여 같은 말을 되풀이해 듣지 않게
+                ForEach(Array(namjeo.enumerated()), id: \.element.0) { i, e in
+                    Button(i == 0 ? "\(e.1)입니다 — 바로잡기, 지금은 \(jigeum.ireum)로 알고 있습니다" : "\(e.1)입니다 — 바로잡기") { a.talgeotBarojapgi(e.0) }
+                        .buttonStyle(KeunDanchu())
+                }
             }
             if yj.danggye != .dochak {
                 DisclosureGroup("여정 다른 할 일 펼치기") {
@@ -227,10 +246,6 @@ struct YeojeongPan: View {
                             if yj.jiha != nil {
                                 Button((yj.danggye == .taneunJung ? "밖으로 나왔습니다" : "걸어서 갑니다") + " — 남은 길 걸어서 안내") { a.naeryeotda() }.buttonStyle(KeunDanchu())
                             }
-                            Button("택시·차입니다 — 차 안 안내로") { a.talgeotBarojapgi(.cha) }.buttonStyle(KeunDanchu())
-                            Button("버스입니다 — 버스 안 안내로") { a.talgeotBarojapgi(.beoseu) }.buttonStyle(KeunDanchu())
-                            Button("지하철입니다 — 지나는 역 알려 주기") { a.talgeotBarojapgi(.jihacheol) }.buttonStyle(KeunDanchu())
-                            Button("기차입니다 — 기차 안 안내로") { a.talgeotBarojapgi(.gicha) }.buttonStyle(KeunDanchu())
                             NavigationLink(value: GilHwamyeon.talgeot) {
                                 Text("그 밖의 탈것 바로잡기 — 지금 \(YeojeongEngine.shared.talgeot.ireum)로 알고 있습니다")
                             }

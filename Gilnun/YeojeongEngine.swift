@@ -7,6 +7,8 @@ import Combine
 
 enum Talgeot: String, Codable, CaseIterable {
     case georeum, cha, jihacheol, beoseu, gicha, gosokbeoseu
+    /// 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 배(여객선·도선)
+    case seonbak
     var ireum: String {
         switch self {
         case .georeum: return "걸어서"
@@ -15,6 +17,7 @@ enum Talgeot: String, Codable, CaseIterable {
         case .beoseu: return "버스"
         case .gicha: return "기차"
         case .gosokbeoseu: return "고속버스"
+        case .seonbak: return "배"
         }
     }
 }
@@ -50,6 +53,9 @@ struct Yeojeong: Codable {
     var beoseu: BeoseuGil? = nil  // 버스로 가는 여정이면 그 정류장
     /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 지하철 안내를 역 입구 없이 짐작으로 시작했는가 — 앱을 다시 켜도 잇도록 담음
     var jungganJadong: Bool? = nil
+    /// 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 탈것 지킴(기차·배) — 알아챘거나 「기차입니다」·「배입니다」를 누르시면 바꾸실 때까지 지킴.
+    ///   기차·배 안에서 걸어 다니셔도(화장실·매점·갑판) 풀지 않음. 다른 탈것으로 바로잡으시거나 내렸습니다·도착·여정 끝에만 풂
+    var jikim: Talgeot? = nil
 }
 
 final class YeojeongEngine: ObservableObject {
@@ -64,7 +70,16 @@ final class YeojeongEngine: ObservableObject {
     private var neurinTtae: Date?
     /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 시속 150킬로미터 넘게 달린 마지막 때 — 10분 안이면 기차를 타고 계신 것으로 보고 지하철 짐작을 하지 않음
     private var gichaTtae: Date?
-    var choegeunGicha: Bool { gichaTtae.map { Date().timeIntervalSince($0) < 600 } ?? false }
+    var choegeunGicha: Bool { gichaJikimJung || (gichaTtae.map { Date().timeIntervalSince($0) < 600 } ?? false) }
+    /// 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 지키는 탈것(기차·배)
+    var jikimTalgeot: Talgeot? { jigeum?.jikim }
+    var gichaJikimJung: Bool { jikimTalgeot == .gicha }
+    var jikimJung: Bool { jikimTalgeot != nil }
+    /// 2.64.0 기차·배로 알게 되었을 때 안내 쪽(AnnaeEngine)에 알림 — 탈것과 까닭 글을 함께 보냄
+    let jikimSinho = PassthroughSubject<(Talgeot, String), Never>()
+    /// 2.64.0 시속 150 넘은 자료 수(20초 안) — 한 번 튄 값에 속지 않게 두 번이면 기차
+    private var gichaSu = 0
+    private var gichaSuTtae: Date?
     private let pail: URL
 
     init() {
@@ -81,6 +96,16 @@ final class YeojeongEngine: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] t in
                 guard let self = self, TalgeotGamji.shared.sseulSuItda else { return }
+                // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 기차 지킴 중에는 움직임 감지기의 판단(차·지하철·걸음)으로 바꾸지 않음
+                if self.jikimJung { return }
+                // 2.64.0 기차역 근처에서 탔고 목적지가 멀리 있는 기차역이면 처음부터 기차(부산역에서 지하철로 알던 일)
+                if (t == .cha || t == .jihacheol), self.sokdoChujeong == .georeum || self.sokdoChujeong == .jihacheol,
+                   let y = self.jigeum, y.barojabeum == false || y.talgeot == .gicha,
+                   let w = TalgeotGamji.shared.chaSijakJari ?? WichiEngine.shared.jigeum,
+                   let yeok = GichaYeok.gichaInga(tan: w.lat, w.lon, mok: y.mokjeok) {
+                    self.jikimSijak(.gicha, "\(yeok)역에서 탐")
+                    return
+                }
                 if self.sokdoChujeong == .gicha && t == .cha { return }   // 기차는 빠르기로만 알아챔
                 if self.sokdoChujeong == .gicha && t == .jihacheol && self.choegeunGicha { return }   // 2.61.0 기차 터널을 지하철로 보지 않음
                 if t != self.sokdoChujeong { self.sokdoChujeong = t }
@@ -100,9 +125,17 @@ final class YeojeongEngine: ObservableObject {
     }
 
     func jeonghagi(_ m: Mokjeok) {
+        // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 기차 안에서 목적지를 바꾸셔도 기차 지킴은 그대로
+        let jikimIeum: Talgeot? = jigeum?.danggye == .taneunJung ? jigeum?.jikim : nil
         talgeotSaeroBogi()
         jigeum = Yeojeong(mokjeok: m, danggye: .eotteoke, talgeot: .georeum, barojabeum: false,
                           sijak: Date(), gaengsin: Date())
+        if let jt = jikimIeum {
+            jigeum?.jikim = jt
+            jigeum?.talgeot = jt
+            if jt == .gicha { sokdoChujeong = .gicha }
+            DispatchQueue.main.async { self.jikimSinho.send((jt, "\(jt.ireum) 안에서 목적지를 바꾸심")) }
+        }
         Girok.shared.namgi("yeojeong_sijak", ["mok": m.ireum])
         jeojang()
     }
@@ -129,6 +162,8 @@ final class YeojeongEngine: ObservableObject {
     func danggyeBakkugi(_ d: Danggye) {
         guard var y = jigeum else { return }
         y.danggye = d
+        // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 내리셨거나 도착하면 기차 지킴을 풂
+        if d == .namEunGil || d == .dochak || d == .eotteoke { y.jikim = nil }
         y.gaengsin = Date()
         jigeum = y
         Girok.shared.namgi("yeojeong_danggye", ["d": d.rawValue])
@@ -189,9 +224,12 @@ final class YeojeongEngine: ObservableObject {
         guard var y = jigeum else { return }
         y.talgeot = t
         y.barojabeum = true
+        // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 「기차입니다」는 바꾸실 때까지 지킴, 다른 탈것으로 바로잡으시면 풂
+        y.jikim = (t == .gicha || t == .seonbak) ? t : nil
+        if t != .gicha && sokdoChujeong == .gicha { gichaTtae = nil; sokdoChujeong = .georeum }   // 빠르기로 알던 기차도 함께 내려놓음
         y.gaengsin = Date()
         jigeum = y
-        Girok.shared.namgi("yeojeong_barojapgi", ["t": t.rawValue])
+        Girok.shared.namgi("yeojeong_barojapgi", ["tal": t.rawValue])
         jeojang()
     }
 
@@ -202,9 +240,28 @@ final class YeojeongEngine: ObservableObject {
         try? FileManager.default.removeItem(at: pail)
     }
 
-    /// 지금 탈것 — 바로잡은 것이 가장 앞서고, 그다음이 빠르기로 알아챈 것
+    /// 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 탈것 지킴 시작(기차·배) — 바꾸실 때까지 지킴
+    func jikimSijak(_ t: Talgeot, _ kkadak: String) {
+        guard var y = jigeum, y.jikim != t else {
+            if t == .gicha && sokdoChujeong != .gicha { sokdoChujeong = .gicha }
+            return
+        }
+        if y.barojabeum && y.talgeot != t { return }   // 이용자가 다른 탈것으로 바로잡으신 것이 가장 앞섬
+        y.jikim = t
+        y.talgeot = t
+        y.gaengsin = Date()
+        jigeum = y
+        jeojang()
+        if t == .gicha { gichaTtae = Date() }
+        Girok.shared.namgi("jikim", ["tal": t.rawValue, "kkadak": kkadak])
+        if t == .gicha && sokdoChujeong != .gicha { sokdoChujeong = .gicha }
+        jikimSinho.send((t, kkadak))
+    }
+
+    /// 지금 탈것 — 바로잡은 것이 가장 앞서고, 그다음이 기차 지킴, 그다음이 빠르기로 알아챈 것
     var talgeot: Talgeot {
         if let y = jigeum, y.barojabeum { return y.talgeot }
+        if let jt = jikimTalgeot { return jt }
         if sokdoChujeong != .georeum { return sokdoChujeong }
         return jigeum?.talgeot ?? .georeum
     }
@@ -216,17 +273,31 @@ final class YeojeongEngine: ObservableObject {
 
     /// 시속 15킬로미터를 15초 넘게 넘으면 차(시속 150을 넘으면 기차), 시속 8 아래로 3분이면 걸음
     private func sokdoBoda(_ w: Wichi) {
-        guard !w.georeumChu, w.ochae <= 30 else { return }
+        guard !w.georeumChu, w.ochae <= 50 else { return }
         let kmh = w.sokdo * 3.6
         let now = Date()
         if kmh > 150 { gichaTtae = now }   // 2.61.0 기차 기억(잠깐이라도 시속 150 넘으면)
+        // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 예전에는 시속 150을 15초 동안 한 번도 끊기지 않고 넘어야 기차였음 —
+        //   KTX는 역 앞뒤·굽은 길·터널에서 빠르기가 출렁여 이 잣대를 채우지 못했음. 이제 20초 안에 시속 150 넘은 자료가 두 번이면 기차로 보고 지킴
+        //   (차는 시속 150을 넘지 않음. 한 번 튄 값에는 속지 않음)
+        if kmh > 150 && w.ochae <= 30 {
+            if let t0 = gichaSuTtae, now.timeIntervalSince(t0) > 20 { gichaSu = 0 }
+            if gichaSu == 0 { gichaSuTtae = now }
+            gichaSu += 1
+            if gichaSu >= 2 && !gichaJikimJung && jikimTalgeot != .seonbak {
+                Girok.shared.namgi("talgeot_chujeong", ["tal": "gicha", "kmh": Int(kmh)])
+                jikimSijak(.gicha, "시속 \(Int(kmh))킬로미터")
+                if jigeum == nil && sokdoChujeong != .gicha { sokdoChujeong = .gicha }
+            }
+        }
+        if jikimJung { return }
         // 2.40.0 움직임 감지기가 있는 폰은 걷기·차·버스·지하철을 TalgeotGamji 가 가림 — 여기서는 기차(시속 150 넘게 15초)만 봄
         if TalgeotGamji.shared.sseulSuItda {
             if kmh > 150 {
                 if ppareunTtae == nil { ppareunTtae = now }
                 if let t = ppareunTtae, now.timeIntervalSince(t) >= 15, sokdoChujeong != .gicha {
                     sokdoChujeong = .gicha
-                    Girok.shared.namgi("talgeot_chujeong", ["t": "gicha", "kmh": Int(kmh)])
+                    Girok.shared.namgi("talgeot_chujeong", ["tal": "gicha", "kmh": Int(kmh)])
                 }
             } else {
                 ppareunTtae = nil
@@ -241,7 +312,7 @@ final class YeojeongEngine: ObservableObject {
                 let sae: Talgeot = kmh > 150 ? .gicha : (sokdoChujeong == .gicha ? .gicha : .cha)
                 if sae != sokdoChujeong {
                     sokdoChujeong = sae
-                    Girok.shared.namgi("talgeot_chujeong", ["t": sae.rawValue, "kmh": Int(kmh)])
+                    Girok.shared.namgi("talgeot_chujeong", ["tal": sae.rawValue, "kmh": Int(kmh)])
                 }
             }
         } else if kmh < 8 {
@@ -249,7 +320,7 @@ final class YeojeongEngine: ObservableObject {
             if neurinTtae == nil { neurinTtae = now }
             if let t = neurinTtae, now.timeIntervalSince(t) >= 180, sokdoChujeong != .georeum {
                 sokdoChujeong = .georeum
-                Girok.shared.namgi("talgeot_chujeong", ["t": "georeum", "kmh": Int(kmh)])
+                Girok.shared.namgi("talgeot_chujeong", ["tal": "georeum", "kmh": Int(kmh)])
             }
         }
     }

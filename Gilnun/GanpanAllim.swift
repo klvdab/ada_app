@@ -37,6 +37,10 @@ final class GanpanAllim {
         }
         // ① 달릴 때 — 위치로
         guard st.ganpanOn, !w.georeumChu, w.sokdo >= 4, w.banghyang >= 0, !mutneunJung else { return }
+        // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) KTX 안에서 간판을 94번(시속 295킬로미터에서도) 알리던 일 —
+        //   기차·고속버스이거나 시속 80킬로미터를 넘으면 간판을 쉼(지나가 버려 쓸모가 없음)
+        let tg = YeojeongEngine.shared.talgeot
+        guard tg != .gicha, tg != .gosokbeoseu, tg != .seonbak, !YeojeongEngine.shared.choegeunGicha, w.sokdo * 3.6 <= 80 else { return }
         let gan = Double(max(15, st.gilGap / 3))           // 지나는 곳 간격의 3분의 1, 적어도 15초
         guard now.timeIntervalSince(malT) >= gan, now.timeIntervalSince(mureunT) >= 8 else { return }
         if let j = mureunJari, GanpanAllim.geori(j.0, j.1, w.lat, w.lon) < 60 { return }

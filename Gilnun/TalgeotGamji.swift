@@ -278,7 +278,10 @@ final class TalgeotGamji: ObservableObject {
                 }
             }
             let neurinNaeryeogam = naeryeoNopi >= 3 && naeryeoSigan > 0 && naeryeoNopi / naeryeoSigan < 0.6
-            let georeoNaeryeogam = (manbo || neurinNaeryeogam) && jigeumUmjigim != "탈것"
+            // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 기차가 터널로 들어가며 기압이 내려간 것을 땅속으로 보던 일(KTX 세 번, 걸음 0) —
+            //   기차 지킴 중이거나 10분 안에 기차 빠르기였거나, 1분 안에 탈것이 움직였으면 땅속으로 보지 않음
+            let taneunJung = YeojeongEngine.shared.choegeunGicha || (majimakTalgeot.map { now.timeIntervalSince($0) < 60 } ?? false)
+            let georeoNaeryeogam = (manbo || neurinNaeryeogam) && jigeumUmjigim != "탈것" && !taneunJung
             if jeonMax - h >= 3.5 && !TalgeotGamji.wiseongJoeum && georeoNaeryeogam {
                 if naeryeogaTtae == nil { naeryeogaTtae = now }
                 guard let nt = naeryeogaTtae, now.timeIntervalSince(nt) >= 10 else { return }

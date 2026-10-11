@@ -144,6 +144,12 @@ struct MalSeolDeoView: View {
                 SoriEngine.shared.mal("\(s.gilGap)초에 한 번까지 지금 달리는 길을 말씀드립니다.")
             }
             .buttonStyle(KeunDanchu())
+            // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 배 안 지금 자리 간격
+            Button("배 안에서 지금 자리 말하는 간격 — " + (s.baeGap == 0 ? "꺼져 있음" : "지금 \(s.baeGap)분") + " (누르면 바뀝니다)") {
+                s.baeGap = s.baeGap == 10 ? 20 : (s.baeGap == 20 ? 30 : (s.baeGap == 30 ? 0 : (s.baeGap == 0 ? 5 : 10)))
+                SoriEngine.shared.mal(s.baeGap == 0 ? "배 안에서 지금 자리는 섬이나 등대를 지날 때와 물으실 때만 말씀드립니다." : "배 안에서 \(s.baeGap)분에 한 번 지금 자리를 말씀드립니다.")
+            }
+            .buttonStyle(KeunDanchu())
             // 2.25.0 차 안 간판 알림
             Button("차 안 간판 알림 — " + (s.ganpanOn ? "켜져 있음 (누르면 끕니다)" : "꺼져 있음 (누르면 켭니다)")) {
                 s.ganpanOn.toggle()

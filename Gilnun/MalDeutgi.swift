@@ -31,7 +31,8 @@ final class MalDeutgi: NSObject {
     enum Bangsik { case myeongryeong, bureum }
 
     private let recog = SFSpeechRecognizer(locale: Locale(identifier: "ko-KR"))
-    private let engine = AVAudioEngine()
+    /// 2.64.0 (261011-I18) 마이크 길이 비어 있으면(소리 자리가 재생 전용이던 때 만들어진 엔진) 새 엔진으로 바꿔 끼우려고 var
+    private var engine = AVAudioEngine()
     private var req: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
     private var beon = 0
@@ -137,8 +138,10 @@ final class MalDeutgi: NSObject {
     override init() {
         super.init()
         // 다른 소리가 소리 자리를 바꿔 마이크가 멎으면 곧바로 다시 돌림
-        NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main) { [weak self] _ in
-            self?.dasiDollim()
+        // 2.64.0 엔진을 새로 바꿔 끼울 수 있으므로 지금 엔진에서 온 알림인지 보고 받음
+        NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: nil, queue: .main) { [weak self] n in
+            guard let self = self, (n.object as AnyObject?) === self.engine else { return }
+            self.dasiDollim()
         }
         // 2.27.0 새 알아듣기 부품의 한국어 모델을 미리 준비
         if #available(iOS 26.0, *) { SaeDeutgi.junbiHagi() }
@@ -339,7 +342,7 @@ final class MalDeutgi: NSObject {
                 return false
             }
         }
-        let inp = engine.inputNode
+        var inp = engine.inputNode
         // 2.12.2 걸러 듣기 — 하이 길눈과 "방송 중에도 하이 길눈 듣기"를 켜 두셨을 때
         let geureo = false   // 2.12.3 걸러 듣기를 쓰지 않음(켜져 있던 폰은 여기서 끔)
         if inp.isVoiceProcessingEnabled != geureo {
@@ -357,7 +360,25 @@ final class MalDeutgi: NSObject {
             }
             _ = engine.mainMixerNode   // 걸러 듣기는 소리 내보내는 길도 함께 있어야 돌아감
         }
-        let fmt = inp.outputFormat(forBus: 0)
+        var fmt = inp.outputFormat(forBus: 0)
+        // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) KTX 부산역에서 이어폰 단추가 켜진 바로 뒤 말로 하기가 여섯 번 모두 「마이크 없음」으로
+        //   실패하던 일 — 이어폰 단추가 소리 자리를 재생 전용으로 잡은 사이에 만들어진 엔진은 마이크 길이 비어 있음(빠르기 0).
+        //   그럴 때 엔진을 새로 만들어 마이크 길을 다시 받고, 그래도 비면 소리 자리를 껐다 켜서 한 번 더
+        if fmt.sampleRate <= 0 || fmt.channelCount == 0 {
+            engine.stop()
+            inp.removeTap(onBus: 0)
+            engine = AVAudioEngine()
+            inp = engine.inputNode
+            fmt = inp.inputFormat(forBus: 0)
+            if fmt.sampleRate <= 0 || fmt.channelCount == 0 {
+                try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+                try? sesyeon(b, seokgi: true)
+                engine = AVAudioEngine()
+                inp = engine.inputNode
+                fmt = inp.inputFormat(forBus: 0)
+            }
+            Girok.shared.namgi("maik_saeengine", ["ok": fmt.sampleRate > 0 && fmt.channelCount > 0])
+        }
         guard fmt.sampleRate > 0, fmt.channelCount > 0 else {
             Girok.shared.namgi("maldeutgi_mot", ["kkadak": "mike_eopseum"])
             return false

@@ -757,6 +757,9 @@ final class MalHagi: ObservableObject {
                 tk = .gicha
             } else if z.contains("고속버스탔") || z.contains("고속버스야") || z.contains("고속버스예요") || z.contains("고속버스에요") || z.contains("고속버스입니다") || z.contains("고속버스타고") {
                 tk = .gosokbeoseu
+            } else if z.contains("배탔") || z.contains("배야") || z.contains("배예요") || z.contains("배에요") || z.contains("배입니다") || z.contains("배타고")
+                        || z.contains("여객선") || z.contains("페리") || z.contains("선박") {
+                tk = .seonbak   // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」)
             } else if z.contains("택시탔") || z.contains("택시야") || z.contains("택시예요") || z.contains("택시에요") || z.contains("택시입니다") || z.contains("택시타고") {
                 tk = .cha
             }
@@ -1830,6 +1833,7 @@ final class MalHagi: ObservableObject {
         if tg == nil {
             if taneunJung {
                 tg = yj.sokdoChujeong == .jihacheol ? .jihacheol : .cha   // 2.40.0 땅속에서 타고 가는 중이면 지하철로
+                if let jt = yj.jikimTalgeot { tg = jt }   // 2.64.0 기차·배 지킴 중이면 그 탈것으로
             } else if d == nil || (d ?? 0) <= 2000 {
                 tg = .georeum
             }
@@ -1856,9 +1860,9 @@ final class MalHagi: ObservableObject {
                     dap(apMal, false)
                 }
             }
-        case .cha, .gicha, .gosokbeoseu:
+        case .cha, .gicha, .gosokbeoseu, .seonbak:
             if taneunJung {
-                dap(apMal + "타고 가시는 중이니 차 안 안내로 잇습니다.", false)
+                dap(apMal + "타고 가시는 중이니 \(g == .cha ? "차" : g.ireum) 안 안내로 잇습니다.", false)
                 AnnaeEngine.shared.chaTagi(j)
             } else {
                 yj.jeonghagi(mk)
@@ -2214,6 +2218,7 @@ final class MalHagi: ObservableObject {
         case .beoseu: sokdo = 5.0; doragam = 1.4
         case .gicha: sokdo = 25; doragam = 1.2
         case .gosokbeoseu: sokdo = 20; doragam = 1.2
+        case .seonbak: sokdo = 8; doragam = 1.15   // 2.64.0 배(시속 약 29킬로미터)
         case .cha: sokdo = 7.0; doragam = 1.35
         }
         let bun = max(1, Int((d * doragam / sokdo / 60).rounded()))

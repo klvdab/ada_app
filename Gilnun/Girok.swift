@@ -69,7 +69,8 @@ final class Girok {
 
     func namgi(_ e: String, _ d: [String: Any] = [:]) {
         var row: [String: Any] = ["t": Date().timeIntervalSince1970, "e": e]
-        for (k, v) in d where JSONSerialization.isValidJSONObject([k: v]) { row[k] = v }
+        // 2.64.0 (261011-I18) 칸 이름 "t"·"e" 가 기록 시각·이름을 덮어써 지우던 것 — 그런 칸은 이름 뒤에 _ 를 붙여 남김
+        for (k, v) in d where JSONSerialization.isValidJSONObject([k: v]) { row[(k == "t" || k == "e") ? k + "_" : k] = v }
         q.async {
             self.jul.append(row)
             if self.jul.count > 2000 { self.jul.removeFirst(self.jul.count - 2000) }

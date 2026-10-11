@@ -273,7 +273,10 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
         guard let url = url else { msDaesin(b0, u); return }
         // 2.60.0 (261009-I14, 이사장님 승인) 말벗 대답처럼 긴 말은 만드는 데 오래 걸려 3초 안에 못 받고 늘 폰 목소리로 나가던 일 —
         //   글자 수에 맞춰 더 기다림(한 자에 0.03초, 많아야 8초). 긴 말을 못 받은 것은 세 번 실패(5분 쉼)에 셈하지 않음
-        let handO: Double = min(8.0, (m.geup == .jeongbo ? 3.0 : 2.5) + Double(m.t.count) * 0.03)
+        // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) KTX에서 21번 모두 못 받던 일 — 협회 서버가 짧은 말도 만드는 데 2초 남짓 걸리고
+        //   달리는 기차 안 통신은 더 늦음. 기다림을 늘림(처음 4초, 한 자에 0.04초, 많아야 10초). 타고 가는 중이면 1.5초 더
+        let tagoGam = YeojeongEngine.shared.jigeum?.danggye == .taneunJung ? 1.5 : 0
+        let handO: Double = min(10.0, (m.geup == .jeongbo ? 4.5 : 4.0) + tagoGam + Double(m.t.count) * 0.04)
         var rq = URLRequest(url: url, timeoutInterval: handO)
         rq.cachePolicy = .reloadIgnoringLocalCacheData
         URLSession.shared.dataTask(with: rq) { [weak self] d, res, _ in
