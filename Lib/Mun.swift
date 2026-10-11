@@ -1,4 +1,5 @@
-// AI점자도서관 앱 — 세 겹의 문(주제별, 장르별, 테마별) (판 0.5.0, 빌드 261010-L9)
+// AI점자도서관 앱 — 세 겹의 문(주제별, 장르별, 테마별)과 외국 도서 (판 0.5.2, 빌드 261012-L11)
+// 0.5.2 (261012-L11, 도서관 창 클, 이사장님 승인 「1」) 외국 도서 문 — 외국 도서 → 언어 → 장르와 주제(서버 j_mun 의 oeguk, oe:언어 문)
 // 0.5.0 (261010-L9, 도서관 창 클, 이사장님 승인 「1」) 첫 화면에 고른 문의 서가 목록을 바로 보임(설정의 첫 화면 목록, 처음 값 장르별),
 //       「보일 책」 거르기를 뺌(늘 모든 책). 0.3.0 (261006-1) 처음 판
 // 나스 도서관 창구 doseo.php 의 j_mun(문과 서가 수), j_seoga(서가 안 책 목록)를 쓴다. 파일은 옮기지 않고 목록 카드로 분류한 것.
@@ -21,7 +22,9 @@ extension API {
 
 // 0.5.0 — 세 문의 이름(설정의 첫 화면 목록과 함께 씀)
 enum MunIreum {
-    static let modu: [(String, String)] = [("jujae", "주제별"), ("jangreu", "장르별"), ("tema", "테마별")]
+    static let modu: [(String, String)] = [("jujae", "주제별"), ("jangreu", "장르별"), ("tema", "테마별"), ("oeguk", "외국 도서")]   // 0.5.2 외국 도서
+    // 0.5.2 — 외국 도서 문에서 언어를 고르면 그 언어의 장르와 주제(문 "oe:언어")로, 그 밖은 서가 책 목록으로
+    static func gagi(_ mun: String, _ s: Seoga) -> Route { mun == "oeguk" ? Route.mun("oe:" + s.k, s.t) : Route.seoga(mun, s.k, s.t) }
     static func t(_ k: String) -> String { modu.first(where: { $0.0 == k })?.1 ?? "장르별" }
 }
 
@@ -35,7 +38,7 @@ struct MunSection: View {
         Section {
             if sg.isEmpty { Text(msg) }
             ForEach(sg.filter { $0.n > 0 }) { s in
-                Button("\(s.t), \(s.n)권") { nav.push(Route.seoga(cheot, s.k, s.t)) }
+                Button("\(s.t), \(s.n)권") { nav.push(MunIreum.gagi(cheot, s)) }
             }
             ForEach(MunIreum.modu.filter { $0.0 != cheot }, id: \.0) { m in
                 Button(m.0 == "jujae" ? "주제별로 찾기, 십진분류" : "\(m.1)로 찾기") { nav.push(Route.mun(m.0, m.1)) }
@@ -64,7 +67,7 @@ struct MunView: View {
         List {
             if sg.isEmpty { Text(msg) }
             ForEach(sg.filter { $0.n > 0 }) { s in
-                Button("\(s.t), \(s.n)권") { nav.push(Route.seoga(mun, s.k, s.t)) }
+                Button("\(s.t), \(s.n)권") { nav.push(MunIreum.gagi(mun, s)) }
                     .accessibilityFocused($focus, equals: s.k)
             }
         }
