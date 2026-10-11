@@ -65,11 +65,16 @@ object Api {
     }
     /** 글자책 한 쪽(60문단) */
     fun gul(i: Int, o: Int): Triple<Int, List<String>, String> {
-        val j = getJson("dokseo.php", mapOf("m" to "gul", "i" to "$i", "o" to "$o"))
+        val j = getJson("dokseo.php", mapOf("m" to "gul", "i" to "$i", "o" to "$o", "gp" to "4"))
         val a = j.optJSONArray("mun")
         val mun = if (a == null) emptyList() else (0 until a.length()).map { a.optString(it) }
         return Triple(j.optInt("modu", 0), mun, j.optString("ttl"))
     }
+    /** 0.5.2 (261012) 글 판 4 — 옛 판 문단 자리(여럿)를 새 판 자리로. 인터넷이 안 되면 null, 책이 없으면 빈 목록 */
+    fun jari(i: Int, o: List<Int>): List<Int>? = runCatching {
+        val j = getJson("dokseo.php", mapOf("m" to "jari", "i" to "$i", "o" to o.joinToString(",")))
+        if (!j.optBoolean("ok")) emptyList() else { val a = j.getJSONArray("jari"); (0 until a.length()).map { a.getInt(it) } }
+    }.getOrNull()
     /** 목소리 굽기 요청 — 굽힌 것이면 ok=true */
     fun yocheong(text: String, voice: Int): Pair<Boolean, String> {
         val c = open(url("dokseo.php", mapOf("m" to "yocheong")))
