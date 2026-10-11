@@ -23,6 +23,7 @@ import java.util.concurrent.Executors
 object Dokseo {
     private val main = Handler(Looper.getMainLooper())
     private val pool = Executors.newFixedThreadPool(3)
+    private val pan4Sido = HashSet<Int>()   // 0.5.2 이번에 자리 옮기기를 해 본 책
     lateinit var ctx: Context
     var player: ExoPlayer? = null
         private set
@@ -90,6 +91,22 @@ object Dokseo {
     fun open(c: Context, bi: Int, bt: String, bk: String, at: Double? = null) {
         ctx = c.applicationContext
         if (i == bi) { if (at != null) gaPo(at.toInt()); return }
+        // 0.5.2 (261012) 글 판 4 — 처음 여는 글자책은 옛 판 자리·책갈피를 새 판 자리로 옮긴 뒤 엶(내려받은 책은 그대로)
+        if (bk == "geul" && !Store.gulPan4Ok(bi) && pan4Sido.add(bi)) {
+            val ol = Store.gulPan4Ol(bi)
+            if (Naeryeo.isDown(c, bi) || ol.isEmpty()) Store.gulPan4Bakkugi(bi, emptyMap())
+            else {
+                pool.execute {
+                    val j = Api.jari(bi, ol)
+                    main.post {
+                        val mp = HashMap<Int, Int>()
+                        if (j != null) { if (j.size == ol.size) for (k in ol.indices) mp[ol[k]] = j[k]; Store.gulPan4Bakkugi(bi, mp) }
+                        open(c, bi, bt, bk, at?.let { a -> (mp[a.toInt()] ?: a.toInt()).toDouble() })
+                    }
+                }
+                return
+            }
+        }
         stop()
         i = bi; title = bt; kind = bk; paras.clear(); gajineun.clear(); pageLoading.clear(); modu = 0
         val saved = Store.rec(bi)
