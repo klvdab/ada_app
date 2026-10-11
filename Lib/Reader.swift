@@ -44,6 +44,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
         stop()
         self.i = i; self.title = title; self.kind = kind
         paras = [:]; pageTasks = [:]; audioTasks = [:]; text = ""; modu = 0
+        if kind == "geul" { await store.gulPan4Omgigi(i) }   // 0.5.2 (261012) 글 판 4 — 옛 판 자리·책갈피를 새 판 자리로(처음 열 때 한 번)
         let saved = store.rec(i)
         if kind == "geul" {
             pos = Int(saved?.pos ?? 0)
