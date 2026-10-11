@@ -1,4 +1,4 @@
-// AI점자도서관 안드로이드 — 화면 (0.5.0판, 빌드 261010-L9)
+// AI점자도서관 안드로이드 — 화면 (0.5.2판, 빌드 261012-L11 — 외국 도서 문, 글 판 4)
 // 0.5.0 (261010-L9, 도서관 창 클, 이사장님 승인 「1」) 첫 화면에 고른 문(주제별·장르별·테마별, 설정의 첫 화면 목록, 처음 값 장르별)의 서가 목록을 바로,
 //       형태별 갈래 목록과 「보일 책」 거르기를 뺌(늘 모든 책), 목록은 톡백 목록 넘기기(앞으로·뒤로) 동작으로 넘기고 넘기면 커서는 첫 줄, 맨 아래 「다음 목록」 하나만
 // 0.4.4 (261008-L8, 도서관 창 클, 이사장님 승인 「1」 — 아이폰판과 하나하나 견주어 찾은 것을 네 묶음으로 고침)
@@ -49,7 +49,7 @@ sealed class Hm {
 }
 
 class LibActivity : Activity() {
-    companion object { const val PAN = "0.5.1"; const val BILDEU = "261010-L10" }   // 0.5.1 첫 화면 맨 위 이름 줄·바로 아래 찾기, 목록에서 한 번 두드리면 바로 읽기, 넘긴 뒤 커서 첫 줄 다지기(도서관 창 클, 이사장님 승인 「1」). 0.4.4 아이폰과 견주어 네 묶음 고침(도서관 창 클, 이사장님 승인 「1」). 0.4.3 새 판 알림과 업데이트(대장클, 이사장님 지시)
+    companion object { const val PAN = "0.5.2"; const val BILDEU = "261012-L11" }   // 0.5.2 외국 도서 문(외국 도서 → 언어 → 장르와 주제), 글 판 4(강제 줄바꿈 바로잡은 글·옛 자리 옮기기), 도움말 둘   // 0.5.1 첫 화면 맨 위 이름 줄·바로 아래 찾기, 목록에서 한 번 두드리면 바로 읽기, 넘긴 뒤 커서 첫 줄 다지기(도서관 창 클, 이사장님 승인 「1」). 0.4.4 아이폰과 견주어 네 묶음 고침(도서관 창 클, 이사장님 승인 「1」). 0.4.3 새 판 알림과 업데이트(대장클, 이사장님 지시)
     private val main = Handler(Looper.getMainLooper())
     private val pool = Executors.newFixedThreadPool(3)
     private val stacks = arrayOf(mutableListOf<Hm>(Hm.Home), mutableListOf<Hm>(Hm.Seojae), mutableListOf<Hm>(Hm.Seoljeong))
@@ -280,7 +280,7 @@ class LibActivity : Activity() {
                             text = "$tt, ${n}권"; isAllCaps = false; gravity = Gravity.START or Gravity.CENTER_VERTICAL
                             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f); setTextColor(Saek.geulja(this@LibActivity)); background = kadeuBg()
                             setPadding(dp(16), dp(12), dp(16), dp(12)); minHeight = dp(52)
-                            setOnClickListener { go(Hm.Seoga(cm, k, tt)) }
+                            setOnClickListener { go(gagi(cm, k, tt)) }
                         }
                         munJari.addView(b, lp(6))
                     }
@@ -332,7 +332,9 @@ class LibActivity : Activity() {
         })
     }
     private fun cheotMun(): String = getSharedPreferences("naeryeo", MODE_PRIVATE).getString("cheotMun", "jangreu") ?: "jangreu"
-    private val MUN = listOf("jujae" to "주제별", "jangreu" to "장르별", "tema" to "테마별")
+    private val MUN = listOf("jujae" to "주제별", "jangreu" to "장르별", "tema" to "테마별", "oeguk" to "외국 도서")   // 0.5.2 외국 도서
+    // 0.5.2 — 외국 도서 문에서 언어를 고르면 그 언어의 장르와 주제(문 "oe:언어")로, 그 밖은 서가 책 목록으로
+    private fun gagi(mun: String, k: String, t: String): Hm = if (mun == "oeguk") Hm.Mun("oe:$k", t) else Hm.Seoga(mun, k, t)
 
     private fun book(i: Int) {
         val mal = geul("책 정보를 가져오는 중입니다.", jakge = true)
@@ -450,7 +452,7 @@ class LibActivity : Activity() {
                 body.removeView(mal)
                 r.onFailure { geul("가져오지 못했습니다. 설정의 새로고침을 눌러 주십시오.") }.onSuccess { all ->
                     var first: View? = null
-                    for ((k, tt, n) in all[h.mun].orEmpty()) if (n > 0) { val b = danchu("$tt, ${n}권") { go(Hm.Seoga(h.mun, k, tt)) }; if (first == null) first = b }
+                    for ((k, tt, n) in all[h.mun].orEmpty()) if (n > 0) { val b = danchu("$tt, ${n}권") { go(gagi(h.mun, k, tt)) }; if (first == null) first = b }
                     if (first == null) geul("이 문에는 아직 책이 없습니다.")
                     cheotJul(first ?: t)
                 }
@@ -639,6 +641,8 @@ class LibActivity : Activity() {
         "첫 화면 목록" to "도서관 첫 화면에는 찾기 칸과 이어 듣기 아래에 설정의 첫 화면 목록에서 고른 목록(주제별, 장르별, 테마별 가운데 하나)의 서가가 바로 나옵니다. 처음 값은 장르별이고, 누를 때마다 바뀝니다. 다른 두 목록은 그 아래 한 줄씩 있습니다.",
         "목록 넘기기" to "목록은 처음에 한 쪽 15줄입니다. 설정의 목록 줄 수를 누를 때마다 5, 10, 15, 20, 30줄로 바뀝니다. 목록 줄에서 톡백의 목록 넘기기 동작(앞으로, 뒤로)을 하면 다음 목록과 앞 목록이 나오고 커서는 그 목록 첫 줄에 놓입니다. 손짓이 안 될 때는 맨 아래 다음 목록을 누릅니다. 내 서재는 더 보기와 이전 보기로 넘깁니다.",
         "세 겹의 문" to "도서관 첫 화면에 주제별, 장르별, 테마별 세 문이 있습니다. 문을 누르면 서가와 책 수가, 서가를 누르면 책 목록이 나옵니다. 주제별은 도서관 십진분류, 장르별은 판타지·무협 같은 갈래, 테마별은 이달의 새 책 같은 모음입니다.",
+        "외국 도서" to "외국어로 된 원서는 우리 책과 섞지 않고 외국 도서 문에 따로 모았습니다. 외국 도서를 누르면 영어, 중국어, 일본어, 프랑스어, 독일어 같은 언어와 책 수가 나오고, 언어를 누르면 소설, 시, 역사 같은 장르와 주제가 나옵니다. 영어 소설은 고전 명작, 모험, 추리와 스릴러처럼 한 겹 더 나뉩니다. 첫 화면의 외국 도서로 찾기를 누르거나, 설정의 첫 화면 목록에서 외국 도서를 고르면 첫 화면에 바로 언어 목록이 나옵니다.",
+        "띄어 읽기 바로잡기" to "옛 글자책은 한 줄 길이를 정해 강제로 줄을 바꾼 것이 많아, 그렇습니다를 그 렇습니다처럼 낱말 가운데서 끊어 읽는 일이 있었습니다. 이제 도서관이 책마다 끊긴 줄을 알아보고 낱말을 바르게 이어, 문장이 끝나는 곳에서만 쉬며 읽어 드립니다. 읽던 자리와 책갈피는 책을 처음 열 때 새 자리로 맞춰 옮겨 드립니다. 내려받은 책은 받을 때의 글 그대로 읽습니다.",
         "책 정보" to "독서기 더 보기 안의 책 정보를 누르면 갈래, 들어온 날, 읽던 자리가 나오고, 내려받기도 여기서 합니다. 책 소개가 있으면 지은이, 출판사, 책 소개와 책 소개 듣기가 나옵니다. 독서기로 들을 수 없는 형식이면 그렇다고 알려 드립니다.",
         "독서기" to "글자책은 사람 목소리로 문단마다 읽어 줍니다. 앞 문단을 읽는 동안 뒤 문단을 미리 만들어 둡니다. 겉에는 읽기, 앞으로 30초, 뒤로 30초, 재생 위치가 있고 그 아래에 지금 읽는 글이 나옵니다. 빠르기, 목소리, 책갈피, 처음부터, 책 정보는 더 보기 안에 있습니다.",
         "처음부터" to "독서기의 더 보기 안에 있습니다. 글자책은 첫 문단으로, 소리책과 동영상은 맨 처음으로 갑니다.",
