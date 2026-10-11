@@ -78,6 +78,26 @@ final class Store: ObservableObject {
         }
         save()
     }
+    // 0.5.2 (261012) 글 판 4(강제 줄바꿈 바로잡기) — 옛 판 문단 번호로 적힌 읽던 자리·책갈피를 책을 처음 열 때 한 번만 새 판 번호로 옮김. 내려받은 책은 옛 글 그대로라 옮기지 않음
+    private var pan4Sido: Set<Int> = []
+    func gulPan4Omgigi(_ i: Int) async {
+        var ok = Set((ud.array(forKey: "gulPan4Ok") as? [Int]) ?? [])
+        if ok.contains(i) || pan4Sido.contains(i) { return }
+        pan4Sido.insert(i)
+        let ol = Array(Set(reads.filter { $0.i == i && $0.kind == "geul" }.map { Int($0.pos) } + marks.filter { $0.i == i && $0.kind == "geul" }.map { Int($0.pos) })).sorted()
+        if !downloaded.contains(i) && !ol.isEmpty {
+            guard let r = try? await API.jari(i, ol) else { return }   // 인터넷이 안 되면 다음에 다시
+            ok = Set((ud.array(forKey: "gulPan4Ok") as? [Int]) ?? [])
+            if ok.contains(i) { return }
+            if r.ok, let j = r.jari, j.count == ol.count {
+                var mp: [Int: Int] = [:]; for (a, b) in zip(ol, j) { mp[a] = b }
+                for k in reads.indices where reads[k].i == i && reads[k].kind == "geul" { if let n = mp[Int(reads[k].pos)] { reads[k].pos = Double(n) } }
+                for k in marks.indices where marks[k].i == i && marks[k].kind == "geul" { if let n = mp[Int(marks[k].pos)] { marks[k].pos = Double(n) } }
+                save()
+            }
+        }
+        ok.insert(i); ud.set(Array(ok), forKey: "gulPan4Ok")
+    }
     func addMark(i: Int, t: String, kind: String, pos: Double) {
         if !marks.contains(where: { $0.i == i && abs($0.pos - pos) < 0.5 }) {
             marks.append(Mark(i: i, t: t, kind: kind, pos: pos, at: Date())); save()
