@@ -38,8 +38,8 @@ enum API {
     static func book(_ i: Int) async throws -> BookResp { try await get("doseo.php", ["m": "j_book", "i": String(i)], as: BookResp.self) }
 
     // 독서기: 글자 한 쪽(60문단), 소리 요청, 소리 받기, 소리책·동영상 주소
-    static func gulAll(_ i: Int) async throws -> GulResp { try await get("dokseo.php", ["m": "gul", "i": String(i), "all": "1", "gp": "4"], as: GulResp.self) }   // 0.3.0 — 내려받기: 책 전체 글을 한 번에
-    static func gul(_ i: Int, _ o: Int) async throws -> GulResp { try await get("dokseo.php", ["m": "gul", "i": String(i), "o": String(o), "gp": "4"], as: GulResp.self) }
+    static func gulAll(_ i: Int) async throws -> GulResp { try await get("dokseo.php", ["m": "gul", "i": String(i), "all": "1", "gp": "4", "hj": String(UserDefaults.standard.object(forKey: "hanjaeum") as? Int ?? 1)], as: GulResp.self) }   // 0.3.0 — 내려받기: 책 전체 글을 한 번에
+    static func gul(_ i: Int, _ o: Int) async throws -> GulResp { try await get("dokseo.php", ["m": "gul", "i": String(i), "o": String(o), "gp": "4", "hj": String(UserDefaults.standard.object(forKey: "hanjaeum") as? Int ?? 1)], as: GulResp.self) }
     // 0.5.2 (261012) 글 판 4 — 옛 판 문단 자리(여럿)를 새 판 문단 자리로
     static func jari(_ i: Int, _ o: [Int]) async throws -> JariResp { try await get("dokseo.php", ["m": "jari", "i": String(i), "o": o.map { String($0) }.joined(separator: ",")], as: JariResp.self) }
 
@@ -86,5 +86,5 @@ struct Item: Decodable, Identifiable, Hashable {
 struct JariResp: Decodable { let ok: Bool; let jari: [Int]? }   // 0.5.2
 struct ListResp: Decodable { let ok: Bool; let modu: Int?; let o: Int?; let items: [Item]?; let ttl: String?; let msg: String? }
 struct BookResp: Decodable { let ok: Bool; let i: Int?; let t: String?; let g: String?; let meg: Double?; let nal: String?; let kind: String?; let sogae: String?; let jieun: String?; let chulpan: String?; let msg: String? }
-struct GulResp: Decodable { let ok: Bool; let ttl: String?; let modu: Int?; let o: Int?; let mun: [String]?; let msg: String? }
+struct GulResp: Decodable { let ok: Bool; let ttl: String?; let modu: Int?; let o: Int?; let mun: [String]?; let msg: String?; let won: [String]?; let hjgal: Bool?; let hj: Int? }   // 0.6.1 한자음 읽기(won 원문, hjgal 대상 책, hj 지금 방식)
 struct YoResp: Decodable { let ok: Bool; let h: String?; let msg: String? }
