@@ -1,4 +1,4 @@
-// AI점자도서관 안드로이드 — 화면 (0.5.2판, 빌드 261012-L11 — 외국 도서 문, 글 판 4)
+// AI점자도서관 안드로이드 — 화면 (0.6.0판, 빌드 261012-L12 — 곱씹어 읽기와 사전) (0.5.2판 — 외국 도서 문, 글 판 4)
 // 0.5.0 (261010-L9, 도서관 창 클, 이사장님 승인 「1」) 첫 화면에 고른 문(주제별·장르별·테마별, 설정의 첫 화면 목록, 처음 값 장르별)의 서가 목록을 바로,
 //       형태별 갈래 목록과 「보일 책」 거르기를 뺌(늘 모든 책), 목록은 톡백 목록 넘기기(앞으로·뒤로) 동작으로 넘기고 넘기면 커서는 첫 줄, 맨 아래 「다음 목록」 하나만
 // 0.4.4 (261008-L8, 도서관 창 클, 이사장님 승인 「1」 — 아이폰판과 하나하나 견주어 찾은 것을 네 묶음으로 고침)
@@ -46,10 +46,11 @@ sealed class Hm {
     object Home : Hm(); object Seojae : Hm(); object Seoljeong : Hm()
     data class Gal(val g: String) : Hm(); data class Jakbon(val j: String, val t: String) : Hm(); data class Find(val s: String) : Hm()
     data class Book(val i: Int) : Hm(); data class Reader(val i: Int, val t: String, val k: String) : Hm(); data class Marks(val i: Int) : Hm()
+    data class Pureo(val g: String) : Hm(); data class SokChatgi(val i: Int, val t: String) : Hm(); data class Sajeon(val c: String, val m: String) : Hm(); object Jungyo : Hm(); object Nanmal : Hm()   // 0.6.0 곱씹어 읽기와 사전
 }
 
 class LibActivity : Activity() {
-    companion object { const val PAN = "0.5.2"; const val BILDEU = "261012-L11" }   // 0.5.2 외국 도서 문(외국 도서 → 언어 → 장르와 주제), 글 판 4(강제 줄바꿈 바로잡은 글·옛 자리 옮기기), 도움말 둘   // 0.5.1 첫 화면 맨 위 이름 줄·바로 아래 찾기, 목록에서 한 번 두드리면 바로 읽기, 넘긴 뒤 커서 첫 줄 다지기(도서관 창 클, 이사장님 승인 「1」). 0.4.4 아이폰과 견주어 네 묶음 고침(도서관 창 클, 이사장님 승인 「1」). 0.4.3 새 판 알림과 업데이트(대장클, 이사장님 지시)
+    companion object { const val PAN = "0.6.0"; const val BILDEU = "261012-L12" }   // 0.6.0 곱씹어 읽기(다시 듣기·풀어 읽기·중요 표시·책 속 찾기)와 사전·내 낱말장   // 0.5.2 외국 도서 문(외국 도서 → 언어 → 장르와 주제), 글 판 4(강제 줄바꿈 바로잡은 글·옛 자리 옮기기), 도움말 둘   // 0.5.1 첫 화면 맨 위 이름 줄·바로 아래 찾기, 목록에서 한 번 두드리면 바로 읽기, 넘긴 뒤 커서 첫 줄 다지기(도서관 창 클, 이사장님 승인 「1」). 0.4.4 아이폰과 견주어 네 묶음 고침(도서관 창 클, 이사장님 승인 「1」). 0.4.3 새 판 알림과 업데이트(대장클, 이사장님 지시)
     private val main = Handler(Looper.getMainLooper())
     private val pool = Executors.newFixedThreadPool(3)
     private val stacks = arrayOf(mutableListOf<Hm>(Hm.Home), mutableListOf<Hm>(Hm.Seojae), mutableListOf<Hm>(Hm.Seoljeong))
@@ -187,7 +188,12 @@ class LibActivity : Activity() {
             is Hm.Reader -> reader(h)
             is Hm.Marks -> marks(h.i)
             is Hm.Mun -> munHwamyeon(h)
-            is Hm.Seoga -> paged(h.t) { o -> Api.seoga(h.mun, h.k, "all", o) }   // 0.5.0 보일 책 거르기를 뺌
+            is Hm.Seoga -> paged(h.t) { o -> Api.seoga(h.mun, h.k, "all", o) }
+            is Hm.Pureo -> pureo(h.g)
+            is Hm.SokChatgi -> sokChatgi(h)
+            is Hm.Sajeon -> sajeon(h)
+            is Hm.Jungyo -> jungyoMoeum()
+            is Hm.Nanmal -> nanmalJang()   // 0.5.0 보일 책 거르기를 뺌
         }
     }
 
@@ -401,6 +407,15 @@ class LibActivity : Activity() {
         readerMun = if (h.k == "geul") geul("") else null
         danchu(if (readerDeo) "더 보기 접기" else "더 보기, 빠르기·목소리·책갈피·처음부터·책 정보") { readerDeo = !readerDeo; dasi("더 보기") }
         if (readerDeo) {
+            if (h.k == "geul") {   // 0.6.0 곱씹어 읽기와 사전
+                danchu("이 문단 다시 듣기") { Dokseo.play(Dokseo.pos) }
+                danchu("천천히 다시 듣기") { Store.rateIndex = 0; Dokseo.setRate(); malhagi("아주 느리게 다시 읽습니다. 빠르기는 더 빠르게로 되돌릴 수 있습니다."); Dokseo.play(Dokseo.pos) }
+                danchu("풀어 읽기, 이 문단을 글자 단위로 짚기") { go(Hm.Pureo(Dokseo.text())) }
+                danchu("사전, 이 문단 낱말 뜻 찾기") { sajeonChajeun = ""; sajeonGyeol = emptyList(); gsO = 0; go(Hm.Sajeon(h.t, Dokseo.text())) }
+                danchu("중요 표시하기") { jungyoPyosi(h) }
+                danchu("중요 표시에 메모 붙이기") { memoChang(h) }
+                danchu("책 속에서 찾기") { sokHits = emptyList(); sokMal = ""; gsO = 0; go(Hm.SokChatgi(h.i, h.t)) }
+            }
             val rn = Store.rateNames[Store.rateIndex]
             danchu("더 느리게, 지금 $rn") { if (Store.rateIndex > 0) { Store.rateIndex -= 1; Dokseo.setRate() }; malhagi(Store.rateNames[Store.rateIndex]); dasi("더 느리게") }
             danchu("더 빠르게, 지금 $rn") { if (Store.rateIndex < Store.rates.size - 1) { Store.rateIndex += 1; Dokseo.setRate() }; malhagi(Store.rateNames[Store.rateIndex]); dasi("더 빠르게") }
@@ -414,9 +429,169 @@ class LibActivity : Activity() {
             danchu("처음부터") { Dokseo.cheoeum(); malhagi("처음으로 갔습니다.") }
             danchu("책 정보, 책 소개·지은이·내려받기") { go(Hm.Book(h.i)) }   // 0.5.1 책 정보는 여기 안에
         }
+        if (h.k == "geul") readerDan?.let { b ->   // 0.6.0 읽기 단추에서 톡백 동작으로 바로
+            ViewCompat.addAccessibilityAction(b, "이 문단 다시 듣기") { _, _ -> Dokseo.play(Dokseo.pos); true }
+            ViewCompat.addAccessibilityAction(b, "사전") { _, _ -> sajeonChajeun = ""; sajeonGyeol = emptyList(); gsO = 0; go(Hm.Sajeon(h.t, Dokseo.text())); true }
+            ViewCompat.addAccessibilityAction(b, "중요 표시하기") { _, _ -> jungyoPyosi(h); true }
+        }
         drawReaderState()
         cheotJul(readerDan)
     }
+// ── 0.6.0 곱씹어 읽기와 사전(도서관 창 클, 이사장님 승인 2026-10-12 「1」) ──
+    private var gsO = 0
+    private var sajeonChajeun = ""
+    private var sajeonGyeol: List<Gomssip.Item> = emptyList()
+    private var sajeonMal = ""
+    private var sokHits: List<Pair<Int, String>> = emptyList()
+    private var sokMal = ""
+    private var sokQ = ""
+    private fun ipryeok(hint: String, chogi: String, onGo: (String) -> Unit): EditText {
+        val e = EditText(this).apply {
+            this.hint = hint; setText(chogi); isSingleLine = true; imeOptions = EditorInfo.IME_ACTION_SEARCH
+            setTextColor(Saek.geulja(this@LibActivity))
+            setOnEditorActionListener { v, _, _ -> onGo(v.text.toString()); true }
+        }
+        body.addView(e, lp(6)); return e
+    }
+    private fun jungyoPyosi(h: Hm.Reader) {
+        val t = Dokseo.text()
+        if (t.isEmpty()) { malhagi("글을 가져온 뒤에 중요 표시를 할 수 있습니다."); return }
+        val ok = Gomssip.pyosi(h.i, h.t, Dokseo.pos, t)
+        malhagi(if (ok) "${Dokseo.pos + 1}번째 문단에 중요 표시를 했습니다." else "이미 중요 표시가 된 문단입니다.")
+    }
+    private fun memoChang(h: Hm.Reader) {
+        val pos = Dokseo.pos
+        val e = EditText(this).apply { hint = "메모, 자판의 마이크로 말로 적을 수 있습니다"; setText(Gomssip.memoOf(h.i, pos)) }
+        android.app.AlertDialog.Builder(this).setTitle("중요 표시 메모").setView(e)
+            .setPositiveButton("붙이기") { _, _ ->
+                if (Gomssip.jungyo.none { it.i == h.i && it.pos == pos }) Gomssip.pyosi(h.i, h.t, pos, Dokseo.text(pos))
+                Gomssip.memo(h.i, pos, e.text.toString()); malhagi("메모를 붙였습니다.")
+            }
+            .setNegativeButton("그만", null).show()
+    }
+    /** 책의 그 문단으로 가서 바로 읽기 */
+    private fun garyeo(i: Int, t: String, o: Int) {
+        if (cur() is Hm.SokChatgi) stacks[tab].removeAt(stacks[tab].size - 1)
+        val top = cur()
+        if (top is Hm.Reader && top.i == i) { Dokseo.open(this, i, t, "geul", o.toDouble()); Dokseo.play(o); draw() }
+        else { Store.remember(i, t, "geul", o.toDouble(), Store.rec(i)?.modu ?: 0); Dokseo.open(this, i, t, "geul", o.toDouble()); go(Hm.Reader(i, t, "geul")) }
+    }
+    private fun pureo(g: String) {
+        geul("풀어 읽기", jemok = true)
+        geul("톡백의 읽기 단위를 글자나 단어로 놓고 넘기면 한 글자씩, 한 낱말씩 짚어 읽을 수 있습니다.", jakge = true)
+        val t = geul(g.ifEmpty { "읽을 글이 없습니다." }).apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f); setTextIsSelectable(true) }
+        cheotJul(t)
+    }
+    private fun sokChatgi(h: Hm.SokChatgi) {
+        geul("책 속에서 찾기", jemok = true)
+        val chatgi = { s: String ->
+            val q = s.trim()
+            if (q.isNotEmpty()) {
+                sokQ = q; sokMal = "찾는 중입니다."; sokHits = emptyList(); gsO = 0; draw()
+                pool.execute {
+                    val r = runCatching { Gomssip.sok(h.i, q) }
+                    main.post {
+                        if (cur() != h) return@post
+                        r.onSuccess { (n, hs, m) -> sokHits = hs; sokMal = if (hs.isEmpty()) m.ifEmpty { "찾는 말이 이 책에 없습니다." } else "${n}곳을 찾았습니다." }
+                            .onFailure { sokMal = "찾지 못했습니다. 인터넷을 확인해 주십시오." }
+                        draw()
+                    }
+                }
+            }
+        }
+        val e = ipryeok("찾을 낱말이나 이름", sokQ) { chatgi(it) }
+        danchu("찾기") { chatgi(e.text.toString()) }
+        var first: View? = null
+        if (sokMal.isNotEmpty()) first = geul(sokMal)
+        if (sokHits.isNotEmpty()) {
+            if (gsO >= sokHits.size) gsO = 0
+            var cheotDan: View? = null
+            for ((o, tt) in sokHits.drop(gsO).take(Api.PER)) { val b = danchu("${o + 1}번째 문단, $tt") { garyeo(h.i, h.t, o) }; if (cheotDan == null) cheotDan = b }
+            if (gsO + Api.PER < sokHits.size) danchu("더 보기") { gsO += Api.PER; draw() }
+            if (gsO > 0) danchu("이전 보기") { gsO = (gsO - Api.PER).coerceAtLeast(0); draw() }
+            if (gsO > 0 && cheotDan != null) first = cheotDan   // 넘긴 뒤에는 커서를 새 목록 첫 줄로
+        }
+        cheotJul(first ?: e)
+    }
+    private fun sajeon(h: Hm.Sajeon) {
+        geul("사전", jemok = true)
+        val chatgi = { w0: String ->
+            val w = w0.trim()
+            if (w.isNotEmpty()) {
+                sajeonChajeun = w; sajeonGyeol = emptyList(); sajeonMal = "찾는 중입니다."; draw()
+                pool.execute {
+                    val r = runCatching { Gomssip.chatgi(w) }
+                    main.post {
+                        if (cur() != h) return@post
+                        r.onSuccess { (its, m) -> sajeonGyeol = its; sajeonMal = m; if (its.isNotEmpty()) Gomssip.damgi(w, its[0], h.m, h.c) }   // 내 낱말장에 저절로
+                            .onFailure { sajeonMal = "사전에 닿지 못했습니다. 인터넷을 확인해 주십시오." }
+                        draw()
+                    }
+                }
+            }
+        }
+        if (sajeonChajeun.isNotEmpty()) {
+            danchu("다른 낱말 고르기") { sajeonChajeun = ""; sajeonGyeol = emptyList(); sajeonMal = ""; draw() }
+            geul("「$sajeonChajeun」 뜻", jakge = true)
+            var first: View? = null
+            if (sajeonMal.isNotEmpty()) first = geul(sajeonMal)
+            for (x in sajeonGyeol) { val v = geul("${x.t}. ${x.ddeut} 출처 ${x.chulcheo}."); if (first == null) first = v }
+            cheotJul(first)
+            return
+        }
+        val e = ipryeok("찾을 낱말", "") { chatgi(it) }
+        danchu("사전에서 찾기") { chatgi(e.text.toString()) }
+        val mal = Gomssip.nanmalDeul(h.m)
+        var first: View? = null
+        if (mal.isNotEmpty()) {
+            geul("지금 문단의 낱말 ${mal.size}개", jakge = true)
+            if (gsO >= mal.size) gsO = 0
+            for (w in mal.drop(gsO).take(Api.PER)) { val b = danchu(w) { chatgi(w) }; if (first == null) first = b }
+            if (gsO + Api.PER < mal.size) danchu("더 보기") { gsO += Api.PER; draw() }
+            if (gsO > 0) danchu("이전 보기") { gsO = (gsO - Api.PER).coerceAtLeast(0); draw() }
+        }
+        cheotJul(first ?: e)
+    }
+    private fun jungyoMoeum() {
+        geul("중요 표시 모음", jemok = true)
+        val L = Gomssip.jungyoSun()
+        var first: View? = null
+        if (L.isEmpty()) first = geul("중요 표시가 없습니다. 책을 읽다가 더 보기의 중요 표시하기를 누르면 여기에 모입니다.")
+        else {
+            if (gsO >= L.size) gsO = 0
+            geul("중요 표시 ${L.size}개 가운데 ${gsO + 1}번부터 ${minOf(gsO + Api.PER, L.size)}번", jakge = true)
+            for (j in L.drop(gsO).take(Api.PER)) {
+                val b = danchu("${j.t}, ${j.pos + 1}번째 문단. " + (if (j.memo.isNotEmpty()) "메모 ${j.memo}. " else "") + j.geul) { garyeo(j.i, j.t, j.pos) }
+                ViewCompat.addAccessibilityAction(b, "중요 표시 지우기") { _, _ -> Gomssip.jiugi(j); malhagi("지웠습니다."); draw(); true }
+                b.setOnLongClickListener { Gomssip.jiugi(j); malhagi("지웠습니다."); draw(); true }
+                if (first == null) first = b
+            }
+            if (gsO + Api.PER < L.size) danchu("더 보기") { gsO += Api.PER; draw() }
+            if (gsO > 0) danchu("이전 보기") { gsO = (gsO - Api.PER).coerceAtLeast(0); draw() }
+        }
+        cheotJul(first)
+    }
+    private fun nanmalJang() {
+        geul("내 낱말장", jemok = true)
+        val L = Gomssip.nanmalSun()
+        var first: View? = null
+        if (L.isEmpty()) first = geul("찾아본 낱말이 없습니다. 책을 읽다가 사전에서 낱말을 찾으면 여기에 저절로 모입니다.")
+        else {
+            if (gsO >= L.size) gsO = 0
+            geul("낱말 ${L.size}개 가운데 ${gsO + 1}번부터 ${minOf(gsO + Api.PER, L.size)}번", jakge = true)
+            for (n in L.drop(gsO).take(Api.PER)) {
+                val v = geul("${n.w}. ${n.ddeut} 출처 ${n.chulcheo}. 책 ${n.chaek}. 문장 ${n.munjang}")
+                v.isFocusable = true
+                ViewCompat.addAccessibilityAction(v, "낱말장에서 지우기") { _, _ -> Gomssip.jiugi(n); malhagi("지웠습니다."); draw(); true }
+                v.setOnLongClickListener { Gomssip.jiugi(n); malhagi("지웠습니다."); draw(); true }
+                if (first == null) first = v
+            }
+            if (gsO + Api.PER < L.size) danchu("더 보기") { gsO += Api.PER; draw() }
+            if (gsO > 0) danchu("이전 보기") { gsO = (gsO - Api.PER).coerceAtLeast(0); draw() }
+        }
+        cheotJul(first)
+    }
+
     private fun drawReaderState() {
         val d = Dokseo
         readerDan?.text = if (d.playing) (if (d.waiting) "목소리를 받는 중입니다, 멈춤" else "멈춤") else "읽기"
@@ -546,6 +721,8 @@ class LibActivity : Activity() {
         // 0.4.4 다 읽은 책·책갈피는 더 보기 안에(펼친 채로 다시 그려도 그대로), 다 읽은 책도 목록 줄 수만큼 넘김
         danchu(if (seojaeDeo) "더 보기 접기" else "더 보기 — 다 읽은 책 ${da.size}권, 책갈피 ${Store.marks.size}개") { seojaeDeo = !seojaeDeo; dasi("더 보기") }
         if (seojaeDeo) {
+            danchu("중요 표시 모음, ${Gomssip.jungyoSun().size}개") { gsO = 0; go(Hm.Jungyo) }   // 0.6.0
+            danchu("내 낱말장, ${Gomssip.nanmalSun().size}개") { gsO = 0; go(Hm.Nanmal) }
             if (daO >= da.size) daO = 0
             geul("다 읽은 책 ${da.size}권" + (if (da.isNotEmpty()) " 가운데 ${daO + 1}번부터 ${minOf(daO + Api.PER, da.size)}번" else ""), jakge = true)
             for (rc in da.drop(daO).take(Api.PER)) {
@@ -641,6 +818,13 @@ class LibActivity : Activity() {
         "첫 화면 목록" to "도서관 첫 화면에는 찾기 칸과 이어 듣기 아래에 설정의 첫 화면 목록에서 고른 목록(주제별, 장르별, 테마별 가운데 하나)의 서가가 바로 나옵니다. 처음 값은 장르별이고, 누를 때마다 바뀝니다. 다른 두 목록은 그 아래 한 줄씩 있습니다.",
         "목록 넘기기" to "목록은 처음에 한 쪽 15줄입니다. 설정의 목록 줄 수를 누를 때마다 5, 10, 15, 20, 30줄로 바뀝니다. 목록 줄에서 톡백의 목록 넘기기 동작(앞으로, 뒤로)을 하면 다음 목록과 앞 목록이 나오고 커서는 그 목록 첫 줄에 놓입니다. 손짓이 안 될 때는 맨 아래 다음 목록을 누릅니다. 내 서재는 더 보기와 이전 보기로 넘깁니다.",
         "세 겹의 문" to "도서관 첫 화면에 주제별, 장르별, 테마별 세 문이 있습니다. 문을 누르면 서가와 책 수가, 서가를 누르면 책 목록이 나옵니다. 주제별은 도서관 십진분류, 장르별은 판타지·무협 같은 갈래, 테마별은 이달의 새 책 같은 모음입니다.",
+        "이 문단 다시 듣기" to "책 읽는 화면 더 보기 안에 있습니다. 지금 읽던 문단을 처음부터 다시 읽습니다. 읽기 단추에서 톡백 동작으로 이 문단 다시 듣기를 골라도 됩니다. 천천히 다시 듣기는 빠르기를 아주 느리게로 바꾸어 다시 읽고, 더 빠르게로 되돌릴 수 있습니다.",
+        "풀어 읽기" to "책 읽는 화면 더 보기 안에 있습니다. 지금 문단을 한 덩이 글로 띄웁니다. 톡백의 읽기 단위를 글자나 단어로 놓고 넘기면 한 글자씩, 한 낱말씩 짚어 읽을 수 있어 외국어 철자나 한자를 확인할 때 좋습니다.",
+        "중요 표시와 메모" to "책 읽는 화면 더 보기 안의 중요 표시하기를 누르면 지금 문단에 중요 표시가 붙습니다. 중요 표시에 메모 붙이기로 짧은 메모를 적을 수 있고, 자판의 마이크를 누르면 말로 적을 수 있습니다. 읽기 단추에서 톡백 동작으로 중요 표시하기를 골라도 됩니다.",
+        "중요 표시 모음" to "내 서재의 더 보기 안에 있습니다. 모든 책의 중요 표시가 최근 것부터 모이고, 누르면 그 문단으로 가서 바로 읽습니다. 지우려면 그 줄에서 톡백 동작으로 중요 표시 지우기를 고르거나 길게 누릅니다.",
+        "책 속에서 찾기" to "책 읽는 화면 더 보기 안에 있습니다. 낱말이나 이름을 적고 찾기를 누르면 그 말이 나오는 문단이 목록으로 나오고, 누르면 그 문단부터 읽습니다.",
+        "사전" to "책 읽는 화면 더 보기 안의 사전을 누르면 지금 문단의 낱말이 목록으로 나오고, 고르면 바로 뜻을 들려줍니다. 낱말을 적어 찾을 수도 있습니다. 우리말은 표준국어대사전과 한국어기초사전, 영어는 워드넷, 일본어는 JMdict, 중국어는 CC-CEDICT, 한자는 한 글자마다 음과 뜻을 알려 줍니다. 뜻 끝에는 출처를 붙입니다.",
+        "내 낱말장" to "사전에서 찾아본 낱말이 그 문장, 책 이름과 함께 저절로 모입니다. 내 서재의 더 보기 안에 있습니다. 지우려면 그 줄에서 톡백 동작으로 낱말장에서 지우기를 고르거나 길게 누릅니다.",
         "외국 도서" to "외국어로 된 원서는 우리 책과 섞지 않고 외국 도서 문에 따로 모았습니다. 외국 도서를 누르면 영어, 중국어, 일본어, 프랑스어, 독일어 같은 언어와 책 수가 나오고, 언어를 누르면 소설, 시, 역사 같은 장르와 주제가 나옵니다. 영어 소설은 고전 명작, 모험, 추리와 스릴러처럼 한 겹 더 나뉩니다. 첫 화면의 외국 도서로 찾기를 누르거나, 설정의 첫 화면 목록에서 외국 도서를 고르면 첫 화면에 바로 언어 목록이 나옵니다.",
         "띄어 읽기 바로잡기" to "옛 글자책은 한 줄 길이를 정해 강제로 줄을 바꾼 것이 많아, 그렇습니다를 그 렇습니다처럼 낱말 가운데서 끊어 읽는 일이 있었습니다. 이제 도서관이 책마다 끊긴 줄을 알아보고 낱말을 바르게 이어, 문장이 끝나는 곳에서만 쉬며 읽어 드립니다. 읽던 자리와 책갈피는 책을 처음 열 때 새 자리로 맞춰 옮겨 드립니다. 내려받은 책은 받을 때의 글 그대로 읽습니다.",
         "책 정보" to "독서기 더 보기 안의 책 정보를 누르면 갈래, 들어온 날, 읽던 자리가 나오고, 내려받기도 여기서 합니다. 책 소개가 있으면 지은이, 출판사, 책 소개와 책 소개 듣기가 나옵니다. 독서기로 들을 수 없는 형식이면 그렇다고 알려 드립니다.",
