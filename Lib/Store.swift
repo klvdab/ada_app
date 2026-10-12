@@ -41,6 +41,8 @@ final class Store: ObservableObject {
     @Published var voice: Int = 0
     @Published var speechOn: Bool = true
     @Published var downloaded: Set<Int> = []
+    @Published var hanjaeum: Int = 1   // 0.6.1 (261012) 한자음 읽기: 1 음만 듣기, 2 음과 원문 함께 보기, 0 꺼짐
+    static func hanjaeumIreum(_ v: Int) -> String { v == 0 ? "꺼짐" : (v == 2 ? "음과 원문 함께 보기" : "음만 듣기") }
 
     static let rates: [Float] = [0.8, 1.0, 1.2, 1.4, 1.7]
     static let rateNames = ["아주 느리게", "보통", "조금 빠르게", "빠르게", "아주 빠르게"]
@@ -56,12 +58,14 @@ final class Store: ObservableObject {
         voice = ud.object(forKey: "voice") as? Int ?? 0
         speechOn = ud.object(forKey: "speechOn") as? Bool ?? true
         downloaded = Set((ud.array(forKey: "downloaded") as? [Int]) ?? [])
+        hanjaeum = ud.object(forKey: "hanjaeum") as? Int ?? 1
     }
     func save() {
         if let d = try? JSONEncoder().encode(reads) { ud.set(d, forKey: "reads") }
         if let d = try? JSONEncoder().encode(marks) { ud.set(d, forKey: "marks") }
         ud.set(rateIndex, forKey: "rateIndex"); ud.set(voice, forKey: "voice"); ud.set(speechOn, forKey: "speechOn")
         ud.set(Array(downloaded), forKey: "downloaded")
+        ud.set(hanjaeum, forKey: "hanjaeum")
     }
 
     var last: ReadRec? { reads.filter { !$0.done }.sorted { $0.at > $1.at }.first }
