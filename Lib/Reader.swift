@@ -26,6 +26,9 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
     private var timeObs: Any?
 
     private var paras: [Int: String] = [:]
+    private var wons: [Int: String] = [:]   // 0.6.1 (261012) 한자음 읽기 — 문단 원문(음과 원문 함께 볼 때)
+    @Published var won: String = ""
+    @Published var hjgal = false            // 0.6.1 이 책이 한자음 읽기 대상인가(서버가 알려 줌)
     private var pageTasks: [Int: Task<Void, Never>] = [:]
     private var audioTasks: [Int: Task<URL?, Never>] = [:]
     private var audio: AVAudioPlayer?
@@ -43,7 +46,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
         if self.i == i { return }
         stop()
         self.i = i; self.title = title; self.kind = kind
-        paras = [:]; pageTasks = [:]; audioTasks = [:]; text = ""; modu = 0
+        paras = [:]; pageTasks = [:]; audioTasks = [:]; text = ""; modu = 0; wons = [:]; won = ""; hjgal = false
         if kind == "geul" { await store.gulPan4Omgigi(i) }   // 0.5.2 (261012) 글 판 4 — 옛 판 자리·책갈피를 새 판 자리로(처음 열 때 한 번)
         let saved = store.rec(i)
         if kind == "geul" {
@@ -54,7 +57,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
             } else {
                 await loadPage(pos)
             }
-            text = paras[pos] ?? ""
+            text = paras[pos] ?? ""; won = wons[pos] ?? ""
             store.remember(i: i, t: title, kind: kind, pos: Double(pos), modu: modu)
         } else {
             let p = AVPlayer(playerItem: AVPlayerItem(asset: Offline.asset(i) ?? AVURLAsset(url: API.mediaURL(i), options: ["AVURLAssetHTTPHeaderFieldsKey": ["User-Agent": API.userAgent]])))
@@ -82,6 +85,23 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
     }
 
     // MARK: 글자 받기
+    // 0.6.1 (261012) 한자음 읽기 바꾸기 — 음만 듣기 → 음과 원문 함께 보기 → 꺼짐 → 음만 듣기 (이사장님 승인 10시 53분 「1」)
+    func hanjaeumBakkugi() {
+        let sae = [1: 2, 2: 0, 0: 1][store.hanjaeum] ?? 1
+        store.hanjaeum = sae; store.save()
+        let dasi = playing
+        if dasi { pause() }
+        paras = [:]; wons = [:]; pageTasks = [:]; audioTasks = [:]
+        let o = pos
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.loadPage(o)
+            self.text = self.paras[o] ?? ""; self.won = self.wons[o] ?? ""
+            self.store.say("한자음 읽기, " + Store.hanjaeumIreum(sae))
+            if dasi { self.play(at: o) }
+        }
+    }
+
     private func pageStart(_ o: Int) -> Int { (o / 60) * 60 }
 
     private func loadPage(_ o: Int) async {
@@ -96,6 +116,8 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 guard book == self.i else { return }
                 if let m = r.modu { self.modu = m }
                 for (k, v) in (r.mun ?? []).enumerated() { self.paras[pg + k] = v }
+                for (k, v) in (r.won ?? []).enumerated() { self.wons[pg + k] = v }   // 0.6.1
+                if let g = r.hjgal { self.hjgal = g }
                 if r.ok == false { self.status = r.msg ?? "이 책의 글자를 가져오지 못했습니다." }
             } catch {
                 self.status = "글자를 가져오지 못했습니다. 인터넷을 확인해 주십시오."
@@ -183,7 +205,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
         playing = true
         audio?.stop()
         Task {
-            text = await para(target) ?? ""
+            text = await para(target) ?? ""; won = wons[target] ?? ""
             store.remember(i: i, t: title, kind: kind, pos: Double(target), modu: modu)
             updateNowPlaying()
             if !Offline.online && Offline.audioURL(i, target, store.voice).map({ FileManager.default.fileExists(atPath: $0.path) }) != true { waiting = false; speakPhone(text, my); return }   // 0.3.0 — 인터넷이 없으면 바로 폰 목소리
@@ -251,7 +273,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
     func move(to o: Int) {
         pos = o
         Task {
-            text = await para(o) ?? ""
+            text = await para(o) ?? ""; won = wons[o] ?? ""
             store.remember(i: i, t: title, kind: kind, pos: Double(o), modu: modu)
             updateNowPlaying()
         }
