@@ -1,4 +1,4 @@
-# 도서관 앱 안드로이드 화면 하나하나 눌러 보기 (판 0.1.8, 빌드 261010-7, 도서관 창 클) — 0.1.8: 0.5.0 첫 화면은 고른 문 서가가 길어 찾을 책 이름 칸이 아래에 있음, 칸이 보일 때까지 내려 감. 0.1.7: 0.4.4 화면 맞춤 — 독서기 더 보기·처음부터·책갈피 보기, 도움말 찾기, 모두 지우기 물음 없이 지나감. 0.1.6: 독서기 안에서 읽기를 실제로 누르고 문단이 나아가는지로 소리 확인, 화면 끄기 2분·다른 앱 1분 뒤 이어 읽는지, 파일 이름 빈칸 없앰. 0.1.5: 화면 크기에 맞춘 쓸기, 덤프 다시 하기·오류 이유 남기기, 화면마다 앱 꺼짐 살피기, 끝까지 내려 읽기
+# 도서관 앱 안드로이드 화면 하나하나 눌러 보기 (판 0.2.0, 빌드 261012-L12, 도서관 창 클) — 0.2.0: 0.6.0 곱씹어 읽기와 사전(중요 표시·풀어 읽기·사전·책 속 찾기·중요 표시 모음·내 낱말장). 0.1.8: 0.5.0 첫 화면은 고른 문 서가가 길어 찾을 책 이름 칸이 아래에 있음, 칸이 보일 때까지 내려 감. 0.1.7: 0.4.4 화면 맞춤 — 독서기 더 보기·처음부터·책갈피 보기, 도움말 찾기, 모두 지우기 물음 없이 지나감. 0.1.6: 독서기 안에서 읽기를 실제로 누르고 문단이 나아가는지로 소리 확인, 화면 끄기 2분·다른 앱 1분 뒤 이어 읽는지, 파일 이름 빈칸 없앰. 0.1.5: 화면 크기에 맞춘 쓸기, 덤프 다시 하기·오류 이유 남기기, 화면마다 앱 꺼짐 살피기, 끝까지 내려 읽기
 import subprocess,time,re,os,html
 def sh(c,t=60):
     try: return subprocess.run(c,shell=True,capture_output=True,text=True,timeout=t).stdout
@@ -37,6 +37,10 @@ def find(x,label):
             l,tp,r,bt=map(int,b.groups())
             if r>l and bt>tp: return ((l+r)//2,(tp+bt)//2)
     return None
+def ipryeok(txt):
+    x=dump('ipryeok',False); m=re.search(r'<node [^>]*class="android.widget.EditText"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',x)
+    if not m: say('!! 글 칸을 못 찾음'); return False
+    l,t,r,b=map(int,m.groups()); sh('adb shell input tap %d %d'%((l+r)//2,(t+b)//2)); sh('adb shell input text '+txt); sh('adb shell input keyevent 111'); time.sleep(1); return True
 def tap(label,tries=6):
     for i in range(tries):
         x=dump('chatgi',False); p=find(x,label)
@@ -112,6 +116,21 @@ if tap('읽기'):
         dump('dokseogi_dasi'); kkeojim('독서기')
         if tap('더 보기, 빠르기'):
             dump('deobogi')
+            # 0.2.0 (261012-L12) 0.6.0 곱씹어 읽기와 사전
+            if tap('중요 표시하기'): say('-- 중요 표시함')
+            if tap('풀어 읽기, 이 문단'): dump('pureo'); dwiro(); time.sleep(2)
+            if tap('사전, 이 문단'):
+                dump('sajeon')
+                if ipryeok('happy'):
+                    tap('사전에서 찾기'); time.sleep(10); dump('sajeon_gyeol')
+                dwiro(); time.sleep(2)
+            if tap('책 속에서 찾기'):
+                garyeo=False
+                if ipryeok('Bennet'):
+                    tap('찾기'); time.sleep(12); dump('sok_gyeol')
+                    if tap('번째 문단,'): garyeo=True; time.sleep(5); g=munDan(); say('-- 찾은 자리로 감: 문단 %s, 단추 %s'%(g[0],g[1])); dump('sok_garyeo')
+                if not garyeo: dwiro(); time.sleep(2)
+            kkeojim('곱씹어 읽기와 사전')
             if tap('이 자리에 책갈피 꽂기'): say('-- 책갈피 꽂음')
             if tap('더 빠르게, 지금'): dump('ppareugi')
             if tap('처음부터'): time.sleep(3); g=munDan(); say('-- 처음부터: 문단 %s'%g[0])
@@ -123,6 +142,8 @@ for m in ['내 서재','설정·도움말']:
     if tap(m):
         time.sleep(3); kkeut('tab_'+m); kkeojim(m)
         if m=='내 서재' and tap('더 보기 — 다 읽은 책'): kkeut('seojae_deobogi'); kkeojim('내 서재 더 보기')
+        if m=='내 서재' and tap('중요 표시 모음'): kkeut('jungyo_moeum'); kkeojim('중요 표시 모음'); dwiro()
+        if m=='내 서재' and tap('내 낱말장'): kkeut('nanmaljang'); kkeojim('내 낱말장'); dwiro()
 wiro()
 x=dump('doum',False)
 eds=[tuple(map(int,b)) for b in re.findall(r'class="android.widget.EditText"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',x)]
