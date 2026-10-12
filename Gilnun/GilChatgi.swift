@@ -205,8 +205,18 @@ struct YeojeongPan: View {
     @ObservedObject private var jikimi = TalgeotJikimi.shared   // 2.64.0 내리셨는지 여쭙기
 
     private var mok: String { yj.mokjeok.ireum }
-    /// 2.64.0 (261011-I18) 바로잡기 단추 — 기차를 맨 앞에
-    private let barojapgiMokrok: [(Talgeot, String)] = [(.gicha, "기차"), (.cha, "택시·차"), (.beoseu, "버스"), (.jihacheol, "지하철"), (.seonbak, "배")]
+    /// 2.65.0 (261012-I19, 이사장님 지시 2026-10-12) 「무엇을 타고 계신가요」 대답 단추 — 차와 걷기를 맨 앞에
+    ///   (복지콜이 막혀 서 있자 앱이 걷는다고 고집하고, 버스로 잘못 알던 일)
+    private let barojapgiMokrok: [(Talgeot, String)] = [(.cha, "차를 타고 있습니다"), (.georeum, "걷고 있습니다"), (.gicha, "기차를 타고 있습니다"), (.beoseu, "버스를 타고 있습니다"), (.jihacheol, "지하철을 타고 있습니다"), (.seonbak, "배를 타고 있습니다")]
+
+    /// 지금 알고 있는 것을 말로 — 「걷고 계신 것으로」, 「지하철을 타고 계신 것으로」
+    private func alGoItneunMal(_ t: Talgeot) -> String {
+        switch t {
+        case .georeum: return "걷고 계신 것으로"
+        case .jihacheol: return "지하철을 타고 계신 것으로"
+        default: return "\(t.ireum)를 타고 계신 것으로"
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -223,22 +233,25 @@ struct YeojeongPan: View {
                     .buttonStyle(KeunDanchu())
             }
             // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 탈것 바로잡기를 펼치기 밖, 맨 위 큰 단추 바로 아래에 둠 —
-            //   KTX에서 바로잡는 단추를 찾지 못해 내렸습니다로 여정을 끝내셔야 했던 일. 지금 알고 있는 탈것은 빼고 나머지만
-            if yj.danggye == .taneunJung || (yj.jiha != nil && yj.danggye == .taneunGotKkaji) {
-                let jigeum = YeojeongEngine.shared.talgeot
-                let namjeo = barojapgiMokrok.filter { $0.0 != jigeum }
-                // 지금 알고 있는 탈것은 첫 단추에만 붙여 같은 말을 되풀이해 듣지 않게
-                ForEach(Array(namjeo.enumerated()), id: \.element.0) { i, e in
-                    Button(i == 0 ? "\(e.1)입니다 — 바로잡기, 지금은 \(jigeum.ireum)로 알고 있습니다" : "\(e.1)입니다 — 바로잡기") { a.talgeotBarojapgi(e.0) }
-                        .buttonStyle(KeunDanchu())
+            //   KTX에서 바로잡는 단추를 찾지 못해 내렸습니다로 여정을 끝내셔야 했던 일
+            // 2.65.0 (261012-I19, 이사장님 지시 2026-10-12) 「무엇을 타고 계신가요」로 여쭙고 차·걷기도 넣음, 남은 길을 걷는 차례에도 보임 —
+            //   복지콜이 막혀 서 있자 앱이 걷는다고 고집해 바로잡기 어려웠던 일. 지금 알고 있는 것은 빼고 나머지만
+            if yj.danggye == .taneunJung || yj.danggye == .namEunGil || (yj.jiha != nil && yj.danggye == .taneunGotKkaji) {
+                let jigeum: Talgeot = yj.danggye == .namEunGil ? .georeum : YeojeongEngine.shared.talgeot
+                Text("무엇을 타고 계신가요? 지금은 \(alGoItneunMal(jigeum)) 알고 있습니다")
+                    .font(.title3.bold())
+                    .accessibilityAddTraits(.isHeader)
+                ForEach(barojapgiMokrok.filter { $0.0 != jigeum }, id: \.0) { e in
+                    Button(e.1) {
+                        if e.0 == .georeum { a.naeryeotda(mal: "걷고 계신 것으로 알겠습니다. 남은 길을 걸어서 안내합니다.") }
+                        else { a.talgeotBarojapgi(e.0) }
+                    }
+                    .buttonStyle(KeunDanchu())
                 }
             }
             if yj.danggye != .dochak {
                 DisclosureGroup("여정 다른 할 일 펼치기") {
                     VStack(alignment: .leading, spacing: 10) {
-                        if yj.danggye == .namEunGil {
-                            Button("차에 탔습니다 — 차 안 안내로") { a.chaTatda() }.buttonStyle(KeunDanchu())
-                        }
                         // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 타고 가는 중이거나 지하철 안내 중이면 언제나 탈것 바로잡기 단추를 바로 둠
                         //   (예전에는 지하철 안내 중에는 숨어 있어 잘못 본 지하철을 바로잡을 수 없었음)
                         if yj.danggye == .taneunJung || (yj.jiha != nil && yj.danggye == .taneunGotKkaji) {
