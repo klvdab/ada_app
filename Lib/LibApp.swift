@@ -33,6 +33,11 @@ enum Route: Hashable {
     case marks(Int)
     case mun(String, String)              // 0.3.0 세 겹의 문
     case seoga(String, String, String)    // 0.3.0 서가
+    case pureo(String)                    // 0.6.0 풀어 읽기
+    case sokchatgi(Int, String)           // 0.6.0 책 속에서 찾기
+    case sajeon(String, String)           // 0.6.0 사전(책 이름, 지금 문단)
+    case jungyo                           // 0.6.0 중요 표시 모음
+    case nanmal                           // 0.6.0 내 낱말장
 }
 
 final class Nav: ObservableObject {
@@ -87,6 +92,11 @@ extension View {
             case .marks(let i): MarksView(i: i).dwiro()
             case .mun(let m, let t): MunView(mun: m, ttl: t).dwiro()
             case .seoga(let m, let k, let t): SeogaView(mun: m, k: k, ttl: t).dwiro()
+            case .pureo(let g): PureoView(geul: g).dwiro()
+            case .sokchatgi(let i, let t): SokChatgiView(i: i, ttl: t).dwiro()
+            case .sajeon(let c, let m): SajeonView(chaek: c, munjang: m).dwiro()
+            case .jungyo: JungyoListView().dwiro()
+            case .nanmal: NanmalJangView().dwiro()
             }
         }
     }
