@@ -244,10 +244,21 @@ object Geurigi {
             val i = d.getString("jb.butak.id", "") ?: ""
             return if (i.isEmpty()) null else Triple(i, d.getString("jb.butak.sin", "") ?: "", d.getString("jb.butak.min", "") ?: "")
         }
-    fun butakJeonghagi(id: String, sin: String, min: String) {
-        ctx?.getSharedPreferences("jabong", Context.MODE_PRIVATE)?.edit()?.putString("jb.butak.id", id)?.putString("jb.butak.sin", sin)?.putString("jb.butak.min", min)?.apply()
+    fun butakJeonghagi(id: String, sin: String, min: String, mlat: Double = 0.0, mlon: Double = 0.0) {
+        ctx?.getSharedPreferences("jabong", Context.MODE_PRIVATE)?.edit()?.putString("jb.butak.id", id)?.putString("jb.butak.sin", sin)?.putString("jb.butak.min", min)
+            ?.putString("jb.butak.mlat_s", if (mlat != 0.0 || mlon != 0.0) "$mlat" else "")?.putString("jb.butak.mlon_s", "$mlon")?.apply()   // 2.21.0 AI 밑그림
     }
-    fun butakGeumanduggi() { ctx?.getSharedPreferences("jabong", Context.MODE_PRIVATE)?.edit()?.remove("jb.butak.id")?.apply() }
+    fun butakGeumanduggi() { ctx?.getSharedPreferences("jabong", Context.MODE_PRIVATE)?.edit()?.remove("jb.butak.id")?.remove("jb.butak.mlat_s")?.apply() }
+    /** 2.21.0 부탁 길 도착 좌표 — AI 밑그림 */
+    val butakMok: Pair<Double, Double>?
+        get() {
+            val d = ctx?.getSharedPreferences("jabong", Context.MODE_PRIVATE) ?: return null
+            if ((d.getString("jb.butak.id", "") ?: "").isEmpty()) return null
+            val a = (d.getString("jb.butak.mlat_s", "") ?: "").toDoubleOrNull() ?: return null
+            val o = (d.getString("jb.butak.mlon_s", "") ?: "").toDoubleOrNull() ?: return null
+            return Pair(a, o)
+        }
+    private val mitAllimDoen = HashSet<Int>()
 
     fun sijak(chulbal: String = "") {
         val c = ctx ?: return
@@ -295,6 +306,98 @@ object Geurigi {
             }
         }
         jeojang()
+        mitAllimDoen.clear()
+        mitBatgiSijak()   // 2.21.0 부탁 길이면 AI 밑그림을 받아 꺾는 곳을 미리 알림
+    }
+
+    /** 2.21.0 AI 밑그림 받기 — 부탁 길(도착 좌표가 있을 때)만, 지금 자리에서 */
+    private fun mitBatgiSijak() {
+        val mok = butakMok ?: return
+        val w = Wichi.jigeum ?: return
+        val id = gil?.optString("id") ?: return
+        JbMit.batgi(w.lat, w.lon, mok.first, mok.second) { m ->
+            if (m == null || gil?.optString("id") != id) return@batgi
+            gil?.put("mit", m)
+            jeojang()
+            Girok.namgi("jb_mit_batgi", mapOf("geori" to m.optInt("geori"), "kkeok" to (m.optJSONArray("kkeok")?.length() ?: 0)))
+            val kyeojim = ctx?.let { JbMit.allimKyeojim(it) } ?: true
+            Sori.mal(JbMit.mal(m, Wichi.nachimban) + (if (kyeojim) " 꺾는 곳 15미터 앞에서 한 번씩 미리 알려 드립니다." else ""), MalGeup.JEONGBO)
+        }
+    }
+
+    /** 2.21.0 걷는 동안 밑그림 꺾는 곳 15미터 앞 한 번 알림 */
+    private fun mitBoda() {
+        val c = ctx ?: return
+        if (!JbMit.allimKyeojim(c) || rideMode.isNotEmpty() || mureum != null) return
+        val kk = gil?.optJSONObject("mit")?.optJSONArray("kkeok") ?: return
+        val w = Wichi.jigeum ?: return
+        if (System.currentTimeMillis() - w.ttae > 5000 || w.ochae > 25) return
+        for (i in 0 until kk.length()) {
+            if (i in mitAllimDoen) continue
+            val k = kk.getJSONObject(i)
+            val d = Wichi.geori(w.lat, w.lon, k.optDouble("lat"), k.optDouble("lon"))
+            if (d > 15) continue
+            for (j in 0..i) mitAllimDoen.add(j)   // 앞 꺾는 곳을 건너뛰었으면 함께 알린 것으로
+            Girok.namgi("jb_mit_allim", mapOf("i" to i, "m" to d.roundToInt()))
+            Sori.mal("밑그림으로는 약 ${maxOf(5, d.roundToInt())}미터 앞에서 ${k.optInt("sigye")}시 방향으로 꺾습니다. 실제 길을 보고 꺾이는 그 자리에서 표시해 주십시오.", MalGeup.JEONGBO)
+            return
+        }
+    }
+
+    /** 2.21.0 다 걸은 뒤 밑그림과 견주기 — 부탁 길이 아니면 출발과 도착 자리로 밑그림을 받아 견줌(막지 않음) */
+    private fun mitGyeonjugi(id: String) {
+        val g = gilChatgi(id) ?: return
+        val ps = g.optJSONArray("pts") ?: return
+        val mk = g.optJSONArray("marks") ?: JSONArray()
+        val jj = (0 until ps.length()).mapNotNull { ps.optJSONObject(it) }.filter { it.has("lat") && it.optDouble("acc", 99.0) <= 30 }
+        val majo: (JSONObject) -> Unit = { m ->
+            val (e, p) = JbMit.gyeonjugi(ps, mk, m)
+            gilChatgi(id)?.let { o -> o.put("mit", m); o.put("mitEotgan", e); o.put("mitPajim", p) }
+            mokJeojang()
+            Girok.namgi("jb_mit_gyeonjum", mapOf("id" to id, "eotgan" to e.length(), "pajim" to p.length()))
+            Sori.mal(JbMit.gyeolgwaMal(e, p), MalGeup.JEONGBO)
+            bakkwim?.invoke()
+        }
+        val m0 = g.optJSONObject("mit")
+        if (m0 != null) { majo(m0); return }
+        if (jj.size < 2) return
+        val a = jj.first(); val b = jj.last()
+        if (Wichi.geori(a.optDouble("lat"), a.optDouble("lon"), b.optDouble("lat"), b.optDouble("lon")) < 30) return
+        JbMit.batgi(a.optDouble("lat"), a.optDouble("lon"), b.optDouble("lat"), b.optDouble("lon")) { m -> if (m != null) majo(m) }
+    }
+
+    /** 2.21.0 어긋난 구간의 까닭 적기 */
+    fun kkadakJeokgi(id: String, k: Int, t: String) {
+        val e = gilChatgi(id)?.optJSONArray("mitEotgan")?.optJSONObject(k) ?: return
+        e.put("kkadak", t)
+        mokJeojang()
+        Girok.namgi("jb_mit_kkadak", mapOf("id" to id, "k" to k))
+        alrigi("까닭을 남겼습니다. $t. 올리실 때 협회 점검에 함께 갑니다.")
+    }
+
+    /** 2.21.0 어긋난 까닭을 말로 */
+    fun kkadakMallo(id: String, k: Int) {
+        val c = ctx ?: return
+        Sori.mal("어긋난 까닭을 한두 마디로 말씀해 주십시오. 예를 들어 공사 중이라 돌아갔습니다.", MalGeup.ANNAE) {
+            Sori.deutgiSijak()
+            Eum.naegi(EumJong.DINGDONG)
+            main.postDelayed({
+                val ok = MalDeutgi.deutgi(c, 8) { alts, _ ->
+                    Sori.deutgiKkeut()
+                    val t = (alts.firstOrNull() ?: "").trim().take(60)
+                    if (t.isEmpty()) Sori.mal("말씀이 들리지 않았습니다. 다시 눌러 주십시오.") else kkadakJeokgi(id, k, t)
+                }
+                if (!ok) { Sori.deutgiKkeut(); Sori.mal("지금은 마이크를 열지 못했습니다.") }
+            }, 350)
+        }
+    }
+
+    /** 2.21.0 지도에 보낼 것 — 지금 그리는 길 */
+    fun jidoJigeum(): JSONObject = JbMit.jidoGeurim(gil, pts, marks, Wichi.nachimban)
+    /** 2.21.0 지도에 보낼 것 — 그린 길 하나 */
+    fun jidoGeurinGil(id: String): JSONObject {
+        val g = gilChatgi(id) ?: return JSONObject()
+        return JbMit.jidoGeurim(g, g.optJSONArray("pts") ?: JSONArray(), g.optJSONArray("marks") ?: JSONArray(), null)
     }
 
     fun jamkkan() {
@@ -360,6 +463,7 @@ object Geurigi {
         Girok.namgi("jb_geurigi_kkeut", mapOf("id" to g.optString("id"), "georeum" to gr, "georeum2" to n2, "pyosi" to marks.length(), "jari" to pts.length()))
         gil = null
         alrigi(mal)
+        mitGyeonjugi(g.optString("id"))   // 2.21.0
         // 도착한 자리 주소를 저절로 적음
         val w = Wichi.jigeum
         if (w != null) {
@@ -407,6 +511,7 @@ object Geurigi {
         // 2.11.0 계단 여쭙기 없앰, 꺾임 여쭙기는 켰을 때만
         if (rideMode.isEmpty() && ctx?.let { kkeokMutgi(it) } == true) kkeokimBoda()
         if (pts.length() % 15 == 0) gilBoda()
+        mitBoda()   // 2.21.0
     }
 
     // MARK: 폰이 먼저 여쭘 — 아이폰과 같음(꺾임은 자이로 각도로, 자이로가 없으면 나침반으로)
@@ -850,6 +955,13 @@ object Geurigi {
         b.put("pts", g.optJSONArray("pts") ?: JSONArray()); b.put("marks", g.optJSONArray("marks") ?: JSONArray())
         b.put("gs", g.optJSONArray("gs") ?: JSONArray()); b.put("sori", sori)
         b.put("app", "android-jabong-" + JabongPan.pan)
+        // 2.21.0 AI 밑그림과 견준 것 — 협회 점검에 참고로만(점지도에는 싣지 않음)
+        g.optJSONObject("mit")?.let { m ->
+            val mo = JSONObject().put("geori", m.optInt("geori")).put("kkeok", m.optJSONArray("kkeok")?.length() ?: 0)
+            g.optJSONArray("mitEotgan")?.let { mo.put("eotgan", it) }
+            g.optJSONArray("mitPajim")?.let { mo.put("pajim", it) }
+            b.put("mit", mo)
+        }
         return b.toString()
     }
 

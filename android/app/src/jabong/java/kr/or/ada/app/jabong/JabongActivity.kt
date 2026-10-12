@@ -722,6 +722,7 @@ class GeurigiHwamyeon : JbHwamyeon("점지도 그리기") {
         Geurigi.butak?.let { b ->   // 2.14.0 길눈님 부탁 길 — 안내와 그만두기 단추를 한 자리에
             t.geul("길눈님 부탁 길: ${b.second} → ${b.third}. 걷기 시작을 누르시면 이 이름이 들어갑니다.", true)
             t.danchu("부탁 길 그만두기 — 그냥 그리기") { Geurigi.butakGeumanduggi(); t.dasiGeurigi() }
+            if (Geurigi.butakMok != null) t.geul("출발 자리에서 걷기 시작을 누르시면 AI 밑그림을 받아 들려 드립니다. " + JbMit.gyoyuk)   // 2.21.0
         }
         if (Seoljeong.bopokJaem && Seoljeong.bopok > 0.2) t.danchu("걷기 시작 — 출발 자리 주소는 저절로 적습니다") {
             // 2.10.0 표시마다 짧게 말 남기기가 켜져 있으면 마이크 허락을 먼저 여쭘(허락이 없어도 그리기는 됨)
@@ -752,6 +753,7 @@ class GeurigiHwamyeon : JbHwamyeon("점지도 그리기") {
     }
 
     private fun georeumJung(t: JabongActivity) {
+        JbJido.bogi(t) { Geurigi.jidoJigeum() }   // 2.21.0 걷는 화면 위쪽 절반에 지도 — 톡백에는 가림
         for (n in Geurigi.JAJU) t.danchu(n) { Geurigi.pyosi(n) }
         t.danchu(if (Geurigi.malDeutneun) "말로 표시 — 듣는 중" else "말로 표시 — 누르고 계단 시작처럼 말씀하십시오") {
             t.maikHeorak { ok -> if (ok) Geurigi.malloPyosi() else Sori.mal("말로 표시하려면 마이크와 음성 인식 허락이 필요합니다.") }
@@ -772,6 +774,16 @@ class GeurigiHwamyeon : JbHwamyeon("점지도 그리기") {
             t.danchu("꺾임 여쭙기 — " + if (Geurigi.kkeokMutgi(t)) "켜짐, 누르면 끔" else "꺼짐, 누르면 켬") {
                 val v = !Geurigi.kkeokMutgi(t); Geurigi.kkeokMutgiKyeogi(t, v)
                 Sori.mal(if (v) "꺾임 여쭙기를 켰습니다. 방향이 크게 바뀌면 먼저 여쭙니다." else "꺾임 여쭙기를 껐습니다.")
+                t.dasiGeurigi()
+            }
+            t.danchu("AI 밑그림 꺾는 곳 미리 알림 — " + if (JbMit.allimKyeojim(t)) "켜짐, 누르면 끔" else "꺼짐, 누르면 켬") {   // 2.21.0
+                val v = !JbMit.allimKyeojim(t); JbMit.allimKyeogi(t, v)
+                Sori.mal(if (v) "AI 밑그림 꺾는 곳 15미터 앞에서 한 번씩 미리 알려 드립니다." else "AI 밑그림 미리 알림을 껐습니다.")
+                t.dasiGeurigi()
+            }
+            t.danchu("지도 보이기 — " + if (JbMit.jidoKyeojim(t)) "켜짐, 누르면 끔" else "꺼짐, 누르면 켬") {
+                val v = !JbMit.jidoKyeojim(t); JbMit.jidoKyeogi(t, v)
+                Sori.mal(if (v) "지도를 보입니다. 톡백을 쓰실 때는 가립니다." else "지도를 감췄습니다.")
                 t.dasiGeurigi()
             }
             t.ipryeok("출발지 이름 — 지금 " + Geurigi.gilFrom.ifEmpty { "없음" }, chulbal, InputType.TYPE_CLASS_TEXT) { chulbal = it }
@@ -828,6 +840,22 @@ class GrinGilHwamyeon(private val id: String) : JbHwamyeon("그린 길") {
                 for (i in 0 until h.length()) Sori.mal("${i + 1}. ${sk?.optString(i, "빨강") ?: "빨강"}. ${h.optString(i)}")
             }
         }
+        // 2.21.0 AI 밑그림과 견준 것 — 막지 않음, 까닭을 남기시도록
+        val ea = g.optJSONArray("mitEotgan")
+        if (ea != null && ea.length() > 0) {
+            t.geul("AI 밑그림과 15미터 넘게 어긋난 구간 ${ea.length()}곳 — 실제 길이 정답입니다", true)
+            for (k in 0 until ea.length()) {
+                val e = ea.optJSONObject(k) ?: continue
+                t.geul(JbMit.eotganMal(e), true)
+                t.danchu("까닭 말로 남기기 — 구간 ${k + 1}") { t.maikHeorak { ok -> if (ok) Geurigi.kkadakMallo(id, k) else Sori.mal("말로 남기려면 마이크 허락이 필요합니다.") } }
+            }
+        }
+        val pa = g.optJSONArray("mitPajim")
+        if (pa != null && pa.length() > 0) {
+            t.geul("꺾임 표시가 빠졌을 수 있는 곳 ${pa.length()}곳", true)
+            for (k in 0 until pa.length()) pa.optJSONObject(k)?.let { JbBowan.heumJul(t, "주황", JbMit.pajimMal(it)) }
+        }
+        if (g.has("mit")) JbJido.bogi(t) { Geurigi.jidoGeurinGil(id) }
         t.pyeolchigi("출발지·도착지 이름 고치기", ireumPyeol) { ireumPyeol = !ireumPyeol }
         if (ireumPyeol) {
             t.ipryeok("출발지 — 지금 " + g.optString("from", "").ifEmpty { "없음" }, chulbal, InputType.TYPE_CLASS_TEXT) { chulbal = it }
@@ -943,10 +971,24 @@ class ButakHanGeonHwamyeon(private val b: NnButak) : JbHwamyeon("그려 주세�
     private var datMal = ""
     private var pyeol = false
     private var doen = b.doen
+    private var mitBatneun = false
     override fun chaeugi(t: JabongActivity) {
         t.kadeu(b.jaseMal)
+        // 2.21.0 AI 밑그림 듣기 — 출발지 이름으로 자리를 찾고, 못 찾으면 지금 자리에서
+        if (b.mlat != 0.0 || b.mlon != 0.0) t.danchu(if (mitBatneun) "AI 밑그림 받는 중입니다" else "AI 밑그림 듣기 — 실제 길과 다를 수 있습니다") {
+            if (mitBatneun) return@danchu
+            mitBatneun = true
+            Sori.mal("AI 밑그림을 받습니다. 잠시만 기다려 주십시오.")
+            t.dasiGeurigi()
+            JbMit.deutgi(b.sin, b.mlat, b.mlon) { mal ->
+                mitBatneun = false
+                Girok.namgi("jb_mit_deutgi", mapOf("ok" to !mal.startsWith("AI 밑그림을 받지")))
+                Sori.mal(mal)
+                t.dasiGeurigi()
+            }
+        }
         if (!doen) t.danchu("이 길 그리러 가기 — 봉사 탭으로") {
-            Geurigi.butakJeonghagi(b.id, b.sin, b.min)   // 2.14.0 다음 걷기에 이름이 들어감
+            Geurigi.butakJeonghagi(b.id, b.sin, b.min, b.mlat, b.mlon)   // 2.14.0 다음 걷기에 이름이 들어감
             Sori.mal("고맙습니다. 봉사 탭의 점지도 그리기에서 ${b.sin}부터 ${b.min}까지 걸어 주십시오. 걷기 시작을 누르시면 출발지와 도착지 이름이 부탁대로 들어갑니다. 다 그려 올리시면 협회 점검을 통과할 때 저절로 다 그렸습니다로 알려 드립니다.")
             t.tabGo(0)
         }
@@ -1115,6 +1157,7 @@ class DoumalHwamyeon : JbHwamyeon("도움말") {
         val DOUMAL = listOf(
             "처음 등록" to "자봉 앱을 처음 여시면 한 번만 등록합니다. 이름, 연락처, 주로 활동하실 지역, 네 자리 숫자를 적고, 1365 아이디는 비워 두었다가 나중에 넣으셔도 됩니다. 다음을 누르시면 점지도 일곱 가지 약속을 길눈 목소리로 차례로 읽어 드립니다. 약속 한 장을 누르시면 그 약속만 다시 들으실 수 있습니다. 이어서 확인 문제 아홉 개를 문제와 고를 말 넷(가, 나, 다, 라)까지 읽어 드리며, 맞히면 박수 소리와 진동으로, 틀리면 풀이를 들려 드리고 다시 고르시게 합니다. 아홉 문제를 모두 맞혀야 통과합니다. 통과하시면 큰 박수와 함께 환영 화면에서 자봉 번호를 알려 드리고, 봉사 시작하기를 누르시면 봉사 탭으로 갑니다. 웹 자봉에서 이미 등록하셨으면 자봉 번호와 네 자리 숫자로 이어서 쓰십시오.",
             "새 표시 — 낙상 주의, 길 폭, 되돌아가는 곳" to "다른 표시와 도구 펼치기 안에 있습니다. 옆으로 떨어질 수 있는 곳(물가, 낭떠러지, 턱 없는 가장자리 같은 곳)이 시작되는 자리에서 낙상 주의 시작을 위험한 쪽에 맞춰 3시 쪽, 9시 쪽, 양쪽 가운데 하나로 누르시고, 위험이 끝나는 자리에서 낙상 주의 끝을 누르십시오. 그 사이 걸음과 거리를 적어 두면 길눈이 이 구간 앞에서 미리 알리고, 구간 안에서는 위험한 쪽으로 반 걸음만 비켜나도 끌 수 없는 경고로 겹으로 살핍니다. 끝을 빠뜨리시면 길눈은 시작 표시부터 열 걸음을 구간으로 봅니다. 길 폭이 바뀌는 곳에서는 길 폭 좁음, 보통, 넓음을 남겨 주십시오. 길에서 6시 방향으로 돌아서 되돌아가야 하는 곳은 그 자리에서 되돌아가는 곳을 누르시고, 돌아서서 이어 걸으십시오. 말로 표시에서 3시 쪽 낙상, 낙상 끝, 좁은 길, 유턴처럼 말씀하셔도 됩니다.",   // 2.20.0 (261010-A16, 이사장님 승인 2026-10-10)
+            "AI 밑그림과 지도" to "AI 밑그림은 협회 걷기 길찾기가 짐작한 길입니다. 밑그림은 짐작일 뿐, 실제로 걷는 길이 정답입니다. 그려 주세요 부탁을 열면 맨 위 AI 밑그림 듣기로 몇 미터 가서 몇 시 방향으로 꺾는지 미리 들으실 수 있습니다. 부탁 길을 출발 자리에서 걷기 시작하시면 밑그림을 받아 들려 드리고, 걷는 동안 밑그림의 꺾는 곳 15미터 앞에서 한 번씩 미리 알려 드립니다(다른 표시와 도구 펼치기 안에서 끄고 켬). 다 걸으시면 밑그림과 견주어 15미터 넘게 어긋난 구간과 꺾임 표시가 빠졌을 수 있는 곳을 알려 드립니다. 막지는 않으며, 그린 길 화면에서 까닭 말로 남기기를 눌러 공사 중이라 돌아갔습니다처럼 남겨 주시면 올릴 때 협회 점검에 함께 갑니다. 밑그림은 봉사자께만 쓰이고 길눈 이용자께 점지도로 가지 않습니다. 눈으로 보시는 분께는 걷는 화면 위쪽에 지도가 나옵니다. 회색 점선이 밑그림, 파란 선이 걸은 자취, 점이 표시, 주황이 어긋난 구간, 빨강 반짝임이 표시가 빠졌을 수 있는 곳이고, 걷는 쪽이 위로 오게 돌아갑니다. 톡백을 쓰실 때는 지도를 가립니다.",   // 2.21.0 (261012-A17, 이사장님 승인 2026-10-12)
             "점지도 일곱 가지 약속" to "시작과 끝은 문 앞에서, 걸음을 끊지 않기, 폰은 가슴 앞에 걷는 쪽으로, 꺾이는 그 자리에서 바로 표시, 짝 표시는 시작과 끝을 함께, 보폭은 걷기 전에, 표시마다 짧게 말로 남기기입니다. 서버의 점지도 점검과 같은 잣대라, 약속대로 걸으시면 점검을 통과합니다. 이미 등록하신 분도 교육이 새로워지면 앱을 열 때 약속을 한 번 다시 듣고 확인 문제를 풀어야 점지도 그리기를 쓰실 수 있습니다. 교육을 마친 날짜는 협회 등록 창고에 남습니다.",
             "탭 넷" to "화면 아래에 봉사, 나눔, 내 기록, 알림·설정 탭이 있고, 속 화면에서도 늘 보입니다. 속 화면의 뒤로 단추는 위에 하나 있고, 폰의 뒤로 동작을 하셔도 앞 화면으로 갑니다. 첫 화면에서는 앱 밖으로 나가지 않고 여기가 첫 화면이라고 알려 드립니다. 같은 탭을 한 번 더 누르시면 그 탭의 첫 화면으로 갑니다.",
             "긴급통화 받기" to "봉사 탭 맨 위에 있습니다. 자원봉사자나 현장영상해설사 가운데 받으실 역할을 고르고, 별명과 수료 번호(해설사는 협회에 등록한 전화번호)를 적은 뒤 함께하겠습니다를 한 번 누르시면 됩니다. 이때 카메라와 마이크, 알림 허락도 한 번에 받아 두고, 배터리 아끼기에서 자봉을 빼 달라고 한 번 여쭙니다. 그 뒤로는 길손님이 도움을 청하면 폰이 잠겨 있어도 벨소리와 진동이 울리고 받기와 거절이 뜹니다. 받기를 누르시면 곧바로 길손님 카메라 화면과 말소리가 이어집니다. 다른 길눈님이 먼저 받으시면 벨이 멈추고 다른 분께 연결되었다고 알려 드립니다. 실명과 전화번호는 화면에 나오지 않고 별명만 씁니다. 잠시 쉬기를 누르시면 울리지 않습니다. 긴급통화는 이 자봉 앱으로만 받습니다. 자원봉사자와 현장영상해설사는 누구를 고를 수 없게 되어 있고, 받을 수 있는 분 가운데 먼저 받는 분이 연결됩니다. 기회가 고르게 가도록 처음 15초는 최근에 덜 받으신 다섯 분께 먼저 울리고, 그래도 아무도 안 받으면 모든 분께 울립니다. 통화료는 들지 않고 데이터만 씁니다(와이파이에서는 따로 드는 돈이 없음). 곧바로 잇지 못할 때 거치는 영상 다리 주소는 나스에서 받아 쓰므로, 다리를 옮겨도 앱을 새로 받으실 필요가 없습니다.",
