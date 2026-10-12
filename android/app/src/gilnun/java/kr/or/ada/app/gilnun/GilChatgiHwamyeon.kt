@@ -301,21 +301,30 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
         if (TalgeotJikimi.naerimMureum && yj.danggye == Danggye.TANEUN_JUNG) {
             t.danchu("아직 ${YeojeongEngine.talgeot.ireum}에 타고 있습니다 — 안내 이어 가기") { TalgeotJikimi.ajikTago() }
         }
-        // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 탈것 바로잡기를 펼치기 밖, 맨 위 큰 단추 바로 아래에 — 지금 알고 있는 탈것은 빼고 나머지만(아이폰과 같음)
-        if (yj.danggye == Danggye.TANEUN_JUNG || (g != null && yj.danggye == Danggye.TANEUN_GOT_KKAJI)) {
-            val jigeum = YeojeongEngine.talgeot
-            val namjeo = listOf(Talgeot.GICHA to "기차", Talgeot.CHA to "택시·차", Talgeot.BEOSEU to "버스", Talgeot.JIHACHEOL to "지하철", Talgeot.SEONBAK to "배")
-                .filter { it.first != jigeum }
-            namjeo.forEachIndexed { i, (tg, ireum) ->
-                t.danchu(if (i == 0) "${ireum}입니다 — 바로잡기, 지금은 ${jigeum.ireum}로 알고 있습니다" else "${ireum}입니다 — 바로잡기") { a.talgeotBarojapgi(tg) }
+        // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 탈것 바로잡기를 펼치기 밖, 맨 위 큰 단추 바로 아래에(아이폰과 같음)
+        // 2.37.0 (261012-A25, 이사장님 지시 2026-10-12) 「무엇을 타고 계신가요」로 여쭙고 차·걷기도 넣음, 남은 길을 걷는 차례에도 보임 —
+        //   복지콜이 막혀 서 있자 앱이 걷는다고 고집해 바로잡기 어려웠던 일. 지금 알고 있는 것은 빼고 나머지만(아이폰 2.65.0과 같음)
+        if (yj.danggye == Danggye.TANEUN_JUNG || yj.danggye == Danggye.NAM_EUN_GIL || (g != null && yj.danggye == Danggye.TANEUN_GOT_KKAJI)) {
+            val jigeum = if (yj.danggye == Danggye.NAM_EUN_GIL) Talgeot.GEOREUM else YeojeongEngine.talgeot
+            val alGo = when (jigeum) {
+                Talgeot.GEOREUM -> "걷고 계신 것으로"
+                Talgeot.JIHACHEOL -> "지하철을 타고 계신 것으로"
+                else -> "${jigeum.ireum}를 타고 계신 것으로"
             }
+            t.jemok("무엇을 타고 계신가요? 지금은 $alGo 알고 있습니다")
+            listOf(Talgeot.CHA to "차를 타고 있습니다", Talgeot.GEOREUM to "걷고 있습니다", Talgeot.GICHA to "기차를 타고 있습니다",
+                Talgeot.BEOSEU to "버스를 타고 있습니다", Talgeot.JIHACHEOL to "지하철을 타고 있습니다", Talgeot.SEONBAK to "배를 타고 있습니다")
+                .filter { it.first != jigeum }
+                .forEach { (tg, geul) ->
+                    t.danchu(geul) {
+                        if (tg == Talgeot.GEOREUM) a.naeryeotda(mal = "걷고 계신 것으로 알겠습니다. 남은 길을 걸어서 안내합니다.")
+                        else a.talgeotBarojapgi(tg)
+                    }
+                }
         }
         if (yj.danggye != Danggye.DOCHAK) {
             t.pyeolchigi("여정 다른 할 일", yeojeongPyeol) { yeojeongPyeol = !yeojeongPyeol }
             if (yeojeongPyeol) {
-                if (yj.danggye == Danggye.NAM_EUN_GIL) {
-                    t.danchu("차에 탔습니다 — 차 안 안내로") { a.chaTatda() }
-                }
                 // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 타고 가는 중이거나 지하철 안내 중이면 언제나 탈것 바로잡기 단추를 바로 둠
                 //   (예전에는 지하철 안내 중에는 숨어 있어 잘못 본 지하철을 바로잡을 수 없었음, 아이폰과 같음)
                 if (yj.danggye == Danggye.TANEUN_JUNG || (g != null && yj.danggye == Danggye.TANEUN_GOT_KKAJI)) {
