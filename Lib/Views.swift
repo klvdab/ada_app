@@ -244,6 +244,8 @@ struct ReaderView: View {
     @State private var more = false
     @State private var bulga = false     // 0.5.1 독서기로 들을 수 없는 형식
     @State private var yeolligo = false  // 0.5.1 처음 한 번만 저절로 읽기
+    @State private var memoChang = false   // 0.6.0 메모 창
+    @State private var memoGeul = ""
     @AccessibilityFocusState private var focus: Bool
     init(i: Int, title: String, kind: String) { self.i = i; self.title = title; _kind = State(initialValue: kind) }
 
@@ -269,11 +271,21 @@ struct ReaderView: View {
         if k == "etc" || k.isEmpty { bulga = true; try? await Task.sleep(nanoseconds: 400_000_000); focus = true }
         else { kind = k }
     }
+    // 0.6.0 곱씹어 읽기
+    func dasiDeutgi() { r.play(at: r.pos) }
+    func jungyoPyosi() {
+        if kind != "geul" || r.text.isEmpty { store.say("글자책에서만 중요 표시를 할 수 있습니다."); return }
+        let ok = Gomssip.shared.pyosi(i: i, t: title, pos: r.pos, geul: r.text)
+        store.say(ok ? "\(r.pos + 1)번째 문단에 중요 표시를 했습니다." : "이미 중요 표시가 된 문단입니다.")
+    }
     var boneun: some View {
         List {
             Section {
                 Button(r.playing ? "멈춤" : (r.waiting ? "소리 만드는 중" : "읽기")) { r.toggle() }
                     .accessibilityFocused($focus)
+                    .accessibilityAction(named: "이 문단 다시 듣기") { dasiDeutgi() }   // 0.6.0 — 위아래 쓸기로 바로
+                    .accessibilityAction(named: "사전") { if kind == "geul" { nav.push(Route.sajeon(title, r.text)) } }
+                    .accessibilityAction(named: "중요 표시하기") { jungyoPyosi() }
                 Button("앞으로 30초") { r.gaCho(30) }   // 0.4.0 — 헷갈리지 않는 이름(이사장님)
                 Button("뒤로 30초") { r.gaCho(-30) }
                 JaesaengWichi()   // 0.4.0 — 재생 위치 막대
@@ -289,6 +301,15 @@ struct ReaderView: View {
             }
             Section {
                 DisclosureGroup("더 보기", isExpanded: $more) {
+                    if kind == "geul" {   // 0.6.0 곱씹어 읽기와 사전
+                        Button("이 문단 다시 듣기") { dasiDeutgi() }
+                        Button("천천히 다시 듣기") { store.rateIndex = 0; store.save(); r.applyRate(); store.say("아주 느리게 다시 읽습니다. 빠르기는 더 빠르게로 되돌릴 수 있습니다."); dasiDeutgi() }
+                        Button("풀어 읽기, 이 문단을 글자 단위로 짚기") { nav.push(Route.pureo(r.text)) }
+                        Button("사전, 이 문단 낱말 뜻 찾기") { nav.push(Route.sajeon(title, r.text)) }
+                        Button("중요 표시하기") { jungyoPyosi() }
+                        Button("중요 표시에 메모 붙이기") { memoGeul = Gomssip.shared.jungyo.first(where: { $0.i == i && $0.pos == r.pos })?.memo ?? ""; memoChang = true }
+                        Button("책 속에서 찾기") { nav.push(Route.sokchatgi(i, title)) }
+                    }
                     Button("더 느리게, 지금 \(Store.rateNames[store.rateIndex])") {
                         store.rateIndex = max(0, store.rateIndex - 1); store.save(); r.applyRate(); store.say(Store.rateNames[store.rateIndex])
                     }
@@ -311,6 +332,11 @@ struct ReaderView: View {
             }
         }
         .navigationTitle(title)
+        .alert("중요 표시 메모", isPresented: $memoChang) {   // 0.6.0 — 자판의 마이크로 말로 적을 수 있음
+            TextField("메모", text: $memoGeul)
+            Button("붙이기") { if !Gomssip.shared.jungyo.contains(where: { $0.i == i && $0.pos == r.pos }) { jungyoPyosi() }; Gomssip.shared.memo(i: i, pos: r.pos, memoGeul); store.say("메모를 붙였습니다.") }
+            Button("그만", role: .cancel) {}
+        }
         .task {
             await r.open(i: i, title: title, kind: kind)
             if !yeolligo { yeolligo = true; if !r.playing { r.toggle() } }   // 0.5.1 열리면 바로 읽음(이사장님 지시 — 한 번 두드리면)
@@ -383,6 +409,8 @@ struct SeojaeView: View {
             } header: { Text("읽던 책").foregroundStyle(Saek.ganjo) }
             Section {
                 DisclosureGroup("더 보기", isExpanded: $more) {
+                    Button("중요 표시 모음, \(Gomssip.shared.jungyo.count)개") { nav.push(Route.jungyo) }   // 0.6.0
+                    Button("내 낱말장, \(Gomssip.shared.nanmal.count)개") { nav.push(Route.nanmal) }
                     let da = store.finished
                     Text("다 읽은 책 \(da.count)권")
                     ForEach(Array(da.dropFirst(od).prefix(Self.jjok))) { rc in
@@ -504,6 +532,13 @@ enum Doum {
         ("첫 화면 목록", "도서관 첫 화면에는 찾기 칸과 이어 듣기 아래에 설정의 첫 화면 목록에서 고른 목록(주제별, 장르별, 테마별 가운데 하나)의 서가가 바로 나옵니다. 처음 값은 장르별입니다. 다른 두 목록은 그 아래 한 줄씩 있습니다."),
         ("목록 넘기기", "목록은 처음에 한 쪽 15줄입니다. 설정의 목록 줄 수에서 5, 10, 15, 20, 30줄 가운데 고를 수 있습니다. 목록에서 세 손가락으로 위로 쓸면 다음 목록, 아래로 쓸면 앞 목록이 나오고 커서는 그 목록 첫 줄에 놓입니다. 손짓이 안 될 때는 맨 아래 다음 목록을 누릅니다."),
         ("세 겹의 문", "도서관 첫 화면에 주제별, 장르별, 테마별 세 문이 있습니다. 문을 누르면 서가와 책 수가 나오고, 서가를 누르면 책 목록이 나옵니다. 주제별은 도서관 십진분류, 장르별은 판타지·무협 같은 갈래, 테마별은 이달의 새 책 같은 모음입니다."),
+        ("이 문단 다시 듣기", "책 읽는 화면 더 보기 안에 있습니다. 지금 읽던 문단을 처음부터 다시 읽습니다. 읽기 단추에서 위아래로 쓸어 이 문단 다시 듣기를 골라도 됩니다. 천천히 다시 듣기는 빠르기를 아주 느리게로 바꾸어 다시 읽고, 더 빠르게로 되돌릴 수 있습니다."),
+        ("풀어 읽기", "책 읽는 화면 더 보기 안에 있습니다. 지금 문단을 한 덩이 글로 띄웁니다. 보이스오버 로터를 글자나 단어로 놓고 위아래로 쓸면 한 글자씩, 한 낱말씩 짚어 읽을 수 있어 외국어 철자나 한자를 확인할 때 좋습니다."),
+        ("중요 표시와 메모", "책 읽는 화면 더 보기 안의 중요 표시하기를 누르면 지금 문단에 중요 표시가 붙습니다. 중요 표시에 메모 붙이기로 짧은 메모를 적을 수 있고, 자판의 마이크를 누르면 말로 적을 수 있습니다. 읽기 단추에서 위아래로 쓸어 중요 표시하기를 골라도 됩니다."),
+        ("중요 표시 모음", "내 서재의 더 보기 안에 있습니다. 모든 책의 중요 표시가 최근 것부터 모이고, 누르면 그 문단으로 가서 바로 읽습니다. 지우려면 그 줄에서 위아래로 쓸어 중요 표시 지우기를 고릅니다."),
+        ("책 속에서 찾기", "책 읽는 화면 더 보기 안에 있습니다. 낱말이나 이름을 적고 찾기를 누르면 그 말이 나오는 문단이 목록으로 나오고, 누르면 그 문단부터 읽습니다."),
+        ("사전", "책 읽는 화면 더 보기 안의 사전을 누르면 지금 문단의 낱말이 목록으로 나오고, 고르면 바로 뜻을 들려줍니다. 낱말을 적어 찾을 수도 있습니다. 우리말은 표준국어대사전과 한국어기초사전, 영어는 워드넷, 일본어는 JMdict, 중국어는 CC-CEDICT, 한자는 한 글자마다 음과 뜻을 알려 줍니다. 뜻 끝에는 출처를 붙입니다."),
+        ("내 낱말장", "사전에서 찾아본 낱말이 그 문장, 책 이름과 함께 저절로 모입니다. 내 서재의 더 보기 안에 있습니다. 지우려면 그 줄에서 위아래로 쓸어 낱말장에서 지우기를 고릅니다."),
         ("외국 도서", "외국어로 된 원서는 우리 책과 섞지 않고 외국 도서 문에 따로 모았습니다. 외국 도서를 누르면 영어, 중국어, 일본어, 프랑스어, 독일어 같은 언어와 책 수가 나오고, 언어를 누르면 소설, 시, 역사 같은 장르와 주제가 나옵니다. 영어 소설은 고전 명작, 모험, 추리와 스릴러처럼 한 겹 더 나뉩니다. 첫 화면의 외국 도서로 찾기를 누르거나, 설정의 첫 화면 목록에서 외국 도서를 고르면 첫 화면에 바로 언어 목록이 나옵니다."),
         ("띄어 읽기 바로잡기", "옛 글자책은 한 줄 길이를 정해 강제로 줄을 바꾼 것이 많아, 그렇습니다를 그 렇습니다처럼 낱말 가운데서 끊어 읽는 일이 있었습니다. 이제 도서관이 책마다 끊긴 줄을 알아보고 낱말을 바르게 이어, 문장이 끝나는 곳에서만 쉬며 읽어 드립니다. 읽던 자리와 책갈피는 책을 처음 열 때 새 자리로 맞춰 옮겨 드립니다. 내려받은 책은 받을 때의 글 그대로 읽습니다."),
         ("내려받기", "독서기 더 보기 안의 책 정보 화면에서 폰에 내려받기를 누르면 책을 폰에 받아 둡니다. 글자책은 글 전체를, 소리책은 소리 파일을 받습니다. 받은 책은 이 앱 안에만 있고 다른 앱이나 파일 앱에서는 보이지 않습니다. 내 서재 맨 위 내려받은 책에 모입니다."),
