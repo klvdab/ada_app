@@ -30,7 +30,7 @@ struct SokResp: Decodable { let ok: Bool; let modu: Int?; let hits: [SokHit]?; l
 
 extension API {
     static func sajeon(_ q: String) async throws -> SajeonResp { try await get("sajeon.php", ["a": "chatgi", "q": q], as: SajeonResp.self) }
-    static func sokChatgi(_ i: Int, _ q: String) async throws -> SokResp { try await get("dokseo.php", ["m": "sokchatgi", "i": String(i), "q": q, "gp": "4"], as: SokResp.self) }
+    static func sokChatgi(_ i: Int, _ q: String) async throws -> SokResp { try await get("dokseo.php", ["m": "sokchatgi", "i": String(i), "q": q, "gp": "4", "hj": String(UserDefaults.standard.object(forKey: "hanjaeum") as? Int ?? 1)], as: SokResp.self) }
 }
 
 @MainActor
