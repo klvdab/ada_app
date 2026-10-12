@@ -24,6 +24,9 @@ object Store {
     val rateNames = arrayOf("아주 느리게", "보통", "조금 빠르게", "빠르게", "아주 빠르게")
     var rateIndex: Int get() = p.getInt("rate", 1); set(v) { p.edit().putInt("rate", v).apply() }
     var voice: Int get() = p.getInt("voice", 0); set(v) { p.edit().putInt("voice", v).apply() }
+    /** 0.6.1 (261012) 한자음 읽기: 1 음만 듣기, 2 음과 원문 함께 보기, 0 꺼짐 */
+    var hanjaeum: Int get() = p.getInt("hanjaeum", 1); set(v) { p.edit().putInt("hanjaeum", v).apply() }
+    fun hanjaeumIreum(v: Int = hanjaeum) = if (v == 0) "꺼짐" else if (v == 2) "음과 원문 함께 보기" else "음만 듣기"
     /** 앱이 스스로 내는 안내 말(톡백 알림) 켜기·끄기 */
     var speechOn: Boolean get() = p.getBoolean("speech", true); set(v) { p.edit().putBoolean("speech", v).apply() }
     val rate get() = rates[rateIndex.coerceIn(0, rates.size - 1)]
