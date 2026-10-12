@@ -50,7 +50,7 @@ sealed class Hm {
 }
 
 class LibActivity : Activity() {
-    companion object { const val PAN = "0.6.0"; const val BILDEU = "261012-L12" }   // 0.6.0 곱씹어 읽기(다시 듣기·풀어 읽기·중요 표시·책 속 찾기)와 사전·내 낱말장   // 0.5.2 외국 도서 문(외국 도서 → 언어 → 장르와 주제), 글 판 4(강제 줄바꿈 바로잡은 글·옛 자리 옮기기), 도움말 둘   // 0.5.1 첫 화면 맨 위 이름 줄·바로 아래 찾기, 목록에서 한 번 두드리면 바로 읽기, 넘긴 뒤 커서 첫 줄 다지기(도서관 창 클, 이사장님 승인 「1」). 0.4.4 아이폰과 견주어 네 묶음 고침(도서관 창 클, 이사장님 승인 「1」). 0.4.3 새 판 알림과 업데이트(대장클, 이사장님 지시)
+    companion object { const val PAN = "0.6.1"; const val BILDEU = "261012-L13" }   // 0.6.1 한자음 읽기(중국 고전을 우리 한자음으로, 간체자도, 원문 함께 보기)   // 0.6.0 곱씹어 읽기(다시 듣기·풀어 읽기·중요 표시·책 속 찾기)와 사전·내 낱말장   // 0.5.2 외국 도서 문(외국 도서 → 언어 → 장르와 주제), 글 판 4(강제 줄바꿈 바로잡은 글·옛 자리 옮기기), 도움말 둘   // 0.5.1 첫 화면 맨 위 이름 줄·바로 아래 찾기, 목록에서 한 번 두드리면 바로 읽기, 넘긴 뒤 커서 첫 줄 다지기(도서관 창 클, 이사장님 승인 「1」). 0.4.4 아이폰과 견주어 네 묶음 고침(도서관 창 클, 이사장님 승인 「1」). 0.4.3 새 판 알림과 업데이트(대장클, 이사장님 지시)
     private val main = Handler(Looper.getMainLooper())
     private val pool = Executors.newFixedThreadPool(3)
     private val stacks = arrayOf(mutableListOf<Hm>(Hm.Home), mutableListOf<Hm>(Hm.Seojae), mutableListOf<Hm>(Hm.Seoljeong))
@@ -413,6 +413,7 @@ class LibActivity : Activity() {
                 danchu("풀어 읽기, 이 문단을 글자 단위로 짚기") { go(Hm.Pureo(Dokseo.text())) }
                 danchu("사전, 이 문단 낱말 뜻 찾기") { sajeonChajeun = ""; sajeonGyeol = emptyList(); gsO = 0; go(Hm.Sajeon(h.t, Dokseo.text())) }
                 danchu("중요 표시하기") { jungyoPyosi(h) }
+                if (Dokseo.hjgal) danchu("한자음 읽기 바꾸기, 지금은 " + Store.hanjaeumIreum()) { Dokseo.hanjaeumBakkugi { main.post { malhagi("한자음 읽기, " + Store.hanjaeumIreum()); dasi("한자음 읽기 바꾸기, 지금은 " + Store.hanjaeumIreum()) } } }   // 0.6.1 (261012) 한자음 읽기
                 danchu("중요 표시에 메모 붙이기") { memoChang(h) }
                 danchu("책 속에서 찾기") { sokHits = emptyList(); sokMal = ""; gsO = 0; go(Hm.SokChatgi(h.i, h.t)) }
             }
@@ -596,7 +597,7 @@ class LibActivity : Activity() {
         val d = Dokseo
         readerDan?.text = if (d.playing) (if (d.waiting) "목소리를 받는 중입니다, 멈춤" else "멈춤") else "읽기"
         readerJul?.text = if (d.kind == "geul") (if (d.modu > 0) "${d.modu}문단 가운데 ${d.pos + 1}번째" else "글자를 가져오는 중입니다.") else ""
-        readerMun?.text = d.text()
+        readerMun?.text = d.text() + d.won().let { if (it.isEmpty()) "" else "\n원문: " + it }   // 0.6.1 음과 원문 함께 보기
     }
 
     private fun marks(i: Int) {
@@ -827,6 +828,7 @@ class LibActivity : Activity() {
         "내 낱말장" to "사전에서 찾아본 낱말이 그 문장, 책 이름과 함께 저절로 모입니다. 내 서재의 더 보기 안에 있습니다. 지우려면 그 줄에서 톡백 동작으로 낱말장에서 지우기를 고르거나 길게 누릅니다.",
         "외국 도서" to "외국어로 된 원서는 우리 책과 섞지 않고 외국 도서 문에 따로 모았습니다. 외국 도서를 누르면 영어, 중국어, 일본어, 프랑스어, 독일어 같은 언어와 책 수가 나오고, 언어를 누르면 소설, 시, 역사 같은 장르와 주제가 나옵니다. 영어 소설은 고전 명작, 모험, 추리와 스릴러처럼 한 겹 더 나뉩니다. 첫 화면의 외국 도서로 찾기를 누르거나, 설정의 첫 화면 목록에서 외국 도서를 고르면 첫 화면에 바로 언어 목록이 나옵니다.",
         "띄어 읽기 바로잡기" to "옛 글자책은 한 줄 길이를 정해 강제로 줄을 바꾼 것이 많아, 그렇습니다를 그 렇습니다처럼 낱말 가운데서 끊어 읽는 일이 있었습니다. 이제 도서관이 책마다 끊긴 줄을 알아보고 낱말을 바르게 이어, 문장이 끝나는 곳에서만 쉬며 읽어 드립니다. 읽던 자리와 책갈피는 책을 처음 열 때 새 자리로 맞춰 옮겨 드립니다. 내려받은 책은 받을 때의 글 그대로 읽습니다.",
+        "한자음 읽기" to "중국 고전처럼 한자로 된 책은 우리 한자음으로 바꿔 읽어 드립니다. 학이시습지처럼 우리가 한문을 읽는 소리로 듣게 되고, 연보, 노인처럼 두음법칙도 지킵니다. 중국 본토 글자(간체자)로 된 책도 먼저 옛 글자로 바꾼 뒤 읽습니다. 독서기 더 보기의 한자음 읽기 바꾸기를 누를 때마다 음만 듣기, 음과 원문 함께 보기, 꺼짐 차례로 바뀝니다. 음과 원문 함께 보기에서는 문단 아래에 원문 한자가 나와 점자나 화면으로 확인하실 수 있습니다. 일본 책은 일본어 그대로 읽습니다. 이 단추는 한자로 된 책을 열었을 때만 나옵니다.",
         "책 정보" to "독서기 더 보기 안의 책 정보를 누르면 갈래, 들어온 날, 읽던 자리가 나오고, 내려받기도 여기서 합니다. 책 소개가 있으면 지은이, 출판사, 책 소개와 책 소개 듣기가 나옵니다. 독서기로 들을 수 없는 형식이면 그렇다고 알려 드립니다.",
         "독서기" to "글자책은 사람 목소리로 문단마다 읽어 줍니다. 앞 문단을 읽는 동안 뒤 문단을 미리 만들어 둡니다. 겉에는 읽기, 앞으로 30초, 뒤로 30초, 재생 위치가 있고 그 아래에 지금 읽는 글이 나옵니다. 빠르기, 목소리, 책갈피, 처음부터, 책 정보는 더 보기 안에 있습니다.",
         "처음부터" to "독서기의 더 보기 안에 있습니다. 글자책은 첫 문단으로, 소리책과 동영상은 맨 처음으로 갑니다.",
