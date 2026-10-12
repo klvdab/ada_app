@@ -64,10 +64,14 @@ object Api {
         return BookResp(j.optInt("i", i), j.optString("t"), j.optString("g"), j.optDouble("meg", 0.0), j.optString("nal"), j.optString("kind", "geul"), j.optString("sogae"), j.optString("jieun"), j.optString("chulpan"))
     }
     /** 글자책 한 쪽(60문단) */
+    // 0.6.1 (261012) 한자음 읽기 — 쪽마다 서버가 준 원문(won)과 한자음 읽기 대상 책인지(hjgal)를 담아 둠
+    val hjWon = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
+    val hjGal = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
     fun gul(i: Int, o: Int): Triple<Int, List<String>, String> {
-        val j = getJson("dokseo.php", mapOf("m" to "gul", "i" to "$i", "o" to "$o", "gp" to "4"))
+        val j = getJson("dokseo.php", mapOf("m" to "gul", "i" to "$i", "o" to "$o", "gp" to "4", "hj" to Store.hanjaeum.toString()))   // 0.6.1 한자음 읽기(hj)
         val a = j.optJSONArray("mun")
         val mun = if (a == null) emptyList() else (0 until a.length()).map { a.optString(it) }
+        val w = j.optJSONArray("won"); hjWon["$i:$o"] = if (w == null) emptyList() else (0 until w.length()).map { w.optString(it) }; hjGal["$i:$o"] = j.optBoolean("hjgal", false)   // 0.6.1
         return Triple(j.optInt("modu", 0), mun, j.optString("ttl"))
     }
     /** 0.5.2 (261012) 글 판 4 — 옛 판 문단 자리(여럿)를 새 판 자리로. 인터넷이 안 되면 null, 책이 없으면 빈 목록 */
