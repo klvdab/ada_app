@@ -56,7 +56,7 @@ object Gomssip {
     }
     /** 책 속에서 찾기 — (모두 몇 곳, 자리와 앞뒤 글, 알림 말) */
     fun sok(i: Int, q: String): Triple<Int, List<Pair<Int, String>>, String> {
-        val j = Api.getJson("dokseo.php", mapOf("m" to "sokchatgi", "i" to "$i", "q" to q, "gp" to "4"))
+        val j = Api.getJson("dokseo.php", mapOf("m" to "sokchatgi", "i" to "$i", "q" to q, "gp" to "4", "hj" to Store.hanjaeum.toString()))
         val a = j.optJSONArray("hits")
         val h = if (a == null) emptyList() else (0 until a.length()).map { k -> val o = a.getJSONObject(k); Pair(o.optInt("o"), o.optString("t")) }
         return Triple(j.optInt("modu", h.size), h, j.optString("msg"))
