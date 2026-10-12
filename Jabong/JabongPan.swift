@@ -2,12 +2,18 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.19.0"
-    static let bild = "261010-I13"
+    static let pan = "2.20.0"
+    static let bild = "261012-I14"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.20.0", bild: "261012-I14", nal: "2026-10-12", naeyong: [
+            "★AI 밑그림(이사장님 승인 2026-10-12 「1」) — 그려 주세요 부탁에서 AI 밑그림 듣기, 부탁 길을 걸을 때 밑그림 받아 들려 드림, 꺾는 곳 15미터 앞 한 번 알림(처음값 켬)",
+            "다 걸은 뒤 밑그림과 견주기 — 15미터 넘게 어긋난 구간과 꺾임 표시가 빠졌을 수 있는 곳을 알림, 막지 않고 까닭을 말로 남기도록 여쭘. 견준 것은 올릴 때 협회 점검에 참고로 감(점지도에는 싣지 않음)",
+            "지도 — 걷는 화면 위쪽에 카카오 지도(회색 점선 밑그림·파란 선 걸은 자취·점 표시·주황 어긋남·빨강 반짝임 빠진 꺾임, 걷는 쪽이 위로). 화면낭독기에는 가림",
+            "도움말 「AI 밑그림과 지도」 — 밑그림은 짐작일 뿐, 실제로 걷는 길이 정답"
+        ]),
         Gochim(pan: "2.19.0", bild: "261010-I13", nal: "2026-10-10", naeyong: [
             "★새 표시 — 낙상 주의 시작(3시 쪽·9시 쪽·양쪽)과 낙상 주의 끝을 짝지어 그 사이 걸음과 거리를 적음, 길 폭 좁음·보통·넓음, 되돌아가는 곳(이사장님 승인 2026-10-10, 청계천 첫 따라 걷기 뒤)",
             "말로 표시도 알아들음 — 3시 쪽 낙상, 낙상 끝, 좁은 길, 넓은 길, 유턴 등. 지금 상태 듣기와 다 걸었습니다에서 열린 낙상 주의 구간을 알림",

@@ -78,6 +78,10 @@ struct GrGil: Codable, Identifiable {
     var heum: [String]? = nil
     var heumSaek: [String]? = nil   // 2.13.0 고칠 곳의 빛깔(빨강·주황·노랑)
     var butakId: String? = nil      // 2.14.0 길눈님 「그려 주세요」 부탁으로 그린 길
+    // 2.20.0 AI 밑그림과 견준 것(봉사자 손에만 — 길눈 점지도에는 실리지 않음)
+    var mit: GrMit? = nil
+    var mitEotgan: [GrEotgan]? = nil
+    var mitPajim: [GrPajim]? = nil
 }
 
 // MARK: 그리기 엔진
@@ -156,14 +160,16 @@ final class JeomGeurigi: ObservableObject {
         guard let i = d.string(forKey: "jb.butak.id"), !i.isEmpty else { return nil }
         return (i, d.string(forKey: "jb.butak.sin") ?? "", d.string(forKey: "jb.butak.min") ?? "")
     }()
-    func butakJeonghagi(_ id: String, sin: String, min: String) {
+    func butakJeonghagi(_ id: String, sin: String, min: String, mlat: Double? = nil, mlon: Double? = nil) {
         butak = (id, sin, min)
+        if let a = mlat, let o = mlon, a != 0 || o != 0 { JeomGeurigi.butakMok = (a, o) } else { JeomGeurigi.butakMok = nil }   // 2.20.0 AI 밑그림
         let d = UserDefaults.standard
         d.set(id, forKey: "jb.butak.id"); d.set(sin, forKey: "jb.butak.sin"); d.set(min, forKey: "jb.butak.min")
     }
     func butakGeumanduggi() {
         butak = nil
         UserDefaults.standard.removeObject(forKey: "jb.butak.id")
+        JeomGeurigi.butakMok = nil
     }
     @Published private(set) var mureum: Mureum?
     @Published private(set) var allim = ""
@@ -194,6 +200,7 @@ final class JeomGeurigi: ObservableObject {
     private var gilIreum = ""
     private var gilMutneunJung = false
     private var ssak = Set<AnyCancellable>()
+    private var mitAllimDoen = Set<Int>()   // 2.20.0 미리 알린 밑그림 꺾는 곳
 
     private static let jigeumPail: URL = {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("jabong_geurigi_jigeum.json")
@@ -305,6 +312,72 @@ final class JeomGeurigi: ObservableObject {
             }
         }
         jeojang()
+        mitAllimDoen = []
+        mitBatgiSijak()   // 2.20.0 부탁 길이면 AI 밑그림을 받아 꺾는 곳을 미리 알림
+    }
+
+    /// 2.20.0 AI 밑그림 받기 — 부탁 길(도착 좌표가 있을 때)만, 지금 자리에서
+    private func mitBatgiSijak() {
+        guard let mok = JeomGeurigi.butakMok, let w = WichiEngine.shared.jigeum, let id = gil?.id else { return }
+        Task {
+            let m = await JbMitgeurim.batgi(w.lat, w.lon, mok.0, mok.1)
+            await MainActor.run {
+                guard let m = m, self.gil?.id == id else { return }
+                self.gil?.mit = m
+                self.jeojang()
+                Girok.shared.namgi("jb_mit_batgi", ["geori": m.geori, "kkeok": m.kkeok.count])
+                let h = WichiEngine.shared.nachimban
+                SoriEngine.shared.mal(JbMitgeurim.mal(m, banghyang: h) + (JbMitgeurim.allimKyeojim ? " 꺾는 곳 15미터 앞에서 한 번씩 미리 알려 드립니다." : ""), .jeongbo)
+            }
+        }
+    }
+
+    /// 2.20.0 걷는 동안 밑그림 꺾는 곳 15미터 앞 한 번 알림
+    private func mitBoda() {
+        guard JbMitgeurim.allimKyeojim, rideMode.isEmpty, mureum == nil, let m = gil?.mit, !m.kkeok.isEmpty,
+              let w = WichiEngine.shared.jigeum, Date().timeIntervalSince(w.ttae) < 5, w.ochae <= 25 else { return }
+        for (i, k) in m.kkeok.enumerated() where !mitAllimDoen.contains(i) {
+            let d = WichiEngine.geori(w.lat, w.lon, k.lat, k.lon)
+            guard d <= 15 else { continue }
+            // 앞 꺾는 곳을 건너뛰었으면 함께 알린 것으로
+            for j in 0...i { mitAllimDoen.insert(j) }
+            Girok.shared.namgi("jb_mit_allim", ["i": i, "m": Int(d)])
+            SoriEngine.shared.mal("밑그림으로는 약 \(max(5, Int(d.rounded())))미터 앞에서 \(k.sigye)시 방향으로 꺾습니다. 실제 길을 보고 꺾이는 그 자리에서 표시해 주십시오.", .jeongbo)
+            return
+        }
+    }
+
+    /// 2.20.0 다 걸은 뒤 밑그림과 견주기 — 부탁 길이 아니면 출발과 도착 자리로 밑그림을 받아 견줌(막지 않음)
+    private func mitGyeonjugi(_ id: String) {
+        guard let g = geurinGil.first(where: { $0.id == id }) else { return }
+        let jj = g.pts.filter { $0.lat != nil && ($0.acc ?? 99) <= 30 }
+        guard g.mit != nil || jj.count >= 2 else { return }
+        Task {
+            var m = g.mit
+            if m == nil, let a = jj.first, let b = jj.last, WichiEngine.geori(a.lat!, a.lon!, b.lat!, b.lon!) >= 30 {
+                m = await JbMitgeurim.batgi(a.lat!, a.lon!, b.lat!, b.lon!)
+            }
+            guard let mm = m else { return }
+            let (e, p) = JbMitgeurim.gyeonjugi(g, mm)
+            await MainActor.run {
+                guard let i = self.geurinGil.firstIndex(where: { $0.id == id }) else { return }
+                self.geurinGil[i].mit = mm
+                self.geurinGil[i].mitEotgan = e
+                self.geurinGil[i].mitPajim = p
+                self.mokJeojang()
+                Girok.shared.namgi("jb_mit_gyeonjum", ["id": id, "eotgan": e.count, "pajim": p.count])
+                SoriEngine.shared.mal(JbMitgeurim.gyeolgwaMal(e, p), .jeongbo)
+            }
+        }
+    }
+
+    /// 2.20.0 어긋난 구간의 까닭 적기
+    func kkadakJeokgi(_ id: String, _ k: Int, _ t: String) {
+        guard let i = geurinGil.firstIndex(where: { $0.id == id }), k < (geurinGil[i].mitEotgan?.count ?? 0) else { return }
+        geurinGil[i].mitEotgan?[k].kkadak = t
+        mokJeojang()
+        Girok.shared.namgi("jb_mit_kkadak", ["id": id, "k": k])
+        alrigi("까닭을 남겼습니다. \(t). 올리실 때 협회 점검에 함께 갑니다.")
     }
 
     func jamkkan() {
@@ -375,6 +448,7 @@ final class JeomGeurigi: ObservableObject {
         try? FileManager.default.removeItem(at: JeomGeurigi.jigeumPail)
         Girok.shared.namgi("jb_geurigi_kkeut", ["id": g.id, "georeum": g.georeum, "pyosi": g.marks.count, "jari": g.pts.count])
         alrigi(mal)
+        mitGyeonjugi(g.id)   // 2.20.0
         // 도착한 자리 주소를 저절로 적음
         let id = g.id
         if let w = WichiEngine.shared.jigeum {
@@ -426,6 +500,7 @@ final class JeomGeurigi: ObservableObject {
         if let m = mureum, Date().timeIntervalSince(m.ttae) > 20 { mureum = nil }
         if rideMode.isEmpty && JeomGeurigi.kkeokMutgi { kkeokimBoda() }   // 2.11.0 계단 여쭙기 없앰, 꺾임 여쭙기는 켰을 때만
         if (gil?.pts.count ?? 0) % 15 == 0 { gilBoda() }
+        mitBoda()   // 2.20.0
     }
 
     // MARK: 폰이 먼저 여쭘
@@ -874,6 +949,13 @@ final class JeomGeurigi: ObservableObject {
             "bopokMode": g.bopokMode, "pts": pts, "marks": marks, "sori": sori, "app": "ios-jabong-" + JabongPan.pan
         ]
         if let gd = try? enc.encode(g.gs ?? []), let gs = try? JSONSerialization.jsonObject(with: gd) { body["gs"] = gs }
+        // 2.20.0 AI 밑그림과 견준 것 — 협회 점검에 참고로만(점지도에는 싣지 않음)
+        if let m = g.mit {
+            var mo: [String: Any] = ["geori": m.geori, "kkeok": m.kkeok.count]
+            if let e = g.mitEotgan, let ed = try? enc.encode(e), let ej = try? JSONSerialization.jsonObject(with: ed) { mo["eotgan"] = ej }
+            if let p = g.mitPajim, let pd2 = try? enc.encode(p), let pj = try? JSONSerialization.jsonObject(with: pd2) { mo["pajim"] = pj }
+            body["mit"] = mo
+        }
         guard let u = URL(string: "https://lvd.ada.or.kr/jeom/jeom_olligi.php"),
               let b = try? JSONSerialization.data(withJSONObject: body) else { return nil }
         var r = URLRequest(url: u, timeoutInterval: 90)
@@ -947,6 +1029,9 @@ struct GeurigiView: View {
     @State private var chulbal = ""       // 2.11.0 출발지·도착지 이름 직접 넣기
     @State private var dochak = ""
     @State private var kkeokMutgi = JeomGeurigi.kkeokMutgi   // 2.11.0 꺾임 여쭙기(기본 끔)
+    @State private var mitAllim = JbMitgeurim.allimKyeojim   // 2.20.0 밑그림 꺾는 곳 미리 알림(처음값 켬)
+    @State private var jidoBoim = JbMitgeurim.jidoKyeojim    // 2.20.0 지도 보이기
+    @Environment(\.accessibilityVoiceOverEnabled) private var boiseu
     @AccessibilityFocusState private var allimChojeom: Bool
     @AccessibilityFocusState private var mureumChojeom: Bool
 
@@ -982,6 +1067,9 @@ struct GeurigiView: View {
         if s.bopok > 0.2 && s.bopokJaem {
             if let b = g.butak {   // 2.14.0 길눈님 부탁 길 — 안내와 그만두기 단추를 한 자리에
                 Text("길눈님 부탁 길: \(b.sin) → \(b.min). 걷기 시작을 누르시면 이 이름이 들어갑니다.").font(.title3.bold())
+                if JeomGeurigi.butakMok != nil {   // 2.20.0
+                    Text("출발 자리에서 걷기 시작을 누르시면 AI 밑그림을 받아 들려 드립니다. " + JbMitgeurim.gyoyuk).font(.body)
+                }
                 Button("부탁 길 그만두기 — 그냥 그리기") { g.butakGeumanduggi() }.buttonStyle(KeunDanchu())
             }
             Button("걷기 시작 — 출발 자리 주소는 저절로 적습니다") { g.sijak(chulbal: chulbal); chulbal = "" }.buttonStyle(KeunDanchu())
@@ -1020,6 +1108,13 @@ struct GeurigiView: View {
     }
 
     @ViewBuilder private var georeumJung: some View {
+        // 2.20.0 걷는 화면 위쪽 절반에 지도 — 화면낭독기에는 가림
+        if jidoBoim && !boiseu {
+            JbJidoView { JeomGeurigi.jidoGeurim(JeomGeurigi.shared.gil, banghyang: WichiEngine.shared.nachimban) }
+                .frame(height: UIScreen.main.bounds.height * 0.45)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .accessibilityHidden(true)
+        }
         ForEach(JeomGeurigi.JAJU, id: \.self) { n in
             Button(n) { g.pyosi(n) }.buttonStyle(KeunDanchu())
         }
@@ -1038,6 +1133,10 @@ struct GeurigiView: View {
                 Toggle("안내 말소리 — 끄면 화면 글자와 진동으로만", isOn: $s.malKyeojim).font(.title3)
                 Toggle("꺾임 여쭙기 — 방향이 크게 바뀌면 폰이 먼저 여쭘", isOn: $kkeokMutgi)
                     .font(.title3).onChange(of: kkeokMutgi) { v in JeomGeurigi.kkeokMutgi = v }
+                Toggle("AI 밑그림 꺾는 곳 미리 알림 — 15미터 앞에서 한 번", isOn: $mitAllim)   // 2.20.0
+                    .font(.title3).onChange(of: mitAllim) { v in JbMitgeurim.allimKyeojim = v }
+                Toggle("지도 보이기 — 눈으로 보시는 분께, 화면낭독기에는 가림", isOn: $jidoBoim)
+                    .font(.title3).onChange(of: jidoBoim) { v in JbMitgeurim.jidoKyeojim = v }
                 TextField("출발지 이름 — 지금 \(g.gilFrom.isEmpty ? "없음" : g.gilFrom)", text: $chulbal).textFieldStyle(.roundedBorder).font(.title3)
                 TextField("도착지 이름 — 넣지 않으면 다 걸은 자리 위성 주소", text: $dochak).textFieldStyle(.roundedBorder).font(.title3)
                 Button("출발지·도착지 이름 적기") { g.ireumGochigi(nil, chulbal: chulbal, dochak: dochak); chulbal = ""; dochak = "" }.buttonStyle(KeunDanchu())
@@ -1069,6 +1168,7 @@ struct GrinGilView: View {
     @State private var chulbal = ""
     @State private var dochak = ""
     @State private var jiulkka = false
+    @Environment(\.accessibilityVoiceOverEnabled) private var boiseu
     @AccessibilityFocusState private var allimChojeom: Bool
 
     var body: some View {
@@ -1091,6 +1191,24 @@ struct GrinGilView: View {
                             SoriEngine.shared.modu_geodugi()
                             for (k, m) in h.enumerated() { SoriEngine.shared.mal("\(k + 1). \((gil.heumSaek ?? [])[safe: k] ?? "빨강"). \(m)") }
                         }.buttonStyle(KeunDanchu())
+                    }
+                    // 2.20.0 AI 밑그림과 견준 것 — 막지 않음, 까닭을 남기시도록
+                    if let e = gil.mitEotgan, !e.isEmpty {
+                        Text("AI 밑그림과 15미터 넘게 어긋난 구간 \(e.count)곳 — 실제 길이 정답입니다").font(.title3.bold())
+                        ForEach(Array(e.enumerated()), id: \.offset) { k, x in
+                            Text(JbMitgeurim.eotganMal(x)).font(.title3).fixedSize(horizontal: false, vertical: true)
+                            Button("까닭 말로 남기기 — 구간 \(k + 1)") { g.kkadakMallo(id, k) }.buttonStyle(KeunDanchu())
+                        }
+                    }
+                    if let p = gil.mitPajim, !p.isEmpty {
+                        Text("꺾임 표시가 빠졌을 수 있는 곳 \(p.count)곳").font(.title3.bold())
+                        ForEach(Array(p.enumerated()), id: \.offset) { _, x in HeumJul(saek: "주황", mal: JbMitgeurim.pajimMal(x)) }
+                    }
+                    if gil.mit != nil && JbMitgeurim.jidoKyeojim && !boiseu {
+                        JbJidoView { JeomGeurigi.jidoGeurim(JeomGeurigi.shared.geurinGil.first(where: { $0.id == id }), banghyang: nil) }
+                            .frame(height: UIScreen.main.bounds.height * 0.45)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .accessibilityHidden(true)
                     }
                     DisclosureGroup("출발지·도착지 이름 고치기") {
                         VStack(alignment: .leading, spacing: 10) {
