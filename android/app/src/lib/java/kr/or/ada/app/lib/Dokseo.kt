@@ -32,6 +32,8 @@ object Dokseo {
     var bakkwim: (() -> Unit)? = null      // 화면 다시 그리기
     var allim: ((String) -> Unit)? = null  // 톡백 알림
     private val paras = HashMap<Int, String>()
+    private val wons = HashMap<Int, String>()   // 0.6.1 (261012) 한자음 읽기 — 문단 원문
+    var hjgal = false                           // 0.6.1 이 책이 한자음 읽기 대상인가
     private val gajineun = HashSet<Int>()       // 받고 있는 문단
     private val pageLoading = HashSet<Int>()
     private var token = 0
@@ -108,7 +110,7 @@ object Dokseo {
             }
         }
         stop()
-        i = bi; title = bt; kind = bk; paras.clear(); gajineun.clear(); pageLoading.clear(); modu = 0
+        i = bi; title = bt; kind = bk; paras.clear(); gajineun.clear(); pageLoading.clear(); modu = 0; wons.clear(); hjgal = false
         val saved = Store.rec(bi)
         val p = ensurePlayer()
         p.setPlaybackParameters(PlaybackParameters(Store.rate))
@@ -137,11 +139,24 @@ object Dokseo {
                 if (book != i || r == null) { if (r == null) allim?.invoke("글자를 가져오지 못했습니다. 인터넷을 확인해 주십시오."); return@post }
                 modu = r.first
                 r.second.forEachIndexed { k, s -> paras[pg + k] = s }
+                Api.hjWon.remove("$book:$pg")?.forEachIndexed { k, s -> wons[pg + k] = s }; Api.hjGal.remove("$book:$pg")?.let { hjgal = it }   // 0.6.1
                 then?.invoke()
             }
         }
     }
     fun text(o: Int = pos) = paras[o] ?: ""
+    fun won(o: Int = pos) = wons[o] ?: ""   // 0.6.1
+
+    // 0.6.1 (261012) 한자음 읽기 바꾸기 — 음만 듣기 → 음과 원문 함께 보기 → 꺼짐 → 음만 듣기 (이사장님 승인 10시 53분 「1」)
+    fun hanjaeumBakkugi(done: () -> Unit) {
+        val sae = when (Store.hanjaeum) { 1 -> 2; 2 -> 0; else -> 1 }
+        Store.hanjaeum = sae
+        val dasi = playing
+        if (dasi) pause()
+        paras.clear(); wons.clear(); gajineun.clear(); pageLoading.clear()
+        val o = pos
+        loadPage(o) { done(); if (dasi) play(o) }
+    }
 
     /** 문단 o 의 소리를 받아 파일로 — 다 되면 main 에서 done(파일 또는 null) */
     private fun soriFile(o: Int, done: (File?) -> Unit) {
