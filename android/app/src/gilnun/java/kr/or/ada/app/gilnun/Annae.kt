@@ -394,15 +394,106 @@ object AnnaeEngine {
             return
         }
         malHagi("지금 자리를 알아보는 중입니다.", MalGeup.JEONGBO)
-        Chatgi.jarimalJson(w.lat, w.lon) { o ->
-            Nalssi.mal { n ->
-                malHagi(jariMalMandeulgi(o, w) + (if (n.isEmpty()) "" else " 날씨는 $n."))
+        // 2.40.0 (261014-A28, 이사장님 승인 2026-10-14) 가까운 버스정류장(이름·번호)도 함께 받음
+        var o0: JSONObject? = null
+        var jr0: List<Jeongryujang>? = null
+        var nal = ""
+        var nam = 3
+        var han = false
+        val majimak: () -> Unit = {
+            if (!han && nam <= 0) {
+                han = true
+                val m = jariMalMandeulgi(o0, w, jr0)
+                // 2.40.0 무엇을 말씀드렸는지 그대로 남김(10/13 오금역 — 들으신 말을 기록으로 확인할 수 없었음)
+                Girok.namgi("jari_mal", mapOf("mal" to m, "oc" to w.ochae.toInt(), "la" to w.lat, "lo" to w.lon))
+                malHagi(m + (if (nal.isEmpty()) "" else " 날씨는 $nal."))
             }
         }
+        Chatgi.jarimalJson(w.lat, w.lon) { o -> o0 = o; nam--; majimak() }
+        Beoseu.gakkaun(w.lat, w.lon) { l -> jr0 = l; nam--; majimak() }
+        Nalssi.mal { n -> nal = n; nam--; majimak() }
+        main.postDelayed({ nam = 0; majimak() }, 12000)
+    }
+
+    // MARK: 2.40.0 출구·정류장 한마디 (빌드 261014-A28, 이사장님 승인 2026-10-14 「그래 수정하고 또 수정하자」, 아이폰 2.68.0과 같음)
+    // 10/13 오금역 — 「오금역 3호선 1번출구」가 3번 출구로 들렸고, 1번·2번 출구가 15미터 사이인데 위성 오차 14미터에도 한 출구만 말했으며,
+    // 바로 옆 버스정류장 이름과 번호를 말하지 않아 나비콜 기사님이 몇 바퀴를 도셨음.
+
+    /** 「오금역 1번 출구」 → ("오금역", "1번 출구") */
+    fun chulguNanum(n: String): Pair<String, String> {
+        val m = Regex("""\s*(\d+)번\s*출구$""").find(n) ?: return Pair(n, "")
+        return Pair(n.substring(0, m.range.first).trim(), "${m.groupValues[1]}번 출구")
+    }
+
+    /** 출구 말 — gisa: 기사님·상담원께 드릴 말(시계 방향 없이) */
+    fun chulguMal(o: JSONObject?, w: Jari, gisa: Boolean = false): String? {
+        if (o == null) return null
+        val c = o.optJSONObject("chulgu") ?: return null
+        val raw = Jeomjido.gul(c, "ireum")
+        if (raw.isEmpty()) return null
+        // 옛 서버 답에도 호선이 섞이지 않게 한 번 더 걸러 냄
+        val n1 = raw.replace(Regex("""\s+(\d+호선|[가-힣A-Za-z]+선)\s*(?=\d+번)"""), " ").replace("번출구", "번 출구")
+        var d1 = Jeomjido.su(c, "meter") ?: 0.0
+        var s1 = 0
+        val la = Jeomjido.su(c, "lat")
+        val lo = Jeomjido.su(c, "lon")
+        if (la != null && lo != null && la != 0.0) { d1 = Wichi.geori(w.lat, w.lon, la, lo); s1 = sigye(w, la, lo) }
+        val c2 = o.optJSONObject("chulgu2")
+        if (c2 != null) {
+            val n2 = Jeomjido.gul(c2, "ireum")
+            val la2 = Jeomjido.su(c2, "lat")
+            val lo2 = Jeomjido.su(c2, "lon")
+            if (n2.isNotEmpty() && la2 != null && lo2 != null && la2 != 0.0) {
+                val d2 = Wichi.geori(w.lat, w.lon, la2, lo2)
+                if (d2 <= 60 && d2 - d1 <= max(10.0, w.ochae)) {
+                    val (y1, b1) = chulguNanum(n1)
+                    val (y2, b2) = chulguNanum(n2)
+                    val gat = y1 == y2 && b1.isNotEmpty() && b2.isNotEmpty()
+                    val sai = if (gat) "$y1 ${b1}와 $b2 사이" else "${n1}와 $n2 사이"
+                    val jjok = if (gat) b1 else n1
+                    if (gisa) return "$sai, $jjok 쪽"
+                    return "$sai, $jjok 쪽으로 ${Annae.geoMal(d1)}${Annae.sigyeMal(s1)}. 위성 오차가 약 ${max(1, w.ochae.toInt())}미터라 ${if (gat) b2 else n2}일 수도 있습니다"
+                }
+            }
+        }
+        if (gisa) return if (d1 <= 15) "$n1 앞" else "${n1}에서 ${Annae.geoMal(d1)} 떨어진 곳"
+        return "${n1}에서 ${Annae.geoMal(d1)}${Annae.sigyeMal(s1)}"
+    }
+
+    /** 가까운 버스정류장 말 — 150미터 안에서 가장 가까운 한 곳(이름, 정류장 번호 한 자씩, 시계 방향과 거리) */
+    fun jeongryuMal(jr: List<Jeongryujang>?, w: Jari, gisa: Boolean = false): String? {
+        if (jr.isNullOrEmpty()) return null
+        val g = jr.map { it to Wichi.geori(w.lat, w.lon, it.lat, it.lon) }.minByOrNull { it.second } ?: return null
+        val j = g.first
+        val d = g.second
+        if (d > 150 || j.ireum.isEmpty()) return null
+        val nm = j.ireum.replace(".", " ")
+        val bh = if (j.no.isEmpty()) "" else "정류장 번호 " + j.no.toCharArray().joinToString(" ")
+        if (gisa) return "버스정류장 $nm" + (if (bh.isEmpty()) "" else ", $bh") + " 근처"
+        val s = sigye(w, j.lat, j.lon)
+        return "가까운 버스정류장은 $nm" + (if (bh.isEmpty()) "" else ", $bh") + ", " + (if (s == 0) "" else "${s}시 방향 ") + Annae.geoMal(d)
+    }
+
+    /** 콜 상담원·기사님께 드릴 타는 곳 — 출구와 버스정류장(못 받으면 빈 말, 5초 안) */
+    fun taneunGotMal(kkeut: (String) -> Unit) {
+        val w = Wichi.jigeum ?: run { kkeut(""); return }
+        var o0: JSONObject? = null
+        var jr0: List<Jeongryujang>? = null
+        var nam = 2
+        var han = false
+        val majimak: () -> Unit = {
+            if (!han && nam <= 0) {
+                han = true
+                kkeut(listOfNotNull(chulguMal(o0, w, true), jeongryuMal(jr0, w, true)).joinToString(", "))
+            }
+        }
+        Chatgi.jarimalJson(w.lat, w.lon) { o -> o0 = o; nam--; majimak() }
+        Beoseu.gakkaun(w.lat, w.lon) { l -> jr0 = l; nam--; majimak() }
+        main.postDelayed({ nam = 0; majimak() }, 5000)
     }
 
     /** 현 위치정보 말할 내용 — 설정에서 고른 것만(주소, 가까운 곳, 지번, 위성 오차) */
-    fun jariMalMandeulgi(o: JSONObject?, w: Jari): String {
+    fun jariMalMandeulgi(o: JSONObject?, w: Jari, jr: List<Jeongryujang>? = null): String {
         val s = AnnaeSeoljeong
         val t = ArrayList<String>()
         if (o != null) {
@@ -415,8 +506,10 @@ object AnnaeEngine {
                 val g = o.optJSONObject("gakkaun")
                 val cn = c?.let { Jeomjido.gul(it, "ireum") } ?: ""
                 val gn = g?.let { Jeomjido.gul(it, "ireum") } ?: ""
-                if (c != null && cn.isNotEmpty()) t.add("${cn}에서 ${(Jeomjido.su(c, "meter") ?: 0.0).toInt()}미터")
+                val cm = if (c != null && cn.isNotEmpty()) chulguMal(o, w) else null
+                if (cm != null) t.add(cm)   // 2.40.0 호선 뺀 출구, 두 출구가 오차 안이면 둘 다, 시계 방향
                 else if (g != null && gn.isNotEmpty()) t.add("${gn}에서 ${(Jeomjido.su(g, "meter") ?: 0.0).toInt()}미터")
+                jeongryuMal(jr, w)?.let { t.add(it) }   // 2.40.0 가까운 버스정류장 이름·번호
             }
             val m = Jeomjido.gul(o, "mal")
             if (t.isEmpty() && !s.jariJijeom && !s.jariOcha && m.isNotEmpty()) t.add(m)

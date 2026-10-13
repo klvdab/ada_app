@@ -86,7 +86,10 @@ object SeoljeongDeo {
         }
         Sori.mal("지금 자리를 알아보는 중입니다.", MalGeup.JEONGBO)
         Tongsin.json("jarimal.php", mapOf("lat" to NanumNas.sosu6(w.lat), "lon" to NanumNas.sosu6(w.lon)), 10000) { o ->
-            Nalssi.mal { n -> Sori.mal(jariMalMandeulgi(o, w) + (if (n.isEmpty()) "" else " 날씨는 $n.")) }
+            // 2.40.0 (261014-A28) 길 찾기의 지금 내 자리와 같은 말 — 출구(호선 뺌·두 출구 사이)와 버스정류장 이름·번호
+            Beoseu.gakkaun(w.lat, w.lon) { jr ->
+                Nalssi.mal { n -> Sori.mal(AnnaeEngine.jariMalMandeulgi(o, w, jr) + (if (n.isEmpty()) "" else " 날씨는 $n.")) }
+            }
         }
     }
 

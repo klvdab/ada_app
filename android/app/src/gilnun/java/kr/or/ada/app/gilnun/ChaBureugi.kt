@@ -279,7 +279,10 @@ internal object ChaBureugi {
         }
     }
 
-    /** 상담원께 말할 것 — 출발 주소와 입구, 도착지, 도착 희망 시각, 보조견 */
+    /** 2.40.0 마지막으로 걸 때 알아본 타는 곳(배차 뒤 기사님께 알려 드릴 말) */
+    private var majimakTago = ""
+
+    /** 상담원께 말할 것 — 출발 주소와 입구, 타는 곳(출구·정류장), 도착지, 도착 희망 시각, 보조견 */
     private fun halMal(jeonggi: Boolean, kkeut: (String) -> Unit) {
         var chulbal = ""
         var dochak = ""
@@ -294,11 +297,17 @@ internal object ChaBureugi {
         }
         if (dochak.isEmpty()) YeojeongEngine.jigeum?.let { dochak = it.mokjeok.ireum }
         var han = false
-        val majimak: () -> Unit = {
-            if (!han) {
+        // 2.40.0 (261014-A28, 이사장님 승인 2026-10-14) 타는 곳 — 출구와 버스정류장 이름·번호(10/13 오금역에서 기사님이 몇 바퀴를 도심)
+        var tago = ""
+        var jusoOn = true
+        var tagoOn = jeonggi
+        val majimak: (Boolean) -> Unit = { kkeutnaem ->
+            if (!han && (kkeutnaem || (jusoOn && tagoOn))) {
                 han = true
+                if (!jeonggi) majimakTago = tago
                 val t = ArrayList<String>()
                 if (chulbal.isNotEmpty()) t.add("출발은 ${chulbal}입니다.")
+                if (tago.isNotEmpty()) t.add("타는 곳은 ${tago}입니다.")
                 if (dochak.isNotEmpty()) t.add("도착은 $dochak" + (if (sigak.isEmpty()) "입니다." else ", ${sigak}까지 가야 합니다."))
                 t.add(if (bj) "보조견과 함께 탑니다." else "보조견은 없습니다.")
                 kkeut(t.joinToString(" "))
@@ -306,11 +315,12 @@ internal object ChaBureugi {
         }
         val w = Wichi.jigeum
         if (chulbal.isEmpty() && w != null) {
-            Chatgi.juso(w.lat, w.lon) { j -> if (!han) chulbal = j ?: ""; majimak() }
-            main.postDelayed({ majimak() }, 4000)   // 주소를 4초 안에 못 받으면 주소 없이
-        } else {
-            majimak()
+            jusoOn = false
+            Chatgi.juso(w.lat, w.lon) { j -> if (!han) chulbal = j ?: ""; jusoOn = true; majimak(false) }
         }
+        if (!jeonggi) AnnaeEngine.taneunGotMal { g -> if (!han) tago = g; tagoOn = true; majimak(false) }
+        main.postDelayed({ majimak(true) }, 5500)   // 주소·타는 곳을 5.5초 안에 못 받으면 받은 것만
+        majimak(false)
     }
 
     /** 통화 중에도 볼 수 있게 할 말을 알림 칸에 남김 */
@@ -376,7 +386,11 @@ internal object ChaBureugi {
         gochigi(id) { it.gyeolgwa = g; it.gyeolgwaTtae = System.currentTimeMillis() }
         Girok.namgi("kol_gyeolgwa", mapOf("g" to g))
         when (g) {
-            "baecha" -> Sori.mal("배차되었다고 남겼습니다. 차에 타시면 저절로 알아채 기다리신 시간을 남겨 드립니다.")
+            "baecha" -> {
+                // 2.40.0 기사님이 전화하시면 알려 드릴 타는 곳을 한 번 더
+                val tg = if (majimakTago.isEmpty()) "" else " 기사님이 전화하시면 타는 곳을 이렇게 알려 주십시오. ${majimakTago}입니다."
+                Sori.mal("배차되었다고 남겼습니다." + tg + " 차에 타시면 저절로 알아채 기다리신 시간을 남겨 드립니다.")
+            }
             "gidarim" -> Sori.mal("기다리라고 했다고 남겼습니다. 차에 타시면 저절로 알아채 남겨 드립니다.")
             else -> {
                 val jigeum = girok.firstOrNull { it.id == id }
