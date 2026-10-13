@@ -445,7 +445,7 @@ object AnnaeEngine {
             val lo2 = Jeomjido.su(c2, "lon")
             if (n2.isNotEmpty() && la2 != null && lo2 != null && la2 != 0.0) {
                 val d2 = Wichi.geori(w.lat, w.lon, la2, lo2)
-                if (d2 <= 60 && d2 - d1 <= max(10.0, w.ochae)) {
+                if (d2 <= 60 && d2 - d1 <= max(15.0, w.ochae * 1.5)) {   // 10/13 오금역 — 오차 14미터, 1번 12미터·2번 27미터에서 둘 다 말하도록
                     val (y1, b1) = chulguNanum(n1)
                     val (y2, b2) = chulguNanum(n2)
                     val gat = y1 == y2 && b1.isNotEmpty() && b2.isNotEmpty()
