@@ -225,7 +225,10 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
         }
     }
 
-    /// 상담원께 말할 것 — 출발 주소와 입구, 도착지, 도착 희망 시각, 보조견
+    /// 2.68.0 마지막으로 걸 때 알아본 타는 곳(배차 뒤 기사님께 알려 드릴 말)
+    private var majimakTago = ""
+
+    /// 상담원께 말할 것 — 출발 주소와 입구, 타는 곳(출구·정류장), 도착지, 도착 희망 시각, 보조견
     private func halMal(jeonggi: Bool) async -> String {
         let jg = JeonggiHochul.shared
         var chulbal = ""
@@ -243,8 +246,15 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
             chulbal = await Chatgi.juso(w.lat, w.lon) ?? ""
         }
         if dochak.isEmpty, let y = YeojeongEngine.shared.jigeum { dochak = y.mokjeok.ireum }
+        // 2.68.0 (261014-I22, 이사장님 승인 2026-10-14) 타는 곳 — 출구와 버스정류장 이름·번호(10/13 오금역에서 기사님이 몇 바퀴를 도심)
+        var tago = ""
+        if !jeonggi {
+            tago = await AnnaeEngine.taneunGotMal()
+            majimakTago = tago
+        }
         var t: [String] = []
         if !chulbal.isEmpty { t.append("출발은 \(chulbal)입니다.") }
+        if !tago.isEmpty { t.append("타는 곳은 \(tago)입니다.") }
         if !dochak.isEmpty { t.append("도착은 \(dochak)" + (sigak.isEmpty ? "입니다." : ", \(sigak)까지 가야 합니다.")) }
         t.append(bj ? "보조견과 함께 탑니다." : "보조견은 없습니다.")
         return t.joined(separator: " ")
@@ -299,7 +309,9 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
         Girok.shared.namgi("kol_gyeolgwa", ["g": g])
         switch g {
         case "baecha":
-            SoriEngine.shared.mal("배차되었다고 남겼습니다. 차에 타시면 저절로 알아채 기다리신 시간을 남겨 드립니다.")
+            // 2.68.0 기사님이 전화하시면 알려 드릴 타는 곳을 한 번 더
+            let tg = majimakTago.isEmpty ? "" : " 기사님이 전화하시면 타는 곳을 이렇게 알려 주십시오. \(majimakTago)입니다."
+            SoriEngine.shared.mal("배차되었다고 남겼습니다." + tg + " 차에 타시면 저절로 알아채 기다리신 시간을 남겨 드립니다.")
         case "gidarim":
             SoriEngine.shared.mal("기다리라고 했다고 남겼습니다. 차에 타시면 저절로 알아채 남겨 드립니다.")
         default:

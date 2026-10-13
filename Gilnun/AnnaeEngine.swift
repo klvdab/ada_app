@@ -361,16 +361,95 @@ final class AnnaeEngine: ObservableObject {
         }
         malHagi("지금 자리를 알아보는 중입니다.", .jeongbo)
         Task {
-            let o = await Chatgi.json("jarimal.php", ["lat": String(format: "%.6f", w.lat), "lon": String(format: "%.6f", w.lon)])
+            // 2.68.0 (261014-I22, 이사장님 승인 2026-10-14) 가까운 버스정류장(이름·번호)도 함께 받음
+            async let oA = Chatgi.json("jarimal.php", ["lat": String(format: "%.6f", w.lat), "lon": String(format: "%.6f", w.lon)])
+            async let jrA = Beoseu.gakkaun(w.lat, w.lon)
             let n = await Nalssi.shared.mal()   // 2.13.0 날씨 한 마디를 끝에(웹 길눈과 같이)
+            let o = await oA
+            let jr = await jrA
             await MainActor.run {
-                self.malHagi(AnnaeEngine.jariMalMandeulgi(o, w) + (n.isEmpty ? "" : " 날씨는 " + n + "."))
+                let m = AnnaeEngine.jariMalMandeulgi(o, w, jr)
+                // 2.68.0 무엇을 말씀드렸는지 그대로 남김(10/13 오금역 — 들으신 말을 기록으로 확인할 수 없었음)
+                Girok.shared.namgi("jari_mal", ["mal": m, "oc": Int(w.ochae), "la": w.lat, "lo": w.lon])
+                self.malHagi(m + (n.isEmpty ? "" : " 날씨는 " + n + "."))
             }
         }
     }
 
+    // MARK: 2.68.0 출구·정류장 한마디 (빌드 261014-I22, 이사장님 승인 2026-10-14 「그래 수정하고 또 수정하자」)
+    // 10/13 오금역 — 「오금역 3호선 1번출구」가 3번 출구로 들렸고, 1번·2번 출구가 15미터 사이인데 위성 오차 14미터에도 한 출구만 말했으며,
+    // 바로 옆 버스정류장 이름과 번호를 말하지 않아 나비콜 기사님이 몇 바퀴를 도셨음. 그래서
+    //  ① 출구 이름에서 호선을 뺌(서버 jarimal.php 1.1판) ② 가까운 두 출구가 위성 오차 안이면 둘 다 말함
+    //  ③ 가까운 버스정류장 이름·정류장 번호(한 자씩)·시계 방향과 거리를 함께 ④ 콜 상담원께 말할 것에 타는 곳(출구·정류장)을 넣음
+
+    static func sigyeJ(_ w: Wichi, _ lat: Double, _ lon: Double) -> Int {
+        let bang = WichiEngine.bangwi(w.lat, w.lon, lat, lon)
+        let apjjok = (w.banghyang >= 0 && w.sokdo > 0.8) ? w.banghyang : WichiEngine.shared.nachimban
+        return apjjok >= 0 ? WichiEngine.sigyeBanghyang(jeongmyeon: apjjok, mokpyo: bang) : 0
+    }
+
+    /// 「오금역 1번 출구」 → ("오금역", "1번 출구")
+    static func chulguNanum(_ n: String) -> (String, String) {
+        guard let r = n.range(of: #"\s*\d+번\s*출구$"#, options: .regularExpression) else { return (n, "") }
+        let b = String(n[r]).trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "번출구", with: "번 출구")
+        return (String(n[..<r.lowerBound]).trimmingCharacters(in: .whitespaces), b)
+    }
+
+    /// 출구 말 — gisa: 기사님·상담원께 드릴 말(시계 방향 없이)
+    static func chulguMal(_ o: [String: Any]?, _ w: Wichi, gisa: Bool = false) -> String? {
+        guard let c = o?["chulgu"] as? [String: Any], let n1raw = c["ireum"] as? String, !n1raw.isEmpty else { return nil }
+        // 옛 서버 답에도 호선이 섞이지 않게 한 번 더 걸러 냄
+        let n1 = n1raw.replacingOccurrences(of: #"\s+(\d+호선|[가-힣A-Za-z]+선)\s*(?=\d+번)"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: "번출구", with: "번 출구")
+        var d1 = Chatgi.su(c["meter"]) ?? 0
+        var s1 = 0
+        if let la = Chatgi.su(c["lat"]), let lo = Chatgi.su(c["lon"]), la != 0 {
+            d1 = WichiEngine.geori(w.lat, w.lon, la, lo)
+            s1 = sigyeJ(w, la, lo)
+        }
+        if let c2 = o?["chulgu2"] as? [String: Any], let n2 = c2["ireum"] as? String, !n2.isEmpty,
+           let la2 = Chatgi.su(c2["lat"]), let lo2 = Chatgi.su(c2["lon"]), la2 != 0 {
+            let d2 = WichiEngine.geori(w.lat, w.lon, la2, lo2)
+            if d2 <= 60 && d2 - d1 <= max(10, w.ochae) {
+                let (y1, b1) = chulguNanum(n1)
+                let (y2, b2) = chulguNanum(n2)
+                let gat = y1 == y2 && !b1.isEmpty && !b2.isEmpty
+                let sai = gat ? "\(y1) \(b1)와 \(b2) 사이" : "\(n1)와 \(n2) 사이"
+                let jjok = gat ? b1 : n1
+                if gisa { return "\(sai), \(jjok) 쪽" }
+                return "\(sai), \(jjok) 쪽으로 \(Annae.geoMal(d1))\(Annae.sigyeMal(s1)). 위성 오차가 약 \(max(1, Int(w.ochae)))미터라 \(gat ? b2 : n2)일 수도 있습니다"
+            }
+        }
+        if gisa { return d1 <= 15 ? "\(n1) 앞" : "\(n1)에서 \(Annae.geoMal(d1)) 떨어진 곳" }
+        return "\(n1)에서 \(Annae.geoMal(d1))\(Annae.sigyeMal(s1))"
+    }
+
+    /// 가까운 버스정류장 말 — 150미터 안에서 가장 가까운 한 곳(이름, 정류장 번호 한 자씩, 시계 방향과 거리)
+    static func jeongryuMal(_ jr: [Jeongryujang]?, _ w: Wichi, gisa: Bool = false) -> String? {
+        guard let l = jr, !l.isEmpty else { return nil }
+        let gl = l.map { ($0, WichiEngine.geori(w.lat, w.lon, $0.lat, $0.lon)) }.sorted { $0.1 < $1.1 }
+        guard let g0 = gl.first, g0.1 <= 150, !g0.0.ireum.isEmpty else { return nil }
+        let j = g0.0, d = g0.1
+        let nm = j.ireum.replacingOccurrences(of: ".", with: " ")
+        let bh = j.no.isEmpty ? "" : "정류장 번호 " + j.no.map { String($0) }.joined(separator: " ")
+        if gisa { return "버스정류장 \(nm)" + (bh.isEmpty ? "" : ", \(bh)") + " 근처" }
+        let s = sigyeJ(w, j.lat, j.lon)
+        return "가까운 버스정류장은 \(nm)" + (bh.isEmpty ? "" : ", \(bh)") + ", " + (s == 0 ? "" : "\(s)시 방향 ") + Annae.geoMal(d)
+    }
+
+    /// 콜 상담원·기사님께 드릴 타는 곳 — 출구와 버스정류장(못 받으면 빈 말)
+    static func taneunGotMal() async -> String {
+        guard let w = WichiEngine.shared.jigeum else { return "" }
+        async let oA = Chatgi.json("jarimal.php", ["lat": String(format: "%.6f", w.lat), "lon": String(format: "%.6f", w.lon)])
+        async let jrA = Beoseu.gakkaun(w.lat, w.lon)
+        let o = await oA
+        let jr = await jrA
+        let t = [chulguMal(o, w, gisa: true), jeongryuMal(jr, w, gisa: true)].compactMap { $0 }
+        return t.joined(separator: ", ")
+    }
+
     /// 2.9.0 현 위치정보 말할 내용 — 설정에서 고른 것만(주소, 가까운 곳, 지번, 국가지점번호, 위성 오차)
-    static func jariMalMandeulgi(_ o: [String: Any]?, _ w: Wichi) -> String {
+    static func jariMalMandeulgi(_ o: [String: Any]?, _ w: Wichi, _ jr: [Jeongryujang]? = nil) -> String {
         let s = Seoljeong.shared
         var t: [String] = []
         if let o = o {
@@ -378,11 +457,12 @@ final class AnnaeEngine: ObservableObject {
             if s.jariJuso && !juso.isEmpty { t.append(juso) }
             if s.jariJibeon, let jb = o["jibeon"] as? String, !jb.isEmpty { t.append("지번 " + jb) }
             if s.jariGot {
-                if let c = o["chulgu"] as? [String: Any], let nm = c["ireum"] as? String, !nm.isEmpty {
-                    t.append("\(nm)에서 \(Int(Chatgi.su(c["meter"]) ?? 0))미터")
+                if let cm = chulguMal(o, w) {
+                    t.append(cm)   // 2.68.0 호선 뺀 출구, 두 출구가 오차 안이면 둘 다, 시계 방향
                 } else if let c = o["gakkaun"] as? [String: Any], let nm = c["ireum"] as? String, !nm.isEmpty {
                     t.append("\(nm)에서 \(Int(Chatgi.su(c["meter"]) ?? 0))미터")
                 }
+                if let jm = jeongryuMal(jr, w) { t.append(jm) }   // 2.68.0 가까운 버스정류장 이름·번호
             }
             if t.isEmpty && !s.jariJijeom && !s.jariOcha, let m = o["mal"] as? String, !m.isEmpty { t.append(m) }
         } else if !s.jariJijeom {
