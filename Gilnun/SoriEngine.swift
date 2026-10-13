@@ -271,19 +271,39 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
             return
         }
         guard let url = url else { msDaesin(b0, u); return }
+        SoriEngine.jajuSeogi(m.t)   // 2.66.0 자주 하는 말 세기
         // 2.60.0 (261009-I14, 이사장님 승인) 말벗 대답처럼 긴 말은 만드는 데 오래 걸려 3초 안에 못 받고 늘 폰 목소리로 나가던 일 —
         //   글자 수에 맞춰 더 기다림(한 자에 0.03초, 많아야 8초). 긴 말을 못 받은 것은 세 번 실패(5분 쉼)에 셈하지 않음
         // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) KTX에서 21번 모두 못 받던 일 — 협회 서버가 짧은 말도 만드는 데 2초 남짓 걸리고
         //   달리는 기차 안 통신은 더 늦음. 기다림을 늘림(처음 4초, 한 자에 0.04초, 많아야 10초). 타고 가는 중이면 1.5초 더
         let tagoGam = YeojeongEngine.shared.jigeum?.danggye == .taneunJung ? 1.5 : 0
         let handO: Double = min(10.0, (m.geup == .jeongbo ? 4.5 : 4.0) + tagoGam + Double(m.t.count) * 0.04)
-        var rq = URLRequest(url: url, timeoutInterval: handO)
+        // 2.66.0 (261013-I20, 이사장님 승인 2026-10-13 「그래」) 기다림 한도가 지나면 폰 목소리로 바로 말하되, 받기는 끊지 않고 30초까지 이어 받아
+        //   폰에 담아 둠 — 같은 말은 다음부터 기다리지 않고 협회 목소리로 나감(어제 일곱 번·오늘 한 번 폰 목소리로 바뀐 일)
+        var rq = URLRequest(url: url, timeoutInterval: 30)
         rq.cachePolicy = .reloadIgnoringLocalCacheData
+        var kkeunnam = false
+        let neomeum = DispatchWorkItem { [weak self] in
+            guard let self = self, !kkeunnam else { return }
+            kkeunnam = true
+            if m.t.count <= 60 { self.msSilpae += 1 }
+            if self.msSilpae >= 3 { self.msSwimTtae = Date() }
+            Girok.shared.namgi("ms_moksori_mot", ["silpae": self.msSilpae, "geulja": m.t.count, "ieo": true])
+            self.msDaesin(b0, u)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + handO, execute: neomeum)
         URLSession.shared.dataTask(with: rq) { [weak self] d, res, _ in
             let ok = (res as? HTTPURLResponse)?.statusCode == 200 && (d?.count ?? 0) > 500
             if ok, let d = d { try? d.write(to: pail, options: .atomic) }
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                if kkeunnam {
+                    // 이미 폰 목소리로 말함 — 담아 두기만
+                    if ok { self.msSilpae = 0; Girok.shared.namgi("ms_moksori_dameum", ["geulja": m.t.count]) }
+                    return
+                }
+                kkeunnam = true
+                neomeum.cancel()
                 if ok, let d = d {
                     self.msSilpae = 0
                     self.msTeulgi(d, b0, u)
@@ -437,9 +457,34 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
         naeboenda()   // 대화 말 동안 세워 둔 말을 이어서
     }
 
+    // MARK: 2.66.0 자주 하는 말 — 셈해 두었다가 앱을 켤 때 미리 받아 둠(이사장님 승인 2026-10-13)
+    private static let jajuKi = "gn.msJaju"
+    /// 협회 목소리로 말하려던 말을 셈(많아야 300가지, 넘으면 적게 쓴 것부터 버림)
+    static func jajuSeogi(_ t: String) {
+        var d = (UserDefaults.standard.dictionary(forKey: jajuKi) as? [String: Int]) ?? [:]
+        d[t, default: 0] += 1
+        if d.count > 300 {
+            for (k, _) in d.sorted(by: { $0.value < $1.value }).prefix(d.count - 300) { d.removeValue(forKey: k) }
+        }
+        UserDefaults.standard.set(d, forKey: jajuKi)
+    }
+    /// 두 번 넘게 한 말 가운데 많이 한 것부터 80가지
+    static var jajuMal: [String] {
+        let d = (UserDefaults.standard.dictionary(forKey: jajuKi) as? [String: Int]) ?? [:]
+        return d.filter { $0.value >= 2 }.sorted { $0.value > $1.value }.prefix(80).map { $0.key }
+    }
+    /// 길눈이 늘 하는 말(이용자마다 셈이 쌓이기 전에도 미리 받아 둠)
+    static let neulMal = ["남은 길을 걸어서 안내합니다.", "차 안 안내를 시작합니다.", "다시 한번 말씀해 주세요", "목적지에 도착했습니다.",
+                          "지금은 마이크를 열지 못했습니다. 잠시 뒤 다시 해 주십시오.", "음악을 껐습니다.", "라디오를 껐습니다.", "TV를 껐습니다.",
+                          "여정을 끝냈습니다.", "걷는 안내를 시작합니다. 흰지팡이를 꼭 짚어 주십시오."]
+
     /// 앱을 켤 때 — 대화 말을 선희 목소리로 미리 받아 둠(처음부터 곧바로 나오게)
+    /// 2.66.0 자주 하는 말·늘 하는 말도 함께, 나스가 몰리지 않게 하나씩 차례로
     private func daehwaMalBatadugi() {
         guard Seoljeong.shared.msMoksori, SoriEngine.msYeollim, Tongsin.shared.yeongyeol else { return }
+        var cha: [String] = []
+        for t in SoriEngine.neulMal + SoriEngine.jajuMal where !cha.contains(t) && !SoriEngine.daehwaMalMok.contains(t) { cha.append(t) }
+        SoriEngine.chaRyeroBatgi(cha, 0, 0)
         for t in SoriEngine.daehwaMalMok {
             let (url, pail) = SoriEngine.msJuso(t)
             if let d = try? Data(contentsOf: pail), d.count > 500 { continue }
@@ -449,6 +494,22 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
                 try? d.write(to: pail, options: .atomic)
             }.resume()
         }
+    }
+
+    /// 2.66.0 하나씩 차례로 받아 담음 — 이미 있으면 건너뜀
+    private static func chaRyeroBatgi(_ ls: [String], _ i: Int, _ badeum: Int) {
+        guard i < ls.count else {
+            if badeum > 0 { Girok.shared.namgi("ms_miri_batgi", ["su": badeum, "modu": ls.count]) }
+            return
+        }
+        let (url, pail) = SoriEngine.msJuso(ls[i])
+        if let d = try? Data(contentsOf: pail), d.count > 500 { chaRyeroBatgi(ls, i + 1, badeum); return }
+        guard let url = url else { chaRyeroBatgi(ls, i + 1, badeum); return }
+        URLSession.shared.dataTask(with: URLRequest(url: url, timeoutInterval: 30)) { d, res, _ in
+            var n = badeum
+            if (res as? HTTPURLResponse)?.statusCode == 200, let d = d, d.count > 500 { try? d.write(to: pail, options: .atomic); n += 1 }
+            DispatchQueue.main.async { chaRyeroBatgi(ls, i + 1, n) }
+        }.resume()
     }
 
     private func daeum() {

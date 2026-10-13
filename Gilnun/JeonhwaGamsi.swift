@@ -42,6 +42,10 @@ final class JeonhwaGamsi: NSObject, ObservableObject, CXCallObserverDelegate {
         if j {
             SoriEngine.shared.jeonhwaMeomchum()   // 하던 말을 곧바로 끊음(경고 진동은 그대로)
             TomakDeutgi.shared.meomchugi()        // 목소리 토막
+        } else {
+            // 2.66.0 (261013-I20, 이사장님 승인 2026-10-13) 전화가 끝나면 다음 말로 하기 때 알아듣는 엔진을 새로 세움
+            //   (10월 12일 전화를 끊고 20초 안에 두 번씩 잇달아 말을 못 알아듣던 일)
+            MalDeutgi.shared.jeonhwaKkeut()
         }
         BangsongEngine.shared.jeonhwa(j)
     }

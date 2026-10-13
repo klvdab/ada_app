@@ -120,6 +120,7 @@ final class AnnaeEngine: ObservableObject {
         MalHagi.shared.mureumChoGihwa()
         SinhogiEngine.shared.chatgiKkeugi()
         MunChatgi.shared.kkeugi(malHagi: false)   // 2.15.0 문 찾기도 멈춤
+        MunIkkeulgi.shared.meomchugi()            // 2.66.0 문까지 이끌기도 멈춤
         GeulIlgi.shared.kkeugi(malHagi: false)    // 2.16.0 즉석 글자 읽기도 멈춤
         GarikiIlgi.shared.kkeugi(malHagi: false)  // 2.17.0 가리키고 말하기도 멈춤
         SaramGamji.shared.kkeugi(malHagi: false)  // 2.18.0 사람 감지도 멈춤
@@ -1103,9 +1104,10 @@ final class AnnaeEngine: ObservableObject {
             malHagi("도착했습니다. \(y.mokjeok.ireum)입니다\(s == 0 ? "" : ". \(s)시 방향 가까이에 있습니다").")
         }
         // 2.15.0 걸어서 닿으면 카메라로 문 찾기(2.16.0 모든 폰)
-        if MunChatgi.gigiGaneung {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 4) { MunChatgi.shared.kyeogi("dochak") }
-        }
+        // 2.66.0 (261013-I20, 이사장님 승인 2026-10-13) 담아 둔 문 자리가 있으면 시계 방향·걸음 수로 먼저 이끌고, 문 앞에서 카메라가 거듦
+        let kamera = MunChatgi.gigiGaneung
+        let mk = y.mokjeok
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) { MunIkkeulgi.shared.sijak(lat: mk.lat, lon: mk.lon, kamera: kamera) }
         Girok.shared.namgi("dochak", ["m": Int(d), "ochae": Int(w.ochae)])
     }
 

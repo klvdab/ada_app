@@ -355,8 +355,12 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
                     if seek > 1 { s.player.seek(to: CMTime(seconds: seek, preferredTimescale: 600)) }
                     s.sangtaeMal = ""
                 } else if it.status == .failed {
-                    Girok.shared.namgi("bangsong_oryu", ["dan": "item", "jong": j.rawValue])
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) { s.dasiIeum() }
+                    // 2.66.0 (261013-I20, 이사장님 승인 2026-10-13 「그래」) 못 받은 까닭(오류 번호)도 남기고, 곧바로 거듭 잇다가 그만두지 않게
+                    //   세 번은 2초 뒤, 넷째는 30초 뒤, 그 뒤로는 1분 뒤에 다시 이음(10월 13일 새벽 2시 32분 몇 초 사이 여섯 번 실패하고 멈춘 일)
+                    let e = it.error as NSError?
+                    Girok.shared.namgi("bangsong_oryu", ["dan": "item", "jong": j.rawValue, "code": e?.code ?? 0, "gyeok": String((e?.domain ?? "").suffix(24))])
+                    let dwi: Double = s.ieumSu < 3 ? 2 : (s.ieumSu == 3 ? 30 : 60)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + dwi) { s.dasiIeum() }
                 }
             }
         }

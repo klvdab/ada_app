@@ -19,6 +19,12 @@
 // 2.31.0 (빌드 261001-12, 대표님 승인) 빠르게 — 10월 1일 낮 기록에서 귀를 하나로 이은 명령 듣기가 마이크 소리는 받는데(소리 조각 60) 글자를 한 번도 내지 못했고,
 //   새로 연 옛 받아쓰기는 바로 알아들었음. 그래서 하이 길눈 부르기는 새 부품으로 듣고, 명령은 옛 받아쓰기로 곧바로 듣게 함(귀를 하나로는 꺼 둠, gwiHana).
 //   말이 멈춘 것을 알아채는 기다림 1초 → 0.8초.
+// 2.66.0 (빌드 261013-I20, 이사장님 승인 2026-10-13 「그래」) 말을 못 알아듣는 일 — 10월 12~13일 아홉 번 모두 마이크에는 소리가 들어오는데(소리 조각 53~100)
+//   글자를 하나도 못 받았고, 네 번은 전화를 끊고 20초 안에 두 번씩 잇달아 실패. 그래서
+//   ① 전화가 끝나면 알아듣는 엔진(마이크 엔진·받아쓰기)을 다음 듣기 때 새로 세움
+//   ② 들어오는 소리 크기를 살펴, 말소리가 1.5초 넘게 들어왔는데 3초가 지나도 글자가 하나도 없으면 막힌 것으로 보고
+//      곧바로 듣기를 끝내고 엔진을 새로 세워 「다시 한번 말씀해 주세요」로 한 번 더 들음
+//   ③ 기록(maik_makhim)에 들어온 소리 크기(keugi, 데시벨)와 말소리 길이(malcho, 초)를 남김
 // 나중에 다른 받아쓰기(애저 등)로 바꿀 때는 이 파일만 바꿔 끼우면 됩니다.
 import Foundation
 import Speech
@@ -30,7 +36,8 @@ final class MalDeutgi: NSObject {
 
     enum Bangsik { case myeongryeong, bureum }
 
-    private let recog = SFSpeechRecognizer(locale: Locale(identifier: "ko-KR"))
+    /// 2.66.0 막혔을 때 새로 세우려고 var
+    private var recog = SFSpeechRecognizer(locale: Locale(identifier: "ko-KR"))
     /// 2.64.0 (261011-I18) 마이크 길이 비어 있으면(소리 자리가 재생 전용이던 때 만들어진 엔진) 새 엔진으로 바꿔 끼우려고 var
     private var engine = AVAudioEngine()
     private var req: SFSpeechAudioBufferRecognitionRequest?
@@ -59,11 +66,28 @@ final class MalDeutgi: NSObject {
     private var _saeGeup: ((AVAudioPCMBuffer) -> Void)?
     /// 2.30.0 귀 닫음 — 길눈이 「네」를 말하는 동안 새 부품에 소리 조각을 넘기지 않음(마이크는 그대로)
     private var _gwiDatim = false
+    // 2.66.0 소리 크기 — 귀가 열려 있는 동안 들어온 가장 큰 소리(0~1)와 말소리 크기를 넘은 길이(초)
+    private var _choedae: Float = 0
+    private var _malCho: Double = 0
     private func tapBatgi(_ buf: AVAudioPCMBuffer) {
+        var rms: Float = 0
+        if let ch = buf.floatChannelData, buf.frameLength > 0 {
+            let n = Int(buf.frameLength)
+            var hap: Float = 0
+            let p = ch[0]
+            var i = 0
+            while i < n { let v = p[i]; hap += v * v; i += 2 }
+            rms = (hap / Float((n + 1) / 2)).squareRoot()
+        }
+        let cho = buf.format.sampleRate > 0 ? Double(buf.frameLength) / buf.format.sampleRate : 0
         jamgeum.lock()
         _beopeoSu &+= 1
         let q = _tapReq
         let sg = _gwiDatim ? nil : _saeGeup
+        if !_gwiDatim && (q != nil || sg != nil) {
+            if rms > _choedae { _choedae = rms }
+            if rms > MalDeutgi.malKeugi { _malCho += cho }
+        }
         jamgeum.unlock()
         q?.append(buf)
         sg?(buf)
@@ -77,6 +101,61 @@ final class MalDeutgi: NSObject {
         return false
     }
     private func beopeoSuIlgi() -> Int { jamgeum.lock(); defer { jamgeum.unlock() }; return _beopeoSu }
+
+    // MARK: 2.66.0 막힘 살피기와 엔진 새로 세우기
+    /// 말소리로 치는 크기(약 -36데시벨)
+    static let malKeugi: Float = 0.016
+    /// 다음 듣기 때 엔진을 새로 세울지 — 전화가 끝났거나 막힘을 보았을 때
+    private(set) var saeroSeuel = false
+    private var makhimSigye: Timer?
+    private var myeongSijakT = Date()
+    /// 이번 명령 듣기에 들어온 가장 큰 소리(데시벨, 조용하면 -160)·말소리 길이(초) — 기록용
+    private(set) var majimakKeugi: Double = -160
+    private(set) var majimakMalCho: Double = 0
+    /// 이번 명령 듣기를 막힘으로 끝냈는가 — 기록용
+    private(set) var majimakMakhim = false
+    private func keugiChoGihwa() { jamgeum.lock(); _choedae = 0; _malCho = 0; jamgeum.unlock() }
+    private func keugiIlgi() -> (Double, Double) {
+        jamgeum.lock(); defer { jamgeum.unlock() }
+        let db = _choedae > 0 ? 20 * log10(Double(_choedae)) : -160
+        return ((db * 10).rounded() / 10, (_malCho * 10).rounded() / 10)
+    }
+    /// 전화가 끝났을 때 — 다음 듣기 때 엔진을 새로 세움
+    func jeonhwaKkeut() {
+        saeroSeuel = true
+        Girok.shared.namgi("maldeutgi_saero", ["kkadak": "jeonhwa"])
+    }
+    /// 마이크 엔진과 받아쓰기를 새로 세움 — 듣는 중이 아닐 때만
+    private func saeroSeugi(_ kkadak: String) {
+        saeroSeuel = false
+        let b = bangsik
+        swigi()
+        if engine.isRunning { engine.stop() }
+        engine.inputNode.removeTap(onBus: 0)
+        engine = AVAudioEngine()
+        recog = SFSpeechRecognizer(locale: Locale(identifier: "ko-KR"))
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        let ok = maikYeolgi(b)
+        Girok.shared.namgi("maldeutgi_saero", ["kkadak": kkadak, "ok": ok])
+    }
+    /// 명령을 듣는 동안 0.5초마다 — 말소리가 1.5초 넘게 들어왔는데 3초가 지나도 글자가 없으면 막힌 것
+    private func makhimSalpimSijak() {
+        makhimSigye?.invalidate()
+        myeongSijakT = Date()
+        majimakMakhim = false
+        makhimSigye = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] t in
+            guard let s = self, s.bangsik == .myeongryeong, s.myeongryeongKkeut != nil else { t.invalidate(); return }
+            if s.malHam { t.invalidate(); return }
+            guard Date().timeIntervalSince(s.myeongSijakT) >= 3 else { return }
+            let (_, malCho) = s.keugiIlgi()
+            guard malCho >= 1.5 else { return }
+            t.invalidate()
+            s.majimakMakhim = true
+            s.saeroSeuel = true
+            Girok.shared.namgi("maldeutgi_makhim", ["malcho": malCho])
+            s.myeongryeongMaechim()
+        }
+    }
 
     // MARK: 2.30.0 귀를 하나로
     /// 2.31.0 귀를 하나로 이어 듣기 — 기록상 글자를 내지 못해 꺼 둠(원인을 밝히면 다시 켬)
@@ -180,6 +259,7 @@ final class MalDeutgi: NSObject {
             alts = []
             malHam = false
             saeKijun = saeModu.count
+            keugiChoGihwa()
             myeongBeopeo0 = beopeoSuIlgi()
             majimakBeopeo = -1
             aradeutneun = true
@@ -192,15 +272,19 @@ final class MalDeutgi: NSObject {
         }
         swigi()
         bangsik = .myeongryeong
+        // 2.66.0 전화가 끝났거나 지난번에 막혔으면 엔진을 새로 세운 뒤 들음
+        if saeroSeuel { saeroSeugi(majimakMakhim ? "makhim" : "jeonhwa_dwi") }
         myeongryeongKkeut = kkeut
         alts = []
         malHam = false
+        keugiChoGihwa()
         guard sijak(.myeongryeong) else {
             myeongryeongKkeut = nil
             return false
         }
         myeongBeopeo0 = beopeoSuIlgi()
         majimakBeopeo = -1
+        makhimSalpimSijak()
         handoSigye = Timer.scheduledTimer(withTimeInterval: gidarim, repeats: false) { [weak self] _ in
             guard let s = self, !s.malHam else { return }
             s.myeongryeongMaechim()
@@ -567,8 +651,10 @@ final class MalDeutgi: NSObject {
     private func myeongryeongMaechim() {
         guard bangsik == .myeongryeong, let f = myeongryeongKkeut else { return }
         myeongryeongKkeut = nil
+        makhimSigye?.invalidate(); makhimSigye = nil
         let a = alts
         majimakBeopeo = beopeoSuIlgi() - myeongBeopeo0
+        (majimakKeugi, majimakMalCho) = keugiIlgi()
         if a.isEmpty && saeIeum && sae != nil {
             // 2.30.0 못 들었으면 귀를 끄지 않고 닫아만 둠 — 「다시 한번 말씀해 주세요」 뒤 같은 귀로 한 번 더 들음
             jamjamSigye?.invalidate(); jamjamSigye = nil

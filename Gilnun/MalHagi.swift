@@ -325,8 +325,11 @@ final class MalHagi: ObservableObject {
         let alts = alts0.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
         if alts.isEmpty {
             // 2.30.0 명령 글자가 0 — 마이크 막힘을 따로 남김(beopeo 0이면 마이크에 소리가 안 들어옴, 아니면 알아듣기가 못 적음)
+            // 2.66.0 (261013-I20) 들어온 소리 크기(데시벨)·말소리 길이(초)·막힘으로 끝냈는지도 남김
             Girok.shared.namgi("maik_makhim", ["dan": "myeongryeong", "beopeo": beopeo, "dasi": dasiHanbeon,
-                                               "sae": MalDeutgi.shared.saeSseumJung])
+                                               "sae": MalDeutgi.shared.saeSseumJung,
+                                               "keugi": MalDeutgi.shared.majimakKeugi, "malcho": MalDeutgi.shared.majimakMalCho,
+                                               "makhim": MalDeutgi.shared.majimakMakhim])
             sangtae = .swim
             if jadongYeolim > 0 {
                 // 저절로 연 마이크에 말씀이 없으면 조용히 닫음
@@ -861,6 +864,7 @@ final class MalHagi: ObservableObject {
             if BangsongEngine.shared.naneunJung { BangsongEngine.shared.meomchumTogeul() }   // 2.8.0 방송도 멈춤(이어서 틀어로 다시)
             MalgilEngine.shared.geuman()   // 2.14.0 말로 그린 길 안내도 그만
             MunChatgi.shared.kkeugi()      // 2.15.0 문 찾기도 그만
+            MunIkkeulgi.shared.meomchugi() // 2.66.0 문까지 이끌기도 그만
             GeulIlgi.shared.kkeugi()       // 2.16.0 즉석 글자 읽기도 그만
             GarikiIlgi.shared.kkeugi()     // 2.17.0 가리키고 말하기도 그만
             SaramGamji.shared.kkeugi()     // 2.18.0 사람 감지도 그만
