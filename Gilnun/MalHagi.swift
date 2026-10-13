@@ -113,7 +113,13 @@ final class MalHagi: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] j in
                 guard let self = self else { return }
-                if j { self.jeonhwaOm() } else { self.bureumDasi(1.5) }
+                // 2.67.0 통화가 끝나면 끊긴 물음(목적지 바꾸기·가실 곳·가는 방법)을 다시 여쭘
+                if j { self.jeonhwaOm() } else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                        guard let self = self, !JeonhwaGamsi.shared.jeonhwaJung else { return }
+                        if !self.kkeunkinDasiMutgi() { self.bureumDasi(0.1) }
+                    }
+                }
             }
             .store(in: &ssak)
         // 긴급통화 중에는 마이크를 통화에 내어 줌
@@ -214,6 +220,11 @@ final class MalHagi: ObservableObject {
         ieoSu = 0
         dasiHanbeon = false
         if sangtae != .swim { sangtae = .swim }
+        // 2.67.0 묻던 말을 거두기 전에 담아 둠 — 통화가 끝나면 다시 여쭘(10월 13일 「아현 전철역 가자」를 여쭙는 사이 전화로 끊겨 목적지가 바뀌지 않은 일)
+        if [.hubo, .mokjeok, .bangsik].contains(mureum), Date().timeIntervalSince(mureumTtae) < 120 {
+            kkeunkin = KkeunkinMureum(mureum: mureum, hubo: hubo, huboI: huboI, huboTalgeot: huboTalgeot, huboHwagin: huboHwagin,
+                                     talgeotDaegi: talgeotDaegi, ttae: Date())
+        }
         hwaginBiugi()
         Girok.shared.namgi("malhagi_jeonhwa", ["dan": "om"])
     }
@@ -239,6 +250,59 @@ final class MalHagi: ObservableObject {
             // 말소리를 꺼 두셨으면 보이스오버가 단추를 읽을 만큼 기다림
             DispatchQueue.main.asyncAfter(deadline: .now() + min(8, 1.2 + Double(q.count) * 0.09), execute: yeolgi)
         }
+    }
+
+    /// 2.67.0 (261013-I21, 이사장님 승인 2026-10-13) 길눈이 먼저 가실 곳을 여쭙고 마이크를 한 번 엶 — 걷는 안내 중 열차를 타신 것 같을 때 등.
+    ///   yeolcha: 열차 안에 계신 것으로 보고 지하철 길을 곧장 역 알림으로 시작
+    func eodikkajiMutgi(_ q: String, talgeot: Talgeot?, yeolcha: Bool = false) {
+        hwaginBiugi()
+        mureum = .mokjeok
+        mureumTtae = Date()
+        talgeotDaegi = talgeot
+        yeolchaAnTtae = yeolcha ? Date() : nil
+        Girok.shared.namgi("malhagi_eodikkaji", ["yeolcha": yeolcha])
+        SoriEngine.shared.mal(q, .annae)
+        let yeolgi = { [weak self] in
+            guard let self = self, self.sijakham, self.mureum == .mokjeok, self.sangtae == .swim, GinGeup.shared.sangtae == .eopseum,
+                  !self.pyeonjipJung, !JeonhwaGamsi.shared.jeonhwaJung, MalDeutgi.heorakItda else { return }
+            self.dasiHanbeon = false
+            self.jadongYeolim = 1
+            self.myeongryeongYeolgi(sori: true)
+        }
+        if Seoljeong.shared.malKyeojim {
+            SoriEngine.shared.kkeutnamyeon { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: yeolgi) }
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + min(8, 1.2 + Double(q.count) * 0.09), execute: yeolgi)
+        }
+    }
+    /// 2.67.0 열차 안에서 가실 곳을 여쭌 때 — 10분 안에 정하시면 지하철 길을 곧장 역 알림으로
+    private var yeolchaAnTtae: Date?
+
+    // MARK: 2.67.0 전화로 끊긴 물음 — 통화가 끝나면 다시 여쭘(이사장님 승인 2026-10-13)
+    private struct KkeunkinMureum { let mureum: Mureum; let hubo: [Jangso]; let huboI: Int; let huboTalgeot: Talgeot?; let huboHwagin: Bool; let talgeotDaegi: Talgeot?; let ttae: Date }
+    private var kkeunkin: KkeunkinMureum?
+
+    private func kkeunkinDasiMutgi() -> Bool {
+        guard let k = kkeunkin else { return false }
+        kkeunkin = nil
+        guard Date().timeIntervalSince(k.ttae) < 15 * 60, GinGeup.shared.sangtae == .eopseum else { return false }
+        Girok.shared.namgi("kkeunkin_mureum", ["mureum": String(describing: k.mureum)])
+        hubo = k.hubo; huboI = k.huboI; huboTalgeot = k.huboTalgeot; huboHwagin = k.huboHwagin; talgeotDaegi = k.talgeotDaegi
+        mureum = k.mureum
+        mureumTtae = Date()
+        let ap = "통화 전에 여쭙던 것을 다시 여쭙니다. "
+        switch k.mureum {
+        case .hubo where huboI < hubo.count:
+            huboAnnae({ [weak self] t, m in self?.dapHagi(ap + t, m) }, hwagin: huboHwagin)
+        case .mokjeok:
+            dapHagi(ap + "\(ho), 어디로 가실까요?", true)
+        case .bangsik:
+            dapHagi(ap + "\(ho), 걸어서, 차로, 지하철로, 버스로 가운데 어떻게 가실까요?", true)
+        default:
+            mureum = .eopseum
+            return false
+        }
+        return true
     }
 
     /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 네·아니오를 기다리던 물음(목적지 바꾸기·콜 걸기·후보)을 비움
@@ -1063,6 +1127,19 @@ final class MalHagi: ObservableObject {
             return
         }
 
+        // 5-1. 2.67.0 (261013-I21, 이사장님 승인 2026-10-13) 역 이름 없이 「전철역」「가까운 전철역」만 — 어디까지 가시는지 여쭙고 지하철 길로
+        //   (10월 13일 약수역 앞에서 「전철역」만 들려 약수역 입구까지만 걸어서 이끌고, 3호선을 반대쪽 끝 오금역까지 타신 일)
+        if MalHagi.yeokMalMan(t) {
+            hwaginBiugi()
+            mureum = .mokjeok
+            mureumTtae = Date()
+            talgeotDaegi = .jihacheol
+            Girok.shared.namgi("yeok_mureum", [:])
+            let ga = gakkaunYeok.first.map { "가까운 역은 \($0)입니다. " } ?? ""
+            dap(ga + "\(ho), 어디까지 가십니까? 가실 곳을 말씀하시면 지하철로 가는 길을 갈아타는 곳까지 안내해 드립니다. 역까지만 가시려면 역 이름을 말씀해 주십시오.", true)
+            return
+        }
+
         // 6. 목적지 말을 떼어 보고, 가자는 말이 없으면 명령부터 살핌
         let (q0, gagiMal, roTtem) = sajeon.mokjeokMal(t)
         let tg = talgeotChatgi(alts)
@@ -1192,6 +1269,22 @@ final class MalHagi: ObservableObject {
                 self.huboAnnae(dap, hwagin: hwagin)
             }
         }
+    }
+
+    /// 2.67.0 역 이름 없이 역만 찾는 말인가 — 전철역, 가까운 전철역, 지하철역 가자, 가까운 역 어디야
+    ///   「지하철로 가자」처럼 탈것을 고르는 말은 아님(지하철·전철 뒤에 로가 붙으면 제외)
+    static func yeokMalMan(_ t: String) -> Bool {
+        var z = t.replacingOccurrences(of: " ", with: "")
+        for w in ["여기서", "이근처", "가까운", "가장", "제일", "근처", "주변", "좀"] { z = z.replacingOccurrences(of: w, with: "") }
+        var roPutim = false
+        for sf in ["으로가자", "로가자", "에가자", "까지가자", "으로가줘", "로가줘", "가자", "가줘", "가고싶어", "찾아줘", "알려줘", "어디있어", "어디야", "어디", "으로", "로", "에", "까지", "은", "는"]
+            where z.hasSuffix(sf) && z.count > sf.count {
+            if sf.hasPrefix("로") || sf.hasPrefix("으로") { roPutim = true }
+            z = String(z.dropLast(sf.count))
+            break
+        }
+        if ["역", "전철역", "지하철역", "지하철타는곳", "전철타는곳"].contains(z) { return true }
+        return !roPutim && ["전철", "지하철"].contains(z)
     }
 
     /// 2.12.7 도로명 주소나 지번 주소로 말씀하셨는가 — 동호로 7길 14, 동호로7길 14번지, 신당동 432-1
@@ -1834,6 +1927,8 @@ final class MalHagi: ObservableObject {
         let taneunJung = yj.sokdoChujeong != .georeum || (yj.jigeum?.danggye == .taneunJung && yj.jigeum?.jiha == nil && yj.choegeunTalgeotUmjigim)
         var tg = tg0 ?? talgeotDaegi
         talgeotDaegi = nil
+        // 2.67.0 가까운 역(1.5킬로미터 안)까지 지하철로 가실 수는 없으므로 걸어서 — 「전철역」만 말씀하신 뒤 역 이름을 대신 때
+        if tg == .jihacheol, let dd = d, dd < 1500, j.ireum.contains("역"), yeolchaAnTtae == nil { tg = .georeum }
         if tg == nil {
             if taneunJung {
                 tg = yj.sokdoChujeong == .jihacheol ? .jihacheol : .cha   // 2.40.0 땅속에서 타고 가는 중이면 지하철로
@@ -1882,7 +1977,10 @@ final class MalHagi: ObservableObject {
             //   아니면 역 입구에 닿은 것으로 보아(ipguDochak) 열차가 움직이면 저절로 역 알림을 시작
             let tg2 = TalgeotGamji.shared
             let umjigimNa = tg2.majimakTalgeot.map { Date().timeIntervalSince($0) < 30 } ?? false
-            if tg2.chujeong == .jihacheol && umjigimNa {
+            // 2.67.0 걷는 안내 중 열차를 타신 것 같아 가실 곳을 여쭌 뒤면(10분 안) 열차 안으로 봄
+            let yeolchaAn = yeolchaAnTtae.map { Date().timeIntervalSince($0) < 600 } ?? false
+            yeolchaAnTtae = nil
+            if (tg2.chujeong == .jihacheol && umjigimNa) || yeolchaAn {
                 SoriEngine.shared.mal(apMal + "타고 가시는 중이니 지하철 길을 찾아 곧장 역 알림을 시작합니다.", .jeongbo)
                 // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 이용자가 지하철로 가자고 하셨으니 짐작 안내가 아님(땅 위 구간에서 차로 되돌리지 않음)
                 JihacheolEngine.shared.jungganSijak(j, jadong: false) { ok, mal in

@@ -139,7 +139,9 @@ final class TalgeotGamji: ObservableObject {
             let gakkaum = l.contains { WichiEngine.geori(w.lat, w.lon, $0.lat, $0.lon) <= 25 }
             await MainActor.run {
                 if gakkaum { self.jeongryujangSeom += 1 }
-                if self.chujeong == .cha && self.jeongryujangSeom >= 2 { self.bakkugi(.beoseu, "정류장 \(self.jeongryujangSeom)번 섬") }
+                // 2.67.0 (261013-I21, 이사장님 승인 2026-10-13) 콜로 부른 차를 타신 뒤에는 내리실 때까지 버스로 바꾸지 않음
+                //   (10월 12·13일 복지콜·나비콜 안에서 신호에 설 때마다 「정류장 섬」으로 버스와 차를 오가던 일)
+                if self.chujeong == .cha && self.jeongryujangSeom >= 2 && !ChaBureugi.shared.chaGojeong { self.bakkugi(.beoseu, "정류장 \(self.jeongryujangSeom)번 섬") }
             }
         }
     }
@@ -215,7 +217,7 @@ final class TalgeotGamji: ObservableObject {
             t = .cha
         } else if jiha || wiseongMan || yeok {
             t = .jihacheol
-        } else if jeongryujangSeom >= 2 {
+        } else if jeongryujangSeom >= 2 && !ChaBureugi.shared.chaGojeong {
             t = .beoseu
         } else if chujeong == .beoseu {
             t = .beoseu

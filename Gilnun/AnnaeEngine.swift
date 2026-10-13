@@ -467,7 +467,45 @@ final class AnnaeEngine: ObservableObject {
         majimakMal = Date()
     }
 
+    // MARK: 2.67.0 (261013-I21, 이사장님 승인 2026-10-13) 걷는 안내 중 목적지에서 멀어짐 — 10월 13일 약수역까지 걷는 안내가 남은 채
+    //   3호선을 오금역까지 50분 타고 가시는 동안(남은 거리 207미터 → 13.6킬로미터) 아무 말이 없던 일
+    private var gakkaunD: Double?
+    private var gakkaunGeoreum = 0
+    private var meolDan = 0
+
+    /// 가장 가까웠던 때보다 1킬로미터씩 멀어질 때마다 한 번 알림. 걸음이 거의 늘지 않았으면 탈것을 타신 것으로 보고
+    /// 목적지가 역이면 「열차를 타신 것 같습니다. 어디까지 가십니까?」를 여쭙고 마이크를 엶
+    private func meoreojimBoda(_ w: Wichi, _ d: Double, _ mok: String) {
+        let georeum = WichiEngine.shared.oneulGeoreum
+        guard let g0 = gakkaunD, d >= g0 else {
+            gakkaunD = d
+            gakkaunGeoreum = georeum
+            meolDan = 0
+            return
+        }
+        guard w.ochae <= 150, d - g0 >= Double(meolDan + 1) * 1000 else { return }
+        meolDan = Int((d - g0) / 1000)
+        let geoleum = georeum - gakkaunGeoreum
+        let tan = Double(geoleum) < (d - g0) / 3   // 1킬로미터에 걸음이 330걸음도 안 늘었으면 탈것
+        let yeok = mok.contains("역")
+        Girok.shared.namgi("meoreojim", ["km": meolDan, "georeum": geoleum, "yeok": yeok, "tan": tan])
+        let meon = Annae.geoMal(d - g0)
+        if tan && meolDan == 1 {
+            if yeok {
+                MalHagi.shared.eodikkajiMutgi("열차를 타신 것 같습니다. \(mok)에서 \(meon) 멀어졌습니다. 어디까지 가십니까? 가실 곳을 말씀하시면 내리실 역과 갈아타실 곳을 알려 드립니다.",
+                                              talgeot: .jihacheol, yeolcha: true)
+            } else {
+                MalHagi.shared.eodikkajiMutgi("탈것을 타신 것 같습니다. \(mok)에서 \(meon) 멀어졌습니다. 가실 곳이 바뀌었으면 가실 곳을 말씀해 주십시오. 첫 화면의 무엇을 타고 계신가요에서 탈것을 알려 주셔도 됩니다.",
+                                              talgeot: nil)
+            }
+        } else {
+            malHagi("\(mok)에서 \(meon) 멀어지고 있습니다. 가시는 쪽이 맞는지 살펴 주십시오. 탈것을 타고 계시면 첫 화면의 무엇을 타고 계신가요에서 알려 주십시오.")
+        }
+    }
+
     private func dasiSijak() {
+        gakkaunD = nil   // 2.67.0
+        meolDan = 0
         ChaMat.shared.kkeut()   // 2.56.0 차 안 길 맞춤도 처음부터
         ttJiugi()   // 2.47.0
         bgJiugi()   // 2.48.0
@@ -961,6 +999,7 @@ final class AnnaeEngine: ObservableObject {
     private func georeumAnnae(_ w: Wichi, ireum mok: String, lat: Double, lon: Double, jungan: Bool, _ y: Yeojeong) {
         jariGirok(w, lat, lon)   // 2.52.0 걷는 자리 기록(관리자 폰만)
         let d = WichiEngine.geori(w.lat, w.lon, lat, lon)
+        if !jungan { meoreojimBoda(w, d, mok) }   // 2.67.0 목적지에서 멀어짐
         let beom = jungan ? max(15, min(w.ochae, 30)) : (bg != nil ? max(5, min(w.ochae, 10)) : max(12, min(w.ochae, 25)))   // 2.48.0 볼거리면 더 가까이
         if d <= beom {
             if jungan {

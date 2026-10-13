@@ -22,8 +22,9 @@
 // 2.66.0 (빌드 261013-I20, 이사장님 승인 2026-10-13 「그래」) 말을 못 알아듣는 일 — 10월 12~13일 아홉 번 모두 마이크에는 소리가 들어오는데(소리 조각 53~100)
 //   글자를 하나도 못 받았고, 네 번은 전화를 끊고 20초 안에 두 번씩 잇달아 실패. 그래서
 //   ① 전화가 끝나면 알아듣는 엔진(마이크 엔진·받아쓰기)을 다음 듣기 때 새로 세움
-//   ② 들어오는 소리 크기를 살펴, 말소리가 1.5초 넘게 들어왔는데 3초가 지나도 글자가 하나도 없으면 막힌 것으로 보고
-//      곧바로 듣기를 끝내고 엔진을 새로 세워 「다시 한번 말씀해 주세요」로 한 번 더 들음
+//   ② 들어오는 소리 크기를 살펴, 말소리가 1.5초 넘게 들어왔는데 글자가 하나도 없으면 막힌 것으로 보고
+//      엔진을 새로 세워 「다시 한번 말씀해 주세요」로 한 번 더 들음
+//      (2.67.0 바로잡음: 처음에는 3초 만에 끊었으나 시끄러운 곳에서 말씀 전에 끊겨, 듣는 시간은 다 기다린 뒤에 판단함)
 //   ③ 기록(maik_makhim)에 들어온 소리 크기(keugi, 데시벨)와 말소리 길이(malcho, 초)를 남김
 // 나중에 다른 받아쓰기(애저 등)로 바꿀 때는 이 파일만 바꿔 끼우면 됩니다.
 import Foundation
@@ -284,7 +285,9 @@ final class MalDeutgi: NSObject {
         }
         myeongBeopeo0 = beopeoSuIlgi()
         majimakBeopeo = -1
-        makhimSalpimSijak()
+        majimakMakhim = false
+        // 2.67.0 (261013-I21, 이사장님 승인 2026-10-13) 3초 막힘 판단(makhimSalpimSijak)은 쓰지 않음 — 시끄러운 길·지하철역에서 주변 소리를
+        //   말소리로 셈해 말씀하시기도 전에 듣기를 끊던 일(10월 13일 열두 번). 듣는 시간은 다 기다리고, 끝내 글자가 없을 때만 다음에 새로 세움
         handoSigye = Timer.scheduledTimer(withTimeInterval: gidarim, repeats: false) { [weak self] _ in
             guard let s = self, !s.malHam else { return }
             s.myeongryeongMaechim()
@@ -655,6 +658,12 @@ final class MalDeutgi: NSObject {
         let a = alts
         majimakBeopeo = beopeoSuIlgi() - myeongBeopeo0
         (majimakKeugi, majimakMalCho) = keugiIlgi()
+        // 2.67.0 소리는 들어왔는데 글자가 끝내 없으면 막힌 것 — 다음 듣기(「다시 한번 말씀해 주세요」) 때 엔진을 새로 세움
+        if a.isEmpty && majimakMalCho >= 1.5 {
+            majimakMakhim = true
+            saeroSeuel = true
+            Girok.shared.namgi("maldeutgi_makhim", ["malcho": majimakMalCho, "dwi": true])
+        }
         if a.isEmpty && saeIeum && sae != nil {
             // 2.30.0 못 들었으면 귀를 끄지 않고 닫아만 둠 — 「다시 한번 말씀해 주세요」 뒤 같은 귀로 한 번 더 들음
             jamjamSigye?.invalidate(); jamjamSigye = nil
