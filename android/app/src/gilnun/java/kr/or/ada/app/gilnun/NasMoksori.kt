@@ -22,6 +22,8 @@ import java.util.concurrent.Executors
 object NasMoksori {
     private val main = Handler(Looper.getMainLooper())
     private val il = Executors.newSingleThreadExecutor()
+    /** 2.38.0 뒤에서 받아 담는 일(말하는 줄을 막지 않게 따로) */
+    private val dwi = Executors.newSingleThreadExecutor()
     private var ctx: Context? = null
 
     private class Mal(val t: String, val geup: MalGeup, val kkeut: (() -> Unit)?, val daesin: ((() -> Unit) -> Unit))
@@ -38,6 +40,35 @@ object NasMoksori {
         private set
 
     val daehwaMalMok = listOf("네", "잠깐만 기다려 주세요", "다시 한번 말씀해 주세요")
+
+    // MARK: 2.38.0 (261013-A26, 이사장님 승인 2026-10-13 「그래」, 아이폰 2.66.0과 같음) 자주 하는 말 — 셈해 두었다가 앱을 켤 때 미리 받아 둠
+    /** 길눈이 늘 하는 말(셈이 쌓이기 전에도 미리 받아 둠) */
+    private val neulMal = listOf("남은 길을 걸어서 안내합니다.", "차 안 안내를 시작합니다.", "다시 한번 말씀해 주세요", "목적지에 도착했습니다.",
+        "지금은 마이크를 열지 못했습니다. 잠시 뒤 다시 해 주십시오.", "음악을 껐습니다.", "라디오를 껐습니다.", "TV를 껐습니다.",
+        "여정을 끝냈습니다.", "걷는 안내를 시작합니다. 흰지팡이를 꼭 짚어 주십시오.")
+
+    private fun jajuSeogi(t: String) {
+        val c = ctx ?: return
+        try {
+            val sp = c.getSharedPreferences("gilnun_ms", Context.MODE_PRIVATE)
+            val o = org.json.JSONObject(sp.getString("jaju", "{}") ?: "{}")
+            o.put(t, o.optInt(t, 0) + 1)
+            if (o.length() > 300) {
+                val ls = o.keys().asSequence().map { it to o.optInt(it) }.sortedBy { it.second }.take(o.length() - 300).toList()
+                for ((k, _) in ls) o.remove(k)
+            }
+            sp.edit().putString("jaju", o.toString()).apply()
+        } catch (e: Exception) {}
+    }
+
+    /** 두 번 넘게 한 말 가운데 많이 한 것부터 80가지 */
+    private fun jajuMal(): List<String> {
+        val c = ctx ?: return emptyList()
+        return try {
+            val o = org.json.JSONObject(c.getSharedPreferences("gilnun_ms", Context.MODE_PRIVATE).getString("jaju", "{}") ?: "{}")
+            o.keys().asSequence().map { it to o.optInt(it) }.filter { it.second >= 2 }.sortedByDescending { it.second }.take(80).map { it.first }.toList()
+        } catch (e: Exception) { emptyList() }
+    }
 
     /** 길눈을 켤 때 한 번 — 2초 뒤 나스 소리 창고를 깨워 둠(첫 말이 늦지 않게) */
     fun sijak(c: Context) {
@@ -128,6 +159,7 @@ object NasMoksori {
         if (!sseum(m.t)) { daesinHagi(b0, m); return }
         val (u, pail) = juso(m.t)
         if (pail != null && pail.exists() && pail.length() > 500) { teulgi(b0, m, pail); return }
+        jajuSeogi(m.t)   // 2.38.0 자주 하는 말 세기
         // 2.31.0 (261009-A19, 이사장님 승인) 긴 말(말벗 대답 등)은 만드는 데 오래 걸림 — 글자 수에 맞춰 더 기다림(한 자에 0.03초, 많아야 8초, 아이폰과 같음)
         // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 기다림을 늘림(처음 4초, 타고 가는 중 1.5초 더, 많아야 10초) — 아이폰과 같음
         val tagoGam = if (YeojeongEngine.jigeum?.danggye == Danggye.TANEUN_JUNG) 1500 else 0
@@ -142,8 +174,12 @@ object NasMoksori {
                 } else {
                     if (m.t.length <= 60) silpae += 1   // 긴 말을 못 받은 것은 세 번 실패(5분 쉼)에 셈하지 않음
                     if (silpae >= 3) swimTtae = System.currentTimeMillis()
-                    Girok.namgi("ms_moksori_mot", mapOf("silpae" to silpae, "geulja" to m.t.length))
+                    Girok.namgi("ms_moksori_mot", mapOf("silpae" to silpae, "geulja" to m.t.length, "ieo" to true))
                     daesinHagi(b0, m)
+                    // 2.38.0 폰 목소리로 말하되 뒤에서 30초까지 이어 받아 담아 둠 — 같은 말은 다음부터 기다리지 않고 협회 목소리로
+                    if (Tongsin.yeongyeol) dwi.execute {
+                        if (batgiDongi(u, pail, 30000)) main.post { silpae = 0; Girok.namgi("ms_moksori_dameum", mapOf("geulja" to m.t.length)) }
+                    }
                 }
             }
         }
@@ -224,6 +260,17 @@ object NasMoksori {
                 if (pail != null && pail.exists() && pail.length() > 500) continue
                 batgiDongi(u, pail, 6000)
             }
+        }
+        // 2.38.0 늘 하는 말·자주 하는 말을 하나씩 차례로 받아 담음(나스가 몰리지 않게)
+        val ls = (neulMal + jajuMal()).distinct().filter { it !in daehwaMalMok }
+        dwi.execute {
+            var n = 0
+            for (t in ls) {
+                val (u, pail) = juso(t)
+                if (pail == null || (pail.exists() && pail.length() > 500)) continue
+                if (batgiDongi(u, pail, 30000)) n += 1
+            }
+            if (n > 0) main.post { Girok.namgi("ms_miri_batgi", mapOf("su" to n, "modu" to ls.size)) }
         }
     }
 

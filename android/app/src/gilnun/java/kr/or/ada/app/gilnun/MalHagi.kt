@@ -315,7 +315,10 @@ object MalHagi {
             return
         }
         if (alts.isEmpty()) {
-            Girok.namgi("maik_makhim", mapOf("dan" to "myeongryeong", "dasi" to dasiHanbeon))
+            // 2.38.0 소리 크기·말소리 길이·막힘으로 끝냈는지도 남김(아이폰 2.66.0과 같음)
+            Girok.namgi("maik_makhim", mapOf("dan" to "myeongryeong", "dasi" to dasiHanbeon,
+                "keugi" to Math.round(MalDeutgi.majimakKeugi * 10) / 10.0, "malcho" to Math.round(MalDeutgi.majimakMalCho * 10) / 10.0,
+                "makhim" to MalDeutgi.majimakMakhim))
             bakkum(MalSangtae.SWIM)
             if (jadongYeolim > 0) {
                 // 저절로 연 마이크에 말씀이 없으면 조용히 닫음
@@ -668,6 +671,7 @@ object MalHagi {
             KameraNun.modukkeugi(true)   // 2.7.0 묶음 b3·b4 켜 둔 카메라 눈도 그만(아이폰과 같이 「…을 멈췄습니다」 한 번)
             if (SinhogiEngine.chatneunJung) SinhogiEngine.chatgiKkeugi()
             MalgilEngine.geuman()   // 2.7.0 묶음 b2 말로 그린 길 안내도 그만
+            MunIkkeulgi.meomchugi()  // 2.38.0 문까지 이끌기도 그만
             if (Bangsong.naneunJung) Bangsong.meomchumTogeul()   // 2.7.0 묶음 b5 방송도 멈춤(이어서 틀어로 다시)
             dap("", false)
             return
@@ -1599,6 +1603,26 @@ object MalDeutgi {
 
     val dolgoItda: Boolean get() = jigeumBeon != 0
 
+    // 2.38.0 (261013-A26, 이사장님 승인 2026-10-13 「그래」, 아이폰 2.66.0과 같음) 말을 못 알아듣는 일 —
+    //   ① 전화가 끝나면 다음 듣기 때 소리 자리를 보통으로 되돌리고 받아쓰기를 새로 세움
+    //   ② 말소리가 1.5초 넘게 들어왔는데 3초가 지나도 글자가 하나도 없으면 막힌 것으로 보고 곧바로 끝내 「다시 한번 말씀해 주세요」로 한 번 더 들음
+    //   ③ 기록에 소리 크기(keugi)와 말소리 길이(malcho)를 남김
+    @Volatile var saeroSeuel = false
+        private set
+    var majimakKeugi = -99f
+        private set
+    var majimakMalCho = 0.0
+        private set
+    var majimakMakhim = false
+        private set
+    /** 말소리로 치는 크기(받아쓰기가 알려 주는 rmsdB 기준) */
+    private const val MAL_KEUGI = 4f
+
+    fun jeonhwaKkeut() {
+        saeroSeuel = true
+        Girok.namgi("maldeutgi_saero", mapOf("kkadak" to "jeonhwa"))
+    }
+
     fun heorakItda(c: Context): Boolean =
         ContextCompat.checkSelfPermission(c, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
@@ -1607,6 +1631,19 @@ object MalDeutgi {
     /** 명령 하나 듣기 — 다 들으면 kkeut(알아들은 말들, 잘못 까닭). 말이 없으면 빈 목록. 열지 못하면 거짓. 화면 줄(main)에서 부를 것 */
     fun deutgi(c: Context, gidarimCho: Int, kkeut: (List<String>, String?) -> Unit): Boolean {
         meomchugi()
+        if (saeroSeuel) {
+            saeroSeuel = false
+            // 통화가 남긴 소리 자리(통화 모드)를 보통으로 되돌림 — 전화 중이 아닐 때만
+            val am = c.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager
+            var ok = true
+            try {
+                if (am != null && !JeonhwaGamsi.jeonhwaJung && am.mode != android.media.AudioManager.MODE_NORMAL) am.mode = android.media.AudioManager.MODE_NORMAL
+            } catch (e: Exception) { ok = false }
+            Girok.namgi("maldeutgi_saero", mapOf("kkadak" to (if (majimakMakhim) "makhim" else "jeonhwa_dwi"), "ok" to ok))
+        }
+        majimakKeugi = -99f
+        majimakMalCho = 0.0
+        majimakMakhim = false
         val r = try { SpeechRecognizer.createSpeechRecognizer(c.applicationContext) } catch (e: Exception) { null } ?: return false
         sr = r
         beon += 1
@@ -1614,10 +1651,15 @@ object MalDeutgi {
         jigeumBeon = b
         var han = false
         var malSijak = false
+        var geulja = false
+        var rmsT = 0L
+        val sijakT = android.os.SystemClock.elapsedRealtime()
+        var makhimSalpim: Runnable? = null
         fun machim(alts: List<String>, why: String?) {
             if (han || b != jigeumBeon) return
             han = true
             jigeumBeon = 0
+            makhimSalpim?.let { main.removeCallbacks(it) }
             jikimi?.let { main.removeCallbacks(it) }
             jikimi = null
             val rr = sr
@@ -1628,10 +1670,18 @@ object MalDeutgi {
         r.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {}
             override fun onBeginningOfSpeech() { malSijak = true }
-            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onRmsChanged(rmsdB: Float) {
+                val now = android.os.SystemClock.elapsedRealtime()
+                if (rmsdB > majimakKeugi) majimakKeugi = rmsdB
+                if (rmsdB > MAL_KEUGI && rmsT > 0) majimakMalCho += minOf(0.3, (now - rmsT) / 1000.0)
+                rmsT = now
+            }
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() {}
-            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onPartialResults(partialResults: Bundle?) {
+                val ls = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                if (ls != null && ls.any { it.isNotBlank() }) geulja = true
+            }
             override fun onEvent(eventType: Int, params: Bundle?) {}
             override fun onResults(results: Bundle?) {
                 val alts = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.filter { it.isNotBlank() }?.take(5) ?: emptyList()
@@ -1655,7 +1705,7 @@ object MalDeutgi {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "ko-KR")
             putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, c.packageName)
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)   // 2.38.0 글자가 나오는지 살피려고
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 900L)
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 900L)
@@ -1691,6 +1741,23 @@ object MalDeutgi {
         }
         jikimi = jk
         main.postDelayed(jk, gidarimCho * 1000L + 1500)
+        // 2.38.0 막힘 살피기 — 0.5초마다
+        val ms = object : Runnable {
+            override fun run() {
+                if (b != jigeumBeon || han || geulja) return
+                if (android.os.SystemClock.elapsedRealtime() - sijakT >= 3000 && majimakMalCho >= 1.5) {
+                    majimakMakhim = true
+                    saeroSeuel = true
+                    Girok.namgi("maldeutgi_makhim", mapOf("malcho" to Math.round(majimakMalCho * 10) / 10.0))
+                    try { sr?.cancel() } catch (e: Exception) {}
+                    machim(emptyList(), null)
+                    return
+                }
+                main.postDelayed(this, 500)
+            }
+        }
+        makhimSalpim = ms
+        main.postDelayed(ms, 500)
         return true
     }
 

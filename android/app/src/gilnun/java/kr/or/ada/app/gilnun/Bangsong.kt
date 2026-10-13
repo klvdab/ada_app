@@ -400,7 +400,10 @@ object Bangsong {
         override fun onPlayerError(error: PlaybackException) {
             val beon = teulgiBeon
             Girok.namgi("bangsong_oryu", mapOf("dan" to "item", "jong" to jong.ireum, "code" to error.errorCode))
-            main.postDelayed({ if (beon == teulgiBeon) dasiIeum() }, 2000)
+            // 2.38.0 (261013-A26, 이사장님 승인 2026-10-13, 아이폰 2.66.0과 같음) 곧바로 거듭 잇다가 그만두지 않게 —
+            //   세 번은 2초 뒤, 넷째는 30초 뒤, 그 뒤로는 1분 뒤에 다시 이음
+            val dwi = if (ieumSu < 3) 2000L else if (ieumSu == 3) 30000L else 60000L
+            main.postDelayed({ if (beon == teulgiBeon) dasiIeum() }, dwi)
         }
 
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {

@@ -141,6 +141,7 @@ object AnnaeEngine {
 
     /** 새 목적지를 정하기 전에 하던 안내를 조용히 모두 끔 — 걷던 점지도, 지하철 안내(이사장님 승인 1) */
     fun saeMokjeokJunbi() {
+        MunIkkeulgi.meomchugi()   // 2.38.0 문까지 이끌기도 멈춤
         jeomKkeut()
         JihacheolEngine.meomchugi()
         namEunGeori = null
@@ -162,6 +163,7 @@ object AnnaeEngine {
         if (SinhogiEngine.chatneunJung) SinhogiEngine.chatgiKkeugi()
         GanpanAllim.kkeut()
         Kamera.modukkeugi(false)   // 문 찾기·글자 읽기·사람 감지 같은 카메라 눈도 멈춤
+        MunIkkeulgi.meomchugi()    // 2.38.0 문까지 이끌기도 멈춤
         for (f in ArrayList(meomchumHooks)) try { f() } catch (e: Exception) {}
         Sori.meomchugi()
         MalHagi.hwalseong?.get()?.cheotHwamyeonEuro(null)
@@ -1106,7 +1108,9 @@ object AnnaeEngine {
         if (b != null) malHagi("도착했습니다. ${b.ireum} 앞입니다." + (if (b.mal.isEmpty()) "" else " ${b.mal}"))   // 2.16.0 볼거리 — 이름과 만져지는 것
         else malHagi("도착했습니다. ${y.mokjeok.ireum}입니다${if (s == 0) "" else ". ${s}시 방향 가까이에 있습니다"}.")
         // 걸어서 닿으면 카메라로 문 찾기(카메라 묶음이 dochakHook 을 채움)
-        dochakHook?.let { f -> main.postDelayed({ f("dochak") }, 4000) }
+        // 2.38.0 (261013-A26, 이사장님 승인 2026-10-13) 담아 둔 문 자리가 있으면 시계 방향·걸음 수로 먼저 이끌고, 문 앞에서 카메라가 거듦(아이폰 2.66.0과 같음)
+        val mk = y.mokjeok
+        main.postDelayed({ MunIkkeulgi.sijak(mk.lat, mk.lon, dochakHook) }, 4000)
         Girok.namgi("dochak", mapOf("m" to d.toInt(), "ochae" to w.ochae.toInt()))
     }
 

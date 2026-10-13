@@ -63,6 +63,8 @@ object JeonhwaGamsi {
             Sori.meomchugi()          // 하던 말을 곧바로 끊음
             TomakDeutgi.meomchugi()   // 목소리 토막
             if (MalHagi.sangtae != MalSangtae.SWIM) MalHagi.meomchum()   // 묻던 말(마이크)을 닫음
+        } else {
+            MalDeutgi.jeonhwaKkeut()   // 2.38.0 (261013-A26) 전화가 끝나면 다음 말로 하기 때 받아쓰기를 새로 세움(아이폰 2.66.0과 같음)
         }
         Bangsong.jeonhwa(j)
         for (f in deullim.toList()) try { f(j) } catch (e: Exception) {}
