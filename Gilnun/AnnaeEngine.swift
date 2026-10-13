@@ -410,7 +410,7 @@ final class AnnaeEngine: ObservableObject {
         if let c2 = o?["chulgu2"] as? [String: Any], let n2 = c2["ireum"] as? String, !n2.isEmpty,
            let la2 = Chatgi.su(c2["lat"]), let lo2 = Chatgi.su(c2["lon"]), la2 != 0 {
             let d2 = WichiEngine.geori(w.lat, w.lon, la2, lo2)
-            if d2 <= 60 && d2 - d1 <= max(10, w.ochae) {
+            if d2 <= 60 && d2 - d1 <= max(15, w.ochae * 1.5) {   // 10/13 오금역 — 오차 14미터, 1번 12미터·2번 27미터에서 둘 다 말하도록
                 let (y1, b1) = chulguNanum(n1)
                 let (y2, b2) = chulguNanum(n2)
                 let gat = y1 == y2 && !b1.isEmpty && !b2.isEmpty
