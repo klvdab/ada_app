@@ -16,6 +16,13 @@ object YeojeongMal {
         private set
     /** 탈것만 먼저 말씀하셨을 때 기억 */
     private var talgeotDaegi: Talgeot? = null
+    /** 2.39.0 (261013-A27, 이사장님 승인 2026-10-13, 아이폰 2.67.0과 같음) 걷는 안내 중 열차를 타신 것 같아 가실 곳을 여쭌 때 — 10분 안에 정하시면 열차 안으로 봄 */
+    var yeolchaAnTtae = 0L
+    /** 2.39.0 다음에 정하실 목적지에 쓸 탈것을 미리 정해 둠(「전철역」만 말씀하신 뒤 → 지하철) */
+    fun talgeotDaegiNoki(t: Talgeot?) { talgeotDaegi = t }
+    /** 2.39.0 「어떻게 가실까요」를 여쭙던 중인가(2분 안) — 전화로 끊긴 물음을 다시 여쭐 때 */
+    fun bangsikMutneunJung(): Boolean = mureum == Mureum.BANGSIK && System.currentTimeMillis() - mureumTtae < 120_000L
+    fun bangsikDasiYeojjum() { yeoJjum(Mureum.BANGSIK) }
     /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) mok 을 정한 때 — 여정이 없으면 3분 안의 것만 씀(아이폰과 같음) */
     private var mokTtae = 0L
 
@@ -217,6 +224,8 @@ object YeojeongMal {
         val taneunJung = yj.sokdoChujeong != Talgeot.GEOREUM || (yy != null && yy.danggye == Danggye.TANEUN_JUNG && yy.jiha == null && yj.choegeunTalgeotUmjigim)
         var tg = tg0 ?: talgeotDaegi
         talgeotDaegi = null
+        // 2.39.0 가까운 역(1.5킬로미터 안)까지 지하철로 가실 수는 없으므로 걸어서(아이폰 2.67.0과 같음)
+        if (tg == Talgeot.JIHACHEOL && d != null && d < 1500 && j.ireum.contains("역") && yeolchaAnTtae == 0L) tg = Talgeot.GEOREUM
         if (tg == null) {
             if (taneunJung) tg = yj.jikimTalgeot ?: (if (yj.sokdoChujeong == Talgeot.JIHACHEOL) Talgeot.JIHACHEOL else Talgeot.CHA)   // 2.9.0 땅속이면 지하철로, 2.36.0 기차·배 지킴이면 그 탈것
             else if (d == null || d <= 2000) tg = Talgeot.GEOREUM
@@ -259,7 +268,10 @@ object YeojeongMal {
                 //   움직임 감지기가 지하철로 보고 30초 안에 탈것이 실제로 움직였을 때만 타고 가는 중으로 봄.
                 //   아니면 역 입구에 닿은 것으로 보아(ipguDochak) 열차가 움직이면 저절로 역 알림을 시작(아이폰과 같음)
                 val umjigimNa = TalgeotGamji.majimakTalgeot > 0 && System.currentTimeMillis() - TalgeotGamji.majimakTalgeot < 30_000
-                if (TalgeotGamji.chujeong == Talgeot.JIHACHEOL && umjigimNa) {
+                // 2.39.0 걷는 안내 중 열차를 타신 것 같아 가실 곳을 여쭌 뒤면(10분 안) 열차 안으로 봄(아이폰 2.67.0과 같음)
+                val yeolchaAn = yeolchaAnTtae > 0 && System.currentTimeMillis() - yeolchaAnTtae < 600_000L
+                yeolchaAnTtae = 0L
+                if ((TalgeotGamji.chujeong == Talgeot.JIHACHEOL && umjigimNa) || yeolchaAn) {
                     Sori.mal(apMal + "타고 가시는 중이니 지하철 길을 찾아 곧장 역 알림을 시작합니다.", MalGeup.JEONGBO)
                     // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 이용자가 지하철로 가자고 하셨으니 짐작 안내가 아님(땅 위 구간에서 차로 되돌리지 않음, 아이폰과 같음)
                     JihacheolEngine.jungganSijak(j, false) { ok, mal ->

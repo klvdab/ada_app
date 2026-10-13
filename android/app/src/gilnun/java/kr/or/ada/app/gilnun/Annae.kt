@@ -521,7 +521,39 @@ object AnnaeEngine {
         majimakMal = System.currentTimeMillis()
     }
 
+    // MARK: 2.39.0 (261013-A27, 이사장님 승인 2026-10-13, 아이폰 2.67.0과 같음) 걷는 안내 중 목적지에서 멀어짐 —
+    //   약수역까지 걷는 안내가 남은 채 3호선을 오금역까지 50분 타고 가시는 동안 아무 말이 없던 일
+    private var gakkaunD: Double? = null
+    private var gakkaunGeoreum = 0
+    private var meolDan = 0
+
+    private fun meoreojimBoda(w: Jari, d: Double, mok: String) {
+        val georeum = Wichi.oneulGeoreum
+        val g0 = gakkaunD
+        if (g0 == null || d < g0) {
+            gakkaunD = d
+            gakkaunGeoreum = georeum
+            meolDan = 0
+            return
+        }
+        if (w.ochae > 150 || d - g0 < (meolDan + 1) * 1000.0) return
+        meolDan = ((d - g0) / 1000).toInt()
+        val geoleum = georeum - gakkaunGeoreum
+        val tan = geoleum.toDouble() < (d - g0) / 3   // 1킬로미터에 걸음이 330걸음도 안 늘었으면 탈것
+        val yeok = mok.contains("역")
+        Girok.namgi("meoreojim", mapOf("km" to meolDan, "georeum" to geoleum, "yeok" to yeok, "tan" to tan))
+        val meon = Annae.geoMal(d - g0)
+        if (tan && meolDan == 1) {
+            if (yeok) MalHagi.eodikkajiMutgi("열차를 타신 것 같습니다. ${mok}에서 $meon 멀어졌습니다. 어디까지 가십니까? 가실 곳을 말씀하시면 내리실 역과 갈아타실 곳을 알려 드립니다.", Talgeot.JIHACHEOL, true)
+            else MalHagi.eodikkajiMutgi("탈것을 타신 것 같습니다. ${mok}에서 $meon 멀어졌습니다. 가실 곳이 바뀌었으면 가실 곳을 말씀해 주십시오. 첫 화면의 무엇을 타고 계신가요에서 탈것을 알려 주셔도 됩니다.", null)
+        } else {
+            malHagi("${mok}에서 $meon 멀어지고 있습니다. 가시는 쪽이 맞는지 살펴 주십시오. 탈것을 타고 계시면 첫 화면의 무엇을 타고 계신가요에서 알려 주십시오.")
+        }
+    }
+
     private fun dasiSijak() {
+        gakkaunD = null   // 2.39.0
+        meolDan = 0
         ChaMat.kkeut()   // 2.27.0 차 안 길 맞춤도 처음부터
         ttJiugi()   // 2.15.0
         bgJiugi()   // 2.16.0
@@ -980,6 +1012,7 @@ object AnnaeEngine {
     private fun georeumAnnae(w: Jari, mok: String, lat: Double, lon: Double, jungan: Boolean, y: Yeojeong) {
         jariGirok(w, lat, lon)   // 2.20.0 걷는 자리 기록(관리자 폰만)
         val d = Wichi.geori(w.lat, w.lon, lat, lon)
+        if (!jungan) meoreojimBoda(w, d, mok)   // 2.39.0 목적지에서 멀어짐
         val beom = if (jungan) max(15.0, min(w.ochae, 30.0)) else if (bg != null) max(5.0, min(w.ochae, 10.0)) else max(12.0, min(w.ochae, 25.0))   // 2.16.0 볼거리면 더 가까이
         if (d <= beom) {
             if (jungan) {

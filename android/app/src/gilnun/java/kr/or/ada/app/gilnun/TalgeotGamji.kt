@@ -169,7 +169,8 @@ object TalgeotGamji : SensorEventListener {
         val w = Wichi.jigeum ?: return
         Beoseu.gakkaun(w.lat, w.lon) { l ->
             if (l != null && l.any { Wichi.geori(w.lat, w.lon, it.lat, it.lon) <= 25 }) jeongryujangSeom += 1
-            if (chujeong == Talgeot.CHA && jeongryujangSeom >= 2) bakkugi(Talgeot.BEOSEU, "정류장 ${jeongryujangSeom}번 섬")
+            // 2.39.0 (261013-A27, 이사장님 승인 2026-10-13, 아이폰 2.67.0과 같음) 콜로 부른 차를 타신 뒤에는 내리실 때까지 버스로 바꾸지 않음
+            if (chujeong == Talgeot.CHA && jeongryujangSeom >= 2 && !ChaBureugi.chaGojeong) bakkugi(Talgeot.BEOSEU, "정류장 ${jeongryujangSeom}번 섬")
         }
     }
 
@@ -194,7 +195,7 @@ object TalgeotGamji : SensorEventListener {
         val t = when {
             kolCha -> Talgeot.CHA
             jiha || wiseongMan || yeok -> Talgeot.JIHACHEOL
-            jeongryujangSeom >= 2 || chujeong == Talgeot.BEOSEU -> Talgeot.BEOSEU
+            (jeongryujangSeom >= 2 && !ChaBureugi.chaGojeong) || chujeong == Talgeot.BEOSEU -> Talgeot.BEOSEU
             else -> Talgeot.CHA
         }
         if (t != chujeong) bakkugi(t, kkadak + (if (jiha) ", 땅속" else "") + (if (yeok) ", 역 근처에서 탐" else "") + (if (kolCha) ", 콜 배차" else ""))

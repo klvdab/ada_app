@@ -111,6 +111,12 @@ object MalHagi {
     /** 「여기로 안내할까요?」「목적지를 ○○로 변경하실 건가요?」라고 여쭌 곳(곳, 탈것) */
     private var mokjeokDaegi: Pair<Jangso, Talgeot?>? = null
     private var mokjeokDaegiTtae = 0L
+    /** 2.39.0 「어디까지 가십니까」를 여쭌 때 — 전화로 끊기면 다시 여쭘 */
+    private var mokjeokMutneunTtae = 0L
+    /** 2.39.0 (261013-A27, 이사장님 승인 2026-10-13, 아이폰 2.67.0과 같음) 전화로 끊긴 물음 — 통화가 끝나면 다시 여쭘 */
+    private var kkeunkinMokjeok: Pair<Jangso, Talgeot?>? = null
+    private var kkeunkinJong = ""
+    private var kkeunkinTtae = 0L
         set(v) { field = v; if (v > 0L) ChaBureugi.mureumBiugi() }   // 2.32.0 (261009-A20) 새로 여쭐 때 차 부르기의 묵은 물음을 거둠
     /** 「○○에 전화할까요?」라고 여쭌 콜 */
     private var kolDaegi: NnKol.Kol? = null
@@ -151,7 +157,7 @@ object MalHagi {
         AnnaeEngine.meomchumHooks.add { MalgilEngine.geuman(false) }   // 2.7.0 묶음 b2 — 하던 일 멈추기 때 말로 그린 길 안내도 말없이 멈춤
         MalSajeon.bureogi()
         Sori.gyeonggoHook = { gyeonggoOm() }
-        JeonhwaGamsi.deullim.add { j -> if (j) main.post { jeonhwaOm() } }   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 전화가 오면 묻던 말·알아보던 명령을 거둠
+        JeonhwaGamsi.deullim.add { j -> if (j) main.post { jeonhwaOm() } else main.postDelayed({ if (!JeonhwaGamsi.jeonhwaJung) kkeunkinDasiMutgi() }, 2000) }   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 전화가 오면 묻던 말·알아보던 명령을 거둠
     }
 
     /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 전화가 옴 — 마이크를 닫고, 알아보던 명령과 묻던 말(목적지 바꾸기·콜 걸기)을 모두 거둠(아이폰 jeonhwaOm 과 같음) */
@@ -163,9 +169,75 @@ object MalHagi {
         dasiHanbeon = false
         malbeotGidarim = 0
         araboGidarim = 0
+        // 2.39.0 묻던 말을 거두기 전에 담아 둠 — 통화가 끝나면 다시 여쭘(10월 13일 「아현 전철역 가자」를 여쭙는 사이 전화로 끊긴 일, 아이폰 2.67.0과 같음)
+        val now0 = System.currentTimeMillis()
+        val md = mokjeokDaegi
+        kkeunkinJong = when {
+            md != null && now0 - mokjeokDaegiTtae < 120_000L -> { kkeunkinMokjeok = md; "hubo" }
+            YeojeongMal.bangsikMutneunJung() -> "bangsik"
+            mokjeokMutneunTtae > 0 && now0 - mokjeokMutneunTtae < 120_000L -> "mokjeok"
+            else -> ""
+        }
+        kkeunkinTtae = now0
         hwaginBiugi()
         if (sangtae != MalSangtae.SWIM) bakkum(MalSangtae.SWIM)
         Girok.namgi("malhagi_jeonhwa", mapOf("dan" to "om"))
+    }
+
+    private fun kkeunkinDasiMutgi() {
+        val jong = kkeunkinJong
+        kkeunkinJong = ""
+        val md = kkeunkinMokjeok
+        kkeunkinMokjeok = null
+        if (jong.isEmpty() || System.currentTimeMillis() - kkeunkinTtae > 15 * 60_000L || GinGeup.sangtae != GinGeupSangtae.EOPSEUM) return
+        Girok.namgi("kkeunkin_mureum", mapOf("mureum" to jong))
+        val sd = sedae
+        val dap: (String, Boolean) -> Unit = { t, m -> dapHagi(sd, t, m) }
+        val ap = "통화 전에 여쭙던 것을 다시 여쭙니다. "
+        when (jong) {
+            "hubo" -> if (md != null) mokjeokMutgi(md.first, md.second, ap, dap)
+            "bangsik" -> { YeojeongMal.bangsikDasiYeojjum(); dap(ap + "${ho}, 걸어서, 차로, 지하철로, 버스로 가운데 어떻게 가실까요?", true) }
+            "mokjeok" -> { mokjeokMutneunTtae = System.currentTimeMillis(); dap(ap + "${ho}, 어디로 가실까요?", true) }
+        }
+    }
+
+    /** 2.39.0 (261013-A27, 이사장님 승인 2026-10-13, 아이폰 2.67.0과 같음) 길눈이 먼저 가실 곳을 여쭙고 마이크를 한 번 엶 — 걷는 안내 중 열차를 타신 것 같을 때 등 */
+    fun eodikkajiMutgi(q: String, talgeot: Talgeot?, yeolcha: Boolean = false) {
+        main.post {
+            hwaginBiugi()
+            YeojeongMal.talgeotDaegiNoki(talgeot)
+            YeojeongMal.yeolchaAnTtae = if (yeolcha) System.currentTimeMillis() else 0L
+            mokjeokMutneunTtae = System.currentTimeMillis()
+            Girok.namgi("malhagi_eodikkaji", mapOf("yeolcha" to yeolcha))
+            val beon = mokjeokMutneunTtae
+            malHuHagi(q) {
+                val c = ctx
+                val a = hwalseong?.get()
+                if (c != null && mokjeokMutneunTtae == beon && sangtae == MalSangtae.SWIM && GinGeup.sangtae == GinGeupSangtae.EOPSEUM &&
+                    !pyeonjipJung && !JeonhwaGamsi.jeonhwaJung && MalDeutgi.heorakItda(c) &&
+                    a != null && !a.isFinishing && a.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
+                    dasiHanbeon = false
+                    jadongYeolim = 1
+                    yeolgi(true)
+                }
+            }
+        }
+    }
+
+    /** 2.39.0 역 이름 없이 역만 찾는 말인가(아이폰 yeokMalMan 과 같음) — 「지하철로 가자」처럼 탈것을 고르는 말은 아님 */
+    fun yeokMalMan(t: String): Boolean {
+        var z = t.replace(" ", "")
+        for (w in listOf("여기서", "이근처", "가까운", "가장", "제일", "근처", "주변", "좀")) z = z.replace(w, "")
+        var roPutim = false
+        for (sf in listOf("으로가자", "로가자", "에가자", "까지가자", "으로가줘", "로가줘", "가자", "가줘", "가고싶어", "찾아줘", "알려줘", "어디있어", "어디야", "어디", "으로", "로", "에", "까지", "은", "는")) {
+            if (z.endsWith(sf) && z.length > sf.length) {
+                if (sf.startsWith("로") || sf.startsWith("으로")) roPutim = true
+                z = z.dropLast(sf.length)
+                break
+            }
+        }
+        if (z in listOf("역", "전철역", "지하철역", "지하철타는곳", "전철타는곳")) return true
+        return !roPutim && z in listOf("전철", "지하철")
     }
 
     /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 네·아니오를 기다리던 물음(목적지 바꾸기·콜 걸기·점지도·후보·비슷한 곡)을 비움(아이폰 hwaginBiugi 와 같음) */
@@ -688,6 +760,17 @@ object MalHagi {
         if (s.itda(alts, "doum") || z.contains("화상통화") || z.contains("영상통화") || z.contains("긴급통화")) {
             if (gingeupJikjeop(z, dap)) return
             gingeup(t, dap)
+            return
+        }
+
+        // 5-0. 2.39.0 (261013-A27, 이사장님 승인 2026-10-13, 아이폰 2.67.0과 같음) 역 이름 없이 「전철역」「가까운 전철역」만 — 어디까지 가시는지 여쭙고 지하철 길로
+        if (yeokMalMan(t)) {
+            hwaginBiugi()
+            YeojeongMal.talgeotDaegiNoki(Talgeot.JIHACHEOL)
+            mokjeokMutneunTtae = now
+            Girok.namgi("yeok_mureum")
+            val ga = gakkaunYeok.firstOrNull()?.let { "가까운 역은 ${it}입니다. " } ?: ""
+            dap(ga + "${ho}, 어디까지 가십니까? 가실 곳을 말씀하시면 지하철로 가는 길을 갈아타는 곳까지 안내해 드립니다. 역까지만 가시려면 역 이름을 말씀해 주십시오.", true)
             return
         }
 
@@ -1660,6 +1743,12 @@ object MalDeutgi {
             han = true
             jigeumBeon = 0
             makhimSalpim?.let { main.removeCallbacks(it) }
+            // 2.39.0 소리는 들어왔는데 글자가 끝내 없으면 막힌 것 — 다음 듣기 때 새로 세움
+            if (alts.isEmpty() && why == null && majimakMalCho >= 1.5) {
+                majimakMakhim = true
+                saeroSeuel = true
+                Girok.namgi("maldeutgi_makhim", mapOf("malcho" to Math.round(majimakMalCho * 10) / 10.0, "dwi" to true))
+            }
             jikimi?.let { main.removeCallbacks(it) }
             jikimi = null
             val rr = sr
@@ -1757,7 +1846,8 @@ object MalDeutgi {
             }
         }
         makhimSalpim = ms
-        main.postDelayed(ms, 500)
+        // 2.39.0 (261013-A27, 이사장님 승인 2026-10-13) 3초 막힘 판단은 쓰지 않음 — 시끄러운 길·지하철역에서 말씀 전에 듣기를 끊던 일(아이폰 2.67.0과 같음).
+        //   듣는 시간은 다 기다리고, 끝내 글자가 없을 때만(machim) 다음 듣기 때 새로 세움
         return true
     }
 
