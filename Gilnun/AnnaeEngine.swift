@@ -356,7 +356,9 @@ final class AnnaeEngine: ObservableObject {
     func jigeumJari() {
         if yj.jigeum?.danggye == .taneunJung && yj.talgeot == .seonbak { TalgeotJikimi.shared.jigeumBaeJari(); return }   // 2.64.0 배 안이면 바다 위 자리
         guard let w = WichiEngine.shared.jigeum else {
-            malHagi("아직 위치를 잡는 중입니다. 잡히면 다시 눌러 주십시오.")
+            // 2.72.0 안드로이드와 같게(이사장님 승인 2026-10-14) — 위치 허락이 없으면 그렇다고 알려 드림
+            malHagi(WichiEngine.shared.geojeoldoem ? "위치 허락이 없어 자리를 알 수 없습니다. 폰 설정의 길눈, 위치에서 허용해 주십시오."
+                    : "아직 위치를 잡는 중입니다. 잡히면 다시 눌러 주십시오.")
             return
         }
         malHagi("지금 자리를 알아보는 중입니다.", .jeongbo)

@@ -161,6 +161,8 @@ struct GilChatgiView: View {
                             .buttonStyle(KeunDanchu())
                         Button("음향신호기 울리기 — 신호 안내") { SinhogiEngine.shared.ulligi(2) }
                             .buttonStyle(KeunDanchu())
+                        Button("음향신호기 울리기 — 위치 안내") { SinhogiEngine.shared.ulligi(1) }   // 2.72.0 안드로이드와 같게(이사장님 승인 2026-10-14)
+                            .buttonStyle(KeunDanchu())
                         Button("음향신호기 찾기 — 가까워질수록 소리가 빨라집니다") { SinhogiEngine.shared.chatgiKyeogi() }
                             .buttonStyle(KeunDanchu())
                         NavigationLink(value: GilHwamyeon.jeomMok) { Text("가까운 점지도 — 골라서 따라 걷기") }
