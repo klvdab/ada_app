@@ -484,7 +484,8 @@ class GilnunActivity : AppCompatActivity() {
             val ap = st[st.size - 2].jemok
             danchu("뒤로 — $ap") { dwiro() }
         }
-        jemok(h.jemok)
+        // 2.44.0 (이사장님 승인 2026-10-14) 아이폰과 같게 — 길 찾기·둘러보기·음악·방송·나눔 탭 첫 화면에는 제목 줄을 두지 않음(설정은 아이폰처럼 둠)
+        if (!(st.size == 1 && tab in 0..3)) jemok(h.jemok)
         h.chaeugi(this)
         for (i in 0 until tabJul.childCount) {
             val b = tabJul.getChildAt(i) as Button

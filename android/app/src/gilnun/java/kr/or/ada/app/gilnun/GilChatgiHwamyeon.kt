@@ -41,6 +41,10 @@ fun <T> yjMokrok5(t: GilnunActivity, l: List<T>, sijak0: Int, julGeul: (T) -> St
 // MARK: 길 찾기 탭 첫 화면
 
 class GilChatgiSae : Hwamyeon("길 찾기") {
+    companion object {
+        /** 2.44.0 하던 일 멈추기 뒤 한 번 — 커서를 「어디로 가실까요」 칸으로(아이폰과 같음) */
+        var kanEuro = false
+    }
     private var mal = ""
     private var yeojeongPyeol = false
     private var ttaraPyeol = false
@@ -99,6 +103,7 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
             else -> {
                 val e = t.ipryeok("어디로 가실까요 — 이름이나 주소를 넣고 엔터", false)
                 e.setText(mal)
+                if (kanEuro) { kanEuro = false; t.chojeomJul(e) }
                 // 2.31.0 여러 줄 — 긴 이름을 넣어도 글자가 옆으로 밀려 흐르지 않고 아래로 줄을 바꿈(엔터는 그대로 찾기)
                 e.setSingleLine(false)
                 e.setHorizontallyScrolling(false)

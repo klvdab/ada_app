@@ -166,6 +166,7 @@ object AnnaeEngine {
         MunIkkeulgi.meomchugi()    // 2.38.0 문까지 이끌기도 멈춤
         for (f in ArrayList(meomchumHooks)) try { f() } catch (e: Exception) {}
         Sori.meomchugi()
+        GilChatgiSae.kanEuro = true   // 2.44.0 아이폰과 같게 — 멈춘 뒤 커서를 「어디로 가실까요」 칸으로
         MalHagi.hwalseong?.get()?.cheotHwamyeonEuro(null)
         Girok.namgi("haneunil_meomchum")
         Sori.mal("하던 일을 멈췄습니다. 어디로 가실까요?")
