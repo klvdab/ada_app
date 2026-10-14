@@ -90,7 +90,7 @@ struct DeungrokView: View {
                     Section { Text(mal).accessibilityFocused($malFocus) }
                 }
                 Section {
-                    Text("적어 주신 이름과 번호는 도서관 회원 관리에만 씁니다. 같은 번호로 다시 등록하면 예전 폰의 열쇠는 쓸 수 없게 됩니다.")
+                    Text("적어 주신 이름과 번호는 도서관 회원 관리에만 씁니다. 같은 번호로 다시 등록하면 예전 폰의 열쇠는 쓸 수 없게 됩니다. 앱이 잘 듣는지 살피려고 앱 판과 막힌 일(소리를 오래 기다림 등)을 협회 서버에 남깁니다. 이름, 전화번호, 듣는 책은 남기지 않습니다.")
                 }
             }
             .navigationTitle("회원 등록")

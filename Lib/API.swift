@@ -66,7 +66,14 @@ enum API {
         return d
     }
 
-    static func mediaURL(_ i: Int) -> URL { url("dokseo.php", ["m": "media", "i": String(i)]) }
+    static func mediaURL(_ i: Int) -> URL { i >= entBase ? url("enter.php", ["m": "media", "i": String(i)]) : url("dokseo.php", ["m": "media", "i": String(i)]) }   // 0.7.0 엔터테인먼트 작품은 enter.php 에서
+
+    // 0.7.0 (261014-L16) 엔터테인먼트 — 나스 「AI문화관」의 공개 갈래(지금은 화면해설 작품). 작품 번호는 9000001부터라 도서관 책 번호와 겹치지 않음
+    static let entBase = 9_000_000
+    static func isEnt(_ i: Int) -> Bool { i >= entBase }
+    static func entGal() async throws -> GalResp { try await get("enter.php", ["m": "j_gal"], as: GalResp.self) }
+    static func entList(_ j: String, _ o: Int) async throws -> ListResp { try await get("enter.php", ["m": "j_list", "j": j, "o": String(o), "n": String(perPage)], as: ListResp.self) }
+    static func entFind(_ s: String, _ o: Int) async throws -> ListResp { try await get("enter.php", ["m": "j_find", "s": s, "o": String(o), "n": String(perPage)], as: ListResp.self) }
 }
 
 struct Gal: Decodable, Identifiable, Hashable {
@@ -87,4 +94,4 @@ struct JariResp: Decodable { let ok: Bool; let jari: [Int]? }   // 0.5.2
 struct ListResp: Decodable { let ok: Bool; let modu: Int?; let o: Int?; let items: [Item]?; let ttl: String?; let msg: String? }
 struct BookResp: Decodable { let ok: Bool; let i: Int?; let t: String?; let g: String?; let meg: Double?; let nal: String?; let kind: String?; let sogae: String?; let jieun: String?; let chulpan: String?; let msg: String? }
 struct GulResp: Decodable { let ok: Bool; let ttl: String?; let modu: Int?; let o: Int?; let mun: [String]?; let msg: String?; let won: [String]?; let hjgal: Bool?; let hj: Int? }   // 0.6.1 한자음 읽기(won 원문, hjgal 대상 책, hj 지금 방식)
-struct YoResp: Decodable { let ok: Bool; let h: String?; let msg: String? }
+struct YoResp: Decodable { let ok: Bool; let h: String?; let msg: String?; let ap: Int? }   // 0.6.3 ap — 이 문단 앞에 기다리는 문단 수

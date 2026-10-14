@@ -78,6 +78,7 @@ struct HomeView: View {
 struct PagedList: View {
     let loader: (Int) async throws -> ListResp
     var onTitle: ((String) -> Void)? = nil
+    var ent = false   // 0.7.0 엔터테인먼트 목록(폴더는 엔터테인먼트 안에서 열고, 작품은 소리로 바로 틂)
     @EnvironmentObject var nav: Nav
     @State private var o = 0
     @State private var items: [Item] = []
@@ -120,6 +121,10 @@ struct PagedList: View {
         }
     }
     func go(_ it: Item) {
+        if ent {
+            if let i = it.i { nav.push(Route.reader(i, it.t, "sori")) } else if let j = it.j { nav.push(Route.ent(j, it.t)) }
+            return
+        }
         if let i = it.i { nav.push(Route.reader(i, it.t, "")) }   // 0.5.1 한 번 두드리면 독서기가 열려 바로 읽음(형식은 독서기가 알아냄)
         else if let j = it.j { nav.push(Route.jakbon(j, it.t)) }
     }
@@ -146,7 +151,7 @@ struct PagedList: View {
 }
 
 extension Nav {
-    func push(_ r: Route) { if tab == 1 { seojae.append(r) } else { lib.append(r) } }
+    func push(_ r: Route) { if tab == 1 { seojae.append(r) } else if tab == 3 { ent.append(r) } else { lib.append(r) } }
 }
 
 struct GalListView: View {
@@ -329,7 +334,7 @@ struct ReaderView: View {
                     }
                     Button("책갈피 보기") { nav.push(Route.marks(i)) }
                     Button("처음부터") { r.fromStart() }
-                    Button("책 정보, 책 소개·지은이·내려받기") { nav.push(Route.book(i)) }   // 0.5.1 책 정보는 여기 안에
+                    if !API.isEnt(i) { Button("책 정보, 책 소개·지은이·내려받기") { nav.push(Route.book(i)) } }   // 0.5.1 책 정보는 여기 안에(0.7.0 엔터테인먼트 작품은 책 정보가 없음)
                 }
             }
         }
@@ -365,6 +370,94 @@ struct MarksView: View {
             }
         }
         .navigationTitle("책갈피")
+    }
+}
+
+// MARK: 엔터테인먼트 (0.7.0, 261014-L16 — 이사장님 승인 2026-10-14 18시 10분 「2」, 이름은 18시 08분 「1」)
+// 나스 「AI문화관」의 공개 갈래만 연다(지금은 7 화면해설 작품). 첫 화면: 이름 줄, 찾기 칸, 이어 듣기, 갈래 목록, 더 보기.
+// 작품은 소리책처럼 독서기에서 틀고, 읽던 자리·책갈피·내 서재가 도서관 책과 똑같이 쓰인다.
+struct EntHomeView: View {
+    @EnvironmentObject var store: Store
+    @EnvironmentObject var nav: Nav
+    @State private var gal: [Gal] = []
+    @State private var msg = "가져오는 중입니다."
+    @State private var s = ""
+    @State private var more = false
+    var body: some View {
+        List {
+            Section {
+                Meori()
+                    .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
+                    .listRowBackground(Color.clear)
+                HStack {
+                    TextField("찾을 작품 이름", text: $s)
+                        .submitLabel(.search)
+                        .onSubmit(chatgi)
+                    Button("찾기", action: chatgi)
+                }
+                if let l = store.reads.filter({ API.isEnt($0.i) && !$0.done }).sorted(by: { $0.at > $1.at }).first {
+                    Button {
+                        nav.ent.append(Route.reader(l.i, l.t, "sori"))
+                    } label: {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("이어 듣기").font(.caption.weight(.semibold)).foregroundStyle(Saek.ganjo)
+                            Text(l.t).font(.headline).foregroundStyle(.primary).lineLimit(2)
+                            Text("\(l.wichiMal)부터").font(.subheadline).foregroundStyle(.secondary)
+                        }
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("이어 듣기, \(l.t), \(l.wichiMal)부터")
+                    .accessibilityAddTraits(.isButton)
+                    .listRowBackground(Saek.kadeu)
+                }
+            }
+            Section {
+                if gal.isEmpty { Text(msg) }
+                ForEach(gal) { g in
+                    Button("\(g.dan), \(g.n)편") { nav.ent.append(Route.ent(g.g, g.dan)) }
+                }
+            } header: { Text("화면해설 작품").foregroundStyle(Saek.ganjo) }
+            Section {
+                DisclosureGroup("더 보기", isExpanded: $more) {
+                    Text("엔터테인먼트는 협회가 모아 온 영화, 드라마, 다큐 같은 자료 가운데 공개해도 되는 것을 하나씩 열어 가는 곳입니다. 지금은 화면해설 작품이 있습니다. 작품을 한 번 두드리면 바로 틀고, 듣던 자리를 기억합니다.")
+                    Text(Pan.mal)
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(Saek.bada)
+        .tint(Saek.ganjo)
+        .navigationTitle("엔터테인먼트")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            do {
+                let r = try await API.entGal()
+                gal = r.gal ?? []
+                msg = gal.isEmpty ? "아직 열린 갈래가 없습니다." : ""
+            } catch { msg = "엔터테인먼트에 닿지 못했습니다. 인터넷을 확인한 뒤 설정의 새로고침을 눌러 주십시오." }
+        }
+    }
+    func chatgi() {
+        let q = s.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return }
+        nav.ent.append(Route.entFind(q))
+    }
+}
+
+struct EntListView: View {
+    let j: String
+    let ttl: String
+    var body: some View {
+        PagedList(loader: { o in try await API.entList(j, o) }, ent: true)
+            .navigationTitle(ttl)
+    }
+}
+
+struct EntFindView: View {
+    let s: String
+    var body: some View {
+        PagedList(loader: { o in try await API.entFind(s, o) }, ent: true)
+            .navigationTitle("\(s) 찾은 결과")
     }
 }
 
@@ -436,7 +529,7 @@ struct SeojaeView: View {
 
     @ViewBuilder func jul(_ rc: ReadRec, mal: String, daIlgeum: Bool = false) -> some View {
         Button {
-            if daIlgeum { nav.seojae.append(Route.book(rc.i)) } else { nav.seojae.append(Route.reader(rc.i, rc.t, rc.kind)) }
+            if daIlgeum && !API.isEnt(rc.i) { nav.seojae.append(Route.book(rc.i)) } else { nav.seojae.append(Route.reader(rc.i, rc.t, rc.kind)) }
         } label: {
             HStack(spacing: 12) {
                 BookCover(title: rc.t, keugi: 40)
@@ -564,6 +657,9 @@ enum Doum {
         ("새로고침", "앱이 이상하거나 새 책이 안 보일 때 설정의 새로고침을 누릅니다."),
         ("업데이트 — 새 판 받기", "도서관 앱은 켤 때와 앱으로 돌아올 때 협회 서버에 새 판이 나왔는지 스스로 물어봅니다. 새 판이 있으면 도서관 첫 화면 맨 위에 AI점자도서관 새 판이 나왔습니다, 두드리면 테스트플라이트에서 업데이트합니다라는 단추가 뜹니다. 두드리시면 테스트플라이트가 열리니 AI점자도서관 옆의 업데이트를 두 번 두드리십시오. 아이폰은 앱이 스스로 자기를 설치할 수 없어 테스트플라이트를 거칩니다. 테스트플라이트에서 자동 업데이트를 켜 두시면 저절로 깔립니다. 설정의 새로고침 바로 아래 업데이트 단추로 언제든 살피실 수 있습니다. 내 서재와 책갈피, 내려받은 책은 그대로 남습니다."),
         ("앱 안내 말소리", "앱이 스스로 알리는 말(책갈피를 넣었습니다 등)을 켜고 끕니다. 책 읽는 목소리는 그대로입니다."),
+        ("소리를 기다릴 때", "처음 듣는 문단은 도서관 서버가 그 자리에서 목소리를 만듭니다. 여러 분이 함께 들으시면 조금 기다리실 수 있습니다. 10초가 넘으면 소리를 만들고 있다고, 45초가 넘으면 조금 더 걸린다고 한 번씩 알려 드리고, 4분까지 기다립니다. 한 번 만든 소리는 다음 분이 바로 들으십니다. 도서관은 한가할 때 새 책과 읽던 책 앞부분을 미리 만들어 둡니다."),
+        ("이용 기록", "앱이 잘 듣는지 살피려고, 앱 판과 아이폰 판, 책을 연 때, 소리를 오래 기다리거나 만들지 못한 일을 협회 서버에 남깁니다. 이름, 전화번호, 듣는 책 이름과 내용은 남기지 않습니다. 협회는 이 기록으로 막히는 곳을 먼저 찾아 고칩니다."),
+        ("엔터테인먼트", "아래 탭의 둘째 칸입니다. 협회가 모아 온 영화, 드라마, 다큐 같은 자료 가운데 공개해도 되는 것을 하나씩 열어 갑니다. 지금은 화면해설 작품(화면해설 영화, 화면해설 드라마, 화면해설 다큐와 교양)이 있습니다. 갈래를 누르면 작품이 나오고, 드라마는 작품을 누르면 회차가 차례로 나옵니다. 회차를 한 번 두드리면 바로 틉니다. 독서기와 같아서 앞으로 30초, 뒤로 30초, 재생 위치, 빠르기, 책갈피를 그대로 쓰고, 듣던 자리를 기억해 엔터테인먼트 첫 화면의 이어 듣기와 내 서재에 나옵니다. 작품 이름을 적어 찾을 수도 있습니다."),
         ("회원 등록", "처음 켤 때 이름과 휴대전화 번호로 한 번만 등록합니다. 등록하면 이 폰만의 회원 열쇠가 담겨 도서관과 독서기가 열립니다. 폰을 바꾸면 새 폰에서 같은 번호로 다시 등록합니다. 열쇠가 막히면 등록 화면이 다시 나옵니다."),
         ("뒤로", "속 화면 맨 위에 뒤로가 있습니다. 보이스오버에서는 두 손가락으로 문질러도 뒤로 갑니다."),
     ]

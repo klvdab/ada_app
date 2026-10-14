@@ -1,4 +1,5 @@
 // AI점자도서관 앱 — 독서기 (판 0.1.0, 빌드 260930-1)
+// 0.6.3 (261014-L15) 이용 기록 — 책 열기, 소리를 5초 넘게 기다림, 소리를 못 만듦, 글자를 못 가져옴을 LibGirok 에 남김(책 이름·내용은 남기지 않음, 이사장님 승인)
 // 글자책: 문단마다 서버 일꾼이 구운 사람 목소리를 받아 차례로 튼다. 앞 문단을 읽는 동안 뒤 세 문단을 미리 받는다.
 // 소리책·동영상: 나스에서 이어 받기로 튼다.
 // 화면을 끄거나 주머니에 넣어도 계속 읽고, 이어폰 단추와 잠금 화면으로 멈춤·다음·앞을 쓴다.
@@ -33,6 +34,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
     private var audioTasks: [Int: Task<URL?, Never>] = [:]
     private var audio: AVAudioPlayer?
     private var token = 0
+    private var apsu: [Int: Int] = [:]   // 0.6.3 문단마다 앞에 기다리는 문단 수(서버가 알려 줌)
     private var store: Store { Store.shared }
 
     override init() {
@@ -46,6 +48,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
         if self.i == i { return }
         stop()
         self.i = i; self.title = title; self.kind = kind
+        LibGirok.shared.namgi("lib_chaek_yeolgi", ["kind": kind, "ent": API.isEnt(i), "naeryeo": Offline.loadParas(i) != nil || Offline.asset(i) != nil])   // 0.6.3 이용 기록
         paras = [:]; pageTasks = [:]; audioTasks = [:]; text = ""; modu = 0; wons = [:]; won = ""; hjgal = false
         if kind == "geul" { await store.gulPan4Omgigi(i) }   // 0.5.2 (261012) 글 판 4 — 옛 판 자리·책갈피를 새 판 자리로(처음 열 때 한 번)
         let saved = store.rec(i)
@@ -118,9 +121,10 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 for (k, v) in (r.mun ?? []).enumerated() { self.paras[pg + k] = v }
                 for (k, v) in (r.won ?? []).enumerated() { self.wons[pg + k] = v }   // 0.6.1
                 if let g = r.hjgal { self.hjgal = g }
-                if r.ok == false { self.status = r.msg ?? "이 책의 글자를 가져오지 못했습니다." }
+                if r.ok == false { self.status = r.msg ?? "이 책의 글자를 가져오지 못했습니다."; LibGirok.shared.namgi("lib_geulja_silpae", ["msg": String((r.msg ?? "").prefix(60))]) }   // 0.6.3 이용 기록
             } catch {
                 self.status = "글자를 가져오지 못했습니다. 인터넷을 확인해 주십시오."
+                LibGirok.shared.namgi("lib_geulja_silpae", ["e": String(error.localizedDescription.prefix(80))])   // 0.6.3 이용 기록
             }
         }
         pageTasks[pg] = t
@@ -147,8 +151,9 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
             if FileManager.default.fileExists(atPath: cache.path) { return cache }
             do {
                 let y = try await API.yocheong(cut, voice: v)
+                if let a = y.ap { self.apsu[o] = a }   // 0.6.3
                 let hh = y.h ?? h
-                for n in 0..<90 {
+                for n in 0..<240 {   // 0.6.3 — 85초에서 4분으로: 여러 분이 함께 들어 밀려도 끝까지 기다림(이사장님 승인)
                     if book != self.i { return nil }
                     if let d = try await API.sori(hh) {
                         try d.write(to: cache)
@@ -212,16 +217,31 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
             if audioTasks[target * 10 + store.voice] == nil && Offline.audioURL(i, target, store.voice).map({ FileManager.default.fileExists(atPath: $0.path) }) != true {
                 waiting = true
             }
+            // 0.6.3 기다림 알리기 — 10초와 45초가 지나도 소리가 안 오면 한 번씩만 알림(이사장님 승인: 만들지 못했다로 끝내지 않음)
+            for (cho, mal) in [(10, "소리를 만들고 있습니다. 잠시만 기다려 주십시오."), (45, "여러 분이 함께 들으셔서 조금 더 걸립니다. 그대로 기다려 주십시오.")] {
+                Task { @MainActor [weak self] in
+                    try? await Task.sleep(nanoseconds: UInt64(cho) * 1_000_000_000)
+                    guard let self, my == self.token, self.waiting else { return }
+                    let ap = self.apsu[target] ?? 0
+                    self.status = ap > 0 ? mal + " 앞에 \(ap)문단이 기다리고 있습니다." : mal
+                    self.store.say(self.status)
+                }
+            }
+            let gidarimSijak = Date(); let gidarimJung = waiting   // 0.6.3 이용 기록 — 소리를 기다린 초
             let f = await audioFile(target)
             guard my == token else { return }
             waiting = false
+            let gidarimCho = Int(Date().timeIntervalSince(gidarimSijak))
+            if f != nil && gidarimJung && gidarimCho >= 5 { LibGirok.shared.namgi("lib_sori_gidarim", ["cho": gidarimCho, "moksori": store.voice]) }
+            if f == nil { LibGirok.shared.namgi("lib_sori_silpae", ["cho": gidarimCho, "moksori": store.voice, "inteonet": Offline.online]) }
             guard let f else {
                 if !Offline.online { speakPhone(text, my); return }   // 0.3.2 — 폰 목소리는 인터넷이 완전히 끊겼을 때만(이사장님: 도서관 목소리가 바뀌면 안 됨)
                 playing = false
-                status = "소리를 만들지 못했습니다. 잠시 뒤 다시 읽기를 눌러 주십시오."
+                status = "소리를 만들지 못했습니다. 잠시 뒤 다시 읽기를 눌러 주십시오."   // 0.6.3 — 4분을 기다려도 안 될 때만
                 store.say(status)
                 return
             }
+            if status.hasPrefix("소리를 만들고") || status.hasPrefix("여러 분이") { status = "" }   // 0.6.3
             do {
                 let a = try AVAudioPlayer(contentsOf: f)
                 a.enableRate = true

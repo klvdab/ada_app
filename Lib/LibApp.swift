@@ -1,5 +1,6 @@
 // AI점자도서관 앱 — 시작과 탭 (판 0.1.0, 빌드 260930-1)
 // 탭 셋: 도서관, 내 서재, 설정·도움말. 탭 바는 모든 속 화면에서도 늘 보인다.
+// 0.7.0 (261014-L16) 탭 넷: 도서관 다음에 엔터테인먼트(나스 AI문화관의 공개 갈래, 이사장님 승인 2026-10-14 18시 10분 「2」). 탭 번호는 그대로 두고(엔터테인먼트는 3) 놓는 자리만 둘째
 import SwiftUI
 import UIKit
 import AVFoundation
@@ -38,16 +39,19 @@ enum Route: Hashable {
     case sajeon(String, String)           // 0.6.0 사전(책 이름, 지금 문단)
     case jungyo                           // 0.6.0 중요 표시 모음
     case nanmal                           // 0.6.0 내 낱말장
+    case ent(String, String)              // 0.7.0 엔터테인먼트 폴더(열쇠, 이름)
+    case entFind(String)                  // 0.7.0 엔터테인먼트 찾기
 }
 
 final class Nav: ObservableObject {
     @Published var lib = NavigationPath()
     @Published var seojae = NavigationPath()
+    @Published var ent = NavigationPath()   // 0.7.0
     @Published var tab = 0
-    @Published var gen = [0, 0, 0]   // 0.3.1 — 탭을 고를 때마다 그 탭 화면을 새로 그려 맨 위에서 시작
+    @Published var gen = [0, 0, 0, 0]   // 0.3.1 — 탭을 고를 때마다 그 탭 화면을 새로 그려 맨 위에서 시작
     func tabGo(_ t: Int, _ same: Bool) {
-        if same { if t == 0 { lib = NavigationPath() } else if t == 1 { seojae = NavigationPath() } }
-        if t >= 0 && t < 3 { gen[t] += 1 }
+        if same { if t == 0 { lib = NavigationPath() } else if t == 1 { seojae = NavigationPath() } else if t == 3 { ent = NavigationPath() } }
+        if t >= 0 && t < 4 { gen[t] += 1 }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { UIAccessibility.post(notification: .screenChanged, argument: nil) }
     }
 }
@@ -62,6 +66,12 @@ struct RootView: View {
             .id(nav.gen[0])
             .tabItem { Label("도서관", systemImage: "books.vertical") }
             .tag(0)
+            NavigationStack(path: $nav.ent) {   // 0.7.0 엔터테인먼트
+                EntHomeView().routes()
+            }
+            .id(nav.gen[3])
+            .tabItem { Label("엔터테인먼트", systemImage: "film") }
+            .tag(3)
             NavigationStack(path: $nav.seojae) {
                 SeojaeView().routes()
             }
@@ -76,7 +86,7 @@ struct RootView: View {
             .tag(2)
         }
         .environmentObject(nav)
-        .onAppear { LibOllim.shared.sijak() }   // 0.4.3 새 판 알림(대장클, 이사장님 지시)
+        .onAppear { LibOllim.shared.sijak(); LibGirok.shared.sijak() }   // 0.4.3 새 판 알림(대장클, 이사장님 지시) · 0.6.3 이용 기록(도서관 창 클, 이사장님 승인)
     }
 }
 
@@ -97,6 +107,8 @@ extension View {
             case .sajeon(let c, let m): SajeonView(chaek: c, munjang: m).dwiro()
             case .jungyo: JungyoListView().dwiro()
             case .nanmal: NanmalJangView().dwiro()
+            case .ent(let j, let t): EntListView(j: j, ttl: t).dwiro()
+            case .entFind(let s): EntFindView(s: s).dwiro()
             }
         }
     }
