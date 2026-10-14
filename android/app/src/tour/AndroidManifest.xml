@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- LVD투어스튜디오 갈래 얼개 (안드로이드 1.0.0, 빌드 261012-T1, 2026-10-12 이사장님 승인 「1」 — 아이폰과 같은 판)
+     웹 껍데기(MainActivity) 대신 속까지 앱(TourActivity). 카메라·위치는 답사 때만 여쭙고 씀. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 새 판 업데이트 — 받은 새 판을 스스로 설치 화면에 넘김(AI점자도서관과 같음) -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application>
+        <activity android:name="kr.or.ada.app.MainActivity" tools:node="remove" />
+        <activity
+            android:name="kr.or.ada.app.tour.TourActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <!-- 답사 사진 — 카메라 앱이 찍은 사진을 적어 둘 자리. 이름은 코드의 packageName + ".sajin" 과 같아야 함 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.sajin"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/tour_sajin_paths" />
+        </provider>
+        <!-- 새 판 업데이트 — 설치 결과와 「새 판으로 바뀜」 알림 -->
+        <receiver
+            android:name="kr.or.ada.app.tour.OllimReceiver"
+            android:exported="false" />
+        <receiver
+            android:name="kr.or.ada.app.tour.OllimBakkwimReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>
