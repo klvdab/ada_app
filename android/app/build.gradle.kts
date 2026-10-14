@@ -12,6 +12,7 @@
 //   gilnun  길눈 (kr.or.ada.app)     대문 https://lvd.ada.or.kr/app/
 //   jabong  자봉 (kr.or.ada.jabong)  대문 https://lvd.ada.or.kr/jabong/
 //   bfb     배프 (kr.or.ada.bfb)     대문 https://lvd.ada.or.kr/bfb/
+//   tour    투어스튜디오 (kr.or.ada.tourstudio)  속까지 앱(src/tour) — 261012-T1
 import java.io.FileInputStream
 import java.util.Properties
 
@@ -77,7 +78,7 @@ android {
             dimension = "ap"
             applicationId = "kr.or.ada.byod"
             resValue("string", "app_name", "BYOD 방송")
-            versionName = "1.1.5"   // 261009-B7 현장 점검 단추(사운드카드·소리 크기·공유기·스티커 주소·배터리 한 번에), 멈춘 폰 10초 안에 빼고 세기, 듣는 화면 안드로이드 안내(방송클, 이사장님 승인). 261007-B6 실제로 받는 소리 장치 알림, 사운드카드 안 잡힐 때 할 일 한 줄, 어떤 소리 장치든 꽂고 빼면 다시 고름, 기기 점검 판단·결과 복사(방송클, 이사장님 승인). 261007-B5 기기 점검(소리 장치·USB·연결 보기), USB 없으면 3.5밀리 마이크·라인 입력도(허브 CT118 시험). 261007-B4 새 판 알림과 업데이트(대장클, 이사장님 지시). 261006-B3 스티커 쓰기 고침(엔디프 확인 건너뛰기 뺌, 엔태그 칩 직접 쓰기 더함). 261006-B2 접속 도구(엔에프시 스티커 쓰기·큐알코드 만들기, 도서클이 방송클 일을 이어 맡음)
+            versionName = "1.1.6"   // 261012-B8 스티커를 엔에프시 태그로 부름, 듣기 주소 바로잡기와 확인, 엔에프시 태그 쓴 뒤 다시 읽어 확인, A4 인쇄용 한 장, 듣기 화면 단추에 커서(방송클, 이사장님 승인). 261009-B7 현장 점검 단추(사운드카드·소리 크기·공유기·스티커 주소·배터리 한 번에), 멈춘 폰 10초 안에 빼고 세기, 듣는 화면 안드로이드 안내(방송클, 이사장님 승인). 261007-B6 실제로 받는 소리 장치 알림, 사운드카드 안 잡힐 때 할 일 한 줄, 어떤 소리 장치든 꽂고 빼면 다시 고름, 기기 점검 판단·결과 복사(방송클, 이사장님 승인). 261007-B5 기기 점검(소리 장치·USB·연결 보기), USB 없으면 3.5밀리 마이크·라인 입력도(허브 CT118 시험). 261007-B4 새 판 알림과 업데이트(대장클, 이사장님 지시). 261006-B3 스티커 쓰기 고침(엔디프 확인 건너뛰기 뺌, 엔태그 칩 직접 쓰기 더함). 261006-B2 접속 도구(엔에프시 스티커 쓰기·큐알코드 만들기, 도서클이 방송클 일을 이어 맡음)
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/bfblive/hyeonjang/\"")
         }
         create("lib") {   // 261002-L1 AI점자도서관 안드로이드 — 속까지 앱(LibActivity, src/lib), 아이폰 0.2.0 과 동시에(이사장님 승인 "2")
@@ -86,6 +87,13 @@ android {
             resValue("string", "app_name", "AI점자도서관")
             versionName = "0.6.2"   // 261012-L14 사전 도움말에 우리말샘·한국고전종합DB, 한자음 읽기 도움말에 경서 읽는 소리(도서관 창 클, 이사장님 승인 「1」). 261012-L13 한자음 읽기(중국 고전을 우리 한자음으로, 간체자도, 원문 함께 보기 — 도서관 창 클, 이사장님 승인 「1」). 261012-L12 곱씹어 읽기(다시 듣기·풀어 읽기·중요 표시·책 속 찾기)와 사전·내 낱말장(도서관 창 클, 이사장님 승인 「1」). 261012-L11 외국 도서 문(외국 도서 → 언어 → 장르와 주제), 글 판 4(강제 줄바꿈 바로잡은 글·옛 자리 옮기기), 도움말 둘(도서관 창 클, 이사장님 승인 「1」). 261010-L10 첫 화면 맨 위 이름 줄·바로 아래 찾기 칸, 목록에서 한 번 두드리면 바로 읽기, 넘긴 뒤 커서 첫 줄 다지기(도서관 창 클, 이사장님 승인 「1」). 261010-L9 첫 화면에 고른 문의 서가 목록·형태별 갈래와 보일 책 뺌·톡백 목록 넘기기(도서관 창 클, 이사장님 승인 「1」). 261008-L8 아이폰과 견주어 네 묶음 고침 — 화면 꺼도 읽기·이어폰 단추, 내 서재 줄 수·책갈피 자리·모두 지우기 물음, 커서 머묾·더 보기, 처음부터·책갈피 지우기·도움말 찾기(도서관 창 클, 이사장님 승인 「1」). 261007-L7 새 판 알림과 업데이트(대장클, 이사장님 지시). 261006-L6 책 소개·지은이·출판사, 책 소개 듣기. 261006-L5 여섯 문단 미리 받기. 261006-L4 목소리 열 가지·미리 듣기, 재생 위치 막대, 앞으로 30초와 뒤로 30초. 261006-L3 인터넷이 될 때는 늘 도서관 목소리(이사장님 지적). 261006-L2 세 겹의 문 목록 고침·독서기 떠나면 멈춤(도서관 창 클, 이사장님 지적)
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/nas/doseo.php\"")
+        }
+        create("tour") {   // 261012-T1 LVD투어스튜디오 안드로이드 — 속까지 앱(TourActivity, src/tour), 아이폰 1.0.0 과 같은 판(이사장님 승인 「1」)
+            dimension = "ap"
+            applicationId = "kr.or.ada.tourstudio"
+            resValue("string", "app_name", "투어스튜디오")
+            versionName = "1.0.0"   // 261012-T1 첫 판 — 코스·답사(지점 경계·새 지점·시계 방향 사진)·지점 한 화면·현장영상해설·원칙 16개 점검·승인 요청·저절로 저장
+            buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/lvdts/lvdts.html\"")
         }
     }
 
@@ -132,7 +140,7 @@ dependencies {
     implementation("androidx.webkit:webkit:1.12.1")   // 260926-1 다리를 문서 맨 처음에 심기
     "libImplementation"("androidx.media3:media3-exoplayer:1.4.1")   // 261002-L1 도서관 독서기 — 문단 사이 틈 없이 이어 틀기
     "byodImplementation"("com.google.zxing:core:3.5.3")
-    listOf("libImplementation", "byodImplementation").forEach { add(it, "androidx.work:work-runtime-ktx:2.9.1") }   // 261007 새 판 알림 뒤 일꾼(OllimWorker) — 도서관·BYOD에도   // 261006-B2 BYOD 접속 도구 — 큐알코드 만들기
+    listOf("libImplementation", "byodImplementation", "tourImplementation").forEach { add(it, "androidx.work:work-runtime-ktx:2.9.1") }   // 261012-T1 투어스튜디오 새 판 알림 뒤 일꾼도   // 261007 새 판 알림 뒤 일꾼(OllimWorker) — 도서관·BYOD에도   // 261006-B2 BYOD 접속 도구 — 큐알코드 만들기
     "libImplementation"("androidx.media3:media3-ui:1.4.1")          // 261002-L1 도서관 동영상 보기
     "libImplementation"("androidx.media3:media3-session:1.4.1")     // 261008-L8 도서관 화면 꺼도 읽기·이어폰 단추·잠금 화면(DokseoService)
     gj.forEach { add(it, "com.google.android.gms:play-services-wearable:18.1.0") }   // 261002-A8 갤럭시 워치 길눈과 잇기
