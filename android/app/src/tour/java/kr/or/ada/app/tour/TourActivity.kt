@@ -1,4 +1,5 @@
-// LVD투어스튜디오 안드로이드 — 화면 (1.0.0판, 빌드 261012-T1, 2026-10-12 이사장님 승인 「1」 — 아이폰 1.0.0 과 같은 판)
+// LVD투어스튜디오 안드로이드 — 화면 (1.0.1판, 빌드 261014-T2, 2026-10-14 이사장님 승인 「1」 — 아이폰 1.0.1 과 같은 판)
+// 1.0.1: 사진 안내를 시계 방향으로, 네 개씩 목록의 더 보기·이전 보기를 「넷」으로. 1.0.0(261012-T1, 2026-10-12): 첫 판
 // 웹 투어스튜디오 1.12판을 속까지 앱으로. 같은 서버(lvdts_api.php)·같은 코스 — 웹과 앱 어느 쪽에서 고쳐도 같습니다.
 // 아래 탭 다섯: 코스·답사·지점·현장영상해설·설정. 탭 바는 모든 속 화면에서 늘 보이고 뒤로 단추는 위에만.
 // 규칙: 목록은 다섯 줄씩(더 보기·이전 보기), 넘기면 커서는 첫 줄, 고치면 2초 뒤 저절로 저장(못 하면 폰에 남김),
@@ -63,7 +64,7 @@ sealed class Hw {
 
 class TourActivity : Activity() {
     companion object {
-        const val PAN = "1.0.0"; const val BILDEU = "261012-T1"
+        const val PAN = "1.0.1"; const val BILDEU = "261014-T2"
         const val PAN_IREUM = "LVD투어스튜디오 ${PAN}판 (빌드 ${BILDEU})"
         const val SAJIN = 71; const val HEORAK_KAMERA = 72; const val HEORAK_JARI = 73
         val NE = listOf("12시 방향", "3시 방향", "6시 방향", "9시 방향")
@@ -199,11 +200,12 @@ class TourActivity : Activity() {
         val p = minOf(jang[key] ?: 0, n - 1)
         var cheot: View? = null
         items.drop(p * per).take(per).forEach { val v = row(it); if (cheot == null) cheot = v }
-        if (p + 1 < n) danchu("더 보기 (다음 다섯, ${p + 2}/$n)") { jang[key] = p + 1; draw(); cheotJul(jangCheotJari[key]) }
-        if (p > 0) danchu("이전 보기 (앞의 다섯)") { jang[key] = p - 1; draw(); cheotJul(jangCheotJari[key]) }
+        if (p + 1 < n) danchu("더 보기 (다음 ${seum(per)}, ${p + 2}/$n)") { jang[key] = p + 1; draw(); cheotJul(jangCheotJari[key]) }
+        if (p > 0) danchu("이전 보기 (앞의 ${seum(per)})") { jang[key] = p - 1; draw(); cheotJul(jangCheotJari[key]) }
         jangCheotJari[key] = cheot
     }
     private val jangCheotJari = HashMap<String, View?>()
+    private fun seum(k: Int) = when (k) { 4 -> "넷"; 5 -> "다섯"; else -> "${k}개" }
 
     private fun tabs() {
         tabbar.removeAllViews()
@@ -415,7 +417,7 @@ class TourActivity : Activity() {
         val k = kos ?: return kosEopseum()
         val L = Jeomgeom.lines(k)
         geul("원칙 16개 점검", jemok = true)
-        geul(if (L.isEmpty()) "앱이 살필 수 있는 것은 모두 갖추었습니다. 나머지 원칙은 웹 투어스튜디오의 원칙 16개 점검표에서 들으십시오." else "고칠 곳 ${L.size}가지입니다.")
+        geul(if (L.isEmpty()) "앱이 살필 수 있는 것은 모두 갖추었습니다. 나머지 원칙은 웹 투어스튜디오의 원칙 16개 점검표에서 확인하십시오." else "고칠 곳 ${L.size}가지입니다.")
         jangMok("jg", L) { geul(it) }
     }
 
@@ -648,7 +650,7 @@ class TourActivity : Activity() {
                         val i = NE.indexOf(dir)
                         val da = (NE.drop(i + 1) + NE.take(maxOf(0, i))).firstOrNull { !jjigeun.contains(it) }
                         if (da != null) sajinBang = da
-                        malhagi(k.spotLab(s) + " 사진 ${s.shots.length()}번째, $dir 올렸습니다." + if (da != null) " 몸을 오른쪽으로 돌리신 뒤 찍으십시오. 다음은 ${da}입니다." else " 네 방향을 다 담았습니다.")
+                        malhagi(k.spotLab(s) + " 사진 ${s.shots.length()}번째, $dir 올렸습니다." + if (da != null) " 몸을 시계 방향으로 돌리신 뒤 찍으십시오. 다음은 ${da}입니다." else " 네 방향을 다 담았습니다.")
                         bakkwim(); if (cur() is Hw.Dapsa) draw()
                     } else malhagi("사진을 올리지 못했습니다. " + Api.err(j))
                 }
@@ -734,6 +736,12 @@ class TourActivity : Activity() {
     private fun doum(i: Int) { val d = DOUM.getOrNull(i) ?: return; geul(d.first, jemok = true); geul(d.second) }
     private fun bakkwin() {
         geul("무엇이 바뀌었나", jemok = true)
+        geul("1.0.1판 (빌드 261014-T2, 2026-10-14)", jemok = true)
+        listOf(
+            "사진을 올린 뒤 안내를 시계 방향으로 바로잡았습니다. 몸을 시계 방향으로 돌리신 뒤 찍으십시오(이사장님 승인).",
+            "방향 도우미처럼 네 개씩 보이는 목록의 더 보기와 이전 보기를 「넷」으로 바로잡았습니다.",
+            "원칙 16개 점검의 마침 안내를 「점검표에서 확인하십시오」로 바로잡았습니다(이사장님 승인)."
+        ).forEach { geul(it) }
         geul("1.0.0판 (빌드 261012-T1, 2026-10-12)", jemok = true)
         listOf(
             "웹 투어스튜디오 1.12판을 안드로이드 앱으로 처음 지었습니다(이사장님 승인). 아이폰 1.0.0판과 같습니다.",
