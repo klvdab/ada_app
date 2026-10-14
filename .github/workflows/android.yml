@@ -1,4 +1,5 @@
 # 안드로이드 앱 자동 짓기 (1.4.0판, 빌드 261003-B1)
+# 1.5.0 (261012-T1, 이사장님 승인 「1」) eoneu=tour — LVD투어스튜디오(kr.or.ada.tourstudio, src/tour). 아이콘은 src/tour/res 에 넣어 두어 만들기를 건너뜀
 # 1.4.0 (261003-B1, 이사장님 승인) eoneu=byod — BYOD 방송(kr.or.ada.byod, src/byod) 태블릿이 현장 방송 서버를 맡음
 # 1.3.0 (261003-L1, 이사장님 승인) eoneu=lib — AI점자도서관 안드로이드(kr.or.ada.lib, src/lib)
 # 1.2.0 (261002-A8, 대표님 지시) 갤럭시 워치 길눈 — eoneu=wear 이면 :wear 모듈(웨어 OS, 앱 번호 kr.or.ada.app)을 같은 열쇠로 서명해 짓고
@@ -24,7 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       eoneu:
-        description: "어느 앱 (gilnun = 길눈, jabong = 자봉, bfb = 배프, lib = AI점자도서관, byod = BYOD 방송, wear = 갤럭시 워치 길눈)"
+        description: "어느 앱 (gilnun = 길눈, jabong = 자봉, bfb = 배프, lib = AI점자도서관, byod = BYOD 방송, tour = LVD투어스튜디오, wear = 갤럭시 워치 길눈)"
         default: "gilnun"
 jobs:
   jitgi:
@@ -46,8 +47,9 @@ jobs:
             bfb)       FL=bfb;    CAP=Bfb;    NM=배프 ;;
             lib)       FL=lib;    CAP=Lib;    NM=AI점자도서관 ;;
             byod)      FL=byod;   CAP=Byod;   NM="BYOD 방송" ;;
+            tour)      FL=tour;   CAP=Tour;   NM=투어스튜디오 ;;
             wear)      FL=wear;   CAP=Wear;   NM="워치 길눈" ;;
-            *) echo "eoneu 는 gilnun, jabong, bfb, lib, byod, wear 중 하나여야 합니다 (받은 값: $EONEU)"; exit 1 ;;
+            *) echo "eoneu 는 gilnun, jabong, bfb, lib, byod, tour, wear 중 하나여야 합니다 (받은 값: $EONEU)"; exit 1 ;;
           esac
           if [ "$FL" = "wear" ]; then MOD=wear; else MOD=app; fi
           echo "MODULE=$MOD" >> "$GITHUB_ENV"
@@ -75,7 +77,7 @@ jobs:
                     echo "BUILD_NUMBER=$(( ($(date +%s) - 1767225600) / 60 ))" >> "$GITHUB_ENV"
 
       - name: 아이콘 만들기
-        if: env.FLAVOR != 'wear'
+        if: env.FLAVOR != 'wear' && env.FLAVOR != 'tour'
         run: |
           python3 -m venv /tmp/py
           /tmp/py/bin/pip install --quiet pillow
