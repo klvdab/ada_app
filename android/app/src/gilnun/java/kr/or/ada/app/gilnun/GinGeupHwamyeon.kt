@@ -157,6 +157,10 @@ class JiinMyeongdanHwamyeon : Hwamyeon("가족·지인 명단") {
             t.danchu("이음 번호 받기 — 가족·지인이 자봉 앱에 넣을 여섯 자리") { beonhoBatgi(t) }
         }
         if (allim.isNotEmpty()) t.geul(allim, true)
+        // 2.42.0 받는 분 화면에 뜰 내 이름 — 설정 첫 화면에서 이리로 옮김(이사장님 승인 2026-10-14, 아이폰과 같은 자리)
+        val ne = t.ipryeok("받는 분 화면에 뜰 내 이름 — 긴급통화 때 보입니다", false)
+        ne.setText(GinGeup.naIrum)
+        ne.doAfterTextChanged { GinGeup.naIrum = it?.toString() ?: "" }
         if (yetBangsik) yetHwamyeon(t)
         val l = Jiin.mokrok
         if (l.isNotEmpty()) {

@@ -73,11 +73,13 @@ class JeomSeoljeongHwamyeon : Hwamyeon("점지도와 걸음") {
     override fun chaeugi(t: GilnunActivity) {
         JeomSeol.sijak(t)
         NaeGil.sijak(t)
+        // 2.42.0 (이사장님 승인 2026-10-14 「1」) 설정 순서 고침 — 보폭 재기를 맨 위로(설정 첫 화면에서 옮김), 리모컨은 기기 설정에만, 흔들면 자리 번호는 폰 펼치기에만
+        t.danchu(if (Seoljeong.bopokJaem) "보폭 재기 — 지금 ${Seoljeong.bopokModeIreum()} ${(Seoljeong.bopok * 100).toInt()}센티미터" else "보폭 재기 — 아직 재지 않음, 한 번 재 두면 걸음 수가 정확해집니다") {
+            t.yeolgi(BopokHwamyeon())
+        }
         t.danchu("나만의 점지도 — 늘 다니는 길을 걸어서 그려 두기") { t.yeolgi(NaeGilHwamyeon()) }
         t.danchu("걸음 오차 재기 — 걸음으로 잰 거리와 실제 거리 견주기") { t.yeolgi(JaegiHwamyeon()) }
         t.danchu("내 문 — 지금 선 자리를 내 문으로 담아 두기") { t.yeolgi(NaeMunHwamyeon()) }
-        t.danchu("리모컨 배우기 — 블루투스 리모컨 단추를 익혀 두기") { t.yeolgi(RimoHwamyeon()) }
-        t.danchu("흔들면 자리 번호 — 긴급통화 열기 또는 국가지점번호") { t.yeolgi(HeundeulHwamyeon()) }
         t.danchu(if (pyeol) "점지도 안내 설정 접기" else "점지도 안내 설정 펼치기") { pyeol = !pyeol; t.dasiGeurigi() }
         if (pyeol) {
             t.danchu("걸을 때 확신음 — " + (if (JeomSeol.hwaksinEum) "켜져 있음 (누르면 끕니다)" else "꺼져 있음 (누르면 켭니다)")) {
@@ -103,13 +105,7 @@ class JeomSeoljeongHwamyeon : Hwamyeon("점지도와 걸음") {
                 Sori.mal(if (JeomSeol.gilOn) "지나는 길을 알려 드립니다." else "지나는 길을 알리지 않습니다.")
                 t.dasiGeurigi()
             }
-            t.danchu("안내 중 이어폰 단추 받기 — " + (if (JeomSeol.ieoponDanchu) "켜져 있음 (누르면 끕니다)" else "꺼져 있음 (누르면 켭니다)")) {
-                JeomSeol.ieoponDanchu = !JeomSeol.ieoponDanchu
-                RemoteDanchu.matchugi()
-                Sori.mal(if (JeomSeol.ieoponDanchu) "안내 중에는 이어폰 단추를 길눈이 받습니다. 재생은 다시 듣기, 다음은 다음 갈림길, 이전은 앞 안내입니다."
-                    else "이어폰 단추를 음악 앱에 그대로 둡니다.")
-                t.dasiGeurigi()
-            }
+            // 2.42.0 안내 중 이어폰 단추 받기는 기기 설정 한 곳으로 옮김
         }
     }
 }

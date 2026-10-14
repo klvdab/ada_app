@@ -190,6 +190,17 @@ class MalSeolHwamyeon : Hwamyeon("말하기 설정") {
     override fun chaeugi(t: GilnunActivity) {
         SeoljeongDeo.sijak(t)
         val s = SeoljeongDeo
+        // 2.42.0 (이사장님 승인 2026-10-14 「1」) 설정 첫 화면에 있던 말소리·말 빠르기를 이 화면 맨 위로(아이폰과 같은 자리)
+        t.danchu("길눈 말소리 — 지금 " + (if (Seoljeong.malKyeojim) "켜짐, 누르면 꺼짐" else "꺼짐, 누르면 켜짐")) {
+            Seoljeong.malKyeojim = !Seoljeong.malKyeojim
+            Sori.mal(if (Seoljeong.malKyeojim) "길눈 말소리를 켰습니다." else "길눈 말소리를 껐습니다. 경고는 그대로 말씀드립니다.", MalGeup.GYEONGGO)
+            t.dasiGeurigi()
+        }
+        t.danchu("빠르기 — 지금 " + Seoljeong.bbareugiIreum[Seoljeong.bbareugiDan] + ", 누르면 바뀜") {
+            Seoljeong.bbareugiDan = (Seoljeong.bbareugiDan + 1) % 5
+            Sori.mal("이 빠르기로 말씀드립니다.", MalGeup.GYEONGGO)
+            t.dasiGeurigi()
+        }
         if (NasMoksori.yeollim(t)) {   // 아이폰 2.28.0 — 정식 음성 열쇠 전에는 나스 음악 열쇠가 있는 폰에서만
             kyeogi(t, "길눈 목소리 — 마이크로소프트 선희", { s.msMoksori }, { s.msMoksori = it }) { on ->
                 if (on) NasMoksori.kkaeugi()
@@ -258,60 +269,6 @@ class MalSeolHwamyeon : Hwamyeon("말하기 설정") {
         }
         kyeogi(t, "걸을 때 확신음", { s.hwaksinEum }, { s.hwaksinEum = it }) {
             if (it) "확신음을 켭니다. 제대로 가고 계시면 짧은 맑은 소리가 납니다." else "확신음을 끕니다. 방향이 틀어졌을 때의 말은 그대로 나옵니다."
-        }
-        // 2.26.0 하이 길눈 부르기(처음은 꺼짐, 이사장님 승인)
-        run {
-            val hb = t.danchu("") { }
-            fun hgeul() { hb.text = "하이 길눈 부르기 — " + (if (Seoljeong.hiGilnun) "켜져 있음 (누르면 끕니다)" else "꺼져 있음 (누르면 켭니다)") }
-            hgeul()
-            hb.setOnClickListener {
-                if (Seoljeong.hiGilnun) {
-                    Seoljeong.hiGilnun = false; HaiGilnun.datgi(); hgeul(); WichiService.kyeogi(t); t.dasiGeurigi()
-                    Sori.mal("하이 길눈 부르기를 끕니다. 말로 하기 단추나 이어폰 단추 길게 누르기를 쓰십시오.")
-                } else if (!HaiGilnun.sseulSuItda(t)) {
-                    Sori.mal("이 폰에서는 폰 안 받아쓰기가 없어 하이 길눈 부르기를 쓸 수 없습니다. 말로 하기 단추를 써 주십시오.")
-                } else {
-                    t.maikHeorak { ok ->
-                        if (ok) {
-                            Seoljeong.hiGilnun = true; hgeul()
-                            Sori.mal("하이 길눈 부르기를 켭니다. 길눈 화면이 켜져 있는 동안 하이 길눈이라고 불러 주십시오.")
-                            t.dasiGeurigi()
-                        } else Sori.mal("마이크 허락이 없어 켜지 못했습니다.")
-                    }
-                }
-            }
-            // 2.27.0 화면이 꺼져도 하이 길눈 듣기(하이 길눈을 켜신 때만 보임, 처음은 꺼짐)
-            if (Seoljeong.hiGilnun) {
-                val jb = t.danchu("") { }
-                fun jgeul() { jb.text = "화면이 꺼져도 하이 길눈 듣기 — " + (if (Seoljeong.hiJamgeum) "켜져 있음 (누르면 끕니다)" else "꺼져 있음 (누르면 켭니다)") }
-                jgeul()
-                jb.setOnClickListener {
-                    Seoljeong.hiJamgeum = !Seoljeong.hiJamgeum
-                    jgeul()
-                    WichiService.kyeogi(t)   // 알림 칸 길눈을 마이크 쓰임과 함께(또는 빼고) 다시 올림
-                    Sori.mal(if (Seoljeong.hiJamgeum) "화면이 꺼지거나 다른 앱을 쓰실 때도 하이 길눈을 듣습니다. 알림 칸에 길눈이 떠 있는 동안입니다. 배터리를 조금 더 씁니다."
-                        else "하이 길눈은 길눈 화면이 켜져 있을 때만 듣습니다.")
-                }
-            }
-        }
-        // 2.27.0 길눈이 부르는 내 호칭(아이폰 말로 하기 설정의 호칭 칸과 같음, 처음은 길손님)
-        run {
-            val e = t.ipryeok("길눈이 부르는 내 호칭 — 지금 ${Seoljeong.ho}", false)
-            e.setText(Seoljeong.hoching)
-            e.imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
-            fun jeojang() {
-                val h = e.text?.toString()?.trim() ?: ""
-                Seoljeong.hoching = h
-                e.hint = "길눈이 부르는 내 호칭 — 지금 ${Seoljeong.ho}"
-                Sori.mal("이제 ${Seoljeong.ho}${MalHagi.irago(Seoljeong.ho)} 부르겠습니다.")
-            }
-            e.setOnEditorActionListener { _, id, ev ->
-                val enter = id == android.view.inputmethod.EditorInfo.IME_ACTION_DONE ||
-                    (ev != null && ev.keyCode == android.view.KeyEvent.KEYCODE_ENTER && ev.action == android.view.KeyEvent.ACTION_DOWN)
-                if (enter) jeojang()
-                enter
-            }
-            t.danchu("호칭 저장") { jeojang() }
         }
         t.danchu("지금 설정으로 들어 보기") {
             val m = when (s.malSang) {
@@ -763,6 +720,66 @@ class SeoryuhamHwamyeon : Hwamyeon("내 서류 보관함") {
                 }
                 if (nnBoinda(t, this)) t.dasiGeurigi()
             }
+        }
+    }
+}
+
+/** 2.42.0 (261014-A30, 이사장님 승인 2026-10-14 「1」) 말로 하기 설정 — 하이 길눈과 호칭(말하기 설정 안에 있던 것을 아이폰처럼 따로) */
+class MalHagiSeolHwamyeon : Hwamyeon("말로 하기 설정") {
+    override fun chaeugi(t: GilnunActivity) {
+        // 2.26.0 하이 길눈 부르기(처음은 꺼짐, 이사장님 승인)
+        run {
+            val hb = t.danchu("") { }
+            fun hgeul() { hb.text = "하이 길눈 부르기 — " + (if (Seoljeong.hiGilnun) "켜져 있음 (누르면 끕니다)" else "꺼져 있음 (누르면 켭니다)") }
+            hgeul()
+            hb.setOnClickListener {
+                if (Seoljeong.hiGilnun) {
+                    Seoljeong.hiGilnun = false; HaiGilnun.datgi(); hgeul(); WichiService.kyeogi(t); t.dasiGeurigi()
+                    Sori.mal("하이 길눈 부르기를 끕니다. 말로 하기 단추나 이어폰 단추 길게 누르기를 쓰십시오.")
+                } else if (!HaiGilnun.sseulSuItda(t)) {
+                    Sori.mal("이 폰에서는 폰 안 받아쓰기가 없어 하이 길눈 부르기를 쓸 수 없습니다. 말로 하기 단추를 써 주십시오.")
+                } else {
+                    t.maikHeorak { ok ->
+                        if (ok) {
+                            Seoljeong.hiGilnun = true; hgeul()
+                            Sori.mal("하이 길눈 부르기를 켭니다. 길눈 화면이 켜져 있는 동안 하이 길눈이라고 불러 주십시오.")
+                            t.dasiGeurigi()
+                        } else Sori.mal("마이크 허락이 없어 켜지 못했습니다.")
+                    }
+                }
+            }
+            // 2.27.0 화면이 꺼져도 하이 길눈 듣기(하이 길눈을 켜신 때만 보임, 처음은 꺼짐)
+            if (Seoljeong.hiGilnun) {
+                val jb = t.danchu("") { }
+                fun jgeul() { jb.text = "화면이 꺼져도 하이 길눈 듣기 — " + (if (Seoljeong.hiJamgeum) "켜져 있음 (누르면 끕니다)" else "꺼져 있음 (누르면 켭니다)") }
+                jgeul()
+                jb.setOnClickListener {
+                    Seoljeong.hiJamgeum = !Seoljeong.hiJamgeum
+                    jgeul()
+                    WichiService.kyeogi(t)   // 알림 칸 길눈을 마이크 쓰임과 함께(또는 빼고) 다시 올림
+                    Sori.mal(if (Seoljeong.hiJamgeum) "화면이 꺼지거나 다른 앱을 쓰실 때도 하이 길눈을 듣습니다. 알림 칸에 길눈이 떠 있는 동안입니다. 배터리를 조금 더 씁니다."
+                        else "하이 길눈은 길눈 화면이 켜져 있을 때만 듣습니다.")
+                }
+            }
+        }
+        // 2.27.0 길눈이 부르는 내 호칭(아이폰 말로 하기 설정의 호칭 칸과 같음, 처음은 길손님)
+        run {
+            val e = t.ipryeok("길눈이 부르는 내 호칭 — 지금 ${Seoljeong.ho}", false)
+            e.setText(Seoljeong.hoching)
+            e.imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+            fun jeojang() {
+                val h = e.text?.toString()?.trim() ?: ""
+                Seoljeong.hoching = h
+                e.hint = "길눈이 부르는 내 호칭 — 지금 ${Seoljeong.ho}"
+                Sori.mal("이제 ${Seoljeong.ho}${MalHagi.irago(Seoljeong.ho)} 부르겠습니다.")
+            }
+            e.setOnEditorActionListener { _, id, ev ->
+                val enter = id == android.view.inputmethod.EditorInfo.IME_ACTION_DONE ||
+                    (ev != null && ev.keyCode == android.view.KeyEvent.KEYCODE_ENTER && ev.action == android.view.KeyEvent.ACTION_DOWN)
+                if (enter) jeojang()
+                enter
+            }
+            t.danchu("호칭 저장") { jeojang() }
         }
     }
 }
