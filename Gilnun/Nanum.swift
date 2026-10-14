@@ -177,15 +177,22 @@ struct Butak: Identifiable, Hashable {
     let gil: String
     let daetgeul: [ButakDat]
 
+    /// 2.69.0 출발지가 이름이 아니라 위성 위치(지금 내 자리·그때 계셨던 자리)로 올라온 부탁 — 자봉이 어디서 출발할지 알 수 없음(직원 시험 뒤 이사장님 지시 2026-10-14)
+    static func wiseongJari(_ s: String) -> Bool {
+        let t = s.replacingOccurrences(of: " ", with: "")
+        return t.isEmpty || t.contains("지금내자리") || t.contains("계셨던자리") || t.contains("현재위치") || t.contains("내위치")
+    }
+    var sinMal: String { Butak.wiseongJari(sin) ? "출발지 이름 확인 필요(위성 위치로 남긴 부탁)" : sin }
+
     var julMal: String {
-        var t = "\(sin)에서 \(min)까지"
+        var t = "\(sinMal)에서 \(min)까지"
         if geori > 0 { t += " · 약 " + (geori >= 1000 ? String(format: "%.1f킬로미터", geori / 1000) : "\(Int(geori))미터") }
         if doen { t += gil.isEmpty ? " · 다 그려졌습니다" : " · 길눈님이 그려 주셨습니다" }
         return t + " · " + eonje
     }
 
     var jaseMal: String {
-        var t = "\(sin)에서 \(min)까지. "
+        var t = "\(sinMal)에서 \(min)까지. "
         if !ttae.isEmpty { t += "언제쯤 : \(ttae). " }
         if !mal.isEmpty { t += mal + ". " }
         if !nugu.isEmpty { t += "부탁하신 분 별명은 \(nugu). " }

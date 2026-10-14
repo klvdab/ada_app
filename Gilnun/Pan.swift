@@ -10,13 +10,17 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.68.0"
-    static let bild = "261014-I22"
+    static let pan = "2.69.0"
+    static let bild = "261014-I23"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.69.0", bild: "261014-I23", nal: "2026-10-14", naeyong: [
+            "★길 부탁하기 — 출발지·도착지는 찾아서 고른 건물이나 가게라야 올라감, 위성 위치(지금 내 자리)로는 올리지 않음(직원 시험 뒤 이사장님 지시 2026-10-14). 「지금 내 자리를 출발지로」 대신 「내 곁 건물·가게 이름 찾기 — 골라서 출발지로」",
+            "예전에 위성 위치로 올라온 부탁은 「출발지 이름 확인 필요」로 보임. 도움말 길 부탁하기 고침"
+        ]),
         Gochim(pan: "2.68.0", bild: "261014-I22", nal: "2026-10-14", naeyong: [
             "★지금 내 자리 — 출구 이름에서 호선을 뺌(「오금역 3호선 1번출구」가 3번 출구로 들려 10월 13일 오금역에서 나비콜 기사님이 몇 바퀴를 도신 일, 이사장님 승인 2026-10-14)",
             "★가까운 두 출구가 위성 오차 안이면 「1번 출구와 2번 출구 사이, 1번 출구 쪽」처럼 둘 다 말함. 출구에 시계 방향을 붙임",

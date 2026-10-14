@@ -588,11 +588,20 @@ struct ButakSseugiView: View {
                 TextField("어디서 — 적고 엔터", text: $chulMal)
                     .textFieldStyle(.roundedBorder).font(.title3).submitLabel(.search)
                     .onSubmit { chatgi(chulMal, chul: true) }
-                Button("지금 내 자리를 출발지로") {
+                // 2.69.0 출발지는 건물·가게 이름으로만(직원 시험 뒤 이사장님 지시 2026-10-14) — 위성 위치를 그대로 올리지 않고, 내 곁 이름 있는 곳을 찾아 고르시게 함
+                Button("내 곁 건물·가게 이름 찾기 — 골라서 출발지로") {
                     guard let w = WichiEngine.shared.jigeum else { SoriEngine.shared.mal("지금 자리를 잡는 중입니다. 잠시 뒤에 다시 눌러 주십시오."); return }
-                    chul = Jangso(ireum: "지금 내 자리", juso: "", lat: w.lat, lon: w.lon)
-                    chulMal = "지금 내 자리"
-                    SoriEngine.shared.mal("출발지를 지금 내 자리로 정했습니다. 이제 어디까지인지 적어 주십시오.")
+                    SoriEngine.shared.mal("내 곁 건물과 가게를 찾고 있습니다.", .jeongbo)
+                    Task {
+                        var r: [Jangso] = []
+                        if let j = await Chatgi.juso(w.lat, w.lon), let l = await Chatgi.jangso(j) { r = l.filter { !$0.ireum.isEmpty } }
+                        await MainActor.run {
+                            if r.isEmpty { SoriEngine.shared.mal("내 곁에서 이름 있는 곳을 찾지 못했습니다. 어디서 칸에 건물이나 가게 이름을 적어 주십시오."); return }
+                            huboChul = true
+                            hubo = r
+                            SoriEngine.shared.mal("내 곁 이름 있는 곳 \(r.count)곳입니다. 출발지로 고르실 곳을 두드리십시오.", .jeongbo)
+                        }
+                    }
                 }
                 .buttonStyle(KeunDanchu())
                 TextField("어디까지 — 적고 엔터", text: $mokMal)
@@ -650,6 +659,9 @@ struct ButakSseugiView: View {
         let s = chulMal.trimmingCharacters(in: .whitespaces), m = mokMal.trimmingCharacters(in: .whitespaces)
         guard !s.isEmpty else { SoriEngine.shared.mal("어디서 출발하시는지 적어 주십시오."); return }
         guard !m.isEmpty else { SoriEngine.shared.mal("어디까지 가시는지 적어 주십시오."); return }
+        // 2.69.0 출발지·도착지는 찾아서 고른 건물·가게라야 함 — 자봉이 정확히 어디서 어디까지 걸을지 알도록
+        guard chul?.ireum == s, !Butak.wiseongJari(s) else { SoriEngine.shared.mal("출발지는 건물이나 가게 이름을 적고 엔터를 치신 뒤, 비슷한 곳에서 골라 주십시오."); return }
+        guard mok?.ireum == m else { SoriEngine.shared.mal("도착지는 건물이나 가게 이름을 적고 엔터를 치신 뒤, 비슷한 곳에서 골라 주십시오."); return }
         olineun = true
         let c = (chul?.ireum == s) ? chul : nil
         let mk = (mok?.ireum == m) ? mok : nil
