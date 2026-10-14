@@ -120,9 +120,8 @@ class JabongActivity : AppCompatActivity() {
         // 2.22.0 아래 탭 네 개가 폰 아래 조작 막대(내비게이션 바)에 가리지 않게 그 높이만큼 위로(직원 시험 뒤 이사장님 지시 2026-10-14)
         //   안드로이드 15부터 앱 화면이 막대 밑까지 깔려(목표 SDK 35) 맨 아래 탭 줄이 가려졌음. 위 상태 막대·글자판도 같은 방법으로 비킴
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(bburi) { v, ins ->
-            val T = androidx.core.view.WindowInsetsCompat.Type
-            val b = ins.getInsets(T.systemBars() or T.displayCutout())
-            val geulpan = ins.getInsets(T.ime()).bottom
+            val b = ins.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or androidx.core.view.WindowInsetsCompat.Type.displayCutout())
+            val geulpan = ins.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom
             v.setPadding(b.left, b.top, b.right, maxOf(b.bottom, geulpan))
             androidx.core.view.WindowInsetsCompat.CONSUMED
         }
