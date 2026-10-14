@@ -146,7 +146,7 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
         val mb = t.danchu(MalHagi.danchuGeul) { MalHagi.dudeurim() }
         mb.minHeight = t.dp(96)
         mb.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
-        mb.contentDescription = "말로 하기 — 누르고 말씀하십시오"
+        mb.contentDescription = "말로 하기"   // 2.45.0 아이폰과 같게 — 화면낭독기는 「말로 하기」로 읽음
         val dv = t.geul(malDapGeul())
         dv.visibility = if (MalHagi.dapMal.isEmpty()) View.GONE else View.VISIBLE
         MalHagi.byeonhwa = {
@@ -349,7 +349,7 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
     }
 
     private fun ginGeupGeul() = when (GinGeup.sangtae) {
-        GinGeupSangtae.EOPSEUM -> "긴급통화서비스 — 화상통화 요청"
+        GinGeupSangtae.EOPSEUM -> "긴급통화서비스 — 가족·지인, 자원봉사자, 해설사에게 화상통화"   // 2.45.0 아이폰과 같게
         GinGeupSangtae.YOCHEONG -> "긴급통화 요청 중 — 통화 화면으로"
         else -> "긴급통화 중 — 통화 화면으로"
     }
