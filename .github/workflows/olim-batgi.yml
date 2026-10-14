@@ -1,0 +1,36 @@
+# 올림함 받기 (1.0판, 빌드 261014-O1, 대장클) — 도서클·방송클이 나스 올림함(/ada_app/olim)에 놓은 묶음을 받아 옵니다.
+# 대장클 작업공간은 나스에 바로 닿지 못하므로, 깃허브가 빌려 주는 리눅스가 대신 받아 olim-data 갈래(앱 소스와 따로)에 올립니다.
+# 앱 짓기와는 상관이 없습니다. 받는 것은 올림함 안의 파일뿐입니다.
+name: olim-batgi
+on:
+  workflow_dispatch:
+    inputs:
+      pail:
+        description: "올림함 파일 이름들(쉼표로 나눔)"
+        required: true
+permissions:
+  contents: write
+jobs:
+  batgi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: 올림함에서 받기
+        env:
+          PAIL: ${{ inputs.pail }}
+        run: |
+          mkdir -p /tmp/gal && cd /tmp/gal
+          IFS=',' read -ra MOK <<< "$PAIL"
+          for f in "${MOK[@]}"; do
+            f="$(echo "$f" | sed 's/^ *//;s/ *$//')"
+            case "$f" in */*|..*|"") echo "파일 이름만 적어 주십시오: $f"; exit 1 ;; esac
+            u="https://lvd.ada.or.kr/ada_app/olim/$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1]))' "$f")"
+            curl -sSf --max-time 120 -A "lvd-olim-batgi" "$u" -o "$f"
+            ls -la "$f"; sha1sum "$f"
+          done
+      - name: olim-data 갈래에 올리기
+        run: |
+          cd /tmp/gal
+          git init -q && git checkout -q -b olim-data
+          git add . && git -c user.name=olim-batgi -c user.email=noreply@ada.or.kr commit -qm "올림함 받기"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" olim-data
