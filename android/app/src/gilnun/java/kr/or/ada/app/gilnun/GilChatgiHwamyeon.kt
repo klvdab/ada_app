@@ -64,30 +64,6 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
         GongjiEngine.gingeupJul(t)
         // 2.22.0 새 판이 있을 때만 — 안내와 단추를 한 자리에
         Ollim.julMal(t)?.let { m -> t.danchu(m) { Ollim.olligi(t) } }
-        // ① 말로 하기 — 큰 단추, 맨 위 첫 줄(2.4.0 대표님 승인 자리를 지킴 — 통합 결정). 글자는 그 자리에서만 바꿈(화면을 다시 그리지 않음)
-        val mb = t.danchu(MalHagi.danchuGeul) { MalHagi.dudeurim() }
-        mb.minHeight = t.dp(96)
-        mb.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
-        mb.contentDescription = "말로 하기 — 누르고 말씀하십시오"
-        val dv = t.geul(malDapGeul())
-        dv.visibility = if (MalHagi.dapMal.isEmpty()) View.GONE else View.VISIBLE
-        MalHagi.byeonhwa = {
-            if (t.wiHwamyeon === this) {
-                mb.text = MalHagi.danchuGeul
-                dv.text = malDapGeul()
-                dv.visibility = if (MalHagi.dapMal.isEmpty()) View.GONE else View.VISIBLE
-            }
-        }
-
-        // ② 긴급통화서비스 — 말로 하기 바로 아래(2.6.0 승인 자리, 아이폰도 말로 하기 바로 다음). 요청 중·통화 중이면 통화 화면으로 가는 단추(글자만 그 자리에서 바꿈)
-        val gb = t.danchu(ginGeupGeul()) { t.yeolgi(GinGeupHwamyeon()) }
-        GinGeup.byeonhwa = {
-            if (t.wiHwamyeon === this) {
-                val n = ginGeupGeul()
-                if (gb.text.toString() != n) gb.text = n
-            }
-        }
-
         // 2.30.0 통화로 멈춘 방송이 있으면 — 통화가 끝난 뒤 한 번 누르면 이어 들음(이사장님 승인 2026-10-09)
         if (Bangsong.jeonhwaDwi && Bangsong.itda) {
             t.danchu("방송 이어 듣기 — ${Bangsong.jemok.ifEmpty { Bangsong.jong.ireum }}") { Bangsong.ieoDeutgi(); t.dasiGeurigi() }
@@ -158,6 +134,33 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
                 t.danchu("지금 내 자리 듣기") { AnnaeEngine.jigeumJari() }
             }
         }
+
+        // 2.43.0 (261014-A31, 이사장님 승인 2026-10-14 「1」) 길 찾기 첫 화면 차례를 아이폰과 같게 — 지금 내 자리 듣기 다음에 말로 하기, 긴급통화서비스
+        //   (사용법 책·동영상을 한 가지 차례로 설명하려고. 예전 자리: 맨 위 첫 줄)
+        // ① 말로 하기 — 큰 단추(2.4.0 대표님 승인 자리를 지킴 — 통합 결정). 글자는 그 자리에서만 바꿈(화면을 다시 그리지 않음)
+        val mb = t.danchu(MalHagi.danchuGeul) { MalHagi.dudeurim() }
+        mb.minHeight = t.dp(96)
+        mb.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+        mb.contentDescription = "말로 하기 — 누르고 말씀하십시오"
+        val dv = t.geul(malDapGeul())
+        dv.visibility = if (MalHagi.dapMal.isEmpty()) View.GONE else View.VISIBLE
+        MalHagi.byeonhwa = {
+            if (t.wiHwamyeon === this) {
+                mb.text = MalHagi.danchuGeul
+                dv.text = malDapGeul()
+                dv.visibility = if (MalHagi.dapMal.isEmpty()) View.GONE else View.VISIBLE
+            }
+        }
+
+        // ② 긴급통화서비스 — 말로 하기 바로 아래(2.6.0 승인 자리, 아이폰도 말로 하기 바로 다음). 요청 중·통화 중이면 통화 화면으로 가는 단추(글자만 그 자리에서 바꿈)
+        val gb = t.danchu(ginGeupGeul()) { t.yeolgi(GinGeupHwamyeon()) }
+        GinGeup.byeonhwa = {
+            if (t.wiHwamyeon === this) {
+                val n = ginGeupGeul()
+                if (gb.text.toString() != n) gb.text = n
+            }
+        }
+
 
         // ⑤ 그 밖에 펼치기
         t.pyeolchigi("그 밖에", geuBakkPyeol) { geuBakkPyeol = !geuBakkPyeol }
