@@ -94,6 +94,7 @@ struct JiinGoreugiView: View {
 /// 가족·지인 명단 — 2.42.0 이음 번호로 등록(자봉 앱), 빼기. 예전 초대 주소 방식은 감춤(yetBangsik)
 struct JiinMyeongdanView: View {
     @ObservedObject private var jiin = Jiin.shared
+    @ObservedObject private var gg = GinGeup.shared   // 2.70.0 내 이름 칸
     @State private var ireum = ""
     @State private var tel = ""
     @State private var allim = ""
@@ -126,6 +127,11 @@ struct JiinMyeongdanView: View {
                         .buttonStyle(KeunDanchu())
                 }
                 if !allim.isEmpty { Text(allim).font(.title3) }
+                // 2.70.0 받는 분 화면에 뜰 내 이름 — 설정 첫 화면에서 이리로 옮김(이사장님 승인 2026-10-14)
+                TextField("받는 분 화면에 뜰 내 이름 — 긴급통화 때 보입니다", text: $gg.naIrum)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.title3)
+                    .submitLabel(.done)
                 if JiinMyeongdanView.yetBangsik {
                     yetHwamyeon
                 }

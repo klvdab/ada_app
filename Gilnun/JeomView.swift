@@ -213,12 +213,13 @@ struct JeomSeoljeongView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                NavigationLink { NaeGilView() } label: { Text("나만의 점지도 — 늘 다니는 길을 걸어서 그려 두기") }
-                    .buttonStyle(KeunDanchu())
+                // 2.70.0 보폭 재기를 맨 위로(설정 순서 고침)
                 NavigationLink { BopokView() } label: {
                     Text("보폭 재기 — 지금 \(Seoljeong.bopokModeIreum(s.bopokMode)) " + (s.bopokJaem ? String(format: "%.2f미터", s.bopok) : "아직 재지 않음"))
                 }
                 .buttonStyle(KeunDanchu())
+                NavigationLink { NaeGilView() } label: { Text("나만의 점지도 — 늘 다니는 길을 걸어서 그려 두기") }
+                    .buttonStyle(KeunDanchu())
                 NavigationLink { JaegiView() } label: { Text("걸음 오차 재기 — 걸음으로 잰 거리와 실제 거리 견주기") }
                     .buttonStyle(KeunDanchu())
                 NavigationLink { NaeMunView() } label: { Text("내 문 — 지금 선 자리를 내 문으로 담아 두기") }

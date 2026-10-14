@@ -15,34 +15,31 @@ struct SeoljeongView: View {
                 NavigationLink { GongjiView() } label: { Text("알림" + (gj.gingeupSae != nil ? " — 읽지 않은 긴급 공지가 있습니다" : "")) }
                     .buttonStyle(KeunDanchu())
                     .accessibilityFocused($cheotJul)
-                NavigationLink { GichoSiheomView() } label: { Text("기초 시험") }
-                    .buttonStyle(KeunDanchu())
-                if TeokAllim.boim {   // 2.24.0 관리자 시험 중 — 나스 음악 열쇠가 있는 폰에서만
-                    // 2.59.0 아침 기록 — 지난 24시간 길눈·자봉 쓰임과 오류(이사장님 승인 2026-10-09)
-                    NavigationLink { AchimGirokView() } label: { Text("아침 기록 — 지난 24시간 길눈과 자봉 쓰임, 오류") }
-                        .buttonStyle(KeunDanchu())
-                    NavigationLink { TeokAllimView() } label: { Text("관리자 시험 — 발 앞 계단·턱 알림, 프로 모델 아이폰") }
-                        .buttonStyle(KeunDanchu())
-                    NavigationLink { MalbeotGyeonjugiView() } label: { Text("관리자 시험 — 말벗 견주기, 서버와 폰 안 인공지능") }   // 2.51.0
-                        .buttonStyle(KeunDanchu())
-                }
+                // 2.70.0 (이사장님 승인 2026-10-14 「1」) 설정 순서를 한 잣대로 — 자주 손대는 것부터, 시험용은 맨 뒤 펼치기 안에. 안드로이드와 같은 순서·같은 이름
                 NavigationLink { MalSeoljeongView() } label: { Text("말하기 설정 — 켜기와 끄기, 빠르기, 목소리, 얼마나 자세히, 무엇을 말할지") }
                     .buttonStyle(KeunDanchu())
                 NavigationLink { MalHagiSeoljeongView() } label: { Text("말로 하기 설정 — 하이 길눈, 호칭") }
                     .buttonStyle(KeunDanchu())
-                NavigationLink { JeomSeoljeongView() } label: { Text("점지도와 걸음 — 나만의 점지도, 보폭 재기, 걸음 오차 재기") }
+                NavigationLink { JeomSeoljeongView() } label: { Text("점지도와 걸음 — 보폭 재기, 나만의 점지도, 걸음 오차 재기, 내 문") }
                     .buttonStyle(KeunDanchu())
                 NavigationLink { GigiSeoljeongView() } label: { Text("기기 설정 — 음향신호기, 이어폰 단추, 워치, 리모컨") }
                     .buttonStyle(KeunDanchu())
-                NavigationLink { JiinMyeongdanView() } label: { Text("가족·지인 명단 — 등록하고 초대 주소 보내기") }
+                NavigationLink { JiinMyeongdanView() } label: { Text("가족·지인 명단 — 이음 번호로 등록, 받는 분 화면에 뜰 내 이름") }
                     .buttonStyle(KeunDanchu())
-                TextField("받는 분 화면에 뜰 내 이름 — 긴급통화 때 보입니다", text: $g.naIrum)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.title3)
-                    .submitLabel(.done)
+                NavigationLink { SeoryuhamView() } label: { Text("내 서류 보관함 — 복지카드와 신분증 담아 두기, 복지콜 등록") }
+                    .buttonStyle(KeunDanchu())
+                DisclosureGroup("폰 펼치기 — 흔들면 자리 번호, 현 위치정보 말할 내용") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        NavigationLink { HeundeulView() } label: { Text("흔들면 자리 번호 — 긴급통화 열기 또는 국가지점번호") }
+                            .buttonStyle(KeunDanchu())
+                        NavigationLink { JariSeoljeongView() } label: { Text("현 위치정보 말할 내용") }
+                            .buttonStyle(KeunDanchu())
+                    }
+                }
+                .font(.title3)
                 NavigationLink { DoumalView() } label: { Text("도움말") }
                     .buttonStyle(KeunDanchu())
-                NavigationLink { GilnunJeongboView() } label: { Text("길눈 정보 — 판과 빌드, 고친 기록") }
+                NavigationLink { YeogiJeomgeomView() } label: { Text("여기서 점검 — 지금 이 자리에서 무엇이 막혔는지 알아보기") }
                     .buttonStyle(KeunDanchu())
                 Button("새로고침 — 받아 둔 자료를 다시 받습니다. 내 설정과 여정은 그대로입니다") {
                     Tongsin.shared.gamchumBiugi()
@@ -55,16 +52,21 @@ struct SeoljeongView: View {
                     Text(saerogochimMal).accessibilityFocused($malChojeom)
                 }
                 OllimSeoljeongDanchu()   // 2.54.0 업데이트 — 새로고침 바로 아래 한 곳
-                NavigationLink { YeogiJeomgeomView() } label: { Text("여기서 점검 — 지금 이 자리에서 무엇이 막혔는지 알아보기") }
+                NavigationLink { GilnunJeongboView() } label: { Text("길눈 정보 — 판과 빌드, 고친 기록") }
                     .buttonStyle(KeunDanchu())
-                NavigationLink { SeoryuhamView() } label: { Text("내 서류 보관함 — 복지카드와 신분증 담아 두기, 복지콜 등록") }
-                    .buttonStyle(KeunDanchu())
-                DisclosureGroup("폰 펼치기 — 흔들면 자리 번호, 현 위치정보 말할 내용") {
+                DisclosureGroup("더 보기 펼치기 — 기초 시험" + (TeokAllim.boim ? ", 아침 기록, 관리자 시험" : "")) {
                     VStack(alignment: .leading, spacing: 10) {
-                        NavigationLink { HeundeulView() } label: { Text("흔들면 자리 번호 — 긴급통화 열기 또는 국가지점번호") }
+                        NavigationLink { GichoSiheomView() } label: { Text("기초 시험 — 위치, 방향, 걸음, 말소리가 도는지 듣기") }
                             .buttonStyle(KeunDanchu())
-                        NavigationLink { JariSeoljeongView() } label: { Text("현 위치정보 말할 내용") }
-                            .buttonStyle(KeunDanchu())
+                        if TeokAllim.boim {   // 2.24.0 관리자 시험 중 — 나스 음악 열쇠가 있는 폰에서만
+                            // 2.59.0 아침 기록 — 지난 24시간 길눈·자봉 쓰임과 오류(이사장님 승인 2026-10-09)
+                            NavigationLink { AchimGirokView() } label: { Text("아침 기록 — 지난 24시간 길눈과 자봉 쓰임, 오류") }
+                                .buttonStyle(KeunDanchu())
+                            NavigationLink { TeokAllimView() } label: { Text("관리자 시험 — 발 앞 계단·턱 알림, 프로 모델 아이폰") }
+                                .buttonStyle(KeunDanchu())
+                            NavigationLink { MalbeotGyeonjugiView() } label: { Text("관리자 시험 — 말벗 견주기, 서버와 폰 안 인공지능") }   // 2.51.0
+                                .buttonStyle(KeunDanchu())
+                        }
                     }
                 }
                 .font(.title3)
