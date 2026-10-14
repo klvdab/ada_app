@@ -10,13 +10,19 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.72.0"
-    static let bild = "261014-I26"
+    static let pan = "2.73.0"
+    static let bild = "261014-I27"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.73.0", bild: "261014-I27", nal: "2026-10-14", naeyong: [
+            "★안드로이드와 같게(이사장님 승인 2026-10-14 「가급적이면 앱도 같게」) — 음향신호기 찾기를 켤 때 알려 드리고, 찾는 동안 단추가 「음향신호기 찾기 멈추기」로 바뀌어 다시 누르면 멈춤",
+            "긴급통화서비스 단추 — 요청 중·통화 중이면 「긴급통화 요청 중 — 통화 화면으로」, 「긴급통화 중 — 통화 화면으로」",
+            "하던 일 멈추기 — 말로 그린 길 따라 걷기도 함께 멈춤",
+            "도움말 하던 일 멈추기·음향신호기 고침"
+        ]),
         Gochim(pan: "2.72.0", bild: "261014-I26", nal: "2026-10-14", naeyong: [
             "★안드로이드와 같게(이사장님 승인 2026-10-14) — 길 찾기 그 밖에 펼치기에 「음향신호기 울리기 — 위치 안내」 더함",
             "지금 내 자리 듣기 — 위치 허락이 없으면 「위치 허락이 없어 자리를 알 수 없습니다. 폰 설정의 길눈, 위치에서 허용해 주십시오」라고 알려 드림",

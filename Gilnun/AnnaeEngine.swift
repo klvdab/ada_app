@@ -118,6 +118,7 @@ final class AnnaeEngine: ObservableObject {
         namEunGeori = nil
         dasiSijak()
         MalHagi.shared.mureumChoGihwa()
+        MalgilEngine.shared.geuman(malHagi: false)   // 2.73.0 안드로이드와 같게 — 말로 그린 길 따라 걷기도 말없이 멈춤
         SinhogiEngine.shared.chatgiKkeugi()
         MunChatgi.shared.kkeugi(malHagi: false)   // 2.15.0 문 찾기도 멈춤
         MunIkkeulgi.shared.meomchugi()            // 2.66.0 문까지 이끌기도 멈춤

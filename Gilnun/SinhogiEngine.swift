@@ -15,7 +15,7 @@ import UIKit
 import Combine
 import CryptoKit
 
-final class SinhogiEngine: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
+final class SinhogiEngine: NSObject, ObservableObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     static let shared = SinhogiEngine()
 
     static let serviceUUID = CBUUID(string: "0003cdd0-0000-1000-8000-00805f9b0131")
@@ -43,7 +43,7 @@ final class SinhogiEngine: NSObject, CBCentralManagerDelegate, CBPeripheralDeleg
     private var ssak = Set<AnyCancellable>()
 
     // 찾기(이끌기)
-    private(set) var chatneunJung = false
+    @Published private(set) var chatneunJung = false   // 2.73.0 첫 화면 단추 글자가 따라 바뀌게
     private var chatgiSijak = Date()
     private var chatgiSori = Date.distantPast
     private var eopdaMal = false

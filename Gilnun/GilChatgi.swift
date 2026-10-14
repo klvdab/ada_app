@@ -73,6 +73,8 @@ struct GilChatgiView: View {
     @ObservedObject private var bs = BangsongEngine.shared   // 2.59.0 방송 이어 듣기
     @ObservedObject private var gongji = GongjiEngine.shared   // 2.60.0 편집 중 화면 굳히기에 씀
     @ObservedObject private var ollim = OllimEngine.shared
+    @ObservedObject private var sh = SinhogiEngine.shared   // 2.73.0 음향신호기 찾기 켜기·멈추기
+    @ObservedObject private var gg = GinGeup.shared         // 2.73.0 긴급통화 요청·통화 중 글자
     @AppStorage("gn.cheotAnnae") private var cheotNajung = false
     @State private var mal = ""
     @AccessibilityFocusState private var meoriChojeom: Bool
@@ -152,7 +154,9 @@ struct GilChatgiView: View {
                 }
                 MalHagiDanchu()
                 NavigationLink(value: GilHwamyeon.gingeup) {
-                    Text("긴급통화서비스 — 가족·지인, 자원봉사자, 해설사에게 화상통화")
+                    // 2.73.0 안드로이드와 같게 — 요청 중·통화 중이면 그렇다고
+                    Text(gg.sangtae == .eopseum ? "긴급통화서비스 — 가족·지인, 자원봉사자, 해설사에게 화상통화"
+                         : gg.sangtae == .yocheong ? "긴급통화 요청 중 — 통화 화면으로" : "긴급통화 중 — 통화 화면으로")
                 }
                 .buttonStyle(KeunDanchu())
                 DisclosureGroup("그 밖에 펼치기") {
@@ -163,7 +167,14 @@ struct GilChatgiView: View {
                             .buttonStyle(KeunDanchu())
                         Button("음향신호기 울리기 — 위치 안내") { SinhogiEngine.shared.ulligi(1) }   // 2.72.0 안드로이드와 같게(이사장님 승인 2026-10-14)
                             .buttonStyle(KeunDanchu())
-                        Button("음향신호기 찾기 — 가까워질수록 소리가 빨라집니다") { SinhogiEngine.shared.chatgiKyeogi() }
+                        // 2.73.0 안드로이드와 같게(이사장님 승인 2026-10-14) — 켤 때 알려 드리고, 다시 누르면 멈춤
+                        Button(sh.chatneunJung ? "음향신호기 찾기 멈추기" : "음향신호기 찾기 — 가까워질수록 소리가 빨라집니다") {
+                            if sh.chatneunJung { sh.chatgiKkeugi("음향신호기 찾기를 멈췄습니다.") }
+                            else {
+                                sh.chatgiKyeogi()
+                                SoriEngine.shared.mal("음향신호기 찾기를 켭니다. 가까워질수록 소리가 빨라집니다. 다시 누르시면 멈춥니다.", .annae)
+                            }
+                        }
                             .buttonStyle(KeunDanchu())
                         NavigationLink(value: GilHwamyeon.jeomMok) { Text("가까운 점지도 — 골라서 따라 걷기") }
                             .buttonStyle(KeunDanchu())
