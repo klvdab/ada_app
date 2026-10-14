@@ -1,0 +1,28 @@
+#!/bin/bash
+# 서버 일 묶음 66 - 책 읽기를 맨 앞 차례로 (빌드 261013-66, 도서클, 이사장님 승인 10시 21분·10시 37분 「1」)
+# 독서기 일꾼 둘은 높은 차례(nice -5, CPU 몫 1000), 올라마는 낮은 차례(nice 15, CPU 몫 20)에 서버 힘 절반(400%)까지. 껐다 켜지 않고 차례만 바꿈. 되돌리기: 덧붙인 설정 파일 둘(uxian.conf, yangbo.conf)을 지우고 daemon-reload.
+main(){
+LOG=/tmp/lvd_mukeum.txt; K=sb260924mk; U=https://lvd.ada.or.kr/seobeo/bat.php
+{
+echo "   묶음 66 시작: $(date '+%F %T')"
+echo "== 바꾸기 전"; ps -eo pid,ni,pcpu,rss,args --sort=-pcpu | grep -E 'llama-server|ollama|ilggun' | grep -v grep | cut -c1-90
+for u in lvd-dokseo lvd-dokseo2; do mkdir -p /etc/systemd/system/$u.service.d; printf '[Service]\nNice=-5\nCPUWeight=1000\n' > /etc/systemd/system/$u.service.d/uxian.conf; done
+if systemctl cat ollama.service >/dev/null 2>&1; then mkdir -p /etc/systemd/system/ollama.service.d; printf '[Service]\nNice=15\nCPUWeight=20\nCPUQuota=400%%\n' > /etc/systemd/system/ollama.service.d/yangbo.conf; echo "올라마 단위 있음 — 설정 넣음"; else echo "올라마 단위 없음"; fi
+systemctl daemon-reload
+systemctl set-property --runtime lvd-dokseo.service CPUWeight=1000
+systemctl set-property --runtime lvd-dokseo2.service CPUWeight=1000
+systemctl cat ollama.service >/dev/null 2>&1 && systemctl set-property --runtime ollama.service CPUWeight=20 CPUQuota=400%
+for p in $(pgrep -f 'ilggun.py'); do for t in /proc/$p/task/*; do renice -n -5 -p ${t##*/} >/dev/null; done; done
+for p in $(pgrep -f 'ollama'); do for t in /proc/$p/task/*; do renice -n 15 -p ${t##*/} >/dev/null; done; done
+sleep 30
+echo "== 바꾼 뒤"; ps -eo pid,ni,pcpu,rss,args --sort=-pcpu | grep -E 'llama-server|ollama|ilggun' | grep -v grep | cut -c1-90
+systemctl show ollama.service -p CPUWeight -p CPUQuotaPerSecUSec -p Nice --no-pager
+systemctl show lvd-dokseo.service -p CPUWeight -p Nice --no-pager
+systemctl show lvd-dokseo2.service -p CPUWeight -p Nice --no-pager
+uptime; cat /sys/class/thermal/thermal_zone2/temp
+echo "   끝: $(date '+%F %T')"
+} > "$LOG" 2>&1
+cat "$LOG"
+if curl -s -A 'curl/8.5.0 lvd-seobeo' -F "f=@$LOG" "$U?k=$K&a=put" | grep -q '^ok'; then echo "결과를 클에게 보냈습니다. 이 창은 닫으셔도 됩니다."; else echo "결과 보내기에 실패했습니다. 끝났습니다."; fi
+}
+main "$@" </dev/null

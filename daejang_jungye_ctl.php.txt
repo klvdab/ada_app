@@ -1,0 +1,31 @@
+<?php
+/* jungye_ctl.php — 중계 프로그램을 켜고 살피는 창구 (2026-09-08) */
+header("Content-Type: application/json; charset=utf-8");
+$K = "jungye-260908-7t3q";
+if(!isset($_GET["k"]) || $_GET["k"] !== $K){ echo json_encode(array("ok"=>false,"msg"=>"열쇠가 없습니다.")); exit; }
+$NODE = "/var/packages/Node.js_v20/target/usr/local/bin/node";
+$JS   = "/volume1/test/jungye/jungye.js";
+$LOG  = "/volume1/test/jungye/jungye.log";
+$a = isset($_GET["a"]) ? $_GET["a"] : "sal";
+function sal(){
+  $c = @curl_init("http://127.0.0.1:9440/sal");
+  curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
+  curl_setopt($c, CURLOPT_TIMEOUT, 3);
+  $r = curl_exec($c); curl_close($c);
+  return $r ? json_decode($r, true) : null;
+}
+if($a === "sal"){ $s = sal(); $dasi = false;
+  /* 261015 도서클 — 살피다 꺼져 있으면 그 자리에서 다시 켬(누가 살피든 중계기가 저절로 살아남, 방송클 부탁 「형님 판단에 맡기겠습니다」). 끄기(kkeugi) 뒤 5분은 다시 켜지 않음 */
+  if(!$s && !isset($_GET["kyeoji_ma"]) && !(is_file("/volume1/test/jungye/_kkeum.txt") && filemtime("/volume1/test/jungye/_kkeum.txt") > time() - 300)){ @shell_exec("cd /volume1/test/jungye && setsid nohup $NODE $JS >> $LOG 2>&1 < /dev/null &"); sleep(2); $s = sal(); $dasi = true; @file_put_contents("/volume1/test/jungye/_dasi_kyeom.txt", date("m-d H:i:s") . " " . ($s ? "살아남" : "실패") . "\n", FILE_APPEND); }
+  echo json_encode(array("ok"=>true,"doneun"=>($s?true:false),"sok"=>$s,"dasi"=>$dasi), JSON_UNESCAPED_UNICODE); exit; }
+if($a === "kyeogi"){
+  $s = sal();
+  if($s){ echo json_encode(array("ok"=>true,"imi"=>true,"sok"=>$s), JSON_UNESCAPED_UNICODE); exit; }
+  @shell_exec("cd /volume1/test/jungye && setsid nohup $NODE $JS >> $LOG 2>&1 < /dev/null & echo $!");   /* 261014 도서클 — php 가 끝나도 함께 죽지 않게 떼어 띄움(방송클 부탁, 이사장님 승인 「1」) */
+  sleep(2);
+  $s = sal();
+  echo json_encode(array("ok"=>($s?true:false),"sok"=>$s,"log"=>@shell_exec("tail -5 $LOG 2>&1")), JSON_UNESCAPED_UNICODE); exit;
+}
+if($a === "kkeugi"){ @touch("/volume1/test/jungye/_kkeum.txt"); @shell_exec("pkill -f jungye.js"); sleep(1); $s = sal(); echo json_encode(array("ok"=>true,"doneun"=>($s?true:false)), JSON_UNESCAPED_UNICODE); exit; }
+if($a === "log"){ echo json_encode(array("ok"=>true,"log"=>@shell_exec("tail -20 $LOG 2>&1")), JSON_UNESCAPED_UNICODE); exit; }
+echo json_encode(array("ok"=>false,"msg"=>"무엇을 하라는지 모르겠습니다."), JSON_UNESCAPED_UNICODE);
