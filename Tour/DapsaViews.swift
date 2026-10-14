@@ -1,4 +1,4 @@
-// LVD투어스튜디오 앱 — 답사 탭 (판 1.0.0, 빌드 261012-T1)
+// LVD투어스튜디오 앱 — 답사 탭 (판 1.0.1, 빌드 261014-T2)
 // 현장을 걸으며: 「여기서부터 다음 지점 시작」으로 경계를 적고, 정지 현장영상해설 자리에서 시계 방향 네 쪽 사진을 찍습니다.
 import SwiftUI
 import UIKit
@@ -73,7 +73,7 @@ struct DapsaTab: View {
                             let jjigeun = Set(s.shots.map { geulja($0["dir"]) })
                             if let nx = (DapsaTab.ne[(i + 1)...] + DapsaTab.ne[..<i]).first(where: { !jjigeun.contains($0) }) {
                                 bang = nx
-                                store.say(store.allim + " 몸을 오른쪽으로 돌리신 뒤 찍으십시오. 다음은 " + nx + "입니다.")
+                                store.say(store.allim + " 몸을 시계 방향으로 돌리신 뒤 찍으십시오. 다음은 " + nx + "입니다.")
                             }
                         }
                     }

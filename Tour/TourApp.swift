@@ -1,4 +1,4 @@
-// LVD투어스튜디오 앱 — 시작과 탭 (판 1.0.0, 빌드 261012-T1, 2026-10-12 이사장님 승인 「1」)
+// LVD투어스튜디오 앱 — 시작과 탭 (판 1.0.1, 빌드 261014-T2, 2026-10-14 이사장님 승인 「1」 — 사진 안내 시계 방향, 네 개씩 목록 「넷」, 도움말 뒤로 단추 자리. 1.0.0 261012-T1 첫 판)
 // 웹 투어스튜디오(https://lvd.ada.or.kr/lvdts/)를 아이폰 속까지 앱으로. 같은 서버·같은 자료, 웹과 앱 어느 쪽에서 고쳐도 같습니다.
 // 탭 다섯: 코스, 답사, 지점, 현장영상해설, 설정. 탭 바는 모든 속 화면에서도 늘 보이고, 뒤로 단추는 위에만 둡니다.
 // 규칙: 목록은 다섯 줄씩(더 보기·이전 보기), 넘기면 커서는 첫 줄, 고치면 2초 뒤 저절로 저장, 새로고침은 설정에 하나.
@@ -6,8 +6,8 @@ import SwiftUI
 import UIKit
 
 enum Pan {
-    static let pan = "1.0.0"
-    static let bildeu = "261012-T1"
+    static let pan = "1.0.1"
+    static let bildeu = "261014-T2"
     static let ireum = "LVD투어스튜디오 \(pan)판 (빌드 \(bildeu))"
 }
 
@@ -76,7 +76,7 @@ struct RootView: View {
 }
 
 extension View {
-    /// 뒤로 단추는 탭 바가 있으므로 위에만 둔다. 두 손가락 문지르기(보이스오버)로도 뒤로 간다.
+    /// 뒤로 단추는 탭 바가 있으므로 위에만 둔다. 보이스오버 두 손가락 문지르기로도 뒤로 간다.
     func dwiro() -> some View { modifier(Dwiro()) }
 }
 
@@ -109,13 +109,14 @@ struct Jang<T: Identifiable, Row: View>: View {
             if i == 0 { row(x).accessibilityFocused($cheot) } else { row(x) }
         }
         if p + 1 < n {
-            Button("더 보기 (다음 다섯, \(p + 2)/\(n))") { page = p + 1; jjik() }
+            Button("더 보기 (다음 \(seum(per)), \(p + 2)/\(n))") { page = p + 1; jjik() }
         }
         if p > 0 {
-            Button("이전 보기 (앞의 다섯)") { page = p - 1; jjik() }
+            Button("이전 보기 (앞의 \(seum(per)))") { page = p - 1; jjik() }
         }
     }
     private func jjik() { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { cheot = true } }
+    private func seum(_ k: Int) -> String { k == 4 ? "넷" : (k == 5 ? "다섯" : "\(k)개") }
 }
 
 /// 지점 경계 규칙 — 잊지 않도록 답사·지점 탭 맨 위에 늘 보임

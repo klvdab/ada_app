@@ -169,7 +169,7 @@ struct JeomgeomView: View {
             if let k = store.kos {
                 let L = Jeomgeom.lines(k)
                 Section {
-                    Text(L.isEmpty ? "앱이 살필 수 있는 것은 모두 갖추었습니다. 나머지 원칙은 웹 투어스튜디오의 원칙 16개 점검표에서 들으십시오." : "고칠 곳 \(L.count)가지입니다.")
+                    Text(L.isEmpty ? "앱이 살필 수 있는 것은 모두 갖추었습니다. 나머지 원칙은 웹 투어스튜디오의 원칙 16개 점검표에서 확인하십시오." : "고칠 곳 \(L.count)가지입니다.")
                         .font(.headline)
                 }
                 Section("고칠 곳") {
