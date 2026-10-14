@@ -10,13 +10,16 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.73.0"
-    static let bild = "261014-I27"
+    static let pan = "2.74.0"
+    static let bild = "261014-I28"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.74.0", bild: "261014-I28", nal: "2026-10-14", naeyong: [
+            "★안드로이드와 같게(이사장님 승인 2026-10-14) — 차 부르기의 「다른 수단」 펼치기 이름을 「다른 수단 펼치기 — …」로"
+        ]),
         Gochim(pan: "2.73.0", bild: "261014-I27", nal: "2026-10-14", naeyong: [
             "★안드로이드와 같게(이사장님 승인 2026-10-14 「가급적이면 앱도 같게」) — 음향신호기 찾기를 켤 때 알려 드리고, 찾는 동안 단추가 「음향신호기 찾기 멈추기」로 바뀌어 다시 누르면 멈춤",
             "긴급통화서비스 단추 — 요청 중·통화 중이면 「긴급통화 요청 중 — 통화 화면으로」, 「긴급통화 중 — 통화 화면으로」",

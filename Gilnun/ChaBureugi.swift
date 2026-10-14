@@ -870,7 +870,7 @@ struct ChaBureugiView: View {
                     Button("\(k.ireum) 부르기") { c.geolgi(k) }.buttonStyle(KeunDanchu())
                 }
                 if sudan.count > 1 {
-                    DisclosureGroup("다른 수단 — " + sudan.dropFirst().prefix(3).map { $0.ireum }.joined(separator: ", ")) {
+                    DisclosureGroup("다른 수단 펼치기 — " + sudan.dropFirst().prefix(3).map { $0.ireum }.joined(separator: ", ")) {
                         VStack(alignment: .leading, spacing: 10) {
                             ForEach(Array(sudan.dropFirst().enumerated()), id: \.offset) { _, k in
                                 Button("\(k.ireum) 부르기" + (k.bigo.isEmpty ? "" : " — \(k.bigo)")) { c.geolgi(k) }
