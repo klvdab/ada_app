@@ -1,4 +1,5 @@
 // AI점자도서관 앱 — 독서기 (판 0.1.0, 빌드 260930-1)
+// 0.7.1 (261014-L17) 앱이 점점 무거워지고 멈춤(이사장님 지적) — 미리 받기를 세 문단 차례로, 묻기 줄이기, 멀어진 미리 받기는 그만둠(이사장님 승인 23시 17분 「1」)
 // 0.6.3 (261014-L15) 이용 기록 — 책 열기, 소리를 5초 넘게 기다림, 소리를 못 만듦, 글자를 못 가져옴을 LibGirok 에 남김(책 이름·내용은 남기지 않음, 이사장님 승인)
 // 글자책: 문단마다 서버 일꾼이 구운 사람 목소리를 받아 차례로 튼다. 앞 문단을 읽는 동안 뒤 세 문단을 미리 받는다.
 // 소리책·동영상: 나스에서 이어 받기로 튼다.
@@ -52,6 +53,9 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
         paras = [:]; pageTasks = [:]; audioTasks = [:]; text = ""; modu = 0; wons = [:]; won = ""; hjgal = false
         if kind == "geul" { await store.gulPan4Omgigi(i) }   // 0.5.2 (261012) 글 판 4 — 옛 판 자리·책갈피를 새 판 자리로(처음 열 때 한 번)
         let saved = store.rec(i)
+        // 0.7.1 (261014-L17) 드라마가 나오다 멈췄다 함(이사장님 0시 21분) — 「책 읽는 소리」(spokenAudio) 설정은 보이스오버가 말할 때 소리를 멈춤.
+        // 소리책·동영상·엔터테인먼트는 「영화 소리」로 틀어 멈추지 않게 하고, 글자책 낭독은 그대로 둠
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: kind == "geul" ? .spokenAudio : .moviePlayback, options: [])
         if kind == "geul" {
             pos = Int(saved?.pos ?? 0)
             if let local = Offline.loadParas(i) {
@@ -73,6 +77,22 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
                     guard let self, self.playing else { return }
                     let dur = self.player?.currentItem?.duration.seconds ?? 0
                     self.store.remember(i: self.i, t: self.title, kind: self.kind, pos: t.seconds, modu: dur.isFinite ? Int(dur) : 0)
+                }
+            }
+            // 0.7.1 멈춤 까닭을 이용 기록에 — 소리가 모자라 멈춤(stalled)과 다른 소리에 끊김(전화·알림 등). 끊김이 끝나 이어 들어도 되면 저절로 이어 틂
+            NotificationCenter.default.addObserver(forName: .AVPlayerItemPlaybackStalled, object: p.currentItem, queue: .main) { [weak self] _ in
+                Task { @MainActor in
+                    guard let self else { return }
+                    LibGirok.shared.namgi("lib_sori_meomchum", ["kka": "moja", "ent": API.isEnt(self.i), "cho": Int(self.player?.currentTime().seconds ?? 0)])
+                }
+            }
+            NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] n in
+                let ty = (n.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt).flatMap { AVAudioSession.InterruptionType(rawValue: $0) }
+                let op = (n.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt).map { AVAudioSession.InterruptionOptions(rawValue: $0) } ?? []
+                Task { @MainActor in
+                    guard let self, self.kind != "geul", let pl = self.player else { return }
+                    if ty == .began { LibGirok.shared.namgi("lib_sori_meomchum", ["kka": "kkeunkim", "ent": API.isEnt(self.i)]) }
+                    if ty == .ended && op.contains(.shouldResume) && self.playing { try? AVAudioSession.sharedInstance().setActive(true); pl.play(); pl.rate = self.store.rate }
                 }
             }
             NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: p.currentItem, queue: .main) { [weak self] _ in
@@ -153,13 +173,21 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 let y = try await API.yocheong(cut, voice: v)
                 if let a = y.ap { self.apsu[o] = a }   // 0.6.3
                 let hh = y.h ?? h
-                for n in 0..<240 {   // 0.6.3 — 85초에서 4분으로: 여러 분이 함께 들어 밀려도 끝까지 기다림(이사장님 승인)
+                // 0.7.1 (261014-L17) 묻기 줄이기 — 4분까지 기다리되, 처음 여섯 번만 0.7초마다 묻고 그 뒤로는 앞에 기다리는 문단 수만큼 느긋하게(1~3초).
+                // 미리 받던 문단은 듣는 자리에서 멀어지면(건너뛰기·뒤로) 바로 그만둠 — 나스가 받는 물음이 한 분당 1초 일곱 번에서 한두 번으로 줆
+                let kkeut = Date().addingTimeInterval(240)
+                var n = 0
+                while Date() < kkeut {
                     if book != self.i { return nil }
+                    if o != self.pos && (o < self.pos || o > self.pos + 4) { return nil }
                     if let d = try await API.sori(hh) {
                         try d.write(to: cache)
                         return cache
                     }
-                    try await Task.sleep(nanoseconds: n < 10 ? 700_000_000 : 1_000_000_000)
+                    let ap = Double(self.apsu[o] ?? 0)
+                    let swim = n < 6 ? 0.7 : min(3.0, 1.0 + ap * 0.25)
+                    n += 1
+                    try await Task.sleep(nanoseconds: UInt64(swim * 1_000_000_000))
                 }
             } catch { }
             return nil
@@ -256,11 +284,12 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 playing = false
                 status = "소리를 틀지 못했습니다."
             }
-            // 뒤 세 문단 미리 받기
-            for k in 1...6 where target + k   // 0.4.1 — 여섯 문단을 미리(서버 일꾼 둘이 쉬지 않고 앞서 굽게)
-             < max(modu, target + 1) {
-                let n = target + k
-                Task { _ = await self.audioFile(n) }
+            // 0.7.1 (261014-L17) 뒤 세 문단을 차례로 하나씩 미리 받기(전에는 여섯 문단을 한꺼번에 — 나스가 버티지 못함). 다른 문단으로 옮기면 바로 그만둠
+            Task { @MainActor [weak self] in
+                for k in 1...3 {
+                    guard let self, my == self.token, target + k < max(self.modu, target + 1) else { return }
+                    _ = await self.audioFile(target + k)
+                }
             }
         }
     }

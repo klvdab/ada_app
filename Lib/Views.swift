@@ -18,6 +18,7 @@ struct HomeView: View {
     @State private var s = ""
     @State private var more = false
     @AccessibilityFocusState private var focusFirst: Bool
+    @AccessibilityFocusState private var chatgiFocus: Bool   // 0.7.1 이어 들을 책이 없으면 찾기 칸이 첫 줄
 
     var body: some View {
         List {
@@ -30,6 +31,7 @@ struct HomeView: View {
                     TextField("찾을 책 이름", text: $s)
                         .submitLabel(.search)
                         .onSubmit(chatgi)
+                        .accessibilityFocused($chatgiFocus)
                     Button("찾기", action: chatgi)
                 }
                 if let l = store.last {
@@ -66,6 +68,10 @@ struct HomeView: View {
         .tint(Saek.ganjo)
         .navigationTitle("AI점자도서관")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {   // 0.7.1 탭을 고르면 커서를 첫 줄(이어 듣기, 없으면 찾기 칸)에
+            guard nav.cheotJulBatgi(0) else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { if store.last != nil { focusFirst = true } else { chatgiFocus = true } }
+        }
     }
     func chatgi() {
         let q = s.trimmingCharacters(in: .whitespaces)
@@ -383,6 +389,9 @@ struct EntHomeView: View {
     @State private var msg = "가져오는 중입니다."
     @State private var s = ""
     @State private var more = false
+    @AccessibilityFocusState private var ieoFocus: Bool   // 0.7.1 탭을 고르면 커서를 첫 줄(이어 듣기, 없으면 찾기 칸)에
+    @AccessibilityFocusState private var chatgiFocus: Bool
+    private var ieo: ReadRec? { store.reads.filter({ API.isEnt($0.i) && !$0.done }).sorted(by: { $0.at > $1.at }).first }
     var body: some View {
         List {
             Section {
@@ -393,9 +402,10 @@ struct EntHomeView: View {
                     TextField("찾을 작품 이름", text: $s)
                         .submitLabel(.search)
                         .onSubmit(chatgi)
+                        .accessibilityFocused($chatgiFocus)
                     Button("찾기", action: chatgi)
                 }
-                if let l = store.reads.filter({ API.isEnt($0.i) && !$0.done }).sorted(by: { $0.at > $1.at }).first {
+                if let l = ieo {
                     Button {
                         nav.ent.append(Route.reader(l.i, l.t, "sori"))
                     } label: {
@@ -408,6 +418,7 @@ struct EntHomeView: View {
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("이어 듣기, \(l.t), \(l.wichiMal)부터")
                     .accessibilityAddTraits(.isButton)
+                    .accessibilityFocused($ieoFocus)
                     .listRowBackground(Saek.kadeu)
                 }
             }
@@ -429,6 +440,10 @@ struct EntHomeView: View {
         .tint(Saek.ganjo)
         .navigationTitle("엔터테인먼트")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            guard nav.cheotJulBatgi(3) else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { if ieo != nil { ieoFocus = true } else { chatgiFocus = true } }
+        }
         .task {
             do {
                 let r = try await API.entGal()
@@ -492,6 +507,7 @@ struct SeojaeView: View {
                 let ilk = store.reading
                 if ilk.isEmpty {
                     Text("읽던 책이 없습니다. 도서관에서 책을 찾아 읽기 시작하면 여기에 저절로 담깁니다.")
+                        .accessibilityFocused($focus, equals: "bin")   // 0.7.1 읽던 책이 없으면 이 줄이 첫 줄
                 } else {
                     Text("읽던 책 \(ilk.count)권 가운데 \(o + 1)번부터 \(min(o + Self.jjok, ilk.count))번")
                         .font(.footnote).foregroundStyle(.secondary)
@@ -525,6 +541,11 @@ struct SeojaeView: View {
         .background(Saek.bada)
         .tint(Saek.ganjo)
         .navigationTitle("내 서재")
+        .onAppear {   // 0.7.1 탭을 고르면 커서를 읽던 책 첫 줄에(길눈처럼, 이사장님 지시)
+            guard nav.cheotJulBatgi(1) else { return }
+            let ilk = store.reading
+            if ilk.isEmpty { Task { try? await Task.sleep(nanoseconds: 500_000_000); focus = "bin" } } else { focusCheot(ilk) }
+        }
     }
 
     @ViewBuilder func jul(_ rc: ReadRec, mal: String, daIlgeum: Bool = false) -> some View {
@@ -584,14 +605,17 @@ struct SeojaeView: View {
 struct SettingsView: View {
     @EnvironmentObject var store: Store
     @EnvironmentObject var r: Reader
+    @EnvironmentObject var nav: Nav
     @State private var q = ""
     @AppStorage("cheotMun") private var cheotMun = "jangreu"
+    @AccessibilityFocusState private var cheot: Bool   // 0.7.1 탭을 고르면 커서를 첫 줄에
     var body: some View {
         List {
             Section {   // 0.5.0 첫 화면에 바로 나올 목록(이사장님 승인 「1」)
                 Picker("첫 화면 목록", selection: $cheotMun) {
                     ForEach(MunIreum.modu, id: \.0) { Text($0.1).tag($0.0) }
                 }
+                .accessibilityFocused($cheot)
             }
             NaeryeoSeoljeong()   // 0.3.0 — 목록 줄 수, 와이파이에서만 내려받기, 저장 공간
             MoksoriSection()   // 0.4.0 — 목소리 열 가지 고르기와 미리 듣기
@@ -615,11 +639,16 @@ struct SettingsView: View {
             Section { Text("회원: \(Hoewon.shared.ireum)"); Text(Pan.mal) }
         }
         .navigationTitle("설정·도움말")
+        .onAppear {
+            guard nav.cheotJulBatgi(2) else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { cheot = true }
+        }
     }
 }
 
 enum Doum {
     static let items: [(String, String)] = [
+        ("탭 고르기", "아래 탭(도서관, 엔터테인먼트, 내 서재, 설정·도움말)을 고르면 커서가 그 화면 목록의 첫 줄에 놓입니다. 도서관과 엔터테인먼트는 이어 듣기, 이어 들을 것이 없으면 찾기 칸입니다. 내 서재는 읽던 책 첫 권입니다. 지금 탭을 다시 누르면 그 탭 첫 화면으로 돌아가 첫 줄에 놓입니다."),   // 0.7.1
         ("이어 듣기", "읽던 책이 있으면 도서관 첫 화면 찾기 칸 아래에 이어 듣기가 나옵니다. 누르면 독서기가 열리면서 읽던 자리부터 바로 읽고, 커서는 멈춤 단추에 놓입니다."),
         ("책 고르면 바로 읽기", "목록에서 책 이름을 한 번 두드리면 독서기가 열리면서 바로 읽습니다. 읽던 책이면 읽던 자리부터 읽습니다. 소리책과 동영상도 바로 틉니다. 커서는 멈춤 단추에 놓이니 잘못 고르셨으면 바로 멈추십시오. 책 소개, 지은이, 출판사, 내려받기는 독서기 더 보기 안의 책 정보에 있습니다."),
         ("책 찾기", "도서관 첫 화면 맨 위 이름 줄 바로 아래의 찾을 책 이름 칸에 낱말을 쓰고 찾기를 누릅니다. 찾은 결과만 나오고 커서가 첫 줄에 놓입니다. 다시 찾을 때는 뒤로를 누릅니다."),

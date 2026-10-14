@@ -49,11 +49,16 @@ final class Nav: ObservableObject {
     @Published var ent = NavigationPath()   // 0.7.0
     @Published var tab = 0
     @Published var gen = [0, 0, 0, 0]   // 0.3.1 — 탭을 고를 때마다 그 탭 화면을 새로 그려 맨 위에서 시작
+    var cheotJulTab: Int? = 0   // 0.7.1 탭을 고르면 그 탭 첫 화면이 커서를 목록 첫 줄에 놓음(길눈처럼, 이사장님 지시 2026-10-14 23시 4분). 앱을 처음 열 때는 도서관 탭
     func tabGo(_ t: Int, _ same: Bool) {
         if same { if t == 0 { lib = NavigationPath() } else if t == 1 { seojae = NavigationPath() } else if t == 3 { ent = NavigationPath() } }
+        let bium = t == 2 || (t == 0 && lib.isEmpty) || (t == 1 && seojae.isEmpty) || (t == 3 && ent.isEmpty)
+        cheotJulTab = bium ? t : nil   // 그 탭이 속 화면에 머물러 있으면 그 화면이 제 첫 줄을 잡음
         if t >= 0 && t < 4 { gen[t] += 1 }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { UIAccessibility.post(notification: .screenChanged, argument: nil) }
+        if !bium { DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { UIAccessibility.post(notification: .screenChanged, argument: nil) } }
     }
+    /// 그 탭 첫 화면이 나타날 때 한 번만 참 — 상세 화면에서 돌아올 때는 커서를 건드리지 않음
+    func cheotJulBatgi(_ t: Int) -> Bool { if cheotJulTab == t { cheotJulTab = nil; return true }; return false }
 }
 
 struct RootView: View {
