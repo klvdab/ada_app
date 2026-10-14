@@ -245,6 +245,11 @@ object JbMit {
 
     /** 부탁 상세에서 밑그림 듣기 — 출발지 이름으로 자리를 찾고, 못 찾으면 지금 자리에서 */
     fun deutgi(sin: String, mlat: Double, mlon: Double, kkeut: (String) -> Unit) {
+        if (sin.isBlank()) {   // 2.22.0 출발지 이름이 없으면 지금 자리에서
+            val w = Wichi.jigeum ?: run { kkeut("AI 밑그림을 받지 못했습니다. 출발지를 찾지 못했습니다."); return }
+            batgi(w.lat, w.lon, mlat, mlon) { m -> kkeut(if (m == null) "AI 밑그림을 받지 못했습니다. 통신이 어렵습니다." else mal(m)) }
+            return
+        }
         Chatgi.jangso(sin) { j ->
             val f = j?.firstOrNull()
             val s = if (f != null) Pair(f.lat, f.lon) else Wichi.jigeum?.let { Pair(it.lat, it.lon) }

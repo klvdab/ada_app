@@ -104,6 +104,25 @@ object JabongNae {
         }
     }
 
+    /** 2.22.0 네 자리 숫자가 폰에 있는가(없으면 1365 고칠 때 여쭘) */
+    val jamIssum: Boolean get() = !(yeolsoe?.getString("jbJam", "") ?: "").isNullOrEmpty()
+
+    /** 2.22.0 내 기록 탭에서 1365 아이디를 넣거나 고침 — 나스 등록 창고(gochim)에도 함께(아이폰 2.21.0과 같음). 성공하면 null, 안 되면 까닭 */
+    fun id1365Gochigi(id0: String, jamIp: String, kkeut: (String?) -> Unit) {
+        val id = id0.trim().take(40)
+        val jam = if (jamIssum) (yeolsoe?.getString("jbJam", "") ?: "") else jamIp.filter { it.isDigit() }
+        if (!deungrokham) { kkeut("먼저 등록해 주십시오."); return }
+        if (jam.length != 4) { kkeut("등록 때 정하신 네 자리 숫자를 적어 주십시오."); return }
+        mutgi("gochim", JSONObject().put("beonho", beonho).put("jam", jam).put("id1365", id)) { j ->
+            if (j == null) { kkeut("통신이 닿지 않았습니다. 잠시 뒤 다시 눌러 주십시오."); return@mutgi }
+            if (!j.optBoolean("ok", false)) { kkeut(j.optString("msg", "").ifEmpty { "넣지 못했습니다." }); return@mutgi }
+            if (!jamIssum) yeolsoe?.edit()?.putString("jbJam", jam)?.apply()
+            dameum(beonho, ireum, jiyeok, id)
+            Girok.namgi("jabong_1365", mapOf("beonho" to beonho, "neoum" to if (id.isEmpty()) "0" else "1"))
+            kkeut(null)
+        }
+    }
+
     /** 이 폰에서 등록을 지움(나스 기록은 그대로) */
     fun ijeugi() {
         dameum("", "", "", "")

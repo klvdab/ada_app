@@ -117,6 +117,15 @@ class JabongActivity : AppCompatActivity() {
         bburi.addView(bon, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         bburi.addView(deopgae, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         setContentView(bburi)
+        // 2.22.0 아래 탭 네 개가 폰 아래 조작 막대(내비게이션 바)에 가리지 않게 그 높이만큼 위로(직원 시험 뒤 이사장님 지시 2026-10-14)
+        //   안드로이드 15부터 앱 화면이 막대 밑까지 깔려(목표 SDK 35) 맨 아래 탭 줄이 가려졌음. 위 상태 막대·글자판도 같은 방법으로 비킴
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(bburi) { v, ins ->
+            val T = androidx.core.view.WindowInsetsCompat.Type
+            val b = ins.getInsets(T.systemBars() or T.displayCutout())
+            val geulpan = ins.getInsets(T.ime()).bottom
+            v.setPadding(b.left, b.top, b.right, maxOf(b.bottom, geulpan))
+            androidx.core.view.WindowInsetsCompat.CONSUMED
+        }
 
         Sori.tokbaek = { t -> bburi.announceForAccessibility(t) }
         gil[0].add(BongsaTab())
@@ -499,7 +508,7 @@ class BongsaTab : JbHwamyeon("봉사") {
         t.danchu(when (Geurigi.sangtae) {
             Geurigi.Sangtae.GEOREUM -> "점지도 그리기 — 그리는 중"
             Geurigi.Sangtae.MEOMCHUM -> "점지도 그리기 — 잠깐 멈춤, 이어 그리기"
-            else -> "점지도 그리기"
+            else -> Geurigi.bowan?.takeIf { Geurigi.butak == null }?.let { "점지도 그리기 — 보완 길 ${it.second}에서 ${it.third}까지" } ?: "점지도 그리기"   // 2.22.0 보완하기
         }) { t.yeolgi(GeurigiHwamyeon()) }
         t.danchu("지금 상태 듣기") { Sori.mal(jigeumSangtae()) }
         t.danchu(if (Seoljeong.bopokJaem && Seoljeong.bopok > 0.2) "내 보폭 다시 재기 — 지금 ${(Seoljeong.bopok * 100).roundToInt()}센티미터" else "내 보폭 재기 — 점지도를 그리기 전에 한 번") { t.yeolgi(BopokHwamyeon()) }
@@ -720,9 +729,13 @@ class GeurigiHwamyeon : JbHwamyeon("점지도 그리기") {
 
     private fun sijakJeon(t: JabongActivity) {
         Geurigi.butak?.let { b ->   // 2.14.0 길눈님 부탁 길 — 안내와 그만두기 단추를 한 자리에
-            t.geul("길눈님 부탁 길: ${b.second} → ${b.third}. 걷기 시작을 누르시면 이 이름이 들어갑니다.", true)
+            t.geul("길눈님 부탁 길: ${if (NnButak.wiseongJari(b.second)) "출발지 이름 확인 필요" else b.second} → ${b.third}. 걷기 시작을 누르시면 이 이름이 들어갑니다.", true)
             t.danchu("부탁 길 그만두기 — 그냥 그리기") { Geurigi.butakGeumanduggi(); t.dasiGeurigi() }
             if (Geurigi.butakMok != null) t.geul("출발 자리에서 걷기 시작을 누르시면 AI 밑그림을 받아 들려 드립니다. " + JbMit.gyoyuk)   // 2.21.0
+        }
+        if (Geurigi.butak == null) Geurigi.bowan?.let { w ->   // 2.22.0 보완하기 — 안내와 그만두기 단추를 한 자리에
+            t.geul("보완 길: ${w.second} → ${w.third}. 걷기 시작을 누르시면 이 이름이 들어갑니다. 같은 출발지와 도착지로 올려 협회 점검을 통과하면 보완 완료가 됩니다.", true)
+            t.danchu("보완 그만두기 — 그냥 그리기") { Geurigi.bowanGeumanduggi(); t.dasiGeurigi() }
         }
         if (Seoljeong.bopokJaem && Seoljeong.bopok > 0.2) t.danchu("걷기 시작 — 출발 자리 주소는 저절로 적습니다") {
             // 2.10.0 표시마다 짧게 말 남기기가 켜져 있으면 마이크 허락을 먼저 여쭘(허락이 없어도 그리기는 됨)
@@ -980,7 +993,7 @@ class ButakHanGeonHwamyeon(private val b: NnButak) : JbHwamyeon("그려 주세�
             mitBatneun = true
             Sori.mal("AI 밑그림을 받습니다. 잠시만 기다려 주십시오.")
             t.dasiGeurigi()
-            JbMit.deutgi(b.sin, b.mlat, b.mlon) { mal ->
+            JbMit.deutgi(if (NnButak.wiseongJari(b.sin)) "" else b.sin, b.mlat, b.mlon) { mal ->   // 2.22.0 위성 위치로 남긴 출발지는 찾지 않음
                 mitBatneun = false
                 Girok.namgi("jb_mit_deutgi", mapOf("ok" to !mal.startsWith("AI 밑그림을 받지")))
                 Sori.mal(mal)
@@ -989,7 +1002,7 @@ class ButakHanGeonHwamyeon(private val b: NnButak) : JbHwamyeon("그려 주세�
         }
         if (!doen) t.danchu("이 길 그리러 가기 — 봉사 탭으로") {
             Geurigi.butakJeonghagi(b.id, b.sin, b.min, b.mlat, b.mlon)   // 2.14.0 다음 걷기에 이름이 들어감
-            Sori.mal("고맙습니다. 봉사 탭의 점지도 그리기에서 ${b.sin}부터 ${b.min}까지 걸어 주십시오. 걷기 시작을 누르시면 출발지와 도착지 이름이 부탁대로 들어갑니다. 다 그려 올리시면 협회 점검을 통과할 때 저절로 다 그렸습니다로 알려 드립니다.")
+            Sori.mal("고맙습니다. 봉사 탭의 점지도 그리기에서 ${b.sinMal}부터 ${b.min}까지 걸어 주십시오. 걷기 시작을 누르시면 출발지와 도착지 이름이 부탁대로 들어갑니다. 다 그려 올리시면 협회 점검을 통과할 때 저절로 다 그렸습니다로 알려 드립니다.")
             t.tabGo(0)
         }
         for (d in b.daetgeul) t.geul("한마디 : ${d.mal}" + (if (d.nugu.isEmpty()) "" else " — ${d.nugu}"), true)
@@ -1082,11 +1095,39 @@ class GeoreumNanumHwamyeon : JbHwamyeon("걸음 나눔") {
 }
 
 class NaeGirokTab : JbHwamyeon("내 기록") {
+    private var yeolim = false       // 2.22.0 1365 아이디 넣기·고치기 칸
+    private var idIp = ""
+    private var jamIp = ""
+    private var neonneun = false
     override fun chaeugi(t: JabongActivity) {
         t.geul("자봉 번호 ${JabongNae.beonho}", true)
         t.geul("이름 ${JabongNae.ireum}")
         if (JabongNae.jiyeok.isNotEmpty()) t.geul("활동 지역 ${JabongNae.jiyeok}")
         t.geul(if (JabongNae.id1365.isEmpty()) "1365 아이디는 아직 넣지 않으셨습니다." else "1365 아이디 ${JabongNae.id1365}")
+        // 2.22.0 1365 아이디를 내 기록 탭에서 넣거나 고침(직원 시험 뒤 이사장님 지시 2026-10-14) — 안내와 단추를 한 자리에
+        if (!yeolim) {
+            t.danchu(if (JabongNae.id1365.isEmpty()) "1365 아이디 넣기" else "1365 아이디 고치기") {
+                idIp = JabongNae.id1365; jamIp = ""; yeolim = true; t.dasiGeurigi()
+            }
+        } else {
+            val e = t.ipryeok("1365 아이디 — 비우고 넣으면 지웁니다", idIp, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD) { idIp = it }
+            if (!JabongNae.jamIssum) t.ipryeok("등록 때 정하신 네 자리 숫자", jamIp, InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD) { jamIp = it }
+            t.danchu(if (neonneun) "넣는 중입니다" else "1365 아이디 넣기 — 협회 등록에도") {
+                if (neonneun) return@danchu
+                neonneun = true
+                JabongNae.id1365Gochigi(idIp, jamIp) { er ->
+                    t.runOnUiThread {
+                        neonneun = false
+                        if (er != null) { Sori.mal(er); return@runOnUiThread }
+                        yeolim = false
+                        t.dasiGeurigi()
+                        Sori.mal(if (JabongNae.id1365.isEmpty()) "1365 아이디를 지웠습니다." else "1365 아이디를 넣었습니다. 지난 봉사 기록도 이 아이디에 이어 붙습니다.")
+                    }
+                }
+            }
+            t.danchu("그만두기") { yeolim = false; t.dasiGeurigi(); Sori.mal("그만두었습니다.") }
+            e.requestFocus()
+        }
         t.geul("그려 주신 길 ${JabongNae.geurinSu}개")
         t.geul("내 발자취와 교육 마당이 이 탭에 들어섭니다.")
     }
@@ -1181,10 +1222,11 @@ class DoumalHwamyeon : JbHwamyeon("도움말") {
             "안내 말소리 끄기" to "그리는 중 다른 표시와 도구 펼치기 안의 안내 말소리를 끄시면 앱이 하는 안내 말소리가 멈추고, 같은 안내가 화면 글자와 진동으로만 나옵니다. 톡백을 쓰시면 톡백이 그 안내를 읽습니다. 지금 상태 듣기도 화면 글자로 보여 드립니다. 설정의 말소리와 같은 스위치입니다.",
             "표시 남기기" to "그리는 중 화면 겉에 자주 쓰는 여덟 가지(9시 방향으로 꺾임, 3시 방향으로 꺾임, 올라가는 계단 시작, 내려가는 계단 시작, 계단 끝, 횡단보도 건너기 시작과 끝, 문)가 크게 있고, 다른 표시와 도구 펼치기 안에 나머지 열네 가지와 잠깐 멈춤, 계단 칸수 고치기가 있습니다. 계단과 횡단보도는 시작을 찍으면 끝도 꼭 찍으셔야 하며, 그 사이 칸수와 걸음을 셈해 알려 드립니다. 에스컬레이터, 지하철, 버스는 탈 때와 내릴 때를 찍으시면 그 사이는 걸음으로 재지 않습니다. 문은 딱 찍고 두 걸음 앞에서 한 번 더 찍으셔야 확실한 문이 됩니다.",
             "말로 표시" to "손이 바쁘실 때 말로 표시 단추를 누르고 계단 시작, 3시 방향, 횡단보도 끝, 문처럼 말씀하시면 단추를 누른 그 자리에 표시를 남깁니다. 좌회전, 우회전, 건널목, 승강기 같은 말도 알아듣습니다. 단추에 없는 것은 벤치, 공사 가림막처럼 말씀하신 그대로 표시로 남깁니다. 받아쓰기가 틀릴 수 있으니 벤치, 이대로 남길까요 하고 되물어, 네라고 하셔야 남습니다. 딩동 소리 뒤에 말씀하십시오. 처음 쓰실 때 마이크 허락을 여쭙니다. 받아쓰기는 폰의 구글 음성 인식을 씁니다.",
-            "보완 부탁" to "올린 길은 협회 점검에서 고칠 곳이 나와도 모두 받아 점지도 창고에 넣고, 보완 필요 표를 붙여 보완 목록에도 올립니다. 그린 분이나 다른 봉사자 누구든 이어서 보완할 수 있습니다. 「조금만 더 보완해 주세요. 시각장애인이 기다립니다」로 보완을 부탁드립니다. 봉사 탭에 보완 부탁 몇 건이 한 줄로 뜨고, 알림·설정 탭 맨 위에 길마다 단계와 기한이 나옵니다. 길을 누르시면 고칠 곳을 몇 걸음째인지와 빛깔(빨강은 따라 걸을 수 없게 하는 것, 주황은 방향 빠짐, 노랑은 목소리 토막 손볼 것)로 보여 드리고, 빨강은 깜박입니다. 고칠 곳 말로 듣기를 누르시면 차례로 읽어 드립니다. 3일째에는 앱을 여실 때 한 번 다시 알려 드리고, 7일이 지나도 보완이 없으면 협회 보완팀이 맡습니다. 그린 분의 이름은 그대로 남습니다. 같은 출발지와 도착지로 다시 걸어 점검을 통과하면 저절로 보완 완료가 됩니다.",
+            "보완 부탁" to "올린 길은 협회 점검에서 고칠 곳이 나와도 모두 받아 점지도 창고에 넣고, 보완 필요 표를 붙여 보완 목록에도 올립니다. 그린 분이나 다른 봉사자 누구든 이어서 보완할 수 있습니다. 「조금만 더 보완해 주세요. 시각장애인이 기다립니다」로 보완을 부탁드립니다. 봉사 탭에 보완 부탁 몇 건이 한 줄로 뜨고, 알림·설정 탭 맨 위에 길마다 단계와 기한이 나옵니다. 길을 누르시면 고칠 곳을 몇 걸음째인지와 빛깔(빨강은 따라 걸을 수 없게 하는 것, 주황은 방향 빠짐, 노랑은 목소리 토막 손볼 것)로 보여 드리고, 빨강은 깜박입니다. 고칠 곳 말로 듣기를 누르시면 차례로 읽어 드립니다. 3일째에는 앱을 여실 때 한 번 다시 알려 드리고, 7일이 지나도 보완이 없으면 협회 보완팀이 맡습니다. 그린 분의 이름은 그대로 남습니다. 같은 출발지와 도착지로 다시 걸어 점검을 통과하면 저절로 보완 완료가 됩니다. 보완 부탁 한 건 화면 맨 위의 보완하기를 누르시면 출발지와 도착지가 그 길과 같게 들어간 채 봉사 탭으로 옮겨 가고, 점지도 그리기 단추에 보완 길이라고 나옵니다. 걷기 시작을 누르시면 그 이름으로 그려지고, 올려서 협회 점검을 통과하면 보완 완료가 됩니다. 그리기 화면의 보완 그만두기를 누르시면 보통 그리기로 돌아갑니다.",
+            "1365 아이디 넣기·고치기" to "내 기록 탭에서 1365 아이디 넣기(넣은 분은 1365 아이디 고치기)를 누르시면 칸이 열립니다. 아이디를 적고 1365 아이디 넣기 — 협회 등록에도를 누르시면 협회 등록 창고에도 함께 들어가고, 지난 봉사 기록도 이 아이디에 이어 붙습니다. 칸을 비우고 누르시면 지웁니다. 폰에 네 자리 숫자가 없으면 등록 때 정하신 네 자리 숫자를 한 번 여쭙니다.",
             "표시마다 짧게 말 남기기" to "점지도 일곱 가지 약속의 일곱째입니다. 표시를 남기면 안내 말 뒤에 딩동 소리가 나고 폰이 짧게 귀를 엽니다. 그 자리 모습을 한두 마디로 말씀해 주십시오. 말이 멈추면 저절로 끊기고, 길어도 10초에서 끊기며, 4초 안에 말이 없으면 남기지 않습니다. 이 토막은 녹음한 시간이 아니라 그 표시의 걸음 자리에 묶여, 시각장애인이 그 자리에 닿기 몇 걸음 앞에서 들려 드리게 됩니다. 문은 두 번째로 찍었을 때만 귀를 엽니다. 다른 표시를 누르거나 잠깐 멈춤, 다 걸었습니다를 누르면 바로 닫힙니다. 다른 표시와 도구 펼치기 안에서 끄고 켤 수 있습니다. 말로 표시로 찍은 것은 폰이 이대로 남길까요 하고 되물어, 네라고 하셔야 남습니다.",
             "폰이 먼저 여쭘" to "봉사자분들의 말씀에 따라 계단은 폰이 먼저 여쭙지 않습니다. 계단 시작과 계단 끝은 단추나 말로 표시로 남겨 주십시오. 꺾임 여쭙기는 처음에는 꺼져 있고, 그리는 중 다른 표시와 도구 펼치기 안의 꺾임 여쭙기를 켜시면 방향이 크게 바뀔 때 2시 방향으로 꺾이셨습니까처럼 실제로 도신 만큼 시계 방향으로 여쭙니다. 네라고 말씀하시거나 화면 맨 위에 나오는 네 단추를 누르셔야 표시가 되며, 바뀐 것을 알아챈 그 자리에 남깁니다. 아니오면 남기지 않습니다. 20초 동안 답이 없으면 물음을 거둡니다. 말로 답하시려면 마이크 허락이 있어야 합니다.",
-            "나눔 탭 — 그려 주세요" to "나눔 탭 맨 위에 있습니다. 길눈님이 그려 주었으면 하고 부탁한 길이 다섯 개씩 나오며, 아직 안 그려진 부탁이 먼저 나옵니다. 줄을 누르시면 출발지와 도착지, 남긴 말이 나오고, 이 길 그리러 가기를 누르시면 봉사 탭으로 옮겨 가 어디부터 어디까지 걸으면 되는지 말씀드립니다. 걷기 시작을 누르시면 출발지와 도착지 이름이 부탁대로 들어가고, 다 그려 올리셔서 협회 점검을 통과하면 저절로 큰 박수와 함께 길눈님께 다 그렸다고 알려집니다. 점검을 거치지 않은 길이 길눈님께 가지 않도록 손으로 다 그렸습니다를 누르는 단추는 없앴습니다. 그리기 화면에서 부탁 길 그만두기를 누르시면 보통 그리기로 돌아갑니다. 응원 한마디 남기기로 짧은 말을 남기실 수 있고, 이름 대신 자봉 번호로 적힙니다.",
+            "나눔 탭 — 그려 주세요" to "나눔 탭 맨 위에 있습니다. 길눈님이 그려 주었으면 하고 부탁한 길이 다섯 개씩 나오며, 아직 안 그려진 부탁이 먼저 나옵니다. 줄을 누르시면 출발지와 도착지, 남긴 말이 나오고, 이 길 그리러 가기를 누르시면 봉사 탭으로 옮겨 가 어디부터 어디까지 걸으면 되는지 말씀드립니다. 걷기 시작을 누르시면 출발지와 도착지 이름이 부탁대로 들어가고, 다 그려 올리셔서 협회 점검을 통과하면 저절로 큰 박수와 함께 길눈님께 다 그렸다고 알려집니다. 점검을 거치지 않은 길이 길눈님께 가지 않도록 손으로 다 그렸습니다를 누르는 단추는 없앴습니다. 그리기 화면에서 부탁 길 그만두기를 누르시면 보통 그리기로 돌아갑니다. 응원 한마디 남기기로 짧은 말을 남기실 수 있고, 이름 대신 자봉 번호로 적힙니다. 길눈님이 출발지를 이름 없이 위성 위치로 남긴 부탁은 출발지 이름 확인 필요로 나오고, 걷기 시작을 누르면 출발 자리 주소를 저절로 적습니다. 새 부탁은 건물이나 가게 이름으로만 올라옵니다.",
             "함께한 기록판" to "나눔 탭 셋째 줄에 있습니다. 모두 그린 길 수, 이번 주 함께 그린 길과 거리, 이번 주 가장 많이 그려 주신 분(자봉 번호, 1등부터 3등), 모두 보낸 응원 박수를 크게 보여 드리고 소리로도 읽어 드립니다. 다 걸었습니다를 누르시면 그 길이 기록판에 저절로 셈해집니다. 이번 주 모든 자봉님께 응원 박수 보내기는 한 주에 한 번 보낼 수 있습니다. 기록판은 협회 리눅스 서버가 맡으며, 서버가 잠시 쉬면 쉬고 있다고 알려 드립니다.",
             "나눔 탭 — 걸음 나눔과 나눔 마당" to "걸음 나눔은 시각장애인과 자원봉사자가 함께 쓰는 이야기 마당입니다. 다섯 개씩 나오고, 글마다 응원 박수 단추가 있어 한 글에 한 번 박수를 보낼 수 있습니다. 한마디 적기를 펼쳐 봉사 이야기나 응원 한마디를 올리시면 박수로 고마움을 전합니다. 이름 대신 자봉 번호로 적힙니다. 더 보기 펼치기 안에 나눔 마당(드립니다, 찾습니다, 글 올리기, 다 나눴습니다)과 함께하기(자원봉사 교육과 제도 안내, 다 읽었습니다 남기기)가 있습니다.",
             "판 기록" to "알림·설정 탭의 더 보기 안에 있습니다. 판마다 무엇을 고쳤는지 적어 둡니다."
