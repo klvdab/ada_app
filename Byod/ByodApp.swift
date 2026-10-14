@@ -210,7 +210,7 @@ struct CheotView: View {
                     if deo { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { deoChojeom = true } }
                 }
                 if deo {
-                    Danchu(geul: "접속 도구: 엔에프시 스티커와 큐알코드") { gagi(.jeopsok) }
+                    Danchu(geul: "접속 도구: 엔에프시 태그와 큐알코드") { gagi(.jeopsok) }
                         .accessibilityFocused($deoChojeom)
                     Danchu(geul: "기기 점검: 소리 장치와 연결 보기") { gigiGeul = Sori.gigiJeomgeom(); gigiBoim = true }
                     Danchu(geul: "새로고침") { saerogochim() }

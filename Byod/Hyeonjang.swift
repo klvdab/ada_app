@@ -7,7 +7,7 @@ import UIKit
 enum Hyeonjang {
     struct Jul { let doem: Bool; let mal: String }
 
-    // 스티커와 큐알에 쓴 듣기 주소(접속 도구에서 쓸 때 기억)
+    // 엔에프시 태그와 큐알에 쓴 듣기 주소(접속 도구에서 쓸 때 기억)
     static var stickerJuso: String { UserDefaults.standard.string(forKey: "sticker_juso") ?? "" }
     static func stickerGieok(_ juso: String) {
         if juso.hasPrefix("http") { UserDefaults.standard.set(juso, forKey: "sticker_juso") }
@@ -39,12 +39,12 @@ enum Hyeonjang {
         let juso = Juso.deutgiJuso()
         l.append(juso.isEmpty ? Jul(doem: false, mal: "공유기: 붙지 않았습니다. 아이폰을 방송 공유기 와이파이에 붙이거나, 어댑터에 랜선을 꽂으십시오.")
                               : Jul(doem: true, mal: "공유기: 붙었습니다. 듣기 주소 \(juso)"))
-        // 6. 스티커 주소와 지금 주소
+        // 6. 엔에프시 태그 주소와 지금 주소
         let st = stickerJuso
-        if juso.isEmpty { l.append(Jul(doem: false, mal: "스티커 주소: 공유기에 붙은 뒤 견줄 수 있습니다.")) }
-        else if st.isEmpty { l.append(Jul(doem: false, mal: "스티커 주소: 이 아이폰으로 스티커나 큐알을 만든 적이 없습니다. 더 보기의 접속 도구에서 만드십시오.")) }
-        else if st == juso { l.append(Jul(doem: true, mal: "스티커 주소: 지금 주소와 같습니다. 스티커와 큐알을 그대로 쓰면 됩니다.")) }
-        else { l.append(Jul(doem: false, mal: "스티커 주소: 지금 주소와 다릅니다. 스티커에는 \(st), 지금은 \(juso) 입니다. 접속 도구에서 스티커와 큐알을 새로 만드십시오.")) }
+        if juso.isEmpty { l.append(Jul(doem: false, mal: "엔에프시 태그 주소: 공유기에 붙은 뒤 견줄 수 있습니다.")) }
+        else if st.isEmpty { l.append(Jul(doem: false, mal: "엔에프시 태그 주소: 이 아이폰으로 엔에프시 태그나 큐알을 만든 적이 없습니다. 더 보기의 접속 도구에서 만드십시오.")) }
+        else if st == juso { l.append(Jul(doem: true, mal: "엔에프시 태그 주소: 지금 주소와 같습니다. 엔에프시 태그와 큐알을 그대로 쓰면 됩니다.")) }
+        else { l.append(Jul(doem: false, mal: "엔에프시 태그 주소: 지금 주소와 다릅니다. 엔에프시 태그에는 \(st), 지금은 \(juso) 입니다. 접속 도구에서 엔에프시 태그와 큐알을 새로 만드십시오.")) }
         // 7. 배터리
         let d = UIDevice.current
         d.isBatteryMonitoringEnabled = true
