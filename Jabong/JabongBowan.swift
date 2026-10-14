@@ -151,6 +151,11 @@ struct BowanGilView: View {
                     }.buttonStyle(KeunDanchu())
                 }
                 Button("고칠 곳 말로 듣기") { JbBowan.malHagi(gil) }.buttonStyle(KeunDanchu())
+                // 2.22.0 고칠 곳에 맞는 동영상(꺾임·걸음·짝·문·목소리는 2편, 나머지는 4편)
+                let pn = JbMadang.doumPyeon(gil.heum.map { $0.mal })
+                NavigationLink { JbDonghwaView(beonho: pn) } label: {
+                    Text("도움 되는 동영상 — \(JbMadang.shared.pyeon(pn)?.ireum ?? "\(pn)편")")
+                }.buttonStyle(KeunDanchu())
                 Text(gil.mal ?? JbBowan.butak).font(.title3.bold())
                 Text("보완 부탁 날 " + JbBowan.nalMal(gil.ttae) + (gil.nal.map { ", \($0)일 지남" } ?? "")).font(.body)
                 ForEach(Array(gil.heum.enumerated()), id: \.offset) { _, h in HeumJul(saek: h.saek, mal: h.mal) }

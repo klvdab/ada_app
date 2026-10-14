@@ -62,7 +62,7 @@ final class JabongNae: ObservableObject {
 
     /// 처음 등록 — 성공하면 nil, 안 되면 까닭
     func deungrok(ireum: String, yeonrak: String, jiyeok: String, id1365: String, jam: String) async -> String? {
-        guard let j = await JabongNae.mutgi("sin", ["ireum": ireum, "yeonrak": yeonrak, "jiyeok": jiyeok, "id1365": id1365, "jam": jam, "gyoyuk": true, "gyoyukPan": JbGyoyuk.pan]) else {
+        guard let j = await JabongNae.mutgi("sin", ["ireum": ireum, "yeonrak": yeonrak, "jiyeok": jiyeok, "id1365": id1365, "jam": jam, "gyoyuk": false]) else {   // 2.22.0 등록 때는 교육 없이(교육 마당에서 하고 싶을 때)
             return "통신이 닿지 않았습니다. 잠시 뒤 다시 눌러 주십시오."
         }
         guard (j["ok"] as? Bool) == true, let b = j["beonho"] as? String, !b.isEmpty else {
@@ -70,7 +70,6 @@ final class JabongNae: ObservableObject {
         }
         Yeolsoe.sseugi("jbJam", jam)   // 새로고침 때 쓰려고 네 자리 숫자는 열쇠 곳간에
         await MainActor.run {
-            self.gyoyukPan = JbGyoyuk.pan; self.d.set(JbGyoyuk.pan, forKey: "jb.gyoyukPan")   // 2.10.0 등록 때 새 교육을 마침
             self.hwanyeong = true; self.dameum(b, ireum, jiyeok, id1365)
         }
         Girok.shared.namgi("jabong_deungrok", ["beonho": b])
