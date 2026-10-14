@@ -1,3 +1,4 @@
+// 0.7.0 (261014-L16, 도서관 창 클, 이사장님 승인 2026-10-14 「1」·「2」) 엔터테인먼트 탭 — 나스 AI문화관의 공개 갈래(첫 갈래 화면해설 작품). 탭 번호는 그대로(엔터테인먼트는 3), 놓는 자리만 둘째
 // AI점자도서관 안드로이드 — 화면 (0.6.0판, 빌드 261012-L12 — 곱씹어 읽기와 사전) (0.5.2판 — 외국 도서 문, 글 판 4)
 // 0.5.0 (261010-L9, 도서관 창 클, 이사장님 승인 「1」) 첫 화면에 고른 문(주제별·장르별·테마별, 설정의 첫 화면 목록, 처음 값 장르별)의 서가 목록을 바로,
 //       형태별 갈래 목록과 「보일 책」 거르기를 뺌(늘 모든 책), 목록은 톡백 목록 넘기기(앞으로·뒤로) 동작으로 넘기고 넘기면 커서는 첫 줄, 맨 아래 「다음 목록」 하나만
@@ -47,13 +48,14 @@ sealed class Hm {
     data class Gal(val g: String) : Hm(); data class Jakbon(val j: String, val t: String) : Hm(); data class Find(val s: String) : Hm()
     data class Book(val i: Int) : Hm(); data class Reader(val i: Int, val t: String, val k: String) : Hm(); data class Marks(val i: Int) : Hm()
     data class Pureo(val g: String) : Hm(); data class SokChatgi(val i: Int, val t: String) : Hm(); data class Sajeon(val c: String, val m: String) : Hm(); object Jungyo : Hm(); object Nanmal : Hm()   // 0.6.0 곱씹어 읽기와 사전
+    object EntHome : Hm(); data class Ent(val j: String, val t: String) : Hm(); data class EntFind(val s: String) : Hm()   // 0.7.0 엔터테인먼트
 }
 
 class LibActivity : Activity() {
-    companion object { const val PAN = "0.6.2"; const val BILDEU = "261012-L14" }   // 0.6.2 사전 우리말샘·한국고전종합DB 도움말   // 0.6.1 한자음 읽기(중국 고전을 우리 한자음으로, 간체자도, 원문 함께 보기)   // 0.6.0 곱씹어 읽기(다시 듣기·풀어 읽기·중요 표시·책 속 찾기)와 사전·내 낱말장   // 0.5.2 외국 도서 문(외국 도서 → 언어 → 장르와 주제), 글 판 4(강제 줄바꿈 바로잡은 글·옛 자리 옮기기), 도움말 둘   // 0.5.1 첫 화면 맨 위 이름 줄·바로 아래 찾기, 목록에서 한 번 두드리면 바로 읽기, 넘긴 뒤 커서 첫 줄 다지기(도서관 창 클, 이사장님 승인 「1」). 0.4.4 아이폰과 견주어 네 묶음 고침(도서관 창 클, 이사장님 승인 「1」). 0.4.3 새 판 알림과 업데이트(대장클, 이사장님 지시)
+    companion object { const val PAN = "0.7.0"; const val BILDEU = "261014-L16" }   // 0.7.0 엔터테인먼트 탭   // 0.6.2 사전 우리말샘·한국고전종합DB 도움말   // 0.6.1 한자음 읽기(중국 고전을 우리 한자음으로, 간체자도, 원문 함께 보기)   // 0.6.0 곱씹어 읽기(다시 듣기·풀어 읽기·중요 표시·책 속 찾기)와 사전·내 낱말장   // 0.5.2 외국 도서 문(외국 도서 → 언어 → 장르와 주제), 글 판 4(강제 줄바꿈 바로잡은 글·옛 자리 옮기기), 도움말 둘   // 0.5.1 첫 화면 맨 위 이름 줄·바로 아래 찾기, 목록에서 한 번 두드리면 바로 읽기, 넘긴 뒤 커서 첫 줄 다지기(도서관 창 클, 이사장님 승인 「1」). 0.4.4 아이폰과 견주어 네 묶음 고침(도서관 창 클, 이사장님 승인 「1」). 0.4.3 새 판 알림과 업데이트(대장클, 이사장님 지시)
     private val main = Handler(Looper.getMainLooper())
     private val pool = Executors.newFixedThreadPool(3)
-    private val stacks = arrayOf(mutableListOf<Hm>(Hm.Home), mutableListOf<Hm>(Hm.Seojae), mutableListOf<Hm>(Hm.Seoljeong))
+    private val stacks = arrayOf(mutableListOf<Hm>(Hm.Home), mutableListOf<Hm>(Hm.Seojae), mutableListOf<Hm>(Hm.Seoljeong), mutableListOf<Hm>(Hm.EntHome))
     private var tab = 0
     private lateinit var scroll: ScrollView
     private lateinit var body: LinearLayout
@@ -97,12 +99,14 @@ class LibActivity : Activity() {
         Ollim.malhagi = { m -> main.post { scroll.announceForAccessibility(m) } }
         Ollim.byeonhwa = { main.post { if (cur() is Hm.Home || cur() is Hm.Seoljeong) draw() } }
         Ollim.sijak(this)
+        LibGirok.sijak(this)   // 0.6.3 이용 기록(도서관 창 클, 이사장님 승인)
         Ollim.intentBoda(this, intent)
         if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 44)   // 새 판 알림을 띄우려고 한 번 여쭘
     }
     override fun onResume() { super.onResume(); Ollim.dorawatda(this) }   // 0.4.3 돌아오면 새 판 살피기(1시간에 한 번까지)
     override fun onNewIntent(i: android.content.Intent) { super.onNewIntent(i); setIntent(i); Ollim.intentBoda(this, i) }   // 0.4.3 새 판 알림을 두드렸을 때
+    override fun onStop() { LibGirok.jeojang(); LibGirok.bonaegi(); super.onStop() }   // 0.6.3 이용 기록 — 앱이 뒤로 갈 때 폰에 저장하고 보냄
     override fun onDestroy() { Dokseo.bakkwim = null; Ollim.byeonhwa = null; Ollim.malhagi = null; super.onDestroy() }
 
     @Deprecated("뒤로 가기 — 앱 밖으로 나가지 않음")
@@ -157,7 +161,7 @@ class LibActivity : Activity() {
 
     private fun tabs() {
         tabbar.removeAllViews()
-        listOf("도서관", "내 서재", "설정·도움말").forEachIndexed { k, n ->
+        listOf(0 to "도서관", 3 to "엔터테인먼트", 1 to "내 서재", 2 to "설정·도움말").forEach { (k, n) ->   // 0.7.0 엔터테인먼트는 둘째 자리(번호 3)
             val b = Button(this).apply {
                 text = n; isAllCaps = false; setTextColor(if (k == tab) Saek.geum else Color.WHITE)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f); setBackgroundColor(Color.TRANSPARENT)
@@ -194,12 +198,15 @@ class LibActivity : Activity() {
             is Hm.Sajeon -> sajeon(h)
             is Hm.Jungyo -> jungyoMoeum()
             is Hm.Nanmal -> nanmalJang()   // 0.5.0 보일 책 거르기를 뺌
+            Hm.EntHome -> entHome()
+            is Hm.Ent -> paged(h.t, ent = true) { o -> Api.entList(h.j, o) }
+            is Hm.EntFind -> paged("「${h.s}」 찾은 작품", ent = true) { o -> Api.entFind(h.s, o) }
         }
     }
 
     private fun deungrok() {
         geul("AI점자도서관", jemok = true)
-        geul("처음 쓰실 때 한 번만 회원 등록을 합니다. 이름과 휴대전화 번호를 적고 등록을 눌러 주십시오.")
+        geul("처음 쓰실 때 한 번만 회원 등록을 합니다. 이름과 휴대전화 번호를 적고 등록을 눌러 주십시오. 앱이 잘 듣는지 살피려고 앱 판과 막힌 일(소리를 오래 기다림 등)을 협회 서버에 남깁니다. 이름, 전화번호, 듣는 책은 남기지 않습니다.")
         val ir = EditText(this).apply { hint = "이름"; inputType = InputType.TYPE_TEXT_VARIATION_PERSON_NAME }
         val jh = EditText(this).apply { hint = "휴대전화 번호"; inputType = InputType.TYPE_CLASS_PHONE }
         body.addView(ir, lp(6)); body.addView(jh, lp(6))
@@ -296,7 +303,53 @@ class LibActivity : Activity() {
         cheotJul(cheot)
     }
 
-    private fun paged(jemok: String, loader: (Int) -> ListResp) {
+    // 0.7.0 엔터테인먼트 첫 화면 — 이름 줄, 찾기 칸, 이어 듣기, 갈래 목록, 더 보기
+    private var entDeo = false
+    private fun entHome() {
+        meori()
+        val chaj = EditText(this).apply {
+            hint = "찾을 작품 이름"; inputType = InputType.TYPE_CLASS_TEXT; imeOptions = EditorInfo.IME_ACTION_SEARCH
+            background = kadeuBg(); setPadding(dp(14), dp(12), dp(14), dp(12)); setTextColor(Saek.geulja(this@LibActivity))
+        }
+        val chajgi = { val q = chaj.text.toString().trim(); if (q.isNotEmpty()) go(Hm.EntFind(q)) }
+        chaj.setOnEditorActionListener { _, a, _ -> if (a == EditorInfo.IME_ACTION_SEARCH) { chajgi(); true } else false }
+        body.addView(chaj, lp(10))
+        danchu("찾기") { chajgi() }
+        var cheot: View? = null
+        Store.reading.firstOrNull { Api.isEnt(it.i) }?.let { l ->
+            cheot = chaekJul(l, "이어 듣기, ${l.t}, ${l.wichiMal}부터", "이어 듣기 · ${l.wichiMal}부터", { go(Hm.Reader(l.i, l.t, l.kind)) }, false)
+        }
+        geul("화면해설 작품", jemok = true)
+        val mal = geul("가져오는 중입니다.", jakge = true)
+        val jari = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        body.addView(jari, lp(0))
+        danchu(if (entDeo) "더 보기 접기" else "더 보기") { entDeo = !entDeo; dasi("더 보기") }
+        if (entDeo) {
+            geul("엔터테인먼트는 협회가 모아 온 영화, 드라마, 다큐 같은 자료 가운데 공개해도 되는 것을 하나씩 열어 가는 곳입니다. 지금은 화면해설 작품이 있습니다. 작품을 한 번 두드리면 바로 틀고, 듣던 자리를 기억합니다.")
+            geul("AI점자도서관 ${PAN}판, 빌드 $BILDEU", jakge = true)
+        }
+        pool.execute {
+            val r = runCatching { Api.entGal() }
+            main.post {
+                if (cur() != Hm.EntHome) return@post
+                r.onFailure { mal.text = "엔터테인먼트에 닿지 못했습니다. 인터넷을 확인한 뒤 설정의 새로고침을 눌러 주십시오." }.onSuccess { gal ->
+                    if (gal.isEmpty()) mal.text = "아직 열린 갈래가 없습니다." else body.removeView(mal)
+                    for (g in gal) {
+                        val b = Button(this).apply {
+                            text = "${g.dan}, ${g.n}편"; isAllCaps = false; gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f); setTextColor(Saek.geulja(this@LibActivity)); background = kadeuBg()
+                            setPadding(dp(16), dp(12), dp(16), dp(12)); minHeight = dp(52)
+                            setOnClickListener { go(Hm.Ent(g.g, g.dan)) }
+                        }
+                        jari.addView(b, lp(6))
+                    }
+                }
+            }
+        }
+        cheotJul(cheot)
+    }
+
+    private fun paged(jemok: String, ent: Boolean = false, loader: (Int) -> ListResp) {
         geul(jemok, jemok = true)
         val mal = geul("가져오는 중입니다.", jakge = true)
         val o = listO
@@ -309,7 +362,7 @@ class LibActivity : Activity() {
                 mal.text = "모두 ${"%,d".format(lr.modu)}개 가운데 ${lr.o + 1}번부터 ${lr.o + lr.items.size}번"
                 var first: View? = null
                 for (it in lr.items) {
-                    val b = danchu(it.t) { if (it.i != null) go(Hm.Reader(it.i, it.t, "")) else if (it.j != null) go(Hm.Jakbon(it.j, it.t)) }   // 0.5.1 한 번 두드리면 독서기가 열려 바로 읽음
+                    val b = danchu(it.t) { if (ent) { if (it.i != null) go(Hm.Reader(it.i, it.t, "sori")) else if (it.j != null) go(Hm.Ent(it.j, it.t)) } else if (it.i != null) go(Hm.Reader(it.i, it.t, "")) else if (it.j != null) go(Hm.Jakbon(it.j, it.t)) }   // 0.7.0 엔터테인먼트는 폴더면 그 안으로, 작품이면 소리로 바로   // 0.5.1 한 번 두드리면 독서기가 열려 바로 읽음
                     if (first == null) { first = b; if (lr.o > 0) b.contentDescription = "${lr.o + 1}번부터, ${it.t}" }   // 0.5.0 넘긴 뒤 첫 줄에서 몇 번부터인지 들림
                 }
                 val dam = lr.o + Api.PER < lr.modu
@@ -428,7 +481,7 @@ class LibActivity : Activity() {
             danchu("이 자리에 책갈피 꽂기") { Dokseo.markHere(); malhagi("책갈피를 꽂았습니다."); dasi("이 자리에 책갈피") }
             if (Store.marksOf(h.i).isNotEmpty()) danchu("책갈피 보기, ${Store.marksOf(h.i).size}개") { go(Hm.Marks(h.i)) }
             danchu("처음부터") { Dokseo.cheoeum(); malhagi("처음으로 갔습니다.") }
-            danchu("책 정보, 책 소개·지은이·내려받기") { go(Hm.Book(h.i)) }   // 0.5.1 책 정보는 여기 안에
+            if (!Api.isEnt(h.i)) danchu("책 정보, 책 소개·지은이·내려받기") { go(Hm.Book(h.i)) }   // 0.5.1 책 정보는 여기 안에(0.7.0 엔터테인먼트 작품은 책 정보가 없음)
         }
         if (h.k == "geul") readerDan?.let { b ->   // 0.6.0 읽기 단추에서 톡백 동작으로 바로
             ViewCompat.addAccessibilityAction(b, "이 문단 다시 듣기") { _, _ -> Dokseo.play(Dokseo.pos); true }
@@ -727,7 +780,7 @@ class LibActivity : Activity() {
             if (daO >= da.size) daO = 0
             geul("다 읽은 책 ${da.size}권" + (if (da.isNotEmpty()) " 가운데 ${daO + 1}번부터 ${minOf(daO + Api.PER, da.size)}번" else ""), jakge = true)
             for (rc in da.drop(daO).take(Api.PER)) {
-                val b = danchu("${rc.t}, 다 읽음") { go(Hm.Book(rc.i)) }
+                val b = danchu("${rc.t}, 다 읽음") { if (Api.isEnt(rc.i)) go(Hm.Reader(rc.i, rc.t, rc.kind)) else go(Hm.Book(rc.i)) }
                 ViewCompat.addAccessibilityAction(b, "내 서재에서 지우기") { _, _ -> jiugi(rc); true }
                 b.setOnLongClickListener { jiugi(rc); true }
             }
@@ -789,7 +842,7 @@ class LibActivity : Activity() {
                 }
             }
         }
-        danchu("새로고침") { Dokseo.stop(); for (k in 0..2) while (stacks[k].size > 1) stacks[k].removeAt(stacks[k].size - 1); tab = 0; draw(); malhagi("새로 불러왔습니다.") }
+        danchu("새로고침") { Dokseo.stop(); for (k in 0..3) while (stacks[k].size > 1) stacks[k].removeAt(stacks[k].size - 1); tab = 0; draw(); malhagi("새로 불러왔습니다.") }
         danchu(Ollim.seoljeongMal(this)) { Ollim.seoljeongNureum(this) }   // 0.4.3 업데이트 — 새로고침 바로 아래 한 곳
         geul("도움말", jemok = true)
         // 0.4.4 도움말 찾기 — 낱말을 적고 찾기를 누르면 그 낱말이 든 도움말만 나옴
@@ -851,6 +904,9 @@ class LibActivity : Activity() {
         "뒤로" to "속 화면 맨 위에 뒤로가 있습니다. 폰의 뒤로 동작으로도 뒤로 가며, 앱 밖으로 나가지는 않습니다.",
         "도움말 찾기" to "설정·도움말 화면의 찾을 낱말 칸에 낱말을 적고 도움말 찾기를 누르면 그 낱말이 든 도움말만 나오고 커서가 첫 줄에 놓입니다. 도움말 찾기 마치기를 누르면 설정으로 돌아갑니다.",
         "앱 안내 말" to "앱이 스스로 알리는 말(책갈피를 꽂았습니다 등)을 켜고 끕니다. 책 읽는 목소리는 그대로입니다.",
+        "소리를 기다릴 때" to "처음 듣는 문단은 도서관 서버가 그 자리에서 목소리를 만듭니다. 여러 분이 함께 들으시면 조금 기다리실 수 있습니다. 10초가 넘으면 소리를 만들고 있다고, 45초가 넘으면 조금 더 걸린다고 한 번씩 알려 드리고, 4분까지 기다립니다. 한 번 만든 소리는 다음 분이 바로 들으십니다. 도서관은 한가할 때 새 책과 읽던 책 앞부분을 미리 만들어 둡니다.",
+        "이용 기록" to "앱이 잘 듣는지 살피려고, 앱 판과 안드로이드 판, 책을 연 때, 소리를 오래 기다리거나 만들지 못한 일을 협회 서버에 남깁니다. 이름, 전화번호, 듣는 책 이름과 내용은 남기지 않습니다. 협회는 이 기록으로 막히는 곳을 먼저 찾아 고칩니다.",
+        "엔터테인먼트" to "아래 탭의 둘째 칸입니다. 협회가 모아 온 영화, 드라마, 다큐 같은 자료 가운데 공개해도 되는 것을 하나씩 열어 갑니다. 지금은 화면해설 작품(화면해설 영화, 화면해설 드라마, 화면해설 다큐와 교양)이 있습니다. 갈래를 누르면 작품이 나오고, 드라마는 작품을 누르면 회차가 차례로 나옵니다. 회차를 한 번 두드리면 바로 틉니다. 독서기와 같아서 앞으로 30초, 뒤로 30초, 재생 위치, 빠르기, 책갈피를 그대로 쓰고, 듣던 자리를 기억해 엔터테인먼트 첫 화면의 이어 듣기와 내 서재에 나옵니다. 작품 이름을 적어 찾을 수도 있습니다.",
         "회원 등록" to "처음 켤 때 이름과 휴대전화 번호로 한 번만 등록합니다. 등록하면 이 폰만의 회원 열쇠가 담겨 도서관과 독서기가 열립니다. 폰을 바꾸면 새 폰에서 같은 번호로 다시 등록합니다. 설정 아래에 회원 이름이 나옵니다.",
         "새로고침" to "앱이 이상하거나 새 책이 안 보일 때 설정의 새로고침을 누르십시오.",
         "업데이트 — 새 판 받기" to "도서관 앱은 켤 때와 하루 두 번쯤 협회 서버에 새 판이 나왔는지 스스로 물어봅니다. 새 판이 있으면 폰 알림으로 AI점자도서관 새 판이 나왔습니다, 두드리면 업데이트합니다라고 알려 드리고, 도서관 첫 화면 머리 바로 아래에도 같은 말과 단추를 한 줄로 띄웁니다. 알림이나 그 줄을 두드리시면 앱이 새 판을 스스로 받아 설치 화면을 엽니다. 설치를 한 번 눌러 주시면 됩니다. 처음 한 번은 이 출처 허용을 켜는 화면이 열리니 켜신 뒤 폰의 뒤로 동작으로 돌아오시면 이어서 업데이트합니다. 새 판으로 바뀌면 바뀌었다고 알림을 드립니다. 설정의 새로고침 바로 아래 업데이트 단추로 언제든 새 판이 있는지 살피실 수 있습니다. 내 서재, 책갈피, 내려받은 책은 그대로 남습니다."

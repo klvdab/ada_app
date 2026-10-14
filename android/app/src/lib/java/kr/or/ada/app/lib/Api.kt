@@ -90,8 +90,10 @@ object Api {
         body.write("--$b--\r\n".toByteArray())
         c.outputStream.use { it.write(body.toByteArray()) }
         val j = JSONObject(String(bytes(c), Charsets.UTF_8))
+        apSu = j.optInt("ap", 0)   // 0.6.3 이 문단 앞에 기다리는 문단 수
         return j.optBoolean("ok") to j.optString("h")
     }
+    @Volatile var apSu = 0
     /** 구운 소리 받기 — 아직이면 null */
     fun sori(h: String): ByteArray? {
         val c = open(url("dokseo.php", mapOf("m" to "sori", "h" to h)))
@@ -123,7 +125,17 @@ object Api {
         if (meomchum() || tmp.length() < 1000) { tmp.delete(); return false }
         return tmp.renameTo(to)
     }
-    fun mediaUrl(i: Int) = url("dokseo.php", mapOf("m" to "media", "i" to "$i"))
+    fun mediaUrl(i: Int) = if (isEnt(i)) url("enter.php", mapOf("m" to "media", "i" to "$i")) else url("dokseo.php", mapOf("m" to "media", "i" to "$i"))   // 0.7.0 엔터테인먼트 작품은 enter.php 에서
+
+    // 0.7.0 (261014-L16) 엔터테인먼트 — 나스 「AI문화관」의 공개 갈래(지금은 화면해설 작품). 작품 번호는 9000001부터라 도서관 책 번호와 겹치지 않음
+    const val ENT_BASE = 9_000_000
+    fun isEnt(i: Int) = i >= ENT_BASE
+    fun entGal(): List<Gal> {
+        val a = getJson("enter.php", mapOf("m" to "j_gal")).optJSONArray("gal") ?: return emptyList()
+        return (0 until a.length()).map { val o = a.getJSONObject(it); Gal(o.optString("g"), o.optInt("n"), o.optString("dan")) }
+    }
+    fun entList(j: String, o: Int) = listResp(getJson("enter.php", mapOf("m" to "j_list", "j" to j, "o" to "$o", "n" to "$PER")), o)
+    fun entFind(s: String, o: Int) = listResp(getJson("enter.php", mapOf("m" to "j_find", "s" to s, "o" to "$o", "n" to "$PER")), o)
 }
 
 /** 회원 등록과 회원 열쇠 — 아이폰 Hoewon.swift 와 같은 나스 창구(hoewon.php a=deungrok) */

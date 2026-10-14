@@ -1,4 +1,6 @@
 // AI점자도서관 안드로이드 — 독서기 (0.4.4판, 빌드 261008-L8)
+// 0.6.3 (261014-L15, 이사장님 승인) 이용 기록(책 열기·소리를 5초 넘게 기다림·소리를 못 만듦·글자를 못 가져옴, 책 이름·내용은 남기지 않음).
+//       미리 받던 문단을 곧바로 읽으려 하면 기다림이 풀리지 않던 것 바로잡음 — 같은 문단을 받는 중이면 기다리는 쪽도 함께 알려 줌(soriGidari)
 // 0.4.4 (261008-L8, 이사장님 승인 「1」) 화면을 꺼도 계속 읽기(DokseoService 미디어 세션), 이어폰 단추·잠금 화면, 전화·이어폰 뽑기 때 멈춤 표시 맞춤,
 //       책갈피로 다른 책을 열 때 읽던 자리가 지워지던 것 바로잡음(open 의 at), 처음부터(cheoeum), 잠금 화면에 책 이름
 // 0.2.0 (261002-L1) 처음 판
@@ -35,6 +37,7 @@ object Dokseo {
     private val wons = HashMap<Int, String>()   // 0.6.1 (261012) 한자음 읽기 — 문단 원문
     var hjgal = false                           // 0.6.1 이 책이 한자음 읽기 대상인가
     private val gajineun = HashSet<Int>()       // 받고 있는 문단
+    private val soriGidari = HashMap<Int, ArrayList<(File?) -> Unit>>()   // 0.6.3 받는 중인 문단을 함께 기다리는 쪽
     private val pageLoading = HashSet<Int>()
     private var token = 0
     private var queued = -1                     // 줄에 넣은 마지막 문단
@@ -110,7 +113,8 @@ object Dokseo {
             }
         }
         stop()
-        i = bi; title = bt; kind = bk; paras.clear(); gajineun.clear(); pageLoading.clear(); modu = 0; wons.clear(); hjgal = false
+        i = bi; title = bt; kind = bk; paras.clear(); gajineun.clear(); soriGidari.clear(); pageLoading.clear(); modu = 0; wons.clear(); hjgal = false
+        LibGirok.namgi("lib_chaek_yeolgi", mapOf("kind" to bk, "ent" to Api.isEnt(bi), "naeryeo" to (Naeryeo.isDown(c, bi))))   // 0.6.3 이용 기록
         val saved = Store.rec(bi)
         val p = ensurePlayer()
         p.setPlaybackParameters(PlaybackParameters(Store.rate))
@@ -136,7 +140,7 @@ object Dokseo {
             val r = runCatching { Api.gul(book, pg) }.getOrNull()
             main.post {
                 pageLoading.remove(pg)
-                if (book != i || r == null) { if (r == null) allim?.invoke("글자를 가져오지 못했습니다. 인터넷을 확인해 주십시오."); return@post }
+                if (book != i || r == null) { if (r == null) { allim?.invoke("글자를 가져오지 못했습니다. 인터넷을 확인해 주십시오."); LibGirok.namgi("lib_geulja_silpae") }; return@post }   // 0.6.3 이용 기록
                 modu = r.first
                 r.second.forEachIndexed { k, s -> paras[pg + k] = s }
                 Api.hjWon.remove("$book:$pg")?.forEachIndexed { k, s -> wons[pg + k] = s }; Api.hjGal.remove("$book:$pg")?.let { hjgal = it }   // 0.6.1
@@ -167,21 +171,21 @@ object Dokseo {
         val h = hash(cut, v)
         val f = File(cacheDir(), "$h.mp3")
         if (f.exists() && f.length() > 100) { done(f); return }
-        if (!gajineun.add(o)) return
+        if (!gajineun.add(o)) { soriGidari.getOrPut(o) { ArrayList() }.add(done); return }   // 0.6.3 — 받는 중이면 다 받았을 때 함께 알려 줌
         val book = i
         pool.execute {
             var out: File? = null
             runCatching {
                 val (_, hh0) = Api.yocheong(cut, v)
                 val hh = hh0.ifEmpty { h }
-                for (n in 0 until 90) {
+                for (n in 0 until 240) {   // 0.6.3 — 85초에서 4분으로: 여러 분이 함께 들어 밀려도 끝까지 기다림
                     if (book != i) break
                     val d = Api.sori(hh)
                     if (d != null) { f.writeBytes(d); out = f; break }
                     Thread.sleep(if (n < 10) 700 else 1000)
                 }
             }
-            main.post { gajineun.remove(o); if (book == i) done(out) }
+            main.post { gajineun.remove(o); val dul = soriGidari.remove(o); if (book == i) { done(out); dul?.forEach { it(out) } } }
         }
     }
 
@@ -196,8 +200,16 @@ object Dokseo {
         p.stop(); p.clearMediaItems()
         bakkwim?.invoke()
         ctx?.let { cx -> if (!Naeryeo.online(cx)) { speakPhone(at, tk); return } }   // 0.3.0 — 인터넷이 없으면 바로 폰 목소리
+        val gidarimSijak = System.currentTimeMillis()   // 0.6.3 이용 기록 — 소리를 기다린 초
+        // 0.6.3 기다림 알리기 — 10초와 45초가 지나도 소리가 안 오면 한 번씩만 알림(이사장님 승인)
+        for ((cho, mal) in listOf(10 to "소리를 만들고 있습니다. 잠시만 기다려 주십시오.", 45 to "여러 분이 함께 들으셔서 조금 더 걸립니다. 그대로 기다려 주십시오.")) {
+            main.postDelayed({ if (tk == token && waiting && playing) { val ap = Api.apSu; allim?.invoke(if (ap > 0) "$mal 앞에 ${ap}문단이 기다리고 있습니다." else mal) } }, cho * 1000L)
+        }
         soriFile(at) { f ->
             if (tk != token) return@soriFile
+            val gidarimCho = ((System.currentTimeMillis() - gidarimSijak) / 1000).toInt()
+            if (f == null) LibGirok.namgi("lib_sori_silpae", mapOf("cho" to gidarimCho, "moksori" to Store.voice, "inteonet" to (ctx?.let { Naeryeo.online(it) } ?: true)))
+            else if (gidarimCho >= 5) LibGirok.namgi("lib_sori_gidarim", mapOf("cho" to gidarimCho, "moksori" to Store.voice))
             if (f == null) { ctx?.let { cx -> if (!Naeryeo.online(cx)) { speakPhone(at, tk); return@soriFile } }; playing = false; waiting = false; allim?.invoke("목소리를 받지 못했습니다. 인터넷을 확인한 뒤 다시 읽기를 눌러 주십시오."); bakkwim?.invoke(); return@soriFile }   // 0.3.2 — 폰 목소리는 인터넷이 끊겼을 때만
             p.setMediaItem(mi(android.net.Uri.fromFile(f).toString(), "$at"))
             queued = at; waiting = false
