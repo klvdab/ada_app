@@ -43,6 +43,13 @@
             </intent-filter>
         </activity>
 
+        <!-- 2.23.0(261014-A19) 교육 마당 사용법 동영상 — 앱 안에서 틂 -->
+        <activity
+            android:name="kr.or.ada.app.jabong.JbDonghwaActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:label="@string/app_name" />
+
         <service
             android:name="kr.or.ada.app.jabong.JabongService"
             android:exported="false"
