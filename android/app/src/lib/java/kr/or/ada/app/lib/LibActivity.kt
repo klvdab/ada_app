@@ -52,7 +52,7 @@ sealed class Hm {
 }
 
 class LibActivity : Activity() {
-    companion object { const val PAN = "0.7.0"; const val BILDEU = "261014-L16" }   // 0.7.0 엔터테인먼트 탭   // 0.6.2 사전 우리말샘·한국고전종합DB 도움말   // 0.6.1 한자음 읽기(중국 고전을 우리 한자음으로, 간체자도, 원문 함께 보기)   // 0.6.0 곱씹어 읽기(다시 듣기·풀어 읽기·중요 표시·책 속 찾기)와 사전·내 낱말장   // 0.5.2 외국 도서 문(외국 도서 → 언어 → 장르와 주제), 글 판 4(강제 줄바꿈 바로잡은 글·옛 자리 옮기기), 도움말 둘   // 0.5.1 첫 화면 맨 위 이름 줄·바로 아래 찾기, 목록에서 한 번 두드리면 바로 읽기, 넘긴 뒤 커서 첫 줄 다지기(도서관 창 클, 이사장님 승인 「1」). 0.4.4 아이폰과 견주어 네 묶음 고침(도서관 창 클, 이사장님 승인 「1」). 0.4.3 새 판 알림과 업데이트(대장클, 이사장님 지시)
+    companion object { const val PAN = "0.7.1"; const val BILDEU = "261014-L17" }   // 0.7.1 탭 고르면 첫 줄·책 듣기 멈춤 줄이기   // 0.7.0 엔터테인먼트 탭   // 0.6.2 사전 우리말샘·한국고전종합DB 도움말   // 0.6.1 한자음 읽기(중국 고전을 우리 한자음으로, 간체자도, 원문 함께 보기)   // 0.6.0 곱씹어 읽기(다시 듣기·풀어 읽기·중요 표시·책 속 찾기)와 사전·내 낱말장   // 0.5.2 외국 도서 문(외국 도서 → 언어 → 장르와 주제), 글 판 4(강제 줄바꿈 바로잡은 글·옛 자리 옮기기), 도움말 둘   // 0.5.1 첫 화면 맨 위 이름 줄·바로 아래 찾기, 목록에서 한 번 두드리면 바로 읽기, 넘긴 뒤 커서 첫 줄 다지기(도서관 창 클, 이사장님 승인 「1」). 0.4.4 아이폰과 견주어 네 묶음 고침(도서관 창 클, 이사장님 승인 「1」). 0.4.3 새 판 알림과 업데이트(대장클, 이사장님 지시)
     private val main = Handler(Looper.getMainLooper())
     private val pool = Executors.newFixedThreadPool(3)
     private val stacks = arrayOf(mutableListOf<Hm>(Hm.Home), mutableListOf<Hm>(Hm.Seojae), mutableListOf<Hm>(Hm.Seoljeong), mutableListOf<Hm>(Hm.EntHome))
@@ -274,6 +274,7 @@ class LibActivity : Activity() {
         Store.last?.let { l ->
             cheot = chaekJul(l, "이어 듣기, ${l.t}, ${l.wichiMal}부터", "이어 듣기 · ${l.wichiMal}부터", { go(Hm.Reader(l.i, l.t, l.kind)) }, false)
         }
+        if (cheot == null) cheot = chaj   // 0.7.1 이어 들을 책이 없으면 찾기 칸이 첫 줄(길눈처럼, 이사장님 지시)
         // 0.5.0 고른 문의 서가 목록을 바로(설정의 첫 화면 목록), 다른 두 문은 그 아래 한 줄씩
         val cm = cheotMun()
         geul(MUN.first { it.first == cm }.second, jemok = true)
@@ -319,6 +320,7 @@ class LibActivity : Activity() {
         Store.reading.firstOrNull { Api.isEnt(it.i) }?.let { l ->
             cheot = chaekJul(l, "이어 듣기, ${l.t}, ${l.wichiMal}부터", "이어 듣기 · ${l.wichiMal}부터", { go(Hm.Reader(l.i, l.t, l.kind)) }, false)
         }
+        if (cheot == null) cheot = chaj   // 0.7.1
         geul("화면해설 작품", jemok = true)
         val mal = geul("가져오는 중입니다.", jakge = true)
         val jari = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -760,7 +762,7 @@ class LibActivity : Activity() {
         var first: View? = null
         undo?.let { (rc, _) -> first = danchu("되돌리기, 방금 지운 ${rc.t}", keun = true) { doedollrigi() } }
         val ilk = Store.reading
-        if (ilk.isEmpty()) geul("읽던 책이 없습니다. 도서관에서 책을 찾아 읽기 시작하면 여기에 저절로 담깁니다.")
+        if (ilk.isEmpty()) { val b = geul("읽던 책이 없습니다. 도서관에서 책을 찾아 읽기 시작하면 여기에 저절로 담깁니다."); if (first == null) first = b }   // 0.7.1
         else {
             if (listO >= ilk.size) listO = 0
             geul("읽던 책 ${ilk.size}권 가운데 ${listO + 1}번부터 ${minOf(listO + Api.PER, ilk.size)}번", jakge = true)
@@ -864,6 +866,7 @@ class LibActivity : Activity() {
 
     // 0.4.4 도움말 — 아이폰 도움말과 같은 가짓수로 맞춤(안드로이드 말로)
     private val DOUM = listOf(
+        "탭 고르기" to "아래 탭(도서관, 엔터테인먼트, 내 서재, 설정·도움말)을 고르면 커서가 그 화면 목록의 첫 줄에 놓입니다. 도서관과 엔터테인먼트는 이어 듣기, 이어 들을 것이 없으면 찾기 칸입니다. 내 서재는 읽던 책 첫 권입니다. 지금 탭을 다시 누르면 그 탭 첫 화면으로 돌아가 첫 줄에 놓입니다.",   // 0.7.1
         "이어 듣기" to "읽던 책이 있으면 도서관 첫 화면 찾기 칸 아래에 이어 듣기가 나옵니다. 누르면 독서기가 열리면서 읽던 자리부터 바로 읽고, 커서는 멈춤 단추에 놓입니다.",
         "책 고르면 바로 읽기" to "목록에서 책 이름을 한 번 두드리면 독서기가 열리면서 바로 읽습니다. 읽던 책이면 읽던 자리부터 읽습니다. 소리책과 동영상도 바로 틉니다. 커서는 멈춤 단추에 놓이니 잘못 고르셨으면 바로 멈추십시오. 책 소개, 지은이, 출판사, 내려받기는 독서기 더 보기 안의 책 정보에 있습니다.",
         "책 찾기" to "도서관 첫 화면 맨 위 이름 줄 바로 아래의 찾을 책 이름 칸에 낱말을 적고 찾기를 누릅니다. 찾은 결과만 나오고 커서가 첫 줄에 놓입니다. 다시 찾을 때는 뒤로를 누릅니다.",

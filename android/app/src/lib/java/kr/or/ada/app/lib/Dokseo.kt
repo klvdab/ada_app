@@ -25,6 +25,7 @@ import java.util.concurrent.Executors
 object Dokseo {
     private val main = Handler(Looper.getMainLooper())
     private val pool = Executors.newFixedThreadPool(3)
+    private val apPool = Executors.newSingleThreadExecutor()   // 0.7.1 (261014-L17) 미리 받기는 따로 한 일꾼 — 지금 들을 문단이 미리 받기 뒤에 줄 서지 않게(이사장님 지적: 점점 무거워지고 멈춤)
     private val pan4Sido = HashSet<Int>()   // 0.5.2 이번에 자리 옮기기를 해 본 책
     lateinit var ctx: Context
     var player: ExoPlayer? = null
@@ -68,6 +69,7 @@ object Dokseo {
         p.addListener(object : Player.Listener {
             // 0.4.4 전화·이어폰 뽑기로 재생기가 스스로 멈추거나 다시 틀 때 「읽기」·「멈춤」 표시를 맞춤
             override fun onPlayWhenReadyChanged(pwr: Boolean, reason: Int) {
+                if (kind != "geul" && !pwr && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS) LibGirok.namgi("lib_sori_meomchum", mapOf("kka" to "kkeunkim", "ent" to Api.isEnt(i)))   // 0.7.1
                 if (kind != "geul") return
                 if (!pwr && (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS || reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY)) { playing = false; waiting = false; bakkwim?.invoke() }
                 else if (pwr && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS) { playing = true; bakkwim?.invoke() }
@@ -79,6 +81,8 @@ object Dokseo {
                 apseo(); bakkwim?.invoke()
             }
             override fun onPlaybackStateChanged(state: Int) {
+                // 0.7.1 소리책·동영상·엔터테인먼트가 틀던 중 소리가 모자라 기다리면 이용 기록에(멈춤 까닭 살피기)
+                if (kind != "geul" && state == Player.STATE_BUFFERING && player?.playWhenReady == true) LibGirok.namgi("lib_sori_meomchum", mapOf("kka" to "moja", "ent" to Api.isEnt(i), "cho" to ((player?.currentPosition ?: 0) / 1000).toInt()))
                 if (kind == "geul" && state == Player.STATE_ENDED && playing) {
                     if (pos >= modu - 1 && modu > 0) { playing = false; Store.remember(i, title, kind, pos.toDouble(), modu, done = true); allim?.invoke("책을 끝까지 읽었습니다."); bakkwim?.invoke() }
                     else { waiting = true; bakkwim?.invoke() }    // 다음 문단이 아직 안 구워짐 — 들어오면 이어 틂
@@ -118,6 +122,9 @@ object Dokseo {
         val saved = Store.rec(bi)
         val p = ensurePlayer()
         p.setPlaybackParameters(PlaybackParameters(Store.rate))
+        // 0.7.1 (261014-L17) 드라마가 나오다 멈췄다 함(이사장님 0시 21분) — 「말소리」로 틀면 톡백이 말할 때 플레이어가 멈춤. 소리책·동영상·엔터테인먼트는 「영화 소리」로(글자책 낭독은 그대로)
+        p.setAudioAttributes(androidx.media3.common.AudioAttributes.Builder().setUsage(androidx.media3.common.C.USAGE_MEDIA)
+            .setContentType(if (kind == "geul") androidx.media3.common.C.AUDIO_CONTENT_TYPE_SPEECH else androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
         if (kind == "geul") {
             pos = at?.toInt() ?: saved?.pos?.toInt() ?: 0
             loadPage(pos) { Store.remember(i, title, kind, pos.toDouble(), modu); bakkwim?.invoke() }
@@ -163,9 +170,9 @@ object Dokseo {
     }
 
     /** 문단 o 의 소리를 받아 파일로 — 다 되면 main 에서 done(파일 또는 null) */
-    private fun soriFile(o: Int, done: (File?) -> Unit) {
+    private fun soriFile(o: Int, apseo: Boolean = false, done: (File?) -> Unit) {
         val txt = paras[o]
-        if (txt == null) { loadPage(o) { soriFile(o, done) }; return }
+        if (txt == null) { loadPage(o) { soriFile(o, apseo, done) }; return }
         val v = Store.voice
         val cut = txt.take(600)
         val h = hash(cut, v)
@@ -173,16 +180,21 @@ object Dokseo {
         if (f.exists() && f.length() > 100) { done(f); return }
         if (!gajineun.add(o)) { soriGidari.getOrPut(o) { ArrayList() }.add(done); return }   // 0.6.3 — 받는 중이면 다 받았을 때 함께 알려 줌
         val book = i
-        pool.execute {
+        (if (apseo) apPool else pool).execute {
             var out: File? = null
             runCatching {
                 val (_, hh0) = Api.yocheong(cut, v)
                 val hh = hh0.ifEmpty { h }
-                for (n in 0 until 240) {   // 0.6.3 — 85초에서 4분으로: 여러 분이 함께 들어 밀려도 끝까지 기다림
+                // 0.7.1 묻기 줄이기 — 4분까지 기다리되 처음 여섯 번만 0.7초마다, 그 뒤로는 앞에 기다리는 문단 수만큼 느긋하게(1~3초). 듣는 자리에서 멀어진 미리 받기는 그만둠
+                val kkeut = System.currentTimeMillis() + 240_000
+                var n = 0
+                while (System.currentTimeMillis() < kkeut) {
                     if (book != i) break
+                    if (o != pos && (o < pos || o > pos + 4)) break
                     val d = Api.sori(hh)
                     if (d != null) { f.writeBytes(d); out = f; break }
-                    Thread.sleep(if (n < 10) 700 else 1000)
+                    Thread.sleep(if (n < 6) 700L else minOf(3000L, 1000L + Api.apSu * 250L))
+                    n++
                 }
             }
             main.post { gajineun.remove(o); val dul = soriGidari.remove(o); if (book == i) { done(out); dul?.forEach { it(out) } } }
@@ -220,13 +232,15 @@ object Dokseo {
     /** 앞 네 문단을 미리 받아 차례대로 줄에 붙임 — 문단 사이 틈이 없음 */
     private fun apseo() {
         if (kind != "geul" || !playing) return
-        val tk = token
-        for (k in 1..6) {   // 0.4.1 — 여섯 문단을 미리
-            val o = pos + k
-            if (modu in 1..o) break
-            if (o <= queued) continue
-            soriFile(o) { f -> if (tk == token && f != null) butigi(o, f) }
-        }
+        apseoHana(token, 1)
+    }
+    /** 0.7.1 (261014-L17) 뒤 세 문단을 차례로 하나씩(전에는 여섯 문단을 한꺼번에) — 다른 문단으로 옮기면 그만둠 */
+    private fun apseoHana(tk: Int, k: Int) {
+        if (k > 3 || tk != token || !playing) return
+        val o = pos + k
+        if (modu in 1..o) return
+        if (o <= queued) { apseoHana(tk, k + 1); return }
+        soriFile(o, apseo = true) { f -> if (tk == token && f != null) butigi(o, f); apseoHana(tk, k + 1) }
     }
     private val gidari = HashMap<Int, File>()
     private fun butigi(o: Int, f: File) {
