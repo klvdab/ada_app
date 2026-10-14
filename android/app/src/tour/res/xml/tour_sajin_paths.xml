@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- LVD투어스튜디오 1.0.0(261012-T1) — 답사 사진을 카메라 앱이 잠깐 적어 두는 캐시 자리 -->
+<paths>
+    <cache-path name="sajin" path="sajin/" />
+</paths>
