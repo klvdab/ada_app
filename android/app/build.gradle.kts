@@ -78,7 +78,7 @@ android {
             dimension = "ap"
             applicationId = "kr.or.ada.byod"
             resValue("string", "app_name", "BYOD 방송")
-            versionName = "1.1.6"   // 261012-B8 스티커를 엔에프시 태그로 부름, 듣기 주소 바로잡기와 확인, 엔에프시 태그 쓴 뒤 다시 읽어 확인, A4 인쇄용 한 장, 듣기 화면 단추에 커서(방송클, 이사장님 승인). 261009-B7 현장 점검 단추(사운드카드·소리 크기·공유기·스티커 주소·배터리 한 번에), 멈춘 폰 10초 안에 빼고 세기, 듣는 화면 안드로이드 안내(방송클, 이사장님 승인). 261007-B6 실제로 받는 소리 장치 알림, 사운드카드 안 잡힐 때 할 일 한 줄, 어떤 소리 장치든 꽂고 빼면 다시 고름, 기기 점검 판단·결과 복사(방송클, 이사장님 승인). 261007-B5 기기 점검(소리 장치·USB·연결 보기), USB 없으면 3.5밀리 마이크·라인 입력도(허브 CT118 시험). 261007-B4 새 판 알림과 업데이트(대장클, 이사장님 지시). 261006-B3 스티커 쓰기 고침(엔디프 확인 건너뛰기 뺌, 엔태그 칩 직접 쓰기 더함). 261006-B2 접속 도구(엔에프시 스티커 쓰기·큐알코드 만들기, 도서클이 방송클 일을 이어 맡음)
+            versionName = "1.3.0"   // 261014-B10 행사 녹음을 공유기가 1분마다 남기고 행사 기록과 결과보고를 만들어 배프 다시듣기에 올림, 행사 이름·현장영상해설사 칸, 지난 행사 기록(방송클, 이사장님 승인 「1」). 261014-B9 플린트 2 방식 — 방송 서버를 공유기 안에 두고 이 앱은 해설 소리만 보냄, 플린트 2 준비하기, 와이파이 태그 한 장으로 듣기까지, 와이파이 이름 기억, 예비로 태블릿 서버 방식(방송클, 이사장님 승인 「1」). 261012-B8 스티커를 엔에프시 태그로 부름, 듣기 주소 바로잡기와 확인, 엔에프시 태그 쓴 뒤 다시 읽어 확인, A4 인쇄용 한 장, 듣기 화면 단추에 커서(방송클, 이사장님 승인). 261009-B7 현장 점검 단추(사운드카드·소리 크기·공유기·스티커 주소·배터리 한 번에), 멈춘 폰 10초 안에 빼고 세기, 듣는 화면 안드로이드 안내(방송클, 이사장님 승인). 261007-B6 실제로 받는 소리 장치 알림, 사운드카드 안 잡힐 때 할 일 한 줄, 어떤 소리 장치든 꽂고 빼면 다시 고름, 기기 점검 판단·결과 복사(방송클, 이사장님 승인). 261007-B5 기기 점검(소리 장치·USB·연결 보기), USB 없으면 3.5밀리 마이크·라인 입력도(허브 CT118 시험). 261007-B4 새 판 알림과 업데이트(대장클, 이사장님 지시). 261006-B3 스티커 쓰기 고침(엔디프 확인 건너뛰기 뺌, 엔태그 칩 직접 쓰기 더함). 261006-B2 접속 도구(엔에프시 스티커 쓰기·큐알코드 만들기, 도서클이 방송클 일을 이어 맡음)
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/bfblive/hyeonjang/\"")
         }
         create("lib") {   // 261002-L1 AI점자도서관 안드로이드 — 속까지 앱(LibActivity, src/lib), 아이폰 0.2.0 과 동시에(이사장님 승인 "2")
@@ -92,7 +92,7 @@ android {
             dimension = "ap"
             applicationId = "kr.or.ada.tourstudio"
             resValue("string", "app_name", "투어스튜디오")
-            versionName = "1.0.0"   // 261012-T1 첫 판 — 코스·답사(지점 경계·새 지점·시계 방향 사진)·지점 한 화면·현장영상해설·원칙 16개 점검·승인 요청·저절로 저장
+            versionName = "1.0.1"   // 261014-T2 사진 안내를 시계 방향으로, 네 개씩 목록 더 보기를 「넷」으로(이사장님 승인 「1」). 261012-T1 첫 판 — 코스·답사(지점 경계·새 지점·시계 방향 사진)·지점 한 화면·현장영상해설·원칙 16개 점검·승인 요청·저절로 저장
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/lvdts/lvdts.html\"")
         }
     }
@@ -140,6 +140,7 @@ dependencies {
     implementation("androidx.webkit:webkit:1.12.1")   // 260926-1 다리를 문서 맨 처음에 심기
     "libImplementation"("androidx.media3:media3-exoplayer:1.4.1")   // 261002-L1 도서관 독서기 — 문단 사이 틈 없이 이어 틀기
     "byodImplementation"("com.google.zxing:core:3.5.3")
+    "byodImplementation"("com.github.mwiede:jsch:0.2.20")   // 261014-B9 플린트 2 준비하기 — 공유기에 방송 서버를 넣음(SSH)
     listOf("libImplementation", "byodImplementation", "tourImplementation").forEach { add(it, "androidx.work:work-runtime-ktx:2.9.1") }   // 261012-T1 투어스튜디오 새 판 알림 뒤 일꾼도   // 261007 새 판 알림 뒤 일꾼(OllimWorker) — 도서관·BYOD에도   // 261006-B2 BYOD 접속 도구 — 큐알코드 만들기
     "libImplementation"("androidx.media3:media3-ui:1.4.1")          // 261002-L1 도서관 동영상 보기
     "libImplementation"("androidx.media3:media3-session:1.4.1")     // 261008-L8 도서관 화면 꺼도 읽기·이어폰 단추·잠금 화면(DokseoService)
