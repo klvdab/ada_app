@@ -15,7 +15,7 @@ object Hyeonjang {
 
     data class Jul(val doem: Boolean, val mal: String)
 
-    // 스티커와 큐알에 쓴 듣기 주소(접속 도구에서 쓸 때 기억)
+    // 엔에프시 태그와 큐알에 쓴 듣기 주소(접속 도구에서 쓸 때 기억)
     fun stickerJuso(ctx: Context): String = ctx.getSharedPreferences("byod", Context.MODE_PRIVATE).getString("sticker_juso", "") ?: ""
     fun stickerGieok(ctx: Context, juso: String) {
         if (juso.startsWith("http")) ctx.getSharedPreferences("byod", Context.MODE_PRIVATE).edit().putString("sticker_juso", juso).apply()
@@ -52,13 +52,13 @@ object Hyeonjang {
         val juso = ByodService.jusoChatgi()
         l.add(if (juso.isEmpty()) Jul(false, "공유기: 붙지 않았습니다. 랜선을 허브에 꽂거나 태블릿을 공유기 와이파이에 붙이십시오.")
               else Jul(true, "공유기: 붙었습니다. 듣기 주소 " + juso))
-        // 6. 스티커 주소와 지금 주소
+        // 6. 엔에프시 태그 주소와 지금 주소
         val st = stickerJuso(ctx)
         l.add(when {
-            juso.isEmpty() -> Jul(false, "스티커 주소: 공유기에 붙은 뒤 견줄 수 있습니다.")
-            st.isEmpty() -> Jul(false, "스티커 주소: 이 태블릿으로 스티커나 큐알을 만든 적이 없습니다. 더 보기의 접속 도구에서 만드십시오.")
-            st == juso -> Jul(true, "스티커 주소: 지금 주소와 같습니다. 스티커와 큐알을 그대로 쓰면 됩니다.")
-            else -> Jul(false, "스티커 주소: 지금 주소와 다릅니다. 스티커에는 " + st + ", 지금은 " + juso + " 입니다. 접속 도구에서 스티커와 큐알을 새로 만드십시오.")
+            juso.isEmpty() -> Jul(false, "엔에프시 태그 주소: 공유기에 붙은 뒤 견줄 수 있습니다.")
+            st.isEmpty() -> Jul(false, "엔에프시 태그 주소: 이 태블릿으로 엔에프시 태그나 큐알을 만든 적이 없습니다. 더 보기의 접속 도구에서 만드십시오.")
+            st == juso -> Jul(true, "엔에프시 태그 주소: 지금 주소와 같습니다. 엔에프시 태그와 큐알을 그대로 쓰면 됩니다.")
+            else -> Jul(false, "엔에프시 태그 주소: 지금 주소와 다릅니다. 엔에프시 태그에는 " + st + ", 지금은 " + juso + " 입니다. 접속 도구에서 엔에프시 태그와 큐알을 새로 만드십시오.")
         })
         // 7. 배터리
         val bi = ctx.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))

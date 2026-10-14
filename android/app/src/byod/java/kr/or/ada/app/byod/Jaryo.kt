@@ -59,7 +59,7 @@ body{font-family:sans-serif;margin:0 auto;max-width:640px;padding:16px;backgroun
 button{box-sizing:border-box;display:block;width:100%;padding:30px 16px;font-size:24px;font-weight:700;margin:14px 0;border:2px solid #222;border-radius:14px;background:#f3f3f3;color:#111}
 p{font-size:18px;line-height:1.7}
 </style></head><body>
-<button id="b">현장영상해설 듣기</button>
+<button id="b" autofocus>현장영상해설 듣기</button>
 <p id="m" aria-live="polite">단추를 누르면 현장영상해설이 들립니다.</p>
 <p>안드로이드 폰에서 인터넷이 없다며 연결을 유지할지 물으면 예를 누르십시오.</p>
 <script>
@@ -79,6 +79,6 @@ function sangtae(){fetch("/status",{cache:"no-store"}).then(function(r){return r
 $("b").onclick=function(){if(on){on=false;try{ctx.suspend();}catch(e){}$("b").textContent="현장영상해설 듣기";mal("멈추었습니다.");return;}
 if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)();var bi=ctx.createBufferSource();bi.buffer=ctx.createBuffer(1,1,22050);bi.connect(ctx.destination);bi.start(0);jalgi();}
 try{ctx.resume();}catch(e){}on=true;$("b").textContent="듣기 멈추기";mal(keu?"해설이 들리고 있습니다.":"해설을 준비하고 있습니다.");};
-sangtae();setInterval(sangtae,3000);
+sangtae();setInterval(sangtae,3000);setTimeout(function(){try{$("b").focus();}catch(e){}},300);
 </script></body></html>"""
 }
