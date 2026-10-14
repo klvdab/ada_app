@@ -241,16 +241,25 @@ data class NnButak(
     val id: String, val sin: String, val min: String, val mlat: Double, val mlon: Double, val ttae: String, val mal: String,
     val nugu: String, val geori: Double, val eonje: String, val doen: Boolean, val gil: String, val daetgeul: List<NnButakDat>
 ) {
+    /** 2.41.0 출발지가 이름이 아니라 위성 위치로 올라온 부탁이면 「출발지 이름 확인 필요」 */
+    val sinMal: String get() = if (wiseongJari(sin)) "출발지 이름 확인 필요(위성 위치로 남긴 부탁)" else sin
+    companion object {
+        /** 2.41.0 지금 내 자리·그때 계셨던 자리처럼 위성 위치로 남긴 출발지(직원 시험 뒤 이사장님 지시 2026-10-14, 아이폰 Butak.wiseongJari 와 같음) */
+        fun wiseongJari(s: String): Boolean {
+            val t = s.replace(" ", "")
+            return t.isEmpty() || t.contains("지금내자리") || t.contains("계셨던자리") || t.contains("현재위치") || t.contains("내위치")
+        }
+    }
     val julMal: String
         get() {
-            var t = "${sin}에서 ${min}까지"
+            var t = "${sinMal}에서 ${min}까지"
             if (geori > 0) t += " · 약 " + (if (geori >= 1000) String.format(Locale.US, "%.1f킬로미터", geori / 1000) else "${geori.toInt()}미터")
             if (doen) t += if (gil.isEmpty()) " · 다 그려졌습니다" else " · 길눈님이 그려 주셨습니다"
             return "$t · $eonje"
         }
     val jaseMal: String
         get() {
-            var t = "${sin}에서 ${min}까지. "
+            var t = "${sinMal}에서 ${min}까지. "
             if (ttae.isNotEmpty()) t += "언제쯤 : $ttae. "
             if (mal.isNotEmpty()) t += "$mal. "
             if (nugu.isNotEmpty()) t += "부탁하신 분 별명은 $nugu. "

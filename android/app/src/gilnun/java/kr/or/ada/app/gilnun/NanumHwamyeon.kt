@@ -582,13 +582,23 @@ class NnButakSseugiHwamyeon : Hwamyeon("새로 부탁하기") {
         if (nugu == null) nugu = NnGeoreumNanum.byeol(t)
         val ce = nnKan(t, "어디서 — 적고 엔터", chulMal) { chulMal = it }
         chatgiKan(ce) { chatgi(t, chulMal, true) }
-        t.danchu("지금 내 자리를 출발지로") {
+        // 2.41.0 출발지는 건물·가게 이름으로만(직원 시험 뒤 이사장님 지시 2026-10-14, 아이폰 2.69.0과 같음) — 위성 위치를 그대로 올리지 않고, 내 곁 이름 있는 곳을 찾아 고르시게 함
+        t.danchu("내 곁 건물·가게 이름 찾기 — 골라서 출발지로") {
             val w = Wichi.jigeum
             if (w == null) { Sori.mal("지금 자리를 잡는 중입니다. 잠시 뒤에 다시 눌러 주십시오."); return@danchu }
-            chul = NnGot("지금 내 자리", "", w.lat, w.lon)
-            chulMal = "지금 내 자리"
-            ce.setText(chulMal)
-            Sori.mal("출발지를 지금 내 자리로 정했습니다. 이제 어디까지인지 적어 주십시오.")
+            Sori.mal("내 곁 건물과 가게를 찾고 있습니다.", MalGeup.JEONGBO)
+            Chatgi.juso(w.lat, w.lon) { j ->
+                if (j == null) { Sori.mal("내 곁에서 이름 있는 곳을 찾지 못했습니다. 어디서 칸에 건물이나 가게 이름을 적어 주십시오."); return@juso }
+                NnGilButak.gotChatgi(j) { r0 ->
+                    val r = (r0 ?: emptyList()).filter { it.ireum.isNotEmpty() }
+                    if (r.isEmpty()) { Sori.mal("내 곁에서 이름 있는 곳을 찾지 못했습니다. 어디서 칸에 건물이나 가게 이름을 적어 주십시오."); return@gotChatgi }
+                    huboChul = true
+                    hubo = r
+                    m5.saeMok()
+                    Sori.mal("내 곁 이름 있는 곳 ${r.size}곳입니다. 출발지로 고르실 곳을 두드리십시오.", MalGeup.JEONGBO)
+                    if (nnBoinda(t, this)) t.dasiGeurigi()
+                }
+            }
         }
         val me = nnKan(t, "어디까지 — 적고 엔터", mokMal) { mokMal = it }
         chatgiKan(me) { chatgi(t, mokMal, false) }
@@ -659,6 +669,9 @@ class NnButakSseugiHwamyeon : Hwamyeon("새로 부탁하기") {
         val m = mokMal.trim()
         if (s.isEmpty()) { Sori.mal("어디서 출발하시는지 적어 주십시오."); return }
         if (m.isEmpty()) { Sori.mal("어디까지 가시는지 적어 주십시오."); return }
+        // 2.41.0 출발지·도착지는 찾아서 고른 건물·가게라야 함 — 자봉이 정확히 어디서 어디까지 걸을지 알도록
+        if (chul?.ireum != s || NnButak.wiseongJari(s)) { Sori.mal("출발지는 건물이나 가게 이름을 적고 엔터를 치신 뒤, 비슷한 곳에서 골라 주십시오."); return }
+        if (mok?.ireum != m) { Sori.mal("도착지는 건물이나 가게 이름을 적고 엔터를 치신 뒤, 비슷한 곳에서 골라 주십시오."); return }
         olineun = true
         ob.text = "올리는 중입니다"
         val c = if (chul?.ireum == s) chul else null
