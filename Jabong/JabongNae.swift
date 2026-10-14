@@ -106,6 +106,24 @@ final class JabongNae: ObservableObject {
         }
     }
 
+    /// 2.21.0 내 기록 탭에서 1365 아이디를 넣거나 고침 — 나스 등록 창고(gochim)에도 함께. 성공하면 nil, 안 되면 까닭
+    /// 네 자리 숫자가 폰에 없으면(예전 판에서 이어 쓰신 분) 적어 주신 숫자로
+    var jamIssum: Bool { !(Yeolsoe.ilgi("jbJam") ?? "").isEmpty }
+    func id1365Gochigi(_ id0: String, jam jamIp: String = "") async -> String? {
+        let id = String(id0.trimmingCharacters(in: .whitespacesAndNewlines).prefix(40))
+        let jam = jamIssum ? (Yeolsoe.ilgi("jbJam") ?? "") : jamIp.filter(\.isNumber)
+        guard deungrokham else { return "먼저 등록해 주십시오." }
+        guard jam.count == 4 else { return "등록 때 정하신 네 자리 숫자를 적어 주십시오." }
+        guard let j = await JabongNae.mutgi("gochim", ["beonho": beonho, "jam": jam, "id1365": id]) else {
+            return "통신이 닿지 않았습니다. 잠시 뒤 다시 눌러 주십시오."
+        }
+        guard (j["ok"] as? Bool) == true else { return (j["msg"] as? String) ?? "넣지 못했습니다." }
+        if !jamIssum { Yeolsoe.sseugi("jbJam", jam) }
+        await MainActor.run { self.dameum(self.beonho, self.ireum, self.jiyeok, id) }
+        Girok.shared.namgi("jabong_1365", ["beonho": beonho, "neoum": id.isEmpty ? "0" : "1"])
+        return nil
+    }
+
     /// 이 폰에서 등록을 지움(나스 기록은 그대로)
     func ijeugi() {
         dameum("", "", "", "")

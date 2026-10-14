@@ -2,12 +2,18 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.20.0"
-    static let bild = "261012-I14"
+    static let pan = "2.21.0"
+    static let bild = "261014-I15"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.21.0", bild: "261014-I15", nal: "2026-10-14", naeyong: [
+            "★직원 시험 뒤 이사장님 지시(2026-10-14) — 내 기록 탭에서 1365 아이디 넣기·고치기(협회 등록 창고에도 함께, 폰에 네 자리 숫자가 없으면 한 번 여쭘)",
+            "★보완 부탁 한 건 화면에 「보완하기」 — 출발지·도착지를 그 길과 같게 넣고 봉사 탭으로, 점지도 그리기 단추에 보완 길로 표시, 그리기 화면에 보완 그만두기. 보완 완료되면 저절로 마침",
+            "그려 주세요 — 위성 위치로 남긴 출발지(그때 계셨던 자리)는 「출발지 이름 확인 필요」로 보이고, 걷기 시작 때 출발 자리 주소를 저절로 적음(길눈 2.69.0부터 새 부탁은 이름으로만)",
+            "도움말 「1365 아이디 넣기·고치기」 더함, 보완 부탁·그려 주세요 고침"
+        ]),
         Gochim(pan: "2.20.0", bild: "261012-I14", nal: "2026-10-12", naeyong: [
             "★AI 밑그림(이사장님 승인 2026-10-12 「1」) — 그려 주세요 부탁에서 AI 밑그림 듣기, 부탁 길을 걸을 때 밑그림 받아 들려 드림, 꺾는 곳 15미터 앞 한 번 알림(처음값 켬)",
             "다 걸은 뒤 밑그림과 견주기 — 15미터 넘게 어긋난 구간과 꺾임 표시가 빠졌을 수 있는 곳을 알림, 막지 않고 까닭을 말로 남기도록 여쭘. 견준 것은 올릴 때 협회 점검에 참고로 감(점지도에는 싣지 않음)",

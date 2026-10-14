@@ -171,6 +171,23 @@ final class JeomGeurigi: ObservableObject {
         UserDefaults.standard.removeObject(forKey: "jb.butak.id")
         JeomGeurigi.butakMok = nil
     }
+    /// 2.21.0 보완하기로 정한 보완 부탁(번호, 출발지, 도착지) — 다음 걷기 시작에 출발지·도착지 이름이 보완 부탁과 같게 들어감(같은 이름으로 올려 점검을 통과하면 보완 완료)
+    @Published private(set) var bowan: (id: String, from: String, to: String)? = {
+        let d = UserDefaults.standard
+        guard let i = d.string(forKey: "jb.bowan.id"), !i.isEmpty else { return nil }
+        return (i, d.string(forKey: "jb.bowan.from") ?? "", d.string(forKey: "jb.bowan.to") ?? "")
+    }()
+    func bowanJeonghagi(_ id: String, from: String, to: String) {
+        butakGeumanduggi()   // 부탁 길과 겹치지 않게
+        bowan = (id, from, to)
+        let d = UserDefaults.standard
+        d.set(id, forKey: "jb.bowan.id"); d.set(from, forKey: "jb.bowan.from"); d.set(to, forKey: "jb.bowan.to")
+        Girok.shared.namgi("jb_bowanhagi", ["id": id])
+    }
+    func bowanGeumanduggi() {
+        bowan = nil
+        UserDefaults.standard.removeObject(forKey: "jb.bowan.id")
+    }
     @Published private(set) var mureum: Mureum?
     @Published private(set) var allim = ""
     @Published private(set) var geurinGil: [GrGil] = []
@@ -291,15 +308,19 @@ final class JeomGeurigi: ObservableObject {
         var cb = chulbal.trimmingCharacters(in: .whitespacesAndNewlines)
         if let b = butak {   // 2.14.0 길눈님 부탁 길 — 출발지·도착지 이름을 부탁대로
             gil?.butakId = b.id
-            if cb.isEmpty { cb = b.sin }
+            if cb.isEmpty && !Butak.wiseongJari(b.sin) { cb = b.sin }   // 2.21.0 위성 위치로 남긴 출발지는 이름으로 쓰지 않음(출발 자리 주소를 저절로)
             if !b.min.isEmpty { gil?.to = String(b.min.prefix(40)) }
+        }
+        if butak == nil, let w = bowan {   // 2.21.0 보완하기 — 출발지·도착지 이름을 보완 부탁과 같게
+            if cb.isEmpty { cb = w.from }
+            if !w.to.isEmpty { gil?.to = String(w.to.prefix(40)) }
         }
         if !cb.isEmpty { gil?.from = String(cb.prefix(40)) }   // 2.11.0 봉사자가 넣은 출발지 이름이 먼저
         sangtae = .georeum
         dolligi()
         momKyeogi()
         Girok.shared.namgi("jb_geurigi_sijak", ["id": gil?.id ?? ""])
-        alrigi((butak.map { "길눈님 부탁 길, \($0.sin)에서 \($0.min)까지 그립니다. " } ?? "") + "걷기 시작했습니다. 평소 걸음으로 걸으시고, 꺾이는 곳과 계단, 건널목, 문에 닿는 순간 표시를 남겨 주십시오.")
+        alrigi((butak.map { "길눈님 부탁 길, \(Butak.wiseongJari($0.sin) ? "출발 자리" : $0.sin)에서 \($0.min)까지 그립니다. " } ?? (bowan.map { "보완 길, \($0.from)에서 \($0.to)까지 다시 그립니다. " } ?? "")) + "걷기 시작했습니다. 평소 걸음으로 걸으시고, 꺾이는 곳과 계단, 건널목, 문에 닿는 순간 표시를 남겨 주십시오.")
         // 출발한 자리 주소를 저절로 적음 — 2.11.0 봉사자가 이름을 넣었으면 그대로 둠
         if cb.isEmpty, let w = WichiEngine.shared.jigeum {
             Task {
@@ -911,7 +932,7 @@ final class JeomGeurigi: ObservableObject {
                 }
             }
             let bm = (r["bowanMachim"] as? Int) ?? 0   // 2.13.0 같은 출발지·도착지 보완 부탁이 있었으면 보완 완료
-            if bm > 0 { Task { await JbBowan.shared.bulleo(gangje: true) } }
+            if bm > 0 { bowanGeumanduggi(); Task { await JbBowan.shared.bulleo(gangje: true) } }   // 2.21.0 보완 완료면 보완하기도 마침
             if bowanPilyo {   // 2.18.0 받기는 했지만 손볼 곳이 있음 — 보완 목록에도 올라가 누구든 이어서 보완
                 Task { await JbBowan.shared.bulleo(gangje: true) }
                 Girok.shared.namgi("jb_olim_bowan", ["id": id, "seobeo": geurinGil[i].seobeoId ?? ""])
@@ -1066,11 +1087,15 @@ struct GeurigiView: View {
     @ViewBuilder private var sijakJeon: some View {
         if s.bopok > 0.2 && s.bopokJaem {
             if let b = g.butak {   // 2.14.0 길눈님 부탁 길 — 안내와 그만두기 단추를 한 자리에
-                Text("길눈님 부탁 길: \(b.sin) → \(b.min). 걷기 시작을 누르시면 이 이름이 들어갑니다.").font(.title3.bold())
+                Text("길눈님 부탁 길: \(Butak.wiseongJari(b.sin) ? "출발지 이름 확인 필요" : b.sin) → \(b.min). 걷기 시작을 누르시면 이 이름이 들어갑니다.").font(.title3.bold())
                 if JeomGeurigi.butakMok != nil {   // 2.20.0
                     Text("출발 자리에서 걷기 시작을 누르시면 AI 밑그림을 받아 들려 드립니다. " + JbMitgeurim.gyoyuk).font(.body)
                 }
                 Button("부탁 길 그만두기 — 그냥 그리기") { g.butakGeumanduggi() }.buttonStyle(KeunDanchu())
+            }
+            if g.butak == nil, let w = g.bowan {   // 2.21.0 보완하기 — 안내와 그만두기 단추를 한 자리에
+                Text("보완 길: \(w.from) → \(w.to). 걷기 시작을 누르시면 이 이름이 들어갑니다. 같은 출발지와 도착지로 올려 협회 점검을 통과하면 보완 완료가 됩니다.").font(.title3.bold())
+                Button("보완 그만두기 — 그냥 그리기") { g.bowanGeumanduggi() }.buttonStyle(KeunDanchu())
             }
             Button("걷기 시작 — 출발 자리 주소는 저절로 적습니다") { g.sijak(chulbal: chulbal); chulbal = "" }.buttonStyle(KeunDanchu())
             DisclosureGroup("출발지 이름 직접 넣기 — 넣지 않으면 위성 주소") {   // 2.11.0

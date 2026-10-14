@@ -139,6 +139,17 @@ struct BowanGilView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
+                // 2.21.0 보완하기(직원 시험 뒤 이사장님 지시 2026-10-14) — 출발지·도착지를 이 길과 같게 넣고 점지도 그리기로
+                if !gil.from.isEmpty && !gil.to.isEmpty {
+                    Button("보완하기 — \(gil.from)에서 \(gil.to)까지 다시 그리기") {
+                        guard JeomGeurigi.shared.sangtae == .swim else {
+                            SoriEngine.shared.mal("그리는 중인 길이 있습니다. 그 길을 먼저 마치거나 그만두신 뒤 다시 눌러 주십시오."); return
+                        }
+                        JeomGeurigi.shared.bowanJeonghagi(gil.id, from: gil.from, to: gil.to)
+                        SoriEngine.shared.mal("고맙습니다. 봉사 탭의 점지도 그리기에서 \(gil.from)부터 \(gil.to)까지 다시 걸어 주십시오. 걷기 시작을 누르시면 출발지와 도착지 이름이 이 길과 같게 들어갑니다. 올려서 협회 점검을 통과하면 보완 완료가 됩니다.")
+                        JbTabGil.shared.tab = 0
+                    }.buttonStyle(KeunDanchu())
+                }
                 Button("고칠 곳 말로 듣기") { JbBowan.malHagi(gil) }.buttonStyle(KeunDanchu())
                 Text(gil.mal ?? JbBowan.butak).font(.title3.bold())
                 Text("보완 부탁 날 " + JbBowan.nalMal(gil.ttae) + (gil.nal.map { ", \($0)일 지남" } ?? "")).font(.body)
