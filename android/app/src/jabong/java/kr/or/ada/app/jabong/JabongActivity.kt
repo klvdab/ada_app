@@ -88,6 +88,7 @@ class JabongActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         JabongBonche.sijak(this)
+        JbMadang.sijak(this); JbMadang.mokrokBatgi(); JbMadang.cheotGilSalpigi()   // 2.23.0 교육 마당
         Wichi.sijak(this)
         kr.or.ada.app.gilnun.JeonhwaGamsi.sijak(this)   // 2.15.0 전화가 오거나 걸면 자봉 안내 말도 멈춤(길눈과 같음, 이사장님 지시)
 
@@ -189,7 +190,10 @@ class JabongActivity : AppCompatActivity() {
         }
     }
 
-    override fun onResume() { super.onResume(); Wichi.wiseongDolligi(); deopgaeMatchugi(); Ollim.dorawatda(this) }   // 2.12.0 돌아오면 새 판 살피기
+    override fun onResume() {
+        super.onResume(); Wichi.wiseongDolligi(); deopgaeMatchugi(); Ollim.dorawatda(this)
+        if (JbMadang.bakkwim) { JbMadang.bakkwim = false; dasiGeurigi() }   // 2.23.0 동영상을 다 보고 돌아오면 다 보심 표시
+    }   // 2.12.0 돌아오면 새 판 살피기
     override fun onPause() { super.onPause(); JabongBonche.jeojang() }
 
     override fun onDestroy() {
@@ -279,8 +283,8 @@ class JabongActivity : AppCompatActivity() {
     /** 지금 화면을 다시 그림(커서는 방금 누른 단추나 새 알림 줄에) */
     fun dasiGeurigi() { boyeojugi(false) }
 
-    /** 등록·환영·새 교육 다시 듣기 중인가(2.10.0 교육을 아직 안 들은 봉사자도 등록 화면으로) */
-    val deungrokJung: Boolean get() = !JabongNae.deungrokham || deungrok.hwanyeongJung || !JabongNae.gyoyukDoem
+    /** 등록·환영 중인가 — 2.23.0 교육을 안 마쳤다고 막지 않음(교육은 내 기록 탭 교육 마당에서 하고 싶을 때) */
+    val deungrokJung: Boolean get() = !JabongNae.deungrokham || deungrok.hwanyeongJung
     val wiHwamyeon: JbHwamyeon get() = if (deungrokJung) deungrok else gil[tab].last()   // 2.7.0 막 등록을 마치면 환영 화면부터
 
     /** 다시 그린 뒤 커서를 이 줄에 */
@@ -502,6 +506,8 @@ class JabongActivity : AppCompatActivity() {
 class BongsaTab : JbHwamyeon("봉사") {
     override fun chaeugi(t: JabongActivity) {
         t.bogi(kr.or.ada.app.gilnun.HyeophoeLogo.meori(t, "길눈 자봉 — 점지도 그리기"))   // 2.11.0 협회 로고(이사장님 지시)
+        if (!JbMadang.cheotGil && Geurigi.geurinGil.length() == 0 && Geurigi.sangtae == Geurigi.Sangtae.SWIM)   // 2.23.0 처음 오신 분께 한 줄
+            t.keunGeul("처음이시면 내 보폭 재기를 한 번 하시고, 점지도 그리기를 누르세요. 세 가지만 알려 드립니다.", 20f)
         Ollim.julMal(t)?.let { m -> t.danchu(m) { Ollim.olligi(t) } }   // 2.12.0 새 판이 있을 때만 — 안내와 단추를 한 자리에
         t.danchu(if (JabongDaegi.geobu) "긴급통화 받기 — 받지 않기로 하심" else if (JabongDaegi.kyeojim) "긴급통화 받기 — 받고 있음" else "긴급통화 받기 — 길눈님이 도움을 청하면 전화처럼 울립니다") { t.yeolgi(HamkkeHwamyeon()) }
         t.danchu(when (Geurigi.sangtae) {
@@ -512,6 +518,7 @@ class BongsaTab : JbHwamyeon("봉사") {
         t.danchu("지금 상태 듣기") { Sori.mal(jigeumSangtae()) }
         t.danchu(if (Seoljeong.bopokJaem && Seoljeong.bopok > 0.2) "내 보폭 다시 재기 — 지금 ${(Seoljeong.bopok * 100).roundToInt()}센티미터" else "내 보폭 재기 — 점지도를 그리기 전에 한 번") { t.yeolgi(BopokHwamyeon()) }
         if (JbBowan.mok.isNotEmpty()) t.danchu("보완 부탁 ${JbBowan.mok.size}건 — ${JbBowan.BUTAK}") { t.tabGo(3) }   // 2.13.0 보완 부탁이 있으면 한 줄
+        if (JbMadang.cheotGil && 2 !in JbMadang.bon) t.danchu("더 잘 그리고 싶으시면 — 2편 점지도 그리기 동영상 보기") { JbMadang.teulgi(t, 2) }   // 2.23.0 첫 길을 올리신 뒤
     }
 
     companion object {
@@ -727,6 +734,7 @@ class GeurigiHwamyeon : JbHwamyeon("점지도 그리기") {
     }
 
     private fun sijakJeon(t: JabongActivity) {
+        if (!JbMadang.cheotGil && Geurigi.geurinGil.length() == 0) JbMadang.cheotGilKan(t)   // 2.23.0 처음 걷는 분께 세 가지만(문제 없이)
         Geurigi.butak?.let { b ->   // 2.14.0 길눈님 부탁 길 — 안내와 그만두기 단추를 한 자리에
             t.geul("길눈님 부탁 길: ${if (NnButak.wiseongJari(b.second)) "출발지 이름 확인 필요" else b.second} → ${b.third}. 걷기 시작을 누르시면 이 이름이 들어갑니다.", true)
             t.danchu("부탁 길 그만두기 — 그냥 그리기") { Geurigi.butakGeumanduggi(); t.dasiGeurigi() }
@@ -1128,7 +1136,7 @@ class NaeGirokTab : JbHwamyeon("내 기록") {
             e.requestFocus()
         }
         t.geul("그려 주신 길 ${JabongNae.geurinSu}개")
-        t.geul("내 발자취와 교육 마당이 이 탭에 들어섭니다.")
+        JbMadang.kan(t)   // 2.23.0 교육 마당 — 동영상 넷, 약속, 실력 다지기, 배지
     }
 }
 
@@ -1195,10 +1203,12 @@ class DoumalHwamyeon : JbHwamyeon("도움말") {
     companion object {
         /** 아이폰 JabongDoumalView 와 같은 항목 — 안드로이드에서 다른 대목(뒤로 동작, 알림 칸, 배터리)만 고쳐 씀 */
         val DOUMAL = listOf(
-            "처음 등록" to "자봉 앱을 처음 여시면 한 번만 등록합니다. 이름, 연락처, 주로 활동하실 지역, 네 자리 숫자를 적고, 1365 아이디는 비워 두었다가 나중에 넣으셔도 됩니다. 다음을 누르시면 점지도 일곱 가지 약속을 길눈 목소리로 차례로 읽어 드립니다. 약속 한 장을 누르시면 그 약속만 다시 들으실 수 있습니다. 이어서 확인 문제 아홉 개를 문제와 고를 말 넷(가, 나, 다, 라)까지 읽어 드리며, 맞히면 박수 소리와 진동으로, 틀리면 풀이를 들려 드리고 다시 고르시게 합니다. 아홉 문제를 모두 맞혀야 통과합니다. 통과하시면 큰 박수와 함께 환영 화면에서 자봉 번호를 알려 드리고, 봉사 시작하기를 누르시면 봉사 탭으로 갑니다. 웹 자봉에서 이미 등록하셨으면 자봉 번호와 네 자리 숫자로 이어서 쓰십시오.",
+            "처음 등록" to "자봉 앱을 처음 여시면 한 번만 등록합니다. 이름, 연락처, 네 자리 숫자만 적고 등록 마치기를 누르시면 1분이면 끝납니다. 1365 아이디는 나중에 내 기록 탭에서 넣으시면 됩니다. 칸이 비었거나 맞지 않으면 무엇이 모자란지 말로 알려 드립니다. 등록을 마치면 큰 박수와 함께 환영 화면에서 자봉 번호를 알려 드리고, 첫 길 그려 보기를 누르시면 봉사 탭으로 갑니다. 처음 그리실 때는 그리기 화면에 세 가지만 알려 드립니다. 보폭부터 재기, 문 앞에서 시작하기, 꺾이는 그 자리에서 꺾임 누르기입니다. 첫 점지도를 올리시면 큰 박수로 축하드리고, 봉사 탭에 더 잘 그리고 싶으시면 2편 동영상 보기 단추가 나옵니다. 웹 자봉에서 이미 등록하셨으면 자봉 번호와 네 자리 숫자로 이어서 쓰십시오.",   // 2.23.0
+            "교육 마당·사용법 동영상" to "내 기록 탭 아래쪽에 있습니다. 사용법 동영상 네 편(1편 설치와 처음 등록, 2편 점지도 그리기, 3편 부탁 길과 AI 밑그림, 4편 점검과 보완)을 앱 안에서 바로 보실 수 있고, 한 편이 2분 안팎입니다. 끝까지 보신 편에는 다 보심이 붙습니다. 동영상 화면에는 닫기, 멈춤과 재생, 10초 뒤로, 10초 앞으로, 처음부터 다시 보기, 다음 편 단추가 있습니다. 협회 점검에서 고칠 곳이 나오면 보완 부탁 화면의 도움 되는 동영상으로 맞는 편을 바로 여실 수 있습니다. 점지도 일곱 가지 약속도 이 교육 마당에서 보고 들으십니다. 첫 점지도, 약속 일곱 익힘, 동영상 다 보심, 길 열 개처럼 해 보신 만큼 배지가 늘어납니다.",   // 2.23.0
+            "실력 다지기" to "교육 마당에 있는 아홉 문제입니다. 꼭 푸셔야 하는 것은 아니고, 더 잘하고 싶으실 때 편하게 풀어 보시면 됩니다. 문제와 고를 말 넷(가, 나, 다, 라)을 읽어 드리고, 맞히면 박수 소리와 진동으로, 틀리면 아쉽네요와 함께 풀이를 들려 드리니 한 번 더 고르시면 됩니다. 아홉 문제를 모두 맞히시면 약속 일곱 익힘 배지를 드리고, 교육을 마친 날짜가 협회 등록 창고에 남습니다.",   // 2.23.0
             "새 표시 — 낙상 주의, 길 폭, 되돌아가는 곳" to "다른 표시와 도구 펼치기 안에 있습니다. 옆으로 떨어질 수 있는 곳(물가, 낭떠러지, 턱 없는 가장자리 같은 곳)이 시작되는 자리에서 낙상 주의 시작을 위험한 쪽에 맞춰 3시 쪽, 9시 쪽, 양쪽 가운데 하나로 누르시고, 위험이 끝나는 자리에서 낙상 주의 끝을 누르십시오. 그 사이 걸음과 거리를 적어 두면 길눈이 이 구간 앞에서 미리 알리고, 구간 안에서는 위험한 쪽으로 반 걸음만 비켜나도 끌 수 없는 경고로 겹으로 살핍니다. 끝을 빠뜨리시면 길눈은 시작 표시부터 열 걸음을 구간으로 봅니다. 길 폭이 바뀌는 곳에서는 길 폭 좁음, 보통, 넓음을 남겨 주십시오. 길에서 6시 방향으로 돌아서 되돌아가야 하는 곳은 그 자리에서 되돌아가는 곳을 누르시고, 돌아서서 이어 걸으십시오. 말로 표시에서 3시 쪽 낙상, 낙상 끝, 좁은 길, 유턴처럼 말씀하셔도 됩니다.",   // 2.20.0 (261010-A16, 이사장님 승인 2026-10-10)
             "AI 밑그림과 지도" to "AI 밑그림은 협회 걷기 길찾기가 짐작한 길입니다. 밑그림은 짐작일 뿐, 실제로 걷는 길이 정답입니다. 그려 주세요 부탁을 열면 맨 위 AI 밑그림 듣기로 몇 미터 가서 몇 시 방향으로 꺾는지 미리 들으실 수 있습니다. 부탁 길을 출발 자리에서 걷기 시작하시면 밑그림을 받아 들려 드리고, 걷는 동안 밑그림의 꺾는 곳 15미터 앞에서 한 번씩 미리 알려 드립니다(다른 표시와 도구 펼치기 안에서 끄고 켬). 다 걸으시면 밑그림과 견주어 15미터 넘게 어긋난 구간과 꺾임 표시가 빠졌을 수 있는 곳을 알려 드립니다. 막지는 않으며, 그린 길 화면에서 까닭 말로 남기기를 눌러 공사 중이라 돌아갔습니다처럼 남겨 주시면 올릴 때 협회 점검에 함께 갑니다. 밑그림은 봉사자께만 쓰이고 길눈 이용자께 점지도로 가지 않습니다. 눈으로 보시는 분께는 걷는 화면 위쪽에 지도가 나옵니다. 회색 점선이 밑그림, 파란 선이 걸은 자취, 점이 표시, 주황이 어긋난 구간, 빨강 반짝임이 표시가 빠졌을 수 있는 곳이고, 걷는 쪽이 위로 오게 돌아갑니다. 톡백을 쓰실 때는 지도를 가립니다.",   // 2.21.0 (261012-A17, 이사장님 승인 2026-10-12)
-            "점지도 일곱 가지 약속" to "시작과 끝은 문 앞에서, 걸음을 끊지 않기, 폰은 가슴 앞에 걷는 쪽으로, 꺾이는 그 자리에서 바로 표시, 짝 표시는 시작과 끝을 함께, 보폭은 걷기 전에, 표시마다 짧게 말로 남기기입니다. 서버의 점지도 점검과 같은 잣대라, 약속대로 걸으시면 점검을 통과합니다. 이미 등록하신 분도 교육이 새로워지면 앱을 열 때 약속을 한 번 다시 듣고 확인 문제를 풀어야 점지도 그리기를 쓰실 수 있습니다. 교육을 마친 날짜는 협회 등록 창고에 남습니다.",
+            "점지도 일곱 가지 약속" to "시작과 끝은 문 앞에서, 걸음을 끊지 않기, 폰은 가슴 앞에 걷는 쪽으로, 꺾이는 그 자리에서 바로 표시, 짝 표시는 시작과 끝을 함께, 보폭은 걷기 전에, 표시마다 짧게 말로 남기기입니다. 서버의 점지도 점검과 같은 잣대라, 약속대로 걸으시면 점검을 통과합니다. 내 기록 탭 교육 마당의 점지도 일곱 가지 약속 보기에서 언제든 보고 들으실 수 있습니다. 약속 한 장을 누르시면 그 약속만 다시 들으실 수 있습니다.",
             "탭 넷" to "화면 아래에 봉사, 나눔, 내 기록, 알림·설정 탭이 있고, 속 화면에서도 늘 보입니다. 속 화면의 뒤로 단추는 위에 하나 있고, 폰의 뒤로 동작을 하셔도 앞 화면으로 갑니다. 첫 화면에서는 앱 밖으로 나가지 않고 여기가 첫 화면이라고 알려 드립니다. 같은 탭을 한 번 더 누르시면 그 탭의 첫 화면으로 갑니다.",
             "긴급통화 받기" to "봉사 탭 맨 위에 있습니다. 자원봉사자나 현장영상해설사 가운데 받으실 역할을 고르고, 별명과 수료 번호(해설사는 협회에 등록한 전화번호)를 적은 뒤 함께하겠습니다를 한 번 누르시면 됩니다. 이때 카메라와 마이크, 알림 허락도 한 번에 받아 두고, 배터리 아끼기에서 자봉을 빼 달라고 한 번 여쭙니다. 그 뒤로는 길손님이 도움을 청하면 폰이 잠겨 있어도 벨소리와 진동이 울리고 받기와 거절이 뜹니다. 받기를 누르시면 곧바로 길손님 카메라 화면과 말소리가 이어집니다. 다른 길눈님이 먼저 받으시면 벨이 멈추고 다른 분께 연결되었다고 알려 드립니다. 실명과 전화번호는 화면에 나오지 않고 별명만 씁니다. 잠시 쉬기를 누르시면 울리지 않습니다. 긴급통화는 이 자봉 앱으로만 받습니다. 자원봉사자와 현장영상해설사는 누구를 고를 수 없게 되어 있고, 받을 수 있는 분 가운데 먼저 받는 분이 연결됩니다. 기회가 고르게 가도록 처음 15초는 최근에 덜 받으신 다섯 분께 먼저 울리고, 그래도 아무도 안 받으면 모든 분께 울립니다. 통화료는 들지 않고 데이터만 씁니다(와이파이에서는 따로 드는 돈이 없음). 곧바로 잇지 못할 때 거치는 영상 다리 주소는 나스에서 받아 쓰므로, 다리를 옮겨도 앱을 새로 받으실 필요가 없습니다.",
             "긴급통화 — 거절과 끊김" to "울리는 긴급통화를 거절하시면 길눈님께 곧바로 알려 드려 다른 분께 넘어가게 합니다. 30초 안에 받지 않으시면 저절로 닫히고, 받으신 뒤 45초 안에 이어지지 않으면 연결되지 않았습니다라고 알려 드리고 닫습니다. 길눈과 자봉을 한 폰에 함께 깔아 두셨으면, 그 폰에서 보낸 긴급통화 요청은 그 폰의 자봉으로 울리지 않습니다. 받으시면 길눈님께 별명, 없으면 등록한 이름으로 알려 드립니다. 여러 분이 함께 받으시면 먼저 받으신 한 분만 이어지고, 다른 분은 다른 분이 먼저 받으셨습니다를 듣고 전화 화면이 닫힙니다. 길손님이 통화를 마치시면 곧바로 닫히고, 100초 동안 받지 않으면 울림이 저절로 멈춥니다. 통화 중에 새 요청이 오면 자봉이 대신 지금 받기 어렵다고 알려 길눈님이 곧바로 다른 분께 넘어가시며, 받기를 누른 뒤 8초 안에 연결이 확인되지 않거나 그사이 끊으시면 받기가 풀려 길눈님이 오래 기다리지 않으십니다.",   // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09)
@@ -1234,51 +1244,21 @@ class DoumalHwamyeon : JbHwamyeon("도움말") {
 }
 
 // MARK: 처음 등록 — 아이폰 DeungrokView 와 같음
+// 2.23.0 (261014-A19, 이사장님 승인 2026-10-14) — 처음엔 가볍게: 이름, 연락처, 네 자리 숫자만. 약속과 문제는 내 기록 탭 교육 마당으로
 
 class DeungrokHwamyeon : JbHwamyeon("자원봉사 등록") {
-    // 2.7.0 (261006-A1, 이사장님 승인) — 아이폰 자봉 2.6.0·2.7.0 과 같음: 짧은 교육을 소리로, 크고 선명하게, 정답 박수, 환영 화면
-    private var dangye = 0          // 0 첫 화면, 1 적기, 2 요령, 3 문제, 4 이어 쓰기, 5 환영
+    private var dangye = 0          // 0 첫 화면, 1 적기, 4 이어 쓰기, 5 환영
     private var ireum = ""
     private var yeonrak = ""
-    private var jiyeok = ""
-    private var id1365 = ""
     private var jam = ""
     private var beonhoIeo = ""
-    private var mi = 0
     private var allim = ""
     private var boneunJung = false
     var hwanyeongJung = false
         private set
-    private val main = android.os.Handler(android.os.Looper.getMainLooper())
-
-    companion object {
-        val DANGYE_IREUM = listOf("적기", "약속 듣기", "확인 문제")
-        val MUNJE get() = JbGyoyuk.munje
-    }
 
     /** 알리기 — 화면 맨 위에 글로 두고 길눈 목소리로 말함(말소리를 꺼 두셨으면 Sori 가 톡백으로 알림) */
     private fun allyeo(t: JabongActivity, m: String) { allim = m; t.dasiGeurigi(); Sori.meomchugi(); Sori.mal(m) }
-
-    /** 2.10.0 이미 등록한 봉사자가 새 교육(일곱 가지 약속)을 다시 듣는 중 */
-    private val dasi: Boolean get() = JabongNae.deungrokham && !hwanyeongJung && !JabongNae.gyoyukDoem
-
-    private fun yoryeongIlgi() {
-        Sori.meomchugi()
-        Sori.mal("점지도 일곱 가지 약속을 읽어 드리겠습니다. 약속 한 장을 누르시면 그 약속만 다시 들으실 수 있습니다.")
-        for (y in JbGyoyuk.sorijul) Sori.mal(y)
-        Sori.mal("다 들으셨으면 아래 다 들었습니다 단추를 눌러 확인 문제 아홉 개를 풀어 주십시오. 모두 맞혀야 통과합니다.")
-    }
-
-    private fun munjeMal(ap: String = ""): String {
-        val m = MUNJE[minOf(mi, MUNJE.size - 1)]
-        var s = ap + "${mi + 1}번 문제. " + m.q
-        m.d.forEachIndexed { k, d -> s += " ${JbGyoyuk.beonho[k]}, $d." }
-        return s
-    }
-
-    private fun yoryeongEuro(t: JabongActivity) {
-        dangye = 2; allim = "점지도 일곱 가지 약속입니다."; t.dasiGeurigi(); yoryeongIlgi()
-    }
 
     private fun hwanyeongKkeut(t: JabongActivity) {
         hwanyeongJung = false; dangye = 0; allim = ""; Sori.meomchugi(); t.tabGo(0)
@@ -1288,8 +1268,6 @@ class DeungrokHwamyeon : JbHwamyeon("자원봉사 등록") {
     fun dwiro(t: JabongActivity) {
         when (dangye) {
             0 -> Sori.mal("여기가 첫 화면입니다.", MalGeup.JEONGBO)
-            2 -> if (dasi) Sori.mal("새 교육을 마치셔야 점지도 그리기를 쓰실 수 있습니다.", MalGeup.JEONGBO) else { dangye = 1; allim = ""; Sori.meomchugi(); t.dasiGeurigi() }
-            3 -> yoryeongEuro(t)
             5 -> hwanyeongKkeut(t)
             else -> { dangye = 0; allim = ""; t.dasiGeurigi() }
         }
@@ -1297,53 +1275,27 @@ class DeungrokHwamyeon : JbHwamyeon("자원봉사 등록") {
 
     override fun chaeugi(t: JabongActivity) {
         if (dangye == 5) { hwanyeong(t); return }
-        if (dasi && dangye < 2) { dangye = 2; allim = "점지도 교육이 새로워졌습니다."; main.post { yoryeongIlgi() } }
         if (allim.isNotEmpty()) t.gibon(t.keunGeul(allim, 22f))
-        if (dasi && dangye in 2..3) {
-            t.geul("점지도 교육이 새로워졌습니다. 일곱 가지 약속을 한 번 듣고 확인 문제 아홉 개를 풀어 주시면 점지도 그리기를 이어서 쓰실 수 있습니다.", true)
-        } else if (dangye in 1..3) {
-            val v = t.geul("${dangye} / 3 단계 — ${DANGYE_IREUM[dangye - 1]}", true)
-            v.contentDescription = "등록 세 단계 가운데 ${dangye}단계, ${DANGYE_IREUM[dangye - 1]}"
-        }
         when (dangye) {
             0 -> {
                 t.keunGeul("길눈 자봉에 오신 것을 환영합니다", 28f)
-                t.geul("여러분이 걸으며 그리는 점지도가 시각장애인이 혼자 걷는 길이 됩니다. 처음 한 번만 등록합니다. 5분쯤 걸리며, 이 폰이 기억하므로 다시 하지 않으셔도 됩니다.", true)
+                t.geul("여러분이 걸으며 그리는 점지도가 시각장애인이 혼자 걷는 길이 됩니다. 등록은 이름, 연락처, 네 자리 숫자만 적으시면 1분이면 끝납니다.", true)
                 t.danchu("등록 시작하기") { dangye = 1; allyeo(t, "이름부터 적어 주십시오.") }
                 t.danchu("웹 자봉에서 이미 등록했습니다 — 자봉 번호로 이어 쓰기") { dangye = 4; allyeo(t, "자봉 번호와 네 자리 숫자를 적어 주십시오.") }
             }
             1 -> {
                 t.ipryeok("이름", ireum, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PERSON_NAME) { ireum = it }
                 t.ipryeok("연락처 — 보완 요청과 회신을 드릴 때 씁니다", yeonrak, InputType.TYPE_CLASS_PHONE) { yeonrak = it }
-                t.ipryeok("주로 활동하실 지역 — 예를 들어 서울 동대문구", jiyeok, InputType.TYPE_CLASS_TEXT) { jiyeok = it }
-                t.ipryeok("1365 아이디 — 비워 두고 나중에 넣으셔도 됩니다", id1365, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS) { id1365 = it }
                 t.ipryeok("네 자리 숫자 — 나중에 등록 정보를 고치실 때 씁니다", jam, InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD) { jam = it }
-                t.danchu("다음 — 짧은 교육 듣기") {
+                t.geul("1365 아이디는 나중에 내 기록 탭에서 넣으시면 됩니다.", true)
+                t.danchu(if (boneunJung) "등록하는 중입니다" else "등록 마치기") {
+                    if (boneunJung) return@danchu
                     if (ireum.trim().isEmpty()) { allyeo(t, "이름 칸이 비어 있습니다. 이름을 적어 주십시오."); return@danchu }
                     if (yeonrak.count { it.isDigit() } < 9) { allyeo(t, "연락처가 짧습니다. 전화번호를 끝까지 적어 주십시오."); return@danchu }
                     if (jam.count { it.isDigit() } != 4) { allyeo(t, "네 자리 숫자 칸에 숫자 네 개를 정해 적어 주십시오."); return@danchu }
-                    yoryeongEuro(t)
+                    deungrokHagi(t)
                 }
                 t.danchu("뒤로 — 등록 첫 화면으로") { dangye = 0; allim = ""; t.dasiGeurigi() }
-            }
-            2 -> {
-                t.danchu("약속 처음부터 다시 듣기") { yoryeongIlgi() }
-                t.geul(JbGyoyuk.meorimal, true)
-                for (y in JbGyoyuk.yaksok) {
-                    val k = t.kadeu(y.jemok + "\n" + y.jul.joinToString("\n"))
-                    k.setOnClickListener { Sori.meomchugi(); Sori.mal(y.mal) }   // 누르면 그 약속만 다시
-                }
-                t.geul(JbGyoyuk.maejeummal, true)
-                t.danchu("다 들었습니다 — 확인 문제 아홉 개 풀기") { mi = 0; dangye = 3; allyeo(t, munjeMal("이제 확인 문제 아홉 개입니다. 모두 맞혀야 통과합니다. ")) }
-                if (!dasi) t.danchu("뒤로 — 적은 것 고치기") { dangye = 1; allim = ""; Sori.meomchugi(); t.dasiGeurigi() }
-            }
-            3 -> {
-                val m = MUNJE[minOf(mi, MUNJE.size - 1)]
-                t.geul("문제 ${mi + 1} / ${MUNJE.size}")
-                t.kadeu(m.q)
-                m.d.forEachIndexed { i, d -> t.danchu("${JbGyoyuk.beonho[i]}. $d") { goreum(t, i) } }
-                t.danchu("문제 다시 듣기") { Sori.meomchugi(); Sori.mal(munjeMal()) }
-                t.danchu("뒤로 — 약속 다시 듣기") { yoryeongEuro(t) }
             }
             else -> {
                 t.ipryeok("자봉 번호 — 예를 들어 J0001", beonhoIeo, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS) { beonhoIeo = it }
@@ -1363,43 +1315,20 @@ class DeungrokHwamyeon : JbHwamyeon("자원봉사 등록") {
         }
     }
 
-    /** 등록을 마친 환영 화면 — 봉사의 보람을 느끼게 */
+    /** 등록을 마친 환영 화면 — 봉사의 보람을 느끼게. 2.23.0 단추 하나 「첫 길 그려 보기」 */
     private fun hwanyeong(t: JabongActivity) {
         t.chojeom(t.keunGeul("환영합니다, ${JabongNae.ireum}님!", 30f))
         t.kadeu("자봉 번호 ${JabongNae.beonho}")
         t.geul("오늘부터 걸으시는 한 걸음 한 걸음이 시각장애인이 혼자 걷는 길이 됩니다. 함께해 주셔서 고맙습니다.", true)
-        t.geul("자봉 번호는 내 기록 탭에서 언제든 다시 보실 수 있습니다.")
-        t.danchu("봉사 시작하기 — 봉사 탭에서 보폭부터 잽니다") { hwanyeongKkeut(t) }
+        t.geul("어렵지 않습니다. 집 앞 가까운 길 하나부터 그려 보세요.", true)
+        t.danchu("첫 길 그려 보기") { hwanyeongKkeut(t) }
     }
 
-    private fun goreum(t: JabongActivity, i: Int) {
-        if (boneunJung) return
-        val m = MUNJE[mi]
-        if (i != m.a) { allyeo(t, "아깝습니다. " + m.h + " 다시 골라 주십시오."); return }
-        Baksu.chigi()   // 정답이면 박수
-        Jindong.hagi("arrive")
-        if (mi + 1 < MUNJE.size) {
-            mi += 1
-            val ap = listOf("맞습니다! 잘하셨습니다. ", "맞습니다! 점지도 박사님이십니다. ")[mi % 2]
-            allim = ap + MUNJE[mi].q
-            t.dasiGeurigi()
-            main.postDelayed({ Sori.meomchugi(); Sori.mal(munjeMal(ap)) }, 1000)   // 박수가 끝난 뒤에 다음 문제
-            return
-        }
-        if (dasi) {
-            // 2.10.0 이미 등록하신 분 — 교육 마친 기록만 남기고 봉사 탭으로
-            JabongNae.gyoyukMachim()
-            dangye = 0; mi = 0; allim = ""
-            Baksu.chigi(true)
-            Sori.meomchugi()
-            Sori.mal("아홉 문제 모두 맞히셨습니다! 교육을 마쳤습니다. 이제 점지도 그리기를 이어서 쓰실 수 있습니다.")
-            t.tabGo(0)
-            return
-        }
+    private fun deungrokHagi(t: JabongActivity) {
         boneunJung = true
         hwanyeongJung = true   // 등록이 되는 순간 탭으로 넘어가지 않고 환영 화면부터
-        allyeo(t, "아홉 문제 모두 맞히셨습니다! 등록하는 중입니다.")
-        JabongNae.deungrok(ireum.trim(), yeonrak, jiyeok.trim(), id1365.trim(), jam) { why ->
+        allyeo(t, "등록하는 중입니다.")
+        JabongNae.deungrok(ireum.trim(), yeonrak, "", "", jam) { why ->
             boneunJung = false
             if (why != null) { hwanyeongJung = false; allyeo(t, why) }
             else {
@@ -1408,7 +1337,7 @@ class DeungrokHwamyeon : JbHwamyeon("자원봉사 등록") {
                 Baksu.chigi(true)
                 Jindong.hagi("arrive")
                 Sori.meomchugi()
-                Sori.mal("등록을 마쳤습니다. 환영합니다, ${JabongNae.ireum}님. 자봉 번호는 ${JabongNae.beonho}입니다. 오늘부터 걸으시는 한 걸음 한 걸음이 시각장애인이 혼자 걷는 길이 됩니다. 봉사 시작하기를 누르시면 봉사 탭으로 갑니다.")
+                Sori.mal("등록을 마쳤습니다. 환영합니다, ${JabongNae.ireum}님. 자봉 번호는 ${JabongNae.beonho}입니다. 오늘부터 걸으시는 한 걸음 한 걸음이 시각장애인이 혼자 걷는 길이 됩니다. 어렵지 않습니다. 첫 길 그려 보기를 눌러 집 앞 가까운 길 하나부터 그려 보세요.")
             }
         }
     }

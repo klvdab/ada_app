@@ -138,6 +138,10 @@ class BowanGilHwamyeon(private val g: JSONObject) : JbHwamyeon("보완 부탁") 
             t.tabGo(0)
         }
         t.danchu("고칠 곳 말로 듣기") { JbBowan.malHagi(g) }
+        // 2.23.0 고칠 곳에 맞는 동영상(꺾임·걸음·짝·문·목소리는 2편, 나머지는 4편)
+        val hm = g.optJSONArray("heum")
+        val pn = JbMadang.doumPyeon((0 until (hm?.length() ?: 0)).map { hm?.optJSONObject(it)?.optString("mal") ?: "" })
+        t.danchu("도움 되는 동영상 — ${JbMadang.pyeon(pn)?.ireum ?: "${pn}편"}") { JbMadang.teulgi(t, pn) }
         t.geul(g.optString("mal", JbBowan.BUTAK), true)
         t.geul("보완 부탁 날 " + JbBowan.nalMal(g.optString("ttae")) + if (g.has("nal")) ", ${g.optInt("nal")}일 지남" else "")
         val h = g.optJSONArray("heum")

@@ -64,13 +64,12 @@ object JabongNae {
 
     /** 처음 등록 — 성공하면 null, 안 되면 까닭 */
     fun deungrok(ireum: String, yeonrak: String, jiyeok: String, id1365: String, jam: String, kkeut: (String?) -> Unit) {
-        val bon = JSONObject().put("ireum", ireum).put("yeonrak", yeonrak).put("jiyeok", jiyeok).put("id1365", id1365).put("jam", jam).put("gyoyuk", true).put("gyoyukPan", JbGyoyuk.pan)
+        val bon = JSONObject().put("ireum", ireum).put("yeonrak", yeonrak).put("jiyeok", jiyeok).put("id1365", id1365).put("jam", jam).put("gyoyuk", false)   // 2.23.0 등록 때는 교육 없이(교육 마당에서 하고 싶을 때)
         mutgi("sin", bon) { j ->
             if (j == null) { kkeut("통신이 닿지 않았습니다. 잠시 뒤 다시 눌러 주십시오."); return@mutgi }
             val b = j.optString("beonho", "")
             if (!j.optBoolean("ok", false) || b.isEmpty()) { kkeut(j.optString("msg", "").ifEmpty { "등록하지 못했습니다." }); return@mutgi }
             yeolsoe?.edit()?.putString("jbJam", jam)?.apply()
-            d?.edit()?.putInt("jb.gyoyukPan", JbGyoyuk.pan)?.apply()   // 2.10.0 등록 때 새 교육을 마침
             dameum(b, ireum, jiyeok, id1365)
             Girok.namgi("jabong_deungrok", mapOf("beonho" to b))
             kkeut(null)

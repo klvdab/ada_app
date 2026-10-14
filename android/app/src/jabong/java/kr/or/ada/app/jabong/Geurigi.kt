@@ -931,20 +931,24 @@ object Geurigi {
                     }
                 }
             }
+            // 2.23.0 (이사장님 승인 2026-10-14) 첫 점지도를 올리시면 큰 박수 — 봉사 탭에 「더 잘 그리고 싶으시면 2편」이 뜸
+            val cheot = JbMadang.cheotGilMachim()
+            if (cheot) { Baksu.chigi(true); kr.or.ada.app.gilnun.Jindong.hagi("arrive") }
+            val cheotMal = if (cheot) "첫 점지도를 그리셨습니다! 축하드립니다. " else ""
             val bm = r.optInt("bowanMachim", 0)   // 2.13.0 같은 출발지·도착지 보완 부탁이 있었으면 보완 완료
             if (bm > 0) { bowanGeumanduggi(); ctx?.let { c -> JbBowan.bulleo(c, true) { bakkwim?.invoke() } } }   // 2.22.0 보완 완료면 보완하기도 마침
             if (bowanPilyo) {   // 2.19.0 받기는 했지만 손볼 곳이 있음 — 보완 목록에도 올라가 누구든 이어서 보완
                 ctx?.let { c -> JbBowan.bulleo(c, true) { bakkwim?.invoke() } }
                 Girok.namgi("jb_olim_bowan", mapOf("id" to id, "seobeo" to r.optString("id")))
-                alrigi("올렸습니다. 고맙습니다. 다만 협회 점검에서 손볼 곳이 나와 보완 목록에도 올렸습니다. 그린 분이나 다른 봉사자 누구든 이어서 보완할 수 있습니다. $malMok")
+                alrigi(cheotMal + "올렸습니다. 고맙습니다. 다만 협회 점검에서 손볼 곳이 나와 보완 목록에도 올렸습니다. 그린 분이나 다른 봉사자 누구든 이어서 보완할 수 있습니다. $malMok")
                 return
             }
-            alrigi("올렸습니다. 협회 점검을 통과해 길눈에 실렸습니다. 고맙습니다." + (if (bm > 0) " 보완 부탁 ${bm}건이 보완 완료되었습니다." else "") + if (mals.length() > 0) " 다음에 손보시면 좋을 곳도 알려 드립니다. $malMok" else "")
+            alrigi(cheotMal + "올렸습니다. 협회 점검을 통과해 길눈에 실렸습니다. 고맙습니다." + (if (bm > 0) " 보완 부탁 ${bm}건이 보완 완료되었습니다." else "") + if (mals.length() > 0) " 다음에 손보시면 좋을 곳도 알려 드립니다. $malMok" else "")
         } else {
             o.put("heum", mals); o.put("heumSaek", saeks); mokJeojang()
             ctx?.let { c -> JbBowan.bulleo(c, true) { bakkwim?.invoke() } }   // 2.13.0 보완 부탁 목록을 새로
             Girok.namgi("jb_olim_heum", mapOf("id" to id, "su" to ppal))
-            alrigi("${JbBowan.BUTAK} 협회 점검에서 고칠 곳이 ${maxOf(ppal, 1)}가지 나와 아직 올리지 않았습니다. $malMok 이름이 빠진 것은 이 화면에서 바로 넣고 다시 올리시면 되고, 걸음이나 표시가 빠진 구간은 다시 걸어 새로 그려 주십시오.")
+            alrigi("${JbBowan.BUTAK} 협회 점검에서 고칠 곳이 ${maxOf(ppal, 1)}가지 나와 아직 올리지 않았습니다. $malMok 이름이 빠진 것은 이 화면에서 바로 넣고 다시 올리시면 되고, 걸음이나 표시가 빠진 구간은 다시 걸어 새로 그려 주십시오. 처음엔 누구나 그렇습니다. 요령은 내 기록 탭 교육 마당의 ${JbMadang.doumPyeon((0 until mals.length()).map { mals.optString(it) })}편 동영상에 짧게 담겨 있습니다.")   // 2.23.0
         }
     }
 
