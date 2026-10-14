@@ -1,6 +1,7 @@
 // BYOD 방송 — 접속 도구: 엔에프시 태그 쓰기와 큐알코드 만들기 (1.1.1판, 빌드 261006-B3, 도서클이 방송클 일을 이어 맡아 만듦)
 // 이사장님 지시(2026-10-06): 접수대에서 한 번에 붙게. 안드로이드는 엔에프시 태그(와이파이 붙기), 아이폰은 큐알코드(와이파이 붙기). 두 기능 모두 늘 유지.
 // 플린트 2가 오면 붙자마자 듣기 화면이 저절로 열림. 그 전에는 「듣기 주소」 엔에프시 태그나 큐알로 듣기 화면을 엶.
+// 1.2.0 (261014-B9, 이사장님 승인 「1」, 방송클) 플린트 2 방식 — 와이파이 태그·큐알 한 장이면 듣기 화면이 저절로 뜸. 듣기 주소 태그·큐알은 예비 방식용으로 펼치기 안에. 와이파이 이름 기억
 // 1.1.6 (261012-B8, 이사장님 승인 「1」, 방송클) 스티커를 엔에프시 태그로 부름, 듣기 주소 바로잡기(방송 중 주소 먼저·http와 8080 저절로 채움)와 듣기 주소 확인,
 //   엔에프시 태그를 쓴 뒤 다시 읽어 맞는지 확인, A4 인쇄용 한 장(위 와이파이 큐알, 아래 듣기 주소 큐알)
 package kr.or.ada.app.byod
@@ -53,27 +54,35 @@ class JeopsokActivity : Activity() {
         sv.addView(body); setContentView(sv)
         title = "접속 도구 — 엔에프시와 큐알"
         danchu("뒤로") { finish() }
-        geul("방송 와이파이와 듣기 주소를 확인하고 아래에서 고르십시오. 처음 값은 이 기기가 지금 붙은 와이파이와 방송 주소입니다.")
-        ssidCan = kan("방송 와이파이 이름", jigeumSsid())
+        val flint = Flint.flintInga(this)   // 1.2.0
+        geul(if (flint) "플린트 2 방식입니다. 듣는 분은 와이파이 태그 한 번(안드로이드)이나 와이파이 큐알 한 번(아이폰)이면 듣기 화면이 저절로 뜹니다. 듣기 주소 태그는 필요 없습니다."
+             else "방송 와이파이와 듣기 주소를 확인하고 아래에서 고르십시오.")
+        ssidCan = kan("방송 와이파이 이름", ssidCheo(flint))   // 1.2.0 한 번 넣은 이름을 기억
         pwCan = kan("와이파이 비밀번호(없으면 비워 두기)", "")
-        jusoCan = kan("듣기 주소", jusoGotchim(if (Bang.juso.isNotEmpty()) Bang.juso else ByodService.jusoChatgi()))   // 1.1.6 방송 중이면 방송 주소를 먼저
         allim = geul("")
         allim.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        danchu("엔에프시 태그 쓰기: 와이파이 붙기") { ssidGieok(); sseugiJunbi(wifiMessage(), "와이파이 붙기") }
+        danchu("엔에프시 태그 쓰기 멈추기") { sseugiMeomchum() }
+        danchu("큐알 보기: 와이파이 붙기") { ssidGieok(); qrBoyeogi(wifiQr(), "와이파이붙기") }
+        danchu(if (flint) "A4 인쇄용 한 장 만들기: 와이파이 큐알" else "A4 인쇄용 한 장 만들기: 위 와이파이, 아래 듣기 주소") { ssidGieok(); a4Mandeulgi() }   // 1.1.6, 1.2.0
+        danchu("큐알 그림 저장(인쇄용)") { qrJeojang() }
+        // 듣기 주소 태그·큐알 — 예비 방식(이 기기가 서버)에서 씀. 플린트 2 방식에서는 펼쳐야 보임
+        val jusoMuk = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = if (flint) View.GONE else View.VISIBLE }
+        if (flint) danchu("듣기 주소 태그와 큐알 펼치기 (예비 방식에서 씀)") { jusoMuk.visibility = if (jusoMuk.visibility == View.VISIBLE) View.GONE else View.VISIBLE }
+        val bon = body
+        body = jusoMuk
+        jusoCan = kan("듣기 주소", jusoGotchim(if (Bang.juso.isNotEmpty()) Bang.juso else if (flint) Flint.JUSO else ByodService.jusoChatgi()))   // 1.1.6 방송 중이면 방송 주소를 먼저
         danchu("듣기 주소 확인하기") { jusoHwagin {} }   // 1.1.6
-        geul("엔에프시 태그: 와이파이 붙기는 안드로이드폰, 듣기 주소 열기는 안드로이드폰과 아이폰 XS 이후 기종 모두 폰 윗부분을 대면 열림")
-        danchu("엔에프시 태그 쓰기: 와이파이 붙기") { sseugiJunbi(wifiMessage(), "와이파이 붙기") }
+        geul("듣기 주소 열기 태그는 안드로이드폰과 아이폰 XS 이후 기종 모두 폰 윗부분을 대면 열림")
         danchu("엔에프시 태그 쓰기: 듣기 주소 열기") {   // 1.1.6 주소를 바로잡고 먼저 확인한 뒤 씀
             val j = jusoGotchim(jusoCan.text.toString()); jusoCan.setText(j)
             if (j.isEmpty()) { mal("듣기 주소가 비었습니다. 공유기에 붙은 뒤 다시 여십시오."); return@danchu }
             Hyeonjang.stickerGieok(this, j)
             jusoHwagin { sseugiJunbi(NdefMessage(arrayOf(NdefRecord.createUri(j))), "듣기 주소") }
         }
-        danchu("엔에프시 태그 쓰기 멈추기") { sseugiMeomchum() }
-        geul("큐알코드(아이폰은 카메라로 비추면 와이파이에 붙음)")
-        danchu("A4 인쇄용 한 장 만들기: 위 와이파이, 아래 듣기 주소") { a4Mandeulgi() }   // 1.1.6
-        danchu("큐알 보기: 와이파이 붙기") { qrBoyeogi(wifiQr(), "와이파이붙기") }
         danchu("큐알 보기: 듣기 주소 열기") { val j = jusoGotchim(jusoCan.text.toString()); jusoCan.setText(j); Hyeonjang.stickerGieok(this, j); qrBoyeogi(j, "듣기주소") }   // 1.1.5
-        danchu("큐알 그림 저장(인쇄용)") { qrJeojang() }
+        body = bon
+        body.addView(jusoMuk)
         qrGeurim = ImageView(this).apply { adjustViewBounds = true; setBackgroundColor(Color.WHITE); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES }
         body.addView(qrGeurim, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         danchu("뒤로") { finish() }
@@ -89,6 +98,16 @@ class JeopsokActivity : Activity() {
         body.addView(e); return e
     }
     private fun mal(t: String) { allim.text = t; allim.announceForAccessibility(t) }
+
+    // 1.2.0 와이파이 이름 — 안드로이드는 위치 허락 없이는 지금 와이파이 이름을 알려 주지 않아 늘 비어 나왔음. 한 번 넣은 이름을 기억
+    private fun ssidCheo(flint: Boolean): String {
+        val g = getSharedPreferences("byod", Context.MODE_PRIVATE).getString(if (flint) "ssid_flint" else "ssid", "") ?: ""
+        return g.ifEmpty { jigeumSsid().ifEmpty { if (flint) Flint.SSID else "" } }
+    }
+    private fun ssidGieok() {
+        val t = ssidCan.text.toString().trim()
+        if (t.isNotEmpty()) getSharedPreferences("byod", Context.MODE_PRIVATE).edit().putString(if (Flint.flintInga(this)) "ssid_flint" else "ssid", t).apply()
+    }
 
     @Suppress("DEPRECATION")
     private fun jigeumSsid(): String = try {
@@ -223,6 +242,7 @@ class JeopsokActivity : Activity() {
 
     // 1.1.6 A4 한 장(300dpi, 2480×3508) — 위에 와이파이 큐알, 아래에 듣기 주소 큐알. 폰을 종이 위에서 아래로 조금 내리면 두 번째가 잡힘
     private fun a4Mandeulgi() {
+        if (Flint.flintInga(this)) { a4Flint(); return }   // 1.2.0
         val w = wifiQr(); val j = jusoGotchim(jusoCan.text.toString())
         if (w == "WIFI:T:nopass;S:;;") { mal("방송 와이파이 이름을 먼저 넣어 주십시오."); return }
         if (j.isEmpty()) { mal("듣기 주소가 비었습니다."); return }
@@ -241,6 +261,25 @@ class JeopsokActivity : Activity() {
         qrBitmap = b; qrIreum = "A4한장"
         qrGeurim.setImageBitmap(b)
         qrGeurim.contentDescription = "A4 인쇄용 한 장, 위 와이파이 큐알, 아래 듣기 주소 큐알"
+        qrJeojang()
+    }
+
+    // 1.2.0 플린트 2 방식 A4 — 와이파이 큐알 하나를 크게(약 17센티미터). 붙으면 듣기 화면이 저절로 뜸
+    private fun a4Flint() {
+        val w = wifiQr()
+        if (w == "WIFI:T:nopass;S:;;") { mal("방송 와이파이 이름을 먼저 넣어 주십시오."); return }
+        val b = Bitmap.createBitmap(2480, 3508, Bitmap.Config.RGB_565)
+        val c = android.graphics.Canvas(b); c.drawColor(Color.WHITE)
+        val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK; textSize = 120f; isFakeBoldText = true; textAlign = android.graphics.Paint.Align.CENTER }
+        val ps = android.graphics.Paint(p).apply { textSize = 80f; isFakeBoldText = false }
+        c.drawText("현장영상해설 듣기", 1240f, 300f, p)
+        c.drawText("카메라로 비추면 와이파이에 붙고 듣기 화면이 뜹니다", 1240f, 450f, ps)
+        c.drawBitmap(qrMandeul(w, 2000), 240f, 600f, null)
+        c.drawText("와이파이: " + ssidCan.text.toString().trim(), 1240f, 2800f, ps)
+        c.drawText("사단법인 한국시각장애인현장영상해설협회", 1240f, 3200f, ps)
+        qrBitmap = b; qrIreum = "A4와이파이"
+        qrGeurim.setImageBitmap(b)
+        qrGeurim.contentDescription = "A4 인쇄용 한 장, 와이파이 큐알"
         qrJeojang()
     }
 

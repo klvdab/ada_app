@@ -1,6 +1,8 @@
 // BYOD 방송 — 첫 화면 (1.0.0판, 빌드 261003-B1, 이사장님 승인 2026-10-03)
 // 첫 화면은 "BYOD 방송 시작" 단추 하나. 그 아래 상태 글은 바뀔 때만 한 번 알립니다(듣는 분 수는 10초에 한 번까지).
 // 나머지(새로고침·프로그램 말소리·도움말·판 정보)는 "더 보기" 안에 둡니다.
+// 1.2.0 (261014-B9, 이사장님 승인 「1」, 방송클) 플린트 2 방식이 기본 — 더 보기에 플린트 2 준비하기와 방송 방식 바꾸기
+// 1.3.0 (261014-B10, 이사장님 승인 「1」, 방송클) 행사 이름·현장영상해설사 칸, 방송을 멈추면 녹음과 결과보고를 받아 배프에 올림, 더 보기에 지난 행사 기록
 // 뒤로 가기로 앱 밖에 나가지 않습니다. 도움말 화면은 맨 위와 맨 아래에 뒤로 단추를 둡니다.
 package kr.or.ada.app.byod
 
@@ -60,6 +62,7 @@ class ByodActivity : Activity() {
     private lateinit var deoDanchu: Button
     private lateinit var deoAn: LinearLayout
     private lateinit var malsoriDanchu: Button
+    private lateinit var bangsikDanchu: Button   // 1.2.0
 
     private var tts: TextToSpeech? = null
     private var ttsDoem = false
@@ -77,8 +80,14 @@ class ByodActivity : Activity() {
     private val malsoriOn get() = pref.getBoolean("malsori", true)
 
     private val gwan: () -> Unit = { h.post { sangtaeGochigi(false) } }
+    private var tikSu = 0
     private val tik = object : Runnable {
-        override fun run() { sangtaeGochigi(false); h.postDelayed(this, 1000) }
+        override fun run() {
+            sangtaeGochigi(false)
+            // 1.3.0 배프에 아직 못 올린 행사가 있으면 1분마다 다시 올려 봄
+            if (++tikSu % 60 == 0 && !Bang.kyeojim && !Haengsa.dolgo) Thread { if (Haengsa.nameum(this@ByodActivity)) Haengsa.sijak(this@ByodActivity, false) }.start()
+            h.postDelayed(this, 1000)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -106,6 +115,7 @@ class ByodActivity : Activity() {
         Ollim.byeonhwa = { if (!doumalYeollim) cheotHwamyeon() }
         Ollim.sijak(this)
         Ollim.intentBoda(this, intent)
+        Haengsa.allim = { m -> h.post { if (malsoriOn && ttsDoem) malhagi(m) else mom.announceForAccessibility(m) } }   // 1.3.0
     }
 
     override fun onNewIntent(intent: Intent) {   // 1.1.2 새 판 알림을 두드렸을 때
@@ -190,6 +200,11 @@ class ByodActivity : Activity() {
     private fun cheotHwamyeon() {
         doumalYeollim = false
         mom.removeAllViews()
+        // 1.3.0 플린트 2 방식 — 행사 이름과 현장영상해설사(녹음 이름·다시듣기 제목·결과보고에 쓰임, 한 번 넣으면 기억)
+        if (Flint.flintInga(this)) {
+            mom.addView(kanMandeul("행사 이름 (비워 두면 날짜와 시각)", "haengsa_jemok"))
+            mom.addView(kanMandeul("현장영상해설사 이름", "haeseolsa"))
+        }
         bangDanchu = danchu("BYOD 방송 시작", keun = true, norang = true) { bangDanchuNullim() }
         mom.addView(bangDanchu)
         mom.addView(danchu("현장 점검") { hyeonjangJeomgeom() })   // 1.1.5 (261009-B7) 방송 전 살필 것을 단추 하나로
@@ -214,6 +229,10 @@ class ByodActivity : Activity() {
 
         deoAn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
         deoAn.addView(danchu("접속 도구: 엔에프시 태그와 큐알코드") { startActivity(Intent(this, JeopsokActivity::class.java)) })   // 1.1.0 (261006-B2)
+        deoAn.addView(danchu("지난 행사 기록 (녹음과 결과보고)") { haengsaHwamyeon() })   // 1.3.0
+        deoAn.addView(danchu("플린트 2 준비하기 (공유기 처음 한 번)") { startActivity(Intent(this, FlintJunbiActivity::class.java)) })   // 1.2.0
+        bangsikDanchu = danchu(bangsikMal()) { bangsikBakkugi() }   // 1.2.0
+        deoAn.addView(bangsikDanchu)
         deoAn.addView(danchu("기기 점검: 소리 장치와 연결 보기") { val t = gigiJeomgeom(this); android.app.AlertDialog.Builder(this).setTitle("기기 점검").setMessage(t).setPositiveButton("닫기", null).setNeutralButton("결과 복사") { _, _ -> try { (getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("기기 점검", t)); malhagi("기기 점검 결과를 복사했습니다.") } catch (_: Exception) { } }.show() })   // 1.1.3 (261007-B5), 1.1.4 결과 복사
         deoAn.addView(danchu("새로고침") { saerogochim() })
         deoAn.addView(danchu(Ollim.seoljeongMal(this)) { Ollim.seoljeongNureum(this) })   // 1.1.2 업데이트 — 새로고침 바로 아래 한 곳
@@ -246,6 +265,19 @@ class ByodActivity : Activity() {
         deoAn.visibility = if (yeolgi) View.VISIBLE else View.GONE
         deoDanchu.text = if (yeolgi) "더 보기 접기" else "더 보기"
         if (yeolgi) gyeorugi(deoAn.getChildAt(0))
+    }
+
+    // 1.2.0 방송 방식 — 플린트 2(공유기 안 서버, 기본) 또는 이 기기가 서버(예비)
+    private fun bangsikMal(): String = if (Flint.flintInga(this)) "방송 방식: 플린트 2 공유기. 누르면 이 기기가 서버인 예비 방식으로 바꿉니다"
+        else "방송 방식: 이 기기가 서버(예비). 누르면 플린트 2 공유기 방식으로 바꿉니다"
+
+    private fun bangsikBakkugi() {
+        if (Bang.kyeojim) { val t = "방송 중에는 방식을 바꾸지 않습니다. 방송을 멈춘 뒤 눌러 주십시오."; bangsikDanchu.announceForAccessibility(t); malhagi(t); return }
+        Flint.bangsikBakkugi(this, if (Flint.flintInga(this)) "taebeullit" else "flint")
+        bangsikDanchu.text = bangsikMal()
+        val t = if (Flint.flintInga(this)) "플린트 2 공유기 방식으로 바꾸었습니다." else "이 기기가 서버인 예비 방식으로 바꾸었습니다. 이 기기를 랜선으로 공유기에 이으십시오."
+        bangsikDanchu.announceForAccessibility(t); malhagi(t)
+        sangtaeGochigi(true)
     }
 
     private fun malsoriBakkugi() {
@@ -354,9 +386,10 @@ class ByodActivity : Activity() {
         val so = Bang.sojae
         val jm = Bang.jalmot
         val t = if (!k) {
-            "방송이 꺼져 있습니다." + (if (jm.isNotEmpty()) " " + jm else "")
+            "방송이 꺼져 있습니다." + (if (Flint.flintInga(this)) " 방송 방식: 플린트 2 공유기." else " 방송 방식: 이 기기가 서버.") + (if (jm.isNotEmpty()) " " + jm else "")
         } else {
-            "방송 중입니다. 듣는 분 " + Bang.deutnunSu + "명. 소리 받는 곳: " + so + "." + (if (jm.isNotEmpty()) " " + jm else "")
+            "방송 중입니다. 듣는 분 " + Bang.deutnunSu + "명. 소리 받는 곳: " + so + "." +
+                (if (Flint.flintInga(this)) (if (Flint.bonaenda) " 공유기로 보내고 있습니다." else "") else "") + (if (jm.isNotEmpty()) " " + jm else "")
         }
         val keunBakkwim = k != boyeojunKyeojim || so != boyeojunSojae || jm != boyeojunJalmot
         if (t != boyeojunGeul && (baro || keunBakkwim || now - boyeojunTtae >= 10_000)) {
@@ -376,6 +409,8 @@ class ByodActivity : Activity() {
                 if (juso.text.toString() != "공유기에 붙지 않았습니다. 와이파이나 랜선을 확인하십시오.") juso.text = "공유기에 붙지 않았습니다. 와이파이나 랜선을 확인하십시오."
             } else {
                 Bang.juso = j
+                val jj = if (Flint.flintInga(this)) "듣기 화면(와이파이에 붙으면 저절로 뜸)" else "듣기 주소"
+                if (jusoJemok.text.toString() != jj) jusoJemok.text = jj
                 jusoJemok.visibility = View.VISIBLE
                 if (juso.text.toString() != j) juso.text = j
             }
@@ -398,6 +433,68 @@ class ByodActivity : Activity() {
                 malhagi(g)
             }
         }
+    }
+
+    // ───── 1.3.0 입력 칸(바꾸면 바로 기억) ─────
+    private fun kanMandeul(ireum: String, kiy: String): EditText {
+        val e = EditText(this).apply {
+            hint = ireum
+            contentDescription = ireum
+            setHintTextColor(Saek.yeonhan)
+            setTextColor(Saek.geul)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
+            inputType = InputType.TYPE_CLASS_TEXT
+            setText(pref.getString(kiy, ""))
+        }
+        e.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(a: CharSequence?, b: Int, c: Int, d: Int) {}
+            override fun onTextChanged(a: CharSequence?, b: Int, c: Int, d: Int) {}
+            override fun afterTextChanged(a: android.text.Editable?) { pref.edit().putString(kiy, a?.toString() ?: "").apply() }
+        })
+        return e
+    }
+
+    // ───── 1.3.0 지난 행사 기록 — 다섯 개씩, 이름을 누르면 결과보고와 녹음 듣기 ─────
+    private var haengsaJjok = 0
+    private var deutgiPlayer: android.media.MediaPlayer? = null
+
+    private fun deutgiMeomchum() { try { deutgiPlayer?.release() } catch (_: Exception) { }; deutgiPlayer = null }
+
+    private fun haengsaHwamyeon() {
+        doumalYeollim = true
+        mom.removeAllViews()
+        val wi = danchu("뒤로") { deutgiMeomchum(); cheotHwamyeon() }
+        mom.addView(wi)
+        val l = Haengsa.mokrok(this)
+        var cheot: View? = null
+        if (l.isEmpty()) {
+            mom.addView(geul("아직 담아 둔 행사가 없습니다. 플린트 2 방식으로 방송을 멈추면 녹음과 결과보고가 여기에 담깁니다.", 20f))
+        } else {
+            if (l.any { !it.olim }) mom.addView(danchu("배프에 아직 못 올린 것 지금 올리기") { Haengsa.sijak(this, false); malhagi("배프에 올리고 있습니다.") })
+            val sijak = haengsaJjok * 5
+            for (x in l.subList(minOf(sijak, l.size), minOf(sijak + 5, l.size))) {
+                val nal = SimpleDateFormat("M월 d일 a h시 m분", Locale.KOREAN).format(Date(x.sijak * 1000))
+                val gil = x.gilee.toInt().let { if (it >= 60) "${it / 60}분" else "${it}초" }
+                val an = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+                an.addView(geul(Haengsa.bogo(this, x.sid), 18f))
+                val f = java.io.File(java.io.File(Haengsa.teo(this), x.sid), "nokeum.mp3")
+                if (f.isFile) an.addView(danchu("녹음 듣기") {
+                    if (deutgiPlayer != null) { deutgiMeomchum(); malhagi("녹음을 멈추었습니다.") }
+                    else try { deutgiPlayer = android.media.MediaPlayer().apply { setDataSource(f.path); prepare(); start(); setOnCompletionListener { deutgiMeomchum() } } } catch (_: Exception) { malhagi("녹음을 틀지 못했습니다.") }
+                })
+                val b = danchu(x.jemok + ", " + nal + ", " + gil + (if (x.olim) ", 배프에 올림" else ", 아직 못 올림")) {
+                    val yeol = an.visibility != View.VISIBLE
+                    an.visibility = if (yeol) View.VISIBLE else View.GONE
+                    if (yeol) gyeorugi(an.getChildAt(0))
+                }
+                if (cheot == null) cheot = b
+                mom.addView(b); mom.addView(an)
+            }
+            if (sijak + 5 < l.size) mom.addView(danchu("더 보기") { haengsaJjok++; haengsaHwamyeon() })
+            if (haengsaJjok > 0) mom.addView(danchu("이전 보기") { haengsaJjok--; haengsaHwamyeon() })
+        }
+        mom.addView(danchu("뒤로") { deutgiMeomchum(); cheotHwamyeon() })
+        gyeorugi(cheot ?: wi)
     }
 
     // ───── 도움말 화면 ─────
@@ -476,7 +573,7 @@ class ByodActivity : Activity() {
 
     private fun dwiro() {
         when {
-            doumalYeollim -> cheotHwamyeon()
+            doumalYeollim -> { deutgiMeomchum(); cheotHwamyeon() }
             ::deoAn.isInitialized && deoAn.visibility == View.VISIBLE -> { deoBogi(false); gyeorugi(deoDanchu) }
             else -> {
                 bangDanchu.announceForAccessibility("첫 화면입니다. 앱을 닫아도 방송은 이어집니다.")

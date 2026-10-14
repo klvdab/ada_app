@@ -1,6 +1,7 @@
 // BYOD 방송 — 방송 일꾼 (1.0.0판, 빌드 261003-B1, 이사장님 승인 2026-10-03)
 // 화면을 잠가도, 오래 켜 두어도 멈추지 않게 앞에서 도는 일꾼(포그라운드 서비스)으로 돕니다.
 // 알림 줄에는 "BYOD 방송 중" 하나만 둡니다. 듣는 분 수는 바뀔 때만 고쳐 씁니다.
+// 1.2.0 (261014-B9, 이사장님 승인 「1」, 방송클) 플린트 2 방식 — 이 기기는 소리 한 줄기만 공유기로 보내고, 나눠 보내기는 공유기 안 서버가 함(Flint.kt). 태블릿 서버 방식은 예비로 남김
 package kr.or.ada.app.byod
 
 import android.annotation.SuppressLint
@@ -61,6 +62,7 @@ class ByodService : Service() {
     }
 
     private var seobeo: Seobeo? = null
+    private var bonaegi: Flint.Bonaegi? = null   // 1.2.0 플린트 2 방식
     private var sori: Sori? = null
     private var jamgeum: PowerManager.WakeLock? = null
     private var wifiJamgeum: WifiManager.WifiLock? = null
@@ -105,6 +107,7 @@ class ByodService : Service() {
             wifiJamgeum = wm.createWifiLock(mode, "byod:wifi").also { it.setReferenceCounted(false); it.acquire() }
         } catch (_: Exception) { }
 
+        if (Flint.flintInga(this)) { flintSijak(); return }   // 1.2.0
         val s = Seobeo(this)
         try {
             s.sijak()
@@ -127,12 +130,32 @@ class ByodService : Service() {
         Bang.allyeo()
     }
 
+    // 1.2.0 플린트 2 방식 — 소리 받기는 그대로, 받은 소리를 공유기로 보냄
+    private fun flintSijak() {
+        val b = Flint.Bonaegi(this)
+        b.sijak()
+        bonaegi = b
+        Bang.juso = Flint.JUSO
+        Bang.keu = true
+        Bang.kyeojim = true
+        Bang.sigakTtae = System.currentTimeMillis()
+        val so = Sori(this) { x -> b.neoki(x) }
+        so.sijak()
+        sori = so
+        Bang.gwanchal.add(gwan)
+        Bang.allyeo()
+    }
+
     override fun onDestroy() {
         Bang.gwanchal.remove(gwan)
         Bang.keu = false
         Bang.kyeojim = false
         try { sori?.meomchugi() } catch (_: Exception) { }
         try { seobeo?.meomchugi() } catch (_: Exception) { }
+        val flintDolatda = bonaegi != null
+        try { bonaegi?.meomchugi() } catch (_: Exception) { }
+        bonaegi = null
+        if (flintDolatda) Haengsa.sijak(this, true)   // 1.3.0 행사 마감·녹음과 결과보고 받기·배프에 올리기
         sori = null
         seobeo = null
         try { jamgeum?.release() } catch (_: Exception) { }

@@ -1,6 +1,7 @@
 // BYOD 방송 — 현장 점검 (1.1.5판, 빌드 261009-B7, 방송클, 이사장님 승인 2026-10-09)
 // 단추 하나로 방송 전에 살필 것을 한 줄씩 알려 줍니다. 맨 앞 줄은 "몇 가지 가운데 몇 가지 정상"이라는 판단입니다.
 // 직원이 이 화면 하나로 준비를 끝낼 수 있게 — 안 되는 줄에는 할 일을 함께 적습니다.
+// 1.2.0 (261014-B9) 플린트 2 방식에서는 공유기·공유기 방송 서버·해설 소리 보내기·잠가도 이어지는 소리를 살핌
 package kr.or.ada.app.byod
 
 import android.content.Context
@@ -48,18 +49,31 @@ object Hyeonjang {
         if (Bang.kyeojim) l.add(Jul(Bang.sojae.startsWith("USB 사운드카드"), "소리 받는 곳: " + Bang.sojae + "."))
         // 4. 소리 크기(방송 중, 최근 5초 안에 잰 것만)
         if (Bang.kyeojim && System.currentTimeMillis() - Bang.sorikeugiTtae < 5000) l.add(keugiMal(Bang.sorikeugi))
-        // 5. 공유기 연결
-        val juso = ByodService.jusoChatgi()
-        l.add(if (juso.isEmpty()) Jul(false, "공유기: 붙지 않았습니다. 랜선을 허브에 꽂거나 태블릿을 공유기 와이파이에 붙이십시오.")
-              else Jul(true, "공유기: 붙었습니다. 듣기 주소 " + juso))
-        // 6. 엔에프시 태그 주소와 지금 주소
-        val st = stickerJuso(ctx)
-        l.add(when {
-            juso.isEmpty() -> Jul(false, "엔에프시 태그 주소: 공유기에 붙은 뒤 견줄 수 있습니다.")
-            st.isEmpty() -> Jul(false, "엔에프시 태그 주소: 이 태블릿으로 엔에프시 태그나 큐알을 만든 적이 없습니다. 더 보기의 접속 도구에서 만드십시오.")
-            st == juso -> Jul(true, "엔에프시 태그 주소: 지금 주소와 같습니다. 엔에프시 태그와 큐알을 그대로 쓰면 됩니다.")
-            else -> Jul(false, "엔에프시 태그 주소: 지금 주소와 다릅니다. 엔에프시 태그에는 " + st + ", 지금은 " + juso + " 입니다. 접속 도구에서 엔에프시 태그와 큐알을 새로 만드십시오.")
-        })
+        // 1.2.0 플린트 2 방식 — 공유기 안 방송 서버(망에 묻지 않고, 방송 중 3초마다 물은 결과로 판단)
+        if (Flint.flintInga(ctx)) {
+            val mang = Flint.mang(ctx) != null
+            l.add(if (mang) Jul(true, "공유기: 플린트 2에 붙었습니다.") else Jul(false, "공유기: 플린트 2 와이파이(" + Flint.SSID + ")나 랜선에 붙지 않았습니다. 이 기기를 공유기에 붙이십시오."))
+            if (Bang.kyeojim) {
+                val dap = System.currentTimeMillis() - Flint.dapTtae < 10_000
+                l.add(if (dap) Jul(true, "공유기 방송 서버: 답합니다. " + Flint.seobeoPan + "판.")
+                      else Jul(false, "공유기 방송 서버: 답하지 않습니다. 처음 쓰는 공유기면 더 보기의 플린트 2 준비하기를 하십시오."))
+                l.add(if (Flint.bonaenda) Jul(true, "해설 소리: 공유기로 보내고 있습니다.") else Jul(false, "해설 소리: 공유기로 보내지 못하고 있습니다. 공유기 전원과 와이파이를 확인하십시오."))
+                if (dap) l.add(if (Flint.mp3) Jul(true, "화면을 잠가도 이어지는 소리: 쓸 수 있습니다.") else Jul(false, "화면을 잠가도 이어지는 소리: 공유기에 없습니다. 사무실에서 플린트 2 준비하기를 다시 하십시오."))
+            }
+        } else {
+            // 5. 공유기 연결
+            val juso = ByodService.jusoChatgi()
+            l.add(if (juso.isEmpty()) Jul(false, "공유기: 붙지 않았습니다. 랜선을 허브에 꽂거나 태블릿을 공유기 와이파이에 붙이십시오.")
+                  else Jul(true, "공유기: 붙었습니다. 듣기 주소 " + juso))
+            // 6. 엔에프시 태그 주소와 지금 주소
+            val st = stickerJuso(ctx)
+            l.add(when {
+                juso.isEmpty() -> Jul(false, "엔에프시 태그 주소: 공유기에 붙은 뒤 견줄 수 있습니다.")
+                st.isEmpty() -> Jul(false, "엔에프시 태그 주소: 이 태블릿으로 엔에프시 태그나 큐알을 만든 적이 없습니다. 더 보기의 접속 도구에서 만드십시오.")
+                st == juso -> Jul(true, "엔에프시 태그 주소: 지금 주소와 같습니다. 엔에프시 태그와 큐알을 그대로 쓰면 됩니다.")
+                else -> Jul(false, "엔에프시 태그 주소: 지금 주소와 다릅니다. 엔에프시 태그에는 " + st + ", 지금은 " + juso + " 입니다. 접속 도구에서 엔에프시 태그와 큐알을 새로 만드십시오.")
+            })
+        }
         // 7. 배터리
         val bi = ctx.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val lv = bi?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
