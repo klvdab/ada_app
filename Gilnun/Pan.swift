@@ -10,13 +10,16 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.70.0"
-    static let bild = "261014-I24"
+    static let pan = "2.71.0"
+    static let bild = "261014-I25"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.71.0", bild: "261014-I25", nal: "2026-10-14", naeyong: [
+            "도움말 「길 찾기 첫 화면 차례」 더함 — 안드로이드 2.43.0과 같은 차례(이사장님 승인 2026-10-14 「1」)"
+        ]),
         Gochim(pan: "2.70.0", bild: "261014-I24", nal: "2026-10-14", naeyong: [
             "★설정 탭 차례를 한 잣대로(이사장님 승인 2026-10-14 「1」) — 자주 손대는 것부터, 시험용은 맨 아래 더 보기 펼치기 안에. 아이폰과 안드로이드가 같은 차례·같은 이름",
             "알림, 말하기 설정, 말로 하기 설정, 점지도와 걸음, 기기 설정, 가족·지인 명단, 내 서류 보관함, 폰 펼치기, 도움말, 여기서 점검, 새로고침, 업데이트, 길눈 정보, 더 보기(기초 시험·아침 기록·관리자 시험)",
