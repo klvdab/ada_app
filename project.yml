@@ -35,6 +35,7 @@
 #   JabongApp  자봉 앱  (kr.or.ada.jabong)  대문 https://lvd.ada.or.kr/jabong/
 #   BfbApp     배프 앱  (kr.or.ada.bfb)     대문 https://lvd.ada.or.kr/bfb/
 #   LibApp     AI점자도서관 (kr.or.ada.lib)  Lib 폴더의 자체 코드, iOS 17 이상
+#   TourApp    LVD투어스튜디오 (kr.or.ada.tourstudio)  Tour 폴더의 자체 코드, iOS 17 이상
 #   ByodApp    BYOD 방송 (kr.or.ada.byod)  Byod 폴더의 자체 코드 — 현장영상해설을 같은 공유기의 폰들에 나눠 보냄(안드로이드 BYOD와 같은 방식)
 # 배프 앱만 App 폴더의 소스를 씁니다(협회 앱·자봉 앱은 속까지 앱). 대문 주소는 각자 Info.plist 의 AdaHomeURL 로 갈라집니다.
 name: AdaApp
@@ -225,6 +226,36 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.lib
         TARGETED_DEVICE_FAMILY: "1"
         MARKETING_VERSION: "0.6.2"   # 261012-L14 사전 도움말에 우리말샘·한국고전종합DB, 한자음 읽기 도움말에 경서 읽는 소리(도서관 창 클, 이사장님 승인 「1」). 261012-L13 한자음 읽기(중국 고전을 우리 한자음으로, 간체자도, 원문 함께 보기 — 도서관 창 클, 이사장님 승인 「1」). 261012-L12 곱씹어 읽기(다시 듣기·풀어 읽기·중요 표시·책 속 찾기)와 사전·내 낱말장(도서관 창 클, 이사장님 승인 「1」). 261012-L11 외국 도서 문(외국 도서 → 언어 → 장르와 주제), 글 판 4(강제 줄바꿈 바로잡은 글·옛 자리 옮기기), 도움말 둘(도서관 창 클, 이사장님 승인 「1」). 261010-L10 첫 화면 맨 위 이름 줄·바로 아래 찾기 칸, 목록에서 한 번 두드리면 바로 읽기, 넘긴 뒤 커서를 첫 줄로(도서관 창 클, 이사장님 승인 「1」). 261010-L9 첫 화면에 고른 문의 서가 목록·형태별 갈래와 보일 책 뺌·세 손가락 쓸기로 목록 넘기기(도서관 창 클, 이사장님 승인 「1」). 261007-L7 새 판 알림(대장클, 이사장님 지시). 261006-6 책 소개·지은이·출판사, 책 소개 듣기. 261006-5 여섯 문단 미리 받기(소리 멈춤 줄이기). 261006-4 목소리 열 가지·미리 듣기, 재생 위치 막대, 앞으로 30초와 뒤로 30초(이사장님 지시). 261006-3 인터넷이 될 때는 늘 도서관(서버) 목소리, 폰 목소리는 인터넷이 끊겼을 때만(이사장님 지적). 261006-2 세 겹의 문 목록 고침·탭 고르면 맨 위로·독서기 떠나면 멈춤(도서관 창 클, 이사장님 지적)
+  TourApp:
+    # 1.0.0 (261012-T1, 2026-10-12 이사장님 승인 「1」) LVD투어스튜디오 — 웹 투어스튜디오 1.12판을 속까지 앱으로(Tour 폴더), iOS 17 이상
+    # 탭 다섯: 코스·답사·지점·현장영상해설·설정. 서버는 웹과 같은 lvdts_api.php
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Tour
+    info:
+      path: Tour/Info.plist
+      properties:
+        CFBundleDisplayName: 투어스튜디오
+        CFBundleName: TourApp
+        CFBundleDevelopmentRegion: ko
+        CFBundleLocalizations: [ko]
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIBackgroundModes: [audio]
+        NSCameraUsageDescription: 답사 때 지점의 정지 현장영상해설 자리에서 시계 방향 네 쪽 사진을 찍는 데 카메라를 씁니다.
+        NSLocationWhenInUseUsageDescription: 답사 때 지점이 시작되고 끝나는 자리와 지점 사이 걸은 거리(이동 시간)를 적는 데 위치를 씁니다.
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.tourstudio
+        TARGETED_DEVICE_FAMILY: "1"
+        MARKETING_VERSION: "1.0.0"   # 261012-T1 첫 판 — 코스·답사(지점 경계·새 지점·시계 방향 사진)·지점 한 화면·현장영상해설·원칙 16개 점검·승인 요청·저절로 저장(이사장님 승인 「1」)
   ByodApp:
     # 1.1.5 (261010-BI1, 2026-10-10 이사장님 승인 「아이폰용도 진행」, 방송클) BYOD 방송 아이폰 — 안드로이드 BYOD 방송 1.1.5와 같은 기능
     # 화면을 잠가도 해설 소리 받기와 나눠 보내기가 이어지도록 뒤에서 소리(audio), 엔에프시 스티커 쓰기(TAG)
@@ -252,6 +283,7 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: false
+          NSAllowsLocalNetworking: true
     entitlements:
       path: Byod/ByodApp.entitlements
       properties:
@@ -260,7 +292,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.byod
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "1.1.5"   # 261010-BI1 아이폰 첫 판 — 방송·현장 점검·소리 크기·멈춘 폰 빼기·접속 도구(엔에프시·큐알)·기기 점검·도움말·새 판 알림(방송클, 이사장님 승인)
+        MARKETING_VERSION: "1.1.6"   # 261012-BI2 엔에프시 태그로 부름·듣기 주소 바로잡기와 확인·태그 쓴 뒤 다시 읽어 확인·A4 인쇄용 한 장(방송클, 이사장님 승인). 261010-BI1 아이폰 첫 판 — 방송·현장 점검·소리 크기·멈춘 폰 빼기·접속 도구(엔에프시·큐알)·기기 점검·도움말·새 판 알림(방송클, 이사장님 승인)
   AdaWatch:
     type: application
     platform: watchOS
@@ -306,6 +338,12 @@ schemes:
     build:
       targets:
         LibApp: all
+    archive:
+      config: Release
+  TourApp:
+    build:
+      targets:
+        TourApp: all
     archive:
       config: Release
   ByodApp:
