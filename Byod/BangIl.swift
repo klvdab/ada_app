@@ -1,5 +1,6 @@
 // BYOD 방송 아이폰 — 방송 켜고 끄기와 프로그램 말소리 (1.1.5판, 빌드 261010-BI1, 방송클)
 // 방송 단추가 부르는 곳입니다. 서버(Seobeo)를 열고, 해설 소리 받기(Sori)를 켜서 0.1초 조각마다 서버로 넘깁니다.
+// 1.2.0 (261014-BI3, 이사장님 승인 「1」, 방송클) 플린트 2 방식이면 서버를 열지 않고 소리를 공유기로 보냄(FlintBonaegi)
 import Foundation
 import AVFoundation
 import UIKit
@@ -29,6 +30,7 @@ final class BangIl {
         let b = Bang.shared
         if b.kyeojim { return "이미 방송 중입니다." }
         b.jalmot = ""
+        if Flint.flintInga { return flintKyeogi() }   // 1.2.0
         do {
             try Seobeo.shared.sijak()
         } catch {
@@ -51,12 +53,35 @@ final class BangIl {
         return "방송을 시작했습니다."
     }
 
+    /// 1.2.0 플린트 2 방식 — 소리 받기는 그대로, 받은 소리를 공유기로 보냄
+    private func flintKyeogi() -> String {
+        let b = Bang.shared
+        FlintBonaegi.shared.sijak()
+        let so = Sori { d in FlintBonaegi.shared.neoki(d) }
+        do {
+            try so.sijak()
+        } catch {
+            FlintBonaegi.shared.meomchugi()
+            b.jalmot = "마이크: " + error.localizedDescription
+            return "방송을 시작하지 못했습니다. " + b.jalmot
+        }
+        sori = so
+        b.juso = Flint.JUSO
+        b.keu = true
+        b.kyeojim = true
+        b.sigakTtae = Date()
+        return "방송을 시작했습니다. 해설 소리를 플린트 2 공유기로 보냅니다."
+    }
+
     func kkeugi() {
         let b = Bang.shared
         b.keu = false
         sori?.meomchugi()
         sori = nil
         Seobeo.shared.meomchugi()
+        let flintDolatda = b.juso == Flint.JUSO && b.kyeojim
+        FlintBonaegi.shared.meomchugi()   // 1.2.0
+        if flintDolatda { HaengsaOlligi.shared.sijak(maegam: true) }   // 1.3.0 행사 마감·녹음과 결과보고 받기·배프에 올리기
         b.kyeojim = false
         b.deutnunSu = 0
     }

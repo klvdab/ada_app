@@ -2,6 +2,7 @@
 // 이사장님 지시(2026-10-06): 접수대에서 한 번에 붙게. 안드로이드 듣는 분은 엔에프시 태그(와이파이 붙기), 아이폰 듣는 분은 큐알코드(와이파이 붙기).
 // 두 기능 모두 늘 유지 — 안드로이드판 접속 도구(JeopsokActivity)와 같은 내용을 씁니다.
 // 아이폰은 지금 붙은 와이파이 이름을 앱이 알아낼 수 없어, 와이파이 이름은 한 번 넣어 두면 기억합니다.
+// 1.2.0 (261014-BI3, 이사장님 승인 「1」, 방송클) 플린트 2 방식 — 와이파이 태그·큐알 한 장이면 듣기 화면이 저절로 뜸. 듣기 주소 태그·큐알은 예비 방식용으로 펼치기 안에. 와이파이 이름은 방식마다 따로 기억
 // 1.1.6 (261012-BI2, 이사장님 승인 「1」, 방송클) 스티커를 엔에프시 태그로 부름, 듣기 주소 바로잡기와 확인, 엔에프시 태그를 쓴 뒤 다시 읽어 확인, A4 인쇄용 한 장 — 안드로이드 1.1.6과 같음
 import SwiftUI
 import UIKit
@@ -94,6 +95,27 @@ enum Jeopsok {
             sseugi("2. 현장영상해설 듣기 (아래)", 1810, 110, true)
             q2.draw(in: CGRect(x: (w - qk) / 2, y: 1980, width: qk, height: qk))
             sseugi(juso, 3350, 70, false)
+        }
+    }
+
+    /// 1.2.0 플린트 2 방식 A4 — 와이파이 큐알 하나를 크게(약 17센티미터). 붙으면 듣기 화면이 저절로 뜸
+    static func a4Flint(wifi: String, ssid: String) -> UIImage? {
+        guard let q = qrGeurim(wifi) else { return nil }
+        let w: CGFloat = 2480, h: CGFloat = 3508, qk: CGFloat = 2000
+        let fm = UIGraphicsImageRendererFormat(); fm.scale = 1; fm.opaque = true
+        return UIGraphicsImageRenderer(size: CGSize(width: w, height: h), format: fm).image { c in
+            UIColor.white.setFill(); c.fill(CGRect(x: 0, y: 0, width: w, height: h))
+            c.cgContext.interpolationQuality = .none
+            let gaunde = NSMutableParagraphStyle(); gaunde.alignment = .center
+            func sseugi(_ t: String, _ y: CGFloat, _ k: CGFloat, _ gulgeum: Bool) {
+                let a: [NSAttributedString.Key: Any] = [.font: gulgeum ? UIFont.boldSystemFont(ofSize: k) : UIFont.systemFont(ofSize: k), .foregroundColor: UIColor.black, .paragraphStyle: gaunde]
+                (t as NSString).draw(in: CGRect(x: 0, y: y, width: w, height: k * 1.5), withAttributes: a)
+            }
+            sseugi("현장영상해설 듣기", 180, 120, true)
+            sseugi("카메라로 비추면 와이파이에 붙고 듣기 화면이 뜹니다", 380, 80, false)
+            q.draw(in: CGRect(x: (w - qk) / 2, y: 600, width: qk, height: qk))
+            sseugi("와이파이: " + ssid, 2720, 80, false)
+            sseugi("사단법인 한국시각장애인현장영상해설협회", 3120, 80, false)
         }
     }
 
@@ -215,9 +237,14 @@ final class SajinJeojang: NSObject {
 
 struct JeopsokView: View {
     let dwiro: () -> Void
-    @AppStorage("byod_ssid") private var ssid = ""
+    @AppStorage("byod_ssid") private var ssidT = ""
+    @AppStorage("byod_ssid_flint") private var ssidF = ""   // 1.2.0 플린트 2 방식 와이파이 이름은 따로 기억
+    @State private var jusoPyeolchim = false
+    private let flint = Flint.flintInga
+    private var ssid: String { flint ? ssidF : ssidT }
+    private var ssidB: Binding<String> { flint ? $ssidF : $ssidT }
     @AppStorage("byod_pw") private var pw = ""
-    @State private var juso = Jeopsok.gotchim(Bang.shared.juso.isEmpty ? Juso.deutgiJuso() : Bang.shared.juso)   // 1.1.6 방송 중이면 방송 주소를 먼저
+    @State private var juso = Jeopsok.gotchim(Bang.shared.juso.isEmpty ? (Flint.flintInga ? Flint.JUSO : Juso.deutgiJuso()) : Bang.shared.juso)   // 1.1.6 방송 중이면 방송 주소를 먼저
     @State private var allim = ""
     @State private var qr: UIImage?
     @State private var qrIreum = ""
@@ -228,33 +255,33 @@ struct JeopsokView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 Danchu(geul: "뒤로") { dwiro() }.accessibilityFocused($wiChojeom)
-                Geul("방송 와이파이와 듣기 주소를 확인하고 아래에서 고르십시오. 와이파이 이름은 한 번 넣어 두면 기억합니다.")
-                Kan(ireum: "방송 와이파이 이름", gap: $ssid)
+                Geul(flint ? "플린트 2 방식입니다. 듣는 분은 와이파이 태그 한 번(안드로이드)이나 와이파이 큐알 한 번(아이폰)이면 듣기 화면이 저절로 뜹니다. 듣기 주소 태그는 필요 없습니다."
+                           : "방송 와이파이와 듣기 주소를 확인하고 아래에서 고르십시오. 와이파이 이름은 한 번 넣어 두면 기억합니다.")
+                Kan(ireum: "방송 와이파이 이름", gap: ssidB)
                 Kan(ireum: "와이파이 비밀번호(없으면 비워 두기)", gap: $pw)
-                Kan(ireum: "듣기 주소", gap: $juso)
                 if !allim.isEmpty {
                     Text(allim).font(.title3.weight(.bold)).foregroundStyle(Saek.norang)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityFocused($allimChojeom)
                 }
-                Danchu(geul: "듣기 주소 확인하기") { jusoHwagin {} }   // 1.1.6
-                Geul("엔에프시 태그: 와이파이 붙기는 안드로이드폰, 듣기 주소 열기는 안드로이드폰과 아이폰 XS 이후 기종 모두 폰 윗부분을 대면 열림", gulgeum: true).accessibilityAddTraits(.isHeader)
                 Danchu(geul: "엔에프시 태그 쓰기: 와이파이 붙기") {
                     let s = ssid.trimmingCharacters(in: .whitespaces)
                     if s.isEmpty { mal("방송 와이파이 이름을 먼저 넣어 주십시오."); return }
                     NfcSseugi.shared.sijak(Jeopsok.wifiMesiji(ssid: s, pw: pw), ireum: "와이파이 붙기")
                 }
-                Danchu(geul: "엔에프시 태그 쓰기: 듣기 주소 열기") {
-                    let j = Jeopsok.gotchim(juso); juso = j   // 1.1.6 바로잡고 먼저 확인한 뒤 씀
-                    guard let m = Jeopsok.jusoMesiji(j), j.hasPrefix("http") else { mal("듣기 주소가 비었거나 틀렸습니다. 공유기에 붙은 뒤 다시 여십시오."); return }
-                    Hyeonjang.stickerGieok(j)   // 쓴 주소를 기억해 현장 점검에서 견줌
-                    jusoHwagin { NfcSseugi.shared.sijak(m, ireum: "듣기 주소") }
-                }
                 Danchu(geul: "엔에프시 태그 쓰기 멈추기") { NfcSseugi.shared.meomchugi() }
                 Geul("큐알코드(아이폰은 카메라로 비추면 와이파이에 붙음)", gulgeum: true).accessibilityAddTraits(.isHeader)
-                Danchu(geul: "A4 인쇄용 한 장 만들기: 위 와이파이, 아래 듣기 주소") {   // 1.1.6
+                Danchu(geul: flint ? "A4 인쇄용 한 장 만들기: 와이파이 큐알" : "A4 인쇄용 한 장 만들기: 위 와이파이, 아래 듣기 주소") {   // 1.1.6, 1.2.0
                     let s = ssid.trimmingCharacters(in: .whitespaces)
                     if s.isEmpty { mal("방송 와이파이 이름을 먼저 넣어 주십시오."); return }
+                    if flint {   // 1.2.0
+                        guard let a = Jeopsok.a4Flint(wifi: Jeopsok.wifiQr(ssid: s, pw: pw), ssid: s) else { mal("그림을 만들지 못했습니다."); return }
+                        qr = a; qrIreum = "A4 인쇄용 한 장, 와이파이"
+                        SajinJeojang.shared.jeojang(a) { ok in
+                            mal(ok ? "A4 인쇄용 한 장을 사진 앱에 저장했습니다. 와이파이 큐알 하나입니다. 붙으면 듣기 화면이 저절로 뜹니다." : "저장하지 못했습니다. 아이폰 설정에서 BYOD 방송의 사진 추가를 허용해 주십시오.")
+                        }
+                        return
+                    }
                     let j = Jeopsok.gotchim(juso); juso = j
                     if j.isEmpty { mal("듣기 주소가 비었습니다."); return }
                     Hyeonjang.stickerGieok(j)
@@ -269,16 +296,30 @@ struct JeopsokView: View {
                     if s.isEmpty { mal("방송 와이파이 이름을 먼저 넣어 주십시오."); return }
                     qrBoyeogi(Jeopsok.wifiQr(ssid: s, pw: pw), "와이파이 붙기")
                 }
-                Danchu(geul: "큐알 보기: 듣기 주소 열기") {
-                    let j = Jeopsok.gotchim(juso); juso = j
-                    if !j.hasPrefix("http") { mal("듣기 주소가 비었거나 틀렸습니다. 공유기에 붙은 뒤 다시 여십시오."); return }
-                    Hyeonjang.stickerGieok(j)
-                    qrBoyeogi(j, "듣기 주소")
-                }
                 Danchu(geul: "큐알 그림 저장(인쇄용)") {
                     guard let q = qr else { mal("먼저 큐알 보기를 눌러 주십시오."); return }
                     SajinJeojang.shared.jeojang(q) { ok in
                         mal(ok ? "사진 앱에 저장했습니다. 그 그림을 인쇄하시면 됩니다." : "저장하지 못했습니다. 아이폰 설정에서 BYOD 방송의 사진 추가를 허용해 주십시오.")
+                    }
+                }
+                // 듣기 주소 태그·큐알 — 예비 방식(이 아이폰이 서버)에서 씀. 플린트 2 방식에서는 펼쳐야 보임
+                if flint {
+                    Danchu(geul: jusoPyeolchim ? "듣기 주소 태그와 큐알 접기" : "듣기 주소 태그와 큐알 펼치기 (예비 방식에서 씀)") { jusoPyeolchim.toggle() }
+                }
+                if !flint || jusoPyeolchim {
+                    Kan(ireum: "듣기 주소", gap: $juso)
+                    Danchu(geul: "듣기 주소 확인하기") { jusoHwagin {} }   // 1.1.6
+                    Danchu(geul: "엔에프시 태그 쓰기: 듣기 주소 열기") {
+                        let j = Jeopsok.gotchim(juso); juso = j   // 1.1.6 바로잡고 먼저 확인한 뒤 씀
+                        guard let m = Jeopsok.jusoMesiji(j), j.hasPrefix("http") else { mal("듣기 주소가 비었거나 틀렸습니다. 공유기에 붙은 뒤 다시 여십시오."); return }
+                        Hyeonjang.stickerGieok(j)   // 쓴 주소를 기억해 현장 점검에서 견줌
+                        jusoHwagin { NfcSseugi.shared.sijak(m, ireum: "듣기 주소") }
+                    }
+                    Danchu(geul: "큐알 보기: 듣기 주소 열기") {
+                        let j = Jeopsok.gotchim(juso); juso = j
+                        if !j.hasPrefix("http") { mal("듣기 주소가 비었거나 틀렸습니다. 공유기에 붙은 뒤 다시 여십시오."); return }
+                        Hyeonjang.stickerGieok(j)
+                        qrBoyeogi(j, "듣기 주소")
                     }
                 }
                 if let q = qr {
@@ -294,7 +335,8 @@ struct JeopsokView: View {
         .accessibilityAction(.escape) { dwiro() }
         .onAppear {
             NfcSseugi.shared.allim = { t in mal(t) }
-            if juso.isEmpty { juso = Juso.deutgiJuso() }
+            if juso.isEmpty { juso = flint ? Flint.JUSO : Juso.deutgiJuso() }
+            if flint && ssidF.isEmpty { ssidF = Flint.SSID }   // 1.2.0
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { wiChojeom = true }
         }
         .onDisappear { NfcSseugi.shared.allim = { _ in } }

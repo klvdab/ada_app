@@ -1,6 +1,7 @@
 // BYOD 방송 아이폰 — 현장 점검 (1.1.5판, 빌드 261010-BI1, 방송클 — 안드로이드 1.1.5 현장 점검과 같은 잣대)
 // 단추 하나로 방송 전에 살필 것을 한 줄씩 알려 줍니다. 맨 앞 줄은 "몇 가지 가운데 몇 가지 정상"이라는 판단입니다.
 // 직원이 이 화면 하나로 준비를 끝낼 수 있게 — 안 되는 줄에는 할 일을 함께 적습니다.
+// 1.2.0 (261014-BI3) 플린트 2 방식에서는 공유기 방송 서버·해설 소리 보내기·잠가도 이어지는 소리를 살핌(안드로이드 1.2.0과 같음)
 import Foundation
 import UIKit
 
@@ -35,6 +36,18 @@ enum Hyeonjang {
         // 4. 소리 크기(방송 중, 최근 5초 안에 잰 것만)
         let (db, ttae) = b.sorikeugiBogi()
         if b.kyeojim && Date().timeIntervalSince(ttae) < 5 { l.append(keugiMal(db)) }
+        if Flint.flintInga {   // 1.2.0
+            let f = FlintBonaegi.shared
+            let butum = !Juso.deutgiJuso().isEmpty
+            l.append(butum ? Jul(doem: true, mal: "공유기: 붙었습니다.") : Jul(doem: false, mal: "공유기: 붙지 않았습니다. 이 아이폰을 와이파이 \(Flint.SSID) 에 붙이십시오."))
+            if b.kyeojim {
+                let dap = Date().timeIntervalSince(f.dapTtae) < 10
+                l.append(dap ? Jul(doem: true, mal: "공유기 방송 서버: 답합니다. \(f.seobeoPan)판.")
+                             : Jul(doem: false, mal: "공유기 방송 서버: 답하지 않습니다. 새 공유기는 안드로이드 BYOD 방송 앱의 플린트 2 준비하기로 먼저 준비하십시오."))
+                l.append(f.bonaenda ? Jul(doem: true, mal: "해설 소리: 공유기로 보내고 있습니다.") : Jul(doem: false, mal: "해설 소리: 공유기로 보내지 못하고 있습니다. 공유기 전원과 와이파이를 확인하십시오."))
+                if dap { l.append(f.mp3 ? Jul(doem: true, mal: "화면을 잠가도 이어지는 소리: 쓸 수 있습니다.") : Jul(doem: false, mal: "화면을 잠가도 이어지는 소리: 공유기에 없습니다. 사무실에서 플린트 2 준비하기를 다시 하십시오.")) }
+            }
+        } else {
         // 5. 공유기 연결
         let juso = Juso.deutgiJuso()
         l.append(juso.isEmpty ? Jul(doem: false, mal: "공유기: 붙지 않았습니다. 아이폰을 방송 공유기 와이파이에 붙이거나, 어댑터에 랜선을 꽂으십시오.")
@@ -45,6 +58,7 @@ enum Hyeonjang {
         else if st.isEmpty { l.append(Jul(doem: false, mal: "엔에프시 태그 주소: 이 아이폰으로 엔에프시 태그나 큐알을 만든 적이 없습니다. 더 보기의 접속 도구에서 만드십시오.")) }
         else if st == juso { l.append(Jul(doem: true, mal: "엔에프시 태그 주소: 지금 주소와 같습니다. 엔에프시 태그와 큐알을 그대로 쓰면 됩니다.")) }
         else { l.append(Jul(doem: false, mal: "엔에프시 태그 주소: 지금 주소와 다릅니다. 엔에프시 태그에는 \(st), 지금은 \(juso) 입니다. 접속 도구에서 엔에프시 태그와 큐알을 새로 만드십시오.")) }
+        }
         // 7. 배터리
         let d = UIDevice.current
         d.isBatteryMonitoringEnabled = true
