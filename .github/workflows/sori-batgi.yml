@@ -1,0 +1,47 @@
+# 협회 목소리 받기 (1.0판, 빌드 261014-S1, 대장클) — 교육 동영상 해설 녹음을 고칠 때 씁니다.
+# 길눈과 같은 협회 목소리(나스 jeom/sori/mal.php)로 글 한 덩이를 mp3 로 받아 sori-data 갈래(앱 소스와 따로)에 올립니다.
+# 대장클 작업공간은 나스에 바로 닿지 못하므로, 깃허브가 빌려 주는 리눅스가 대신 받아 건넵니다. 앱 짓기와는 상관이 없습니다.
+name: sori-batgi
+on:
+  workflow_dispatch:
+    inputs:
+      geul:
+        description: "읽을 글"
+        required: true
+      ireum:
+        description: "파일 이름(영문·숫자·밑줄, .mp3 없이)"
+        required: true
+      moksori:
+        description: "목소리 v (0 = 선희)"
+        default: "0"
+      sokdo:
+        description: "빠르기 r (0 = 가장 느리게, 2 = 보통)"
+        default: "0"
+permissions:
+  contents: write
+jobs:
+  batgi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: 협회 목소리 받기
+        env:
+          GEUL: ${{ inputs.geul }}
+          IREUM: ${{ inputs.ireum }}
+          V: ${{ inputs.moksori }}
+          R: ${{ inputs.sokdo }}
+        run: |
+          case "$IREUM" in *[!A-Za-z0-9_]*|"") echo "파일 이름은 영문·숫자·밑줄만"; exit 1 ;; esac
+          mkdir -p /tmp/gal && cd /tmp/gal
+          curl -sSf -G --max-time 120 -A "lvd-sori-batgi" \
+            --data-urlencode "v=$V" --data-urlencode "r=$R" --data-urlencode "t=$GEUL" \
+            "https://lvd.ada.or.kr/jeom/sori/mal.php" -o "$IREUM.mp3"
+          ls -la "$IREUM.mp3"
+          test "$(stat -c%s "$IREUM.mp3")" -gt 2000
+          printf '%s\n' "$GEUL" > "$IREUM.txt"
+      - name: sori-data 갈래에 올리기
+        run: |
+          cd /tmp/gal
+          git init -q && git checkout -q -b sori-data
+          git add . && git -c user.name=sori-batgi -c user.email=noreply@ada.or.kr commit -qm "협회 목소리 받기"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" sori-data
