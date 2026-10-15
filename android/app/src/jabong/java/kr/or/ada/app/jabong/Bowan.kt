@@ -134,7 +134,7 @@ class BowanGilHwamyeon(private val g: JSONObject) : JbHwamyeon("보완 부탁") 
         if (from.isNotEmpty() && to.isNotEmpty()) t.danchu("보완하기 — ${from}에서 ${to}까지 다시 그리기") {
             if (Geurigi.sangtae != Geurigi.Sangtae.SWIM) { Sori.mal("그리는 중인 길이 있습니다. 그 길을 먼저 마치거나 그만두신 뒤 다시 눌러 주십시오."); return@danchu }
             Geurigi.bowanJeonghagi(g.optString("id"), from, to)
-            Sori.mal("고맙습니다. 봉사 탭의 점지도 그리기에서 ${from}부터 ${to}까지 다시 걸어 주십시오. 걷기 시작을 누르시면 출발지와 도착지 이름이 이 길과 같게 들어갑니다. 올려서 협회 점검을 통과하면 보완 완료가 됩니다.")
+            Sori.mal("고맙습니다. 그리기 탭의 점지도 그리기에서 ${from}부터 ${to}까지 다시 걸어 주십시오. 걷기 시작을 누르시면 출발지와 도착지 이름이 이 길과 같게 들어갑니다. 올려서 협회 점검을 통과하면 보완 완료가 됩니다.")
             t.tabGo(0)
         }
         t.danchu("고칠 곳 말로 듣기") { JbBowan.malHagi(g) }
