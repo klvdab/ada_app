@@ -100,6 +100,7 @@ final class AnnaeEngine: ObservableObject {
 
     /// 2.12.6 새 목적지를 정하기 전에 하던 안내를 조용히 모두 끔 — 걷던 점지도, 지하철 안내, 이어 걷기 기록(이사장님 승인 1)
     func saeMokjeokJunbi() {
+        MunIkkeulgi.shared.meomchugi()   // 2.76.0 안드로이드와 같게(이사장님 승인 2026-10-15 「1」) — 도착 뒤 문까지 이끌기가 새 목적지 안내와 겹치지 않게
         JeomEngine.shared.yeojeongKkeut()
         JihacheolEngine.shared.meomchugi()
         namEunGeori = nil

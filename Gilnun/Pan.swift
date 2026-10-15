@@ -10,13 +10,17 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.75.0"
-    static let bild = "261015-I29"
+    static let pan = "2.76.0"
+    static let bild = "261015-I30"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.76.0", bild: "261015-I30", nal: "2026-10-15", naeyong: [
+            "★안드로이드와 같게(이사장님 승인 2026-10-15 「1」) — 새 목적지로 걸어가기·차로 가기를 누르면 도착 뒤 문까지 이끌기를 멈춤(새 안내와 말이 겹치던 일)",
+            "도움말 바로잡음 — 저절로 바뀌는 안내(차를 타고 있습니다 단추 자리), 지금 어떻게 가고 있습니까(지금 차례 첫 단추), 걷는 안내(진동·점지도 여쭘), 여정 끝내기(껐다 켜도 이어짐·열두 시간)"
+        ]),
         Gochim(pan: "2.75.0", bild: "261015-I29", nal: "2026-10-15", naeyong: [
             "★안드로이드와 같게(이사장님 승인 2026-10-15) — 찾은 곳 목록에 「○○ 찾기」, 목적지 화면에 그곳 이름을 제목으로",
             "도움말 탭 고르기 — 뒤로 단추 닿는 손짓을 시계 방향으로"
