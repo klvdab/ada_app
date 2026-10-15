@@ -142,7 +142,7 @@ dependencies {
     "libImplementation"("androidx.media3:media3-exoplayer:1.4.1")   // 261002-L1 도서관 독서기 — 문단 사이 틈 없이 이어 틀기
     "byodImplementation"("com.google.zxing:core:3.5.3")
     "byodImplementation"("com.github.mwiede:jsch:0.2.20")   // 261014-B9 플린트 2 준비하기 — 공유기에 방송 서버를 넣음(SSH)
-    listOf("libImplementation", "byodImplementation", "tourImplementation").forEach { add(it, "androidx.work:work-runtime-ktx:2.9.1") }   // 261012-T1 투어스튜디오 새 판 알림 뒤 일꾼도   // 261007 새 판 알림 뒤 일꾼(OllimWorker) — 도서관·BYOD에도   // 261006-B2 BYOD 접속 도구 — 큐알코드 만들기
+    listOf("libImplementation", "byodImplementation", "tourImplementation", "bfbImplementation").forEach { add(it, "androidx.work:work-runtime-ktx:2.9.1") }   // 261012-T1 투어스튜디오 새 판 알림 뒤 일꾼도   // 261007 새 판 알림 뒤 일꾼(OllimWorker) — 도서관·BYOD에도   // 261006-B2 BYOD 접속 도구 — 큐알코드 만들기
     "libImplementation"("androidx.media3:media3-ui:1.4.1")          // 261002-L1 도서관 동영상 보기
     "libImplementation"("androidx.media3:media3-session:1.4.1")     // 261008-L8 도서관 화면 꺼도 읽기·이어폰 단추·잠금 화면(DokseoService)
     gj.forEach { add(it, "com.google.android.gms:play-services-wearable:18.1.0") }   // 261002-A8 갤럭시 워치 길눈과 잇기
