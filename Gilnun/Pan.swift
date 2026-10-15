@@ -10,13 +10,17 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.81.0"
-    static let bild = "261016-I35"
+    static let pan = "2.82.0"
+    static let bild = "261016-I36"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.82.0", bild: "261016-I36", nal: "2026-10-16", naeyong: [
+            "★버스로 가기를 안드로이드와 같게(이사장님 승인 2026-10-16 「1」) — 정류장 목록 화면 제목 「버스로 가기」, 정류장 화면 제목은 그 정류장 이름",
+            "정류장 화면 단추 「이미 버스에 탔습니다 — 버스 안 안내 시작」(차 안 안내를 버스 안 안내로)"
+        ]),
         Gochim(pan: "2.81.0", bild: "261016-I35", nal: "2026-10-16", naeyong: [
             "자봉 앱 첫째 탭 이름이 그리기로 바뀜(이사장님 지시 2026-10-16) — 이음 번호 안내와 도움말을 그리기 탭으로"
         ]),

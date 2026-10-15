@@ -89,7 +89,7 @@ struct BeoseuChatgiView: View {
             }
             .padding()
         }
-        .sokHwamyeon("")
+        .sokHwamyeon("버스로 가기")   // 2.82.0 (261016-I36) 안드로이드와 같은 제목(이사장님 승인 2026-10-16 「1」)
         .task { if mokrok == nil { chatgi() } }
     }
 
@@ -122,7 +122,7 @@ struct JeongryujangView: View {
                     GilGil.shared.cheotHwamyeon()
                 }
                 .buttonStyle(KeunDanchu())
-                Button("이미 버스에 탔습니다 — 차 안 안내 시작") {
+                Button("이미 버스에 탔습니다 — 버스 안 안내 시작") {
                     Jeulgyeo.shared.sseum(mok)
                     AnnaeEngine.shared.beoseuGagi(mok, j)
                     AnnaeEngine.shared.beoseuTatda()
@@ -135,7 +135,7 @@ struct JeongryujangView: View {
             }
             .padding()
         }
-        .sokHwamyeon("")
+        .sokHwamyeon(j.ireum)   // 2.82.0 (261016-I36) 안드로이드와 같이 정류장 이름(이사장님 승인 2026-10-16 「1」)
         .task { if douchak.isEmpty { deutgi() } }
     }
 
