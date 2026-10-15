@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- LVD 방송(듣는 앱) 갈래 얼개 (2.0.0, 빌드 261015-L1, 방송클, 이사장님 승인 「1」)
+     배프 웹 껍데기(MainActivity) 대신 속까지 앱(BangsongActivity)과 듣기 일꾼(DeutService).
+     고유 번호 kr.or.ada.bfb 를 그대로 이어, 배프 앱을 깔아 둔 폰은 업데이트로 LVD 방송이 됩니다. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- 행사장 와이파이를 「저절로 붙을 와이파이」로 등록 -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <!-- 행사장 와이파이에 붙은 것을 안드로이드가 이 앱에 알려 주려면 위치 허락이 필요(위치는 쓰지도 남기지도 않음) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- 같은 폰의 LVD 송출이 「송출 중」을 알려 줌 — 같은 협회 서명 앱끼리만 -->
+    <permission android:name="kr.or.ada.permission.SONGCHUL" android:protectionLevel="signature" />
+    <uses-permission android:name="kr.or.ada.permission.SONGCHUL" />
+
+    <!-- 길눈 갈래의 허락 가운데 듣는 앱에 쓰지 않는 것은 뺍니다 -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" tools:node="remove" />
+    <uses-permission android:name="android.permission.CAMERA" tools:node="remove" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" tools:node="remove" />
+    <uses-permission android:name="android.permission.BLUETOOTH" tools:node="remove" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" tools:node="remove" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" tools:node="remove" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" tools:node="remove" />
+
+    <!-- 행사장 방송은 http(자물쇠 없는 주소, 192.168.8.2)로 받으므로 -->
+    <application
+        android:usesCleartextTraffic="true"
+        tools:replace="android:usesCleartextTraffic">
+        <activity android:name="kr.or.ada.app.MainActivity" tools:node="remove" />
+        <activity
+            android:name="kr.or.ada.app.bfb.BangsongActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name="kr.or.ada.app.bfb.WebHwamyeon" android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" />
+        <service
+            android:name="kr.or.ada.app.bfb.DeutService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+        <receiver
+            android:name="kr.or.ada.app.bfb.DochakReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.net.wifi.action.WIFI_NETWORK_SUGGESTION_POST_CONNECTION" />
+            </intent-filter>
+        </receiver>
+        <!-- 새 판 업데이트 — 설치 결과와 「새 판으로 바뀜」 알림 -->
+        <receiver
+            android:name="kr.or.ada.app.bfb.OllimReceiver"
+            android:exported="false" />
+        <receiver
+            android:name="kr.or.ada.app.bfb.OllimBakkwimReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>
