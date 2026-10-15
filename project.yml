@@ -33,11 +33,11 @@
 # 한 저장소에 세 앱을 담습니다. 짓기 설정(build.yml)에서 어느 앱을 지을지 골라 씁니다.
 #   AdaApp     협회 앱  (kr.or.ada.app)     대문 https://lvd.ada.or.kr/app/     + 애플워치
 #   JabongApp  자봉 앱  (kr.or.ada.jabong)  대문 https://lvd.ada.or.kr/jabong/
-#   BfbApp     배프 앱  (kr.or.ada.bfb)     대문 https://lvd.ada.or.kr/bfb/
+#   BfbApp     LVD 방송 (kr.or.ada.bfb)  Bfb 폴더의 자체 코드 — 듣는 앱(행사장 현장영상해설·배리어프리방송국), 261015 배프 웹 껍데기에서 바뀜
 #   LibApp     AI점자도서관 (kr.or.ada.lib)  Lib 폴더의 자체 코드, iOS 17 이상
 #   TourApp    LVD투어스튜디오 (kr.or.ada.tourstudio)  Tour 폴더의 자체 코드, iOS 17 이상
-#   ByodApp    BYOD 방송 (kr.or.ada.byod)  Byod 폴더의 자체 코드 — 현장영상해설을 같은 공유기의 폰들에 나눠 보냄(안드로이드 BYOD와 같은 방식)
-# 배프 앱만 App 폴더의 소스를 씁니다(협회 앱·자봉 앱은 속까지 앱). 대문 주소는 각자 Info.plist 의 AdaHomeURL 로 갈라집니다.
+#   ByodApp    LVD 송출 (kr.or.ada.byod)  Byod 폴더의 자체 코드(261015 BYOD 방송에서 이름 바뀜) — 현장영상해설을 같은 공유기의 폰들에 나눠 보냄(안드로이드 BYOD와 같은 방식)
+# 261015 배프 앱(BfbApp)은 듣는 앱 「LVD 방송」 속까지 앱(Bfb 폴더)으로 바뀌어 App 폴더를 쓰지 않습니다.
 name: AdaApp
 options:
   bundleIdPrefix: kr.or.ada
@@ -161,43 +161,40 @@ targets:
         MARKETING_VERSION: "2.22.0"   # 261014-I16 처음엔 가볍게 — 등록은 이름·연락처·네 자리 숫자만, 첫 길 그려 보기, 첫 점지도 큰 박수, 교육 마당(동영상 넷·약속·실력 다지기·배지)(이사장님 승인 「1」). 261014-I15 내 기록 1365 넣기·고치기, 보완하기, 위성 위치 출발지 표시(직원 시험 뒤 이사장님 지시). 261012-I14 AI 밑그림 듣기·꺾는 곳 미리 알림·다 걸은 뒤 견주기·표시 빠짐·카카오 지도(대장클, 이사장님 승인 「1」). 261010-I13 새 표시 낙상 주의 시작·끝·길 폭·되돌아가는 곳(이사장님 승인 「1」). 261010-I12 점검에서 고칠 곳이 나와도 받고 보완 목록에(이사장님 승인). 261009-I11 긴급통화 거절 알림·30초 닫힘·한 폰 표·에스컬레이터 되돌아가기(이사장님 승인). 261009-I10 길눈과 함께 쓰는 부품 손질(이사장님 승인). 261009-I9 전화 중 소리 멈춤, 기록 이름표(이사장님 승인). 261007-I8 그려 주세요와 그린 길 잇기(이사장님 지시). 261007-I7 보완 부탁(이사장님 지시). 261007-I6 새 판 알림(이사장님 승인). 261007-I4 봉사자 요청 여섯 가지(계단 여쭙기 없앰·말로 자유 표시·올리기·지우기·출발지 도착지 이름·안내 말소리 끄기, 이사장님 승인). 261007-I3 방향은 늘 시계 방향으로(이사장님 지시). 261007-I1 점지도 일곱 가지 약속·확인 문제 아홉 개(이사장님 승인)
         OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "FoundationModels"]   # 길눈 부품과 같이 옛 폰에서도 열리게
   BfbApp:
+    # 2.0.0 (261015-LI1, 이사장님 승인 「1」, 방송클) 듣는 앱 「LVD 방송」 — 배프 웹 껍데기(App 폴더)를 버리고 속까지 앱(Bfb 폴더)으로 새로 지음.
+    # 고유 번호 kr.or.ada.bfb 를 그대로 이어 배프 앱을 깔아 둔 아이폰은 업데이트로 바뀜.
+    # 행사장 와이파이 저절로 붙기(HotspotConfiguration), 화면 잠가도 듣기(audio), 행사장 방송은 http 192.168.8.2(로컬 네트워크)
     type: application
     platform: iOS
     sources:
-      - path: App
-        excludes:
-          - Assets.xcassets
-          - Info.plist
-          - AdaApp.entitlements
       - path: Bfb
     info:
       path: Bfb/Info.plist
       properties:
-        CFBundleDisplayName: 배프
+        CFBundleDisplayName: LVD 방송
         CFBundleDevelopmentRegion: ko
         CFBundleLocalizations: [ko]
         CFBundleName: BfbApp
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        AdaHomeURL: https://lvd.ada.or.kr/bfb/
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIBackgroundModes: [audio, remote-notification]
-        NSCameraUsageDescription: 현장에서 라이브 방송을 내보내는 데 카메라를 씁니다.
-        NSMicrophoneUsageDescription: 현장에서 라이브 해설을 내보내는 데 마이크를 씁니다.
-        NSSpeechRecognitionUsageDescription: 말로 하시는 명령을 글자로 알아듣는 데 아이폰 받아쓰기를 씁니다.
-        NSLocationWhenInUseUsageDescription: 현장 방송을 내보낼 때 어디서 하는 방송인지 알리는 데 위치를 씁니다.
+        NSLocalNetworkUsageDescription: 행사장에서 현장영상해설을 받아 들려 드리는 데 로컬 네트워크를 씁니다.
         ITSAppUsesNonExemptEncryption: false
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: false
+          NSAllowsLocalNetworking: true
     entitlements:
       path: Bfb/BfbApp.entitlements
       properties:
         aps-environment: production
+        com.apple.developer.networking.HotspotConfiguration: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.bfb
         TARGETED_DEVICE_FAMILY: "1"
+        MARKETING_VERSION: "2.0.0"   # 261015-LI1 듣는 앱 LVD 방송 첫 판 — 행사장 와이파이 저절로 붙기, 앱 열면 곧바로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 인터넷 생방송·다시 듣기(방송클, 이사장님 승인 「1」)
   LibApp:
     # 0.2.0 (261002-1/261003-1) 디자인 바탕(남색·금빛, 법인 로고, 표지)·내 서재 새로(15권씩, 지우기·되돌리기, 다 읽은 책)
     # 0.1.0 (260930-6) AI점자도서관 앱 — 도서관, 내 서재, 설정·도움말 세 탭과 독서기
@@ -266,7 +263,7 @@ targets:
     info:
       path: Byod/Info.plist
       properties:
-        CFBundleDisplayName: BYOD 방송
+        CFBundleDisplayName: LVD 송출
         CFBundleName: ByodApp
         CFBundleDevelopmentRegion: ko
         CFBundleLocalizations: [ko]
@@ -292,7 +289,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.byod
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "1.3.0"   # 261014-BI4 행사 녹음과 결과보고를 배프 다시듣기에 올림, 행사 이름·현장영상해설사 칸, 지난 행사 기록(방송클, 이사장님 승인 「1」). 261014-BI3 플린트 2 방식 — 방송 서버를 공유기 안에 두고 이 아이폰은 해설 소리만 보냄, 와이파이 태그·큐알 한 장으로 듣기까지, 예비로 아이폰 서버 방식(방송클, 이사장님 승인 「1」). 261012-BI2 엔에프시 태그로 부름·듣기 주소 바로잡기와 확인·태그 쓴 뒤 다시 읽어 확인·A4 인쇄용 한 장(방송클, 이사장님 승인). 261010-BI1 아이폰 첫 판 — 방송·현장 점검·소리 크기·멈춘 폰 빼기·접속 도구(엔에프시·큐알)·기기 점검·도움말·새 판 알림(방송클, 이사장님 승인)
+        MARKETING_VERSION: "1.3.1"   # 261015-BI5 이름을 LVD 송출로 바꿈(듣는 앱 LVD 방송과 나눔), 통화 중 듣는 분께 「잠시 기다려 주십시오」 안내(방송클, 이사장님 승인 「1」). 261014-BI4 행사 녹음과 결과보고를 배프 다시듣기에 올림, 행사 이름·현장영상해설사 칸, 지난 행사 기록(방송클, 이사장님 승인 「1」). 261014-BI3 플린트 2 방식 — 방송 서버를 공유기 안에 두고 이 아이폰은 해설 소리만 보냄, 와이파이 태그·큐알 한 장으로 듣기까지, 예비로 아이폰 서버 방식(방송클, 이사장님 승인 「1」). 261012-BI2 엔에프시 태그로 부름·듣기 주소 바로잡기와 확인·태그 쓴 뒤 다시 읽어 확인·A4 인쇄용 한 장(방송클, 이사장님 승인). 261010-BI1 아이폰 첫 판 — 방송·현장 점검·소리 크기·멈춘 폰 빼기·접속 도구(엔에프시·큐알)·기기 점검·도움말·새 판 알림(방송클, 이사장님 승인)
   AdaWatch:
     type: application
     platform: watchOS
