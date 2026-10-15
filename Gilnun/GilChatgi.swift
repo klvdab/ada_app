@@ -395,7 +395,7 @@ struct ChatgiGyeolgwaView: View {
             }
             .padding()
         }
-        .sokHwamyeon("")
+        .sokHwamyeon("\(mal) 찾기")   // 2.75.0 안드로이드와 같게 — 제목
         .task { if gyeolgwa == nil { chatgi() } }
     }
 
@@ -459,7 +459,7 @@ struct MokjeokView: View {
             }
             .padding()
         }
-        .sokHwamyeon("")
+        .sokHwamyeon(j.ireum)   // 2.75.0 안드로이드와 같게 — 제목
     }
 
     private var geoMal: String {
