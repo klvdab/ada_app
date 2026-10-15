@@ -10,13 +10,16 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.78.0"
-    static let bild = "261015-I32"
+    static let pan = "2.79.0"
+    static let bild = "261015-I33"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.79.0", bild: "261015-I33", nal: "2026-10-15", naeyong: [
+            "★안드로이드와 같게(이사장님 승인 2026-10-15 「1」) — 지하철로 가기 화면 제목을 「지하철로 가기」로"
+        ]),
         Gochim(pan: "2.78.0", bild: "261015-I32", nal: "2026-10-15", naeyong: [
             "★점지도 따라 걷기를 안드로이드와 같게(이사장님 승인 2026-10-15 「모두 승인」) — 가까운 점지도에서 길을 누르면 이 길 따라 걷기와 거꾸로 걷기(되돌아가기) 두 단추로 고름 — 지금 자리에서 가까운 끝에서 떠나는 쪽을 위에, 커서도 그 단추에",
             "점지도 안내 설정 펼치기(확신음·제대로 가고 있다는 말·자봉 목소리 토막·지나는 곳) — 설정 탭 점지도와 걸음 안, 말하기 설정과 같은 값",

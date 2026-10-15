@@ -38,7 +38,7 @@ struct JihacheolGilView: View {
             }
             .padding()
         }
-        .sokHwamyeon("")
+        .sokHwamyeon("지하철로 가기")   // 2.79.0 (261015-I33, 이사장님 승인 2026-10-15 「1」) 안드로이드와 같은 제목
         .task { if gil == nil && chatneunJung { chatgi() } }
     }
 
