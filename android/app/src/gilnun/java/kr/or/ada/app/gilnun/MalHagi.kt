@@ -226,7 +226,7 @@ object MalHagi {
 
     /** 2.48.0 (261015-A36, 이사장님 승인 2026-10-15 「1」) 차 부르기 단추 — 바로 걸지 않고 「○○에 전화할까요?」를 여쭙고 마이크를 엶. 네면 길눈이 겁니다.
      *  마이크를 쓸 수 없으면(허락 없음·통화 중·긴급통화 중) 예전처럼 곧장 겁니다(아이폰 2.77.0 kolMutgi 와 같음) */
-    fun kolMutgi(k: NnKol.Kol) {
+    internal fun kolMutgi(k: NnKol.Kol) {
         main.post {
             val c = ctx
             if (c == null || !MalDeutgi.heorakItda(c) || JeonhwaGamsi.jeonhwaJung || GinGeup.sangtae != GinGeupSangtae.EOPSEUM) {
