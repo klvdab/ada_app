@@ -124,7 +124,7 @@ class JeongryujangHwamyeon(private val mok: Jangso, private val j: Jeongryujang)
             AnnaeEngine.beoseuGagi(mok, j)
             t.cheotHwamyeonEuro(null)
         }
-        t.danchu("이미 버스에 탔습니다 — 차 안 안내 시작") {
+        t.danchu("이미 버스에 탔습니다 — 버스 안 안내 시작") {
             Jeulgyeo.sseum(mok)
             AnnaeEngine.beoseuGagi(mok, j)
             AnnaeEngine.beoseuTatda()
