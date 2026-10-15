@@ -23,12 +23,16 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.45.0"
-    const val bild = "261014-A33"
+    const val pan = "2.46.0"
+    const val bild = "261015-A34"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.46.0", "261015-A34", "2026-10-15", listOf(
+            "★아이폰과 같게(이사장님 승인 2026-10-15) — 속 화면이 열리면 커서가 뒤로 단추가 아니라 내용 첫 줄로 감(모든 속 화면)",
+            "도움말 탭 다섯에 커서 자리와 뒤로 단추 닿는 법"
+        )),
         Gochim("2.45.0", "261014-A33", "2026-10-14", listOf(
             "★아이폰과 같게(이사장님 승인 2026-10-14 「가급적이면 앱도 같게」) — 긴급통화서비스 단추 글자 「긴급통화서비스 — 가족·지인, 자원봉사자, 해설사에게 화상통화」",
             "말로 하기 단추를 화면낭독기가 「말로 하기」로 읽음",
