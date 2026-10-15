@@ -105,6 +105,8 @@ if __name__ == "__main__":
     for galrae, (bg, text, korean) in GALRAE.items():
         if which not in ("all", galrae):
             continue
-        im = make(bg, text, korean)
+        # 261015 LVD 송출(byod)·LVD 방송(bfb) — 갈래 폴더에 그려 둔 아이콘(icon-1024.png)이 있으면 그것을 씀(방송클)
+        gp = os.path.join("app", "src", galrae, "icon-1024.png")
+        im = Image.open(gp).convert("RGB") if os.path.exists(gp) else make(bg, text, korean)
         save(im, galrae)
         print("아이콘을 만들었습니다:", galrae, text)
