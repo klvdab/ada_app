@@ -224,6 +224,33 @@ object MalHagi {
         }
     }
 
+    /** 2.48.0 (261015-A36, 이사장님 승인 2026-10-15 「1」) 차 부르기 단추 — 바로 걸지 않고 「○○에 전화할까요?」를 여쭙고 마이크를 엶. 네면 길눈이 겁니다.
+     *  마이크를 쓸 수 없으면(허락 없음·통화 중·긴급통화 중) 예전처럼 곧장 겁니다(아이폰 2.77.0 kolMutgi 와 같음) */
+    fun kolMutgi(k: NnKol.Kol) {
+        main.post {
+            val c = ctx
+            if (c == null || !MalDeutgi.heorakItda(c) || JeonhwaGamsi.jeonhwaJung || GinGeup.sangtae != GinGeupSangtae.EOPSEUM) {
+                ChaBureugi.geolgi(k)
+                return@post
+            }
+            hwaginBiugi()
+            kolDaegi = k
+            kolDaegiTtae = System.currentTimeMillis()
+            val beon = kolDaegiTtae
+            Girok.namgi("kol_mureum", mapOf("ireum" to k.ireum))
+            malHuHagi("${k.ireum}에 전화할까요? 네 하시면 길눈이 겁니다.") {
+                val a = hwalseong?.get()
+                if (kolDaegi != null && kolDaegiTtae == beon && sangtae == MalSangtae.SWIM && GinGeup.sangtae == GinGeupSangtae.EOPSEUM &&
+                    !pyeonjipJung && !JeonhwaGamsi.jeonhwaJung && MalDeutgi.heorakItda(c) &&
+                    a != null && !a.isFinishing && a.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
+                    dasiHanbeon = false
+                    jadongYeolim = 1
+                    yeolgi(true)
+                }
+            }
+        }
+    }
+
     /** 2.39.0 역 이름 없이 역만 찾는 말인가(아이폰 yeokMalMan 과 같음) — 「지하철로 가자」처럼 탈것을 고르는 말은 아님 */
     fun yeokMalMan(t: String): Boolean {
         var z = t.replace(" ", "")

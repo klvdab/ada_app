@@ -291,7 +291,8 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
                 Danggye.NAM_EUN_GIL ->
                     cheot = t.danchu("${mok}까지 걸어가는 중 — 지금 어떻게 가고 있습니까") { a.hyeonhwang() }
                 Danggye.TANEUN_JUNG -> {
-                    cheot = t.danchu("${mok}까지 ${YeojeongEngine.talgeot.ireum}로 가는 중 — 내렸습니다, 남은 길 걸어서 안내") { a.naeryeotda() }
+                    val tn = Annae.talgeotIreum(YeojeongEngine.talgeot)   // 2.48.0 부른 콜이면 그 이름으로
+                    cheot = t.danchu("${mok}까지 $tn${Annae.ro(tn)} 가는 중 — 내렸습니다, 남은 길 걸어서 안내") { a.naeryeotda() }
                     t.danchu("지금 어떻게 가고 있습니까") { a.hyeonhwang() }
                 }
                 Danggye.DOCHAK ->
@@ -307,7 +308,7 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
         }
         // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 「내리셨습니까」를 여쭌 바로 그 자리에 대답 단추(아이폰과 같음)
         if (TalgeotJikimi.naerimMureum && yj.danggye == Danggye.TANEUN_JUNG) {
-            t.danchu("아직 ${YeojeongEngine.talgeot.ireum}에 타고 있습니다 — 안내 이어 가기") { TalgeotJikimi.ajikTago() }
+            t.danchu("아직 ${Annae.talgeotIreum(YeojeongEngine.talgeot)}에 타고 있습니다 — 안내 이어 가기") { TalgeotJikimi.ajikTago() }
         }
         // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 탈것 바로잡기를 펼치기 밖, 맨 위 큰 단추 바로 아래에(아이폰과 같음)
         // 2.37.0 (261012-A25, 이사장님 지시 2026-10-12) 「무엇을 타고 계신가요」로 여쭙고 차·걷기도 넣음, 남은 길을 걷는 차례에도 보임 —
@@ -317,15 +318,16 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
             val alGo = when (jigeum) {
                 Talgeot.GEOREUM -> "걷고 계신 것으로"
                 Talgeot.JIHACHEOL -> "지하철을 타고 계신 것으로"
-                else -> "${jigeum.ireum}를 타고 계신 것으로"
+                else -> { val n = Annae.talgeotIreum(jigeum); "$n${Annae.eulReul(n)} 타고 계신 것으로" }   // 2.48.0 부른 콜이면 「복지콜을」
             }
             t.jemok("무엇을 타고 계신가요? 지금은 $alGo 알고 있습니다")
             listOf(Talgeot.CHA to "차를 타고 있습니다", Talgeot.GEOREUM to "걷고 있습니다", Talgeot.GICHA to "기차를 타고 있습니다",
                 Talgeot.BEOSEU to "버스를 타고 있습니다", Talgeot.JIHACHEOL to "지하철을 타고 있습니다", Talgeot.SEONBAK to "배를 타고 있습니다")
                 .filter { it.first != jigeum }
                 .forEach { (tg, geul) ->
-                    t.danchu(geul) {
-                        if (tg == Talgeot.GEOREUM) a.naeryeotda(mal = "걷고 계신 것으로 알겠습니다. 남은 길을 걸어서 안내합니다.")
+                    val gl = if (tg == Talgeot.CHA) Annae.talgeotIreum(Talgeot.CHA).let { "$it${Annae.eulReul(it)} 타고 있습니다" } else geul   // 2.48.0 부른 콜이면 「복지콜을 타고 있습니다」
+                    t.danchu(gl) {
+                        if (tg == Talgeot.GEOREUM) a.naeryeotda(mal = "걷고 계신 것으로 알겠습니다. 점지도가 있는지 확인해 드리겠습니다.")
                         else a.talgeotBarojapgi(tg)
                     }
                 }
@@ -340,7 +342,7 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
                     if (g != null) {
                         t.danchu((if (yj.danggye == Danggye.TANEUN_JUNG) "밖으로 나왔습니다" else "걸어서 갑니다") + " — 남은 길 걸어서 안내") { a.naeryeotda() }
                     }
-                    t.danchu("그 밖의 탈것 바로잡기 — 지금 ${YeojeongEngine.talgeot.ireum}로 알고 있습니다") { t.yeolgi(TalgeotHwamyeon()) }
+                    t.danchu("그 밖의 탈것 바로잡기 — 지금 ${Annae.talgeotIreum(YeojeongEngine.talgeot)}${Annae.ro(Annae.talgeotIreum(YeojeongEngine.talgeot))} 알고 있습니다") { t.yeolgi(TalgeotHwamyeon()) }
                 }
                 t.danchu("지금 내 자리 듣기") { a.jigeumJari() }
                 t.danchu("여정 끝내기 — 목적지를 바꾸실 때도") { a.kkeut() }

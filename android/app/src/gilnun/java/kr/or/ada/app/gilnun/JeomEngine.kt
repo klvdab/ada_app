@@ -332,6 +332,15 @@ object JeomEngine {
         }
     }
 
+    /** 2.48.0 (261015-A36, 이사장님 승인 2026-10-15 「1」) 차에서 내린 뒤 맞는 점지도가 있으면 여쭙지 않고 곧장 따라 걷기(문까지, 아이폰 2.77.0과 같음) */
+    fun naerinDwiGeotgi(c: Context, j: JeomMokjeok, g: List<JeomGugan>) {
+        junbi(c)
+        yeojeongKkeutJeom()
+        yeojeongJeonghagi?.invoke(j)
+        ieumGeotgi(c, g, j)
+        byeonhwa?.invoke()
+    }
+
     /** 여쭌 말의 대답 — 참이면 점지도, 거짓이면 위성 */
     fun muleumDap(jeom: Boolean) {
         val m = muleum ?: return

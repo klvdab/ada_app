@@ -411,10 +411,10 @@ internal object ChaBureugi {
         byeonhwa?.invoke()
     }
 
-    fun daeumGeolgi() {
+    fun daeumGeolgi(mutgi: Boolean = true) {
         val n = daeum ?: return
         daeum = null
-        geolgi(n)
+        if (mutgi) MalHagi.kolMutgi(n) else geolgi(n)   // 2.48.0 단추면 여쭙고 네면 겁니다(말로 이미 네 하셨으면 곧장)
     }
 
     fun daeumGeuman() {
@@ -609,7 +609,7 @@ internal object ChaBureugi {
         // 2. 다음 수단에 걸까요
         if (daeum != null && now - daeumTtae < 600_000L && majimak == "kol_daeum" && z.length <= 12) {
             if (ani) { dap("", false); daeumGeuman(); return true }
-            if (ye) { dap("", false); daeumGeolgi(); return true }
+            if (ye) { dap("", false); daeumGeolgi(false); return true }
         }
         // 3. 복지카드 메일로 보낼까요
         if (now - meilMureumTtae < 300_000L && majimak == "kol_meil" && z.length <= 12) {
@@ -1112,6 +1112,15 @@ class ChaBureugiHwamyeon : Hwamyeon("차 부르기") {
         if (NnKol.jaryo == null) NnKol.batgi { if (nnBoinda(t, this)) t.dasiGeurigi() }
         if (KolAnnaeJaryo.jul.isEmpty()) KolAnnaeJaryo.bureogi { if (nnBoinda(t, this)) t.dasiGeurigi() }
         c.byeonhwa = { if (nnBoinda(t, this)) t.dasiGeurigi() }
+        // 2.48.0 (261015-A36, 이사장님 승인 2026-10-15 「1」) 「네」 한마디에 바로 걸리게 — 전화 걸기 허락을 처음 한 번 여쭘(통화 단추를 다시 누르지 않게)
+        if (ContextCompat.checkSelfPermission(t, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
+            val sp = t.getSharedPreferences("gilnun", android.content.Context.MODE_PRIVATE)
+            if (!sp.getBoolean("jeonhwaHeorakMureum", false)) {
+                sp.edit().putBoolean("jeonhwaHeorakMureum", true).apply()
+                Sori.mal("콜을 부를 때 네 한마디로 바로 걸리도록 전화 걸기 허락을 여쭙니다. 허용을 눌러 주십시오.")
+                ActivityCompat.requestPermissions(t, arrayOf(Manifest.permission.CALL_PHONE), JeonggiHochul.HEORAK_BEON)
+            }
+        }
         val sudan = c.sudanDeul()
         val an = KolAnnaeJaryo.jigeum()
         val d = c.daeum
@@ -1126,11 +1135,11 @@ class ChaBureugiHwamyeon : Hwamyeon("차 부르기") {
         } else {
             t.chojeomJul(t.geul(NnKol.jiyeokMal()))
         }
-        sudan.firstOrNull()?.let { k -> t.danchu("${k.ireum} 부르기") { c.geolgi(k) } }
+        sudan.firstOrNull()?.let { k -> t.danchu("${k.ireum} 부르기") { MalHagi.kolMutgi(k) } }   // 2.48.0 여쭙고 네면 겁니다
         if (sudan.size > 1) {
             nnPyeolchigi(t, "다른 수단 펼치기 — " + sudan.drop(1).take(3).joinToString(", ") { it.ireum }, "다른 수단 접기", dareunPyeol) { dareunPyeol = !dareunPyeol }
             if (dareunPyeol) for (k in sudan.drop(1)) {
-                t.danchu("${k.ireum} 부르기" + (if (k.bigo.isEmpty()) "" else " — ${k.bigo}")) { c.geolgi(k) }
+                t.danchu("${k.ireum} 부르기" + (if (k.bigo.isEmpty()) "" else " — ${k.bigo}")) { MalHagi.kolMutgi(k) }
             }
         }
         val j = JeonggiHochul.s

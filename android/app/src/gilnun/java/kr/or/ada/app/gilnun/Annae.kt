@@ -32,6 +32,32 @@ object Annae {
         val c = abs(a - b) % 12
         return min(c, 12 - c)
     }
+
+    // 2.48.0 (261015-A36, 이사장님 승인 2026-10-15 「1」) 부른 콜 이름으로 탈것 말하기(아이폰 2.77.0과 같음)
+    /** 「서울 나비콜(바우처택시)」 → 「나비콜」 */
+    fun kolJjalbeun(n: String): String {
+        val a = n.replace(Regex("\\(.*?\\)"), "").trim()
+        return a.split(" ").lastOrNull { it.isNotEmpty() } ?: a
+    }
+    /** 탈것 이름 — 차인데 3시간 안에 차 부르기로 부른 콜이 있으면 그 콜 이름(복지콜·나비콜·장애인콜택시) */
+    fun talgeotIreum(t: Talgeot): String {
+        if (t == Talgeot.CHA) {
+            val h = ChaBureugi.choegeun
+            if (h != null) { val k = kolJjalbeun(h.ireum); if (k.isNotEmpty()) return k }
+        }
+        return t.ireum
+    }
+    /** 받침(없으면 0, 있으면 종성 번호) */
+    fun batchim(w: String): Int {
+        val c = w.lastOrNull() ?: return 0
+        if (c < '\uAC00' || c > '\uD7A3') return 0
+        return (c - '\uAC00') % 28
+    }
+    fun eulReul(w: String) = if (batchim(w) == 0) "를" else "을"
+    /** 로·으로 — ㄹ 받침은 「로」 */
+    fun ro(w: String): String { val b = batchim(w); return if (b == 0 || b == 8) "로" else "으로" }
+    /** 30미터 앞 — 내리셔도 좋다고 */
+    fun naerimMal(mok: String) = "$mok 앞입니다. 내리셔도 좋습니다. 내리시면 점지도가 있는지 확인해 드리겠습니다."
 }
 
 /** 말하기 설정 — 아이폰 Seoljeong 의 같은 이름, 같은 처음값(설정 화면이 생기면 거기서 바꿈). 길눈 설정 파일(gilnun)에 함께 담음 */
@@ -313,7 +339,7 @@ object AnnaeEngine {
         yj.talgeotJeonghagi(Talgeot.CHA, barojabeum)
         yj.danggyeBakkugi(Danggye.TANEUN_JUNG)
         dasiSijak()
-        val m = mal ?: "차 안 안내를 시작합니다."
+        val m = mal ?: "${Annae.talgeotIreum(Talgeot.CHA)} 안 안내를 시작합니다."   // 2.48.0 부른 콜이면 「복지콜 안 안내」
         if (m.isNotEmpty()) malHagi(m)
         jigeumBoda()
     }
@@ -328,9 +354,42 @@ object AnnaeEngine {
         ChaBureugi.kolPulgi(if (jadong) "naerim_jadong" else "naerim")
         TalgeotGamji.barojapgi(Talgeot.GEOREUM)
         dasiSijak()
-        malHagi(mal ?: (if (jadong) "차에서 내리신 것 같습니다. 남은 길을 걸어서 안내합니다." else "남은 길을 걸어서 안내합니다."))
+        // 2.48.0 (261015-A36, 이사장님 승인 2026-10-15 「1」) 내리시면 점지도가 있는지 먼저 살핌 — 있으면 바로 문까지, 없으면 방향으로(아이폰 2.77.0과 같음)
+        malHagi(mal ?: (if (jadong) "차에서 내리신 것 같습니다. 점지도가 있는지 확인해 드리겠습니다." else "내리셨습니다. 점지도가 있는지 확인해 드리겠습니다."))
         Girok.namgi("naerim", mapOf("jadong" to jadong))
-        jigeumBoda()
+        naerimJeomBoda()
+    }
+
+    // MARK: 2.48.0 내린 뒤 점지도 살피기
+    private var jeomBoneun = false
+    private var jeomBoSedae = 0
+
+    private fun naerimJeomBoda() {
+        Wichi.wiseongDolligi()
+        val y = yj.jigeum
+        val w = Wichi.jigeum
+        val c = ctx
+        if (y == null || w == null || c == null) { jigeumBoda(); return }
+        jeomBoSedae += 1
+        val sd = jeomBoSedae
+        jeomBoneun = true
+        val mok = JeomMokjeok(y.mokjeok.ireum, y.mokjeok.juso, y.mokjeok.lat, y.mokjeok.lon)
+        Jeomjido.matneunGil(w.lat, w.lon, mok) { m -> main.post { jeomBoKkeut(sd, c, mok, m?.second) } }
+        main.postDelayed({ jeomBoKkeut(sd, c, mok, null) }, 10000)   // 10초 안에 답이 없으면 방향으로
+    }
+
+    private fun jeomBoKkeut(sd: Int, c: android.content.Context, mok: JeomMokjeok, g: List<JeomGugan>?) {
+        if (sd != jeomBoSedae || !jeomBoneun) return
+        jeomBoneun = false
+        if (g != null && g.isNotEmpty()) {
+            Girok.namgi("naerim_jeom", mapOf("iss" to true))
+            malHagi("점지도가 있습니다. 바로 문까지 안내하겠습니다.")
+            JeomEngine.naerinDwiGeotgi(c, mok, g)
+        } else {
+            Girok.namgi("naerim_jeom", mapOf("iss" to false))
+            malHagi("점지도가 아직 없어 방향으로 안내해 드리겠습니다.")
+            jigeumBoda()
+        }
     }
 
     fun kkeut() {
@@ -368,7 +427,8 @@ object AnnaeEngine {
             return
         }
         val geotna = y.danggye != Danggye.TANEUN_JUNG
-        var m = "${mok}까지 " + (if (geotna) "걸어서" else yj.talgeot.ireum + "로") + " 가는 중입니다."
+        val tn = Annae.talgeotIreum(yj.talgeot)   // 2.48.0 부른 콜이면 그 이름으로
+        var m = "${mok}까지 " + (if (geotna) "걸어서" else tn + Annae.ro(tn)) + " 가는 중입니다."
         val w = Wichi.jigeum
         if (w != null) {
             val d = Wichi.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
@@ -646,6 +706,8 @@ object AnnaeEngine {
     }
 
     private fun dasiSijak() {
+        jeomBoSedae += 1   // 2.48.0 살피던 점지도 답은 버림
+        jeomBoneun = false
         gakkaunD = null   // 2.39.0
         meolDan = 0
         ChaMat.kkeut()   // 2.27.0 차 안 길 맞춤도 처음부터
@@ -822,7 +884,7 @@ object AnnaeEngine {
         jeomChaBoda(w)   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 탈것 구간이 없는 점지도를 걷다 차를 타셨는가(아이폰과 같음)
         // 점지도를 따라 걷는 동안(도착 전)과 점지도로 걸을지 여쭙는 동안에는 점지도 엔진이 안내를 맡음
         // 점지도로 닿은 뒤에는 이 엔진이 다시 맡음(차를 타시거나 다시 걸으실 때 조용하지 않게)
-        if (JeomEngine.georeoJung || JeomEngine.muleum != null || JeomEngine.bulleoneun) return
+        if (JeomEngine.georeoJung || JeomEngine.muleum != null || JeomEngine.bulleoneun || jeomBoneun) return   // 2.48.0 내린 뒤 점지도를 살피는 동안도 조용히
         val b = y.beoseu
         if (b != null && y.danggye == Danggye.TANEUN_GOT_KKAJI) {
             val jr = b.jeongryujang
@@ -1222,7 +1284,7 @@ object AnnaeEngine {
         val gijun = naonGijun
         if (gijun == null) { naonGijun = georeum; return }
         if (!w.georeumChu && w.ochae <= 30 && georeum - gijun >= 20) {
-            naeryeotda(mal = "밖으로 나오신 것 같습니다. 남은 길을 걸어서 안내합니다.")
+            naeryeotda(mal = "밖으로 나오신 것 같습니다. 점지도가 있는지 확인해 드리겠습니다.")
         }
     }
 
@@ -1256,7 +1318,10 @@ object AnnaeEngine {
             if (!ChaMat.gatEun(y.mokjeok.lat, y.mokjeok.lon)) ChaMat.sijak(y.mokjeok.lat, y.mokjeok.lon, mok)
             mat = ChaMat.salpim(w) { malHagi(it) }
         }
-        val dan = listOf(5000, 3000, 2000, 1000, 500, 300, 150)
+        // 2.48.0 (261015-A36, 이사장님 승인 2026-10-15 「1」) 승용차·택시·콜은 100미터에서 내릴 준비, 30미터에서 내리셔도 좋다고(300·150미터는 너무 멀었음).
+        //   버스·기차·고속버스는 아무 데서나 세울 수 없어 예전대로(아이폰 2.77.0과 같음)
+        val chaNaerim = y.talgeot == Talgeot.CHA
+        val dan = if (chaNaerim) listOf(5000, 3000, 2000, 1000, 500, 300, 100, 30) else listOf(5000, 3000, 2000, 1000, 500, 300, 150)
         if (mat) {
             // 남은 거리 눈금은 다음 위치 때
         } else if (majimakGeoriMal == null) {
@@ -1272,6 +1337,9 @@ object AnnaeEngine {
                 when {
                     beoseu && g == 500 -> malHagi("${mok}까지 ${Annae.geoMal(d)} 남았습니다. 버스 안내 방송을 잘 들으시고 내리실 준비를 하십시오.")
                     beoseu && g == 300 -> malHagi("곧 $mok 부근입니다. 버스 안내 방송을 잘 들으시고 가까운 정류장에서 내리십시오. 남은 거리 ${Annae.geoMal(d)}.")   // 2.31.0 단정하지 않음
+                    chaNaerim && g == 100 -> { if (!ChaMat.hacha100Ham) malHagi("곧 ${mok}입니다${Annae.sigyeMal(sigye(w, y.mokjeok.lat, y.mokjeok.lon))}. 내리실 준비를 하십시오.") }
+                    chaNaerim && g == 30 -> { if (!ChaMat.hacha30Ham) malHagi(Annae.naerimMal(mok)) }
+                    chaNaerim -> malHagi("${mok}까지 ${Annae.geoMal(d)} 남았습니다.")
                     g == 300 -> malHagi("곧 $mok 부근입니다. 내리실 준비를 하십시오. 남은 거리 ${Annae.geoMal(d)}.")
                     g == 150 -> malHagi("$mok 부근입니다. 차에서 내려 걸으시면 저절로 걷는 안내로 이어 드립니다.")
                     else -> malHagi("${mok}까지 ${Annae.geoMal(d)} 남았습니다.")
