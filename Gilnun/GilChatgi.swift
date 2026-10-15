@@ -16,6 +16,7 @@ enum GilHwamyeon: Hashable {
     case jiinGoreugi
     case jiinMyeongdan
     case jeomMok      // 2.10.0 가까운 점지도
+    case jeomGil(JeomMok)   // 2.78.0 길 고르기 — 이 길 따라 걷기, 거꾸로 걷기
     case munje        // 2.10.0 여기 문제 있어요
     case doe          // 2.13.0 되짚어 나가기
     case qr           // 2.13.0 QR 찾기
@@ -51,6 +52,7 @@ struct GilChatgiTab: View {
                     case .jiinGoreugi: JiinGoreugiView()
                     case .jiinMyeongdan: JiinMyeongdanView()
                     case .jeomMok: GakkaunJeomView()
+                    case .jeomGil(let j): JeomGilGoreugiView(j: j)
                     case .munje: MunjeView()
                     case .doe: DoeView()
                     case .qr: QrView()
@@ -130,6 +132,11 @@ struct GilChatgiView: View {
                 }
                 if gut == nil, let m = jeom.muleum {
                     JeomMuleumPan(m: m, chojeom: $meoriChojeom)   // 2.10.0 점지도로 걸을까요
+                } else if gut == nil, jeom.bulleoneun {
+                    // 2.78.0 (261015-I32, 이사장님 승인 2026-10-15) 점지도를 불러오는 동안 — 안드로이드와 같게
+                    Button("점지도를 불러오는 중입니다 — 그만두기") { jeom.geuman() }
+                        .buttonStyle(KeunDanchu())
+                        .accessibilityFocused($meoriChojeom)
                 } else if gut == nil, let g = jeom.gil {
                     TtaraPan(g: g, chojeom: $meoriChojeom)        // 2.10.0 점지도 따라 걷는 중
                 } else if gut == nil, let yj = y.jigeum {

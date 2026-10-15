@@ -68,6 +68,9 @@ struct TtaraPan: View {
                         .buttonStyle(KeunDanchu())
                         Button("지금 내 자리 듣기") { AnnaeEngine.shared.jigeumJari() }
                             .buttonStyle(KeunDanchu())
+                        // 2.78.0 (261015-I32, 이사장님 승인 2026-10-15) 방금 한 말 다시 듣기 — 안드로이드와 같게
+                        Button("방금 한 말 다시 듣기") { SoriEngine.shared.dasiDeutgi() }
+                            .buttonStyle(KeunDanchu())
                         Button("이 길목은 어떻게 생겼습니까") { jeom.gilmok() }
                             .buttonStyle(KeunDanchu())
                         Button("가까운 버스 정류장") { jeom.beoseuJeongryujang() }
@@ -108,17 +111,12 @@ struct GakkaunJeomView: View {
             VStack(alignment: .leading, spacing: 12) {
                 if let m = mok {
                     if m.isEmpty {
-                        Text("올라온 점지도가 없습니다.").font(.title3)
+                        Text("올라온 점지도가 없습니다. 자봉이 그려 올리면 여기에 나옵니다.").font(.title3)
                     } else {
+                        // 2.78.0 (261015-I32, 이사장님 승인 2026-10-15 「모두 승인」) 누르면 길 고르기 — 안드로이드와 같게
                         Mokrok5(m) { j in
-                            Button(j.julMal) { JeomEngine.shared.bulleoGeotgi(j.id, dwit: false) }
+                            NavigationLink(value: GilHwamyeon.jeomGil(j)) { Text(j.julMal) }
                                 .buttonStyle(KeunDanchu())
-                                .accessibilityAction(named: "되돌아가기로 걷기 — \(j.to)에서 \(j.from)까지") {
-                                    JeomEngine.shared.bulleoGeotgi(j.id, dwit: true)
-                                }
-                                .contextMenu {
-                                    Button("되돌아가기로 걷기") { JeomEngine.shared.bulleoGeotgi(j.id, dwit: true) }
-                                }
                         }
                     }
                 } else if mot {
@@ -127,7 +125,7 @@ struct GakkaunJeomView: View {
                 } else {
                     Text("가까운 점지도를 찾는 중입니다.").font(.title3)
                 }
-                Text("누르시면 그 길을 따라 걷습니다. 거꾸로 걸으시려면 보이스오버로 위아래로 쓸어 되돌아가기로 걷기를 고르십시오.")
+                Text("누르시면 그 길을 따라 걸을지, 거꾸로 걸을지 고르실 수 있습니다.")
                     .font(.body)
                 // 2.11.0 여러 점지도를 이어 걷기 — 한 구간을 마치면 저절로 다음 구간
                 DisclosureGroup("이어서 갈 수 있는 곳 펼치기 — 점지도 여러 개를 이어 걷기") {
@@ -175,6 +173,50 @@ struct GakkaunJeomView: View {
     }
 }
 
+/// 2.78.0 (261015-I32, 이사장님 승인 2026-10-15) 길 고르기 — 이 길 따라 걷기, 거꾸로 걷기(안드로이드 JeomGilGoreugi 와 같음)
+///   지금 자리에서 가까운 끝에서 떠나는 쪽을 위에 두고 커서도 그 단추에
+struct JeomGilGoreugiView: View {
+    let j: JeomMok
+    @AccessibilityFocusState private var cheot: Bool
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                if JeomGilGoreugiView.dwitMeonjeo(j) {
+                    dwitDanchu.accessibilityFocused($cheot)
+                    apDanchu
+                } else {
+                    apDanchu.accessibilityFocused($cheot)
+                    dwitDanchu
+                }
+                Text(j.julMal).font(.body)
+            }
+            .padding()
+        }
+        .sokHwamyeon(j.title.isEmpty ? "\(j.from)에서 \(j.to)까지" : j.title)
+        .onAppear {
+            cheot = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { cheot = true }
+        }
+    }
+
+    private var apDanchu: some View {
+        Button("이 길 따라 걷기 — \(j.from)에서 \(j.to)까지") { JeomEngine.shared.bulleoGeotgi(j.id, dwit: false) }
+            .buttonStyle(KeunDanchu())
+    }
+
+    private var dwitDanchu: some View {
+        Button("거꾸로 걷기(되돌아가기) — \(j.to)에서 \(j.from)까지") { JeomEngine.shared.bulleoGeotgi(j.id, dwit: true) }
+            .buttonStyle(KeunDanchu())
+    }
+
+    /// 지금 자리가 끝 쪽에 더 가까우면 거꾸로 걷기를 먼저
+    static func dwitMeonjeo(_ j: JeomMok) -> Bool {
+        guard let w = WichiEngine.shared.jigeum, j.slat != 0, j.elat != 0 else { return false }
+        return WichiEngine.geori(w.lat, w.lon, j.elat, j.elon) < WichiEngine.geori(w.lat, w.lon, j.slat, j.slon)
+    }
+}
+
 /// 여기 문제 있어요 — 여섯 가지 가운데 고르고, 한마디는 적어도 되고 안 적어도 됨
 struct MunjeView: View {
     @Environment(\.dismiss) private var dismiss
@@ -209,6 +251,7 @@ struct MunjeView: View {
 
 struct JeomSeoljeongView: View {
     @ObservedObject private var s = Seoljeong.shared
+    @AppStorage("gn.tomakDeutgi") private var tomakDeutgi = true   // 2.78.0 말하기 설정의 자봉 목소리 토막 듣기와 같은 칸
 
     var body: some View {
         ScrollView {
@@ -224,6 +267,33 @@ struct JeomSeoljeongView: View {
                     .buttonStyle(KeunDanchu())
                 NavigationLink { NaeMunView() } label: { Text("내 문 — 지금 선 자리를 내 문으로 담아 두기") }
                     .buttonStyle(KeunDanchu())
+                // 2.78.0 (261015-I32, 이사장님 승인 2026-10-15) 점지도 안내 설정을 한자리에 — 안드로이드와 같게(값은 말하기 설정과 같은 칸)
+                DisclosureGroup("점지도 안내 설정 펼치기") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Button("걸을 때 확신음 — " + (s.hwaksinEum ? "켜져 있음 (누르면 끕니다)" : "꺼져 있음 (누르면 켭니다)")) {
+                            s.hwaksinEum.toggle()
+                            if s.hwaksinEum { SoriEngine.shared.sori(.hwaksin) }
+                            SoriEngine.shared.mal(s.hwaksinEum ? "확신음을 켭니다. 제대로 가고 계시면 짧은 맑은 소리가 납니다." : "확신음을 끕니다. 방향이 틀어졌을 때의 말은 그대로 나옵니다.")
+                        }
+                        .buttonStyle(KeunDanchu())
+                        Button("제대로 가고 있다는 말 — 점지도에서 \(s.hwaksinGan)미터마다 (누르면 바뀝니다)") {
+                            s.hwaksinGan = s.hwaksinGan == 5 ? 10 : (s.hwaksinGan == 10 ? 20 : 5)
+                            SoriEngine.shared.mal("점지도를 따라 걸으실 때 \(s.hwaksinGan)미터마다 제대로 가고 있다고 말씀드립니다.")
+                        }
+                        .buttonStyle(KeunDanchu())
+                        Button("자봉 목소리 토막 듣기 — " + (tomakDeutgi ? "켜져 있음 (누르면 끕니다)" : "꺼져 있음 (누르면 켭니다)")) {
+                            tomakDeutgi.toggle()
+                            SoriEngine.shared.mal(tomakDeutgi ? "표시에 닿기 앞서 그린 분이 그 자리에 남긴 짧은 말을 들려 드립니다." : "그린 분의 목소리 토막을 들려 드리지 않습니다. 길눈 안내 말은 그대로 나옵니다.")
+                        }
+                        .buttonStyle(KeunDanchu())
+                        Button("지나는 곳 안내 — " + (s.gilOn ? "켜져 있음 (누르면 끕니다)" : "꺼져 있음 (누르면 켭니다)")) {
+                            s.gilOn.toggle()
+                            SoriEngine.shared.mal(s.gilOn ? "지나는 길을 알려 드립니다." : "지나는 길을 알리지 않습니다.")
+                        }
+                        .buttonStyle(KeunDanchu())
+                    }
+                }
+                .font(.title3)
             }
             .padding()
         }
@@ -787,7 +857,7 @@ struct RimoView: View {
                 Button("담긴 것 모두 지우기") { s.rimo = [:]; alrigi("담긴 것을 모두 지웠습니다.") }
                     .buttonStyle(KeunDanchu())
                 DisclosureGroup("알아 두실 것 펼치기") {
-                    Text("리모컨 가운데는 소리 크기 단추만 보내는 것이 있습니다. 그런 리모컨은 아무 반응이 없습니다. 글자판처럼 움직이는 리모컨, 흔히 전자책 페이지 넘김 리모컨이라 부르는 것들이 잘 맞습니다. 익힌 단추는 점지도 따라 걷기 화면이 켜져 있을 때 쓰입니다. 폰이 잠겨 있을 때는 이어폰 단추를 쓰십시오. 보이스오버의 화살표 키 탐색이 켜져 있으면 화살표 단추를 보이스오버가 먼저 가져갈 수 있습니다.")
+                    Text("리모컨 가운데는 소리 크기 단추만 보내는 것이 있습니다. 그런 리모컨은 아무 반응이 없습니다. 글자판처럼 움직이는 리모컨, 흔히 전자책 페이지 넘김 리모컨이라 부르는 것들이 잘 맞습니다. 익힌 단추는 점지도를 따라 걷는 동안 길 찾기 첫 화면이 켜져 있을 때 쓰입니다. 폰이 잠겨 있을 때는 이어폰 단추를 쓰십시오. 보이스오버의 화살표 키 탐색이 켜져 있으면 화살표 단추를 보이스오버가 먼저 가져갈 수 있습니다.")
                         .font(.body)
                 }
                 .font(.title3)
