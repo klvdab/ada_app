@@ -111,7 +111,10 @@ class Sori(private val ctx: Context, private val batgi: (ByteArray) -> Unit) {
                         chaeum += n
                     }
                     if (chaeum == JOGAK) keugiJaegi(buf)   // 1.1.5 현장 점검용 소리 크기
-                    if (chaeum == JOGAK && Bang.keu) batgi(MuLaw.jurigi(buf, JOGAK))
+                    // 1.3.1 (261015-B11) 현장영상해설사에게 전화가 오면 마이크는 전화에 양보하고, 듣는 분께는 「잠시 기다려 주십시오」를 들려 드림
+                    val tonghwa = am.mode == AudioManager.MODE_IN_CALL || am.mode == AudioManager.MODE_IN_COMMUNICATION
+                    if (tonghwa != Bang.tonghwaJung) { Bang.tonghwaJung = tonghwa; Gidarim.cheoeum(); Bang.allyeo() }
+                    if (chaeum == JOGAK && Bang.keu) batgi(if (tonghwa) Gidarim.jogak(ctx, JOGAK) else MuLaw.jurigi(buf, JOGAK))
                 }
             } catch (e: Exception) {
                 if (dolgo) {
@@ -168,7 +171,7 @@ fun gigiJeomgeom(ctx: Context): String {
         else -> "기타 " + t
     }
     val sb = StringBuilder()
-    sb.append("BYOD 방송 ").append(Bang.PAN).append("판, 빌드 ").append(Bang.BILD).append("\n")
+    sb.append("LVD 송출 ").append(Bang.PAN).append("판, 빌드 ").append(Bang.BILD).append("\n")
     sb.append("방송: ").append(if (Bang.kyeojim) "켜짐, 지금 받는 곳 " + Bang.sojae else "꺼짐").append("\n")   // 1.1.4
     val ins = am.getDevices(AudioManager.GET_DEVICES_INPUTS)
     val usbSu0 = runCatching { (ctx.getSystemService(Context.USB_SERVICE) as android.hardware.usb.UsbManager).deviceList.size }.getOrDefault(0)
@@ -192,4 +195,42 @@ fun gigiJeomgeom(ctx: Context): String {
         }
     } catch (e: Exception) { }
     return sb.toString()
+}
+
+// 1.3.1 (261015-B11) 통화 중 듣는 분께 보낼 소리 — 「잠시 기다려 주십시오」 안내(assets/gidarim.wav, 약 9.5초) 뒤 15초 조용함을 되풀이
+object Gidarim {
+    private var sori: ByteArray? = null
+    private var jari = 0
+    private const val SWIM = 16000 * 15
+    fun cheoeum() { jari = 0 }
+    /** assets/gidarim.wav(16비트, 1초에 16000, 한 줄기)를 뮤 8비트로 */
+    private fun wavMuro(ctx: Context): ByteArray = try {
+        val b = ctx.assets.open("gidarim.wav").use { it.readBytes() }
+        var i = 12
+        var sijak = 44; var gil = b.size - 44
+        while (i + 8 <= b.size) {   // "data" 덩이 찾기
+            val ireum = String(b, i, 4, Charsets.US_ASCII)
+            val n = (b[i + 4].toInt() and 0xFF) or ((b[i + 5].toInt() and 0xFF) shl 8) or ((b[i + 6].toInt() and 0xFF) shl 16) or ((b[i + 7].toInt() and 0xFF) shl 24)
+            if (ireum == "data") { sijak = i + 8; gil = minOf(n, b.size - sijak); break }
+            i += 8 + n
+        }
+        val out = ByteArray(gil / 2)
+        for (k in out.indices) {
+            val v = ((b[sijak + 2 * k].toInt() and 0xFF) or (b[sijak + 2 * k + 1].toInt() shl 8)).toShort().toInt()
+            out[k] = MuLaw.hana(v)
+        }
+        out
+    } catch (_: Exception) { ByteArray(0) }
+    fun jogak(ctx: Context, n: Int): ByteArray {
+        val s = sori ?: wavMuro(ctx).also { sori = it }
+        val out = ByteArray(n)
+        val gil = s.size + SWIM
+        for (i in 0 until n) {
+            val k = jari % gil
+            out[i] = if (k < s.size) s[k] else 0xFF.toByte()
+            jari++
+        }
+        if (jari >= gil * 1000) jari = 0
+        return out
+    }
 }

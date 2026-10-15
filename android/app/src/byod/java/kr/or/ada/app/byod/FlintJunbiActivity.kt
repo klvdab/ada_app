@@ -126,7 +126,7 @@ class FlintJunbiActivity : Activity() {
                 ch.disconnect()
                 if (kkeut) {
                     Flint.bangsikBakkugi(this, "flint")
-                    mal("플린트 2 준비를 마쳤습니다. 1분쯤 뒤 와이파이 " + Flint.SSID + " 가 뜨면 이 기기를 거기에 붙이고, 첫 화면에서 BYOD 방송 시작을 누르십시오.")
+                    mal("플린트 2 준비를 마쳤습니다. 1분쯤 뒤 와이파이 " + Flint.SSID + " 가 뜨면 이 기기를 거기에 붙이고, 첫 화면에서 LVD 송출 시작을 누르십시오.")
                 } else mal("준비를 끝까지 마치지 못했습니다. 위의 마지막 안내를 보시고 다시 눌러 주십시오.")
             } catch (e: Exception) {
                 val m = e.message ?: ""

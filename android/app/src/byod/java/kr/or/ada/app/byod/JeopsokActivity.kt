@@ -226,7 +226,7 @@ class JeopsokActivity : Activity() {
                 c.disconnect(); ok
             } catch (e: Exception) { false }
             runOnUiThread {
-                mal(if (doem) "확인했습니다. 듣기 주소 " + ilkgi + " 에서 BYOD 방송이 답합니다."
+                mal(if (doem) "확인했습니다. 듣기 주소 " + ilkgi + " 에서 LVD 송출이 답합니다."
                     else "듣기 주소 " + ilkgi + " 에서 답이 없습니다. 방송을 켰는지, 이 태블릿이 방송 공유기에 붙었는지 보십시오. 방송을 켜지 않았으면 그대로 써도 됩니다.")
                 f()
             }

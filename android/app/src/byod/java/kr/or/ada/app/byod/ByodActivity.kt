@@ -73,6 +73,7 @@ class ByodActivity : Activity() {
     private var boyeojunKyeojim = false
     private var boyeojunSojae = ""
     private var boyeojunJalmot = ""
+    private var boyeojunTonghwa = false   // 1.3.1 통화 중 알림을 바뀔 때 한 번
     private var boyeojunYocheong = -1
     private var sijakGidarim = false
 
@@ -92,7 +93,7 @@ class ByodActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        title = "BYOD 방송"
+        title = "LVD 송출"
         window.statusBarColor = Saek.bada
         window.navigationBarColor = Saek.bada
         ttung = ScrollView(this).apply { setBackgroundColor(Saek.bada); isFillViewport = true }
@@ -205,7 +206,7 @@ class ByodActivity : Activity() {
             mom.addView(kanMandeul("행사 이름 (비워 두면 날짜와 시각)", "haengsa_jemok"))
             mom.addView(kanMandeul("현장영상해설사 이름", "haeseolsa"))
         }
-        bangDanchu = danchu("BYOD 방송 시작", keun = true, norang = true) { bangDanchuNullim() }
+        bangDanchu = danchu("LVD 송출 시작", keun = true, norang = true) { bangDanchuNullim() }
         mom.addView(bangDanchu)
         mom.addView(danchu("현장 점검") { hyeonjangJeomgeom() })   // 1.1.5 (261009-B7) 방송 전 살필 것을 단추 하나로
         Ollim.julMal(this)?.let { m -> mom.addView(danchu(m) { Ollim.olligi(this) }) }   // 1.1.2 새 판이 있을 때만 — 안내와 단추를 한 자리에
@@ -239,7 +240,7 @@ class ByodActivity : Activity() {
         malsoriDanchu = danchu(if (malsoriOn) "프로그램 말소리 끄기" else "프로그램 말소리 켜기") { malsoriBakkugi() }
         deoAn.addView(malsoriDanchu)
         deoAn.addView(danchu("도움말") { doumalHwamyeon() })
-        deoAn.addView(geul("BYOD 방송 " + Bang.PAN + "판, 빌드 " + Bang.BILD, 16f).apply { setTextColor(Saek.yeonhan) })
+        deoAn.addView(geul("LVD 송출 " + Bang.PAN + "판, 빌드 " + Bang.BILD, 16f).apply { setTextColor(Saek.yeonhan) })
         deoAn.addView(geul(Jaryo.damgimMal(this), 16f).apply { setTextColor(Saek.yeonhan) })
         mom.addView(deoAn)
 
@@ -337,7 +338,7 @@ class ByodActivity : Activity() {
     }
 
     private fun bangDanchuGeul() {
-        bangDanchu.text = if (Bang.kyeojim) "BYOD 방송 멈추기" else "BYOD 방송 시작"
+        bangDanchu.text = if (Bang.kyeojim) "LVD 송출 멈추기" else "LVD 송출 시작"
     }
 
     private fun heorakDoem(): Boolean {
@@ -388,10 +389,11 @@ class ByodActivity : Activity() {
         val t = if (!k) {
             "방송이 꺼져 있습니다." + (if (Flint.flintInga(this)) " 방송 방식: 플린트 2 공유기." else " 방송 방식: 이 기기가 서버.") + (if (jm.isNotEmpty()) " " + jm else "")
         } else {
+            (if (Bang.tonghwaJung) "통화 중입니다. 듣는 분께 잠시 기다려 달라는 안내를 보내고 있습니다. 통화가 끝나면 저절로 이어 보냅니다. " else "") +
             "방송 중입니다. 듣는 분 " + Bang.deutnunSu + "명. 소리 받는 곳: " + so + "." +
                 (if (Flint.flintInga(this)) (if (Flint.bonaenda) " 공유기로 보내고 있습니다." else "") else "") + (if (jm.isNotEmpty()) " " + jm else "")
         }
-        val keunBakkwim = k != boyeojunKyeojim || so != boyeojunSojae || jm != boyeojunJalmot
+        val keunBakkwim = k != boyeojunKyeojim || so != boyeojunSojae || jm != boyeojunJalmot || Bang.tonghwaJung != boyeojunTonghwa
         if (t != boyeojunGeul && (baro || keunBakkwim || now - boyeojunTtae >= 10_000)) {
             sangtae.text = t
             boyeojunGeul = t
@@ -400,6 +402,7 @@ class ByodActivity : Activity() {
             boyeojunKyeojim = k
             boyeojunSojae = so
             boyeojunJalmot = jm
+            boyeojunTonghwa = Bang.tonghwaJung
         }
         // 듣기 주소 — 방송 중에만
         if (k) {

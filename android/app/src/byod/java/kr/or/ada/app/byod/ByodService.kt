@@ -86,13 +86,14 @@ class ByodService : Service() {
             }
         } catch (e: Exception) {
             // 안드로이드가 뒤에서 마이크 일꾼을 켜지 못하게 막은 때 — 화면에서 다시 시작해야 함
-            Bang.jalmot = "방송 일꾼을 켜지 못했습니다. BYOD 방송 시작 단추를 다시 누르십시오."
+            Bang.jalmot = "방송 일꾼을 켜지 못했습니다. LVD 송출 시작 단추를 다시 누르십시오."
             Bang.kyeojim = false
             Bang.allyeo()
             stopSelf()
             return START_NOT_STICKY
         }
         if (!Bang.kyeojim) sijak()
+        songchulH.removeCallbacks(songchulAllim); songchulH.postDelayed(songchulAllim, 1000)   // 1.3.1
         return START_STICKY
     }
 
@@ -146,7 +147,21 @@ class ByodService : Service() {
         Bang.allyeo()
     }
 
+    // 1.3.1 (261015-B11) 같은 폰의 LVD 방송(듣는 앱)에 「지금 송출 중」을 알림 — 스피커로 틀어 마이크로 되돌아 들어가지 않게.
+    // 같은 협회 서명을 가진 앱만 받음(kr.or.ada.permission.SONGCHUL). 듣는 앱이 늦게 켜져도 알도록 20초마다 다시 알림.
+    private val songchulH = android.os.Handler(android.os.Looper.getMainLooper())
+    private val songchulAllim = object : Runnable {
+        override fun run() { songchulBonaegi(Bang.kyeojim); if (Bang.kyeojim) songchulH.postDelayed(this, 20_000) }
+    }
+    private fun songchulBonaegi(on: Boolean) {
+        try {
+            sendBroadcast(Intent("kr.or.ada.songchul.SANGTAE").setPackage("kr.or.ada.bfb").putExtra("bangsong", on), "kr.or.ada.permission.SONGCHUL")
+        } catch (_: Exception) { }
+    }
+
     override fun onDestroy() {
+        songchulH.removeCallbacks(songchulAllim)
+        songchulBonaegi(false)
         Bang.gwanchal.remove(gwan)
         Bang.keu = false
         Bang.kyeojim = false
@@ -168,7 +183,7 @@ class ByodService : Service() {
     private fun chaeneol() {
         if (Build.VERSION.SDK_INT >= 26) {
             val nm = getSystemService(NotificationManager::class.java)
-            val ch = NotificationChannel(CHANNEL, "BYOD 방송", NotificationManager.IMPORTANCE_LOW)
+            val ch = NotificationChannel(CHANNEL, "LVD 송출", NotificationManager.IMPORTANCE_LOW)
             ch.setSound(null, null)
             ch.enableVibration(false)
             nm.createNotificationChannel(ch)
@@ -179,7 +194,7 @@ class ByodService : Service() {
         val pi = PendingIntent.getActivity(this, 0, Intent(this, ByodActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val b = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL) else @Suppress("DEPRECATION") Notification.Builder(this)
-        return b.setContentTitle("BYOD 방송 중")
+        return b.setContentTitle("LVD 송출 중")
             .setContentText(geul)
             .setSmallIcon(applicationInfo.icon)
             .setContentIntent(pi)

@@ -150,8 +150,8 @@ class Seobeo(private val ctx: Context) {
                 }
                 "/beonho", "/deutnun", "/jiyeon" -> geulja(out, 200, "application/json", "{\"ok\":true}")
                 "/bang", "/pd" -> geulja(out, 200, "text/html; charset=utf-8",
-                    "<!doctype html><html lang=\"ko\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>BYOD 방송</title></head>" +
-                        "<body style=\"font-family:sans-serif;font-size:20px;padding:16px\"><p>태블릿 BYOD 방송에서는 이 화면을 아직 옮기는 중입니다. 방송은 태블릿의 BYOD 방송 앱에서 다룹니다.</p></body></html>")
+                    "<!doctype html><html lang=\"ko\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>LVD 송출</title></head>" +
+                        "<body style=\"font-family:sans-serif;font-size:20px;padding:16px\"><p>태블릿 LVD 송출에서는 이 화면을 아직 옮기는 중입니다. 방송은 태블릿의 LVD 송출 앱에서 다룹니다.</p></body></html>")
                 else -> geulja(out, 404, "text/plain; charset=utf-8", "없는 주소입니다.")
             }
         } catch (_: Exception) {

@@ -35,7 +35,7 @@ object Hyeonjang {
         val am = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         // 1. 방송
         l.add(if (Bang.kyeojim) Jul(true, "방송: 켜져 있습니다. 듣는 분 " + Bang.deutnunSu + "명.")
-              else Jul(false, "방송: 꺼져 있습니다. 첫 화면의 BYOD 방송 시작을 누르십시오. 방송을 켜야 소리 크기도 잴 수 있습니다."))
+              else Jul(false, "방송: 꺼져 있습니다. 첫 화면의 LVD 송출 시작을 누르십시오. 방송을 켜야 소리 크기도 잴 수 있습니다."))
         // 2. 사운드카드
         val ins = am.getDevices(AudioManager.GET_DEVICES_INPUTS)
         val usbSori = ins.any { it.type == AudioDeviceInfo.TYPE_USB_DEVICE || it.type == AudioDeviceInfo.TYPE_USB_HEADSET || it.type == AudioDeviceInfo.TYPE_USB_ACCESSORY }
@@ -98,7 +98,7 @@ object Hyeonjang {
                   else "현장 점검: " + l.size + "가지 가운데 " + (l.size - an.size) + "가지 정상, 확인할 것 " + an.size + "가지.").append("\n")
         for (j in an) sb.append("확인: ").append(j.mal).append("\n")
         for (j in l) if (j.doem) sb.append("정상: ").append(j.mal).append("\n")
-        sb.append("BYOD 방송 ").append(Bang.PAN).append("판, 빌드 ").append(Bang.BILD)
+        sb.append("LVD 송출 ").append(Bang.PAN).append("판, 빌드 ").append(Bang.BILD)
         return sb.toString()
     }
 }

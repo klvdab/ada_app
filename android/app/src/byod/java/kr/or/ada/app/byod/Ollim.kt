@@ -89,7 +89,7 @@ object Ollim {
     fun aeIreum(c: Context): String = when (aeBeonho(c)) {
         "gilnun" -> "길눈"
         "jabong" -> "자봉"
-        "byod" -> "BYOD 방송"
+        "byod" -> "LVD 송출"
         "lib" -> "AI점자도서관"
         else -> "앱"
     }
