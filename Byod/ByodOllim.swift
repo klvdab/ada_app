@@ -65,7 +65,7 @@ final class ByodOllim: ObservableObject {
     func yeolgi() {
         if Bang.shared.kyeojim { mal("방송 중에는 업데이트하지 않습니다. 방송을 멈춘 뒤 업데이트를 눌러 주십시오."); return }
         guard let u = URL(string: testflight.isEmpty ? "itms-beta://" : testflight) else { return }
-        mal("테스트플라이트를 엽니다. BYOD 방송 옆의 업데이트를 두 번 두드리십시오.")
+        mal("테스트플라이트를 엽니다. LVD 송출 옆의 업데이트를 두 번 두드리십시오.")
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { UIApplication.shared.open(u) }
     }
 
@@ -75,7 +75,7 @@ final class ByodOllim: ObservableObject {
         salpigi { r in
             let e = ByodOllim.shared
             switch r {
-            case .some(true): e.mal("BYOD 방송 새 판 \(e.saePan ?? "")이 있습니다."); e.yeolgi()
+            case .some(true): e.mal("LVD 송출 새 판 \(e.saePan ?? "")이 있습니다."); e.yeolgi()
             case .some(false): e.mal("지금 \(e.jigeumPan)판이 가장 새 판입니다.")
             case .none: e.mal("새 판을 살피지 못했습니다. 인터넷을 확인하시고 다시 눌러 주십시오.")
             }

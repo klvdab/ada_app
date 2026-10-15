@@ -54,6 +54,7 @@ final class Sori {
 
     func meomchugi() {
         dolgo = false
+        gidarimMeomchum()
         for o in bomyeon { NotificationCenter.default.removeObserver(o) }
         bomyeon.removeAll()
         if engine.isRunning { engine.stop() }
@@ -147,12 +148,30 @@ final class Sori {
         guard let v = n.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
               let t = AVAudioSession.InterruptionType(rawValue: v) else { return }
         if t == .began {
-            Bang.shared.juge { b in b.jalmot = "소리 장치: 전화나 다른 앱 때문에 해설 소리 받기가 잠시 멈췄습니다. 끝나면 저절로 다시 받습니다." }
+            Bang.shared.juge { b in b.jalmot = "통화 중입니다. 듣는 분께 잠시 기다려 달라는 안내를 보내고 있습니다. 통화가 끝나면 저절로 이어 보냅니다." }
+            gidarimSijak()   // 1.3.1 (261015-BI5) 듣는 분께 「잠시 기다려 주십시오」
         } else {
+            gidarimMeomchum()
             Bang.shared.juge { b in b.jalmot = "" }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.dasiYeolgi("끊김이 끝남") }
         }
     }
+
+    // 1.3.1 (261015-BI5) 통화 중 기다림 안내 — 0.1초마다 한 조각씩, 안내 약 9.5초 뒤 15초 조용함을 되풀이
+    private var gidarimTimer: DispatchSourceTimer?
+    private func gidarimSijak() {
+        gidarimMeomchum()
+        Gidarim.cheoeum()
+        let t = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "byod.gidarim"))
+        t.schedule(deadline: .now(), repeating: 0.1)
+        t.setEventHandler { [weak self] in
+            guard let s = self, s.dolgo, Bang.shared.keu else { return }
+            s.batgi(Gidarim.jogak(Sori.JOGAK))
+        }
+        t.resume()
+        gidarimTimer = t
+    }
+    private func gidarimMeomchum() { gidarimTimer?.cancel(); gidarimTimer = nil }
 
     private func tapBatgi(_ buf: AVAudioPCMBuffer) {
         var jogakdeul: [[Int16]] = []
@@ -240,7 +259,7 @@ final class Sori {
             default: return "기타"
             }
         }
-        var t = "BYOD 방송 아이폰 \(Bang.PAN)판, 빌드 \(Bang.BILD)\n"
+        var t = "LVD 송출 아이폰 \(Bang.PAN)판, 빌드 \(Bang.BILD)\n"
         let b = Bang.shared
         t += "방송: " + (b.kyeojim ? "켜짐, 지금 받는 곳 \(b.sojae)" : "꺼짐") + "\n"
         t += "판단: " + (usbInneunga() ? "사운드카드가 소리 장치로 잡혔습니다. 정상입니다." :
@@ -254,5 +273,41 @@ final class Sori {
         t += "연결:\n"
         for (nm, ip) in Juso.moduJuso() { t += "  \(nm) \(ip)\n" }
         return t
+    }
+}
+
+/// 1.3.1 (261015-BI5) 통화 중 듣는 분께 보낼 소리(뮤 8비트, 1초에 16000)
+enum Gidarim {
+    /// gidarim.wav(16비트, 1초에 16000, 한 줄기)를 뮤 8비트로
+    private static let sori: Data = {
+        guard let u = Bundle.main.url(forResource: "gidarim", withExtension: "wav"), let d = try? Data(contentsOf: u) else { return Data() }
+        let b = [UInt8](d)
+        var i = 12, sijak = 44, gil = max(0, b.count - 44)
+        while i + 8 <= b.count {
+            let ireum = String(bytes: b[i..<i + 4], encoding: .ascii) ?? ""
+            let n = Int(b[i + 4]) | Int(b[i + 5]) << 8 | Int(b[i + 6]) << 16 | Int(b[i + 7]) << 24
+            if ireum == "data" { sijak = i + 8; gil = min(n, b.count - sijak); break }
+            i += 8 + n
+        }
+        var pcm = [Int16](repeating: 0, count: gil / 2)
+        for k in 0..<pcm.count { pcm[k] = Int16(bitPattern: UInt16(b[sijak + 2 * k]) | UInt16(b[sijak + 2 * k + 1]) << 8) }
+        return MuLaw.jurigi(pcm)
+    }()
+    private static var jari = 0
+    private static let SWIM = 16000 * 15
+    private static let jamgeum = NSLock()
+    static func cheoeum() { jamgeum.lock(); jari = 0; jamgeum.unlock() }
+    static func jogak(_ n: Int) -> Data {
+        jamgeum.lock(); defer { jamgeum.unlock() }
+        let s = [UInt8](sori)
+        let gil = s.count + SWIM
+        var out = [UInt8](repeating: 0xFF, count: n)
+        for i in 0..<n {
+            let k = jari % gil
+            if k < s.count { out[i] = s[k] }
+            jari += 1
+        }
+        if jari >= gil * 1000 { jari = 0 }
+        return Data(out)
     }
 }

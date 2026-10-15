@@ -119,12 +119,12 @@ final class FlintBonaegi {
                             s.jamgeum.lock(); s._bonaenda = true; s.jamgeum.unlock()
                             Bang.shared.juge { b in if b.jalmot.hasPrefix("공유기") { b.jalmot = "" } }
                         } else {
-                            s.kkeunkim("공유기: 방송 서버가 이 아이폰을 받지 않습니다. 안드로이드 BYOD 앱의 플린트 2 준비하기를 다시 하십시오.")
+                            s.kkeunkim("공유기: 방송 서버가 이 아이폰을 받지 않습니다. 안드로이드 LVD 송출 앱의 플린트 2 준비하기를 다시 하십시오.")
                         }
                     }
                 }
             case .failed, .waiting:
-                s.q.async { s.kkeunkim("공유기: 방송 서버에 닿지 않습니다. 이 아이폰을 와이파이 \(Flint.SSID) 에 붙이고, 처음 쓰는 공유기면 안드로이드 BYOD 앱에서 플린트 2 준비하기를 하십시오.") }
+                s.q.async { s.kkeunkim("공유기: 방송 서버에 닿지 않습니다. 이 아이폰을 와이파이 \(Flint.SSID) 에 붙이고, 처음 쓰는 공유기면 안드로이드 LVD 송출 앱에서 플린트 2 준비하기를 하십시오.") }
             default: break
             }
         }

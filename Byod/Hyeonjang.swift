@@ -27,7 +27,7 @@ enum Hyeonjang {
         var l: [Jul] = []
         // 1. 방송
         l.append(b.kyeojim ? Jul(doem: true, mal: "방송: 켜져 있습니다. 듣는 분 \(b.deutnunSu)명.")
-                           : Jul(doem: false, mal: "방송: 꺼져 있습니다. 첫 화면의 BYOD 방송 시작을 누르십시오. 방송을 켜야 소리 크기도 잴 수 있습니다."))
+                           : Jul(doem: false, mal: "방송: 꺼져 있습니다. 첫 화면의 LVD 송출 시작을 누르십시오. 방송을 켜야 소리 크기도 잴 수 있습니다."))
         // 2. 사운드카드
         l.append(Sori.usbInneunga() ? Jul(doem: true, mal: "사운드카드: 잡혔습니다.")
                  : Jul(doem: false, mal: "사운드카드: 보이지 않습니다. 카메라 어댑터를 아이폰에 끝까지 꽂았는지, 사운드카드가 어댑터에 꽂혔는지, 어댑터 충전 구멍에 충전기가 꽂혔는지 확인하십시오."))
@@ -43,7 +43,7 @@ enum Hyeonjang {
             if b.kyeojim {
                 let dap = Date().timeIntervalSince(f.dapTtae) < 10
                 l.append(dap ? Jul(doem: true, mal: "공유기 방송 서버: 답합니다. \(f.seobeoPan)판.")
-                             : Jul(doem: false, mal: "공유기 방송 서버: 답하지 않습니다. 새 공유기는 안드로이드 BYOD 방송 앱의 플린트 2 준비하기로 먼저 준비하십시오."))
+                             : Jul(doem: false, mal: "공유기 방송 서버: 답하지 않습니다. 새 공유기는 안드로이드 LVD 송출 앱의 플린트 2 준비하기로 먼저 준비하십시오."))
                 l.append(f.bonaenda ? Jul(doem: true, mal: "해설 소리: 공유기로 보내고 있습니다.") : Jul(doem: false, mal: "해설 소리: 공유기로 보내지 못하고 있습니다. 공유기 전원과 와이파이를 확인하십시오."))
                 if dap { l.append(f.mp3 ? Jul(doem: true, mal: "화면을 잠가도 이어지는 소리: 쓸 수 있습니다.") : Jul(doem: false, mal: "화면을 잠가도 이어지는 소리: 공유기에 없습니다. 사무실에서 플린트 2 준비하기를 다시 하십시오.")) }
             }
@@ -79,7 +79,7 @@ enum Hyeonjang {
             : "현장 점검: \(l.count)가지 가운데 \(l.count - an.count)가지 정상, 확인할 것 \(an.count)가지.\n"
         for j in an { t += "확인: \(j.mal)\n" }
         for j in l where j.doem { t += "정상: \(j.mal)\n" }
-        t += "BYOD 방송 아이폰 \(Bang.PAN)판, 빌드 \(Bang.BILD)"
+        t += "LVD 송출 아이폰 \(Bang.PAN)판, 빌드 \(Bang.BILD)"
         return t
     }
 }

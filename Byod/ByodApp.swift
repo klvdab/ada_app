@@ -189,13 +189,13 @@ struct CheotView: View {
 
     private var bangDanchuGeul: String {
         if meomchumMal { return "한 번 더 누르면 방송을 멈춥니다" }
-        return bang.kyeojim ? "BYOD 방송 멈추기" : "BYOD 방송 시작"
+        return bang.kyeojim ? "LVD 송출 멈추기" : "LVD 송출 시작"
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                HyeophoeMeori(ireum: "BYOD 방송")
+                HyeophoeMeori(ireum: "LVD 송출")
                 if flintOn {   // 1.3.0 행사 이름과 현장영상해설사(녹음 이름·다시듣기 제목·결과보고에 쓰임, 한 번 넣으면 기억)
                     Kan(ireum: "행사 이름 (비워 두면 날짜와 시각)", gap: $haengsaJemok)
                     Kan(ireum: "현장영상해설사 이름", gap: $haeseolsa)
@@ -204,7 +204,7 @@ struct CheotView: View {
                     .accessibilityFocused($bangChojeom)
                 Danchu(geul: "현장 점검") { hyeonjangJeomgeom() }
                 if let p = ollim.saePan {
-                    Danchu(geul: "BYOD 방송 새 판 \(p)이 나왔습니다. 두드리면 테스트플라이트에서 업데이트합니다") { ollim.yeolgi() }
+                    Danchu(geul: "LVD 송출 새 판 \(p)이 나왔습니다. 두드리면 테스트플라이트에서 업데이트합니다") { ollim.yeolgi() }
                 }
                 Geul(st.geul, gulgeum: true)
                 if !st.juso.isEmpty {
@@ -232,7 +232,7 @@ struct CheotView: View {
                     Danchu(geul: ollim.seoljeongGeul) { ollim.seoljeongNureum() }
                     Danchu(geul: malsoriOn ? "프로그램 말소리 끄기" : "프로그램 말소리 켜기") { malsoriBakkugi() }
                     Danchu(geul: "도움말") { gagi(.doumal) }
-                    Geul("BYOD 방송 아이폰 \(Bang.PAN)판, 빌드 \(Bang.BILD)", saek: Saek.yeonhan)
+                    Geul("LVD 송출 아이폰 \(Bang.PAN)판, 빌드 \(Bang.BILD)", saek: Saek.yeonhan)
                     Geul(damgim, saek: Saek.yeonhan)
                 }
             }
@@ -330,7 +330,7 @@ struct CheotView: View {
                     t = "공유기 방송 서버가 답합니다. \(j["pan"] as? String ?? "")판, 듣는 분 \(j["n"] as? Int ?? 0)명. " +
                         ((j["mp3"] as? Bool ?? false) ? "화면을 잠가도 이어지는 소리를 쓸 수 있습니다." : "늦음이 가장 적은 소리만 씁니다.")
                 } else {
-                    t = "공유기 방송 서버가 답하지 않습니다. 이 아이폰이 와이파이 \(Flint.SSID) 에 붙었는지 보십시오. 새 공유기는 안드로이드 BYOD 방송 앱의 플린트 2 준비하기로 먼저 준비합니다."
+                    t = "공유기 방송 서버가 답하지 않습니다. 이 아이폰이 와이파이 \(Flint.SSID) 에 붙었는지 보십시오. 새 공유기는 안드로이드 LVD 송출 앱의 플린트 2 준비하기로 먼저 준비합니다."
                 }
                 if Malsori.shared.kyeojim { malhagi(t) } else { allyeo(t) }
                 jeomgeomGeul = t; jeomgeomBoim = true

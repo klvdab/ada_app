@@ -278,7 +278,7 @@ struct JeopsokView: View {
                         guard let a = Jeopsok.a4Flint(wifi: Jeopsok.wifiQr(ssid: s, pw: pw), ssid: s) else { mal("그림을 만들지 못했습니다."); return }
                         qr = a; qrIreum = "A4 인쇄용 한 장, 와이파이"
                         SajinJeojang.shared.jeojang(a) { ok in
-                            mal(ok ? "A4 인쇄용 한 장을 사진 앱에 저장했습니다. 와이파이 큐알 하나입니다. 붙으면 듣기 화면이 저절로 뜹니다." : "저장하지 못했습니다. 아이폰 설정에서 BYOD 방송의 사진 추가를 허용해 주십시오.")
+                            mal(ok ? "A4 인쇄용 한 장을 사진 앱에 저장했습니다. 와이파이 큐알 하나입니다. 붙으면 듣기 화면이 저절로 뜹니다." : "저장하지 못했습니다. 아이폰 설정에서 LVD 송출의 사진 추가를 허용해 주십시오.")
                         }
                         return
                     }
@@ -288,7 +288,7 @@ struct JeopsokView: View {
                     guard let a = Jeopsok.a4(wifi: Jeopsok.wifiQr(ssid: s, pw: pw), ssid: s, juso: j) else { mal("그림을 만들지 못했습니다."); return }
                     qr = a; qrIreum = "A4 인쇄용 한 장, 위 와이파이, 아래 듣기 주소"
                     SajinJeojang.shared.jeojang(a) { ok in
-                        mal(ok ? "A4 인쇄용 한 장을 사진 앱에 저장했습니다. 위는 와이파이 붙기, 아래는 현장영상해설 듣기 큐알입니다." : "저장하지 못했습니다. 아이폰 설정에서 BYOD 방송의 사진 추가를 허용해 주십시오.")
+                        mal(ok ? "A4 인쇄용 한 장을 사진 앱에 저장했습니다. 위는 와이파이 붙기, 아래는 현장영상해설 듣기 큐알입니다." : "저장하지 못했습니다. 아이폰 설정에서 LVD 송출의 사진 추가를 허용해 주십시오.")
                     }
                 }
                 Danchu(geul: "큐알 보기: 와이파이 붙기") {
@@ -299,7 +299,7 @@ struct JeopsokView: View {
                 Danchu(geul: "큐알 그림 저장(인쇄용)") {
                     guard let q = qr else { mal("먼저 큐알 보기를 눌러 주십시오."); return }
                     SajinJeojang.shared.jeojang(q) { ok in
-                        mal(ok ? "사진 앱에 저장했습니다. 그 그림을 인쇄하시면 됩니다." : "저장하지 못했습니다. 아이폰 설정에서 BYOD 방송의 사진 추가를 허용해 주십시오.")
+                        mal(ok ? "사진 앱에 저장했습니다. 그 그림을 인쇄하시면 됩니다." : "저장하지 못했습니다. 아이폰 설정에서 LVD 송출의 사진 추가를 허용해 주십시오.")
                     }
                 }
                 // 듣기 주소 태그·큐알 — 예비 방식(이 아이폰이 서버)에서 씀. 플린트 2 방식에서는 펼쳐야 보임
@@ -356,7 +356,7 @@ struct JeopsokView: View {
         let ilkgi = ip.replacingOccurrences(of: ".", with: " 점 ")
         mal("듣기 주소 \(ilkgi) 를 확인하고 있습니다.")
         Jeopsok.hwagin(j) { ok in
-            mal(ok ? "확인했습니다. 듣기 주소 \(ilkgi) 에서 BYOD 방송이 답합니다."
+            mal(ok ? "확인했습니다. 듣기 주소 \(ilkgi) 에서 LVD 송출이 답합니다."
                    : "듣기 주소 \(ilkgi) 에서 답이 없습니다. 방송을 켰는지, 이 아이폰이 방송 공유기에 붙었는지 보십시오. 방송을 켜지 않았으면 그대로 써도 됩니다.")
             f()
         }

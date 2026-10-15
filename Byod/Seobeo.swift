@@ -243,8 +243,8 @@ final class Seobeo {
             geulja(c, 200, "application/json", "{\"ok\":true}")
         case "/bang", "/pd":
             geulja(c, 200, "text/html; charset=utf-8",
-                   "<!doctype html><html lang=\"ko\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>BYOD 방송</title></head>" +
-                   "<body style=\"font-family:sans-serif;font-size:20px;padding:16px\"><p>방송은 아이폰의 BYOD 방송 앱에서 다룹니다.</p></body></html>")
+                   "<!doctype html><html lang=\"ko\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>LVD 송출</title></head>" +
+                   "<body style=\"font-family:sans-serif;font-size:20px;padding:16px\"><p>방송은 아이폰의 LVD 송출 앱에서 다룹니다.</p></body></html>")
         default:
             geulja(c, 404, "text/plain; charset=utf-8", "없는 주소입니다.")
         }

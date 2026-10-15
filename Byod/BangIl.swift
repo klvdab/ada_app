@@ -16,7 +16,7 @@ final class BangIl {
         case .granted:
             kkeut(kyeogiBaro())
         case .denied:
-            kkeut("마이크 허락이 없어 방송을 시작하지 못했습니다. 아이폰 설정, BYOD 방송, 마이크를 켠 뒤 다시 누르십시오.")
+            kkeut("마이크 허락이 없어 방송을 시작하지 못했습니다. 아이폰 설정, LVD 송출, 마이크를 켠 뒤 다시 누르십시오.")
         default:
             s.requestRecordPermission { ok in
                 DispatchQueue.main.async {
