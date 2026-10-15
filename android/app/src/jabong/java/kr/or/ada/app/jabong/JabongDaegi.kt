@@ -57,6 +57,8 @@ object JabongDaegi {
     val gajok: List<String> get() = try { val a = JSONArray(d?.getString("jb.gajok", "[]") ?: "[]"); (0 until a.length()).map { a.optString(it) } } catch (e: Exception) { emptyList() }
     /** 그 길눈님들이 부르실 내 이름 */
     val gajokIreum: String get() = d?.getString("jb.gajokIreum", "") ?: ""
+    /** 2.24.0 (261016-A20, 이사장님 승인 2026-10-16 「1」) 밤에도 받기 — 밤 10시부터 아침 7시에도 울리게(처음에는 끔) */
+    val yagan: Boolean get() = d?.getBoolean("jb.yagan", false) ?: false
     /** 긴급통화 받지 않기를 고르심 */
     val geobu: Boolean get() = d?.getBoolean("jb.geobu", false) ?: false
     /** 나스 대기에 올릴 갈래와 이름 — 봉사 역할이 없으면 가족·지인(jiin)으로 */
@@ -71,7 +73,7 @@ object JabongDaegi {
     fun gajokDeungrok(beonho: String, ireum: String, kkeut: (String?) -> Unit) {
         val b = beonho.filter { it.isDigit() }
         val nm = ireum.trim()
-        if (b.length != 6) { kkeut("이음 번호 여섯 자리를 넣어 주십시오."); return }
+        if (b.length != 3 && b.length != 6) { kkeut("이음 번호 세 자리를 넣어 주십시오."); return }
         if (nm.isEmpty()) { kkeut("길눈님이 부르실 내 이름을 적어 주십시오."); return }
         val kk = k
         il.execute {
@@ -159,6 +161,7 @@ object JabongDaegi {
         if (b.isEmpty()) { kkeut("길눈님 별명을 적어 주십시오."); return }
         val q = hashMapOf("a" to "daegi", "k" to k, "on" to "1", "kind" to kind0, "who" to b, "hangsang" to "1")
         if (kind0 == "haeseolsa") q["tel"] = hwagin else q["surye"] = hwagin
+        q["yagan"] = if (yagan) "1" else "0"   // 2.24.0 (261016-A20, 이사장님 승인 2026-10-16 「1」)
         val gd0 = naGd; if (gd0.isNotEmpty()) q["gd"] = gd0   // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 한 폰 표
         il.execute {
             val t = JbTongsin.getText(REL, q)
@@ -174,6 +177,14 @@ object JabongDaegi {
                 kkeut(null)
             }
         }
+    }
+
+    /** 2.24.0 (261016-A20, 이사장님 승인 2026-10-16 「1」) 밤에도 받기 켜고 끄기 — 나스 대기에 곧바로 알림 */
+    fun yaganBakkugi(kkeut: () -> Unit) {
+        val v = !yagan
+        d?.edit()?.putBoolean("jb.yagan", v)?.apply()
+        Girok.namgi("jabong_yagan", mapOf("on" to (if (v) 1 else 0), "android" to true))
+        if (kyeojim) daegiAllim(true) { kkeut() } else main.post(kkeut)
     }
 
     /** 잠시 쉬기(swim=true) / 다시 함께하기(false) */
@@ -195,6 +206,7 @@ object JabongDaegi {
         val kk = k
         il.execute {
             val q = hashMapOf("a" to "daegi", "k" to kk, "on" to (if (on) "1" else "0"), "kind" to ki, "who" to by, "hangsang" to "1")
+            q["yagan"] = if (yagan) "1" else "0"   // 2.24.0 (261016-A20, 이사장님 승인 2026-10-16 「1」)
             val gd0 = naGd; if (gd0.isNotEmpty()) q["gd"] = gd0   // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 한 폰 표
             JbTongsin.getText(REL, q)
             if (on) majimakDaegi = System.currentTimeMillis()
