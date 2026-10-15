@@ -118,6 +118,8 @@ enum class GinGeupSangtae { EOPSEUM, YOCHEONG, YEONGYEOL, TONGHWA }
 object GinGeup {
     private const val REL = "/eyec/rel.php"
     private const val HANDO = 90.0          // 1분 30초 기다림(초)
+    /** 2.50.0 (261016-A38, 이사장님 승인 2026-10-16 「1」) 가족·지인은 40초까지 울리고 넘길지 여쭘(아이폰과 같음) */
+    private const val JIIN_HANDO = 40.0
     private val main = Handler(Looper.getMainLooper())
     private val il = Executors.newSingleThreadExecutor()       // 부르기·진도·끊기
     private val sinhoIl = Executors.newSingleThreadExecutor()  // 신호 보내기 — 차례가 섞이지 않게 하나씩
@@ -397,7 +399,7 @@ object GinGeup {
     private fun jindo() {
         if (sangtae != GinGeupSangtae.YOCHEONG || room.isEmpty()) return
         // 나스가 답하지 않아도 폰 시계로 한도를 지킴 — 요청이 끝없이 걸려 있지 않게
-        if ((System.currentTimeMillis() - sijakTtae) / 1000.0 >= HANDO + 10) {
+        if ((System.currentTimeMillis() - sijakTtae) / 1000.0 >= (if (galrae == GinGeupGalrae.JIIN) JIIN_HANDO else HANDO) + 10) {
             hangup()
             kkeut("연결되지 못했습니다. 통신이 약할 수 있습니다. 다시 요청하시거나 전화를 거실 수 있습니다.")
             return
@@ -478,7 +480,7 @@ object GinGeup {
                 neomgilkkaMutgi("$nm 님께 지금 연결할 수 없습니다. 자원봉사자와 현장영상해설사에게 요청할까요?")
                 return
             }
-            if (s >= HANDO) {
+            if (s >= JIIN_HANDO) {
                 hangup()
                 neomgilkkaMutgi("$nm 님이 받지 않으십니다. 자원봉사자와 현장영상해설사에게 요청할까요?")
                 return
@@ -921,7 +923,7 @@ object Jiin {
     fun chodaeGeul(s: JiinSaram): String =
         "${s.name}님, 제가 앞이 보이지 않을 때 도움을 청하면 이 주소로 알려 드립니다. 한 번만 열어서 받겠습니다를 눌러 주십시오. " + chodaeJuso(s.k)
 
-    /** 2.11.0 이음 번호(여섯 자리, 30분) — (번호, 못 받은 까닭) */
+    /** 2.11.0 이음 번호(30분) — (번호, 못 받은 까닭). 2.50.0 (261016-A38, 이사장님 승인 2026-10-16 「1」) 세 자리 */
     fun ieumBeonho(kkeut: (String?, String) -> Unit) {
         val ow = owner
         val nm = GinGeup.naIrum.ifEmpty { "길눈 이용자" }
@@ -931,7 +933,7 @@ object Jiin {
             main.post {
                 if (o == null) { kkeut(null, "이음 번호를 받지 못했습니다. 통신이 끊겼을 수 있습니다."); return@post }
                 val b = o.optString("beonho", "")
-                if (!o.optBoolean("ok", false) || b.length != 6) { kkeut(null, o.optString("error", "").ifEmpty { "이음 번호를 받지 못했습니다." }); return@post }
+                if (!o.optBoolean("ok", false) || b.length != 3) { kkeut(null, o.optString("error", "").ifEmpty { "이음 번호를 받지 못했습니다." }); return@post }
                 Girok.namgi("jiin_ieum_man")
                 kkeut(b, "")
             }

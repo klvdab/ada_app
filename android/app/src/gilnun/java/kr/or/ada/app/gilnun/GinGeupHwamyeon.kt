@@ -154,7 +154,7 @@ class JiinMyeongdanHwamyeon : Hwamyeon("가족·지인 명단") {
             if (chojeomHal) chojeomJul = b
             t.danchu("새 이음 번호 받기") { beonhoBatgi(t) }
         } else {
-            t.danchu("이음 번호 받기 — 가족·지인이 자봉 앱에 넣을 여섯 자리") { beonhoBatgi(t) }
+            t.danchu("이음 번호 받기 — 가족·지인이 자봉 앱에 넣을 세 자리") { beonhoBatgi(t) }
         }
         if (allim.isNotEmpty()) t.geul(allim, true)
         // 2.42.0 받는 분 화면에 뜰 내 이름 — 설정 첫 화면에서 이리로 옮김(이사장님 승인 2026-10-14, 아이폰과 같은 자리)
