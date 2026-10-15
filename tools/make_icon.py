@@ -80,6 +80,5 @@ if __name__ == "__main__":
     save(ada, "Watch/Assets.xcassets/AppIcon.appiconset", "watchos")
     jb = make(BG_JABONG, "자봉", korean=True, size=400)
     save(jb, "Jabong/Assets.xcassets/AppIcon.appiconset", "ios")
-    bf = make(BG_BFB, "배프", korean=True, size=400)
-    save(bf, "Bfb/Assets.xcassets/AppIcon.appiconset", "ios")
-    print("아이콘을 만들었습니다:", ada.size, jb.size, bf.size)
+    # 261015 배프 앱은 LVD 방송(Bfb 폴더)으로 바뀌어 그려 둔 아이콘(Bfb/Assets.xcassets)을 그대로 씀(방송클)
+    print("아이콘을 만들었습니다:", ada.size, jb.size)
