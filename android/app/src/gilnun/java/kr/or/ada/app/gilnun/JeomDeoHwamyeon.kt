@@ -221,13 +221,11 @@ class NaeGilSangseHwamyeon(private val id: String, ireum: String) : Hwamyeon("�
         if (g == null) { t.geul("길을 찾지 못했습니다.", true); return }
         t.danchu("이 길 따라 걷기 — ${g.title}") {
             JeomEngine.sijak(t, g, false)
-            t.tabGo(0)
-            t.yeolgi(JeomGeotgiHwamyeon())
+            t.cheotHwamyeonEuro(null)   // 2.49.0 걷는 동안의 단추는 길 찾기 첫 화면에
         }
         t.danchu("되돌아가기로 걷기 — 끝에서 처음으로") {
             JeomEngine.sijak(t, g, true)
-            t.tabGo(0)
-            t.yeolgi(JeomGeotgiHwamyeon())
+            t.cheotHwamyeonEuro(null)
         }
         if (g.ollim) {
             t.geul("이미 모두와 나눈 길입니다.", true)
@@ -518,6 +516,6 @@ class RimoHwamyeon : JeomAllimHwamyeon("리모컨 배우기") {
         }
         t.danchu("담긴 것 모두 지우기") { JeomSeol.rimo = emptyMap(); alrigi("담긴 것을 모두 지웠습니다.") }
         t.danchu(if (pyeol) "알아 두실 것 접기" else "알아 두실 것 펼치기") { pyeol = !pyeol; t.dasiGeurigi() }
-        if (pyeol) t.geul("리모컨 가운데는 소리 크기 단추만 보내는 것이 있습니다. 그런 리모컨은 아무 반응이 없습니다. 글자판처럼 움직이는 리모컨, 흔히 전자책 페이지 넘김 리모컨이라 부르는 것들이 잘 맞습니다. 익힌 단추는 점지도 따라 걷기 화면이 켜져 있을 때 쓰입니다. 폰이 잠겨 있을 때는 이어폰 단추를 쓰십시오. 톡백이 화살표 단추를 먼저 가져갈 수 있습니다.")
+        if (pyeol) t.geul("리모컨 가운데는 소리 크기 단추만 보내는 것이 있습니다. 그런 리모컨은 아무 반응이 없습니다. 글자판처럼 움직이는 리모컨, 흔히 전자책 페이지 넘김 리모컨이라 부르는 것들이 잘 맞습니다. 익힌 단추는 점지도를 따라 걷는 동안 길 찾기 첫 화면이 켜져 있을 때 쓰입니다. 폰이 잠겨 있을 때는 이어폰 단추를 쓰십시오. 톡백이 화살표 단추를 먼저 가져갈 수 있습니다.")
     }
 }

@@ -745,7 +745,7 @@ class NnButakSangseHwamyeon(private val b: NnButak) : Hwamyeon("부탁해 둔 �
             t.danchu("그려졌습니다 — 이 길로 걷기, 점지도 따라 걷기") {
                 Girok.namgi("butak_geotgi")
                 JeomEngine.bulleoGeotgi(t, b.gil, false)
-                t.cheotHwamyeonEuro(JeomGeotgiHwamyeon())
+                t.cheotHwamyeonEuro(null)
             }
         }
         val wa = wiseongAnnae

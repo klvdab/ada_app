@@ -96,7 +96,7 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
                 t.danchu("위성으로 걷기 — ${mu.mok.ireum}까지 방향 따라") { JeomEngine.muleumDap(false) }
             }
             jm.bulleoneun -> {
-                cheot = t.danchu("점지도를 불러오는 중 — 걷는 화면으로") { t.yeolgi(JeomGeotgiHwamyeon()) }
+                cheot = t.danchu("점지도를 불러오는 중입니다 — 그만두기") { JeomEngine.geuman() }   // 2.49.0 아이폰과 같게
             }
             jm.gil != null -> ttaraPan(t)
             y != null -> yeojeongPan(t, y)
@@ -245,13 +245,13 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
             return
         }
         cheot = t.danchu((if (jm.dwit) "되돌아가는 중" else "점지도 따라 걷는 중") + " — 지금 어디입니까") { jm.jigeumEodiDeutgi() }
+        JeomPan.dareunMun(t)         // 2.49.0 (261015-A37, 이사장님 승인) 다른 문으로 — 아이폰처럼 지금 어디입니까 바로 아래
         t.danchu("다음에 무엇이 있습니까") { Sori.mal(jm.daeumMuotMal()) }
-        JeomPan.ttaraChuga(t)        // 2.7.0 b2 — 다른 문으로(문이 여럿일 때), 여기 문제 있어요, 도움 청하기
+        JeomPan.ttaraChuga(t)        // 여기 문제 있어요, 도움 청하기
         t.pyeolchigi("따라 걷기 다른 할 일", ttaraPyeol) { ttaraPyeol = !ttaraPyeol }
         if (ttaraPyeol) {
-            t.danchu("지금 내 자리 듣기") { AnnaeEngine.jigeumJari() }
-            t.danchu("걷는 화면 — 방금 한 말 다시 듣기") { t.yeolgi(JeomGeotgiHwamyeon()) }
-            JeomPan.ttaraPyeolChuga(t)   // 2.7.0 b2 — 여기 걸렸어요, 이 길목은 어떻게 생겼습니까, 가까운 버스 정류장, 함께 시험
+            // 2.49.0 아이폰 차례 — 여기 걸렸어요, 탈것에서 내렸습니다, 지금 내 자리 듣기, 방금 한 말 다시 듣기, 길목, 버스 정류장, 함께 시험
+            JeomPan.ttaraPyeolChuga(t)
             t.danchu("그만 걷기 — 따라 걷기와 여정을 마칩니다") { jeomGeuman() }
         }
     }

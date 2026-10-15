@@ -189,6 +189,7 @@ class MalSeolHwamyeon : Hwamyeon("말하기 설정") {
 
     override fun chaeugi(t: GilnunActivity) {
         SeoljeongDeo.sijak(t)
+        JeomSeol.sijak(t)   // 2.49.0 제대로 가고 있다는 말 칸
         val s = SeoljeongDeo
         // 2.42.0 (이사장님 승인 2026-10-14 「1」) 설정 첫 화면에 있던 말소리·말 빠르기를 이 화면 맨 위로(아이폰과 같은 자리)
         t.danchu("길눈 말소리 — 지금 " + (if (Seoljeong.malKyeojim) "켜짐, 누르면 꺼짐" else "꺼짐, 누르면 켜짐")) {
@@ -269,6 +270,12 @@ class MalSeolHwamyeon : Hwamyeon("말하기 설정") {
         }
         kyeogi(t, "걸을 때 확신음", { s.hwaksinEum }, { s.hwaksinEum = it }) {
             if (it) "확신음을 켭니다. 제대로 가고 계시면 짧은 맑은 소리가 납니다." else "확신음을 끕니다. 방향이 틀어졌을 때의 말은 그대로 나옵니다."
+        }
+        // 2.49.0 (261015-A37, 이사장님 승인 2026-10-15) 제대로 가고 있다는 말 — 아이폰 말하기 설정과 같은 자리(값은 점지도 안내 설정과 같은 칸)
+        dolligi(t, { "제대로 가고 있다는 말 — 점지도에서 ${JeomSeol.hwaksinGan}미터마다 (누르면 바뀝니다)" }) {
+            val g = JeomSeol.hwaksinGan
+            JeomSeol.hwaksinGan = if (g == 5) 10 else (if (g == 10) 20 else 5)
+            "점지도를 따라 걸으실 때 ${JeomSeol.hwaksinGan}미터마다 제대로 가고 있다고 말씀드립니다."
         }
         t.danchu("지금 설정으로 들어 보기") {
             val m = when (s.malSang) {

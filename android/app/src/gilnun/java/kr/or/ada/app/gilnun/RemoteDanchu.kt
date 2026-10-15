@@ -307,8 +307,8 @@ object JeomRimo {
             Sori.mal(if (jari != null) "${jari}번, ${IREUM[jari] ?: ""} 입니다." else "$nm 단추는 익히지 않은 단추입니다.")
             return true
         }
-        // 익힌 단추는 점지도 따라 걷기 화면이 켜져 있을 때 쓰임
-        if (t.wiHwamyeon !is JeomGeotgiHwamyeon || JeomEngine.gil == null) return false
+        // 익힌 단추는 점지도 따라 걷는 동안 길 찾기 첫 화면이 켜져 있을 때 쓰임(2.49.0 걷는 단추를 첫 화면 한 곳으로, 아이폰과 같음)
+        if ((t.wiHwamyeon !is GilChatgiSae && t.wiHwamyeon !is JeomGeotgiHwamyeon) || JeomEngine.gil == null) return false
         val jari = JeomSeol.rimo.entries.firstOrNull { it.value == nm }?.key ?: return false
         Girok.namgi("rimo", mapOf("jari" to jari))
         when (jari) {

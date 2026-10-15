@@ -78,8 +78,7 @@ class JeomMokrokHwamyeon : Hwamyeon("가까운 점지도") {
                     val x = ie[n]
                     val b = t.danchu(x.julMal) {
                         JeomEngine.ieumGeotgi(t, x.gugan, null)
-                        t.tabGo(0)
-                        t.yeolgi(JeomGeotgiHwamyeon())
+                        t.cheotHwamyeonEuro(null)   // 2.49.0 걷는 동안의 단추는 길 찾기 첫 화면 한 곳에(아이폰과 같음)
                     }
                     if (n == ieumSijak && chojeomHal) cheotGyeolgwa = b
                 }
@@ -144,18 +143,33 @@ class JeomMokrokHwamyeon : Hwamyeon("가까운 점지도") {
     }
 }
 
-/** 길 고르기 — 이 길 따라 걷기, 거꾸로 걷기 */
+/** 길 고르기 — 이 길 따라 걷기, 거꾸로 걷기
+ *  2.49.0 (261015-A37, 이사장님 승인 2026-10-15 「모두 승인」) 지금 자리에서 가까운 끝에서 떠나는 쪽을 위에 두고 커서도 그 단추에(아이폰과 같음) */
 class JeomGilGoreugi(private val j: JeomMok) : Hwamyeon(j.ireum) {
+    private var cheot: View? = null
+
     override fun chaeugi(t: GilnunActivity) {
-        t.danchu("이 길 따라 걷기 — ${j.from}에서 ${j.to}까지") { geotgi(t, false) }
-        t.danchu("거꾸로 걷기(되돌아가기) — ${j.to}에서 ${j.from}까지") { geotgi(t, true) }
+        if (dwitMeonjeo()) {
+            cheot = t.danchu("거꾸로 걷기(되돌아가기) — ${j.to}에서 ${j.from}까지") { geotgi(t, true) }
+            t.danchu("이 길 따라 걷기 — ${j.from}에서 ${j.to}까지") { geotgi(t, false) }
+        } else {
+            cheot = t.danchu("이 길 따라 걷기 — ${j.from}에서 ${j.to}까지") { geotgi(t, false) }
+            t.danchu("거꾸로 걷기(되돌아가기) — ${j.to}에서 ${j.from}까지") { geotgi(t, true) }
+        }
         t.geul(j.julMal)
+        cheot?.let { t.chojeomJul(it) }
+    }
+
+    /** 지금 자리가 끝 쪽에 더 가까우면 거꾸로 걷기를 먼저 */
+    private fun dwitMeonjeo(): Boolean {
+        val w = Wichi.jigeum ?: return false
+        if (j.slat == 0.0 || j.elat == 0.0) return false
+        return Wichi.geori(w.lat, w.lon, j.elat, j.elon) < Wichi.geori(w.lat, w.lon, j.slat, j.slon)
     }
 
     private fun geotgi(t: GilnunActivity, dw: Boolean) {
         JeomEngine.bulleoGeotgi(t, j.id, dw)
-        t.tabGo(0)   // 길 찾기 첫 화면으로 돌린 뒤 걷는 화면을 엶 — 걷는 화면에서 뒤로 하면 길 찾기 첫 화면
-        t.yeolgi(JeomGeotgiHwamyeon())
+        t.cheotHwamyeonEuro(null)   // 2.49.0 길 찾기 첫 화면으로 — 걷는 동안의 단추는 그 맨 위에(아이폰과 같음)
     }
 }
 
@@ -185,17 +199,12 @@ class JeomGeotgiHwamyeon : Hwamyeon("점지도 따라 걷기") {
             }
             else -> {
                 cheot = t.danchu("지금 어디쯤인지 듣기 — " + (if (e.dwit) "되돌아가는 중" else "따라 걷는 중")) { e.jigeumEodiDeutgi() }
+                JeomPan.dareunMun(t)
                 t.danchu("다음에 무엇이 있습니까") { e.daeumMuot() }
-                t.danchu("방금 한 말 다시 듣기") { Sori.dasiDeutgi() }
-                JeomPan.ttaraChuga(t)   // 다른 문으로, 여기 문제 있어요, 도움 청하기
+                JeomPan.ttaraChuga(t)   // 여기 문제 있어요, 도움 청하기
                 t.danchu(if (deoPyeol) "따라 걷기 다른 할 일 접기" else "따라 걷기 다른 할 일 펼치기") { deoPyeol = !deoPyeol; t.dasiGeurigi() }
                 if (deoPyeol) {
-                    t.danchu("지금 내 자리 듣기") { JeomPan.jariMal() }
-                    // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 점지도의 탈것 구간에서 내리셨을 때(아이폰과 같음)
-                    t.danchu("탈것에서 내렸습니다 — 여기서부터 다시 걸음 안내") {
-                        if (!e.naeryeotda()) Sori.mal("지금은 탈것 구간을 지나는 중이 아닙니다. 걸음 안내를 이어 갑니다.")
-                    }
-                    JeomPan.ttaraPyeolChuga(t)   // 여기 걸렸어요, 길목, 버스 정류장, 함께 시험
+                    JeomPan.ttaraPyeolChuga(t)   // 2.49.0 아이폰 차례
                     t.danchu("그만 걷기 — 따라 걷기를 마칩니다") { e.geuman(); t.dwiro() }
                 }
             }
@@ -243,23 +252,33 @@ object JeomPan {
     /** JeomEngine.georeoGagiBoda 로 여쭌 점지도(여러 점지도 이어 걷기까지) — 여쭌 것이 없으면 아무것도 넣지 않음. 첫 단추를 돌려줌 */
     fun muleumJul(t: GilnunActivity): View? {
         val m = JeomEngine.muleum ?: return null
-        val b = t.danchu("점지도로 걷기 — 권합니다. ${m.julMal}") { JeomEngine.muleumDap(true); t.yeolgi(JeomGeotgiHwamyeon()) }
+        val b = t.danchu("점지도로 걷기 — 권합니다. ${m.julMal}") { JeomEngine.muleumDap(true); t.dasiGeurigi() }
         t.danchu("위성으로 걷기 — ${m.mok.ireum}까지 방향 따라") { JeomEngine.muleumDap(false); t.dasiGeurigi() }
         return b
     }
 
-    /** 따라 걷는 동안 "다음에 무엇이 있습니까" 바로 아래 — 다른 문으로(문이 여럿일 때), 여기 문제 있어요, 도움 청하기 */
-    fun ttaraChuga(t: GilnunActivity) {
+    /** 2.49.0 따라 걷는 동안 "지금 어디입니까" 바로 아래 — 다른 문으로(문이 여럿일 때, 아이폰과 같은 자리) */
+    fun dareunMun(t: GilnunActivity) {
         val e = JeomEngine
         if (e.munOn && e.munSu > 1) t.danchu("다른 문으로 — 문이 ${e.munSu}곳 있습니다") { e.dareunMun() }
+    }
+
+    /** 따라 걷는 동안 "다음에 무엇이 있습니까" 바로 아래 — 여기 문제 있어요, 도움 청하기 */
+    fun ttaraChuga(t: GilnunActivity) {
         t.danchu("여기 문제 있어요 — 점자블록 없어짐, 공사 등 알리기") { t.yeolgi(MunjeHwamyeon()) }
         t.danchu("도움 청하기 — 긴급통화서비스") { t.yeolgi(GinGeupHwamyeon()) }
     }
 
-    /** 따라 걷기 다른 할 일 펼치기 안 — 여기 걸렸어요, 이 길목은 어떻게 생겼습니까, 가까운 버스 정류장, 함께 시험 */
+    /** 따라 걷기 다른 할 일 펼치기 안 — 2.49.0 아이폰 차례로: 여기 걸렸어요, 탈것에서 내렸습니다, 지금 내 자리 듣기,
+     *  방금 한 말 다시 듣기, 이 길목은 어떻게 생겼습니까, 가까운 버스 정류장, 함께 시험(그만 걷기는 부르는 쪽이 맨 끝에) */
     fun ttaraPyeolChuga(t: GilnunActivity) {
         val e = JeomEngine
         t.danchu("여기 걸렸어요 — 다음 분께 알려 주기") { e.geollimNamgigi() }
+        t.danchu("탈것에서 내렸습니다 — 여기서부터 다시 걸음 안내") {
+            if (!e.naeryeotda()) Sori.mal("지금은 탈것 구간을 지나는 중이 아닙니다. 걸음 안내를 이어 갑니다.")
+        }
+        t.danchu("지금 내 자리 듣기") { jariMal() }
+        t.danchu("방금 한 말 다시 듣기") { Sori.dasiDeutgi() }
         t.danchu("이 길목은 어떻게 생겼습니까") { e.gilmok() }
         t.danchu("가까운 버스 정류장") { e.beoseuJeongryujang() }
         val hb = e.hamkkeBunho

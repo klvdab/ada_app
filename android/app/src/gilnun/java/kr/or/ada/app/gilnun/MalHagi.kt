@@ -1355,7 +1355,7 @@ object MalHagi {
         val c = ctx ?: return
         Girok.namgi("malhagi_jeom", mapOf("dan" to "sijak", "dwit" to h.dw))
         JeomEngine.bulleoGeotgi(c, h.mok.id, h.dw)
-        hwalseong?.get()?.cheotHwamyeonEuro(JeomGeotgiHwamyeon())
+        hwalseong?.get()?.cheotHwamyeonEuro(null)
     }
 
     private fun mureumChoGihwa() {
