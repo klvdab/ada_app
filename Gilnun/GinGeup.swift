@@ -78,6 +78,8 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
 
     private let REL = "/eyec/rel.php"
     private static let HANDO: Double = 90
+    /// 2.80.0 (261016-I34, 이사장님 승인 2026-10-16 「1」) 가족·지인은 40초까지 울리고 넘길지 여쭘
+    private static let JIIN_HANDO: Double = 40
     private var room = ""
     private var sijakTtae = Date()
     private var jindoTimer: Timer?
@@ -197,7 +199,7 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
     private func jindo() {
         guard sangtae == .yocheong, !room.isEmpty else { return }
         // 2.12.0 나스가 답하지 않아도 폰 시계로 한도를 지킴 — 요청이 끝없이 걸려 있지 않게
-        if Date().timeIntervalSince(sijakTtae) >= GinGeup.HANDO + 10 {
+        if Date().timeIntervalSince(sijakTtae) >= (galrae == .jiin ? GinGeup.JIIN_HANDO : GinGeup.HANDO) + 10 {
             hangup()
             kkeut("연결되지 못했습니다. 통신이 약할 수 있습니다. 다시 요청하시거나 전화를 거실 수 있습니다.")
             return
@@ -278,7 +280,7 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
                 neomgilkkaMutgi("\(nm) 님께 지금 연결할 수 없습니다. 자원봉사자와 현장영상해설사에게 요청할까요?")
                 return
             }
-            if s >= GinGeup.HANDO {
+            if s >= GinGeup.JIIN_HANDO {
                 hangup()
                 neomgilkkaMutgi("\(nm) 님이 받지 않으십니다. 자원봉사자와 현장영상해설사에게 요청할까요?")
                 return

@@ -123,7 +123,7 @@ struct JiinMyeongdanView: View {
                     Button("새 이음 번호 받기") { beonhoBatgi() }
                         .buttonStyle(KeunDanchu())
                 } else {
-                    Button("이음 번호 받기 — 가족·지인이 자봉 앱에 넣을 여섯 자리") { beonhoBatgi() }
+                    Button("이음 번호 받기 — 가족·지인이 자봉 앱에 넣을 세 자리") { beonhoBatgi() }
                         .buttonStyle(KeunDanchu())
                 }
                 if !allim.isEmpty { Text(allim).font(.title3) }

@@ -54,14 +54,14 @@ final class Jiin: ObservableObject {
         return (JiinSaram(id: id, name: name, k: k, state: "기다리는 중"), "")
     }
 
-    /// 2.42.0 이음 번호(여섯 자리, 30분) — (번호, 못 받은 까닭)
+    /// 2.42.0 이음 번호(30분) — (번호, 못 받은 까닭). 2.80.0 (261016-I34, 이사장님 승인 2026-10-16 「1」) 세 자리
     func ieumBeonho() async -> (String?, String) {
         let nm = GinGeup.shared.naIrum
         guard let d = try? await Tongsin.shared.getSae(PHP, ["a": "ieum_man", "owner": owner, "who": nm.isEmpty ? "길눈 이용자" : nm]),
               let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else {
             return (nil, "이음 번호를 받지 못했습니다. 통신이 끊겼을 수 있습니다.")
         }
-        guard (o["ok"] as? Bool) == true, let b = o["beonho"] as? String, b.count == 6 else {
+        guard (o["ok"] as? Bool) == true, let b = o["beonho"] as? String, b.count == 3 else {
             return (nil, (o["error"] as? String) ?? "이음 번호를 받지 못했습니다.")
         }
         Girok.shared.namgi("jiin_ieum_man", [:])
