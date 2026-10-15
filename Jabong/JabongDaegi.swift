@@ -4,7 +4,7 @@
 //    잠겨 있어도, 다른 앱을 쓰고 있어도. 받으시면 곧바로 통화(JabongTonghwa)
 // ③ 다른 길눈님이 먼저 받으면 벨을 멈추고 "다른 분께 연결되었습니다. 감사합니다"
 // 2.4.0 (261004-G1, 이사장님 승인 2026-10-04) 긴급통화는 자봉 앱 하나로 받습니다.
-//   가족·지인으로 받기 — 길눈님이 불러 주신 이음 번호 여섯 자리와 부르실 내 이름을 넣으면 그 길눈님 명단에 등록(나스 jiin.php a=ieum).
+//   가족·지인으로 받기 — 길눈님이 불러 주신 이음 번호 세 자리(2.23.0 (261016-I17, 이사장님 승인 2026-10-16 「1」))와 부르실 내 이름을 넣으면 그 길눈님 명단에 등록(나스 jiin.php a=ieum).
 //     이때 이 폰의 대기 열쇠(k)가 지인 열쇠가 되어, 그 길눈님이 나를 고르시면 이 폰만 "○○ 님이 화상통화를 요청합니다"로 울림.
 //   긴급통화 받지 않기 — 점지도만 그려 주시고 통화는 원치 않는 분. 대기를 끄고 알림 주소도 지움. 언제든 다시 켤 수 있음.
 // 대표님 약속: 별명만(실명·전화번호는 화면에 없음), 자원봉사자는 수료 번호로, 해설사는 협회에 등록한 전화번호로 확인만.
@@ -30,6 +30,8 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
     @Published private(set) var gajokIreum: String
     /// 2.4.0 긴급통화 받지 않기를 고르심
     @Published private(set) var geobu: Bool
+    /// 2.23.0 (261016-I17, 이사장님 승인 2026-10-16 「1」) 밤에도 받기 — 밤 10시부터 아침 7시에도 울리게(처음에는 끔)
+    @Published private(set) var yagan: Bool
 
     /// 이 폰의 대기 열쇠(나스 rel.php 의 k) — 처음 한 번 만들어 둠
     let k: String
@@ -58,6 +60,7 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
         gajok = d.stringArray(forKey: "jb.gajok") ?? []
         gajokIreum = d.string(forKey: "jb.gajokIreum") ?? ""
         geobu = d.bool(forKey: "jb.geobu")
+        yagan = d.bool(forKey: "jb.yagan")
         if let kk = d.string(forKey: "jb.daegiK"), !kk.isEmpty {
             k = kk
         } else {
@@ -101,7 +104,7 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
     func gajokDeungrok(beonho: String, ireum: String) async -> String? {
         let b = beonho.filter { $0.isNumber }
         let nm = ireum.trimmingCharacters(in: .whitespaces)
-        guard b.count == 6 else { return "이음 번호 여섯 자리를 넣어 주십시오." }
+        guard b.count == 3 || b.count == 6 else { return "이음 번호 세 자리를 넣어 주십시오." }
         guard !nm.isEmpty else { return "길눈님이 부르실 내 이름을 적어 주십시오." }
         _ = await AVCaptureDevice.requestAccess(for: .video)
         _ = await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
@@ -138,6 +141,14 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
         Girok.shared.namgi("jabong_geobu", [:])
     }
 
+    /// 2.23.0 (261016-I17, 이사장님 승인 2026-10-16 「1」) 밤에도 받기 켜고 끄기 — 나스 대기에 곧바로 알림
+    func yaganBakkugi() async {
+        let v = !yagan
+        await MainActor.run { self.yagan = v; self.d.set(v, forKey: "jb.yagan") }
+        if kyeojim { await daegiAllim(on: true) }
+        Girok.shared.namgi("jabong_yagan", ["on": v ? 1 : 0])
+    }
+
     /// 다시 받기로 마음을 바꾸심 — 받지 않기만 풀고, 역할이 있으면 다시 켬
     func geobuPulgi() async {
         await MainActor.run { self.geobu = false; self.d.set(false, forKey: "jb.geobu") }
@@ -158,6 +169,7 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
         var q = ["a": "daegi", "k": k, "on": "1", "kind": kind, "who": b, "hangsang": "1"]
         if !HanPon.gd.isEmpty { q["gd"] = HanPon.gd }   // 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 한 폰 표 — 같은 폰의 내 길눈 요청은 울리지 않게
         if kind == "haeseolsa" { q["tel"] = hwagin } else { q["surye"] = hwagin }
+        q["yagan"] = yagan ? "1" : "0"   // 2.23.0 (261016-I17, 이사장님 승인 2026-10-16 「1」)
         guard let dt = try? await Tongsin.shared.getSae(REL, q),
               let j = try? JSONSerialization.jsonObject(with: dt) as? [String: Any] else {
             return "통신이 닿지 않았습니다. 잠시 뒤 다시 눌러 주십시오."
@@ -187,6 +199,7 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
         let kd = daegiKind, w = daegiWho
         guard !kd.isEmpty, !w.isEmpty else { return }
         var q = ["a": "daegi", "k": k, "on": on ? "1" : "0", "kind": kd, "who": w, "hangsang": "1"]
+        q["yagan"] = yagan ? "1" : "0"   // 2.23.0 (261016-I17, 이사장님 승인 2026-10-16 「1」)
         if !HanPon.gd.isEmpty { q["gd"] = HanPon.gd }   // 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 한 폰 표
         _ = try? await Tongsin.shared.getSae(REL, q)
     }
@@ -485,6 +498,9 @@ struct JbHamkkeView: View {
                     Text("요청이 오면 일반 전화처럼 울립니다. 받으시면 곧바로 길눈님 카메라 화면과 말소리가 이어집니다.").font(.body)
                     Button("잠시 쉬기 — 긴급통화를 받지 않음") { swigi(true) }.buttonStyle(KeunDanchu()).disabled(hal)
                     DisclosureGroup("더 보기 펼치기") {
+                        if !g.kind.isEmpty {
+                            Button(g.yagan ? "밤에도 받기 — 켜져 있음, 누르면 끔" : "밤에도 받기 — 꺼져 있음, 누르면 켬(밤 10시부터 아침 7시까지도 울림)") { yaganBakkugi() }.buttonStyle(KeunDanchu()).disabled(hal)
+                        }
                         Button("가족·지인으로 받기 — 이음 번호 넣기") { kind = "gajok"; beonho = ""; gajokIreum = g.gajokIreum; gochim = true }.buttonStyle(KeunDanchu())
                         Button("역할이나 별명 고치기") { kind = g.kind.isEmpty ? "haebong" : g.kind; byeol = g.byeol; gochim = true }.buttonStyle(KeunDanchu())
                         Button("긴급통화 받지 않기 — 점지도만 그립니다") { geobu() }.buttonStyle(KeunDanchu()).disabled(hal)
@@ -501,7 +517,7 @@ struct JbHamkkeView: View {
                     Button((kind == "haeseolsa" ? "고름 — " : "") + "현장영상해설사로 받기 — 협회 해설사") { kind = "haeseolsa"; hwagin = "" }.buttonStyle(KeunDanchu())
                     Button((kind == "gajok" ? "고름 — " : "") + "가족·지인으로 받기 — 길눈님께 이음 번호를 받으신 분") { kind = "gajok" }.buttonStyle(KeunDanchu())
                     if kind == "gajok" {
-                        TextField("이음 번호 여섯 자리 — 길눈님께 받으신 번호", text: $beonho).keyboardType(.numberPad).textFieldStyle(.roundedBorder).font(.title3)
+                        TextField("이음 번호 세 자리 — 길눈님께 받으신 번호", text: $beonho).keyboardType(.numberPad).textFieldStyle(.roundedBorder).font(.title3)
                         TextField("길눈님이 부르실 내 이름 — 보기: 큰딸, 김철수", text: $gajokIreum).textFieldStyle(.roundedBorder).font(.title3)
                         Button("가족·지인으로 등록하기") { gajokDeungrok() }.buttonStyle(KeunDanchu()).disabled(hal)
                     } else {
@@ -563,6 +579,14 @@ struct JbHamkkeView: View {
         Task {
             await g.swigi(s)
             await MainActor.run { hal = false; allyeo(s ? "잠시 쉽니다. 긴급통화가 울리지 않습니다." : "다시 함께합니다. 긴급통화가 울립니다.") }
+        }
+    }
+
+    private func yaganBakkugi() {
+        hal = true
+        Task {
+            await g.yaganBakkugi()
+            await MainActor.run { hal = false; allyeo(g.yagan ? "밤에도 받습니다. 밤 10시부터 아침 7시까지도 울립니다." : "밤에는 받지 않습니다. 밤 10시부터 아침 7시까지는 울리지 않습니다.") }
         }
     }
 

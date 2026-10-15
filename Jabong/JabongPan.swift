@@ -2,12 +2,17 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.22.0"
-    static let bild = "261014-I16"
+    static let pan = "2.23.0"
+    static let bild = "261016-I17"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.23.0", bild: "261016-I17", nal: "2026-10-16", naeyong: [
+            "★긴급통화 받기(이사장님 승인 2026-10-16 「1」, 안드로이드와 같게) — 이음 번호를 세 자리로",
+            "밤에도 받기 켜고 끄기 — 더 보기 펼치기 안, 처음에는 끔. 켜시면 밤 10시부터 아침 7시까지도 자원봉사자·현장영상해설사 요청이 울림(가족·지인 요청은 늘 울림)",
+            "도움말 바로잡음"
+        ]),
         Gochim(pan: "2.22.0", bild: "261014-I16", nal: "2026-10-14", naeyong: [
             "★처음엔 가볍게(이사장님 승인 2026-10-14 「1」) — 처음부터 문제를 풀라 하면 봉사하려는 마음에 찬물. 조금 해 보고 의욕이 생기면 더 배우게",
             "등록은 이름, 연락처, 네 자리 숫자만(1분). 지역·1365·일곱 가지 약속·확인 문제는 등록에서 뺌. 교육을 안 마쳐도 막지 않음",
