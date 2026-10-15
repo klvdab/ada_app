@@ -1,0 +1,250 @@
+// LVD 방송 아이폰(듣는 앱) — 시작과 화면 (2.0.0판, 빌드 261015-LI1, 방송클, 이사장님 승인 「1」)
+// 배프 웹 껍데기(BfbApp)를 속까지 앱으로 새로 지음. 고유 번호 kr.or.ada.bfb 를 그대로 이어 업데이트로 바뀝니다.
+// 이사장님 뜻: 듣는 분께는 들을 것만. 방송 방식·공유기 같은 말은 어디에도 보이지 않게.
+// 첫 화면: 협회 로고 머리 → 「현장영상해설 듣기」(큰 단추, 커서가 여기에) → 상태 한 줄(바뀔 때만 알림)
+//   → 「현장영상해설사 도움 요청」(누르면 바로 아래에 세 가지) → (처음 한 번) 행사장에 들어서면 저절로 들리게 하기 → 새 판 한 줄 → 더 보기
+// 행사장(행사장 와이파이)이면 앱을 열기만 해도 곧바로 들려 드립니다.
+import SwiftUI
+import UIKit
+import AVFoundation
+
+enum Pan {
+    static let PAN = "2.0.0"   // 2.0.0(261015-LI1) LVD 방송 아이폰 첫 판 — 행사장 와이파이 저절로 붙기, 앱 열면 곧바로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
+    static let BILD = "261015-LI1"
+    static let BAEP = "https://lvd.ada.or.kr/bfblive/"
+}
+
+@main
+struct LvdBangsongApp: App {
+    var body: some Scene {
+        WindowGroup {
+            CheotHwamyeon()
+                .preferredColorScheme(.dark)
+                .onAppear { BfbOllim.shared.sijak() }
+        }
+    }
+}
+
+// MARK: 꾸밈 — 법인 짙은 남색 바탕, 흰 단추에 노란 테, 큰 단추는 노랑(LVD 송출과 같은 색)
+
+enum Saek {
+    static let bada = Color(red: 18 / 255, green: 52 / 255, blue: 110 / 255)
+    static let nam = Color(red: 11 / 255, green: 33 / 255, blue: 76 / 255)
+    static let norang = Color(red: 1, green: 204 / 255, blue: 0)
+    static let geom = Color(red: 17 / 255, green: 17 / 255, blue: 17 / 255)
+    static let yeonhan = Color(red: 220 / 255, green: 230 / 255, blue: 245 / 255)
+}
+
+struct Danchu: View {
+    let geul: String
+    var keun = false
+    var norang = false
+    let f: () -> Void
+    init(_ geul: String, keun: Bool = false, norang: Bool = false, f: @escaping () -> Void) {
+        self.geul = geul; self.keun = keun; self.norang = norang; self.f = f
+    }
+    var body: some View {
+        Button(action: f) {
+            Text(geul)
+                .font(keun ? .title.weight(.bold) : .title3.weight(.bold))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, minHeight: keun ? 120 : 52)
+                .padding(.vertical, keun ? 20 : 10)
+                .padding(.horizontal, 14)
+                .foregroundStyle(norang ? Saek.geom : Saek.bada)
+                .background(RoundedRectangle(cornerRadius: 16).fill(norang ? Saek.norang : Color.white))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(norang ? Saek.geom : Saek.norang, lineWidth: 3))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct Geul: View {
+    let t: String
+    var gulgeum = false
+    var saek: Color = .white
+    init(_ t: String, gulgeum: Bool = false, saek: Color = .white) { self.t = t; self.gulgeum = gulgeum; self.saek = saek }
+    var body: some View {
+        Text(t)
+            .font(gulgeum ? .title3.weight(.bold) : .body)
+            .foregroundStyle(saek)
+            .lineSpacing(4)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// 프로그램 말소리 — 켜고 끌 수 있음(화면 글과 보이스오버는 그대로)
+final class Malsori {
+    static let shared = Malsori()
+    private let synth = AVSpeechSynthesizer()
+    var kyeojim: Bool {
+        get { UserDefaults.standard.object(forKey: "malsori") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "malsori") }
+    }
+    func mal(_ t: String) {
+        guard kyeojim else { return }
+        if synth.isSpeaking { synth.stopSpeaking(at: .immediate) }
+        let u = AVSpeechUtterance(string: t)
+        u.voice = AVSpeechSynthesisVoice(language: "ko-KR")
+        synth.speak(u)
+    }
+}
+
+/// 한 번 알릴 말 — 말소리가 켜져 있으면 말로, 꺼져 있으면 보이스오버에(두 번 겹쳐 듣지 않게)
+func allim(_ t: String) {
+    if Malsori.shared.kyeojim { Malsori.shared.mal(t) } else { UIAccessibility.post(notification: .announcement, argument: t) }
+}
+
+// MARK: 첫 화면
+
+enum Hwamyeon: Equatable { case cheot, doumal, web(String, String) }
+
+struct CheotHwamyeon: View {
+    @ObservedObject private var deut = Deut.shared
+    @ObservedObject private var ollim = BfbOllim.shared
+    @State private var hwamyeon: Hwamyeon = .cheot
+    @State private var yocheongYeollim = false
+    @State private var deoYeollim = false
+    @State private var deungrok = Hyeonjang.deungrokDoem
+    @State private var jeoljeolo = UserDefaults.standard.object(forKey: "jeoljeolo_deutgi") as? Bool ?? true
+    @State private var malsori = Malsori.shared.kyeojim
+    @State private var salpimJung = false
+    @AccessibilityFocusState private var deutCursor: Bool
+    @Environment(\.scenePhase) private var scenePhase
+    private let tik = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        ZStack {
+            Saek.bada.ignoresSafeArea()
+            switch hwamyeon {
+            case .cheot: cheot
+            case .doumal: DoumalHwamyeon { hwamyeon = .cheot }
+            case .web(let jemok, let juso): WebHwamyeon(jemok: jemok, juso: juso) { hwamyeon = .cheot }
+            }
+        }
+        .onAppear {
+            Deut.shared.mal = { m in allim(m) }
+            hyeonjangSalpigi(baro: false)
+        }
+        .onReceive(tik) { _ in if hwamyeon == .cheot && !deut.kyeojim && jeoljeolo && !salpimJung { hyeonjangSalpigi(baro: false) } }
+        .onChange(of: scenePhase) { p in if p == .active { hyeonjangSalpigi(baro: false) } }
+    }
+
+    private var cheot: some View {
+        ScrollView {
+            VStack(spacing: 14) {
+                HyeophoeMeori(ireum: "LVD 방송")
+                Danchu(deut.kyeojim ? "듣기 멈추기" : "현장영상해설 듣기", keun: true, norang: true) { deutNureum() }
+                    .accessibilityFocused($deutCursor)
+                Geul(deut.sangtae, gulgeum: true)
+                Danchu("현장영상해설사 도움 요청") { yocheongYeollim.toggle() }
+                if yocheongYeollim {
+                    Danchu("도와주세요 (현장영상해설사가 찾아갑니다)") { yocheong("dowum") }
+                    Danchu("소리가 끊겨요") { yocheong("kkeunkim") }
+                    Danchu("궁금한 것이 있어요") { yocheong("gungeum") }
+                }
+                if !deungrok {
+                    Danchu("행사장에 들어서면 저절로 들리게 하기 (처음 한 번 허락)") { deungrokHagi() }
+                }
+                if let p = ollim.saePan {
+                    Danchu("LVD 방송 새 판 \(p)이 있습니다. 누르면 업데이트합니다") { ollim.yeolgi() }
+                }
+                Danchu(deoYeollim ? "더 보기 접기" : "더 보기") { deoYeollim.toggle() }
+                if deoYeollim {
+                    Danchu("인터넷으로 배리어프리방송국 생방송 듣기") { hwamyeon = .web("배리어프리방송국 생방송", Pan.BAEP + "deutgi2.html") }
+                    Danchu("지난 방송 다시 듣기") { hwamyeon = .web("지난 방송 다시 듣기", Pan.BAEP + "dasi.html") }
+                    Danchu(jeoljeolo ? "행사장에 들어서면 저절로 듣기: 켜짐. 누르면 끕니다" : "행사장에 들어서면 저절로 듣기: 꺼짐. 누르면 켭니다") {
+                        jeoljeolo.toggle()
+                        UserDefaults.standard.set(jeoljeolo, forKey: "jeoljeolo_deutgi")
+                        allim(jeoljeolo ? "행사장에서 앱을 열면 저절로 들려 드립니다." : "저절로 듣기를 껐습니다. 행사장에서는 듣기 단추를 눌러 주십시오.")
+                    }
+                    Danchu("행사장 와이파이 저절로 붙기 다시 하기") { deungrokHagi() }
+                    Danchu(malsori ? "프로그램 말소리 끄기" : "프로그램 말소리 켜기") {
+                        malsori.toggle()
+                        Malsori.shared.kyeojim = malsori
+                        allim(malsori ? "프로그램 말소리를 켰습니다." : "프로그램 말소리를 껐습니다.")
+                    }
+                    Danchu("도움말") { hwamyeon = .doumal }
+                    Danchu("새로고침") {
+                        allim("새로고침합니다. 행사장인지 다시 살피고, 새 판이 있는지 살핍니다.")
+                        BfbOllim.shared.salpigi()
+                        hyeonjangSalpigi(baro: true)
+                    }
+                    Danchu(ollim.seoljeongGeul) { ollim.seoljeongNureum() }
+                    Geul("LVD 방송 아이폰 \(Pan.PAN)판, 빌드 \(Pan.BILD). 사단법인 한국시각장애인현장영상해설협회", saek: Saek.yeonhan)
+                }
+            }
+            .padding(20)
+        }
+        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { deutCursor = true } }
+    }
+
+    private func deutNureum() {
+        if deut.kyeojim { deut.kkeugi(son: true); allim("듣기를 멈추었습니다. 다시 들으시려면 같은 단추를 누르십시오."); return }
+        deut.kyeogi()
+        allim("현장영상해설을 찾고 있습니다.")
+    }
+
+    private func hyeonjangSalpigi(baro: Bool) {
+        salpimJung = true
+        Hyeonjang.salpigi { jm in
+            salpimJung = false
+            if jm == nil { Deut.shared.sonMeomchum = false; return }
+            if baro { Deut.shared.sonMeomchum = false }
+            if !Deut.shared.kyeojim && !Deut.shared.sonMeomchum && (jeoljeolo || baro) { Deut.shared.kyeogi() }
+        }
+    }
+
+    private func yocheong(_ k: String) {
+        Hyeonjang.yocheong(k) { ok in
+            allim(ok ? "알렸습니다. 현장영상해설사가 곧 찾아갑니다." : "현장영상해설사에게 알리지 못했습니다. 도움 요청은 행사장 안에서만 됩니다. 잠시 뒤 다시 눌러 주십시오.")
+        }
+    }
+
+    private func deungrokHagi() {
+        allim("아이폰이 연결할지 물으면 연결을 눌러 주십시오.")
+        Hyeonjang.deungrok { m in
+            deungrok = Hyeonjang.deungrokDoem
+            allim(m)
+        }
+    }
+}
+
+// MARK: 도움말 — 찾기 칸, 다섯 개씩, 위아래 뒤로, 두 손가락 문지르기로 돌아옴
+
+struct DoumalHwamyeon: View {
+    let dwiro: () -> Void
+    @State private var chatgi = ""
+    @State private var jjok = 0
+    @State private var yeollin: String? = nil
+    @AccessibilityFocusState private var cheotCursor: Bool
+
+    var body: some View {
+        let l = Doumal.chatgi(chatgi)
+        let sijak = jjok * 5
+        let boil = Array(l[min(sijak, l.count)..<min(sijak + 5, l.count)])
+        ScrollView {
+            VStack(spacing: 12) {
+                Danchu("뒤로") { dwiro() }.accessibilityFocused($cheotCursor)
+                TextField("도움말 찾기 (낱말을 넣고 엔터)", text: $chatgi)
+                    .font(.title3).padding(10).foregroundStyle(Saek.geom)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(Color.white))
+                    .onSubmit { jjok = 0 }
+                    .accessibilityLabel("도움말 찾기")
+                if l.isEmpty { Geul("찾는 낱말이 든 도움말이 없습니다. 다른 낱말로 찾아보십시오.") }
+                ForEach(boil) { h in
+                    Danchu(h.jemok) { yeollin = (yeollin == h.jemok) ? nil : h.jemok }
+                    if yeollin == h.jemok { Geul(h.naeyong) }
+                }
+                if sijak + 5 < l.count { Danchu("더 보기") { jjok += 1 } }
+                if jjok > 0 { Danchu("이전 보기") { jjok -= 1 } }
+                Danchu("뒤로") { dwiro() }
+            }
+            .padding(20)
+        }
+        .accessibilityAction(.escape) { dwiro() }
+        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { cheotCursor = true } }
+    }
+}
