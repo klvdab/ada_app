@@ -10,13 +10,16 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.80.0"
-    static let bild = "261016-I34"
+    static let pan = "2.81.0"
+    static let bild = "261016-I35"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.81.0", bild: "261016-I35", nal: "2026-10-16", naeyong: [
+            "자봉 앱 첫째 탭 이름이 그리기로 바뀜(이사장님 지시 2026-10-16) — 이음 번호 안내와 도움말을 그리기 탭으로"
+        ]),
         Gochim(pan: "2.80.0", bild: "261016-I34", nal: "2026-10-16", naeyong: [
             "★긴급통화 가족·지인(이사장님 승인 2026-10-16 「1」, 안드로이드와 같게) — 가족·지인 폰은 40초까지 울리고 넘길지 여쭘(나스가 자봉 앱으로 받기를 켠 분을 닿지 않는 분으로 잘못 알려 10초 만에 끊던 일도 나스에서 고침)",
             "이음 번호를 세 자리로(30분 그대로), 가족·지인은 열 분까지, 도움말 바로잡음"
