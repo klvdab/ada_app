@@ -931,7 +931,7 @@ final class JeomGeurigi: ObservableObject {
                     }
                 }
             }
-            // 2.22.0 (이사장님 승인 2026-10-14) 첫 점지도를 올리시면 큰 박수 — 봉사 탭에 「더 잘 그리고 싶으시면 2편」이 뜸
+            // 2.22.0 (이사장님 승인 2026-10-14) 첫 점지도를 올리시면 큰 박수 — 그리기 탭에 「더 잘 그리고 싶으시면 2편」이 뜸
             let cheot = JbMadang.shared.cheotGilMachim()
             if cheot { Baksu.chigi(keuge: true); Jindong.hagi("arrive") }
             let cheotMal = cheot ? "첫 점지도를 그리셨습니다! 축하드립니다. " : ""

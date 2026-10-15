@@ -49,7 +49,7 @@ enum Baksu {
     }
 }
 
-// MARK: 탭 옮기기 — 나눔의 그려 주세요에서 봉사 탭으로 보낼 때 씀
+// MARK: 탭 옮기기 — 나눔의 그려 주세요에서 그리기 탭으로 보낼 때 씀
 final class JbTabGil: ObservableObject {
     static let shared = JbTabGil()
     @Published var tab = 0

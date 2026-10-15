@@ -146,7 +146,7 @@ struct BowanGilView: View {
                             SoriEngine.shared.mal("그리는 중인 길이 있습니다. 그 길을 먼저 마치거나 그만두신 뒤 다시 눌러 주십시오."); return
                         }
                         JeomGeurigi.shared.bowanJeonghagi(gil.id, from: gil.from, to: gil.to)
-                        SoriEngine.shared.mal("고맙습니다. 봉사 탭의 점지도 그리기에서 \(gil.from)부터 \(gil.to)까지 다시 걸어 주십시오. 걷기 시작을 누르시면 출발지와 도착지 이름이 이 길과 같게 들어갑니다. 올려서 협회 점검을 통과하면 보완 완료가 됩니다.")
+                        SoriEngine.shared.mal("고맙습니다. 그리기 탭의 점지도 그리기에서 \(gil.from)부터 \(gil.to)까지 다시 걸어 주십시오. 걷기 시작을 누르시면 출발지와 도착지 이름이 이 길과 같게 들어갑니다. 올려서 협회 점검을 통과하면 보완 완료가 됩니다.")
                         JbTabGil.shared.tab = 0
                     }.buttonStyle(KeunDanchu())
                 }

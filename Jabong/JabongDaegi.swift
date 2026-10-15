@@ -464,7 +464,7 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
     }
 }
 
-// MARK: 화면 — 봉사 탭의 "긴급통화 받기"
+// MARK: 화면 — 그리기 탭의 "긴급통화 받기"
 // 2.4.0 역할 셋(자원봉사자, 현장영상해설사, 가족·지인)과 "긴급통화 받지 않기"
 
 struct JbHamkkeView: View {
