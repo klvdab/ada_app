@@ -141,7 +141,7 @@ class JiinMyeongdanHwamyeon : Hwamyeon("가족·지인 명단") {
     private var salpimR: Runnable? = null
 
     private fun beonhoMal(): String =
-        "이음 번호 ${beonho.toList().joinToString(" ")}. 30분 안에 가족이나 지인에게 불러 주십시오. 그분이 자봉 앱의 봉사 탭, 긴급통화 받기, 가족·지인으로 받기에서 이 번호와 부르실 이름을 넣으시면 등록됩니다"
+        "이음 번호 ${beonho.toList().joinToString(" ")}. 30분 안에 가족이나 지인에게 불러 주십시오. 그분이 자봉 앱의 그리기 탭, 긴급통화 받기, 가족·지인으로 받기에서 이 번호와 부르실 이름을 넣으시면 등록됩니다"
 
     override fun chaeugi(t: GilnunActivity) {
         chojeomJul = null

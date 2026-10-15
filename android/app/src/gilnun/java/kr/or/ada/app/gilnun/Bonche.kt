@@ -23,12 +23,15 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.50.0"
-    const val bild = "261016-A38"
+    const val pan = "2.51.0"
+    const val bild = "261016-A39"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.51.0", "261016-A39", "2026-10-16", listOf(
+            "자봉 앱 첫째 탭 이름이 그리기로 바뀜(이사장님 지시 2026-10-16), 아이폰 2.81.0과 같게 — 이음 번호 안내와 도움말을 그리기 탭으로"
+        )),
         Gochim("2.50.0", "261016-A38", "2026-10-16", listOf(
             "★긴급통화 가족·지인(이사장님 승인 2026-10-16 「1」, 아이폰 2.80.0과 같게) — 가족·지인 폰은 40초까지 울리고 넘길지 여쭘(나스가 자봉 앱으로 받기를 켠 분을 닿지 않는 분으로 잘못 알려 10초 만에 끊던 일도 나스에서 고침)",
             "이음 번호를 세 자리로(30분 그대로), 가족·지인은 열 분까지, 도움말 바로잡음"
