@@ -215,7 +215,7 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
             let hal = await self.halMal(jeonggi: jeonggi)
             await MainActor.run {
                 let meori = "\(k.ireum)에 겁니다. "
-                let kkori = " 통화 확인이 뜨면 통화를 두 번 두드려 주십시오. 통화 중에도 알림 센터에서 이 말을 다시 보실 수 있습니다."
+                let kkori = " 아이폰이 통화 확인 창을 띄우면 통화를 두 번 두드려 주십시오. 통화 중에도 알림 센터에서 이 말을 다시 보실 수 있습니다."
                 let t = meori + (hal.isEmpty ? "" : "연결되면 이렇게 말씀하시면 됩니다. " + hal) + kkori
                 self.halMalAllim(hal)
                 guard let u = URL(string: "tel:" + k.jeonhwa) else { return }
@@ -329,10 +329,10 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
         }
     }
 
-    func daeumGeolgi() {
+    func daeumGeolgi(mutgi: Bool = true) {
         guard let n = daeum else { return }
         daeum = nil
-        geolgi(n)
+        if mutgi { MalHagi.shared.kolMutgi(n) } else { geolgi(n) }   // 2.77.0 단추면 여쭙고 네면 겁니다(말로 이미 네 하셨으면 곧장)
     }
 
     func daeumGeuman() {
@@ -466,7 +466,7 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
         // 2. 다음 수단에 걸까요
         if daeum != nil, Date().timeIntervalSince(daeumTtae) < 600, daeumTtae > majimakMal, z.count <= 12 {
             if ani { dap("", false); daeumGeuman(); return true }
-            if ye { dap("", false); daeumGeolgi(); return true }
+            if ye { dap("", false); daeumGeolgi(mutgi: false); return true }
         }
         // 3. 복지카드 메일로 보낼까요
         if Date().timeIntervalSince(meilMureumTtae) < 300, meilMureumTtae > majimakMal, z.count <= 12 {
@@ -867,13 +867,13 @@ struct ChaBureugiView: View {
                     Text(MalSajeon.shared.kolJiyeokMal()).font(.body).accessibilityFocused($meoriChojeom)
                 }
                 if let k = sudan.first {
-                    Button("\(k.ireum) 부르기") { c.geolgi(k) }.buttonStyle(KeunDanchu())
+                    Button("\(k.ireum) 부르기") { MalHagi.shared.kolMutgi(k) }.buttonStyle(KeunDanchu())   // 2.77.0 여쭙고 네면 겁니다
                 }
                 if sudan.count > 1 {
                     DisclosureGroup("다른 수단 펼치기 — " + sudan.dropFirst().prefix(3).map { $0.ireum }.joined(separator: ", ")) {
                         VStack(alignment: .leading, spacing: 10) {
                             ForEach(Array(sudan.dropFirst().enumerated()), id: \.offset) { _, k in
-                                Button("\(k.ireum) 부르기" + (k.bigo.isEmpty ? "" : " — \(k.bigo)")) { c.geolgi(k) }
+                                Button("\(k.ireum) 부르기" + (k.bigo.isEmpty ? "" : " — \(k.bigo)")) { MalHagi.shared.kolMutgi(k) }
                                     .buttonStyle(KeunDanchu())
                             }
                         }

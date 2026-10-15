@@ -227,8 +227,15 @@ struct YeojeongPan: View {
         switch t {
         case .georeum: return "걷고 계신 것으로"
         case .jihacheol: return "지하철을 타고 계신 것으로"
-        default: return "\(t.ireum)를 타고 계신 것으로"
+        default: let n = Annae.talgeotIreum(t); return "\(n)\(Annae.eulReul(n)) 타고 계신 것으로"   // 2.77.0 부른 콜이면 「복지콜을」
         }
+    }
+
+    /// 2.77.0 부른 콜이 있으면 「차를 타고 있습니다」 대신 「복지콜을 타고 있습니다」
+    private func barojapgiGeul(_ e: (Talgeot, String)) -> String {
+        guard e.0 == .cha else { return e.1 }
+        let n = Annae.talgeotIreum(.cha)
+        return "\(n)\(Annae.eulReul(n)) 타고 있습니다"
     }
 
     var body: some View {
@@ -242,7 +249,7 @@ struct YeojeongPan: View {
             }
             // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 「내리셨습니까」를 여쭌 바로 그 자리에 대답 단추
             if jikimi.naerimMureum && yj.danggye == .taneunJung {
-                Button("아직 \(YeojeongEngine.shared.talgeot.ireum)에 타고 있습니다 — 안내 이어 가기") { jikimi.ajikTago() }
+                Button("아직 \(Annae.talgeotIreum(YeojeongEngine.shared.talgeot))에 타고 있습니다 — 안내 이어 가기") { jikimi.ajikTago() }
                     .buttonStyle(KeunDanchu())
             }
             // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 탈것 바로잡기를 펼치기 밖, 맨 위 큰 단추 바로 아래에 둠 —
@@ -255,8 +262,8 @@ struct YeojeongPan: View {
                     .font(.title3.bold())
                     .accessibilityAddTraits(.isHeader)
                 ForEach(barojapgiMokrok.filter { $0.0 != jigeum }, id: \.0) { e in
-                    Button(e.1) {
-                        if e.0 == .georeum { a.naeryeotda(mal: "걷고 계신 것으로 알겠습니다. 남은 길을 걸어서 안내합니다.") }
+                    Button(barojapgiGeul(e)) {
+                        if e.0 == .georeum { a.naeryeotda(mal: "걷고 계신 것으로 알겠습니다. 점지도가 있는지 확인해 드리겠습니다.") }
                         else { a.talgeotBarojapgi(e.0) }
                     }
                     .buttonStyle(KeunDanchu())
@@ -273,7 +280,7 @@ struct YeojeongPan: View {
                                 Button((yj.danggye == .taneunJung ? "밖으로 나왔습니다" : "걸어서 갑니다") + " — 남은 길 걸어서 안내") { a.naeryeotda() }.buttonStyle(KeunDanchu())
                             }
                             NavigationLink(value: GilHwamyeon.talgeot) {
-                                Text("그 밖의 탈것 바로잡기 — 지금 \(YeojeongEngine.shared.talgeot.ireum)로 알고 있습니다")
+                                Text("그 밖의 탈것 바로잡기 — 지금 \(Annae.talgeotIreum(YeojeongEngine.shared.talgeot))\(Annae.ro(Annae.talgeotIreum(YeojeongEngine.shared.talgeot))) 알고 있습니다")
                             }
                             .buttonStyle(KeunDanchu())
                         }
@@ -339,7 +346,8 @@ struct YeojeongPan: View {
                     .buttonStyle(KeunDanchu())
                     .accessibilityFocused(chojeom)
             case .taneunJung:
-                Button("\(mok)까지 \(YeojeongEngine.shared.talgeot.ireum)로 가는 중 — 내렸습니다, 남은 길 걸어서 안내") {
+                let tn = Annae.talgeotIreum(YeojeongEngine.shared.talgeot)   // 2.77.0 부른 콜이면 그 이름으로
+                Button("\(mok)까지 \(tn)\(Annae.ro(tn)) 가는 중 — 내렸습니다, 남은 길 걸어서 안내") {
                     a.naeryeotda()
                 }
                 .buttonStyle(KeunDanchu())

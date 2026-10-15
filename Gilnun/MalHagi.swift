@@ -275,6 +275,34 @@ final class MalHagi: ObservableObject {
             DispatchQueue.main.asyncAfter(deadline: .now() + min(8, 1.2 + Double(q.count) * 0.09), execute: yeolgi)
         }
     }
+    /// 2.77.0 (261015-I31, 이사장님 승인 2026-10-15 「1」) 차 부르기 단추 — 바로 걸지 않고 「○○에 전화할까요?」를 여쭙고 마이크를 엶. 네면 길눈이 겁니다.
+    ///   마이크를 쓸 수 없으면(허락 없음·통화 중·긴급통화 중) 예전처럼 곧장 겁니다
+    func kolMutgi(_ k: KolBeonho) {
+        guard sijakham, MalDeutgi.heorakItda, !JeonhwaGamsi.shared.jeonhwaJung, GinGeup.shared.sangtae == .eopseum else {
+            ChaBureugi.shared.geolgi(k)
+            return
+        }
+        hwaginBiugi()
+        kolDaegi = k
+        mureum = .kolHwagin
+        mureumTtae = Date()
+        Girok.shared.namgi("kol_mureum", ["ireum": k.ireum])
+        let q = "\(k.ireum)에 전화할까요? 네 하시면 길눈이 겁니다."
+        SoriEngine.shared.mal(q, .annae)
+        let yeolgi = { [weak self] in
+            guard let self = self, self.sijakham, self.mureum == .kolHwagin, self.sangtae == .swim, GinGeup.shared.sangtae == .eopseum,
+                  !self.pyeonjipJung, !JeonhwaGamsi.shared.jeonhwaJung, MalDeutgi.heorakItda else { return }
+            self.dasiHanbeon = false
+            self.jadongYeolim = 1
+            self.myeongryeongYeolgi(sori: true)
+        }
+        if Seoljeong.shared.malKyeojim {
+            SoriEngine.shared.kkeutnamyeon { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: yeolgi) }
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + min(8, 1.2 + Double(q.count) * 0.09), execute: yeolgi)
+        }
+    }
+
     /// 2.67.0 열차 안에서 가실 곳을 여쭌 때 — 10분 안에 정하시면 지하철 길을 곧장 역 알림으로
     private var yeolchaAnTtae: Date?
 

@@ -34,7 +34,10 @@ final class ChaMat {
     private var seoSijak: Date?
     private var seoMal = Date.distantPast
     private var gdMal: [Int: String] = [:]
-    private var hacha500 = false, hacha100 = false
+    private var hacha500 = false
+    private(set) var hacha100 = false, hacha30 = false   // 2.77.0 안내 엔진이 같은 말을 되풀이하지 않게 봄
+    var hacha100Ham: Bool { itda && hacha100 }
+    var hacha30Ham: Bool { itda && hacha30 }
     private var batneunJung = false
     private var chaBang = -1.0   // 차가 마지막으로 달리던 쪽(멈춰도 이 쪽을 12시로)
 
@@ -49,7 +52,7 @@ final class ChaMat {
 
     func sijak(_ lat: Double, _ lon: Double, _ ir: String) {
         mokLat = lat; mokLon = lon; mokIreum = ir; itda = true
-        gil = nil; bulTime = .distantPast; bulMal = .distantPast; bulSijak = nil; hacha500 = false; hacha100 = false
+        gil = nil; bulTime = .distantPast; bulMal = .distantPast; bulSijak = nil; hacha500 = false; hacha100 = false; hacha30 = false
         gdMal = [:]; meolSijak = nil; seoSijak = nil; batneunJung = false
     }
 
@@ -246,7 +249,13 @@ final class ChaMat {
                 hacha100 = true
                 let mp = munJari(g)
                 let bang = sigye(head, bearing(la, lo, mp.0, mp.1))
-                mal("곧 " + (bang.isEmpty ? "" : "\(bang)에 ") + mokNm + "입니다. 여기서 세워 달라고 하십시오.", true, malHagi)
+                mal("곧 " + (bang.isEmpty ? "" : "\(bang)에 ") + mokNm + "입니다. 내리실 준비를 하십시오.", true, malHagi)   // 2.77.0 100미터에서는 내릴 준비
+                return true
+            }
+            // 2.77.0 (261015-I31, 이사장님 승인 2026-10-15 「1」) 30미터 앞 — 내리셔도 좋다고, 내리시면 점지도를 살핀다고
+            if !hacha30 && !gicha && (namM <= 30 || dMok <= 30) {
+                hacha30 = true
+                mal(AnnaeEngine.naerimMal(mokNm), true, malHagi)
                 return true
             }
             // 길 벗어남 — 모든 단계. 100미터 넘게 15초

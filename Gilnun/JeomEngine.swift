@@ -269,6 +269,14 @@ final class JeomEngine: ObservableObject {
         }
     }
 
+    /// 2.77.0 (261015-I31, 이사장님 승인 2026-10-15 「1」) 차에서 내린 뒤 맞는 점지도가 있으면 여쭙지 않고 곧장 따라 걷기(문까지)
+    func naerinDwiGeotgi(_ j: Jangso, _ g: [JeomGugan]) {
+        yeojeongKkeut()
+        JihacheolEngine.shared.meomchugi()
+        YeojeongEngine.shared.jeonghagi(Mokjeok(ireum: j.ireum, lat: j.lat, lon: j.lon, juso: j.juso))
+        ieumGeotgi(g, mok: j)
+    }
+
     /// 여쭌 말의 대답 — 참이면 점지도, 거짓이면 위성
     func muleumDap(jeom: Bool) {
         guard let m = muleum else { return }
