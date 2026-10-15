@@ -15,8 +15,8 @@
 
 import asyncio, json, os, sys, time, shutil, urllib.parse, urllib.request
 
-PAN = "1.3.0"
-BILD = "261014-F2"
+PAN = "1.3.1"   # 261015-F3 상태에 행사 이름·현장영상해설사, 듣기 화면에 LVD 방송 앱 받기, 행사 기본 이름 「현장영상해설 방송」
+BILD = "261015-F3"
 
 SEOBEO_IP = os.environ.get("BYOD_IP", "192.168.8.2")      # 듣기 화면 주소(공유기에 덧붙인 주소)
 WEB_PORT = int(os.environ.get("BYOD_WEB_PORT", "7880"))    # 80번은 방화벽이 이리로 돌려줌
@@ -29,6 +29,8 @@ MAKHIM = 10.0                                              # 10초 넘게 쓰기
 HAENGSA_TEO = os.environ.get("BYOD_HAENGSA", os.path.join(TEO, "haengsa"))   # 행사 녹음과 기록
 IEUM = float(os.environ.get("BYOD_IEUM", "300"))         # 방송 기기가 이 초 안에 다시 붙으면 같은 행사(해설사 교대)
 JOGAK_CHO = float(os.environ.get("BYOD_JOGAK_CHO", "60")) # 녹음 조각 길이(초)
+APP_IOS = os.environ.get("BYOD_APP_IOS", "https://lvd.ada.or.kr/sihum/")   # 1.3.1 LVD 방송 앱 받는 곳(앱스토어 주소가 정해지면 바꿈)
+APP_AOS = os.environ.get("BYOD_APP_AOS", "https://lvd.ada.or.kr/sihum/")
 NAS_OLLIGI = os.environ.get("BYOD_NAS", "https://lvd.ada.or.kr/bfblive/byod_olligi.php")
 OLLIGI_YEOLSOE = "byod-261014-k7m2"                       # 배프에 올리는 창구 열쇠(나스 byod_olligi.php 와 같음)
 
@@ -284,7 +286,7 @@ class Haengsa:
             t = jigeum()
             g = kst(t)
             self.sid = "byod%02d%02d%02d%02d%02d%02d" % (g.tm_year % 100, g.tm_mon, g.tm_mday, g.tm_hour, g.tm_min, g.tm_sec)
-            self.g = {"sid": self.sid, "jemok": jemok or ("BYOD 현장 방송 " + nal_mal(t) + " " + sigak_mal(t)),
+            self.g = {"sid": self.sid, "jemok": jemok or ("현장영상해설 방송 " + nal_mal(t) + " " + sigak_mal(t)),
                       "haeseolsa": haeseolsa, "sijak": t, "kkeut": 0, "majimak": t,
                       "bun": [], "yocheong": [], "kkeunkim": [[t, "butum", ireum]], "jogak": [],
                       "sangtae": "jinhaeng", "olim": 0, "hyeongsik": "mp3" if B.mp3_iss else "mulaw",
@@ -394,7 +396,7 @@ class Haengsa:
 def bogo_mandeul(g):
     """한 장짜리 결과보고(글) — 낭독기와 점자정보단말기로 읽히게 기호 없이"""
     L = []
-    L.append("BYOD 현장 방송 결과보고")
+    L.append("현장영상해설 방송 결과보고")
     L.append("사단법인 한국시각장애인현장영상해설협회")
     L.append("")
     L.append("행사 이름: " + g["jemok"])
@@ -441,7 +443,7 @@ def bogo_mandeul(g):
             L.append(sigak_mal(t) + " 다시 붙음" + (" (" + ir + ")" if ir else ""))
     L.append("")
     L.append("녹음: " + g["sid"] + (".mp3" if g.get("hyeongsik") == "mp3" else ".ul") + ", 길이 " + gilee_mal(g.get("gilee", 0)))
-    L.append("BYOD 방송 공유기 서버 " + g.get("pan", PAN) + "판")
+    L.append("LVD 송출 공유기 서버 " + g.get("pan", PAN) + "판")
     return "\n".join(L) + "\n"
 
 
@@ -451,7 +453,7 @@ def haengsa_butum(ireum, jemok, haeseolsa):
     h = B.haengsa
     if h is not None and h.g["sangtae"] == "jinhaeng" and now - B.majimak_butum <= IEUM:
         h.kkeunkim("butum", ireum)
-        if jemok and h.g["jemok"].startswith("BYOD 현장 방송 "):
+        if jemok and (h.g["jemok"].startswith("현장영상해설 방송 ") or h.g["jemok"].startswith("BYOD 현장 방송 ")):
             h.g["jemok"] = jemok
         if haeseolsa and haeseolsa not in (h.g.get("haeseolsa") or ""):
             h.g["haeseolsa"] = (h.g["haeseolsa"] + ", " + haeseolsa) if h.g.get("haeseolsa") else haeseolsa   # 해설사 교대
@@ -587,7 +589,7 @@ def deut_hwamyeon():
     if os.path.isfile(p) and os.path.getsize(p) > 100:
         with open(p, "rb") as f:
             return f.read()
-    return DEUT_HTML.encode("utf-8")
+    return DEUT_HTML.replace("%%APP_IOS%%", APP_IOS).replace("%%APP_AOS%%", APP_AOS).encode("utf-8")
 
 
 def sangtae():
@@ -595,7 +597,9 @@ def sangtae():
         "hyeonjang": True, "byod": True, "flint": True, "pan": "BYOD " + PAN, "bild": BILD,
         "keu": B.keu, "mic": B.bonaem is not None, "bonaem": B.bonaem_ireum,
         "n": len(B.deut) + len(B.deut_mp3), "n_jeo": len(B.deut), "n_mp3": len(B.deut_mp3),
-        "haengsa": B.haengsa.sid if B.haengsa else "", "mp3": B.mp3_iss, "ttuigi": B.ttuigi, "tonggwa": B.tonggwa_ttae, "yseq": B.yseq,
+        "haengsa": B.haengsa.sid if B.haengsa else "",
+        "jemok": B.haengsa.g.get("jemok", "") if B.haengsa else "", "haeseolsa": B.haengsa.g.get("haeseolsa", "") if B.haengsa else "",
+        "mp3": B.mp3_iss, "ttuigi": B.ttuigi, "tonggwa": B.tonggwa_ttae, "yseq": B.yseq,
         "nas": "", "dang": "", "dseq": 0, "dsik": "", "dmok": [], "gin": "", "gseq": 0, "saepan": ""
     }, ensure_ascii=False)
 
@@ -782,6 +786,8 @@ audio{display:none}
 </style></head><body>
 <button id="b">현장영상해설 듣기</button>
 <p id="m" aria-live="polite">단추를 누르면 현장영상해설이 들립니다. 화면을 잠가도 들립니다.</p>
+<button class="jakeun" id="app">LVD 방송 앱으로 더 편하게 듣기</button>
+<p id="appm" style="display:none">LVD 방송 앱을 받아 두시면 다음 행사부터는 단추를 찾지 않아도 행사장에 들어서기만 하면 저절로 들립니다. 앱은 휴대전화의 모바일 데이터로 받습니다.</p>
 <details><summary>도움이 필요하면 펼치기</summary>
 <button class="jakeun" data-k="dowum">현장영상해설사 도움 요청</button>
 <button class="jakeun" data-k="kkeunkim">소리가 끊겨요</button>
@@ -820,6 +826,7 @@ $("a").onended=function(){if(on&&mp3){deutgi();}};
 $("bangsik").onclick=function(){var dasi=on;if(on)meomchum();mp3=!mp3;try{localStorage.setItem("byod_bangsik",mp3?"mp3":"jeo");}catch(e){}bsMal();if(dasi)deutgi();mal(mp3?"화면을 잠가도 이어지는 방식으로 바꾸었습니다.":"늦음이 가장 적은 방식으로 바꾸었습니다.");};
 Array.prototype.forEach.call(document.querySelectorAll("button[data-k]"),function(b){b.onclick=function(){fetch("yocheong?k="+b.getAttribute("data-k")+"&n=",{cache:"no-store"}).then(function(){mal("알렸습니다. 현장영상해설사가 곧 찾아갑니다.");}).catch(function(){mal("알리지 못했습니다. 다시 눌러 주십시오.");});};});
 fetch("status",{cache:"no-store"}).then(function(r){return r.json();}).then(function(j){keu=j.keu;if(!j.mp3){mp3=false;$("bangsik").style.display="none";}bsMal();}).catch(function(){bsMal();});
+$("app").onclick=function(){$("appm").style.display="block";var u=ios?"%%APP_IOS%%":"%%APP_AOS%%";setTimeout(function(){location.href=u;},1500);};
 setInterval(sangtae,3000);setTimeout(function(){try{$("b").focus();}catch(e){}},300);
 </script></body></html>"""
 
