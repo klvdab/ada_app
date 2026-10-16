@@ -64,6 +64,33 @@ final class YeojeongEngine: ObservableObject {
     @Published private(set) var jigeum: Yeojeong?
     /// 빠르기로 알아챈 탈것(이용자가 바로잡지 않았을 때 씀)
     @Published private(set) var sokdoChujeong: Talgeot = .georeum
+    /// 2.90.0 (261017-I44, 이사장님 승인 2026-10-17) 「탈것 바꾸기」 목록을 펼쳤는가 — 평소에는 한 줄로 접어 두고,
+    ///   이용자가 부르시거나(누름·「탈것 바꿔」) 길눈이 스스로 탈것을 바꾸었을 때만 펼침. 길눈이 펼친 것은 3분 뒤 저절로 접음
+    @Published private(set) var talgeotPyeolchim = false
+    private var pyeolSedae = 0
+
+    func talgeotMokrokPyeolgi(jadong: Bool) {
+        let f = { [weak self] in
+            guard let self = self else { return }
+            self.pyeolSedae += 1
+            self.talgeotPyeolchim = true
+            guard jadong else { return }
+            let s = self.pyeolSedae
+            DispatchQueue.main.asyncAfter(deadline: .now() + 180) { [weak self] in
+                if let self = self, self.pyeolSedae == s { self.talgeotPyeolchim = false }
+            }
+        }
+        if Thread.isMainThread { f() } else { DispatchQueue.main.async(execute: f) }
+    }
+
+    func talgeotMokrokJeopgi() {
+        let f = { [weak self] in
+            guard let self = self else { return }
+            self.pyeolSedae += 1
+            if self.talgeotPyeolchim { self.talgeotPyeolchim = false }
+        }
+        if Thread.isMainThread { f() } else { DispatchQueue.main.async(execute: f) }
+    }
 
     private var ssak = Set<AnyCancellable>()
     private var ppareunTtae: Date?
@@ -212,6 +239,9 @@ final class YeojeongEngine: ObservableObject {
     /// 탈것 정하기 — barojabeum 이 참이면 이용자가 바로잡은 것(가장 앞섬)
     func talgeotJeonghagi(_ t: Talgeot, barojabeum: Bool) {
         guard var y = jigeum else { return }
+        // 2.90.0 (261017-I44, 이사장님 승인 2026-10-17) 이용자가 정하시면 탈것 목록을 접고, 길눈이 스스로 바꾸었으면 펼침(처음 걸어가기·타고 가기는 빼고)
+        if barojabeum { talgeotMokrokJeopgi() }
+        else if y.talgeot != t && y.danggye != .eotteoke { talgeotMokrokPyeolgi(jadong: true) }
         y.talgeot = t
         y.barojabeum = barojabeum
         y.gaengsin = Date()
@@ -224,6 +254,7 @@ final class YeojeongEngine: ObservableObject {
         guard var y = jigeum else { return }
         y.talgeot = t
         y.barojabeum = true
+        talgeotMokrokJeopgi()   // 2.90.0 고르시면 목록을 접음
         // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 「기차입니다」는 바꾸실 때까지 지킴, 다른 탈것으로 바로잡으시면 풂
         y.jikim = (t == .gicha || t == .seonbak) ? t : nil
         if t != .gicha && sokdoChujeong == .gicha { gichaTtae = nil; sokdoChujeong = .georeum }   // 빠르기로 알던 기차도 함께 내려놓음
@@ -235,6 +266,7 @@ final class YeojeongEngine: ObservableObject {
 
     func kkeut() {
         if jigeum != nil { Girok.shared.namgi("yeojeong_kkeut", [:]) }
+        talgeotMokrokJeopgi()   // 2.90.0
         DispatchQueue.main.async { BangsongEngine.shared.chaNaerimGojangNorae() }
         jigeum = nil
         try? FileManager.default.removeItem(at: pail)

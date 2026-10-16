@@ -226,6 +226,7 @@ struct YeojeongPan: View {
     var chojeom: AccessibilityFocusState<Bool>.Binding
     @ObservedObject private var a = AnnaeEngine.shared
     @ObservedObject private var jikimi = TalgeotJikimi.shared   // 2.64.0 내리셨는지 여쭙기
+    @ObservedObject private var yje = YeojeongEngine.shared   // 2.90.0 탈것 목록 펼침
 
     private var mok: String { yj.mokjeok.ireum }
     /// 2.65.0 (261012-I19, 이사장님 지시 2026-10-12) 「무엇을 타고 계신가요」 대답 단추 — 차와 걷기를 맨 앞에
@@ -266,17 +267,26 @@ struct YeojeongPan: View {
             //   KTX에서 바로잡는 단추를 찾지 못해 내렸습니다로 여정을 끝내셔야 했던 일
             // 2.65.0 (261012-I19, 이사장님 지시 2026-10-12) 「무엇을 타고 계신가요」로 여쭙고 차·걷기도 넣음, 남은 길을 걷는 차례에도 보임 —
             //   복지콜이 막혀 서 있자 앱이 걷는다고 고집해 바로잡기 어려웠던 일. 지금 알고 있는 것은 빼고 나머지만
+            // 2.90.0 (261017-I44, 이사장님 승인 2026-10-17) 평소에는 「탈것 바꾸기」 한 줄만 — 누르시거나 「탈것 바꿔」라고 하시면 목록을 펼침.
+            //   길눈이 스스로 탈것을 바꾸었을 때와 내리셨는지 여쭐 때는 저절로 펼침. 고르시면 다시 접음
+            //   (KTX 부산행에서 기차로 정하신 뒤에도 다섯 단추가 늘 남아 있던 일)
             if yj.danggye == .taneunJung || yj.danggye == .namEunGil || (yj.jiha != nil && yj.danggye == .taneunGotKkaji) {
                 let jigeum: Talgeot = yj.danggye == .namEunGil ? .georeum : YeojeongEngine.shared.talgeot
-                Text("무엇을 타고 계신가요? 지금은 \(alGoItneunMal(jigeum)) 알고 있습니다")
-                    .font(.title3.bold())
-                    .accessibilityAddTraits(.isHeader)
-                ForEach(barojapgiMokrok.filter { $0.0 != jigeum }, id: \.0) { e in
-                    Button(barojapgiGeul(e)) {
-                        if e.0 == .georeum { a.naeryeotda(mal: "걷고 계신 것으로 알겠습니다. 점지도가 있는지 확인해 드리겠습니다.") }
-                        else { a.talgeotBarojapgi(e.0) }
+                let pyeol = yje.talgeotPyeolchim || (jikimi.naerimMureum && yj.danggye == .taneunJung)
+                Button(pyeol ? "무엇을 타고 계신가요? 지금은 \(alGoItneunMal(jigeum)) 알고 있습니다 — 탈것 목록 접기"
+                             : "탈것 바꾸기 — 지금은 \(alGoItneunMal(jigeum)) 알고 있습니다") {
+                    if pyeol { yje.talgeotMokrokJeopgi(); SoriEngine.shared.mal("탈것 목록을 접었습니다.") }
+                    else { yje.talgeotMokrokPyeolgi(jadong: false); SoriEngine.shared.mal("탈것 목록을 펼쳤습니다. 바로 아래에서 고르십시오.") }
+                }
+                .buttonStyle(KeunDanchu())
+                if pyeol {
+                    ForEach(barojapgiMokrok.filter { $0.0 != jigeum }, id: \.0) { e in
+                        Button(barojapgiGeul(e)) {
+                            if e.0 == .georeum { a.naeryeotda(mal: "걷고 계신 것으로 알겠습니다. 점지도가 있는지 확인해 드리겠습니다.") }
+                            else { a.talgeotBarojapgi(e.0) }
+                        }
+                        .buttonStyle(KeunDanchu())
                     }
-                    .buttonStyle(KeunDanchu())
                 }
             }
             if yj.danggye != .dochak {
@@ -380,6 +390,11 @@ struct YeojeongPan: View {
                     .accessibilityFocused(chojeom)
                 Button("차에 탔습니다 — 차 안 안내 시작") { a.chaTatda() }
                     .buttonStyle(KeunDanchu())
+                // 2.90.0 (261017-I44, 이사장님 승인 2026-10-17) 기차·배도 처음부터
+                Button("기차에 탔습니다 — 기차 안 안내 시작") { a.talgeotBarojapgi(.gicha) }
+                    .buttonStyle(KeunDanchu())
+                Button("배에 탔습니다 — 배 안 안내 시작") { a.talgeotBarojapgi(.seonbak) }
+                    .buttonStyle(KeunDanchu())
             }
     }
 }
@@ -449,12 +464,16 @@ struct MokjeokView: View {
                     GilGil.shared.cheotHwamyeon()
                 }
                 .buttonStyle(KeunDanchu())
+                if gichaMok { gichaDanchu }   // 2.90.0 먼 기차역이면 기차로 가기를 맨 앞 가까이에
+                if baeMok { baeDanchu }
                 Button("차로 가기 — 차에 탔거나 곧 탑니다, 차 안 안내 시작") {
                     jeul.sseum(j)
                     AnnaeEngine.shared.chaTagi(j)
                     GilGil.shared.cheotHwamyeon()
                 }
                 .buttonStyle(KeunDanchu())
+                if !gichaMok { gichaDanchu }
+                if !baeMok { baeDanchu }
                 NavigationLink(value: GilHwamyeon.jiha(j)) {
                     Text("지하철로 가기 — 가까운 역, 갈아타기, 나갈 출구를 찾아 드립니다")
                 }
@@ -483,6 +502,38 @@ struct MokjeokView: View {
     private var geoMal: String {
         guard let w = WichiEngine.shared.jigeum else { return "" }
         return ", 여기서 " + Annae.geoMal(WichiEngine.geori(w.lat, w.lon, j.lat, j.lon))
+    }
+
+    // MARK: 2.90.0 (261017-I44, 이사장님 승인 2026-10-17) 기차로 가기·배로 가기 — 부산역을 목적지로 정하고 기차가 없어 차로 가기를 누르셔야 했던 일
+    private var gichaDanchu: some View {
+        Button("기차로 가기 — 기차에 탔거나 곧 탑니다, 기차 안 안내 시작") {
+            jeul.sseum(j)
+            AnnaeEngine.shared.talgeotRoGagi(j, .gicha)
+            GilGil.shared.cheotHwamyeon()
+        }
+        .buttonStyle(KeunDanchu())
+    }
+    private var baeDanchu: some View {
+        Button("배로 가기 — 배에 탔거나 곧 탑니다, 배 안 안내 시작") {
+            jeul.sseum(j)
+            AnnaeEngine.shared.talgeotRoGagi(j, .seonbak)
+            GilGil.shared.cheotHwamyeon()
+        }
+        .buttonStyle(KeunDanchu())
+    }
+    /// 목적지가 기차역이고 여기서 25킬로미터 넘게 멂(자리를 모르면 기차역이기만 하면)
+    private var gichaMok: Bool {
+        let yeok = GichaYeok.mokrok.contains { j.ireum.hasPrefix($0.0 + "역") }
+            || (j.ireum.contains("역") && GichaYeok.gakkaun(j.lat, j.lon, banGyeong: 500) != nil)
+        guard yeok else { return false }
+        guard let w = WichiEngine.shared.jigeum else { return true }
+        return WichiEngine.geori(w.lat, w.lon, j.lat, j.lon) >= 25_000
+    }
+    /// 목적지가 항구·여객터미널·선착장
+    private var baeMok: Bool {
+        let n = j.ireum
+        return ["여객터미널", "여객선", "선착장", "항구", "부두", "나루터", "도선장"].contains { n.contains($0) }
+            || n.hasSuffix("항") || n.contains("항 ") || n.contains("항여객")
     }
 }
 

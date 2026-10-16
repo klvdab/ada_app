@@ -112,7 +112,8 @@ final class AnnaeEngine: ObservableObject {
         if y.danggye != .taneunJung { yj.danggyeBakkugi(.taneunJung) }
         dasiSijak()
         if !iMi {
-            malHagi("\(t.ireum)를 타신 것으로 압니다. \(y.mokjeok.ireum)까지 \(t.ireum) 안 안내를 합니다. \(t.ireum)가 아니면 바로 아래 단추로 바로잡으십시오.")
+            yj.talgeotMokrokPyeolgi(jadong: true)   // 2.90.0 길눈이 스스로 안 것이니 탈것 목록을 3분 펼쳐 둠
+            malHagi("\(t.ireum)를 타신 것으로 압니다. \(y.mokjeok.ireum)까지 \(t.ireum) 안 안내를 합니다. \(t.ireum)가 아니면 바로 아래 탈것 목록에서 바로잡으십시오.")
         } else if kkadak.contains("목적지") {
             malHagi("\(t.ireum)로 가시는 중이니 \(y.mokjeok.ireum)까지 \(t.ireum) 안 안내를 합니다.")
         }
@@ -175,6 +176,29 @@ final class AnnaeEngine: ObservableObject {
         saeMokjeokJunbi()
         yj.jeonghagi(Mokjeok(ireum: j.ireum, lat: j.lat, lon: j.lon, juso: j.juso))
         chaTatda()
+    }
+
+    /// 2.90.0 (261017-I44, 이사장님 승인 2026-10-17) 목적지를 정하고 기차·배로 — 목적지 화면의 「기차로 가기」·「배로 가기」
+    ///   (부산역을 목적지로 정하고 기차가 없어 차로 가기를 누르셔야 했던 일)
+    func talgeotRoGagi(_ j: Jangso, _ t: Talgeot) {
+        saeMokjeokJunbi()
+        yj.jeonghagi(Mokjeok(ireum: j.ireum, lat: j.lat, lon: j.lon, juso: j.juso))
+        talgeotBarojapgi(t)
+    }
+
+    /// 2.90.0 (261017-I44, 이사장님 승인 2026-10-17) 차로 정하셨는데 기차역 근처에서 먼 기차역으로 가시면 기차인지 한 번 여쭙고 탈것 목록을 펼쳐 둠
+    private var gichaMuleunYeojeong: Date?
+    private func gichaYeokMutgi() {
+        guard let y = yj.jigeum, y.talgeot == .cha, gichaMuleunYeojeong != y.sijak,
+              let w = WichiEngine.shared.jigeum,
+              let yeok = GichaYeok.gichaInga(tan: w.lat, w.lon, mok: y.mokjeok) else { return }
+        gichaMuleunYeojeong = y.sijak
+        yj.talgeotMokrokPyeolgi(jadong: true)
+        Girok.shared.namgi("gicha_mureum", ["yeok": yeok])
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
+            guard let self = self, self.yj.jigeum?.talgeot == .cha else { return }
+            self.malHagi("\(yeok)역 근처에서 먼 기차역으로 가십니다. 기차를 타셨습니까? 기차이시면 바로 아래 탈것 목록에서 기차를 타고 있습니다를 누르시거나 기차 탔어라고 말씀해 주십시오.")
+        }
     }
 
     /// 목적지를 정하고 지하철로 — 먼저 타는 역 출구까지 걷는 안내
@@ -312,6 +336,7 @@ final class AnnaeEngine: ObservableObject {
         let m = mal ?? "\(Annae.talgeotIreum(.cha)) 안 안내를 시작합니다."   // 2.77.0 부른 콜이면 「복지콜 안 안내」
         if !m.isEmpty { malHagi(m) }
         jigeumBoda()
+        if barojabeum { gichaYeokMutgi() }   // 2.90.0
     }
 
     func naeryeotda(jadong: Bool = false, mal: String? = nil) {
@@ -320,6 +345,7 @@ final class AnnaeEngine: ObservableObject {
         GanpanAllim.shared.kkeut()   // 2.25.0 창밖 간판 읽기 카메라 끔
         yj.talgeotJeonghagi(.georeum, barojabeum: false)
         yj.danggyeBakkugi(.namEunGil)
+        if !jadong { yj.talgeotMokrokJeopgi() }   // 2.90.0 손수 내렸다고 하셨으면 탈것 목록을 접음
         // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 내리셨으니 콜 차 못 박기를 풀고, 탈것 알아채기도 걸음으로
         ChaBureugi.shared.kolPulgi(jadong ? "naerim_jadong" : "naerim")
         TalgeotGamji.shared.barojapgi(.georeum)
@@ -642,17 +668,18 @@ final class AnnaeEngine: ObservableObject {
         let tan = Double(geoleum) < (d - g0) / 3   // 1킬로미터에 걸음이 330걸음도 안 늘었으면 탈것
         let yeok = mok.contains("역")
         Girok.shared.namgi("meoreojim", ["km": meolDan, "georeum": geoleum, "yeok": yeok, "tan": tan])
+        yj.talgeotMokrokPyeolgi(jadong: true)   // 2.90.0 탈것을 스스로 알아채지 못했으니 탈것 목록을 3분 펼쳐 둠
         let meon = Annae.geoMal(d - g0)
         if tan && meolDan == 1 {
             if yeok {
                 MalHagi.shared.eodikkajiMutgi("열차를 타신 것 같습니다. \(mok)에서 \(meon) 멀어졌습니다. 어디까지 가십니까? 가실 곳을 말씀하시면 내리실 역과 갈아타실 곳을 알려 드립니다.",
                                               talgeot: .jihacheol, yeolcha: true)
             } else {
-                MalHagi.shared.eodikkajiMutgi("탈것을 타신 것 같습니다. \(mok)에서 \(meon) 멀어졌습니다. 가실 곳이 바뀌었으면 가실 곳을 말씀해 주십시오. 첫 화면의 무엇을 타고 계신가요에서 탈것을 알려 주셔도 됩니다.",
+                MalHagi.shared.eodikkajiMutgi("탈것을 타신 것 같습니다. \(mok)에서 \(meon) 멀어졌습니다. 가실 곳이 바뀌었으면 가실 곳을 말씀해 주십시오. 첫 화면 맨 위 단추 아래 탈것 목록에서 탈것을 알려 주셔도 됩니다.",
                                               talgeot: nil)
             }
         } else {
-            malHagi("\(mok)에서 \(meon) 멀어지고 있습니다. 가시는 쪽이 맞는지 살펴 주십시오. 탈것을 타고 계시면 첫 화면의 무엇을 타고 계신가요에서 알려 주십시오.")
+            malHagi("\(mok)에서 \(meon) 멀어지고 있습니다. 가시는 쪽이 맞는지 살펴 주십시오. 탈것을 타고 계시면 첫 화면 맨 위 단추 아래 탈것 목록에서 알려 주십시오.")
         }
     }
 
@@ -734,7 +761,8 @@ final class AnnaeEngine: ObservableObject {
             let mok = Jangso(ireum: y.mokjeok.ireum, juso: y.mokjeok.juso, lat: y.mokjeok.lat, lon: y.mokjeok.lon)
             // 2.60.0 (261009-I14, 이사장님 승인 2026-10-09 남산) 짐작은 단정하지 않고 바로잡는 말을 함께,
             //   지하철 길을 못 찾으면 말만 하지 않고 실제로 차 안 안내로 넘어감
-            malHagi("지하철을 타신 것 같습니다. 지하철 길을 찾습니다. 지하철이 아니면 바로 아래 단추로 바로잡으십시오.")
+            yj.talgeotMokrokPyeolgi(jadong: true)   // 2.90.0
+            malHagi("지하철을 타신 것 같습니다. 지하철 길을 찾습니다. 지하철이 아니면 바로 아래 탈것 목록에서 바로잡으십시오.")
             JihacheolEngine.shared.jungganSijak(mok) { [weak self] ok, mal in
                 if ok { Girok.shared.namgi("jadong_jihacheol", [:]) }
                 else {
@@ -750,7 +778,8 @@ final class AnnaeEngine: ObservableObject {
             yj.talgeotJeonghagi(.beoseu, barojabeum: false)
             yj.danggyeBakkugi(.taneunJung)
             dasiSijak()
-            malHagi("정류장마다 서는 것을 보니 버스를 타신 것 같습니다. 버스 안 안내로 잇습니다. 버스가 아니면 바로 아래 단추로 바로잡으십시오.")
+            yj.talgeotMokrokPyeolgi(jadong: true)   // 2.90.0
+            malHagi("정류장마다 서는 것을 보니 버스를 타신 것 같습니다. 버스 안 안내로 잇습니다. 버스가 아니면 바로 아래 탈것 목록에서 바로잡으십시오.")
             Girok.shared.namgi("jadong_beoseu", ["gil": "umjigim"])
             jigeumBoda()
             return
@@ -778,7 +807,8 @@ final class AnnaeEngine: ObservableObject {
         if t == .cha, let h = ChaBureugi.shared.choegeun {
             malHagi("\(h.ireum)에 타신 것으로 보고 \(y.mokjeok.ireum)까지 차 안 안내를 합니다.")
         } else {
-            malHagi("빠르게 움직이고 계십니다. \(t == .gicha ? "기차" : "차") 안 안내로 바꿉니다. 아니면 바로 아래 단추로 바로잡으십시오.")
+            yj.talgeotMokrokPyeolgi(jadong: true)   // 2.90.0
+            malHagi("빠르게 움직이고 계십니다. \(t == .gicha ? "기차" : "차") 안 안내로 바꿉니다. 아니면 바로 아래 탈것 목록에서 바로잡으십시오.")
         }
         Girok.shared.namgi("jadong_cha", ["t": t.rawValue])
         jigeumBoda()
