@@ -8,7 +8,7 @@ import android.content.Context
 import android.text.InputType
 
 object KameraGwanli {
-    /** 관리자 시험 중인 카메라 눈이 보이는 폰인가 */
+    /** 관리자 시험 중인 카메라 눈(문 찾기 등)이 보이는 폰인가 — 따로 관리자 열쇠가 아니라 나스 음악 열쇠를 넣은 폰이면 참(말로 그린 길과 같은 열쇠). 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 표현 바로잡음 */
     fun boim(c: Context): Boolean {
         return Yeolsoe.eumakTk(c).isNotEmpty()   // 2.7.0 통합 — 나스 음악 열쇠는 한 도우미로
     }

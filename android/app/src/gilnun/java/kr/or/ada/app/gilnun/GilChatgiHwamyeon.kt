@@ -2,7 +2,7 @@
 // 화면 원칙(아이폰과 같음): 여정이 있으면 지금 차례 한 줄에 "지금 무슨 차례인지"와 그 차례의 단추를 한 자리에.
 //   2.7.0 통합 결정: 말로 하기는 2.4.0에 승인된 대로 맨 위 첫 줄(읽지 않은 긴급 공지가 있을 때만 그 한 줄이 위에), 긴급통화서비스는 그 바로 아래(2.6.0 자리)
 //   그다음 긴급성 순 — ③ 하던 일 멈추기(무엇이든 진행 중일 때만) ④ 지금 차례(점지도로 걸을까요 / 따라 걷는 중 / 여정 / 목적지 찾기 칸·즐겨찾기·지금 내 자리)
-//   ⑤ 그 밖에 펼치기(음향신호기, 가까운 점지도, 되짚어 나가기, QR 찾기, 말로 그린 길, 음성유도기와 승강기, 문 찾기(관리자), 기초 시험)
+//   ⑤ 그 밖에 펼치기(음향신호기, 가까운 점지도, 되짚어 나가기, QR 찾기, 말로 그린 길, 음성유도기와 승강기, 문 찾기(관리자)) — 기초 시험은 2.57.0부터 설정 탭 더 보기에만
 // 맨 위에는 읽지 않은 긴급 공지(GongjiEngine, 있을 때만). 말로 그린 길을 걷는 중·되짚어 나가기 중이면 지금 차례 위에 그 한 줄(다른 묶음의 화면으로 감)
 // 안내는 화면이 아니라 안내 엔진(AnnaeEngine)이 맡으므로, 화면을 떠나도, 음악을 틀어도, 폰이 잠겨도 이어집니다.
 // 화면은 차례가 바뀔 때만 다시 그림(남은 거리처럼 자주 바뀌는 숫자는 띄우지 않음 — 톡백이 쉬지 않고 떠들지 않게). 차례가 바뀌면 커서를 그 차례의 첫 단추로
@@ -173,7 +173,7 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
             t.danchu("주변 신호기 살피기 — 있는지, 블루투스로 울릴 수 있는지") { t.sinhogiHagi { SinhogiEngine.juByeonSalpigi() } }   // 2.13.0
             t.danchu("음향신호기 울리기 — 신호 안내") { t.sinhogiHagi { SinhogiEngine.ulligi(2) } }
             t.danchu("음향신호기 울리기 — 위치 안내") { t.sinhogiHagi { SinhogiEngine.ulligi(1) } }
-            t.danchu(if (SinhogiEngine.chatneunJung) "음향신호기 찾기 멈추기" else "음향신호기 찾기 — 가까워질수록 소리가 빨라집니다") {
+            val chatgiDanchu = t.danchu(if (SinhogiEngine.chatneunJung) "음향신호기 찾기 멈추기" else "음향신호기 찾기 — 가까워질수록 소리가 빨라집니다") {
                 if (SinhogiEngine.chatneunJung) {
                     SinhogiEngine.chatgiKkeugi("음향신호기 찾기를 멈췄습니다.")
                     t.dasiGeurigi()
@@ -185,14 +185,21 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
                     }
                 }
             }
+            // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 찾기가 저절로 끝나면(1분·바로 앞·블루투스 꺼짐) 글자만 그 자리에서 되돌림(긴급통화 단추와 같은 방식)
+            SinhogiEngine.byeonhwaDalgi("gilChatgi") {
+                if (t.wiHwamyeon === this) {
+                    val n = SinhogiEngine.chatgiGeul
+                    if (chatgiDanchu.text.toString() != n) chatgiDanchu.text = n
+                }
+            }
             t.danchu("가까운 점지도 — 골라서 따라 걷기") { t.yeolgi(JeomMokrokHwamyeon()) }
             t.danchu("되짚어 나가기 — 들어온 길로 혼자 나오기") { t.yeolgi(DoeHwamyeon()) }
             t.danchu("QR 찾기 — 카메라로 둘레의 QR 저절로 찾기") { t.yeolgi(QrChatgiHwamyeon()) }
             t.danchu("말로 그린 길 — 몸으로 익힌 실내 길을 손대지 않고 따라 걷기") { t.yeolgi(MalgilHwamyeon()) }
             t.danchu("음성유도기와 승강기 — 가까운 역의 음성유도기, 엘리베이터") { t.yeolgi(YudoHwamyeon()) }
-            // 2.7.0 b3 문 찾기 — 안드로이드는 관리자 시험 중(관리자 열쇠가 있는 폰에서만)
+            // 2.7.0 b3 문 찾기 — 안드로이드는 관리자 시험 중(나스 음악 열쇠가 있는 폰에서만)
             if (KameraGwanli.boim(t)) t.danchu("문 찾기 — 관리자 시험 중, 문 둘레 글자로 문 찾기") { t.yeolgi(MunChatgiHwamyeon()) }
-            t.danchu("기초 시험") { t.yeolgi(GichoSiheom()) }
+            // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 기초 시험은 설정 탭 더 보기에만 둠(아이폰과 같게)
         }
 
         // 차례가 바뀔 때만 다시 그림(톡백 커서가 흔들리지 않게)

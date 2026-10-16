@@ -114,6 +114,20 @@ object DoeEngine {
         byeonhwa?.invoke()
     }
 
+    /** 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 「새로 들어갑니다 — 다시 기억하기」 — 기억한 길이 있으면 한 번 여쭙고, 10초 안에 한 번 더 누르셔야 새로 기억함(그 전에는 아무것도 지우지 않음) */
+    private var saeroMureumTtae = 0L
+    fun saeroDeureogagi(c: Context) {
+        if (!gieokItda) { saeroMureumTtae = 0L; gieokSijak(c); return }
+        val n = System.currentTimeMillis()
+        if (saeroMureumTtae > 0L && n - saeroMureumTtae < 10000) {
+            saeroMureumTtae = 0L
+            gieokSijak(c)
+            return
+        }
+        saeroMureumTtae = n
+        mal("기억한 길을 지우고 새로 기억할까요? 한 번 더 누르시면 새로 기억합니다.")
+    }
+
     fun jiugi() {
         sigyeKkeugi()
         tomak.clear()
@@ -352,16 +366,20 @@ class DoeHwamyeon : Hwamyeon("되짚어 나가기") {
                 t.danchu("되짚어 나가기 멈추기") { d.annaeGeuman() }
                 b
             }
-            DoeEngine.Sangtae.SWIM -> {
-                val b = t.danchu("들어갑니다 — 지금부터 길을 기억하기") { d.gieokSijak(t) }
-                if (d.gieokItda) t.danchu("나갑니다 — 왔던 길 되짚어 나가기, ${d.chongGeoreum}걸음, ${d.kkeokSu}번 꺾음") { d.doejipgi(t) }
+            // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 기억한 길이 있으면 나가기를 첫 줄에 — 첫 줄 들어갑니다를 잘못 눌러 기억한 길이 지워지던 일을 막음(아이폰과 같은 단추)
+            DoeEngine.Sangtae.SWIM -> if (d.gieokItda) {
+                val b = t.danchu("되짚어 나가기 — 기억한 ${d.chongGeoreum}걸음, ${d.kkeokSu}번 꺾은 길로 나가기") { d.doejipgi(t) }
+                t.danchu("새로 들어갑니다 — 다시 기억하기") { d.saeroDeureogagi(t) }
+                t.danchu("기억한 길 지우기") { d.jiugi() }
                 b
+            } else {
+                t.danchu("들어갑니다 — 지금부터 길을 기억하기") { d.gieokSijak(t) }
             }
         }
         t.danchu(if (pyeol) "알아 두실 것 접기" else "알아 두실 것 펼치기") { pyeol = !pyeol; t.dasiGeurigi() }
         if (pyeol) {
             t.geul("병원 진료실처럼 위성이 잡히지 않는 건물 안에 들어가실 때 들어갑니다를 누르시고 평소처럼 걸어 들어가십시오. 걸음 수와 방향으로 길을 기억합니다. 나오실 때 나갑니다를 누르시면 먼저 몇 시 방향으로 돌아 서실지 알려 드리고, 몇 걸음 걸으신 뒤 몇 시 방향으로 꺾으실지 차례로 말씀드립니다. 꺾는 곳 다섯 걸음 앞에서 미리, 열 걸음마다 남은 걸음을, 방향이 크게 어긋나면 돌아 서실 쪽을 알려 드립니다. 기억한 길은 이 폰에만 남고 지우실 때까지 남습니다. 어긋날 수 있으니 벽과 손잡이를 함께 짚어 가십시오.")
-            if (d.sangtae == DoeEngine.Sangtae.SWIM && d.gieokItda) t.danchu("기억한 길 지우기") { d.jiugi() }
+            // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 기억한 길 지우기는 알아 두실 것 밖으로 옮김(아이폰과 같게)
         }
     }
 

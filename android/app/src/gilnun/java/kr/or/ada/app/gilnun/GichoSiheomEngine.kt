@@ -68,7 +68,7 @@ object GichoSiheomEngine {
             mal += if (Tongsin.yeongyeol) "통신 됨." else "통신 끊김."
             Sori.mal(mal)
             Girok.namgi("gicho_bun", sangtae() + mapOf("bun" to bun))
-            byeonhwa?.invoke()
+            // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 단추에서 「N분째」를 빼어 1분마다 화면을 다시 그리지 않음(톡백 커서가 흔들리지 않게)
             if (bun >= CHONG_BUN) { machim(false); return }
             main.postDelayed(this, 60000)
         }

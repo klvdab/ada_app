@@ -175,7 +175,7 @@ object MalgilEngine : SensorEventListener {
         else if (g == null) gidaeHeading = null
         if (k.jong == "dochak") { kkeutnaegi(); return }
         meomchumSijak = null
-        byeonhwa?.invoke()
+        // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 걷는 동안 단계마다 화면을 다시 그리고 커서를 옮기지 않음 — 톡백이 안내 말과 겹쳐 같은 말을 두 번 하던 일. 다시 그림은 시작·그만·끝에만
     }
 
     private fun daeum() { if (si + 1 < S.size) dangye(si + 1) else kkeutnaegi() }
@@ -203,7 +203,9 @@ object MalgilEngine : SensorEventListener {
             if (gd != null && h >= 0 && geol >= 3 && geol % 2 == 1 && abs(DoeEngine.chai(h, gd)) > 75 &&
                 System.currentTimeMillis() - bangMal > 8000) {
                 bangMal = System.currentTimeMillis()
-                mal("방향이 다릅니다. 멈추십시오. 가실 쪽을 다시 잡아 주십시오.")
+                // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 어느 쪽으로 돌아 서실지 시계 방향으로 덧붙임(되짚어 나가기와 같은 셈)
+                val s = Jeomjido.sigyeBanghyang(h, gd)
+                mal("방향이 다릅니다. 멈추십시오. 가실 쪽을 다시 잡아 주십시오. ${s}시 방향으로 돌아 서십시오.")
             }
             if (geol >= k.n) {
                 if (k.jong == "georeum_dochak") { kkeutnaegi(); return }
@@ -287,7 +289,7 @@ class MalgilHwamyeon : Hwamyeon("말로 그린 길") {
         cheot = null
         if (!e.geotneun && e.yeolsoeItda && e.mok.isEmpty() && sangtae == 0 && !batneun) batgi(t)
         if (e.geotneun) {
-            cheot = t.danchu("다시 듣기 — ${e.jul}") { e.dasiDeutgi() }
+            cheot = t.danchu("지금 단계 다시 듣기") { e.dasiDeutgi() }   // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 단계마다 바뀌던 글자를 고정(아이폰과 같게)
             t.danchu("안내 그만 — ${e.jemok}") { e.geuman() }
         } else if (!e.yeolsoeItda) {
             cheot = t.geul("말로 그린 길은 나스 열쇠를 넣은 폰에서만 쓰실 수 있습니다. 음악·방송 탭의 길 위의 음악에서 열쇠를 한 번 넣어 주십시오.")
@@ -303,7 +305,7 @@ class MalgilHwamyeon : Hwamyeon("말로 그린 길") {
             }
         }
         t.danchu(if (pyeol) "알아 두실 것 접기" else "알아 두실 것 펼치기") { pyeol = !pyeol; t.dasiGeurigi() }
-        if (pyeol) t.geul("몸으로 익혀 말로 적어 둔 실내 길을 손대지 않고 따라 걷게 해 드립니다. 한 번 두드리시면 그 뒤로는 폰이 걸음을 세고 방향을 보며, 정해진 걸음에 닿으면 다음 안내를 스스로 말씀드립니다. 세 걸음 앞에서 다음 할 일을 미리 알려 드리고, 방향이 크게 틀어지면 멈추시라고, 예상보다 많이 걸으시면 확인하시라고 알려 드립니다. 엘리베이터는 멈췄다가 다시 걷기 시작하시면 내리신 것으로 봅니다. 말로 하기에서 다시라고 하시면 지금 안내를 다시, 그만이라고 하시면 멈춥니다. 폰을 몸에 지니고 평소처럼 걸으십시오.")
+        if (pyeol) t.geul("몸으로 익혀 말로 적어 둔 실내 길을 손대지 않고 따라 걷게 해 드립니다. 한 번 두드리시면 그 뒤로는 폰이 걸음을 세고 방향을 보며, 정해진 걸음에 닿으면 다음 안내를 스스로 말씀드립니다. 세 걸음 앞에서 다음 할 일을 미리 알려 드리고, 방향이 크게 틀어지면 멈추시라고 하며 몇 시 방향으로 돌아 서실지를, 예상보다 많이 걸으시면 확인하시라고 알려 드립니다. 엘리베이터는 멈췄다가 다시 걷기 시작하시면 내리신 것으로 봅니다. 말로 하기에서 다시라고 하시면 지금 안내를 다시, 그만이라고 하시면 멈춥니다. 폰을 몸에 지니고 평소처럼 걸으십시오.")   // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 말로 그린 길 방향 안내
     }
 
     override fun boilttae(t: GilnunActivity) {

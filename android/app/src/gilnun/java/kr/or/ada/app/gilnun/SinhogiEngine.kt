@@ -89,6 +89,13 @@ object SinhogiEngine {
     // 찾기(이끌기)
     var chatneunJung = false
         private set
+    /** 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 찾기가 켜지거나 저절로 끝났을 때(1분·바로 앞·블루투스 꺼짐) 단추 글자를 되돌리게 알림 — 화면 줄에서 부름.
+     *  찾기 단추가 길 찾기 첫 화면·옛 첫 화면·기기 설정 세 곳에 있어 자리 이름(ki)마다 하나씩 받아 둠(서로 덮어쓰지 않게) */
+    private val byeonhwaDeul = LinkedHashMap<String, () -> Unit>()
+    fun byeonhwaDalgi(ki: String, f: () -> Unit) { byeonhwaDeul[ki] = f }
+    private fun byeonhwaAllim() { for (f in byeonhwaDeul.values.toList()) f() }
+    /** 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 찾기 단추 글자 — 세 곳이 같은 글자를 씀 */
+    val chatgiGeul: String get() = if (chatneunJung) "음향신호기 찾기 멈추기" else "음향신호기 찾기 — 가까워질수록 소리가 빨라집니다"
     private var chatgiSijak = 0L
     private var chatgiSori = 0L
     private var eopdaMal = false
@@ -612,6 +619,7 @@ object SinhogiEngine {
             chatgiRun = r
             h.postDelayed(r, 200)
             Girok.namgi("sinhogi_chatgi_kyeogi")
+            byeonhwaAllim()   // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16)
         }
     }
 
@@ -624,6 +632,7 @@ object SinhogiEngine {
         chatgiRun = null
         dasiSalpim()
         if (mal != null) Sori.mal(mal)
+        byeonhwaAllim()   // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 저절로 끝나도 단추 글자가 「찾기」로 돌아오게
     }
 
     private fun chatgiBoda() {
