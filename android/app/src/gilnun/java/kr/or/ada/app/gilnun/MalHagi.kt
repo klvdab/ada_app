@@ -1,6 +1,7 @@
 // 안드로이드 길눈 — 말로 하기(2.4.0, 빌드 261002-A7, 대표님 지시: 아이폰 길눈의 말로 하기를 안드로이드에도)
 // 아이폰 MalHagi.swift(2.5.0~2.31.0)·MalDeutgi.swift·MalSajeon.swift 의 바탕을 같은 차례, 같은 말로 옮겼습니다.
-//   부르기: 길 찾기 탭 맨 위의 말로 하기 단추. 길눈 화면이 켜져 있으면 이어폰 재생 단추를 길게(0.6초 넘게) 눌러도 엶
+//   부르기: 길 찾기 탭 첫 화면의 말로 하기 단추(지금 내 자리 듣기 다음, 긴급통화서비스 위 — 2.43.0부터 아이폰과 같은 자리).
+//     하이 길눈(HaiGilnun.kt, 설정에서 켬), 앱 아이콘 바로가기, 이어폰 재생 단추를 길게(0.6초 넘게) 눌러도 엶
 //     (걸으실 때 한 손에 지팡이 — 손을 덜 쓰게. 짧게 누르면 음악 앱에 그대로 돌려줌)
 //   알아듣기: 안드로이드 자체 받아쓰기(SpeechRecognizer, ko-KR) + 웹·아이폰과 같은 나스 알아듣기 사전(jeom/malsajeon.json)
 //   마이크가 열려 있는 동안은 길눈 말을 맡아 두어 마이크로 들어가지 않게(Sori.deutneunJung). 경고는 듣기를 그만두게 하고 곧바로
@@ -11,7 +12,9 @@
 //     끝이 그곳 80미터 안에 닿는 점지도를 찾음(아이폰 Jeomjido.matneunGil 과 같은 잣대). 찾으면 「○○까지 점지도를 따라 걸을까요?」
 // 아이폰과 다른 점:
 //   아이폰 2.29.0 말뜻 풀이는 폰 안의 애플 인공지능이라 안드로이드에 없음 — 사전으로 못 알아들은 말은 나스의 곳 찾기(a=jangso)로 풀어 봄
-//   TODO(아이폰 하이 길눈·시리) 부르는 말로 깨우기. 화면이 꺼진 채 이어폰 단추로 열기는 2.7.0부터 안내 중에만(RemoteDanchu)
+//   하이 길눈은 2.26.0부터 HaiGilnun.kt(폰 안 받아쓰기, 안드로이드 12 이상). 시리 자리는 앱 아이콘 바로가기(2.27.0).
+//     화면이 꺼진 채 이어폰 단추로 열기는 2.7.0부터 안내 중에만(RemoteDanchu)
+// 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 머리말을 지금 모습으로 바로잡음
 //   2.27.0 호칭 바꾸기(아이폰과 같음 — 처음 길손님, 「호칭 바꿔」 하고 대답, 말하기 설정에서도). 교통편 부르기는 2.8.0에 넣음
 // 2.6.0(빌드 261002-A9, 대표님 지시) 긴급통화 — 아이폰 MalHagi 긴급통화(gingeupJikjeop·gingeup)와 같은 말, 같은 차례.
 //   도와줘·긴급통화·화상통화·영상통화(사전 doum) → 해설사·봉사자·명단의 이름이 들리면 곧장 요청, 아니면 누구에게 요청할지 여쭘(3분 동안 기억)
@@ -378,8 +381,16 @@ object MalHagi {
         if (!ok) {
             Sori.deutgiKkeut()
             bakkum(MalSangtae.SWIM)
-            malHam("지금은 마이크를 열지 못했습니다. 잠시 뒤 다시 해 주십시오.")
+            malHam(maikMotMal())
         }
+    }
+
+    // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 마이크를 열지 못했을 때의 말 — 화면이 꺼졌거나 길눈이 뒤에 있으면(이어폰 단추 길게 누르기 등) 화면을 켜시라고
+    private fun maikMotMal(): String {
+        val a = hwalseong?.get()
+        val ap = a != null && !a.isFinishing && a.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+        return if (ap) "지금은 마이크를 열지 못했습니다. 잠시 뒤 다시 해 주십시오."
+            else "지금은 마이크를 열지 못했습니다. 화면을 켜신 뒤 다시 눌러 주십시오."
     }
 
     private fun chwiso() {
@@ -409,7 +420,7 @@ object MalHagi {
             malHam(when (why) {
                 "heorak" -> "말로 하기에는 마이크 허락이 필요합니다. 폰 설정의 앱, 길눈, 권한에서 마이크를 허용해 주십시오."
                 "tongsin" -> "받아쓰기 서비스에 연결하지 못했습니다. 통신을 확인하시고 다시 해 주십시오."
-                else -> "지금은 마이크를 열지 못했습니다. 잠시 뒤 다시 해 주십시오."
+                else -> maikMotMal()   // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 화면이 꺼져 있으면 화면을 켜시라고
             })
             return
         }
@@ -443,6 +454,13 @@ object MalHagi {
             return
         }
         dasiHanbeon = false
+        // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 「하이 길눈」만 들렸으면(대답을 못 들어 한 번 더 부르심) 명령으로 치지 않고 「네」 하고 다시 들음(아이폰 2.12.3과 같음)
+        if (alts.any { HaiGilnun.bureumMal(it) && MalSajeon.ttuk(it).length <= 6 }) {
+            Girok.namgi("hai_dasi")
+            bakkum(MalSangtae.SWIM)
+            yeolgi(true)
+            return
+        }
         // 2.17.0 말씀이 있으면 이어 듣기를 새로 셈, 「됐어」면 그침, 같은 말 세 번이면 부드럽게 끊음
         val zz = MalSajeon.ttuk(alts[0])
         // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 한 마디(맞장구·잡소리)는 새 대화로 치지 않아 이어 듣기 셈을 새로 하지 않음(아이폰과 같음)
@@ -459,7 +477,8 @@ object MalHagi {
         if (choegeunMal.size == 3 && choegeunMal.toSet().size == 1 && zz.length > 1) {
             choegeunMal.clear()
             ieoGeumman = true
-            dapHagi(sd, "같은 말씀을 여러 번 하셨습니다. 제가 잘 돕지 못했다면 다른 말로 여쭤 봐 주시거나, 긴급통화로 현장영상해설사를 부르실 수 있습니다.", false)
+            // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 부르실 → 요청하실
+            dapHagi(sd, "같은 말씀을 여러 번 하셨습니다. 제가 잘 돕지 못했다면 다른 말로 여쭤 봐 주시거나, 긴급통화로 현장영상해설사에게 요청하실 수 있습니다.", false)
             return
         }
         deureunMal = alts[0]
@@ -538,9 +557,11 @@ object MalHagi {
     private fun malHuHagi(t: String, f: () -> Unit) {
         var han = false
         val g: () -> Unit = { if (!han) { han = true; f() } }
-        Sori.mal(t, MalGeup.ANNAE, g)
+        Sori.mal(t, MalGeup.ANNAE, g)   // 말을 마치면 Sori 가 g 를 부름(Sori 안에도 끝남 지킴이가 있음)
         val bae = listOf(1.6, 1.3, 1.0, 0.85, 0.75)[Seoljeong.bbareugiDan.coerceIn(0, 4)]
-        main.postDelayed({ g() }, (500 + t.length * 170 * bae + 900).toLong())
+        // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 시간으로 여는 것은 넉넉한 예비로만 — 말이 줄에 밀려 늦게 나올 때 대답 도중 마이크를 먼저 열던 일
+        val eosim = 500 + t.length * 170 * bae + 900
+        main.postDelayed({ g() }, max(eosim * 1.6, eosim + 3000).toLong())
     }
 
     // MARK: 알아듣고 하기
@@ -704,7 +725,8 @@ object MalHagi {
                 geotgiSijak(h)
                 return
             }
-            if ((ani && majimak == "hubo") || z.contains("다른") || z in setOf("다음", "다음거", "다음것", "다음길")) {
+            // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 「다른」이 든 말이면 무엇이든(다른 목소리 등) 다음 길로 넘기던 것을 다른 곳·다른 데·다른 길로 좁힘(z 는 띄어쓰기를 뺀 말)
+            if ((ani && majimak == "hubo") || z.contains("다른곳") || z.contains("다른데") || z.contains("다른길") || z in setOf("다음", "다음거", "다음것", "다음길")) {
                 daeumHubo(dap)
                 return
             }
@@ -897,6 +919,11 @@ object MalHagi {
     private fun myeongryeong(alts: List<String>, z: String, dap: (String, Boolean) -> Unit): Boolean {
         val s = MalSajeon
         if (YeojeongMal.myeongryeong(alts, z, dap)) return true   // 2.7.0 묶음 b1 — 내렸어·탔어·얼마나 걸려·지금 가는 길·즐겨찾기·탈것만 말씀하심·어떻게 가실지의 대답
+        // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 배리어프리방송국은 따로 앱으로 키우기로 함(이사장님 결정) — 모르는 척하지 않고 그렇다고 말씀드림(아이폰 MalHagi 2.13.0과 같은 말)
+        if (z.contains("배프") || z.contains("배리어프리")) {
+            dap("죄송합니다. 배리어프리방송국은 앞으로 따로 앱으로 만들 예정이라 길눈에는 들어 있지 않습니다.", false)
+            return true
+        }
         if (s.itda(alts, "doumal")) {
             dap(DOUMAL_MAL, false)
             return true
@@ -1039,6 +1066,14 @@ object MalHagi {
         if (DulreoMal.myeongryeong(z, s.itda(alts, "gojang"), s.itda(alts, "masil"), s.itda(alts, "sajin"), dap)) return true
         // 2.7.0 음악·방송(묶음 b5) — 다음 곡, 이전 곡, 무슨 곡, 이어서 틀어, 고장 노래, 라디오·TV(방송사 이름만으로도), 뉴스, 음악 꺼
         if (BangsongMal.myeongryeong(alts, alts.firstOrNull() ?: "", z, dap)) return true
+        // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 아직 앱에 넣지 못한 기능 — 모르는 척하지 않고, 기록해 두었다가 그 기능을 넣을 때 말로도 되게(아이폰 aJik 과 같은 사전 키, 같은 말)
+        for ((k, nm) in listOf("mun_namgigi" to "문 남기기", "hwaksin_kkeum" to "확신음 켜고 끄기", "hwaksin_kyeom" to "확신음 켜고 끄기",
+                "nopge" to "목소리 높낮이", "natge" to "목소리 높낮이")) {
+            if (!s.itda(alts, k)) continue
+            Girok.namgi("malhagi_eopneun", mapOf("k" to k, "mal" to (alts.firstOrNull() ?: "").take(60)))
+            dap("죄송합니다. $nm${eun(nm)} 아직 앱에 넣지 못했습니다. 그 기능을 넣을 때 말로도 되게 하겠습니다. 이 말씀은 기록해 두었습니다.", false)
+            return true
+        }
         // 2.8.0 교통편 부르기(아이폰 MalHagi 콜과 같음) — 지금 계신 지역의 복지콜·교통약자 콜. 지역 콜 이름(두리발·나드리콜…)은 콜·전화·불러가 함께 있을 때만
         run {
             val beonho = s.itda(alts, "kol_beonho")
@@ -1955,7 +1990,17 @@ object MalSajeon {
         "hoching" to listOf("호칭 바꿔", "부르는 이름", "나를 뭐라고"),
         "saerogochim" to listOf("새로고침", "새로 고침"),
         "jeulgyeo_dam" to listOf("즐겨찾기에 넣어", "즐겨찾기 담아", "담아 줘", "저장해 줘"),
-        "jeulgyeo_mok" to listOf("즐겨찾기 목록", "즐겨찾기 알려", "담아 둔 곳")
+        "jeulgyeo_mok" to listOf("즐겨찾기 목록", "즐겨찾기 알려", "담아 둔 곳"),
+        // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 나스 사전에만 있던 갈래를 앱 안에도 —
+        //   사전을 한 번도 못 받은 폰에서도 다음 곡·무슨 곡·이어서 틀어·고장 이야기·마실·사진 읽어 줘를 알아듣게(나스 사전이 오면 그것이 먼저, 아이폰과 같음)
+        "gok_daeum" to listOf("다음 곡", "다음 노래", "다음 거 틀어"),
+        "gok_ijeon" to listOf("이전 곡", "이전 노래", "앞 곡"),
+        "musun_gok" to listOf("무슨 곡", "무슨 노래", "이 노래 뭐", "곡 이름", "지금 나오는 노래"),
+        "dasiteul" to listOf("이어서 틀어", "다시 틀어", "계속 틀어", "이어 틀어"),
+        "gojang" to listOf("고장 이야기", "고장 소개"),
+        "masil" to listOf("마실 가자", "마실 가", "마실 열어"),
+        "sajin" to listOf("사진 읽어", "사진 설명", "사진 찍어 읽어"),
+        "jangae" to listOf("장애 소식", "복지 소식")
     )
 
     // 기본 말투가 먼저 서야 함(오브젝트는 적힌 차례로 채워짐)
