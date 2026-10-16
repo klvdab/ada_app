@@ -368,6 +368,10 @@ final class MalHagi: ObservableObject {
         if !MalDeutgi.shared.saeIeum { MalDeutgi.shared.swigi() }   // 2.12.1 마이크는 열어 둔 채 알아듣기만 바꿈
         bureumDolgo = false
         SoriEngine.shared.modu_geodugi()   // 명령 먼저 — 하던 말을 멈춤(경고는 남김)
+        // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 마이크를 열 때 명령 차례 번호를 올림 —
+        //   알아보던 앞 명령의 늦은 대답이 새로 연 듣기 도중에 끼어들지 않게(안드로이드 yeolgi 의 sedae += 1 과 같음)
+        myeongBeon += 1
+        araboGidarim = 0
         sangtae = .deutneun
         SoriEngine.shared.myeongryeongDeutneunJung = true   // 2.12.0 마이크를 여는 틈에 다른 말이 끼어 닫지 않게
         let yeolgi = { [weak self] in
@@ -472,7 +476,8 @@ final class MalHagi: ObservableObject {
             ieoGeumman = true
             sangtae = .swim
             hwaginBiugi()   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 대화를 마치면 묻던 목적지·콜 확인도 비움
-            dapHagi("네, 필요하시면 하이 길눈이라고 불러 주십시오.", false)
+            // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 하이 길눈을 꺼 두셨으면 단추로 안내(안드로이드와 같음)
+            dapHagi(Seoljeong.shared.haiGilnun ? "네, 필요하시면 하이 길눈이라고 불러 주십시오." : "네, 필요하시면 말로 하기 단추를 두드려 주십시오.", false)
             return
         }
         choegeunMal.append(zz)
@@ -481,7 +486,8 @@ final class MalHagi: ObservableObject {
             choegeunMal = []
             ieoGeumman = true
             sangtae = .swim
-            dapHagi("같은 말씀을 여러 번 하셨습니다. 제가 잘 돕지 못했다면 다른 말로 여쭤 봐 주시거나, 긴급통화로 현장영상해설사를 부르실 수 있습니다.", false)
+            // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 부르실 → 요청하실
+            dapHagi("같은 말씀을 여러 번 하셨습니다. 제가 잘 돕지 못했다면 다른 말로 여쭤 봐 주시거나, 긴급통화로 현장영상해설사에게 요청하실 수 있습니다.", false)
             return
         }
         deureunMal = alts[0]
@@ -550,6 +556,17 @@ final class MalHagi: ObservableObject {
     private func dapHagi(_ t: String, _ mutneun: Bool) {
         sangtae = .swim
         if !t.isEmpty { dapMal = t }
+        // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 할 말이 없는 대답(그만·하던 일 멈춰·음악 틀기처럼 엔진이 스스로 말하는 명령)이면
+        //   「네」 하고 다시 듣지 않음(안드로이드 MalHagi.kt dapHagi 와 같음) — 그만이라 하셨는데 다시 듣거나 막 나온 음악 위로 마이크를 열던 일
+        if t.isEmpty {
+            ieoGeumman = false
+            watchMal = false
+            ieoSu = 0
+            jadongYeolim = 0
+            Girok.shared.namgi("dap_kkeut", ["bin": true])
+            bureumDasi(0.8)
+            return
+        }
         malHam(t) { [weak self] in
             guard let self = self else { return }
             // 2.49.0 묻는 말이든 아니든 대답 뒤에는 하이 길눈 없이 10초 이어 들음(딩동으로 알림). 말씀이 없으면 조용히 닫음
@@ -1928,7 +1945,7 @@ final class MalHagi: ObservableObject {
             }
             return
         }
-        let dareun = hubo.count > huboI + 1 ? " 다른 곳이면 불러서 다른 곳이라고 하십시오." : ""
+        let dareun = hubo.count > huboI + 1 ? " 다른 곳이면 다른 곳이라고 말씀하십시오." : ""   // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 이어 듣기가 저절로 되므로 불러서를 뺌
         gagi(h, huboTalgeot, dap, apMal: m + " 여기로 안내합니다." + dareun + " ")
     }
 
@@ -2383,7 +2400,8 @@ final class MalHagi: ObservableObject {
         huboHwagin = false
     }
 
-    static let doumalMal = "이렇게 말씀하시면 됩니다. 집으로 가자. 걸어서 가자. 지하철로 가자. 버스로 가자. 차에 탔어. 내렸어. 자세히 안내해, 간단히 안내해, 보통으로 안내해. 얼마나 남았어. 지금 어디야. 지금 가는 길 알려 줘. 즐겨찾기 목록. 즐겨찾기에 담아 줘. 복지콜에 전화해 줘. 콜 번호 알려 줘. 콜 취소. 신호기 울려 줘. 신호기 찾아 줘. 근처 약국. 음악 틀어 줘. 트롯 틀어 줘. 다음 곡. 라디오 틀어 줘. MBC 라디오. 뉴스 들려줘. 음악 꺼. 고장 노래 틀어 줘. 기분이 꿀꿀해. 날씨에 맞게 틀어 줘. 날씨 어때. 길 기억해 줘. 되짚어 나가자. QR 찾아 줘. 말로 그린 길. 음성유도기 어디 있어. 현장영상해설 받고 싶어. 문 찾아 줘. 글자 읽어 줘. 가리키는 거 읽어 줘. 사람 있어. 바코드 읽어 줘, 이 상품 뭐야. 무슨 색이야, 얼마짜리야. 불 켜져 있어, 밝은 쪽 찾아 줘. 이게 뭐야, 뭐가 보여. 도착. 목적지 바꿔. 도와줘, 또는 가족 이름과 화상통화. 몇 시야. 말 빠르게, 말 느리게. 다시 말해. 그만. 여정 끝. 하던 일 멈춰. 점지도를 따라 걸을 때는 다음에 무엇, 그만 걷기, 여기 문제 있어, 여기 걸렸어. 가까운 점지도 찾아 줘."
+    // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 안드로이드 도움말과 같은 차례로 채움(아이폰이 알아듣는 말만)
+    static let doumalMal = "이렇게 말씀하시면 됩니다. 지금 어디야. 집으로 가자처럼 가실 곳. 가까운 점지도 찾아 줘. 점지도를 따라 걸을 때는 다음에 무엇, 다음 갈림길, 어디쯤이야, 그만 걷기, 도착하면 되돌아가자. 신호기 울려 줘. 신호 알려 줘. 신호기 찾아 줘. 주변에 신호기 있어. 도와줘, 긴급통화, 해설사 요청해 줘, 또는 가족 이름과 화상통화. 날씨 어때. 몇 시야. 말 빠르게, 말 느리게. 말소리 꺼, 말소리 켜. 다시 말해. 그만. 하던 일 멈춰. 여정 끝. 새로고침. 걸어서 가자, 차로 가자, 지하철로 가자, 버스로 가자. 차에 탔어, 내렸어. 복지콜에 전화해 줘, 콜 번호 알려 줘, 택시야, 콜 취소. 자세히 안내해, 간단히 안내해, 보통으로 안내해. 얼마나 걸려, 지금 가는 길. 도착했어. 목적지 바꿔. 즐겨찾기 목록, 즐겨찾기에 담아 줘. 점지도로, 위성으로. 점지도를 따라 걸을 때는 여기 문제 있어, 여기 걸렸어, 길목, 정류장, 다른 문. 길 기억해 줘. 되짚어 나가자. 말로 그린 길. 음성유도기 어디 있어. QR 찾아 줘. 문 찾아 줘. 글자 읽어 줘. 사람 있어. 빛 알려 줘. 바코드 읽어 줘. 무슨 색이야. 얼마짜리야. 이게 뭐야. 가리키는 거 읽어 줘. 근처 약국. 축제 알려 줘. 고장 이야기. 마실 가자. 사진 읽어 줘. 안면인식. 음악 틀어 줘. 트롯 틀어 줘, 또는 가수나 곡 이름. 다음 곡, 이전 곡. 무슨 곡이야. 이어서 틀어. 고장 노래 틀어 줘. 라디오 틀어 줘. KBS 1라디오 틀어 줘. TV 틀어 줘. 뉴스 들려줘. 장애 소식, 속보, 경제 뉴스. 기분이 꿀꿀해. 날씨에 맞게 틀어 줘. 음악 꺼, 라디오 꺼. 목소리 바꿔. 호칭 바꿔. 현장영상해설 받고 싶어. 도움말."
 
     /// 2.29.0 인공지능이 풀어 본 때(거듭 묻지 않으려고)
     private var aiTtae = Date.distantPast

@@ -10,13 +10,17 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.84.0"
-    static let bild = "261016-I38"
+    static let pan = "2.85.0"
+    static let bild = "261016-I39"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.85.0", bild: "261016-I39", nal: "2026-10-16", naeyong: [
+            "★말로 하기를 안드로이드와 같게(이사장님 승인 2026-10-16). 그만·하던 일 멈춰처럼 할 말이 없는 명령 뒤에는 다시 듣지 않음, 하이 길눈을 꺼 두셨으면 끝인사를 말로 하기 단추로 안내",
+            "새로 듣기를 열면 앞 명령의 늦은 대답을 버림, 다음 곡·무슨 곡·이어서 틀어·고장 이야기·마실·사진 읽어 줘를 앱 안 사전에도, 도움말 바로잡음(띠링 대신 네 소리, 할 수 있는 말 채움, 콜 요청)"
+        ]),
         Gochim(pan: "2.84.0", bild: "261016-I38", nal: "2026-10-16", naeyong: [
             "★지금 내 자리 듣기를 안드로이드와 같게(이사장님 승인 2026-10-16 「1」) — 셋을 따로 받고 12초가 지나면 받은 것만으로 말함, 점지도를 따라 걷는 중 지금 어디야는 남은 거리로",
             "말로 「내 자리」도 알아들음, 갈림길·다음 꺾는 곳 말도 다음에 무엇으로, 흔들면 자리 번호의 위성 오차를 1미터부터, 도움말 바로잡음"
