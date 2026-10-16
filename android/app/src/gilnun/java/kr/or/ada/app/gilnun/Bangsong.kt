@@ -665,7 +665,15 @@ object Bangsong {
                     geuman(false)
                 }
             }
-            BangsongJong.NUGUNA -> nugunaDaeum(false)
+            BangsongJong.NUGUNA -> {
+                // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 한 바퀴 다 들으시면 멈추고 알림(끝없이 되풀이하지 않음)
+                if (nugunaI + 1 >= nugunaJul.size) {
+                    Sori.mal("누구나 음악을 한 바퀴 다 들으셨습니다. 더 들으시려면 다시 틀어 주십시오.", MalGeup.JEONGBO)
+                    geuman(false)
+                } else {
+                    nugunaDaeum(false)
+                }
+            }
             BangsongJong.TV, BangsongJong.RADIO -> {
                 // MBC 듣는방송24처럼 프로그램 단위로 나오는 채널은 끝나면 다음 프로그램으로
                 val c = jigeumChaeneol
@@ -893,12 +901,13 @@ object Bangsong {
         }
     }
 
-    /** 열쇠 넣기 — 처음이면 그 열쇠로 정함. 돌려주는 것: 잘못된 까닭(되었으면 null) */
+    /** 열쇠 넣기 — 정해진 열쇠로 들어가기만(2.59.0부터 처음 정하기는 협회에서). 돌려주는 것: 잘못된 까닭(되었으면 null) */
     fun yeolsoeNeoki(pw: String, kkeut: (String?) -> Unit) {
         mutgi("/jeom/eumak.php", listOf("a" to "sangtae")) { s ->
             if (s == null) { kkeut("자료 창고에 닿지 못했습니다. 통신을 확인해 주십시오."); return@mutgi }
-            val a = if (s.optBoolean("jeonghaessna", false)) "deulgi" else "pwset"
-            mutgi("/jeom/eumak.php", listOf("a" to a, "pw" to pw)) { k ->
+            // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 폰에서 공용 열쇠를 새로 정하지 않음(pwset 길을 없앰)
+            if (!s.optBoolean("jeonghaessna", false)) { kkeut("나스 음악 열쇠는 협회에서 받으십시오."); return@mutgi }
+            mutgi("/jeom/eumak.php", listOf("a" to "deulgi", "pw" to pw)) { k ->
                 val t = k?.bsGeul("tk") ?: ""
                 if (k?.optBoolean("ok", false) != true || t.isEmpty()) {
                     val e = k?.bsGeul("error") ?: ""

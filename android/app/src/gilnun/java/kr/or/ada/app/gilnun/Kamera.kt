@@ -521,6 +521,11 @@ object KameraNun {
         if (d == null) d = c.applicationContext.getSharedPreferences("gilnun", Context.MODE_PRIVATE)
     }
 
+    /** 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 빛 알아보기 높낮이 소리(아이폰 gn.bitNopnaji, 처음엔 켜짐) — 앱을 다시 열어도 고르신 대로 */
+    var bitNopnaji: Boolean
+        get() = d?.getBoolean("bitNopnaji", true) ?: true
+        set(v) { d?.edit()?.putBoolean("bitNopnaji", v)?.apply() }
+
     /** 카메라 눈 말소리(아이폰 gn.kameraMal, 처음엔 켜짐) — 끄면 소리·화면 글자로만 */
     var kameraMal: Boolean
         get() = d?.getBoolean("kameraMal", true) ?: true

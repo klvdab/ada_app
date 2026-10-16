@@ -161,7 +161,7 @@ object Hanmadi : KameraNunBupum {
         malHan = m
         majimak = "$m."
         sangtae = majimak
-        Sori.mal(majimak, MalGeup.ANNAE)   // 기다리는 대답이므로 말소리를 꺼도 알림
+        mal(majimak, MalGeup.ANNAE)   // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 카메라 눈 말소리를 끄시면 화면 글자로만
         byeonhwa?.invoke()
     }
 

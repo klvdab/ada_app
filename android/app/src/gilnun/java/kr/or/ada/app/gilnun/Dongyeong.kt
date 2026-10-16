@@ -395,6 +395,7 @@ class DongyeongHwamyeon : BangsongBada("동영상 틀기") {
         if (Dongyeong.watchBonae != null) {
             danchu(t, "watch", "갤럭시 워치가 있으면 워치에서 틀기 — 지금 " + (if (BangsongSeol.dongyeongWatch) "켜짐, 누르면 꺼짐" else "꺼짐, 누르면 켜짐")) {
                 BangsongSeol.dongyeongWatch = !BangsongSeol.dongyeongWatch
+                Sori.mal(if (BangsongSeol.dongyeongWatch) "워치에서 틉니다." else "폰에서 틉니다.")   // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 켜고 끌 때 새 상태를 말함
                 t.dasiGeurigi()
             }
         }
