@@ -108,6 +108,8 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
     private var majimakJari = -1.0
     private var majimakUmjik = Date()
     private var ieumSu = 0
+    /// 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 틀 때마다 하나씩 늘림 — 미뤄 둔 다시 잇기는 번호가 같을 때만(안드로이드 teulgiBeon 과 같음)
+    private var teulgiBeon = 0
     private var meomchunTtae: Date?
     private var ssak = Set<AnyCancellable>()
     private var sttGwanchal: NSKeyValueObservation?
@@ -132,6 +134,47 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
             .store(in: &ssak)
         sigye?.invalidate()
         sigye = Timer.scheduledTimer(withTimeInterval: 4, repeats: true) { [weak self] _ in self?.jikigi() }
+        // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 이어폰이 빠지거나 다른 앱이 소리를 가져가면
+        //   멈춘 채로 둠(안드로이드 Bangsong.kt 와 같게) — 멈춤 지킴이가 16초 뒤 스피커로 다시 트는 일 막기
+        let nc = NotificationCenter.default
+        nc.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { [weak self] n in
+            guard let self = self,
+                  let v = n.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
+                  let r = AVAudioSession.RouteChangeReason(rawValue: v),
+                  r == .oldDeviceUnavailable else { return }
+            // 지금 소리가 폰 스피커로 나오게 되었을 때만(블루투스 갈아타기 따위는 건드리지 않음)
+            let naegeot = AVAudioSession.sharedInstance().currentRoute.outputs.contains {
+                $0.portType == .builtInSpeaker || $0.portType == .builtInReceiver
+            }
+            guard naegeot else { return }
+            self.bakkatMeomchum("ireopon")
+        }
+        nc.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] n in
+            guard let self = self,
+                  let v = n.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  let ty = AVAudioSession.InterruptionType(rawValue: v),
+                  ty == .began else { return }
+            if let rv = n.userInfo?[AVAudioSessionInterruptionReasonKey] as? UInt,
+               AVAudioSession.InterruptionReason(rawValue: rv) == .appWasSuspended { return }   // 앱이 잠들어 있던 동안의 묵은 알림
+            // 전화는 jeonhwa 가 맡음 — 3초 기다려 전화·긴급통화·말로 하기가 아닐 때만 멈춘 채로
+            let beon = self.teulgiBeon
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                guard beon == self.teulgiBeon, self.naebuMeomchum.isEmpty,
+                      GinGeup.shared.sangtae == .eopseum,
+                      self.jong != .gisa, self.player.rate == 0 else { return }
+                self.bakkatMeomchum("dareunApp")
+            }
+        }
+    }
+
+    /// 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 바깥 까닭(이어폰 빠짐·다른 앱)으로 멈춤 — 이용자가 다시 틀기를 누르셔야 이어짐
+    private func bakkatMeomchum(_ ggadak: String) {
+        guard itda, !meomchum else { return }
+        meomchum = true
+        meomchunTtae = Date()
+        if jong == .gisa { if gisaSynth.isSpeaking { gisaSynth.pauseSpeaking(at: .immediate) } } else { player.pause() }
+        Girok.shared.namgi("bangsong_bakkat_meomchum", ["jong": jong.rawValue, "ggadak": ggadak])
+        pyosiGaengsin()
     }
 
     /// 지금 소리가 나고 있거나 멈춰 둔 방송이 있음
@@ -289,6 +332,7 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
     func geuman(malHagi: Bool = true) {
         guard itda else { return }
         let jeon = jong
+        teulgiBeon += 1   // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17)
         jadoKkeugi(malHagi: false)
         player.pause()
         player.replaceCurrentItem(with: nil)
@@ -335,6 +379,8 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         }
         sesyeonJapgi()
         kkeutGwanchalChiugi()
+        teulgiBeon += 1   // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17)
+        let beon = teulgiBeon
         let item = AVPlayerItem(url: url)
         item.preferredForwardBufferDuration = 20
         player.replaceCurrentItem(with: item)
@@ -360,7 +406,8 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
                     let e = it.error as NSError?
                     Girok.shared.namgi("bangsong_oryu", ["dan": "item", "jong": j.rawValue, "code": e?.code ?? 0, "gyeok": String((e?.domain ?? "").suffix(24))])
                     let dwi: Double = s.ieumSu < 3 ? 2 : (s.ieumSu == 3 ? 30 : 60)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + dwi) { s.dasiIeum() }
+                    // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 그 사이 다른 것을 트셨으면 다시 잇지 않음
+                    DispatchQueue.main.asyncAfter(deadline: .now() + dwi) { if beon == s.teulgiBeon { s.dasiIeum() } }
                 }
             }
         }
@@ -387,7 +434,13 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
                 geuman(malHagi: false)
             }
         case .nuguna:
-            nugunaDaeum(malHagi: false)
+            // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 한 바퀴 다 들으시면 멈추고 알림(끝없이 되풀이하지 않음)
+            if nugunaI + 1 >= nugunaJul.count {
+                SoriEngine.shared.mal("누구나 음악을 한 바퀴 다 들으셨습니다. 더 들으시려면 다시 틀어 주십시오.", .jeongbo)
+                geuman(malHagi: false)
+            } else {
+                nugunaDaeum(malHagi: false)
+            }
         case .tv, .radio:
             // MBC 듣는방송24처럼 프로그램 단위로 나오는 채널은 끝나면 다음 프로그램으로
             if let c = jigeumChaeneol {
@@ -533,12 +586,13 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         }
     }
 
-    /// 열쇠 넣기 — 처음이면 그 열쇠로 정함
+    /// 열쇠 넣기 — 2.89.0부터 정해진 열쇠로 들어가기만(처음 정하기는 협회에서)
     func yeolsoeNeoki(_ pw: String) async -> String? {
         let s = await BangsongEngine.mutgi("/jeom/eumak.php", [("a", "sangtae")])
         guard s != nil else { return "자료 창고에 닿지 못했습니다. 통신을 확인해 주십시오." }
-        let a = ((s?["jeonghaessna"] as? Bool) ?? false) ? "deulgi" : "pwset"
-        let k = await BangsongEngine.mutgi("/jeom/eumak.php", [("a", a), ("pw", pw)])
+        // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 폰에서 공용 열쇠를 새로 정하지 않음(pwset 길을 없앰)
+        guard ((s?["jeonghaessna"] as? Bool) ?? false) else { return "나스 음악 열쇠는 협회에서 받으십시오." }
+        let k = await BangsongEngine.mutgi("/jeom/eumak.php", [("a", "deulgi"), ("pw", pw)])
         guard (k?["ok"] as? Bool) == true, let t = k?["tk"] as? String, !t.isEmpty else {
             return (k?["error"] as? String) ?? "들어가지 못했습니다. 열쇠를 다시 넣어 주십시오."
         }
@@ -1057,6 +1111,7 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         kkeutGwanchalChiugi()
         jadoKkeugi(malHagi: false)
         if gisaSynth.isSpeaking { gisaSynth.stopSpeaking(at: .immediate) }
+        teulgiBeon += 1   // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17)
         gisaI = i
         jong = .gisa
         jemok = r.jemok

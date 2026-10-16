@@ -27,6 +27,7 @@ final class SangpumIlgi: NSObject, ObservableObject, AVCaptureVideoDataOutputSam
     private var chatneun = false                // 이름을 찾는 중
     private var saeT = Date()                   // 마지막으로 바코드를 찾은 때
     private var dowumT = Date()                 // 마지막 찾는 법 알림
+    private var dowumHam = false                // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 찾는 법은 바코드를 찾기 전까지 한 번만
     private var sigye: Timer?
 
     // MARK: 켜기·끄기
@@ -70,7 +71,7 @@ final class SangpumIlgi: NSObject, ObservableObject, AVCaptureVideoDataOutputSam
             DispatchQueue.main.async {
                 self.kyeojim = true
                 self.chatneun = false
-                self.saeT = Date(); self.dowumT = Date()
+                self.saeT = Date(); self.dowumT = Date(); self.dowumHam = false
                 self.sangtae = "바코드를 찾는 중입니다."
                 UIApplication.shared.isIdleTimerDisabled = true
                 self.mal("상품 바코드 읽기를 시작합니다. 폰에서 한 뼘쯤 떨어뜨려 상품을 천천히 돌려 주십시오.", sseuGi: true)
@@ -97,7 +98,7 @@ final class SangpumIlgi: NSObject, ObservableObject, AVCaptureVideoDataOutputSam
         else { SoriEngine.shared.mal(kyeojim ? "아직 읽은 상품이 없습니다. 바코드를 찾는 중입니다." : "아직 읽은 상품이 없습니다.") }
     }
 
-    /// 20초마다 찾는 법 한 번, 10분 동안 바코드를 못 찾으면 카메라를 끔(배터리)
+    /// 20초 동안 못 찾으면 찾는 법 한 번(2.89.0부터 되풀이하지 않음), 10분 동안 바코드를 못 찾으면 카메라를 끔(배터리)
     private func salpigi() {
         guard kyeojim else { return }
         let now = Date()
@@ -106,8 +107,9 @@ final class SangpumIlgi: NSObject, ObservableObject, AVCaptureVideoDataOutputSam
             mal("10분 동안 바코드를 찾지 못해 카메라를 껐습니다.", sseuGi: true)
             return
         }
-        if !chatneun && now.timeIntervalSince(saeT) > 20 && now.timeIntervalSince(dowumT) > 20 {
+        if !chatneun && !dowumHam && now.timeIntervalSince(saeT) > 20 && now.timeIntervalSince(dowumT) > 20 {
             dowumT = now
+            dowumHam = true   // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 20초마다 되풀이하지 않음
             mal("바코드는 보통 상품 뒷면이나 옆면 아래쪽에 있습니다. 천천히 돌려 주십시오.", .jeongbo)
         }
     }
@@ -158,6 +160,7 @@ final class SangpumIlgi: NSObject, ObservableObject, AVCaptureVideoDataOutputSam
         if let t = beonhoT[beonho], now.timeIntervalSince(t) < 10 { return }
         beonhoT[beonho] = now
         saeT = now
+        dowumHam = false   // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 다음 상품을 찾을 때 다시 한 번
         chatneun = true
         SoriEngine.shared.sori(.hwaksin)
         sangtae = "바코드를 찾았습니다. 상품 이름을 찾는 중입니다."

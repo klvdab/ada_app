@@ -163,7 +163,7 @@ final class JipyeSaek: NSObject, ObservableObject, AVCaptureVideoDataOutputSampl
                 SoriEngine.shared.sori(.hwaksin)
                 let m = d + " 지폐입니다."
                 majimak = m; sangtae = m
-                SoriEngine.shared.mal(m, .annae)   // 기다리는 대답이므로 말소리를 꺼도 알림
+                mal(m, .annae)   // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 카메라 눈 말소리를 끄시면 화면 글자와 확신음으로만
                 Girok.shared.namgi("jipyesaek", ["jipye": d])
                 return
             }
@@ -188,7 +188,7 @@ final class JipyeSaek: NSObject, ObservableObject, AVCaptureVideoDataOutputSampl
         saeT = now
         let m = ireum + "."
         majimak = m; sangtae = m
-        SoriEngine.shared.mal(m, .annae)
+        mal(m, .annae)   // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 카메라 눈 말소리를 따름
     }
 
     private func mal(_ t: String, _ g: MalGeup = .annae, sseuGi: Bool = false) {

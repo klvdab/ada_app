@@ -13,7 +13,10 @@ final class BitAlgi: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleB
 
     @Published private(set) var kyeojim = false
     @Published private(set) var sangtae = ""
-    @Published var nopnaji = true   // 높낮이 소리 켜기·끄기
+    // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 높낮이 소리 켜기·끄기 — 폰에 담아 두어 앱을 다시 열어도 고르신 대로
+    @Published var nopnaji: Bool = (UserDefaults.standard.object(forKey: "gn.bitNopnaji") as? Bool) ?? true {
+        didSet { UserDefaults.standard.set(nopnaji, forKey: "gn.bitNopnaji") }
+    }
 
     private let sesyeon = AVCaptureSession()
     private let jul = DispatchQueue(label: "gilnun.bit")

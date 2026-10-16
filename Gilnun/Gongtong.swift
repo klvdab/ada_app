@@ -84,9 +84,12 @@ struct Mokrok5<Hang: Identifiable, Jul: View>: View {
     @State private var sijak = 0
     @AccessibilityFocusState private var cheotJul: Bool
 
-    init(_ hangdeul: [Hang], @ViewBuilder jul: @escaping (Hang) -> Jul) {
+    init(_ hangdeul: [Hang], sijak0: Int = 0, @ViewBuilder jul: @escaping (Hang) -> Jul) {
         self.hangdeul = hangdeul
         self.jul = jul
+        // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 처음 열 때 보일 다섯(고르기 화면이 지금 고른 것이 있는 다섯으로 열게)
+        let s0 = (sijak0 >= 0 && sijak0 < hangdeul.count) ? (sijak0 / 5) * 5 : 0
+        _sijak = State(initialValue: s0)
     }
 
     var body: some View {

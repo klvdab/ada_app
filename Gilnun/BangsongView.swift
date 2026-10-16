@@ -45,7 +45,8 @@ struct BangsongTab: View {
 struct JigeumNaoneun: View {
     @ObservedObject private var b = BangsongEngine.shared
     var body: some View {
-        Button("지금 나오는 것 — \(b.jemok.isEmpty ? "연결 중" : b.jemok). 그만 듣기") { b.geuman() }
+        // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 멈춰 두셨을 때는 「멈춰 둔 것」
+        Button("\(b.meomchum ? "멈춰 둔 것" : "지금 나오는 것") — \(b.jemok.isEmpty ? "연결 중" : b.jemok). 그만 듣기") { b.geuman() }
             .buttonStyle(KeunDanchu())
     }
 }
@@ -75,7 +76,11 @@ struct BangsongCheot: View {
                 NavigationLink(value: BangsongHwamyeon.sesang) { Text("지금 세상 이야기") }.buttonStyle(KeunDanchu())
                 NavigationLink(value: BangsongHwamyeon.dongyeong) { Text("동영상 틀기") }.buttonStyle(KeunDanchu())   // 2.34.0
                 // 2.59.0 통화 뒤 저절로 이어 듣기(처음 꺼짐)
-                Toggle(isOn: $s.tonghwaDwiIeum) { Text("통화 뒤 방송 저절로 이어 듣기").font(.title3.weight(.semibold)) }
+                // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 켜고 끌 때 새 상태를 말함(안드로이드와 같은 말)
+                Toggle(isOn: Binding(get: { s.tonghwaDwiIeum }, set: { v in
+                    s.tonghwaDwiIeum = v
+                    SoriEngine.shared.mal(v ? "통화가 끝나면 방송을 저절로 이어 드립니다." : "통화가 끝나도 방송을 저절로 틀지 않습니다. 맨 위 방송 이어 듣기를 누르시면 이어집니다.")
+                })) { Text("통화 뒤 방송 저절로 이어 듣기").font(.title3.weight(.semibold)) }
                     .padding(.horizontal, 4)
                     .frame(minHeight: 60)
             }
@@ -97,6 +102,8 @@ struct EumakView: View {
     @State private var temaDeul: [String] = []
     @State private var gojangQ = ""
     @State private var deureoganeun = false
+    @State private var gokQ = ""            // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17)
+    @State private var gokChatneun = false
 
     var body: some View {
         ScrollView {
@@ -114,21 +121,28 @@ struct EumakView: View {
                     Button("그만 듣기") { b.geuman() }.buttonStyle(KeunDanchu())
                 }
                 if b.eumakDeureom {
-                    Picker("갈래", selection: $galrae) {
-                        ForEach(b.galraeDeul, id: \.self) { Text($0).tag($0) }
-                    }
-                    .pickerStyle(.menu)
-                    .font(.title3)
-                    Picker("테마", selection: $tema) {
-                        Text("이 갈래 통째로").tag("")
-                        ForEach(temaDeul, id: \.self) { Text($0).tag($0) }
-                    }
-                    .pickerStyle(.menu)
-                    .font(.title3)
+                    // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 펼침 메뉴 대신 단추 + 다섯 개씩 고르는 화면(안드로이드와 같게)
+                    NavigationLink {
+                        BsGoreugiView(jemok: "갈래 고르기", mok: b.galraeDeul, jigeum: galrae) { g in galrae = g }
+                    } label: { Text("갈래 — \(galrae). 누르면 고르기") }
+                    .buttonStyle(KeunDanchu())
+                    NavigationLink {
+                        BsGoreugiView(jemok: "테마 고르기", mok: ["이 갈래 통째로"] + temaDeul, jigeum: tema.isEmpty ? "이 갈래 통째로" : tema) { x in
+                            tema = x == "이 갈래 통째로" ? "" : x
+                        }
+                    } label: { Text("테마 — \(tema.isEmpty ? "이 갈래 통째로" : tema). 누르면 고르기") }
+                    .buttonStyle(KeunDanchu())
                     Button("\(galrae)\(tema.isEmpty ? "" : " " + tema) 이어서 틀기") {
                         Task { await b.galraeTeulgi(galrae, tema) }
                     }
                     .buttonStyle(KeunDanchu())
+                    // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 가수나 곡 이름으로 찾기(말로 하기와 같은 찾기)
+                    TextField("가수나 곡 이름으로 찾기", text: $gokQ)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.title3)
+                        .submitLabel(.search)
+                        .onSubmit { gokChatgi() }
+                    Button(gokChatneun ? "찾는 중입니다" : "찾기") { gokChatgi() }.buttonStyle(KeunDanchu())
                 }
                 // 2.19.0 고장 노래는 열쇠 없이 모든 분께 — 모든 시각장애인에게 드리는 선물(이사장님 지시 2)
                 Button(b.jadoKyeojim ? "지나는 고장 노래 저절로 틀기 그만" : "지나는 고장 노래 저절로 틀기") {
@@ -137,7 +151,11 @@ struct EumakView: View {
                 .buttonStyle(KeunDanchu())
                 if !b.jadoJul.isEmpty { Text(b.jadoJul).font(.body) }
                 // 2.12.7 차에 타면 저절로(이사장님 승인 1)
-                Toggle(isOn: $s.gojangNorae) { Text("차에 타면 지나는 고장 노래 저절로 틀기").font(.title3.weight(.semibold)) }
+                // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 켜고 끌 때 새 상태를 말함
+                Toggle(isOn: Binding(get: { s.gojangNorae }, set: { v in
+                    s.gojangNorae = v
+                    SoriEngine.shared.mal(v ? "차에 타면 지나는 고장 노래를 저절로 틀어 드립니다." : "차에 타도 고장 노래를 저절로 틀지 않습니다.")
+                })) { Text("차에 타면 지나는 고장 노래 저절로 틀기").font(.title3.weight(.semibold)) }
                     .padding(.horizontal, 4)
                     .frame(minHeight: 60)
                 TextField("고장 이름으로 찾기 — 시·군 이름", text: $gojangQ)
@@ -160,8 +178,9 @@ struct EumakView: View {
                 }
                 if !b.eumakDeureom {
                     // 음악 전체(갈래·테마, 가수와 곡 찾기)는 열쇠를 넣으신 분만
-                    Text(b.cheoumIra ? "처음이십니다. 나스 음악에 쓰실 열쇠를 여섯 자 넘게 정해 주십시오."
-                                     : "지나는 고장 노래는 열쇠 없이 누구나 들으십니다. 갈래 틀기와 가수·곡 찾기 같은 나스 음악 전체는 열쇠를 넣으신 분만 쓰실 수 있습니다. 한 번 넣으시면 폰에 담아 두어 다시 묻지 않습니다.")
+                    // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 폰에서 열쇠를 새로 정하지 않음 — 열쇠는 협회에서 받음
+                    Text(b.cheoumIra ? "나스 음악 열쇠는 협회에서 받으십시오."
+                                     : "지나는 고장 노래는 열쇠 없이 누구나 들으십니다. 갈래 틀기와 가수나 곡 이름으로 찾기 같은 나스 음악 전체는 열쇠를 넣으신 분만 쓰실 수 있습니다. 나스 음악 열쇠는 협회에서 받으십시오. 한 번 넣으시면 폰에 담아 두어 다시 묻지 않습니다.")
                         .font(.body)
                     SecureField("나스 음악 열쇠", text: $pw)
                         .textFieldStyle(.roundedBorder)
@@ -199,6 +218,8 @@ struct EumakView: View {
         .sokHwamyeon("길 위의 음악")
         .task {
             await b.eumakJunbi()
+            // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 고른 갈래가 목록에 없으면 첫 갈래로
+            if let g = b.galraeDeul.first, !b.galraeDeul.contains(galrae) { galrae = g }
             if b.eumakDeureom { temaDeul = await b.temaDeul(galrae) }
         }
         .onChange(of: galrae) { g in
@@ -232,10 +253,64 @@ struct EumakView: View {
         }
     }
 
+    /// 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 가수나 곡 이름으로 찾기 — 말로 하기와 같은 찾기(찾으면 곧바로 틂)
+    private func gokChatgi() {
+        let q = gokQ.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { SoriEngine.shared.mal("가수나 곡 이름을 적어 주십시오."); return }
+        guard !gokChatneun else { return }
+        gokChatneun = true
+        SoriEngine.shared.mal("\(q) 노래를 찾고 있습니다.", .jeongbo)
+        b.biseutQ = nil
+        Task {
+            let m = await b.malChatgi(q)
+            await MainActor.run {
+                gokChatneun = false
+                if let bq = b.biseutQ {
+                    // 비슷한 곡을 권하면 찾는 칸에 그 이름을 넣어 두고, 한 번 더 찾기를 누르시면 틂
+                    b.biseutQ = nil
+                    gokQ = bq
+                    SoriEngine.shared.mal(m + " 들으시려면 찾기를 한 번 더 누르십시오.")
+                } else {
+                    SoriEngine.shared.mal(m, .jeongbo)
+                }
+            }
+        }
+    }
+
     private func gojangChatgi() {
         let q = gojangQ.trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else { SoriEngine.shared.mal("고장 이름을 적어 주십시오."); return }
         Task { await b.gojangChatgi(q) }
+    }
+}
+
+/// 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 고르기 — 갈래·테마처럼 하나를 고르면 앞 화면으로(다섯 개씩, 지금 고른 것에 「, 지금 고른 것」)
+struct BsGoreugiView: View {
+    let jemok: String
+    let mok: [String]
+    let jigeum: String
+    let gorum: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                if mok.isEmpty {
+                    Text("고를 것이 없습니다.").font(.title3)
+                } else {
+                    Mokrok5(mok.map { GaraeHang(id: $0, ireum: $0 == jigeum ? "\($0), 지금 고른 것" : $0) },
+                            sijak0: mok.firstIndex(of: jigeum) ?? 0) { h in
+                        Button(h.ireum) {
+                            gorum(h.id)
+                            dismiss()
+                        }
+                        .buttonStyle(KeunDanchu())
+                    }
+                }
+            }
+            .padding()
+        }
+        .sokHwamyeon(jemok)
     }
 }
 
@@ -295,7 +370,11 @@ struct ChaeneolView: View {
                     if kind == "tv" && !b.chaeneolNote.isEmpty { Text(b.chaeneolNote).font(.footnote) }
                 }
                 if kind == "tv" {
-                    Toggle(isOn: $b.yeongsangKkeum) {
+                    // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 켜고 끌 때 새 상태를 말함
+                    Toggle(isOn: Binding(get: { b.yeongsangKkeum }, set: { v in
+                        b.yeongsangKkeum = v
+                        SoriEngine.shared.mal(v ? "영상을 끄고 소리만 듣습니다. 데이터를 아낍니다." : "영상을 다시 켭니다.", .jeongbo)
+                    })) {
                         Text("영상 끄기 — 소리만 듣고 데이터 아끼기").font(.title3.weight(.semibold))
                     }
                     .padding(.horizontal, 4)

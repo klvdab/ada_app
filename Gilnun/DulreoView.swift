@@ -714,7 +714,8 @@ struct MasilGoView: View {
             }
             .padding()
         }
-        .sokHwamyeon(go?.jjalb ?? "마실")
+        // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 짧은 이름이 비면 고장 이름으로(안드로이드와 같게)
+        .sokHwamyeon(go.map { $0.jjalb.isEmpty ? $0.ireum : $0.jjalb } ?? "마실")
         .onAppear {
             // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 처음 열 때만 인사와 첫 마디(다시 보일 때마다 되풀이하던 것, 안드로이드와 같게)
             guard cheoeum else { return }

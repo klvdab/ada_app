@@ -166,7 +166,11 @@ struct DongyeongView: View {
                 if d.majimak != nil {
                     Button("받은 동영상 다시 틀기") { d.dasiTeulgi() }.buttonStyle(KeunDanchu())
                 }
-                Toggle(isOn: $s.dongyeongWatch) { Text("애플워치가 있으면 워치에서 틀기").font(.title3.weight(.semibold)) }
+                // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 켜고 끌 때 새 상태를 말함(안드로이드와 같은 말)
+                Toggle(isOn: Binding(get: { s.dongyeongWatch }, set: { v in
+                    s.dongyeongWatch = v
+                    SoriEngine.shared.mal(v ? "워치에서 틉니다." : "폰에서 틉니다.")
+                })) { Text("애플워치가 있으면 워치에서 틀기").font(.title3.weight(.semibold)) }
                 Text("카톡이나 문자, 사진에서 받은 동영상은 공유를 누른 뒤 길눈을 고르시면 길눈이 받아 틉니다. 유튜브는 유튜브 앱에서 열어 드립니다.")
                     .font(.body)
             }
