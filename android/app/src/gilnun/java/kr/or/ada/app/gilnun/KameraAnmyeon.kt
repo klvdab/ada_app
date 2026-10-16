@@ -192,8 +192,10 @@ object AnmyeonEngine : KameraNunBupum {
         if (!kyeojim) return
         if (!deungrokJung && mal != jigeumMal) { jigeumMal = mal; byeonhwa?.invoke() }
         val now = System.currentTimeMillis()
-        if (mal == majimakMal || now - majimakMalSigan < 3000 || deungrokJung) return
-        majimakMal = mal
+        // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 거리가 조금만 바뀌어도 3초마다 말하던 것 — 사람 수·시계 방향·이름·거리 문턱(1·3·5미터)·보는지·웃는지가 바뀔 때만(아이폰과 같게)
+        val gyeol = malGyeol(saram)
+        if (gyeol == majimakMal || now - majimakMalSigan < 3000 || deungrokJung) return
+        majimakMal = gyeol
         majimakMalSigan = now
         Sori.mal(mal, MalGeup.JEONGBO)
     }
@@ -213,6 +215,17 @@ object AnmyeonEngine : KameraNunBupum {
         }
         if (n > 4) t += " 그 밖에 ${n - 4}명."
         return t
+    }
+
+    /** 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 말할지 가르는 열쇠 — 거리는 1·3·5미터 문턱으로만 */
+    fun malGyeol(saram: List<AnmyeonSaram>): String {
+        if (saram.isEmpty()) return "0"
+        val t = StringBuilder("${saram.size}")
+        for (s in saram.take(4)) {
+            val teok = if (s.miteo < 1) 1 else if (s.miteo < 3) 3 else if (s.miteo < 5) 5 else 9
+            t.append("|${s.sigak},${s.ireum ?: ""},$teok,${s.boneunJung},${s.unneunDeut}")
+        }
+        return t.toString()
     }
 
     fun miteoMal(m: Double): String {
@@ -389,7 +402,7 @@ class AnmyeonHwamyeon : KameraHwamyeon("안면인식") {
         jm.contentDescription = "지금 보이는 것. ${e.jigeumMal}"
         t.geul("폰을 세워 들고 뒤쪽 카메라를 앞으로 향하십시오. 바뀔 때만 3초에 한 번까지 말씀드립니다. 거리와 웃음은 짐작입니다.")
         bogiNeoki(t, jm)
-        t.pyeolchigi("아는 사람 등록 — 폰 안에만 보관,", deungPyeol) { deungPyeol = !deungPyeol }
+        t.pyeolchigi("아는 사람 등록 — 폰 안에만 보관", deungPyeol) { deungPyeol = !deungPyeol }   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 끝의 쉼표를 뺌(아이폰·도움말과 같게)
         var db: android.widget.Button? = null
         if (deungPyeol) {
             val ip: EditText = t.ipryeok("등록할 분의 이름", false)

@@ -212,7 +212,8 @@ class GotMokrokHwamyeon(private val cheo: DrGotCheo) : Hwamyeon(cheo.jemok) {
         if (chatneun) return
         mot = ""
         if (Wichi.jigeum == null) {
-            mot = "아직 위치를 잡는 중입니다. 잠시 뒤 다시 찾기를 눌러 주십시오."
+            // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 위치 허락이 꺼져 있으면 그렇다고 알림(잡는 중이라고만 되풀이하던 것)
+            mot = if (!Wichi.heorakItda) "위치 허락이 꺼져 있습니다. 폰 설정의 앱, 길눈, 권한에서 위치를 허용해 주십시오." else "아직 위치를 잡는 중입니다. 잠시 뒤 다시 찾기를 눌러 주십시오."
             Sori.mal(mot)
             if (geurigi && t.wiHwamyeon === this) t.dasiGeurigi()
             return
@@ -271,7 +272,7 @@ class GojangHwamyeon : Hwamyeon("고장 이야기") {
 
     private fun deutgi(t: GilnunActivity) {
         if (batneun) return
-        if (Wichi.jigeum == null) { Sori.mal("아직 위치를 잡는 중입니다."); return }
+        if (Wichi.jigeum == null) { Sori.mal(if (!Wichi.heorakItda) "위치 허락이 꺼져 있습니다. 폰 설정의 앱, 길눈, 권한에서 위치를 허용해 주십시오." else "아직 위치를 잡는 중입니다."); return }   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 위치 허락이 꺼져 있으면 그렇다고 알림
         batneun = true
         if (t.wiHwamyeon === this) t.dasiGeurigi()
         Dulreo.gojang { r ->
@@ -371,7 +372,7 @@ class MiriHwamyeon : Hwamyeon("어디서 어디로") {
             c = x
         } else {
             val w = Wichi.jigeum
-            if (w == null) { Sori.mal("아직 위치를 잡는 중입니다. 출발지를 바꾸셔도 됩니다."); return }
+            if (w == null) { Sori.mal(if (!Wichi.heorakItda) "위치 허락이 꺼져 있습니다. 폰 설정의 앱, 길눈, 권한에서 위치를 허용해 주십시오. 출발지를 바꾸셔도 됩니다." else "아직 위치를 잡는 중입니다. 출발지를 바꾸셔도 됩니다."); return }   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 위치 허락이 꺼져 있으면 그렇다고 알림
             c = Jangso("지금 내 자리", "", w.lat, w.lon)
         }
         batneun = true

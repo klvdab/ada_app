@@ -157,6 +157,7 @@ object SaramGamji : KameraNunBupum {
     private fun allida(saram: List<Pair<Double, Double>>) {
         if (!kyeojim) return
         val now = System.currentTimeMillis()
+        // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 말은 시계 방향이 바뀌거나 걸음 수가 1·3·5걸음 문턱을 넘을 때만, 어떤 말이든 3초 넘게 띄워서(아이폰과 같게)
         val ga = saram.firstOrNull()
         if (ga == null || ga.first > 8) {
             if (boim && now - eopT > 2500) {
@@ -164,7 +165,12 @@ object SaramGamji : KameraNunBupum {
                 ttakMeomchum()
                 georiNow = 99.0
                 sangtae = "앞에 사람이 없습니다."
-                if (!eopMal) { eopMal = true; mal("앞에 사람이 없습니다.", MalGeup.JEONGBO) }
+                majimakMal = ""
+            }
+            if (!boim && !eopMal && now - malT >= 3000) {
+                eopMal = true
+                malT = now
+                mal("앞에 사람이 없습니다.", MalGeup.JEONGBO)
             }
             return
         }
@@ -177,12 +183,13 @@ object SaramGamji : KameraNunBupum {
         sangtae = m
         georiNow = ga.first
         ttakMatchum(ga.first)
-        val cheoeum = !boim
         boim = true
-        eopMal = false
-        if (cheoeum || (now - malT >= 3000 && m != majimakMal)) {
+        val teok = if (georeum <= 1) 1 else if (georeum <= 3) 3 else if (georeum <= 5) 5 else 9
+        val gyeol = "${minOf(su, 2)}|$si|$teok"   // 사람 수(한 명·여럿), 시계 방향, 걸음 문턱
+        if (gyeol != majimakMal && now - malT >= 3000) {
             malT = now
-            majimakMal = m
+            majimakMal = gyeol
+            eopMal = false
             mal("$m.")
         }
     }

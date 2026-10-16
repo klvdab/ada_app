@@ -1,6 +1,6 @@
 // 안드로이드 길눈 — 둘러보기 탭 첫 화면(묶음 b4_dulreo, b3 쪽지 7번의 자리표를 채움 — 아이폰 DulreoView.swift DulreoCheot 와 같은 차례, 급한 것부터)
 // 겉: 둘레 찾기, 사진 읽어 주기, 즉석 글자 읽기, 가리키고 말하기, 사람 감지, 상품 바코드 읽기, 지폐와 색깔 알아보기, 빛 알아보기,
-//     한마디 설명, 안면인식, 현장영상해설 받기(b6). 곁가지(가 볼 곳·축제·무장애 여행·고장 이야기·미리 들어 보기·마실)는 "가는 김에 펼치기" 안.
+//     한마디 설명, 안면인식(현장영상해설 받기 줄은 2.58.0부터 감춤). 곁가지(가 볼 곳·축제·무장애 여행·고장 이야기·미리 들어 보기·마실)는 "가는 김에 펼치기" 안.
 // 번호 없이, 화면이 열리면 매번 첫 줄(둘레 찾기)로 커서(아이폰 2.12.1).
 package kr.or.ada.app.gilnun
 
@@ -18,7 +18,9 @@ class DulreoCheot : Hwamyeon("둘러보기") {
         t.danchu("빛 알아보기 — 불이 켜졌는지, 창이 어느 쪽인지 소리 높낮이로 알려 드립니다") { t.yeolgi(BitAlgiHwamyeon()) }   // b3
         t.danchu("한마디 설명 — 인터넷 없이 카메라 앞을 한마디로 알려 드립니다") { t.yeolgi(HanmadiHwamyeon()) }
         t.danchu("안면인식 — 카메라 앞의 사람을 알려 드립니다") { t.yeolgi(AnmyeonHwamyeon()) }
-        t.danchu("현장영상해설 받기 — 현장영상해설사 화상통화, 현장영상해설 코스, 파견 신청") { t.yeolgi(HaeseolBatgiHwamyeon()) }   // b6
+        // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 현장영상해설 받기 줄을 둘러보기 첫 화면에서 감춤 —
+        //   화면(HaeseolBatgiHwamyeon)은 지우지 않고 그대로 둠. 말로 「현장영상해설 받고 싶어」는 긴급통화서비스로 현장영상해설사에게 요청함(MalHagi)
+        // t.danchu("현장영상해설 받기 — 현장영상해설사 화상통화, 현장영상해설 코스, 파견 신청") { t.yeolgi(HaeseolBatgiHwamyeon()) }   // b6
         t.pyeolchigi("가는 김에", ganeunGim) { ganeunGim = !ganeunGim }
         if (ganeunGim) {
             t.danchu("가 볼 곳") { t.yeolgi(GotMokrokHwamyeon("gabol")) }

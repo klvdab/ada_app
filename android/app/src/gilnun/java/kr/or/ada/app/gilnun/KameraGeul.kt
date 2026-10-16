@@ -264,6 +264,7 @@ class GeulIlgiHwamyeon : KameraHwamyeon("즉석 글자 읽기") {
         mb = t.danchu(mokGeul()) {
             mokPyeol = !mokPyeol
             if (mokPyeol) { mok = ArrayList(g.ilgeun); jjok = 0 }
+            if (mokPyeol) Sori.mal(if (mok.isEmpty()) "아직 읽은 글이 없습니다." else "읽은 글 ${mok.size}줄입니다.")   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16)
             t.dasiGeurigi()
         }
         if (mokPyeol) {
@@ -298,5 +299,6 @@ class GeulIlgiHwamyeon : KameraHwamyeon("즉석 글자 읽기") {
     private fun jjokChojeom(t: GilnunActivity) { jjokJul?.let { t.chojeomOmgigi(it) } }
 
     private fun kGeul() = if (GeulIlgi.kyeojim) "멈추기 — 글자를 읽는 중" else "이어 읽기 — 카메라를 켜고 글자 읽기"
-    private fun mokGeul() = if (mokPyeol) "읽은 글 접기" else "읽은 글 펼치기 — ${GeulIlgi.ilgeun.size}줄"
+    // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 펼치기 이름은 「읽은 글 펼치기」로 고정(읽는 동안 수가 바뀌어 단추 이름이 흔들리던 것) — 펼칠 때 수를 한 번 알림
+    private fun mokGeul() = if (mokPyeol) "읽은 글 접기" else "읽은 글 펼치기"
 }

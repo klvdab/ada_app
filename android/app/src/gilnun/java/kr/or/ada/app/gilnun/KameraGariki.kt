@@ -129,6 +129,8 @@ object GarikiIlgi : KameraNunBupum {
     private var sonEopT = 0L
     private var sonEopMalSu = 0
     private var sonEopMalT = 0L
+    private var sonBoimMalT = 0L   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 「손가락이 보입니다」도 3초에 한 번까지
+    private var sonCheot = true    // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 「보이지 않습니다」 세 번 한도는 켠 뒤 처음 보일 때만 새로
     private var geulEopMal = false
     private var sonT = 0L
     private var saeT = 0L
@@ -176,6 +178,7 @@ object GarikiIlgi : KameraNunBupum {
                 sonBoim = false
                 sonEopT = System.currentTimeMillis()
                 sonEopMalSu = 0
+                sonCheot = true; sonBoimMalT = 0L   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16)
                 geulEopMal = false
                 saeT = System.currentTimeMillis()
                 mal("가리키고 말하기를 시작합니다. 한 손으로 폰을 단추판 쪽으로 들고, 다른 손 검지로 단추를 가리키십시오.", sseuGi = true)
@@ -300,7 +303,8 @@ object GarikiIlgi : KameraNunBupum {
         if (!kyeojim) return
         val now = System.currentTimeMillis()
         if (!son) {
-            if (sonBoim && now - sonT > 1500) { sonBoim = false; sonEopT = now; sonEopMalSu = 0 }
+            // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 손가락이 사라질 때 세 번 한도를 새로 하지 않음(보였다 안 보였다 하면 말이 끝없이 번갈아 나오던 것)
+            if (sonBoim && now - sonT > 1500) { sonBoim = false; sonEopT = now }
             if (!sonBoim && now - sonEopT > 3000 && sonEopMalSu < 3 && now - sonEopMalT >= 3000) {
                 sonEopMalSu += 1
                 sonEopMalT = now
@@ -311,9 +315,13 @@ object GarikiIlgi : KameraNunBupum {
         sonT = now
         if (!sonBoim) {
             sonBoim = true
-            sonEopMalSu = 0
-            Eum.naegi(EumJong.HWAKSIN)
-            mal("손가락이 보입니다.", MalGeup.JEONGBO)
+            // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 세 번 한도는 처음 보일 때만 새로, 「손가락이 보입니다」는 3초에 한 번까지(아이폰과 같게)
+            if (sonCheot) { sonCheot = false; sonEopMalSu = 0 }
+            if (now - sonBoimMalT >= 3000) {
+                sonBoimMalT = now
+                Eum.naegi(EumJong.HWAKSIN)
+                mal("손가락이 보입니다.", MalGeup.JEONGBO)
+            }
         }
         if (geul != null && geul != malHanGeul) {
             malHanGeul = geul
@@ -354,6 +362,7 @@ class GarikiHwamyeon : KameraHwamyeon("가리키고 말하기") {
         mb = t.danchu(mokGeul()) {
             mokPyeol = !mokPyeol
             if (mokPyeol) { mok = ArrayList(g.ilgeun); m5.saeMok() }
+            if (mokPyeol) Sori.mal(if (mok.isEmpty()) "아직 읽은 글이 없습니다." else "읽은 글 ${mok.size}개입니다.")   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16)
             t.dasiGeurigi()
         }
         if (mokPyeol) {
@@ -376,5 +385,6 @@ class GarikiHwamyeon : KameraHwamyeon("가리키고 말하기") {
     }
 
     private fun kGeul() = if (GarikiIlgi.kyeojim) "멈추기 — 가리킨 글을 읽는 중" else "이어 읽기 — 카메라를 켜고 가리킨 글 읽기"
-    private fun mokGeul() = if (mokPyeol) "읽은 글 접기" else "읽은 글 펼치기 — ${GarikiIlgi.ilgeun.size}개"
+    // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 펼치기 이름은 「읽은 글 펼치기」로 고정(읽는 동안 수가 바뀌어 단추 이름이 흔들리던 것) — 펼칠 때 수를 한 번 알림
+    private fun mokGeul() = if (mokPyeol) "읽은 글 접기" else "읽은 글 펼치기"
 }
