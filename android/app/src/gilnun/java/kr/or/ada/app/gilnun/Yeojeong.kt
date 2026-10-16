@@ -121,6 +121,31 @@ object YeojeongEngine {
     private var gichaSuTtae = 0L
     private var allimDaegi = false
 
+    /** 2.60.0 (261017-A48, 이사장님 승인 2026-10-17) 「탈것 바꾸기」 목록을 펼쳤는가 — 평소에는 한 줄로 접어 두고,
+     *  이용자가 부르시거나(누름·「탈것 바꿔」) 길눈이 스스로 탈것을 바꾸었을 때만 펼침. 길눈이 펼친 것은 3분 뒤 저절로 접음 */
+    @Volatile var talgeotPyeolchim = false
+        private set
+    private var pyeolSedae = 0
+
+    fun talgeotMokrokPyeolgi(jadong: Boolean) {
+        main.post {
+            pyeolSedae += 1
+            talgeotPyeolchim = true
+            allim()
+            if (jadong) {
+                val s = pyeolSedae
+                main.postDelayed({ if (pyeolSedae == s && talgeotPyeolchim) { talgeotPyeolchim = false; allim() } }, 180_000L)
+            }
+        }
+    }
+
+    fun talgeotMokrokJeopgi() {
+        main.post {
+            pyeolSedae += 1
+            if (talgeotPyeolchim) { talgeotPyeolchim = false; allim() }
+        }
+    }
+
     /** 길눈이 켜질 때 한 번 — 즐겨찾기·안내·지하철 엔진을 함께 세우고 지난 여정을 되살림 */
     fun sijak(c: Context) {
         if (sijakham) return
@@ -239,6 +264,9 @@ object YeojeongEngine {
     /** 탈것 정하기 — barojabeum 이 참이면 이용자가 바로잡은 것(가장 앞섬) */
     fun talgeotJeonghagi(t: Talgeot, barojabeum: Boolean) {
         val y = jigeum ?: return
+        // 2.60.0 (261017-A48, 이사장님 승인 2026-10-17) 이용자가 정하시면 탈것 목록을 접고, 길눈이 스스로 바꾸었으면 펼침(처음 걸어가기·타고 가기는 빼고)
+        if (barojabeum) talgeotMokrokJeopgi()
+        else if (y.talgeot != t && y.danggye != Danggye.EOTTEOKE) talgeotMokrokPyeolgi(true)
         jigeum = y.copy(talgeot = t, barojabeum = barojabeum, gaengsin = System.currentTimeMillis())
         jeojang()
     }
@@ -250,12 +278,14 @@ object YeojeongEngine {
         val jk = if (t == Talgeot.GICHA || t == Talgeot.SEONBAK) t else null
         if (t != Talgeot.GICHA && sokdoChujeong == Talgeot.GICHA) { gichaTtae = 0L; sokdoChujeong = Talgeot.GEOREUM }
         jigeum = y.copy(talgeot = t, barojabeum = true, gaengsin = System.currentTimeMillis(), jikim = jk)
+        talgeotMokrokJeopgi()   // 2.60.0 고르시면 목록을 접음
         Girok.namgi("yeojeong_barojapgi", mapOf("tal" to t.raw))
         jeojang()
     }
 
     fun kkeut() {
         if (jigeum != null) Girok.namgi("yeojeong_kkeut")
+        talgeotMokrokJeopgi()   // 2.60.0
         main.post { chaTamHook?.invoke(false) }
         jigeum = null
         try { pail?.delete() } catch (e: Exception) {}

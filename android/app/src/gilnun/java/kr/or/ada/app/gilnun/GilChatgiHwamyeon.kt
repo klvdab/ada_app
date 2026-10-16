@@ -47,6 +47,9 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
     }
     private var mal = ""
     private var yeojeongPyeol = false
+    /** 2.60.0 (261017-A48) 「탈것 바꾸기」 줄 — 누르신 뒤 다시 그리면 커서를 이 줄에 둠 */
+    private var talgeotDan: View? = null
+    private var talgeotChojeom = false
     private var ttaraPyeol = false
     private var geuBakkPyeol = false
     private var geurinGiun = ""
@@ -219,6 +222,8 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
 
     override fun boilttae(t: GilnunActivity) {
         // 차례가 바뀌어 다시 그렸으면 커서를 그 차례의 첫 단추로(아이폰 accessibilityFocused 와 같음)
+        // 2.60.0 (261017-A48) 「탈것 바꾸기」를 누르셨으면 커서를 그 줄에
+        if (talgeotChojeom) { talgeotChojeom = false; talgeotDan?.let { t.chojeomOmgigi(it) }; boinGiun = geurinGiun; return }
         if (boinGiun.isNotEmpty() && boinGiun != geurinGiun) cheot?.let { t.chojeomOmgigi(it) }
         boinGiun = geurinGiun
     }
@@ -239,6 +244,7 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
             y.beoseu?.let { sb.append("|b").append(it.dochak).append(it.jeongryujang.ireum) }
         }
         sb.append(if (TalgeotJikimi.naerimMureum) "N" else "-")   // 2.36.0 내리셨는지 여쭙기
+        sb.append(if (YeojeongEngine.talgeotPyeolchim) "P" else "-")   // 2.60.0 탈것 목록 펼침
         sb.append(JeomPan.giun())   // 2.7.0 b2 — 문이 여럿이 되거나 함께 시험 번호가 생기면 다시 그림
         return sb.toString()
     }
@@ -310,6 +316,9 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
                         a.georeoGagiBoda(yj.mokjeok.jangso) { q -> if (q != null) Sori.mal(q) }
                     }
                     t.danchu("차에 탔습니다 — 차 안 안내 시작") { a.chaTatda() }
+                    // 2.60.0 (261017-A48, 이사장님 승인 2026-10-17) 기차·배도 처음부터
+                    t.danchu("기차에 탔습니다 — 기차 안 안내 시작") { a.talgeotBarojapgi(Talgeot.GICHA) }
+                    t.danchu("배에 탔습니다 — 배 안 안내 시작") { a.talgeotBarojapgi(Talgeot.SEONBAK) }
                 }
             }
         }
@@ -327,17 +336,28 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
                 Talgeot.JIHACHEOL -> "지하철을 타고 계신 것으로"
                 else -> { val n = Annae.talgeotIreum(jigeum); "$n${Annae.eulReul(n)} 타고 계신 것으로" }   // 2.48.0 부른 콜이면 「복지콜을」
             }
-            t.jemok("무엇을 타고 계신가요? 지금은 $alGo 알고 있습니다")
-            listOf(Talgeot.CHA to "차를 타고 있습니다", Talgeot.GEOREUM to "걷고 있습니다", Talgeot.GICHA to "기차를 타고 있습니다",
-                Talgeot.BEOSEU to "버스를 타고 있습니다", Talgeot.JIHACHEOL to "지하철을 타고 있습니다", Talgeot.SEONBAK to "배를 타고 있습니다")
-                .filter { it.first != jigeum }
-                .forEach { (tg, geul) ->
-                    val gl = if (tg == Talgeot.CHA) Annae.talgeotIreum(Talgeot.CHA).let { "$it${Annae.eulReul(it)} 타고 있습니다" } else geul   // 2.48.0 부른 콜이면 「복지콜을 타고 있습니다」
-                    t.danchu(gl) {
-                        if (tg == Talgeot.GEOREUM) a.naeryeotda(mal = "걷고 계신 것으로 알겠습니다. 점지도가 있는지 확인해 드리겠습니다.")
-                        else a.talgeotBarojapgi(tg)
+            // 2.60.0 (261017-A48, 이사장님 승인 2026-10-17) 평소에는 「탈것 바꾸기」 한 줄만 — 누르시거나 「탈것 바꿔」라고 하시면 목록을 펼침.
+            //   길눈이 스스로 탈것을 바꾸었을 때와 내리셨는지 여쭐 때는 저절로 펼침. 고르시면 다시 접음(아이폰 2.90.0과 같음)
+            //   (KTX 부산행에서 기차로 정하신 뒤에도 다섯 단추가 늘 남아 있던 일)
+            val pyeol = YeojeongEngine.talgeotPyeolchim || (TalgeotJikimi.naerimMureum && yj.danggye == Danggye.TANEUN_JUNG)
+            talgeotDan = t.danchu(if (pyeol) "무엇을 타고 계신가요? 지금은 $alGo 알고 있습니다 — 탈것 목록 접기"
+                                  else "탈것 바꾸기 — 지금은 $alGo 알고 있습니다") {
+                talgeotChojeom = true
+                if (pyeol) { YeojeongEngine.talgeotMokrokJeopgi(); Sori.mal("탈것 목록을 접었습니다.") }
+                else { YeojeongEngine.talgeotMokrokPyeolgi(false); Sori.mal("탈것 목록을 펼쳤습니다. 바로 아래에서 고르십시오.") }
+            }
+            if (pyeol) {
+                listOf(Talgeot.CHA to "차를 타고 있습니다", Talgeot.GEOREUM to "걷고 있습니다", Talgeot.GICHA to "기차를 타고 있습니다",
+                    Talgeot.BEOSEU to "버스를 타고 있습니다", Talgeot.JIHACHEOL to "지하철을 타고 있습니다", Talgeot.SEONBAK to "배를 타고 있습니다")
+                    .filter { it.first != jigeum }
+                    .forEach { (tg, geul) ->
+                        val gl = if (tg == Talgeot.CHA) Annae.talgeotIreum(Talgeot.CHA).let { "$it${Annae.eulReul(it)} 타고 있습니다" } else geul   // 2.48.0 부른 콜이면 「복지콜을 타고 있습니다」
+                        t.danchu(gl) {
+                            if (tg == Talgeot.GEOREUM) a.naeryeotda(mal = "걷고 계신 것으로 알겠습니다. 점지도가 있는지 확인해 드리겠습니다.")
+                            else a.talgeotBarojapgi(tg)
+                        }
                     }
-                }
+            }
         }
         if (yj.danggye != Danggye.DOCHAK) {
             t.pyeolchigi("여정 다른 할 일", yeojeongPyeol) { yeojeongPyeol = !yeojeongPyeol }
@@ -435,11 +455,18 @@ class MokjeokHwamyeon(private val j: Jangso) : Hwamyeon(j.ireum) {
             AnnaeEngine.georeoGagiBoda(j) { q -> if (q != null) Sori.mal(q) }
             t.cheotHwamyeonEuro(null)
         }
+        // 2.60.0 (261017-A48, 이사장님 승인 2026-10-17) 기차로 가기·배로 가기 — 먼 기차역이면 기차를, 항구·여객터미널이면 배를 맨 앞 가까이에
+        //   (부산역을 목적지로 정하고 기차가 없어 차로 가기를 누르셔야 했던 일, 아이폰 2.90.0과 같음)
+        val gicha = gichaMok(); val bae = baeMok()
+        if (gicha) gichaDanchu(t)
+        if (bae) baeDanchu(t)
         t.danchu("차로 가기 — 차에 탔거나 곧 탑니다, 차 안 안내 시작") {
             Jeulgyeo.sseum(j)
             AnnaeEngine.chaTagi(j)
             t.cheotHwamyeonEuro(null)
         }
+        if (!gicha) gichaDanchu(t)
+        if (!bae) baeDanchu(t)
         t.danchu("지하철로 가기 — 가까운 역, 갈아타기, 나갈 출구를 찾아 드립니다") { t.yeolgi(JihacheolGilHwamyeon(j)) }
         t.danchu("버스로 가기 — 가까운 정류장과 오는 버스") { t.yeolgi(BeoseuChatgiHwamyeon(j)) }
         if (damam || Jeulgyeo.itna(j)) {
@@ -460,6 +487,35 @@ class MokjeokHwamyeon(private val j: Jangso) : Hwamyeon(j.ireum) {
     private fun geoMal(): String {
         val w = Wichi.jigeum ?: return ""
         return ", 여기서 " + Annae.geoMal(Wichi.geori(w.lat, w.lon, j.lat, j.lon))
+    }
+
+    private fun gichaDanchu(t: GilnunActivity) {
+        t.danchu("기차로 가기 — 기차에 탔거나 곧 탑니다, 기차 안 안내 시작") {
+            Jeulgyeo.sseum(j)
+            AnnaeEngine.talgeotRoGagi(j, Talgeot.GICHA)
+            t.cheotHwamyeonEuro(null)
+        }
+    }
+    private fun baeDanchu(t: GilnunActivity) {
+        t.danchu("배로 가기 — 배에 탔거나 곧 탑니다, 배 안 안내 시작") {
+            Jeulgyeo.sseum(j)
+            AnnaeEngine.talgeotRoGagi(j, Talgeot.SEONBAK)
+            t.cheotHwamyeonEuro(null)
+        }
+    }
+    /** 목적지가 기차역이고 여기서 25킬로미터 넘게 멂(자리를 모르면 기차역이기만 하면) */
+    private fun gichaMok(): Boolean {
+        val yeok = GichaYeok.mokrok.any { j.ireum.startsWith(it.ireum + "역") } ||
+            (j.ireum.contains("역") && GichaYeok.gakkaun(j.lat, j.lon, 500.0) != null)
+        if (!yeok) return false
+        val w = Wichi.jigeum ?: return true
+        return Wichi.geori(w.lat, w.lon, j.lat, j.lon) >= 25_000
+    }
+    /** 목적지가 항구·여객터미널·선착장 */
+    private fun baeMok(): Boolean {
+        val n = j.ireum
+        return listOf("여객터미널", "여객선", "선착장", "항구", "부두", "나루터", "도선장").any { n.contains(it) } ||
+            n.endsWith("항") || n.contains("항 ") || n.contains("항여객")
     }
 }
 

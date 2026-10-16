@@ -158,6 +158,20 @@ object YeojeongMal {
             }
             return true
         }
+        // 2.60.0 (261017-A48, 이사장님 승인 2026-10-17) 「탈것 바꿔」·「탈것 목록」 — 첫 화면의 탈것 목록을 펼침(아이폰 2.90.0과 같음)
+        val zt = z.replace(" ", "")
+        if (zt.contains("탈것") && (zt.contains("바꿔") || zt.contains("바꾸") || zt.contains("목록") || zt.contains("고를") || zt.contains("골라"))) {
+            if (y != null && (y.danggye == Danggye.TANEUN_JUNG || y.danggye == Danggye.NAM_EUN_GIL || (y.jiha != null && y.danggye == Danggye.TANEUN_GOT_KKAJI))) {
+                YeojeongEngine.talgeotMokrokPyeolgi(false)
+                hwalseong()?.cheotHwamyeonEuro(null)
+                val tn = Annae.talgeotIreum(y.talgeot)
+                val al = if (y.danggye == Danggye.NAM_EUN_GIL || y.talgeot == Talgeot.GEOREUM) "걷고 계신 것으로" else "$tn${Annae.eulReul(tn)} 타고 계신 것으로"
+                dap("탈것 목록을 펼쳤습니다. 지금은 $al 알고 있습니다. 첫 화면 맨 위 단추 아래에서 고르시거나, 기차 탔어처럼 말씀해 주십시오.", false)
+            } else {
+                dap("지금 가시는 여정이 없습니다. 가실 곳을 말씀해 주시면 안내하겠습니다.", false)
+            }
+            return true
+        }
         if (s.itda(alts, "tatda")) {
             val m = mokSaengsaeng   // 2.32.0 여정이 없으면 3분 안에 정한 곳만(끝난 여정의 옛 목적지로 가지 않게, 아이폰과 같음)
             // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 「차에 탔어」「택시 탔어」는 여정에 지하철 길이 있어도 늘 차 안 안내로.
