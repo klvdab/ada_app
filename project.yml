@@ -312,7 +312,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.app.watchkitapp
         TARGETED_DEVICE_FAMILY: "4"
-        MARKETING_VERSION: "2.89.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
+        MARKETING_VERSION: "2.90.0"   # 워치 판은 폰 길눈 판과 같아야 올라감
 schemes:
   AdaApp:
     build:
