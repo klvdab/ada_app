@@ -221,6 +221,7 @@ final class GeulIlgi: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
 struct GeulIlgiView: View {
     @ObservedObject private var g = GeulIlgi.shared
     @ObservedObject private var s = Seoljeong.shared
+    @State private var mokPyeol = false   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16)
     @AccessibilityFocusState private var chojeom: Bool
 
     var body: some View {
@@ -233,10 +234,14 @@ struct GeulIlgiView: View {
                 .accessibilityFocused($chojeom)
                 Button("방금 읽은 것 다시 듣기") { g.dasiDeutgi() }
                     .buttonStyle(KeunDanchu())
-                DisclosureGroup("읽은 글 펼치기 — \(g.ilgeun.count)줄") {
+                // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 펼치기 이름은 「읽은 글 펼치기」로 고정(읽는 동안 줄 수가 바뀌어 단추 이름이 흔들리던 것) — 펼칠 때 줄 수를 한 번 알림
+                DisclosureGroup("읽은 글 펼치기", isExpanded: $mokPyeol) {
                     Mokrok5(g.ilgeun) { j in Text(j.mal).font(.title3) }
                 }
                 .font(.title3)
+                .onChange(of: mokPyeol) { p in
+                    if p { SoriEngine.shared.mal(g.ilgeun.isEmpty ? "아직 읽은 글이 없습니다." : "읽은 글 \(g.ilgeun.count)줄입니다.") }
+                }
                 Toggle(isOn: $s.kameraMal) { Text("카메라 눈 말소리").font(.title3.weight(.semibold)) }
                     .padding(.horizontal, 4)
                     .frame(minHeight: 60)

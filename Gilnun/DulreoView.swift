@@ -4,6 +4,7 @@
 import SwiftUI
 import UIKit
 import Vision
+import AVFoundation   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 사진 읽어 주기 카메라 허락 살피기
 
 enum DulreoHwamyeon: Hashable {
     case dulle
@@ -141,8 +142,10 @@ struct DulreoCheot: View {
                     .buttonStyle(KeunDanchu())
                 NavigationLink(value: DulreoHwamyeon.anmyeon) { Text("안면인식 — 카메라 앞의 사람을 알려 드립니다") }
                     .buttonStyle(KeunDanchu())
-                NavigationLink(value: DulreoHwamyeon.haeseol) { Text("현장영상해설 받기 — 현장영상해설사 화상통화, 현장영상해설 코스, 파견 신청") }
-                    .buttonStyle(KeunDanchu())
+                // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 현장영상해설 받기 줄을 둘러보기 첫 화면에서 감춤 —
+                //   화면(HaeseolView)은 지우지 않고 그대로 둠. 말로 「현장영상해설 받고 싶어」는 긴급통화서비스로 현장영상해설사에게 요청함(MalHagi)
+                // NavigationLink(value: DulreoHwamyeon.haeseol) { Text("현장영상해설 받기 — 현장영상해설사 화상통화, 현장영상해설 코스, 파견 신청") }
+                //     .buttonStyle(KeunDanchu())
                 DisclosureGroup("가는 김에 펼치기") {
                     VStack(alignment: .leading, spacing: 10) {
                         NavigationLink(value: DulreoHwamyeon.gabol("gabol")) { Text("가 볼 곳") }.buttonStyle(KeunDanchu())
@@ -257,7 +260,7 @@ struct GotMokrokView: View {
                             .accessibilityAction(named: "주소 듣기") { SoriEngine.shared.mal(g.juso.isEmpty ? "주소가 없습니다." : g.juso) }
                             .contextMenu {
                                 if !g.jeonhwa.isEmpty { Button("전화 걸기 — \(g.jeonhwa)") { jeonhwa(g) } }
-                                Button("주소 듣기") { SoriEngine.shared.mal(g.juso) }
+                                Button("주소 듣기") { SoriEngine.shared.mal(g.juso.isEmpty ? "주소가 없습니다." : g.juso) }   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 주소가 없으면 빈 말 대신
                             }
                     }
                     Text("이름을 두드리시면 그곳까지 안내합니다. 전화와 주소는 이름에서 위아래로 쓸어 고르십시오.").font(.body)
@@ -265,7 +268,7 @@ struct GotMokrokView: View {
                     Text(mot).font(.title3)
                     Button("다시 찾기") { chatgi() }.buttonStyle(KeunDanchu())
                 } else {
-                    Text("\(cheo.jemok)을 찾는 중입니다.").font(.title3)
+                    Text("\(cheo.jemok)\(MalHagi.eul(cheo.jemok)) 찾는 중입니다.").font(.title3)   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 받침에 맞게 을/를
                 }
             }
             .padding()
@@ -283,7 +286,8 @@ struct GotMokrokView: View {
     private func chatgi() {
         mot = ""
         guard WichiEngine.shared.jigeum != nil else {
-            mot = "아직 위치를 잡는 중입니다. 잠시 뒤 다시 찾기를 눌러 주십시오."
+            // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 위치 허락이 꺼져 있으면 그렇다고 알림(잡는 중이라고만 되풀이하던 것)
+            mot = WichiEngine.shared.geojeoldoem ? "위치 허락이 꺼져 있습니다. 폰 설정의 길눈에서 위치를 허용해 주십시오." : "아직 위치를 잡는 중입니다. 잠시 뒤 다시 찾기를 눌러 주십시오."
             SoriEngine.shared.mal(mot)
             return
         }
@@ -305,7 +309,7 @@ struct GotMokrokView: View {
                     if case .daepiso(let i, _) = cheo {
                         mot = "\(i) 자료를 아직 받아 오지 못했습니다. 행정안전부 대피소 자료가 들어오는 대로 이 자리에서 알려 드립니다. 급하실 때는 가까운 주민센터나 학교 운동장으로 가시고, 둘레 찾기의 공공기관에서 주민센터를 찾으실 수 있습니다."
                     } else {
-                        mot = "가까이에서 \(cheo.jemok)을 찾지 못했습니다."
+                        mot = "가까이에서 \(cheo.jemok)\(MalHagi.eul(cheo.jemok)) 찾지 못했습니다."   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 받침에 맞게 을/를
                     }
                     SoriEngine.shared.mal(mot)
                     return
@@ -345,13 +349,15 @@ struct GojangView: View {
 
     private func deutgi() {
         guard !batneun else { return }
-        guard WichiEngine.shared.jigeum != nil else { SoriEngine.shared.mal("아직 위치를 잡는 중입니다."); return }
+        // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 위치 허락이 꺼져 있으면 그렇다고 알림
+        guard WichiEngine.shared.jigeum != nil else { SoriEngine.shared.mal(WichiEngine.shared.geojeoldoem ? "위치 허락이 꺼져 있습니다. 폰 설정의 길눈에서 위치를 허용해 주십시오." : "아직 위치를 잡는 중입니다."); return }
         batneun = true
         Task {
             let r = await Dulreo.gojang()
             await MainActor.run {
                 batneun = false
                 mal = r?.0 ?? "나스에 닿지 못했습니다. 통신을 확인해 주십시오."
+                if mal.isEmpty { mal = "이 고장 이야기를 알아내지 못했습니다." }   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 빈 말이 오면 아무 말도 없던 것(안드로이드와 같게)
                 SoriEngine.shared.mal(mal)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { malChojeom = true }
             }
@@ -373,8 +379,19 @@ struct SajinView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Button(ilneun ? "사진을 읽고 있습니다" : (sajin == nil ? "사진 찍어 읽어 주기" : "다시 찍기")) {
                     guard !ilneun else { return }
-                    if UIImagePickerController.isSourceTypeAvailable(.camera) { kamera = true }
-                    else { SoriEngine.shared.mal("이 기기에서는 카메라를 쓸 수 없습니다.") }
+                    guard UIImagePickerController.isSourceTypeAvailable(.camera) else { SoriEngine.shared.mal("이 기기에서는 카메라를 쓸 수 없습니다."); return }
+                    // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 카메라 허락을 먼저 살핌 — 꺼져 있으면 아무 말 없이 빈 화면이 뜨던 것
+                    switch AVCaptureDevice.authorizationStatus(for: .video) {
+                    case .authorized: kamera = true
+                    case .notDetermined:
+                        AVCaptureDevice.requestAccess(for: .video) { ok in
+                            DispatchQueue.main.async {
+                                if ok { kamera = true } else { SoriEngine.shared.mal("카메라를 쓸 수 없어 사진 읽어 주기를 켜지 못했습니다.") }
+                            }
+                        }
+                    default:
+                        SoriEngine.shared.mal("카메라 허락이 꺼져 있습니다. 아이폰 설정의 길눈에서 카메라를 켜 주십시오.")
+                    }
                 }
                 .buttonStyle(KeunDanchu())
                 if !geul.isEmpty {
@@ -519,6 +536,7 @@ struct MiriView: View {
                         Button(j.ireum + (j.juso.isEmpty ? "" : " — " + j.juso)) { goreugi(j) }
                             .buttonStyle(KeunDanchu())
                     }
+                    Button("고르지 않고 돌아가기") { hubo = [] }.buttonStyle(KeunDanchu())   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 후보에서 빠져나올 길(안드로이드와 같게)
                 } else {
                     TextField("가실 곳 — 이름이나 주소를 넣고 엔터", text: $mokMal)
                         .textFieldStyle(.roundedBorder)
@@ -544,7 +562,12 @@ struct MiriView: View {
                                 .submitLabel(.search)
                                 .onSubmit { chatgi(chulMal, chul: true) }
                             if chul != nil {
-                                Button("출발지를 지금 내 자리로") { chul = nil; geul = "" }.buttonStyle(KeunDanchu())
+                                Button("출발지를 지금 내 자리로") {
+                                    chul = nil
+                                    geul = ""
+                                    SoriEngine.shared.mal("출발지를 지금 내 자리로 바꿨습니다.", .jeongbo)   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 바꾼 것을 알림(안드로이드와 같게)
+                                }
+                                .buttonStyle(KeunDanchu())
                             }
                         }
                     }
@@ -563,7 +586,7 @@ struct MiriView: View {
             let r = await Chatgi.jangso(q)
             await MainActor.run {
                 guard let r = r, !r.isEmpty else {
-                    SoriEngine.shared.mal(r == nil ? "찾지 못했습니다. 통신을 확인해 주십시오." : "\(q)을 찾지 못했습니다. 다른 이름으로 찾아 보십시오.")
+                    SoriEngine.shared.mal(r == nil ? "찾지 못했습니다. 통신을 확인해 주십시오." : "\(q)\(MalHagi.eul(q)) 찾지 못했습니다. 다른 이름으로 찾아 보십시오.")   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 받침에 맞게 을/를
                     return
                 }
                 huboChul = c
@@ -587,7 +610,8 @@ struct MiriView: View {
         } else if let w = WichiEngine.shared.jigeum {
             c = Jangso(ireum: "지금 내 자리", juso: "", lat: w.lat, lon: w.lon)
         } else {
-            SoriEngine.shared.mal("아직 위치를 잡는 중입니다. 출발지를 바꾸셔도 됩니다.")
+            // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 위치 허락이 꺼져 있으면 그렇다고 알림
+            SoriEngine.shared.mal(WichiEngine.shared.geojeoldoem ? "위치 허락이 꺼져 있습니다. 폰 설정의 길눈에서 위치를 허용해 주십시오. 출발지를 바꾸셔도 됩니다." : "아직 위치를 잡는 중입니다. 출발지를 바꾸셔도 됩니다.")
             return
         }
         batneun = true
@@ -645,6 +669,7 @@ struct MasilGoView: View {
     @State private var na = 0
     @State private var jog = ""
     @State private var quizDap: String?
+    @State private var cheoeum = true   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 첫 인사는 처음 열 때 한 번만(탭을 오가도 되풀이하지 않게)
     @AccessibilityFocusState private var chojeom: Bool
 
     private var go: MasilGojang? { m.gojang.first { $0.id == id } }
@@ -654,7 +679,8 @@ struct MasilGoView: View {
             VStack(alignment: .leading, spacing: 12) {
                 if let g = go {
                     if na >= g.madi.count {
-                        Text("오늘 \(g.jjalb.isEmpty ? g.ireum : g.jjalb)을 다녀오셨습니다. 같은 곳을 다시 떠나셔도 만나시는 일이 달라집니다.")
+                        // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 받침에 맞게 을/를
+                        Text("오늘 \(g.jjalb.isEmpty ? g.ireum : g.jjalb)\(MalHagi.eul(g.jjalb.isEmpty ? g.ireum : g.jjalb)) 다녀오셨습니다. 같은 곳을 다시 떠나셔도 만나시는 일이 달라집니다.")
                             .font(.title3)
                             .accessibilityFocused($chojeom)
                         Button("한 번 더 떠나기") { na = 0; madiMal() }.buttonStyle(KeunDanchu())
@@ -690,6 +716,9 @@ struct MasilGoView: View {
         }
         .sokHwamyeon(go?.jjalb ?? "마실")
         .onAppear {
+            // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 처음 열 때만 인사와 첫 마디(다시 보일 때마다 되풀이하던 것, 안드로이드와 같게)
+            guard cheoeum else { return }
+            cheoeum = false
             if let g = go { SoriEngine.shared.mal("\(g.ireum). \(g.han). 떠납니다.") }
             madiMal()
         }

@@ -176,12 +176,14 @@ final class AnmyeonEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputS
 
     private func allimgi(_ saram: [AnmyeonSaram]) {
         let mal = AnmyeonEngine.malMandeulgi(saram)
+        let gyeol = AnmyeonEngine.malGyeol(saram)   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16)
         DispatchQueue.main.async {
             guard self.kyeojim else { return }
             if !self.deungrokJung { self.jigeumMal = mal }
             let now = Date()
-            guard mal != self.majimakMal, now.timeIntervalSince(self.majimakMalSigan) >= 3, !self.deungrokJung else { return }
-            self.majimakMal = mal
+            // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 거리가 조금만 바뀌어도 3초마다 말하던 것 — 사람 수·시계 방향·이름·거리 문턱(1·3·5미터)·보는지·웃는지가 바뀔 때만
+            guard gyeol != self.majimakMal, now.timeIntervalSince(self.majimakMalSigan) >= 3, !self.deungrokJung else { return }
+            self.majimakMal = gyeol
             self.majimakMalSigan = now
             SoriEngine.shared.mal(mal, .jeongbo)
         }
@@ -201,6 +203,17 @@ final class AnmyeonEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputS
             t += " " + m + "."
         }
         if n > 4 { t += " 그 밖에 \(n - 4)명." }
+        return t
+    }
+
+    /// 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 말할지 가르는 열쇠 — 거리는 1·3·5미터 문턱으로만
+    static func malGyeol(_ saram: [AnmyeonSaram]) -> String {
+        guard !saram.isEmpty else { return "0" }
+        var t = "\(saram.count)"
+        for s in saram.prefix(4) {
+            let teok = s.miteo < 1 ? 1 : (s.miteo < 3 ? 3 : (s.miteo < 5 ? 5 : 9))
+            t += "|\(s.sigak),\(s.ireum ?? ""),\(teok),\(s.boneunJung),\(s.unneunDeut)"
+        }
         return t
     }
 
@@ -353,10 +366,11 @@ struct AnmyeonView: View {
                         if e.ireumDeul.isEmpty {
                             Text("등록한 분이 없습니다.")
                         } else {
-                            ForEach(e.ireumDeul, id: \.self) { i in
-                                Text(i)
-                                    .accessibilityLabel("\(i). 등록한 분")
-                                    .accessibilityAction(named: "지우기") { e.jiugi(i) }
+                            // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 다섯 분씩(더 보기·이전 보기)
+                            Mokrok5(e.ireumDeul.enumerated().map { GeulJul(id: $0.offset, mal: $0.element) }) { j in
+                                Text(j.mal)
+                                    .accessibilityLabel("\(j.mal). 등록한 분")
+                                    .accessibilityAction(named: "지우기") { e.jiugi(j.mal) }
                             }
                         }
                     }

@@ -160,13 +160,20 @@ final class SaramGamji: NSObject, ObservableObject, AVCaptureVideoDataOutputSamp
     private func allida(_ saram: [(Double, Double)]) {
         guard kyeojim else { return }
         let now = Date()
+        // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 말은 시계 방향이 바뀌거나 걸음 수가 1·3·5걸음 문턱을 넘을 때만, 어떤 말이든 3초 넘게 띄워서
+        //   (걸음 수가 조금만 바뀌어도 3초마다 말하던 것, 사라졌다 나타나면 곧바로 번갈아 말하던 것)
         guard let ga = saram.first, ga.0 <= 8 else {
             if boim && now.timeIntervalSince(eopT) > 2.5 {
                 boim = false
                 ttakMeomchum()
                 georiNow = 99
                 sangtae = "앞에 사람이 없습니다."
-                if !eopMal { eopMal = true; mal("앞에 사람이 없습니다.", .jeongbo) }
+                majimakMal = ""
+            }
+            if !boim && !eopMal && now.timeIntervalSince(malT) >= 3 {
+                eopMal = true
+                malT = now
+                mal("앞에 사람이 없습니다.", .jeongbo)
             }
             return
         }
@@ -180,12 +187,13 @@ final class SaramGamji: NSObject, ObservableObject, AVCaptureVideoDataOutputSamp
         sangtae = m
         georiNow = ga.0
         ttakMatchum(ga.0)
-        let cheoeum = !boim
         boim = true
-        eopMal = false
-        if cheoeum || (now.timeIntervalSince(malT) >= 3 && m != majimakMal) {
+        let teok = georeum <= 1 ? 1 : (georeum <= 3 ? 3 : (georeum <= 5 ? 5 : 9))
+        let gyeol = "\(min(su, 2))|\(si)|\(teok)"   // 사람 수(한 명·여럿), 시계 방향, 걸음 문턱
+        if gyeol != majimakMal && now.timeIntervalSince(malT) >= 3 {
             malT = now
-            majimakMal = m
+            majimakMal = gyeol
+            eopMal = false
             mal(m + ".")
         }
     }

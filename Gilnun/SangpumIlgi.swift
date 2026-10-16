@@ -260,10 +260,9 @@ struct SangpumIlgiView: View {
                     .frame(minHeight: 60)
                 if !g.jinan.isEmpty {
                     DisclosureGroup("이번에 읽은 상품 펼치기") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(Array(g.jinan.enumerated()), id: \.offset) { _, t in
-                                Text(t).font(.body)
-                            }
+                        // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 다섯 개씩(더 보기·이전 보기) — 한꺼번에 스무 개까지 늘어놓던 것
+                        Mokrok5(g.jinan.enumerated().map { GeulJul(id: $0.offset, mal: $0.element) }) { j in
+                            Text(j.mal).font(.body)
                         }
                     }
                     .font(.title3)

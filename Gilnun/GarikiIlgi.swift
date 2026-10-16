@@ -29,6 +29,8 @@ final class GarikiIlgi: NSObject, ObservableObject, AVCaptureVideoDataOutputSamp
     private var sonEopT = Date()
     private var sonEopMalSu = 0
     private var sonEopMalT = Date.distantPast
+    private var sonBoimMalT = Date.distantPast   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 「손가락이 보입니다」도 3초에 한 번까지
+    private var sonCheot = true                  // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 「보이지 않습니다」 세 번 한도는 켠 뒤 처음 보일 때만 새로
     private var geulEopMal = false
     private var sonT = Date.distantPast
     private var saeT = Date()
@@ -77,6 +79,7 @@ final class GarikiIlgi: NSObject, ObservableObject, AVCaptureVideoDataOutputSamp
             DispatchQueue.main.async {
                 self.kyeojim = true
                 self.malHanGeul = ""; self.sonBoim = false; self.sonEopT = Date(); self.sonEopMalSu = 0; self.geulEopMal = false
+                self.sonCheot = true; self.sonBoimMalT = .distantPast   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16)
                 self.saeT = Date()
                 UIApplication.shared.isIdleTimerDisabled = true
                 self.mal("가리키고 말하기를 시작합니다. 한 손으로 폰을 단추판 쪽으로 들고, 다른 손 검지로 단추를 가리키십시오.", sseuGi: true)
@@ -201,7 +204,8 @@ final class GarikiIlgi: NSObject, ObservableObject, AVCaptureVideoDataOutputSamp
         guard kyeojim else { return }
         let now = Date()
         if !son {
-            if sonBoim && now.timeIntervalSince(sonT) > 1.5 { sonBoim = false; sonEopT = now; sonEopMalSu = 0 }
+            // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 손가락이 사라질 때 세 번 한도를 새로 하지 않음(보였다 안 보였다 하면 말이 끝없이 번갈아 나오던 것)
+            if sonBoim && now.timeIntervalSince(sonT) > 1.5 { sonBoim = false; sonEopT = now }
             if !sonBoim && now.timeIntervalSince(sonEopT) > 3 && sonEopMalSu < 3 && now.timeIntervalSince(sonEopMalT) >= 3 {
                 sonEopMalSu += 1
                 sonEopMalT = now
@@ -212,9 +216,13 @@ final class GarikiIlgi: NSObject, ObservableObject, AVCaptureVideoDataOutputSamp
         sonT = now
         if !sonBoim {
             sonBoim = true
-            sonEopMalSu = 0
-            SoriEngine.shared.sori(.hwaksin)
-            mal("손가락이 보입니다.", .jeongbo)
+            // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 세 번 한도는 처음 보일 때만 새로, 「손가락이 보입니다」는 3초에 한 번까지
+            if sonCheot { sonCheot = false; sonEopMalSu = 0 }
+            if now.timeIntervalSince(sonBoimMalT) >= 3 {
+                sonBoimMalT = now
+                SoriEngine.shared.sori(.hwaksin)
+                mal("손가락이 보입니다.", .jeongbo)
+            }
         }
         if let g = geul, g != malHanGeul {
             malHanGeul = g
@@ -242,6 +250,7 @@ final class GarikiIlgi: NSObject, ObservableObject, AVCaptureVideoDataOutputSamp
 struct GarikiIlgiView: View {
     @ObservedObject private var g = GarikiIlgi.shared
     @ObservedObject private var s = Seoljeong.shared
+    @State private var mokPyeol = false   // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16)
     @AccessibilityFocusState private var chojeom: Bool
 
     var body: some View {
@@ -254,10 +263,14 @@ struct GarikiIlgiView: View {
                 .accessibilityFocused($chojeom)
                 Button("방금 읽은 것 다시 듣기") { g.dasiDeutgi() }
                     .buttonStyle(KeunDanchu())
-                DisclosureGroup("읽은 글 펼치기 — \(g.ilgeun.count)개") {
+                // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 펼치기 이름은 「읽은 글 펼치기」로 고정(읽는 동안 개수가 바뀌어 단추 이름이 흔들리던 것) — 펼칠 때 개수를 한 번 알림
+                DisclosureGroup("읽은 글 펼치기", isExpanded: $mokPyeol) {
                     Mokrok5(g.ilgeun) { j in Text(j.mal).font(.title3) }
                 }
                 .font(.title3)
+                .onChange(of: mokPyeol) { p in
+                    if p { SoriEngine.shared.mal(g.ilgeun.isEmpty ? "아직 읽은 글이 없습니다." : "읽은 글 \(g.ilgeun.count)개입니다.") }
+                }
                 Toggle(isOn: $s.kameraMal) { Text("카메라 눈 말소리").font(.title3.weight(.semibold)) }
                     .padding(.horizontal, 4)
                     .frame(minHeight: 60)

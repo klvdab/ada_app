@@ -1491,12 +1491,11 @@ final class MalHagi: ObservableObject {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { GilGil.shared.path.append(GilHwamyeon.yudo) }
             return true
         }
-        if z.contains("현장영상해설") || z.contains("현장해설") || z.contains("해설받") || z.contains("해설코스") || z.contains("파견신청") {
-            dap("현장영상해설 받기를 엽니다. 현장영상해설사 화상통화, 현장영상해설 코스, 파견 신청 가운데 고르십시오.", false)
-            TabGil.shared.tab = 1
-            DulreoGil.shared.path = NavigationPath()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { DulreoGil.shared.path.append(DulreoHwamyeon.haeseol) }
-            return true
+        // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 잘못 걸리는 화상통화가 더 나쁨 — 「지금 현장영상해설을 받고 싶다」는 말만 요청, 코스·파견 말은 여기서 빼고 다른 처리로 넘김
+        if (z.contains("현장영상해설") || z.contains("현장해설") || z.contains("해설받")) && !z.contains("코스") && !z.contains("파견") {
+            // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 현장영상해설 받기 화면은 둘러보기에서 감춤 —
+            //   「해설사 요청해 줘」와 똑같이 긴급통화서비스로 현장영상해설사에게 요청하고 긴급통화서비스 화면을 엶
+            return gingeupJikjeop("해설", "", dap)
         }
         // 2.13.0 QR 찾기 — "QR 찾아 줘", "큐알"
         if z.lowercased().contains("qr") || z.contains("큐알") || z.contains("큐아르") {
