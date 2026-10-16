@@ -89,7 +89,7 @@ struct Kan: View {
 
 // MARK: 화면 고르기
 
-enum Hwamyeon { case cheot, doumal, jeopsok, haengsa }
+enum Hwamyeon { case cheot, doumal, jeopsok, haengsa, gyoyuk, live }   // 1.4.0 gyoyuk 교육 녹화
 
 struct RootView: View {
     @State private var hwamyeon = Hwamyeon.cheot
@@ -101,6 +101,8 @@ struct RootView: View {
             case .doumal: DoumalView(dwiro: { hwamyeon = .cheot })
             case .jeopsok: JeopsokView(dwiro: { hwamyeon = .cheot })
             case .haengsa: HaengsaView(dwiro: { hwamyeon = .cheot })   // 1.3.0
+            case .gyoyuk: GyoyukView(dwiro: { hwamyeon = .cheot })   // 1.4.0
+            case .live: GyoyukView(jemok: "라이브 현장영상해설 방송", juso: GyoyukPan.LIVE, dwiro: { hwamyeon = .cheot })   // 1.4.0
             }
         }
     }
@@ -203,6 +205,8 @@ struct CheotView: View {
                 Danchu(geul: bangDanchuGeul, keun: true, norang: true) { bangNureum() }
                     .accessibilityFocused($bangChojeom)
                 Danchu(geul: "현장 점검") { hyeonjangJeomgeom() }
+                Danchu(geul: "라이브 현장영상해설 방송 (인터넷)") { gagi(.live) }   // 1.4.0 한 폰 한 화면에서
+                Danchu(geul: "현장영상해설교육 녹화") { gagi(.gyoyuk) }   // 1.4.0 (261016-BI6) 교육 녹화를 앱 안에서
                 if let p = ollim.saePan {
                     Danchu(geul: "LVD 송출 새 판 \(p)이 나왔습니다. 두드리면 테스트플라이트에서 업데이트합니다") { ollim.yeolgi() }
                 }
