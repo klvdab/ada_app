@@ -1017,7 +1017,7 @@ final class MalHagi: ObservableObject {
             dap("알겠습니다. 이제 \(h)\(MalHagi.irago(h)) 부르겠습니다.", false)
             return
         case .galrae:
-            if gingeupJikjeop(z, dap) { return }
+            if gingeupJikjeop(z, t, dap) { return }
             if z.contains("가족") || z.contains("지인") {
                 gingeup(t, dap)
                 return
@@ -1111,11 +1111,13 @@ final class MalHagi: ObservableObject {
         case .neomgilkka:
             // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 「자원봉사자와 현장영상해설사에게 요청할까요?」의 대답 — 네면 예 단추와 같이 두 갈래 함께 호출
             let g = GinGeup.shared
+            g.neomgilkkaSalpigi()   // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 2분 지난 물음은 거둠
             if !g.neomgilkka || g.sangtae != .eopseum {
                 mureum = .eopseum   // 단추로 이미 고르셨음 — 아래로 흘려 보통 말로 받음
             } else if ye && !ani && jjalbeun {
                 mureum = .eopseum
                 dap("", false)
+                g.hwamyeonYeolgi()   // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 끊기 단추가 바로 보이게
                 g.yocheong(.dowum)
                 return
             } else if ani && jjalbeun {
@@ -1174,7 +1176,7 @@ final class MalHagi: ObservableObject {
 
         // 5. 긴급통화 — 가장 급한 일
         if sajeon.itda(alts, "doum") || z.contains("화상통화") || z.contains("영상통화") || z.contains("긴급통화") {
-            if gingeupJikjeop(z, dap) { return }
+            if gingeupJikjeop(z, t, dap) { return }
             gingeup(t, dap)
             return
         }
@@ -2167,24 +2169,37 @@ final class MalHagi: ObservableObject {
     // MARK: 긴급통화
 
     /// 해설사·봉사자·명단의 이름이 바로 들리면 곧장 요청 — 하면 참
-    private func gingeupJikjeop(_ z: String, _ dap: @escaping (String, Bool) -> Void) -> Bool {
+    /// 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 이름과 별명으로 찾음(뒤에 붙은 님·씨·에게·한테·께·이·을·를은 떼고, 없으면 자모가 비슷한 이름),
+    ///   여러 분이 똑같이 맞으면 한 번 여쭘. 요청하면 긴급통화서비스 화면을 엶(안드로이드와 같게)
+    private func gingeupJikjeop(_ z: String, _ t: String, _ dap: @escaping (String, Bool) -> Void) -> Bool {
         if z.contains("해설") {
             mureum = .eopseum
             dap("", false)
+            GinGeup.shared.hwamyeonYeolgi()
             GinGeup.shared.yocheong(.haeseolsa)
             return true
         }
         if z.contains("봉사") {
             mureum = .eopseum
             dap("", false)
+            GinGeup.shared.hwamyeonYeolgi()
             GinGeup.shared.yocheong(.haebong)
             return true
         }
-        let l = Jiin.shared.mokrok.sorted { $0.name.count > $1.name.count }
-        if let s = l.first(where: { let nz = MalSajeon.ttuk($0.name); return !nz.isEmpty && z.contains(nz) }) {
+        let mat = Jiin.shared.malChatgi(t)
+        if mat.count == 1, let m = mat.first {
             mureum = .eopseum
             dap("", false)
-            GinGeup.shared.yocheong(.jiin, s)
+            GinGeup.shared.hwamyeonYeolgi()
+            GinGeup.shared.yocheong(.jiin, m.saram, byeol: m.byeol)
+            return true
+        }
+        if mat.count > 1, let m = mat.first {
+            mureum = .galrae
+            mureumTtae = Date()
+            let su = [2: "두", 3: "세", 4: "네"][mat.count] ?? "\(mat.count)"
+            let ireumdeul = mat.map { "\($0.saram.name) 님" }.joined(separator: ", ")
+            dap("\(m.mal)\(MalHagi.i(m.mal)) \(su) 분입니다. \(ireumdeul) 가운데 누구에게 요청할까요?", true)
             return true
         }
         return false
@@ -2196,7 +2211,7 @@ final class MalHagi: ObservableObject {
         Task {
             if Jiin.shared.mokrok.isEmpty { await Jiin.shared.bureogi() }
             DispatchQueue.main.async {
-                if self.gingeupJikjeop(z, dap) { return }
+                if self.gingeupJikjeop(z, t, dap) { return }
                 let l = Jiin.shared.mokrok
                 self.mureum = .galrae
                 self.mureumTtae = Date()
@@ -2204,7 +2219,12 @@ final class MalHagi: ObservableObject {
                     if l.isEmpty {
                         dap("가족·지인 명단이 비어 있습니다. 설정 탭의 가족·지인 명단에서 먼저 등록해 주십시오. 자원봉사자나 현장영상해설사에게 요청하시려면 말씀해 주십시오.", true)
                     } else {
-                        dap("가족·지인 가운데 누구에게 요청할까요? " + l.prefix(5).map { $0.name }.joined(separator: ", ") + ".", true)
+                        // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 열 분까지, 별명이 있으면 첫 별명을 함께(「홍길동 님, 큰딸」)
+                        let mok = l.prefix(Jiin.HANDO_SU).map { s -> String in
+                            if let b = Jiin.shared.byeol(s.id).first { return "\(s.name) 님, \(b)" }
+                            return "\(s.name) 님"
+                        }
+                        dap("가족·지인 가운데 누구에게 요청할까요? " + mok.joined(separator: ". ") + ".", true)
                     }
                 } else {
                     dap("\(self.ho), 누구에게 요청할까요? 가족·지인이면 이름을, 아니면 자원봉사자나 현장영상해설사라고 말씀해 주십시오.", true)

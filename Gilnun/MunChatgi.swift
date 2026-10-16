@@ -198,7 +198,7 @@ final class MunChatgi: NSObject, ObservableObject, ARSessionDelegate {
             }
             if !munBoim && !ireotdaMal && el > 30 && eodiseo != "munkkaji" {
                 kkeugi(malHagi: false)
-                mal("30초 동안 문을 찾지 못했습니다. 사진 읽어 주기로 문 앞을 찍어 보시거나, 긴급통화로 현장영상해설사를 부르실 수 있습니다.")
+                mal("30초 동안 문을 찾지 못했습니다. 사진 읽어 주기로 문 앞을 찍어 보시거나, 긴급통화로 현장영상해설사에게 요청하실 수 있습니다.")   // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 「부르실」 → 「요청하실」
                 Girok.shared.namgi("munchatgi_mot", ["eodi": eodiseo])
                 return
             }

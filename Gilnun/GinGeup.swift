@@ -2,9 +2,9 @@
 // 웹 길눈 buleugi.html·domum4.html과 같은 길: 나스 /eyec/rel.php 로 부르고(call·jindo·hangup),
 // 받으시면 곧장(누르지 않아도) 뒤 카메라와 마이크로 화상통화(WebRTC, 신호는 rel.php sig_put·sig_get, 나스 턴 서버).
 // 받는 분 화면(nun4.html·자봉 앱)은 지금 그대로입니다.
-// 이사장님 지시: 1분 30초 기다림, 말소리는 요청 시작·받음·연결 실패 때만, 통화 중에는 길눈 말소리를 내지 않음.
+// 이사장님 지시: 1분 30초 기다림(가족·지인은 2.80.0부터 40초), 말소리는 요청 시작·받음·연결 실패 때만, 통화 중에는 길눈 말소리를 내지 않음.
 // 2.42.0 (261004-G1, 이사장님 승인 2026-10-04) 받는 쪽은 자봉 앱 하나로 — 가족·지인은 이음 번호로 등록한 그 한 분께만 울림.
-//   가족·지인이 1분 30초 안에 받지 않으시면 "자원봉사자와 현장영상해설사에게 요청할까요?"를 여쭙고, 예 한 번이면 두 갈래 함께(dowum) 호출.
+//   가족·지인이 40초 안에 받지 않으시면(2.80.0부터, 처음에는 1분 30초) "자원봉사자와 현장영상해설사에게 요청할까요?"를 여쭙고, 예 한 번이면 두 갈래 함께(dowum) 호출.
 //   자원봉사자·현장영상해설사는 나스가 처음 15초 최근에 덜 받으신 다섯 분께 먼저, 그다음 모두에게 울림(기회 고르게).
 import Foundation
 import AVFoundation
@@ -70,6 +70,14 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
     @Published var malHan = ""
     /// 2.42.0 가족·지인이 받지 않으셨을 때 — 자원봉사자와 현장영상해설사에게 넘길지 여쭘
     @Published var neomgilkka = false
+    /// 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 넘길지 여쭌 때 — 2분이 지나면 물음(「예, 요청합니다」 단추)을 거둠
+    private var neomgilkkaTtae = Date.distantPast
+    /// 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 말로 하기에서 별명으로 요청하셨을 때 시작 말 앞에 붙일 별명
+    private var byeolMeori: String?
+    /// 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 자원봉사자·현장영상해설사를 30초쯤 기다렸을 때 한 번 알렸는지
+    private var jungganMal = false
+    /// 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 긴급통화가 화면 잠김을 막아 두었는지(다른 화면이 막은 것은 건드리지 않게)
+    private var hwamyeonKyeoduim = false
     @Published var naIrum: String = UserDefaults.standard.string(forKey: "gn.naIrum") ?? "" {
         didSet { UserDefaults.standard.set(naIrum, forKey: "gn.naIrum") }
     }
@@ -106,10 +114,13 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
 
     // MARK: 부르기
 
-    func yocheong(_ g: GinGeupGalrae, _ s: JiinSaram? = nil) {
+    /// 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) byeol — 말로 하기에서 별명으로 부르셨으면 「큰딸, 홍길동 님께 화상통화를 요청합니다.」
+    func yocheong(_ g: GinGeupGalrae, _ s: JiinSaram? = nil, byeol: String? = nil) {
         guard sangtae == .eopseum else { return }
         IceJuso.gaengsin()
         neomgilkka = false
+        jungganMal = false
+        byeolMeori = (g == .jiin) ? byeol : nil
         galrae = g
         saram = s
         cheot = true
@@ -123,12 +134,15 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
         var mal: String
         if g == .jiin {
             let nm = s?.name ?? "가족·지인"
-            mal = "\(nm) 님께 화상통화를 요청합니다."
+            mal = (byeolMeori.map { "\($0), " } ?? "") + "\(nm) 님께 화상통화를 요청합니다."
             if let s = s, !Jiin.shared.tel(s.id).isEmpty { mal += " 전화 걸기 단추도 있습니다." }
         } else {
             mal = "\(g.ireum)에게 호출 신호를 보냅니다."
         }
         geul = mal
+        // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 요청을 시작하면 하던 길눈 말과 목소리 토막을 멈추고 시작 말만(방송은 BangsongEngine 이 상태를 보고 멈춤)
+        SoriEngine.shared.jeonhwaMeomchum()
+        TomakDeutgi.shared.meomchugi()
         SoriEngine.shared.mal(mal)
         Girok.shared.namgi("gingeup_yocheong", ["g": g.rawValue])
 
@@ -201,7 +215,9 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
         // 2.12.0 나스가 답하지 않아도 폰 시계로 한도를 지킴 — 요청이 끝없이 걸려 있지 않게
         if Date().timeIntervalSince(sijakTtae) >= (galrae == .jiin ? GinGeup.JIIN_HANDO : GinGeup.HANDO) + 10 {
             hangup()
-            kkeut("연결되지 못했습니다. 통신이 약할 수 있습니다. 다시 요청하시거나 전화를 거실 수 있습니다.")
+            // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 전화번호가 있는 가족·지인일 때만 전화 말을 붙임
+            kkeut(telItda ? "연결되지 못했습니다. 통신이 약할 수 있습니다. 다시 요청하시거나 전화를 거실 수 있습니다."
+                          : "연결되지 못했습니다. 통신이 약할 수 있습니다. 다시 요청해 주십시오.")
             return
         }
         let r = room
@@ -219,6 +235,7 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
             jindoTimer?.invalidate()
             jindoTimer = nil
             sangtae = .yeongyeol
+            UIApplication.shared.isIdleTimerDisabled = true; hwamyeonKyeoduim = true   // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 잇는 동안·통화 중 화면이 잠겨 카메라가 멈추지 않게
             geul = "\(t) 님이 받으셨습니다. 잇는 중입니다."
             SoriEngine.shared.mal("\(t) 님이 받으셨습니다. 카메라와 마이크를 켭니다.")
             Girok.shared.namgi("gingeup_badeum", [:])
@@ -238,7 +255,7 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
             }
             return
         }
-        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 받는 분이 거절하시면(나스 a=geojeol) 1분 30초를 기다리지 않음 —
+        // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 받는 분이 거절하시면(나스 a=geojeol) 한도(가족·지인 40초, 그 밖 1분 30초)를 기다리지 않음 —
         //   지인 한 분이면 한 번의 거절로, 여럿에게 갔으면 울린 분(dae) 모두가 거절하셨을 때
         let geojeol = Int(Chatgi.su(j["geojeol"]) ?? 0)
         let daeSu = Int(Chatgi.su(j["dae"]) ?? 0)
@@ -268,7 +285,7 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
                 SoriEngine.shared.mal("\(nm) 님은 아직 자봉 앱으로 받기를 켜지 않으셨거나 받지 않기로 해 두셔서 신호가 닿지 않을 수 있습니다.")
             }
             // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 신호가 닿지 않는 지인(받기를 꺼 두셨거나 같은 폰의 내 자봉 앱)이면
-            //   1분 30초를 말없이 기다리지 않고 10초 뒤 자원봉사자와 현장영상해설사에게 넘길지 여쭘(받으신 분이 있으면 위에서 이미 이음)
+            //   40초를 말없이 기다리지 않고 10초 뒤 자원봉사자와 현장영상해설사에게 넘길지 여쭘(받으신 분이 있으면 위에서 이미 이음)
             if targetOn {
                 targetEopTtae = nil
             } else if targetEopTtae == nil {
@@ -290,13 +307,18 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
             geul = n > 0 ? "\(galrae.ireum) \(n)분께 호출 중입니다." : "지금 받으실 수 있는 \(galrae.ireum)가 없습니다."
             if cheot && n == 0 {
                 hangup()
-                kkeut("지금 받으실 수 있는 \(galrae.ireum)가 없습니다. 다른 갈래를 고르시거나 잠시 뒤 다시 호출해 주십시오.")
+                kkeut("지금 받으실 수 있는 \(galrae.ireum)가 없습니다. 다른 갈래를 고르시거나 잠시 뒤 다시 호출해 주십시오." + GinGeup.bamMal)
                 return
             }
             if s >= GinGeup.HANDO {
                 hangup()
-                kkeut("\(galrae.ireum)와 연결되지 못했습니다. 다른 갈래를 고르시거나 다시 호출해 주십시오.")
+                kkeut("\(galrae.ireum)와 연결되지 못했습니다. 다른 갈래를 고르시거나 다시 호출해 주십시오." + GinGeup.bamMal)
                 return
+            }
+            // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 1분 30초 가운데 30초쯤에 한 번만 — 말없이 오래 기다리지 않게
+            if s >= 30 && !jungganMal && n > 0 {
+                jungganMal = true
+                SoriEngine.shared.mal("\(galrae.ireum) \(n)분께 계속 요청 중입니다.")
             }
         }
         cheot = false
@@ -320,7 +342,40 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
     private func neomgilkkaMutgi(_ mal: String) {
         kkeut(mal)
         neomgilkka = true
+        // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 2분이 지나면 물음을 거둠(말로 하기의 물음도 2분)
+        let t = Date()
+        neomgilkkaTtae = t
+        DispatchQueue.main.asyncAfter(deadline: .now() + 121) { [weak self] in
+            guard let self = self, self.neomgilkkaTtae == t else { return }
+            self.neomgilkkaSalpigi()
+        }
         MalHagi.shared.neomgilkkaMutgi(mal)
+    }
+
+    /// 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 넘길지 여쭌 지 2분이 지났으면 물음과 그 글을 거둠
+    func neomgilkkaSalpigi() {
+        guard neomgilkka, sangtae == .eopseum, Date().timeIntervalSince(neomgilkkaTtae) >= 120 else { return }
+        neomgilkka = false
+        geul = ""
+    }
+
+    /// 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 지금 요청한 가족·지인께 전화번호가 있는가
+    private var telItda: Bool {
+        guard galrae == .jiin, let s = saram else { return false }
+        return !Jiin.shared.tel(s.id).isEmpty
+    }
+
+    /// 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 밤 열 시부터 아침 일곱 시까지 — 자원봉사자는 자봉 앱의 「밤에도 받기」를 켜 둔 분께만 울림
+    static var bamMal: String {
+        let h = Calendar.current.component(.hour, from: Date())
+        return (h >= 22 || h < 7) ? " 밤 열 시부터 아침 일곱 시까지는 밤에도 받기를 켜 두신 분께만 울립니다." : ""
+    }
+
+    /// 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 말로 하기에서 요청할 때 — 길 찾기 탭의 긴급통화서비스 화면을 엶(끊기 단추가 바로 보이게, 안드로이드와 같게)
+    func hwamyeonYeolgi() {
+        TabGil.shared.tab = 0
+        GilGil.shared.cheotHwamyeon()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { GilGil.shared.path.append(GilHwamyeon.gingeup) }
     }
 
     /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 받으신 분이 받기를 놓았는지(자봉이 받기를 확인하지 못했거나 기다리는 사이 끊으면
@@ -353,6 +408,7 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
     }
 
     private func kkeut(_ mal: String) {
+        let tonghwaYeollim = pc != nil   // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16)
         jindoTimer?.invalidate()
         jindoTimer = nil
         badeunJikimTimer?.invalidate()
@@ -366,6 +422,15 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
         room = ""
         sangtae = .eopseum
         SoriEngine.shared.tonghwaJung = false
+        // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 화면 잠김을 되돌리고, 통화를 열었으면 스피커 돌림과 소리 자리를 길눈 말소리 자리로 되돌림
+        if hwamyeonKyeoduim { UIApplication.shared.isIdleTimerDisabled = false; hwamyeonKyeoduim = false }
+        if tonghwaYeollim {
+            let ss = AVAudioSession.sharedInstance()
+            try? ss.overrideOutputAudioPort(.none)
+            if !MalDeutgi.shared.dolgoItda && !RemoteDanchu.shared.kyeojim {
+                try? ss.setCategory(.playback, mode: .voicePrompt, options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers])
+            }
+        }
         geul = mal
         SoriEngine.shared.mal(mal)
         Girok.shared.namgi("gingeup_kkeut", [:])
@@ -385,6 +450,9 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
     private func tonghwaIeum() {
         guard sangtae == .yeongyeol else { return }
         SoriEngine.shared.tonghwaJung = true
+        // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 통화가 열리면 하던 길눈 말·목소리 토막을 곧바로 멈춤(안드로이드와 같게)
+        SoriEngine.shared.jeonhwaMeomchum()
+        TomakDeutgi.shared.meomchugi()
         let f = GinGeup.factory
         let cfg = RTCConfiguration()
         cfg.iceServers = IceJuso.servers   // 2.43.0 나스 설정 쪽지에서
