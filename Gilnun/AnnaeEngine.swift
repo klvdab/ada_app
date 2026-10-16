@@ -423,20 +423,30 @@ final class AnnaeEngine: ObservableObject {
             return
         }
         malHagi("지금 자리를 알아보는 중입니다.", .jeongbo)
-        Task {
-            // 2.68.0 (261014-I22, 이사장님 승인 2026-10-14) 가까운 버스정류장(이름·번호)도 함께 받음
-            async let oA = Chatgi.json("jarimal.php", ["lat": String(format: "%.6f", w.lat), "lon": String(format: "%.6f", w.lon)])
-            async let jrA = Beoseu.gakkaun(w.lat, w.lon)
-            let n = await Nalssi.shared.mal()   // 2.13.0 날씨 한 마디를 끝에(웹 길눈과 같이)
-            let o = await oA
-            let jr = await jrA
-            await MainActor.run {
-                let m = AnnaeEngine.jariMalMandeulgi(o, w, jr)
-                // 2.68.0 무엇을 말씀드렸는지 그대로 남김(10/13 오금역 — 들으신 말을 기록으로 확인할 수 없었음)
-                Girok.shared.namgi("jari_mal", ["mal": m, "oc": Int(w.ochae), "la": w.lat, "lo": w.lon])
-                self.malHagi(m + (n.isEmpty ? "" : " 날씨는 " + n + "."))
-            }
+        // 2.68.0 (261014-I22, 이사장님 승인 2026-10-14) 가까운 버스정류장(이름·번호)도 함께 받음
+        // 2.84.0 (261016-I38, 이사장님 승인 2026-10-16 「1」) 셋을 따로 받고 12초가 지나면 받은 것만으로 말함(안드로이드와 같음 — 끝없이 기다리던 일)
+        let b = JariBat()
+        let majimak: () -> Void = { [weak self] in
+            guard let self = self, !b.han, b.nam <= 0 else { return }
+            b.han = true
+            let m = AnnaeEngine.jariMalMandeulgi(b.o, w, b.jr)
+            // 2.68.0 무엇을 말씀드렸는지 그대로 남김(10/13 오금역 — 들으신 말을 기록으로 확인할 수 없었음)
+            Girok.shared.namgi("jari_mal", ["mal": m, "oc": Int(w.ochae), "la": w.lat, "lo": w.lon])
+            self.malHagi(m + (b.n.isEmpty ? "" : " 날씨는 " + b.n + "."))
         }
+        Task {
+            let o = await Chatgi.json("jarimal.php", ["lat": String(format: "%.6f", w.lat), "lon": String(format: "%.6f", w.lon)])
+            await MainActor.run { b.o = o; b.nam -= 1; majimak() }
+        }
+        Task {
+            let jr = await Beoseu.gakkaun(w.lat, w.lon)
+            await MainActor.run { b.jr = jr; b.nam -= 1; majimak() }
+        }
+        Task {
+            let n = await Nalssi.shared.mal()   // 2.13.0 날씨 한 마디를 끝에(웹 길눈과 같이)
+            await MainActor.run { b.n = n; b.nam -= 1; majimak() }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 12) { b.nam = 0; majimak() }
     }
 
     // MARK: 2.68.0 출구·정류장 한마디 (빌드 261014-I22, 이사장님 승인 2026-10-14 「그래 수정하고 또 수정하자」)
@@ -1400,4 +1410,14 @@ final class AnnaeEngine: ObservableObject {
             majimakDong = dong
         }
     }
+}
+
+
+/// 2.84.0 (261016-I38, 이사장님 승인 2026-10-16 「1」) 지금 내 자리 듣기에서 따로 받은 셋을 모아 둠
+final class JariBat {
+    var o: [String: Any]?
+    var jr: [Jeongryujang]?
+    var n = ""
+    var nam = 3
+    var han = false
 }

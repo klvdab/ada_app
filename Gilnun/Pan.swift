@@ -10,13 +10,17 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.83.0"
-    static let bild = "261016-I37"
+    static let pan = "2.84.0"
+    static let bild = "261016-I38"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.84.0", bild: "261016-I38", nal: "2026-10-16", naeyong: [
+            "★지금 내 자리 듣기를 안드로이드와 같게(이사장님 승인 2026-10-16 「1」) — 셋을 따로 받고 12초가 지나면 받은 것만으로 말함, 점지도를 따라 걷는 중 지금 어디야는 남은 거리로",
+            "말로 「내 자리」도 알아들음, 갈림길·다음 꺾는 곳 말도 다음에 무엇으로, 흔들면 자리 번호의 위성 오차를 1미터부터, 도움말 바로잡음"
+        ]),
         Gochim(pan: "2.83.0", bild: "261016-I37", nal: "2026-10-16", naeyong: [
             "★차 부르기를 안드로이드와 같게(이사장님 승인 2026-10-16 「2」) — 안 된다고 했을 때 「○○에서 안 된다고 했습니다」, 보조견·협회로 보내기를 켜고 끌 때 말로 알림, 정기 호출을 정한 뒤 다음 알림 시각까지 말함, 요일은 일요일을 맨 끝에",
             "서류 없이 복지카드 메일 보내기를 누르면 알리고 서류 보관함으로, 위치를 새로 못 잡으면 마지막으로 확인한 곳이라고 알림",

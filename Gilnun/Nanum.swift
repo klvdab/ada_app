@@ -469,7 +469,7 @@ final class Heundeul {
             return
         }
         let m = Jijeom.mal(w.lat, w.lon) ?? "이곳은 국가지점번호를 셈할 수 없는 곳입니다."
-        SoriEngine.shared.mal(m + ". 위성 오차 약 \(Int(w.ochae))미터.", .gyeonggo)
+        SoriEngine.shared.mal(m + ". 위성 오차 약 \(max(1, Int(w.ochae)))미터.", .gyeonggo)   // 2.84.0 (261016-I38, 이사장님 승인 2026-10-16 「1」) 0미터로 말하지 않게
     }
 }
 

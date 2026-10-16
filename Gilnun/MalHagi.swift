@@ -904,13 +904,20 @@ final class MalHagi: ObservableObject {
                 jm.geuman()
                 return
             }
-            if z.contains("다음에무엇") || z.contains("다음에뭐") || z.contains("다음은뭐") || z.contains("다음표시") || z.contains("앞에뭐") {
+            if z.contains("다음에무엇") || z.contains("다음에뭐") || z.contains("다음은뭐") || z.contains("다음표시") || z.contains("앞에뭐") ||
+                z.contains("갈림길") || z.contains("다음꺾") || z.contains("다음에꺾") || z.contains("꺾는곳") {   // 2.84.0 (261016-I38, 이사장님 승인 2026-10-16 「1」) 안드로이드와 같은 말
                 dap(jm.daeumMuotMal(), false)
                 return
             }
             if jm.dochakHam && z.contains("되돌아") {
                 dap("", false)
                 jm.doedoragagi()
+                return
+            }
+            // 2.84.0 (261016-I38, 이사장님 승인 2026-10-16 「1」) 점지도를 따라 걷는 중 「지금 어디야」「어디쯤이야」는 주소 대신 점지도에서 남은 거리(안드로이드와 같음)
+            if jm.georeoJung && (sajeon.itda(alts, "eodi") || z.contains("어디쯤") || sajeon.itda(alts, "sigan") || sajeon.itda(alts, "jigeum_gil") || sajeon.itda(alts, "charye")) {
+                dap("", false)
+                jm.jigeumEodi()
                 return
             }
             if z.contains("문제있") || z.contains("여기문제") {
