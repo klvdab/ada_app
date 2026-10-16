@@ -4,7 +4,7 @@
 //   웹 길눈 buleugi.html·domum4.html과 같은 길: 나스 /eyec/rel.php 로 부르고(call·jindo·hangup),
 //   받으시면 곧장(누르지 않아도) 뒤 카메라와 마이크로 화상통화(WebRTC, 신호는 rel.php sig_put·sig_get, 나스 턴 서버).
 //   받는 분 화면(nun4.html·자봉 앱)은 지금 그대로입니다. 길눈이 먼저 제안(offer)을 보내고 받는 분이 답(answer)을 보냅니다.
-//   이사장님 지시: 1분 30초 기다림, 말소리는 요청 시작·받음·연결 실패 때만, 통화 중에는 길눈 말소리를 내지 않음(경고는 길게 진동).
+//   이사장님 지시: 1분 30초 기다림(가족·지인은 2.50.0부터 40초), 말소리는 요청 시작·받음·연결 실패 때만, 통화 중에는 길눈 말소리를 내지 않음(경고는 길게 진동).
 // 안드로이드에서 더한 것:
 //   통화 중에는 화면이 꺼지지 않게(카메라가 멈추지 않게). 길눈 화면이 닫히면 통화를 끊고 치움
 //   카메라·마이크 허락은 요청을 누를 때 미리 여쭘(받으신 뒤 3초 안에 허락 창을 찾지 않아도 되게)
@@ -138,6 +138,12 @@ object GinGeup {
     var malHan = ""
     /** 2.11.0 (261004-G1, 이사장님 승인) 가족·지인이 받지 않으셨을 때 — 자원봉사자와 현장영상해설사에게 넘길지 여쭘 */
     var neomgilkka = false
+    /** 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 넘길지 여쭌 때 — 2분이 지나면 물음(「예, 요청합니다」 단추)을 거둠 */
+    private var neomgilkkaTtae = 0L
+    /** 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 말로 하기에서 별명으로 요청하셨을 때 시작 말 앞에 붙일 별명 */
+    private var byeolMeori: String? = null
+    /** 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 자원봉사자·현장영상해설사를 30초쯤 기다렸을 때 한 번 알렸는지 */
+    private var jungganMal = false
     var galrae = GinGeupGalrae.JIIN
         private set
     var saram: JiinSaram? = null
@@ -242,15 +248,18 @@ object GinGeup {
 
     // MARK: 부르기
 
-    fun yocheong(g: GinGeupGalrae, s: JiinSaram? = null) {
-        main.post { yocheongSok(g, s) }
+    /** 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) byeol — 말로 하기에서 별명으로 부르셨으면 「큰딸, 홍길동 님께 화상통화를 요청합니다.」 */
+    fun yocheong(g: GinGeupGalrae, s: JiinSaram? = null, byeol: String? = null) {
+        main.post { yocheongSok(g, s, byeol) }
     }
 
-    private fun yocheongSok(g: GinGeupGalrae, s: JiinSaram?) {
+    private fun yocheongSok(g: GinGeupGalrae, s: JiinSaram?, byeol: String?) {
         if (sangtae != GinGeupSangtae.EOPSEUM) return
         if (ctx == null) return
         IceJuso.gaengsin()
         neomgilkka = false
+        jungganMal = false
+        byeolMeori = if (g == GinGeupGalrae.JIIN) byeol else null
         galrae = g
         saram = s
         cheot = true
@@ -266,13 +275,16 @@ object GinGeup {
         var mal: String
         if (g == GinGeupGalrae.JIIN) {
             val nm = s?.name ?: "가족·지인"
-            mal = "$nm 님께 화상통화를 요청합니다."
+            mal = (byeolMeori?.let { "$it, " } ?: "") + "$nm 님께 화상통화를 요청합니다."
             if (s != null && Jiin.tel(s.id).isNotEmpty()) mal += " 전화 걸기 단추도 있습니다."
         } else {
             mal = "${g.ireum}에게 호출 신호를 보냅니다."
         }
         geul = mal
         byeonhwa?.invoke()
+        // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 하던 길눈 말과 목소리 토막을 멈추고 시작 말만(아이폰과 같게)
+        Sori.meomchugi()
+        TomakDeutgi.meomchugi()
         Sori.mal(mal)
         Girok.namgi("gingeup_yocheong", mapOf("g" to g.kod))
         heorakMiri()
@@ -401,7 +413,9 @@ object GinGeup {
         // 나스가 답하지 않아도 폰 시계로 한도를 지킴 — 요청이 끝없이 걸려 있지 않게
         if ((System.currentTimeMillis() - sijakTtae) / 1000.0 >= (if (galrae == GinGeupGalrae.JIIN) JIIN_HANDO else HANDO) + 10) {
             hangup()
-            kkeut("연결되지 못했습니다. 통신이 약할 수 있습니다. 다시 요청하시거나 전화를 거실 수 있습니다.")
+            // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 전화번호가 있는 가족·지인일 때만 전화 말을 붙임
+            kkeut(if (telItda()) "연결되지 못했습니다. 통신이 약할 수 있습니다. 다시 요청하시거나 전화를 거실 수 있습니다."
+                  else "연결되지 못했습니다. 통신이 약할 수 있습니다. 다시 요청해 주십시오.")
             return
         }
         val r = room
@@ -436,7 +450,7 @@ object GinGeup {
             }, 40000)
             return
         }
-        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 받는 분이 거절하시면(나스 a=geojeol) 1분 30초를 기다리지 않음 —
+        // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 받는 분이 거절하시면(나스 a=geojeol) 한도(가족·지인 40초, 그 밖 1분 30초)를 기다리지 않음 —
         //   지인 한 분이면 한 번의 거절로, 여럿에게 갔으면 울린 분(dae) 모두가 거절하셨을 때
         val geojeol = (Jeomjido.su(j, "geojeol") ?: 0.0).toInt()
         val daeSu = (Jeomjido.su(j, "dae") ?: 0.0).toInt()
@@ -470,7 +484,7 @@ object GinGeup {
                 Sori.mal("$nm 님은 아직 자봉 앱으로 받기를 켜지 않으셨거나 받지 않기로 해 두셔서 신호가 닿지 않을 수 있습니다.")
             }
             // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 신호가 닿지 않는 지인(받기를 꺼 두셨거나 같은 폰의 내 자봉 앱)이면
-            //   1분 30초를 말없이 기다리지 않고 10초 뒤 자원봉사자와 현장영상해설사에게 넘길지 여쭘(받으신 분이 있으면 위에서 이미 이음, 아이폰과 같음)
+            //   40초를 말없이 기다리지 않고 10초 뒤 자원봉사자와 현장영상해설사에게 넘길지 여쭘(받으신 분이 있으면 위에서 이미 이음, 아이폰과 같음)
             if (targetOn) targetEopTtae = null
             else if (targetEopTtae == null) targetEopTtae = s
             val t0 = targetEopTtae
@@ -491,13 +505,18 @@ object GinGeup {
             geulBakkum(if (n > 0) "$gi ${n}분께 호출 중입니다." else "지금 받으실 수 있는 ${gi}가 없습니다.")
             if (cheot && n == 0) {
                 hangup()
-                kkeut("지금 받으실 수 있는 ${gi}가 없습니다. 다른 갈래를 고르시거나 잠시 뒤 다시 호출해 주십시오.")
+                kkeut("지금 받으실 수 있는 ${gi}가 없습니다. 다른 갈래를 고르시거나 잠시 뒤 다시 호출해 주십시오." + bamMal())   // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16)
                 return
             }
             if (s >= HANDO) {
                 hangup()
-                kkeut("${gi}와 연결되지 못했습니다. 다른 갈래를 고르시거나 다시 호출해 주십시오.")
+                kkeut("${gi}와 연결되지 못했습니다. 다른 갈래를 고르시거나 다시 호출해 주십시오." + bamMal())   // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16)
                 return
+            }
+            // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 1분 30초 가운데 30초쯤에 한 번만 — 말없이 오래 기다리지 않게
+            if (s >= 30 && !jungganMal && n > 0) {
+                jungganMal = true
+                Sori.mal("$gi ${n}분께 계속 요청 중입니다.")
             }
         }
         cheot = false
@@ -515,8 +534,33 @@ object GinGeup {
      *  말로 하기에도 「네·아니요」 물음으로 걸어 둠(말로 하기가 여쭌 뒤 마이크를 한 번 엶). 단추(예·아니요)는 그대로(아이폰과 같음) */
     private fun neomgilkkaMutgi(mal: String) {
         neomgilkka = true
+        // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 2분이 지나면 물음을 거둠(말로 하기의 물음도 2분)
+        val t = System.currentTimeMillis()
+        neomgilkkaTtae = t
+        main.postDelayed({ if (neomgilkkaTtae == t) neomgilkkaSalpigi() }, 121_000L)
         kkeut(mal, malEopsi = true)
         MalHagi.neomgilkkaMutgi(mal)
+    }
+
+    /** 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 넘길지 여쭌 지 2분이 지났으면 물음과 그 글을 거둠 — 화면을 그릴 때와 말로 대답할 때 살핌 */
+    fun neomgilkkaSalpigi() {
+        if (!neomgilkka || sangtae != GinGeupSangtae.EOPSEUM) return
+        if (System.currentTimeMillis() - neomgilkkaTtae < 120_000L) return
+        neomgilkka = false
+        geul = ""
+        byeonhwa?.invoke()
+    }
+
+    /** 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 지금 요청한 가족·지인께 전화번호가 있는가 */
+    private fun telItda(): Boolean {
+        val s = saram ?: return false
+        return galrae == GinGeupGalrae.JIIN && Jiin.tel(s.id).isNotEmpty()
+    }
+
+    /** 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 밤 열 시부터 아침 일곱 시까지 — 자원봉사자는 자봉 앱의 「밤에도 받기」를 켜 둔 분께만 울림 */
+    fun bamMal(): String {
+        val h = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        return if (h >= 22 || h < 7) " 밤 열 시부터 아침 일곱 시까지는 밤에도 받기를 켜 두신 분께만 울립니다." else ""
     }
 
     /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) malEopsi 면 말은 하지 않음(말로 하기가 대신 말하고 다 말한 뒤 마이크를 엶) */
@@ -607,6 +651,7 @@ object GinGeup {
         if (f == null) { hangup(); kkeut("통화를 열지 못했습니다. 다시 요청해 주십시오."); return }
         Sori.tonghwaJung = true
         Sori.meomchugi()
+        TomakDeutgi.meomchugi()   // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 목소리 토막도 멈춤
         val ice = IceJuso.servers()   // 2.12.0 나스 설정 쪽지에서
         val cfg = PeerConnection.RTCConfiguration(ice).apply {
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
@@ -925,6 +970,8 @@ object Jiin {
 
     /** 2.11.0 이음 번호(30분) — (번호, 못 받은 까닭). 2.50.0 (261016-A38, 이사장님 승인 2026-10-16 「1」) 세 자리 */
     fun ieumBeonho(kkeut: (String?, String) -> Unit) {
+        // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 열 분이 차 있으면 번호를 청하지 않음
+        if (bulreoom && mokrok.size >= HANDO_SU) { main.post { kkeut(null, gadeukMal) }; return }
         val ow = owner
         val nm = GinGeup.naIrum.ifEmpty { "길눈 이용자" }
         il.execute {
@@ -933,7 +980,13 @@ object Jiin {
             main.post {
                 if (o == null) { kkeut(null, "이음 번호를 받지 못했습니다. 통신이 끊겼을 수 있습니다."); return@post }
                 val b = o.optString("beonho", "")
-                if (!o.optBoolean("ok", false) || b.length != 3) { kkeut(null, o.optString("error", "").ifEmpty { "이음 번호를 받지 못했습니다." }); return@post }
+                if (!o.optBoolean("ok", false) || b.length != 3) {
+                    // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 나스가 열 분이 찼다고 하면 같은 말로
+                    val e = o.optString("error", "")
+                    if (e.contains("10") || e.contains("열 분") || e.contains("가득") || e.contains("찼")) { kkeut(null, gadeukMal); return@post }
+                    kkeut(null, e.ifEmpty { "이음 번호를 받지 못했습니다." })
+                    return@post
+                }
                 Girok.namgi("jiin_ieum_man")
                 kkeut(b, "")
             }
@@ -986,6 +1039,7 @@ object Jiin {
     fun jiugi(s: JiinSaram, kkeut: (() -> Unit)? = null) {
         val ow = owner
         telNoki(s.id, "")
+        byeolNoki(s.id, emptyList())   // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 별명도 함께 지움
         il.execute {
             GinGeup.getText(PHP, mapOf("a" to "jiwoo", "owner" to ow, "id" to s.id))
             main.post { bureogi { kkeut?.invoke() } }
@@ -1003,6 +1057,90 @@ object Jiin {
         val beon = t.filter { "0123456789+".indexOf(it) >= 0 }
         if (beon.isEmpty()) m.remove(id) else m.put(id, beon)
         d?.edit()?.putString("jiinTel", m.toString())?.apply()
+    }
+
+    // MARK: 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 열 분까지·별명
+
+    /** 가족·지인은 열 분까지 */
+    const val HANDO_SU = 10
+    const val gadeukMal = "열 분이 모두 찼습니다. 한 분을 빼셔야 새로 등록됩니다."
+
+    /** 별명 — 폰 안에만(SharedPreferences "jiinByeol" JSON, id → [별명]). 나스에는 보내지 않음 */
+    private fun byeolMokrok(): JSONObject = try { JSONObject(d?.getString("jiinByeol", "{}") ?: "{}") } catch (e: Exception) { JSONObject() }
+
+    fun byeol(id: String): List<String> {
+        val a = byeolMokrok().optJSONArray(id) ?: return emptyList()
+        return (0 until a.length()).map { a.optString(it, "") }.filter { it.isNotEmpty() }
+    }
+
+    fun byeolNoki(id: String, l: List<String>) {
+        val ll = l.map { it.trim() }.filter { it.isNotEmpty() }
+        val m = byeolMokrok()
+        if (ll.isEmpty()) m.remove(id) else m.put(id, JSONArray(ll))
+        d?.edit()?.putString("jiinByeol", m.toString())?.apply()
+    }
+
+    /** 쉼표로 나눈 별명 글 → 별명들 */
+    fun byeolPulgi(t: String): List<String> = t.split(',', '，', '、').map { it.trim() }.filter { it.isNotEmpty() }
+
+    /** 목록 줄 이름 — 「이름 (별명: 큰딸, 우리 딸)」 */
+    fun julIreum(s: JiinSaram): String {
+        val b = byeol(s.id)
+        return if (b.isEmpty()) s.name else "${s.name} (별명: ${b.joinToString(", ")})"
+    }
+
+    /** 말로 찾을 때 뒤에 붙은 높임·토씨 떼기(님, 씨, 에게, 한테, 께, 이, 을, 를) */
+    fun malDdegi(w: String): String {
+        var t = w
+        var bakkwim = true
+        while (bakkwim) {
+            bakkwim = false
+            for (k in listOf("에게", "한테", "님", "씨", "께", "이", "을", "를")) {
+                if (t.endsWith(k) && t.length > k.length + 1) { t = t.dropLast(k.length); bakkwim = true; break }
+            }
+        }
+        return t
+    }
+
+    /** 말로 찾은 한 분 — 맞은 별명(이름으로 맞았으면 null)과 맞은 말 */
+    class Matchum(val saram: JiinSaram, val byeol: String?, val mal: String)
+
+    /** 말(t)에서 명단의 이름·별명을 찾음 — 가장 잘 맞는 분들(같은 점수면 여럿).
+     *  들어 있으면 먼저, 없으면 자모가 비슷한 말(두 글자 이상 이름, 자모 네 자에 한 자까지 틀려도). 아이폰 Jiin.malChatgi 와 같음 */
+    fun malChatgi(t: String): List<Matchum> {
+        val z = MalSajeon.ttuk(t)
+        if (z.isEmpty()) return emptyList()
+        val l = t.split(" ").map { MalSajeon.ttuk(it) }.filter { it.isNotEmpty() }
+        val tokens = ArrayList<String>()
+        for (i in l.indices) {
+            tokens.add(l[i]); tokens.add(malDdegi(l[i]))
+            if (i + 1 < l.size) { tokens.add(l[i] + l[i + 1]); tokens.add(malDdegi(l[i] + l[i + 1])) }
+        }
+        val gyeol = ArrayList<Pair<Matchum, Int>>()
+        for (s in mokrok) {
+            var choe: Pair<Matchum, Int>? = null
+            val ki = listOf<Pair<String, String?>>(s.name to null) + byeol(s.id).map { it to it }
+            for ((k, b) in ki) {
+                val kz = malDdegi(MalSajeon.ttuk(k))
+                if (kz.isEmpty()) continue
+                var jeom = 0
+                if (z.contains(kz)) {
+                    jeom = 1000 + kz.length
+                } else if (kz.length >= 2) {
+                    val kj = MalSajeon.jamo(kz)
+                    val heoyong = maxOf(1, kj.size / 4)
+                    for (tk in tokens) {
+                        if (Math.abs(tk.length - kz.length) > 1) continue
+                        val dd = MalSajeon.geori(MalSajeon.jamo(tk), kj)
+                        if (dd <= heoyong) jeom = maxOf(jeom, 500 - dd * 10 + kz.length)
+                    }
+                }
+                if (jeom > 0 && jeom > (choe?.second ?: 0)) choe = Matchum(s, b, k) to jeom
+            }
+            choe?.let { gyeol.add(it) }
+        }
+        val top = gyeol.maxOfOrNull { it.second } ?: return emptyList()
+        return gyeol.filter { it.second == top }.map { it.first }
     }
 
     // MARK: 워치 긴급통화가 부를 한 분 — 마지막으로 요청하신 가족·지인

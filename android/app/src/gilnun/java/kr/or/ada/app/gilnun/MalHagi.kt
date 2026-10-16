@@ -682,6 +682,7 @@ object MalHagi {
         }
         // 1-2-5. 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 긴급통화 「자원봉사자와 현장영상해설사에게 요청할까요?」의 대답 —
         //   네면 예 단추와 같이 두 갈래 함께 호출, 아니요면 그만(아이폰 case .neomgilkka 와 같음). 단추로 이미 고르셨으면 보통 말로 받음
+        GinGeup.neomgilkkaSalpigi()   // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 2분 지난 물음은 거둠
         val nt = neomgilDaegiTtae
         if (nt > 0L) {
             neomgilDaegiTtae = 0L
@@ -801,7 +802,7 @@ object MalHagi {
         }
         // 4-2. 2.6.0 누구에게 요청할지 여쭌 말의 대답(아이폰 case .galrae) — 3분이 지나면 잊음
         if (gingeupMutneun && now - gingeupTtae < 120000) {   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 묻던 말은 2분(아이폰과 같음)
-            if (gingeupJikjeop(z, dap)) return
+            if (gingeupJikjeop(z, t, dap)) return
             if (z.contains("가족") || z.contains("지인")) {
                 gingeup(t, dap)
                 return
@@ -809,7 +810,7 @@ object MalHagi {
         }
         // 5. 2.6.0 긴급통화 — 가장 급한 일(아이폰과 같은 말)
         if (s.itda(alts, "doum") || z.contains("화상통화") || z.contains("영상통화") || z.contains("긴급통화")) {
-            if (gingeupJikjeop(z, dap)) return
+            if (gingeupJikjeop(z, t, dap)) return
             gingeup(t, dap)
             return
         }
@@ -1433,8 +1434,10 @@ object MalHagi {
 
     // MARK: 긴급통화(2.6.0, 아이폰 gingeupJikjeop·gingeup 과 같음)
 
-    /** 해설사·봉사자·명단의 이름이 바로 들리면 곧장 요청 — 하면 참 */
-    private fun gingeupJikjeop(z: String, dap: (String, Boolean) -> Unit): Boolean {
+    /** 해설사·봉사자·명단의 이름이 바로 들리면 곧장 요청 — 하면 참.
+     *  2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 이름과 별명으로 찾음(뒤에 붙은 님·씨·에게·한테·께·이·을·를은 떼고, 없으면 자모가 비슷한 이름),
+     *  여러 분이 똑같이 맞으면 한 번 여쭘(아이폰과 같음) */
+    private fun gingeupJikjeop(z: String, t: String, dap: (String, Boolean) -> Unit): Boolean {
         if (z.contains("해설")) {
             mureumChoGihwa()
             dap("", false)
@@ -1449,23 +1452,39 @@ object MalHagi {
             GinGeup.yocheong(GinGeupGalrae.HAEBONG)
             return true
         }
-        val l = Jiin.mokrok.sortedByDescending { it.name.length }
-        val sa = l.firstOrNull { val nz = MalSajeon.ttuk(it.name); nz.isNotEmpty() && z.contains(nz) }
-        if (sa != null) {
+        val mat = Jiin.malChatgi(t)
+        if (mat.size == 1) {
+            val m = mat[0]
             mureumChoGihwa()
             dap("", false)
             GinGeup.hwamyeonYeolgi()
-            GinGeup.yocheong(GinGeupGalrae.JIIN, sa)
+            GinGeup.yocheong(GinGeupGalrae.JIIN, m.saram, m.byeol)
+            return true
+        }
+        if (mat.size > 1) {
+            val m = mat[0]
+            mureumChoGihwa()
+            gingeupMutneun = true
+            gingeupTtae = System.currentTimeMillis()
+            val su = when (mat.size) { 2 -> "두"; 3 -> "세"; 4 -> "네"; else -> mat.size.toString() }
+            val ireumdeul = mat.joinToString(", ") { "${it.saram.name} 님" }
+            dap("${m.mal}${iGa(m.mal)} $su 분입니다. $ireumdeul 가운데 누구에게 요청할까요?", true)
             return true
         }
         return false
+    }
+
+    /** 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 받침 있으면 「이」, 없으면 「가」 */
+    private fun iGa(w: String): String {
+        val c = (w.lastOrNull()?.code ?: 0) - 0xAC00
+        return if (c in 0 until 11172 && c % 28 != 0) "이" else "가"
     }
 
     /** 누구에게 요청할지 여쭘(명단을 먼저 받아 봄) */
     private fun gingeup(t: String, dap: (String, Boolean) -> Unit) {
         val z = MalSajeon.ttuk(t)
         val ieo: () -> Unit = {
-            if (!gingeupJikjeop(z, dap)) {
+            if (!gingeupJikjeop(z, t, dap)) {
                 val l = Jiin.mokrok
                 gingeupMutneun = true
                 gingeupTtae = System.currentTimeMillis()
@@ -1473,7 +1492,12 @@ object MalHagi {
                     if (l.isEmpty()) {
                         dap("가족·지인 명단이 비어 있습니다. 설정 탭의 가족·지인 명단에서 먼저 등록해 주십시오. 자원봉사자나 현장영상해설사에게 요청하시려면 말씀해 주십시오.", true)
                     } else {
-                        dap("가족·지인 가운데 누구에게 요청할까요? " + l.take(5).joinToString(", ") { it.name } + ".", true)
+                        // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 열 분까지, 별명이 있으면 첫 별명을 함께(「홍길동 님, 큰딸」)
+                        val mok = l.take(Jiin.HANDO_SU).joinToString(". ") { sa ->
+                            val b = Jiin.byeol(sa.id).firstOrNull()
+                            if (b != null) "${sa.name} 님, $b" else "${sa.name} 님"
+                        }
+                        dap("가족·지인 가운데 누구에게 요청할까요? $mok.", true)
                     }
                 } else {
                     dap("$ho, 누구에게 요청할까요? 가족·지인이면 이름을, 아니면 자원봉사자나 현장영상해설사라고 말씀해 주십시오.", true)

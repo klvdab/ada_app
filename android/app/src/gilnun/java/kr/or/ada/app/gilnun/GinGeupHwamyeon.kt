@@ -23,6 +23,7 @@ class GinGeupHwamyeon : Hwamyeon("긴급통화서비스") {
 
     override fun chaeugi(t: GilnunActivity) {
         val g = GinGeup
+        g.neomgilkkaSalpigi()   // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 2분 지난 물음은 거둠
         gurin = g.sangtae
         geulView = null
         when (g.sangtae) {
@@ -104,7 +105,8 @@ class JiinGoreugiHwamyeon : Hwamyeon("가족·지인 고르기") {
             val kkeut = minOf(sijak + 5, l.size)
             for (n in sijak until kkeut) {
                 val s = l[n]
-                val b = t.danchu(if (s.badeum) s.name else "${s.name} (아직 받겠다고 안 하심)") {
+                // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 별명도 함께
+                val b = t.danchu(if (s.badeum) Jiin.julIreum(s) else "${Jiin.julIreum(s)} (아직 받겠다고 안 하심)") {
                     GinGeup.yocheong(GinGeupGalrae.JIIN, s)
                     t.dwiro()
                 }
@@ -163,13 +165,15 @@ class JiinMyeongdanHwamyeon : Hwamyeon("가족·지인 명단") {
         ne.doAfterTextChanged { GinGeup.naIrum = it?.toString() ?: "" }
         if (yetBangsik) yetHwamyeon(t)
         val l = Jiin.mokrok
+        // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 몇 분인지와 열 분 한도
+        if (Jiin.bulreoom) t.geul("등록된 분 ${l.size}분, 열 분까지", true)
         if (l.isNotEmpty()) {
-            t.geul("등록된 분 — 이름을 누르시면 명단에서 빼기를 고르실 수 있습니다.")
+            t.geul("이름을 누르시면 부르는 이름(별명)을 적거나 명단에서 빼실 수 있습니다.")
             if (sijak >= l.size) sijak = 0
             val kkeut = minOf(sijak + 5, l.size)
             for (n in sijak until kkeut) {
                 val s = l[n]
-                val b = t.danchu("${s.name} — ${if (s.badeum) "받음" else "아직 받겠다고 안 하심"}") { t.yeolgi(JiinSaramHwamyeon(s)) }
+                val b = t.danchu("${Jiin.julIreum(s)} — ${if (s.badeum) "받음" else "아직 받겠다고 안 하심"}") { t.yeolgi(JiinSaramHwamyeon(s)) }   // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 별명도 함께
                 if (n == sijak && chojeomHal && chojeomJul == null) chojeomJul = b
             }
             if (kkeut < l.size) t.danchu("더 보기") { sijak += 5; chojeomHal = true; t.dasiGeurigi() }
@@ -197,6 +201,13 @@ class JiinMyeongdanHwamyeon : Hwamyeon("가족·지인 명단") {
 
     /** 이음 번호 받기 — 받은 뒤 30분 동안 5초마다 명단을 살펴 새로 등록하신 분을 알려 드림 */
     private fun beonhoBatgi(t: GilnunActivity) {
+        // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 열 분이 차 있으면 번호를 청하지 않고 알려 드림
+        if (Jiin.bulreoom && Jiin.mokrok.size >= Jiin.HANDO_SU) {
+            allim = Jiin.gadeukMal
+            Sori.mal(Jiin.gadeukMal)
+            t.dasiGeurigi()
+            return
+        }
         allim = "이음 번호를 받고 있습니다."
         t.dasiGeurigi()
         Jiin.ieumBeonho { b, e ->
@@ -293,10 +304,29 @@ class JiinMyeongdanHwamyeon : Hwamyeon("가족·지인 명단") {
     }
 }
 
-/** 등록된 한 분 — 초대 주소 다시 보내기, 명단에서 빼기 */
+/** 등록된 한 분 — 초대 주소 다시 보내기, 명단에서 빼기.
+ *  2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 부르는 이름(별명) 적기 — 폰 안에만 담고 나스에는 보내지 않음. 말로 하기에서 별명으로 부르셔도 됨 */
 class JiinSaramHwamyeon(private val s: JiinSaram) : Hwamyeon(s.name) {
+    private var byeolGeul: String? = null
+
     override fun chaeugi(t: GilnunActivity) {
         t.geul(if (s.badeum) "받겠다고 하셨습니다." else "아직 받겠다고 하지 않으셨습니다.")
+        val bg = byeolGeul ?: Jiin.byeol(s.id).joinToString(", ")
+        byeolGeul = bg
+        val be = t.ipryeok("부르는 이름 — 별명, 쉼표로 나누어 여럿", false)
+        be.setText(bg)
+        be.doAfterTextChanged { byeolGeul = it?.toString() ?: "" }
+        t.danchu("별명 저장") {
+            val l = Jiin.byeolPulgi(byeolGeul ?: "")
+            Jiin.byeolNoki(s.id, l)
+            Girok.namgi("jiin_byeol", mapOf("n" to l.size))
+            if (l.isEmpty()) {
+                Sori.mal("별명을 지웠습니다. ${s.name}${MalHagi.roTo(s.name)} 부르시면 됩니다.")
+            } else {
+                val mal = l.joinToString(", ")
+                Sori.mal("별명을 저장했습니다. $mal${MalHagi.roTo(l.last())} 부르셔도 됩니다.")
+            }
+        }
         if (JiinMyeongdanHwamyeon.yetBangsik) t.danchu("초대 주소 다시 보내기") {
             val beon = Jiin.tel(s.id)
             if (beon.isNotEmpty()) JiinMyeongdanHwamyeon.munja(t, s, beon) else JiinMyeongdanHwamyeon.nanugi(t, s)
