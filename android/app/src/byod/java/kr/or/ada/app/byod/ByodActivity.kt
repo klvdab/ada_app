@@ -209,6 +209,8 @@ class ByodActivity : Activity() {
         bangDanchu = danchu("LVD 송출 시작", keun = true, norang = true) { bangDanchuNullim() }
         mom.addView(bangDanchu)
         mom.addView(danchu("현장 점검") { hyeonjangJeomgeom() })   // 1.1.5 (261009-B7) 방송 전 살필 것을 단추 하나로
+        mom.addView(danchu("라이브 현장영상해설 방송 (인터넷)") { startActivity(Intent(this, GyoyukActivity::class.java).putExtra("juso", GyoyukActivity.LIVE).putExtra("jemok", "라이브 현장영상해설 방송")) })   // 1.4.0 (261016-B12) 한 폰 한 화면에서
+        mom.addView(danchu("현장영상해설교육 녹화") { startActivity(Intent(this, GyoyukActivity::class.java)) })   // 1.4.0 (261016-B12) 교육 녹화를 앱 안에서
         Ollim.julMal(this)?.let { m -> mom.addView(danchu(m) { Ollim.olligi(this) }) }   // 1.1.2 새 판이 있을 때만 — 안내와 단추를 한 자리에
 
         sangtae = geul("", 22f, true)
