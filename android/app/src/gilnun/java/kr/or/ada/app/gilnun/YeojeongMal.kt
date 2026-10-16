@@ -7,7 +7,7 @@
 package kr.or.ada.app.gilnun
 
 object YeojeongMal {
-    private enum class Mureum { EOPSEUM, JEOM, BANGSIK }
+    private enum class Mureum { EOPSEUM, JEOM, BANGSIK, CHA, KOL }   // 2.53.0 (261016-A41, 이사장님 승인 2026-10-16 「2」) CHA 차를 요청할까요, KOL 어디에 전화할까요(아이폰과 같음)
 
     private var mureum = Mureum.EOPSEUM
     private var mureumTtae = 0L
@@ -47,6 +47,9 @@ object YeojeongMal {
     }
 
     /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 「점지도로 걸을까요」를 여쭌 때(여쭌 것이 없으면 0) — 마지막에 여쭌 물음을 가리는 데 씀 */
+    /** 2.53.0 (261016-A41, 이사장님 승인 2026-10-16 「2」) 「차를 요청할까요」·「어디에 전화할까요」를 여쭌 때(없으면 0) */
+    fun chaMureumTtae(): Long = if (mureum == Mureum.CHA || mureum == Mureum.KOL) mureumTtae else 0L
+
     fun jeomMureumTtae(): Long = if (mureum == Mureum.JEOM && JeomEngine.muleum != null) mureumTtae else 0L
 
     private fun yeoJjum(m: Mureum) {
@@ -58,12 +61,43 @@ object YeojeongMal {
     private fun hwalseong(): GilnunActivity? = MalHagi.hwalseong?.get()
 
     /** 여정 끝·도착, 점지도로 걸을까요의 대답 — 하면 참 */
-    fun meonjeo(alts: List<String>, z: String, dap: (String, Boolean) -> Unit, jeomDap: Boolean = true): Boolean {
+    fun meonjeo(alts: List<String>, z: String, dap: (String, Boolean) -> Unit, jeomDap: Boolean = true, chaDap: Boolean = false): Boolean {
         // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 묻던 말을 잊는 때를 아이폰과 맞춤 — 점지도로 걸을까요는 1분, 어떻게 가실까요는 2분
         val sumyeong = if (mureum == Mureum.JEOM) 60000L else 120000L
         if (System.currentTimeMillis() - mureumTtae > sumyeong) mureum = Mureum.EOPSEUM
         val s = MalSajeon
         val y = YeojeongEngine.jigeum
+        // 2.53.0 (261016-A41, 이사장님 승인 2026-10-16 「2」) 「차를 요청할까요」·「어디에 전화할까요」의 대답 — 콜 이름이면 곧장 걸고, 네면 어디에 걸지 여쭘(아이폰과 같음)
+        if (mureum == Mureum.CHA || mureum == Mureum.KOL) {
+            val o = NnKol.jaryo
+            val jong = when { s.itda(alts, "kol_jangaein") -> "jangaein"; s.itda(alts, "kol_nabi") -> "nabi"; s.itda(alts, "kol_bokji") -> "bokji"; z.contains("콜택시") -> "jangaein"; else -> null }
+            val k = (if (jong != null) KolJiyeok.chatgi(o, jong) else null) ?: KolJiyeok.ireumChatgi(o, alts)
+            if (k != null) {
+                mureum = Mureum.EOPSEUM
+                Girok.namgi("malhagi_kol_georeum", mapOf("ireum" to k.ireum))
+                ChaBureugi.geolgi(k, false, dap)
+                return true
+            }
+            if (jong != null) {
+                mureum = Mureum.EOPSEUM
+                dap(if (KolJiyeok.mok(o).isEmpty()) KolJiyeok.mal(o) else "그 콜은 이 지역 목록에 없습니다. 콜 번호 알려 줘라고 말씀하시면 이 지역 번호를 읽어 드립니다.", false)
+                return true
+            }
+            if (chaDap && z.length <= 10) {
+                val hd = MalHagi.hwaginDap(alts)
+                if (mureum == Mureum.CHA && hd == HwaginDap.YE) {
+                    yeoJjum(Mureum.KOL)
+                    val l = KolJiyeok.mok(o)
+                    dap(if (l.isEmpty()) KolJiyeok.mal(o) else KolJiyeok.mal(o) + " 어디에 전화할까요? " + l.take(5).joinToString(", ") { it.ireum } + " 가운데 말씀해 주십시오. 복지콜이라고만 하셔도 이 지역 센터로 겁니다.", l.isNotEmpty())
+                    return true
+                }
+                if (hd == HwaginDap.ANI) {
+                    mureum = Mureum.EOPSEUM
+                    dap("알겠습니다. 차에 타시면 차에 탔어라고 말씀해 주십시오.", false)
+                    return true
+                }
+            }
+        }
         // 여정 끝내기(여정이 있을 때만 — 없으면 MalHagi 의 따라 걷기 끝으로 넘김)
         if (y != null && s.itda(alts, "yeojeong_kkeut")) {
             mureum = Mureum.EOPSEUM
@@ -258,7 +292,8 @@ object YeojeongMal {
                     AnnaeEngine.chaTagi(j)
                 } else {
                     yj.jeonghagi(mk)
-                    dap(apMal + "차를 부르시려면 복지콜에 전화해 줘라고 말씀하십시오. 이 지역 센터로 걸어 드립니다. 차에 타시면 차에 탔어라고 말씀해 주십시오. 그때부터 차 안 안내를 합니다.", false)
+                    yeoJjum(Mureum.CHA)   // 2.53.0 (261016-A41, 이사장님 승인 2026-10-16 「2」) 아이폰과 같이 여쭘
+                    dap(apMal + "차를 요청할까요? 이미 차가 있으시면 타신 뒤 차에 탔어라고 말씀해 주십시오.", true)
                 }
                 a?.cheotHwamyeonEuro(null)
             }

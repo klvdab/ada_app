@@ -579,7 +579,7 @@ object MalHagi {
         val ani = hd == HwaginDap.ANI
         val majimak = majimakMureum(now)
         // 2.7.0 묶음 b1 — 여정이 있을 때의 여정 끝·도착, "점지도로 걸을까요"의 대답(아이폰 1번·1-2번·muleum)
-        if (YeojeongMal.meonjeo(alts, z, dap, majimak == "jeom")) { mureumChoGihwa(); return }
+        if (YeojeongMal.meonjeo(alts, z, dap, majimak == "jeom", majimak == "cha")) { mureumChoGihwa(); return }
         // 1. 여정 끝·도착 — "도착", "다 왔어"를 가실 곳 이름으로 찾지 않고 따라 걷기를 마침(아이폰 2.12.7)
         val dochakMal = setOf("도착", "도착했어", "도착했다", "도착했어요", "도착했습니다", "도착이야", "도착했네", "다왔어", "다왔다", "다왔어요", "다왔습니다", "다왔네", "도착완료", "여기도착")
         val dochak = dochakMal.contains(z) || (z.startsWith("도착") && z.length <= 6 && !z.contains("까지") && !z.contains("시간"))
@@ -647,14 +647,16 @@ object MalHagi {
         // 1-2-4. 2.31.0 「○○에 전화할까요?」의 대답 — 네일 때만 겁니다
         val kd = kolDaegi
         if (kd != null) {
-            kolDaegi = null
-            if (now - kolDaegiTtae < 120000 && majimak == "kol") {
+            // 2.53.0 (261016-A41, 이사장님 승인 2026-10-16 「2」) 딴말을 하셔도 물음을 곧바로 지우지 않고 2분 동안 기다림(아이폰과 같음)
+            if (now - kolDaegiTtae >= 120000) kolDaegi = null
+            else if (majimak == "kol" && z.length <= 10) {
                 if (ye) {
+                    kolDaegi = null
                     Girok.namgi("malhagi_kol_georeum", mapOf("ireum" to kd.ireum))
                     ChaBureugi.geolgi(kd, false, dap)
                     return
                 }
-                if (ani) { dap("알겠습니다. 걸지 않겠습니다.", false); return }
+                if (ani) { kolDaegi = null; dap("알겠습니다. 걸지 않겠습니다.", false); return }
             }
         }
         // 1-2-5. 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 긴급통화 「자원봉사자와 현장영상해설사에게 요청할까요?」의 대답 —
@@ -1607,6 +1609,8 @@ object MalHagi {
         val l = ArrayList<Pair<String, Long>>()
         val jt = YeojeongMal.jeomMureumTtae()
         if (jt > 0 && now - jt < 60000) l.add("jeom" to jt)
+        val ct = YeojeongMal.chaMureumTtae()   // 2.53.0 (261016-A41, 이사장님 승인 2026-10-16 「2」) 「차를 요청할까요」·「어디에 전화할까요」
+        if (ct > 0 && now - ct < 120000) l.add("cha" to ct)
         if (mutneunJung && huboI < hubo.size && now - mureumTtae < 60000) l.add("hubo" to mureumTtae)
         if (chulguDaean != null && now - chulguDaeanTtae < 120000) l.add("chulgu" to chulguDaeanTtae)
         if (mokjeokDaegi != null && now - mokjeokDaegiTtae < 120000) l.add("mokjeok" to mokjeokDaegiTtae)

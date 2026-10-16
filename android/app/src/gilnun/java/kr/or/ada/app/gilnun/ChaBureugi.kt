@@ -528,6 +528,15 @@ internal object ChaBureugi {
 
     fun seoryuItna(c: Context) = NnSeoryuham.jongryu.any { NnSeoryuham.itna(c, it.first) }
 
+    /** 2.53.0 (261016-A41, 이사장님 승인 2026-10-16 「2」) 길눈이 하던 말이 끝나면(길어야 20초) 할 일 */
+    private fun malKkeutDwi(f: () -> Unit) {
+        var n = 0
+        val r = object : Runnable {
+            override fun run() { if (Sori.malhaneunJung && n++ < 40) main.postDelayed(this, 500) else f() }
+        }
+        main.postDelayed(r, 800)
+    }
+
     /** 복지카드를 그 지역 메일로 보낼지 여쭘 */
     fun meilMutgi(a: KolAnnae) {
         val c = ctx ?: return
@@ -634,7 +643,7 @@ internal object ChaBureugi {
             if (KolAnnaeJaryo.jul.isEmpty()) KolAnnaeJaryo.bureogi()
             val a = KolAnnaeJaryo.jigeum()
             dap(NnKol.jiyeokMal() + " " + KolAnnaeJaryo.mal(a), false)
-            if (a != null && a.gongsik && a.meil.isNotEmpty()) main.postDelayed({ meilMutgi(a) }, 9000)
+            if (a != null && a.gongsik && a.meil.isNotEmpty()) malKkeutDwi { meilMutgi(a) }   // 2.53.0 (261016-A41, 이사장님 승인 2026-10-16 「2」) 9초 대신 조건 말이 끝나면 곧바로(아이폰과 같음)
             return true
         }
         // 6. 정기 호출
