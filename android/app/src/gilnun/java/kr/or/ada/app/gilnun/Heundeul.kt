@@ -157,7 +157,7 @@ object Heundeul : SensorEventListener {
     fun jariBeonhoMal() {
         val w = Wichi.jigeum ?: run { Sori.mal("아직 자리를 잡는 중입니다. 잠시 뒤 다시 흔들어 주십시오."); return }
         val m = Jijeom.mal(w.lat, w.lon) ?: "이곳은 국가지점번호를 셈할 수 없는 곳입니다."
-        Sori.mal(m + ". 위성 오차 약 ${w.ochae.toInt()}미터.", MalGeup.GYEONGGO)
+        Sori.mal(m + ". 위성 오차 약 ${maxOf(1, w.ochae.toInt())}미터.", MalGeup.GYEONGGO)   // 2.54.0 (261016-A42, 이사장님 승인 2026-10-16 「1」) 0미터로 말하지 않게
     }
 }
 

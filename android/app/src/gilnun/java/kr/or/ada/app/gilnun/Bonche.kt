@@ -23,12 +23,16 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.53.0"
-    const val bild = "261016-A41"
+    const val pan = "2.54.0"
+    const val bild = "261016-A42"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.54.0", "261016-A42", "2026-10-16", listOf(
+            "★지금 내 자리 듣기를 아이폰 2.84.0과 같게(이사장님 승인 2026-10-16 「1」) — 설정의 지금 설정으로 내 자리 듣기도 첫 화면 단추와 똑같은 말로(옛 말 걷어 냄)",
+            "말로 「내 자리」도 알아들음, 흔들면 자리 번호의 위성 오차를 1미터부터, 도움말 바로잡음"
+        )),
         Gochim("2.53.0", "261016-A41", "2026-10-16", listOf(
             "★차 부르기를 아이폰 2.83.0과 같게(이사장님 승인 2026-10-16 「2」) — 말로 차로 가자 하시면 「차를 요청할까요?」 여쭙고, 네면 어디에 전화할지 여쭈어 곧장 겁니다",
             "말로 콜 이용 조건을 물으신 뒤 메일 보낼지 여쭙기를 9초 대신 조건 말이 끝나면 곧바로, 「○○에 전화할까요?」에 딴말을 하셔도 2분 동안 물음을 기다림"

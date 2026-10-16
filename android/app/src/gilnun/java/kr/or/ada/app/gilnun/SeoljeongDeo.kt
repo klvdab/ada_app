@@ -77,47 +77,8 @@ object SeoljeongDeo {
 
     // MARK: 지금 내 자리 — 설정에서 고른 것만(아이폰 AnnaeEngine.jigeumJari·jariMalMandeulgi)
 
-    fun jariMal() {
-        val w = Wichi.jigeum
-        if (w == null) {
-            Sori.mal(if (!Wichi.heorakItda) "위치 허락이 없어 자리를 알 수 없습니다. 폰 설정의 앱, 길눈, 권한에서 위치를 허용해 주십시오."
-            else "아직 위치를 잡는 중입니다. 잡히면 다시 눌러 주십시오.")
-            return
-        }
-        Sori.mal("지금 자리를 알아보는 중입니다.", MalGeup.JEONGBO)
-        Tongsin.json("jarimal.php", mapOf("lat" to NanumNas.sosu6(w.lat), "lon" to NanumNas.sosu6(w.lon)), 10000) { o ->
-            // 2.40.0 (261014-A28) 길 찾기의 지금 내 자리와 같은 말 — 출구(호선 뺌·두 출구 사이)와 버스정류장 이름·번호
-            Beoseu.gakkaun(w.lat, w.lon) { jr ->
-                Nalssi.mal { n -> Sori.mal(AnnaeEngine.jariMalMandeulgi(o, w, jr) + (if (n.isEmpty()) "" else " 날씨는 $n.")) }
-            }
-        }
-    }
-
-    fun jariMalMandeulgi(o: JSONObject?, w: Jari): String {
-        val t = ArrayList<String>()
-        if (o != null) {
-            val juso = NanumNas.gul(o, "juso")
-            if (jariJuso && juso.isNotEmpty()) t.add(juso)
-            val jb = NanumNas.gul(o, "jibeon")
-            if (jariJibeon && jb.isNotEmpty()) t.add("지번 $jb")
-            if (jariGot) {
-                val c = o.optJSONObject("chulgu")
-                val g = o.optJSONObject("gakkaun")
-                val cn = NanumNas.gul(c, "ireum")
-                val gn = NanumNas.gul(g, "ireum")
-                if (c != null && cn.isNotEmpty()) t.add("${cn}에서 ${(NanumNas.su(c, "meter") ?: 0.0).toInt()}미터")
-                else if (g != null && gn.isNotEmpty()) t.add("${gn}에서 ${(NanumNas.su(g, "meter") ?: 0.0).toInt()}미터")
-            }
-            val m = NanumNas.gul(o, "mal")
-            if (t.isEmpty() && !jariJijeom && !jariOcha && m.isNotEmpty()) t.add(m)
-        } else if (!jariJijeom) {
-            t.add("지금 자리 이름을 받지 못했습니다. 통신이 끊겼을 수 있습니다")
-        }
-        if (jariJijeom) Jijeom.mal(w.lat, w.lon)?.let { t.add(it) }
-        if (jariOcha) t.add("위성 오차 약 ${max(1, w.ochae.toInt())}미터")
-        if (t.isEmpty()) t.add("말할 내용이 모두 꺼져 있습니다. 설정 탭의 현 위치정보 말할 내용에서 켜 주십시오")
-        return t.joinToString(". ") + "."
-    }
+    /** 2.54.0 (261016-A42, 이사장님 승인 2026-10-16 「1」) 길 찾기 첫 화면의 지금 내 자리 듣기와 똑같이(배 안·기록·12초 상한까지) — 옛 따로 만든 말은 걷어 냄 */
+    fun jariMal() { AnnaeEngine.jigeumJari() }
 
     // MARK: 목소리 — 폰의 한국어 TTS 목소리 목록(목록만 보려고 따로 하나 엶)
 
