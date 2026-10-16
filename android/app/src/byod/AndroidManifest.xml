@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- 1.4.0 (261016-B12) 현장영상해설교육 녹화 — 카메라 -->
+    <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
@@ -27,7 +29,6 @@
     <!-- 길눈 갈래의 허락들은 BYOD 방송에 쓰지 않으므로 뺍니다 -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" tools:node="remove" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" tools:node="remove" />
-    <uses-permission android:name="android.permission.CAMERA" tools:node="remove" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" tools:node="remove" />
     <uses-permission android:name="android.permission.BLUETOOTH" tools:node="remove" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" tools:node="remove" />
@@ -52,6 +53,7 @@
         </activity>
         <activity android:name="kr.or.ada.app.byod.JeopsokActivity" android:exported="false" android:label="접속 도구" />
         <activity android:name="kr.or.ada.app.byod.FlintJunbiActivity" android:exported="false" android:label="플린트 2 준비하기" />
+        <activity android:name="kr.or.ada.app.byod.GyoyukActivity" android:exported="false" android:label="현장영상해설교육 녹화" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" />
         <service
             android:name="kr.or.ada.app.byod.ByodService"
             android:exported="false"
