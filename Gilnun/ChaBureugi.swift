@@ -242,22 +242,41 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
             sigak = JeonggiHochul.sigakMal(s.dochakSi, s.dochakBun)
             bj = s.bojogyeon
         }
-        if chulbal.isEmpty, let w = WichiEngine.shared.jigeum {
-            chulbal = await Chatgi.juso(w.lat, w.lon) ?? ""
+        // 2.83.0 (261016-I37, 이사장님 승인 2026-10-16 「2」) 주소와 타는 곳은 함께 알아보고 5.5초가 넘으면 받은 것만(안드로이드와 같음 — 끝없이 기다리던 일)
+        let w0 = WichiEngine.shared.jigeum
+        let jusoPil = chulbal.isEmpty
+        async let jusoA = ChaBureugi.handoAne(5.5, "") {
+            guard jusoPil, let w = w0 else { return "" }
+            return await Chatgi.juso(w.lat, w.lon) ?? ""
         }
+        async let tagoA = ChaBureugi.handoAne(5.5, "") {
+            if jeonggi { return "" }
+            return await AnnaeEngine.taneunGotMal()
+        }
+        let ju = await jusoA
+        let tg = await tagoA
+        if chulbal.isEmpty { chulbal = ju }
         if dochak.isEmpty, let y = YeojeongEngine.shared.jigeum { dochak = y.mokjeok.ireum }
         // 2.68.0 (261014-I22, 이사장님 승인 2026-10-14) 타는 곳 — 출구와 버스정류장 이름·번호(10/13 오금역에서 기사님이 몇 바퀴를 도심)
-        var tago = ""
-        if !jeonggi {
-            tago = await AnnaeEngine.taneunGotMal()
-            majimakTago = tago
-        }
+        let tago = tg
+        if !jeonggi { majimakTago = tago }
         var t: [String] = []
         if !chulbal.isEmpty { t.append("출발은 \(chulbal)입니다.") }
         if !tago.isEmpty { t.append("타는 곳은 \(tago)입니다.") }
         if !dochak.isEmpty { t.append("도착은 \(dochak)" + (sigak.isEmpty ? "입니다." : ", \(sigak)까지 가야 합니다.")) }
         t.append(bj ? "보조견과 함께 탑니다." : "보조견은 없습니다.")
         return t.joined(separator: " ")
+    }
+
+    /// 2.83.0 (261016-I37, 이사장님 승인 2026-10-16 「2」) 정한 시간 안에 끝나지 않으면 기본값으로
+    static func handoAne(_ cho: Double, _ gibon: String, _ f: @escaping () async -> String) async -> String {
+        await withTaskGroup(of: String?.self) { g in
+            g.addTask { await f() }
+            g.addTask { try? await Task.sleep(nanoseconds: UInt64(cho * 1_000_000_000)); return nil }
+            let r = await g.next() ?? nil
+            g.cancelAll()
+            return r ?? gibon
+        }
     }
 
     /// 통화 중에도 볼 수 있게 할 말을 알림으로 남김
@@ -321,7 +340,7 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
             if let n = n {
                 daeum = n
                 daeumTtae = Date()
-                SoriEngine.shared.mal("\(jigeum?.ireum ?? "그 콜")\(MalHagi.i(jigeum?.ireum ?? "콜")) 안 된다고 했습니다. \(n.ireum)에 걸까요? 걸어 줘, 또는 아니라고 말씀해 주십시오.")
+                SoriEngine.shared.mal("\(jigeum?.ireum ?? "그 콜")에서 안 된다고 했습니다. \(n.ireum)에 걸까요? 걸어 줘, 또는 아니라고 말씀해 주십시오.")
                 SoriEngine.shared.kkeutnamyeon { if self.daeum != nil { MalHagi.shared.dudeurim() } }
             } else {
                 SoriEngine.shared.mal("안 된다고 했다고 남겼습니다. 이 지역에는 다른 수단 번호가 없습니다. 길 찾기에서 대중교통이나 걷기 안내를 받으실 수 있습니다.")
@@ -519,7 +538,7 @@ final class JeonggiHochul: NSObject, ObservableObject, UNUserNotificationCenterD
     /// 그날만 바꾸기 — "yyyyMMdd": "swim" 쉬기, "HHmm" 시각, "dochak:이름" 도착
     @Published private(set) var bakkum: [String: String] { didSet { jeojang() } }
     @Published private(set) var daeumMal = ""
-    private var hyuil: Set<String> = JeonggiHochul.gibonHyuil
+    private var hyuil: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "gn.hyuil") ?? []).union(JeonggiHochul.gibonHyuil)   // 2.83.0 (261016-I37, 이사장님 승인 2026-10-16 「2」) 받아 둔 공휴일을 폰에 담아 둠
     private var dolgo = false
 
     /// 한국천문연구원 월력요항(2026-10-09 확인) — 나스 jeom/hyuil.json 이 있으면 그것을 씀
@@ -546,6 +565,7 @@ final class JeonggiHochul: NSObject, ObservableObject, UNUserNotificationCenterD
             if let d = try? await Tongsin.shared.get("hyuil.json"),
                let o = try? JSONSerialization.jsonObject(with: d.data) as? [String: Any],
                let l = o["nal"] as? [String], !l.isEmpty {
+                UserDefaults.standard.set(l, forKey: "gn.hyuil")
                 await MainActor.run { self.hyuil = Set(l).union(JeonggiHochul.gibonHyuil); self.jaeYeyak() }
             }
         }
@@ -616,6 +636,7 @@ final class JeonggiHochul: NSObject, ObservableObject, UNUserNotificationCenterD
     }
 
     private func yeyakGeolgi() {
+        defer { if let f = yeyakKkeut { yeyakKkeut = nil; f(daeumMal) } }
         guard s.kyeojim else { daeumMal = "정기 호출이 꺼져 있습니다."; return }
         let cal = Calendar.current
         let now = Date()
@@ -653,14 +674,18 @@ final class JeonggiHochul: NSObject, ObservableObject, UNUserNotificationCenterD
         let yo: String
         if s.yoil.sorted() == [2, 3, 4, 5, 6] { yo = "월요일부터 금요일까지" }
         else if s.yoil.count == 7 { yo = "날마다" }
-        else { yo = s.yoil.sorted().map { JeonggiHochul.yoilIreum[$0] }.joined(separator: ", ") + "마다" }
+        else { yo = s.yoil.sorted(by: { ($0 == 1 ? 8 : $0) < ($1 == 1 ? 8 : $1) }).map { JeonggiHochul.yoilIreum[$0] }.joined(separator: ", ") + "마다" }   // 2.83.0 (261016-I37, 이사장님 승인 2026-10-16 「2」) 일요일은 맨 끝
         let chul = s.chulbalIreum.isEmpty ? "부를 때 계신 곳" : s.chulbalIreum
         let do_ = s.dochakIreum.isEmpty ? "아직 정하지 않음" : s.dochakIreum
         return "\(yo) \(JeonggiHochul.sigakMal(s.si, s.bun))에 알려 드립니다. 출발은 \(chul), 도착은 \(do_), \(JeonggiHochul.sigakMal(s.dochakSi, s.dochakBun))까지입니다. 수단은 \(sudanIreum)입니다. 공휴일은 건너뜁니다."
     }
 
-    func jeonghagi(_ x: JeonggiSeoljeong) {
+    /// 2.83.0 (261016-I37, 이사장님 승인 2026-10-16 「2」) 정한 뒤 다음 알림 시각까지 말하려고 — 알림을 다시 건 뒤 한 번 부름
+    private var yeyakKkeut: ((String) -> Void)?
+
+    func jeonghagi(_ x: JeonggiSeoljeong, kkeut: ((String) -> Void)? = nil) {
         s = x
+        yeyakKkeut = kkeut
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in
             DispatchQueue.main.async { self.jaeYeyak() }
         }
@@ -844,6 +869,7 @@ struct ChaBureugiView: View {
     @ObservedObject private var j = JeonggiHochul.shared
     @State private var gaeng = 0
     @State private var meil = false
+    @State private var seoryuGagi = false   // 2.83.0 (261016-I37, 이사장님 승인 2026-10-16 「2」)
     @AccessibilityFocusState private var meoriChojeom: Bool
 
     private var sudan: [KolBeonho] { c.sudanDeul() }
@@ -893,17 +919,23 @@ struct ChaBureugiView: View {
                             if !a.paekseu.isEmpty { Text("서류 보내는 팩스: " + a.paekseu).font(.body) }
                             if !a.meil.isEmpty {
                                 Text("서류 보내는 메일: " + a.meil).font(.body)
-                                Button("복지카드를 이 메일로 보내기 — 내 서류 보관함") { meil = true }.buttonStyle(KeunDanchu())
+                                Button("복지카드를 이 메일로 보내기 — 내 서류 보관함") {
+                                    // 2.83.0 (261016-I37, 이사장님 승인 2026-10-16 「2」) 서류가 없으면 빈 메일 창 대신 알리고 서류 보관함으로(안드로이드와 같음)
+                                    if Seoryuham.jongryu.contains(where: { Seoryuham.itna($0.0) }) { meil = true }
+                                    else { SoriEngine.shared.mal("내 서류 보관함에 담아 둔 서류가 없습니다. 먼저 복지카드를 담아 주십시오."); seoryuGagi = true }
+                                }.buttonStyle(KeunDanchu())
                             }
                             if !a.unhaeng.isEmpty && !a.unhaeng.hasPrefix("확인 중") { Text("운행: " + a.unhaeng).font(.body) }
                         }
                         Text("나의 이용 성적표").font(.title3.weight(.bold)).accessibilityAddTraits(.isHeader)
                         Text(c.seongjeokpyo()).font(.body)
-                        Toggle(isOn: Binding(get: { c.dongui == 1 }, set: { c.dongui = $0 ? 1 : 2 })) {
+                        Toggle(isOn: Binding(get: { c.dongui == 1 }, set: { c.dongui = $0 ? 1 : 2   // 2.83.0 (261016-I37, 이사장님 승인 2026-10-16 「2」) 안드로이드와 같이 말로 알림
+                            SoriEngine.shared.mal($0 ? "협회로 이름 없이 보내기를 켰습니다. 받는 곳이 준비되는 대로 이름과 번호 없이 보냅니다." : "협회로 보내기를 껐습니다.") })) {
                             Text("이름 없이 협회로 보내기 — 지역마다 얼마나 잡히는지 알리는 근거가 됩니다").font(.body)
                         }
                         .frame(minHeight: 60)
-                        Toggle(isOn: $c.bojogyeon) { Text("보조견과 함께 탑니다 — 상담원께 말할 것에 넣음").font(.body) }
+                        Toggle(isOn: Binding(get: { c.bojogyeon }, set: { c.bojogyeon = $0   // 2.83.0 (261016-I37, 이사장님 승인 2026-10-16 「2」) 안드로이드와 같이 말로 알림
+                            SoriEngine.shared.mal($0 ? "상담원께 보조견과 함께 탄다고 말씀하시도록 넣었습니다." : "보조견은 없다고 넣었습니다.") })) { Text("보조견과 함께 탑니다 — 상담원께 말할 것에 넣음").font(.body) }
                             .frame(minHeight: 60)
                         NavigationLink { SeoryuhamView() } label: { Text("내 서류 보관함 — 복지카드 담아 두기") }
                             .buttonStyle(KeunDanchu())
@@ -923,6 +955,7 @@ struct ChaBureugiView: View {
         .sheet(isPresented: $meil) {
             SeoryuMeil(baneun: annae?.meil ?? "", jiyeok: annae?.ireum ?? "") { meil = false }
         }
+        .navigationDestination(isPresented: $seoryuGagi) { SeoryuhamView() }
     }
 }
 
@@ -1083,8 +1116,8 @@ struct JeonggiHochulView: View {
         y.dochakJuso = jg.mokrok.first(where: { $0.ireum == y.dochakIreum })?.juso ?? ""
         y.chulbalJuso = jg.mokrok.first(where: { $0.ireum == y.chulbalIreum })?.juso ?? ""
         if y.yoil.isEmpty { y.yoil = [2, 3, 4, 5, 6] }
-        j.jeonghagi(y)
         x = y
-        SoriEngine.shared.mal(y.kyeojim ? j.hwaginMal() : "정기 호출을 껐습니다.")
+        // 2.83.0 (261016-I37, 이사장님 승인 2026-10-16 「2」) 안드로이드와 같이 다음 알림 시각까지 말함
+        j.jeonghagi(y) { dm in SoriEngine.shared.mal(y.kyeojim ? j.hwaginMal() + " " + dm : "정기 호출을 껐습니다.") }
     }
 }

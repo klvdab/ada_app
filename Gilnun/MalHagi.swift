@@ -2195,6 +2195,7 @@ final class MalHagi: ObservableObject {
         if sajeon.itda(alts, "kol_jangaein") { return "jangaein" }
         if sajeon.itda(alts, "kol_nabi") { return "nabi" }
         if sajeon.itda(alts, "kol_bokji") { return "bokji" }
+        if alts.contains(where: { $0.replacingOccurrences(of: " ", with: "").contains("콜택시") }) { return "jangaein" }   // 2.83.0 (261016-I37, 이사장님 승인 2026-10-16 「2」) 「콜택시」만 하셔도 교통약자 콜(안드로이드와 같음)
         return nil
     }
 

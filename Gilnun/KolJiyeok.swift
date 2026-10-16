@@ -95,7 +95,7 @@ extension MalSajeon {
             if let w = w, WichiEngine.geori(m.lat, m.lon, w.lat, w.lon) > 3000 {
                 // 주소 찾기가 아직 따라오지 못함 — 아래 가까운 센터로 셈
             } else {
-                return (m.sido, m.sigungu, "주소")
+                return (m.sido, m.sigungu, w == nil ? "마지막" : "주소")   // 2.83.0 (261016-I37, 이사장님 승인 2026-10-16 「2」) 위치를 새로 못 잡았으면 마지막으로 확인한 곳이라고(안드로이드와 같음)
             }
         }
         guard let w = w else {
