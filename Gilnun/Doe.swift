@@ -76,6 +76,19 @@ final class DoeEngine: ObservableObject {
         mal(gieokItda ? "길 기억을 멈췄습니다. 모두 \(chongGeoreum)걸음, \(kkeokSu)번 꺾으셨습니다. 나오실 때 되짚어 나가기를 누르십시오." : "길 기억을 멈췄습니다. 기억한 걸음이 없습니다.")
     }
 
+    /// 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 「새로 들어갑니다 — 다시 기억하기」 — 기억한 길이 있으면 한 번 여쭙고, 10초 안에 한 번 더 누르셔야 새로 기억함(그 전에는 아무것도 지우지 않음)
+    private var saeroMureumTtae: Date?
+    func saeroDeureogagi() {
+        if !gieokItda { saeroMureumTtae = nil; gieokSijak(); return }
+        if let t = saeroMureumTtae, Date().timeIntervalSince(t) < 10 {
+            saeroMureumTtae = nil
+            gieokSijak()
+            return
+        }
+        saeroMureumTtae = Date()
+        mal("기억한 길을 지우고 새로 기억할까요? 한 번 더 누르시면 새로 기억합니다.")
+    }
+
     func jiugi() {
         sigye?.invalidate(); sigye = nil
         tomak = []

@@ -79,6 +79,7 @@ struct GilChatgiView: View {
     @ObservedObject private var gg = GinGeup.shared         // 2.73.0 긴급통화 요청·통화 중 글자
     @AppStorage("gn.cheotAnnae") private var cheotNajung = false
     @State private var mal = ""
+    @State private var geuBakkPyeol = false   // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 그 밖에 펼치기·접기 — 안드로이드처럼 글자가 바뀜
     @AccessibilityFocusState private var meoriChojeom: Bool
     // 2.60.0 (261009-I14, 이사장님 승인 2026-10-09 남산) 편집창에 글자를 넣으시는 동안 화면을 굳혀 둠 —
     //   위아래 줄이 새로 생기거나 사라지지 않고, 편집창이 여정 칸으로 바뀌지 않으며, 마이크 듣기도 쉼
@@ -166,7 +167,8 @@ struct GilChatgiView: View {
                          : gg.sangtae == .yocheong ? "긴급통화 요청 중 — 통화 화면으로" : "긴급통화 중 — 통화 화면으로")
                 }
                 .buttonStyle(KeunDanchu())
-                DisclosureGroup("그 밖에 펼치기") {
+                // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 펼치면 「그 밖에 접기」로 글자가 바뀜(안드로이드와 같게), 기초 시험은 설정 탭 더 보기에만 둠
+                DisclosureGroup(isExpanded: $geuBakkPyeol) {
                     VStack(alignment: .leading, spacing: 10) {
                         Button("주변 신호기 살피기 — 있는지, 블루투스로 울릴 수 있는지") { SinhogiEngine.shared.juByeonSalpigi() }   // 2.45.0
                             .buttonStyle(KeunDanchu())
@@ -177,6 +179,7 @@ struct GilChatgiView: View {
                         // 2.73.0 안드로이드와 같게(이사장님 승인 2026-10-14) — 켤 때 알려 드리고, 다시 누르면 멈춤
                         Button(sh.chatneunJung ? "음향신호기 찾기 멈추기" : "음향신호기 찾기 — 가까워질수록 소리가 빨라집니다") {
                             if sh.chatneunJung { sh.chatgiKkeugi("음향신호기 찾기를 멈췄습니다.") }
+                            else if let m = sh.makimMal() { SoriEngine.shared.mal(m, .annae) }   // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 블루투스를 쓸 수 없으면 켜지 않고 까닭만
                             else {
                                 sh.chatgiKyeogi()
                                 SoriEngine.shared.mal("음향신호기 찾기를 켭니다. 가까워질수록 소리가 빨라집니다. 다시 누르시면 멈춥니다.", .annae)
@@ -195,9 +198,9 @@ struct GilChatgiView: View {
                             .buttonStyle(KeunDanchu())
                         NavigationLink(value: GilHwamyeon.munChatgi) { Text("문 찾기 — 카메라로 앞의 문을 찾아 방향과 걸음 수로") }
                             .buttonStyle(KeunDanchu())
-                        NavigationLink(value: GilHwamyeon.gicho) { Text("기초 시험") }
-                            .buttonStyle(KeunDanchu())
                     }
+                } label: {
+                    Text(geuBakkPyeol ? "그 밖에 접기" : "그 밖에 펼치기")
                 }
                 .font(.title3)
             }

@@ -89,10 +89,35 @@ final class SinhogiEngine: NSObject, ObservableObject, CBCentralManagerDelegate,
     /// 손으로 울리기 — 결과를 말하고, 진동하고, 워치에도 알림
     func ulligi(_ cmd: UInt8) {
         Girok.shared.namgi("sinhogi_son", ["cmd": Int(cmd)])
-        bonaegi(cmd) { ok, mal in
-            SoriEngine.shared.mal(mal, .annae)
-            Jindong.hagi(ok ? "arrive" : "long")
-            WatchLink.shared.sinhogiDap(ok, mal)
+        // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 블루투스가 꺼졌거나 허락이 없으면 9초 기다리지 않고 바로 알림
+        DispatchQueue.main.async {
+            if let m = self.makimMal() {
+                SoriEngine.shared.mal(m, .annae)
+                Jindong.hagi("long")
+                WatchLink.shared.sinhogiDap(false, m)
+                return
+            }
+            self.bonaegi(cmd) { ok, mal in
+                SoriEngine.shared.mal(mal, .annae)
+                Jindong.hagi(ok ? "arrive" : "long")
+                WatchLink.shared.sinhogiDap(ok, mal)
+            }
+        }
+    }
+
+    /// 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16)
+    ///   블루투스 상태를 먼저 살핌 — 꺼짐·허락 없음·지원 안 함이면 드릴 말, 쓸 수 있거나 아직 모르면(켜지는 중) nil
+    ///   자동 울리기가 앱을 켤 때 부품을 미리 만들어 두어 상태 바뀜 알림이 다시 오지 않으므로, 누를 때마다 여기서 살핌
+    func makimMal() -> String? {
+        if CBManager.authorization == .denied || CBManager.authorization == .restricted {
+            return "음향신호기를 찾으려면 블루투스 허락이 필요합니다. 아이폰 설정의 길눈에서 블루투스를 켜 주십시오."
+        }
+        guard let c = central else { return nil }
+        switch c.state {
+        case .poweredOff: return "블루투스가 꺼져 있습니다. 제어 센터에서 블루투스를 켜신 뒤 다시 눌러 주십시오."
+        case .unauthorized: return "음향신호기를 찾으려면 블루투스 허락이 필요합니다. 아이폰 설정의 길눈에서 블루투스를 켜 주십시오."
+        case .unsupported: return "이 폰은 블루투스를 쓸 수 없습니다."
+        default: return nil
         }
     }
 
@@ -185,6 +210,8 @@ final class SinhogiEngine: NSObject, ObservableObject, CBCentralManagerDelegate,
     func chatgiKyeogi() {
         DispatchQueue.main.async {
             guard !self.chatneunJung else { return }
+            // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 블루투스를 쓸 수 없으면 6초 뒤 「잡히지 않습니다」 대신 바로 까닭을 알리고 켜지 않음
+            if let m = self.makimMal() { SoriEngine.shared.mal(m, .annae); return }
             self.chatneunJung = true
             self.chatgiSijak = Date()
             self.eopdaMal = false
@@ -243,13 +270,13 @@ final class SinhogiEngine: NSObject, ObservableObject, CBCentralManagerDelegate,
             dasiSalpim()
         case .poweredOff:
             junbiDoemyeon = nil
-            maechim(false, "폰의 블루투스가 꺼져 있습니다. 제어 센터에서 블루투스를 켜 주십시오.")
+            maechim(false, "블루투스가 꺼져 있습니다. 제어 센터에서 블루투스를 켜신 뒤 다시 눌러 주십시오.")   // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 누를 때 살피는 말(makimMal)과 같게
         case .unauthorized:
             junbiDoemyeon = nil
-            maechim(false, "블루투스 사용을 허락하지 않으셨습니다. 아이폰 설정의 길눈에서 블루투스를 켜 주십시오.")
+            maechim(false, "음향신호기를 찾으려면 블루투스 허락이 필요합니다. 아이폰 설정의 길눈에서 블루투스를 켜 주십시오.")   // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 누를 때 살피는 말(makimMal)과 같게
         case .unsupported:
             junbiDoemyeon = nil
-            maechim(false, "이 기기는 블루투스를 쓸 수 없습니다.")
+            maechim(false, "이 폰은 블루투스를 쓸 수 없습니다.")   // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 누를 때 살피는 말(makimMal)과 같게
         default:
             break
         }
@@ -314,6 +341,8 @@ final class SinhogiEngine: NSObject, ObservableObject, CBCentralManagerDelegate,
     func juByeonSalpigi() {
         DispatchQueue.main.async {
             guard !self.salpigiJung else { SoriEngine.shared.mal("지금 살피는 중입니다.", .jeongbo); return }
+            // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 블루투스를 쓸 수 없으면 8초 기다리지 않고 바로 알림
+            if let m = self.makimMal() { self.salpigiGyeolgwa = m; SoriEngine.shared.mal(m, .annae); return }
             self.salpigiJaba = [:]
             self.salpigiJung = true
             SoriEngine.shared.mal("둘레의 음향신호기를 8초 동안 살핍니다. 폰을 앞으로 들어 주십시오.", .annae)

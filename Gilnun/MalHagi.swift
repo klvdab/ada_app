@@ -1369,6 +1369,7 @@ final class MalHagi: ObservableObject {
                 return true
             }
             if z.contains("찾") {
+                if let m = SinhogiEngine.shared.makimMal() { dap(m, false); return true }   // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 블루투스를 쓸 수 없으면 켠다고 하지 않고 까닭만
                 dap("음향신호기 찾기를 켭니다. 가까워질수록 소리가 빨라집니다. 그만이라고 하시면 멈춥니다.", false)
                 SinhogiEngine.shared.chatgiKyeogi()
             } else {

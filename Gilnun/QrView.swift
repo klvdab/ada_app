@@ -218,23 +218,24 @@ struct DoeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 switch d.sangtae {
+                // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 두 앱 단추 글자를 하나로 — 걸음 수가 바뀔 때마다 글자가 바뀌던 상태 단추를 「지금 상태 듣기」로 고정
                 case .gieok:
                     Button("나갑니다 — 왔던 길 되짚어 나가기") { d.doejipgi() }
                         .buttonStyle(KeunDanchu())
                         .accessibilityFocused($chojeom)
-                    Button(d.jul.isEmpty ? "지금 상태 듣기" : d.jul + " 다시 듣기") { d.jigeumMal() }.buttonStyle(KeunDanchu())
-                    Button("기억 그만두기") { d.gieokGeuman() }.buttonStyle(KeunDanchu())
+                    Button("지금 상태 듣기") { d.jigeumMal() }.buttonStyle(KeunDanchu())
+                    Button("길 기억 멈추기 — 기억한 길은 남깁니다") { d.gieokGeuman() }.buttonStyle(KeunDanchu())
                 case .annae:
-                    Button("지금 무엇을 할지 다시 듣기") { d.jigeumMal() }
+                    Button("지금 할 일 다시 듣기") { d.jigeumMal() }
                         .buttonStyle(KeunDanchu())
                         .accessibilityFocused($chojeom)
-                    Button("되짚어 나가기 그만") { d.annaeGeuman() }.buttonStyle(KeunDanchu())
+                    Button("되짚어 나가기 멈추기") { d.annaeGeuman() }.buttonStyle(KeunDanchu())
                 case .swim:
                     if d.gieokItda {
                         Button("되짚어 나가기 — 기억한 \(d.chongGeoreum)걸음, \(d.kkeokSu)번 꺾은 길로 나가기") { d.doejipgi() }
                             .buttonStyle(KeunDanchu())
                             .accessibilityFocused($chojeom)
-                        Button("새로 들어갑니다 — 다시 기억하기") { d.gieokSijak() }.buttonStyle(KeunDanchu())
+                        Button("새로 들어갑니다 — 다시 기억하기") { d.saeroDeureogagi() }.buttonStyle(KeunDanchu())   // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 한 번 여쭘
                         Button("기억한 길 지우기") { d.jiugi() }.buttonStyle(KeunDanchu())
                     } else {
                         Button("들어갑니다 — 지금부터 길을 기억하기") { d.gieokSijak() }

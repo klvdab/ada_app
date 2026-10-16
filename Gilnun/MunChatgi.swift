@@ -189,12 +189,12 @@ final class MunChatgi: NSObject, ObservableObject, ARSessionDelegate {
                 ireotdaMal = true
                 munBoim = false
                 sangtae = "문을 다시 찾는 중입니다."
-                mal("문이 카메라에서 벗어났습니다. 폰을 천천히 좌우로 돌려 주십시오.")
+                mal("문이 카메라에서 벗어났습니다. 폰을 천천히 9시에서 3시 쪽으로 돌려 주십시오.")   // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 시계 방향으로
             }
             // 2.52.0 8초마다 지금 하는 일을 알리고, 한 번도 문을 못 보고 30초 지나면 바로 알려 다른 길을 권함(이사장님 승인)
             if !munBoim && el > Double(8 * (chatneunMalSu + 1)) && el < 30 {
                 chatneunMalSu += 1
-                mal("문을 찾고 있습니다. 폰을 가슴 앞에 세워 들고 천천히 좌우로 돌려 주십시오.")
+                mal("문을 찾고 있습니다. 폰을 가슴 앞에 세워 들고 천천히 9시에서 3시 쪽으로 돌려 주십시오.")   // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 시계 방향으로
             }
             if !munBoim && !ireotdaMal && el > 30 && eodiseo != "munkkaji" {
                 kkeugi(malHagi: false)
@@ -386,7 +386,7 @@ struct MunChatgiView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 if m.kyeojim {
-                    Button("문 찾기 끄기 — \(m.sangtae)") { m.kkeugi() }
+                    Button("문 찾기 끄기") { m.kkeugi() }   // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 바뀌는 상태 글을 단추에서 뺌(낭독기가 쉬지 않고 떠들지 않게)
                         .buttonStyle(KeunDanchu())
                         .accessibilityFocused($chojeom)
                 } else {
