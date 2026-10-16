@@ -864,7 +864,8 @@ final class AnnaeEngine: ObservableObject {
     }
 
     private func wichiBatda(_ w: Wichi) {
-        guard let y = yj.jigeum else { namEunGeori = nil; return }
+        guard let y = yj.jigeum else { namEunGeori = nil; GichaAnnae.shared.kkeut(); return }
+        if !(y.danggye == .taneunJung && yj.talgeot == .gicha) { GichaAnnae.shared.kkeut() }   // 2.91.0
         let d = WichiEngine.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
         namEunGeori = d
         jeomChaBoda(w)   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 탈것 구간이 없는 점지도를 걷다 차를 타셨는가
@@ -895,6 +896,8 @@ final class AnnaeEngine: ObservableObject {
         case .taneunJung:
             // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 배 안에서는 길 벗어남·사거리·간판 대신 바다 위 지금 자리
             if yj.talgeot == .seonbak { TalgeotJikimi.shared.baeAnnae(w, d, y) } else { chaAnnae(w, d, y) }
+            // 2.91.0 (261017-I45, 이사장님 승인 2026-10-17) 기차 안에서는 역·터널·도착 예정 안내를 함께(웹 길눈에서 옮김)
+            if yj.talgeot == .gicha { GichaAnnae.shared.wichi(w, y) } else { GichaAnnae.shared.kkeut() }
         case .namEunGil:
             let t = bgJari(w, y.mokjeok.lat, y.mokjeok.lon, y.mokjeok.ireum)   // 2.48.0 볼거리 자리
             georeumAnnae(w, ireum: y.mokjeok.ireum, lat: t.0, lon: t.1, jungan: false, y)
@@ -1427,7 +1430,8 @@ final class AnnaeEngine: ObservableObject {
         guard st.gilOn, Date().timeIntervalSince(gilMalTtae) >= Double(st.gilGap) else { return }
         let jeon = (majimakGil, majimakDong)
         defer { if (majimakGil, majimakDong) != jeon { gilMalTtae = Date() } }
-        if !gil.isEmpty && gil != majimakGil {
+        // 2.91.0 (261017-I45) 기차는 찻길을 달리지 않으니 길 이름은 말하지 않음(동네는 그대로, 웹 길눈과 같음)
+        if !gil.isEmpty && gil != majimakGil && yj.talgeot != .gicha {
             if majimakGil.isEmpty {
                 malHagi("지금 달리는 길은 \(gil)입니다.", .jeongbo)
             } else {
