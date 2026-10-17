@@ -181,7 +181,7 @@ struct BangeumSajin: View {
 struct MemoSection: View {
     @EnvironmentObject var store: TourStore
     @ObservedObject private var rec = Nokeumgi.shared
-    @State private var kan = "access"
+    @AppStorage("memoKan") private var kan = "access"   // 1.3.0 — 이어폰 단추 메모도 이 칸에 담음
     @State private var geul = ""
     var body: some View {
         if let k = store.kos, let s = store.cur, !k.isGyobon {
