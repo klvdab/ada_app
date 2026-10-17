@@ -1,4 +1,4 @@
-// LVD투어스튜디오 앱 — 나스 창구 부르기 (판 1.0.0, 빌드 261012-T1)
+// LVD투어스튜디오 앱 — 나스 창구 부르기 (판 1.2.0, 빌드 261017-T4 — 최고관리자가 「누구의 자리를 볼지」 고르면 모든 부름에 as 를 붙임(웹과 같음). 1.0.0 261012-T1)
 // 웹 투어스튜디오와 같은 창구(lvdts_api.php)를 그대로 씁니다. 서버는 고치지 않습니다.
 // 들어오기 표(통행증)는 폰 안에만 두고, 비밀번호는 앱이 간직하지 않습니다.
 import Foundation
@@ -6,6 +6,9 @@ import Foundation
 enum TourAPI {
     static let base = "https://lvd.ada.or.kr/lvdts/lvdts_api.php"
     static let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) LVDTourStudio/1.0"
+
+    /// 최고관리자가 보고 있는 남의 자리(아이디). 비어 있으면 내 자리 — 웹 asWho 와 같음
+    static var asWho = ""
 
     static var token: String {
         get { UserDefaults.standard.string(forKey: "lvdtsToken") ?? "" }
@@ -16,6 +19,7 @@ enum TourAPI {
     static func call(_ action: String, _ body: [String: Any] = [:], timeout: TimeInterval = 40, tk: String? = nil) async -> [String: Any] {
         var b = body
         b["action"] = action
+        if !asWho.isEmpty && b["as"] == nil && action != "login" && action != "logout" { b["as"] = asWho }
         guard let u = URL(string: base), let data = try? JSONSerialization.data(withJSONObject: b) else {
             return ["ok": false, "error": "보낼 자료를 만들지 못했습니다."]
         }
