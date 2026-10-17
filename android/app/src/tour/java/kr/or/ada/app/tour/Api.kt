@@ -37,6 +37,10 @@ object Api {
             val t = st.bufferedReader(Charsets.UTF_8).readText()
             c.disconnect()
             val j = try { JSONObject(t) } catch (e: Exception) { JSONObject().put("ok", false).put("error", "서버가 이상한 대답을 했습니다: " + t.take(120)) }
+            if (!j.optBoolean("ok", false) && action != "pan_ping" && action != "ping") try {   // 1.3.0 판 기록에 실을 오류 한 줄
+                val t = java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.KOREA).format(java.util.Date())
+                ctx.getSharedPreferences("tour", Context.MODE_PRIVATE).edit().putString("oryuJul", "$t $action: " + j.geul("error").take(120)).apply()
+            } catch (e: Exception) { }
             if (j.optBoolean("needLogin", false) && action != "logout") naga?.invoke("들어오기 표가 끝났습니다. 다시 들어와 주십시오.")
             j
         } catch (e: Exception) {
