@@ -140,8 +140,8 @@ final class Gwan: ObservableObject {
     @Published var offM: Int = UserDefaults.standard.object(forKey: "offM") as? Int ?? 40 { didSet { UserDefaults.standard.set(offM, forKey: "offM") } }
     @Published var offS: Int = UserDefaults.standard.object(forKey: "offS") as? Int ?? 20 { didSet { UserDefaults.standard.set(offS, forKey: "offS") } }
 
-    static func ppi() { AudioServicesPlaySystemSound(1057) }
-    static func deureul() { AudioServicesPlaySystemSound(kSystemSoundID_Vibrate) }
+    nonisolated static func ppi() { AudioServicesPlaySystemSound(1057) }
+    nonisolated static func deureul() { AudioServicesPlaySystemSound(kSystemSoundID_Vibrate) }
 }
 
 /// 지금 자리를 계속 받는 부품 — 코스 벗어남 알림(답사 탭)과 지금 자리 따라가기(현장영상해설 화면)가 함께 씀
