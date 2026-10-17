@@ -6,9 +6,10 @@ import SwiftUI
 import UIKit
 
 enum Pan {
-    static let pan = "1.2.0"      // 261017-T4 웹에 있는 기능 모두(관리자 일, 내보내기·협회 승인, 원칙 16개, 평면도·답사 지도, 사전, 장소 지식, 승인본 현장영상해설 화면, 저절로 찍기 등) — 방클, 이사장님 지시 「웹에 있는 모든 기능을 겉과 속이 같게」
+    static let pan = "1.3.0"      // 261018-T5 앱만 할 수 있는 것 — 이어폰 단추로 답사, 걸으며 저절로 재기, 판 기록(방클, 이사장님 승인 1·2·8번)
+    // 1.2.0 261017-T4 웹에 있는 기능 모두(관리자 일, 내보내기·협회 승인, 원칙 16개, 평면도·답사 지도, 사전, 장소 지식, 승인본 현장영상해설 화면, 저절로 찍기 등) — 방클, 이사장님 지시 「웹에 있는 모든 기능을 겉과 속이 같게」
     // 1.1.0 261017-T3 웹에 있던 것 열네 가지(사진 지우기·다시 찍기·크게 보기, 지점 지우기, 현장 메모, 연습 녹음, 못 올린 것, 판 되돌리기, 휴지통 등) — 방클, 이사장님 승인
-    static let bildeu = "261017-T4"
+    static let bildeu = "261018-T5"
     static let ireum = "LVD투어스튜디오 \(pan)판 (빌드 \(bildeu))"
 }
 
@@ -47,6 +48,7 @@ final class Nav: ObservableObject {
 
 struct RootView: View {
     @StateObject private var nav = Nav()
+    @ObservedObject private var danchu = Danchu.shared
     @EnvironmentObject var store: TourStore
     var body: some View {
         TabView(selection: Binding(get: { nav.tab }, set: { t in let same = (t == nav.tab); nav.tab = t; nav.tabGo(t, same); Gwan.shared.tab = t; Gwan.shared.ping(force: true) })) {
@@ -72,7 +74,8 @@ struct RootView: View {
                 .tag(4)
         }
         .environmentObject(nav)
-        .onAppear { TourOllim.shared.sijak(); Gwan.shared.pingSijak() }
+        .onAppear { TourOllim.shared.sijak(); Gwan.shared.pingSijak(); Danchu.shared.buchigi(); Task { await PanGirok.alrigi() } }
+        .background(EmptyView().fullScreenCover(isPresented: $danchu.kameraYeolgi) { JeoljeoroView(auto: UserDefaults.standard.object(forKey: "camAuto") as? Bool ?? false).environmentObject(store) })
         .onChange(of: nav.tab) { _, t in Gwan.shared.tab = t; if t != 1 { Beoseonam.shared.meomchum() } }
         .fullScreenCover(isPresented: Binding(get: { (store.me?["mustChange"] as? Bool) == true }, set: { _ in })) {
             NavigationStack { PwView(gangje: true) }.environmentObject(store)
