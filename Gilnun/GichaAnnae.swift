@@ -9,6 +9,8 @@ import Foundation
 
 final class GichaAnnae {
     static let shared = GichaAnnae()
+    /// 2.97.0 지금 시각 — 여정 다시 돌려 보기 시험(tests/gicha)에서 기록의 시각을 넣으려고 바꿀 수 있게 함. 앱에서는 늘 지금
+    static var sigye: () -> Date = { Date() }
 
     private struct Yeok { let ireum: String; let lat: Double; let lon: Double }
     private struct Teoneol { let ireum: String; let m: Int; let a: (Double, Double); let b: (Double, Double) }
@@ -39,7 +41,7 @@ final class GichaAnnae {
     private var yeolchaChatneun = false
     private var yeolchaChateun: Set<String> = []
     private var modu: [String: String] = [:]   // 역 이름 → 시간표 역 번호
-    private var namTtae = Date()
+    private var namTtae = GichaAnnae.sigye()
 
     // MARK: 켜기·끄기
 
@@ -55,7 +57,7 @@ final class GichaAnnae {
     func wichi(_ w: Wichi, _ y: Yeojeong) {
         if !kyeojim {
             kyeojim = true
-            namTtae = Date()
+            namTtae = GichaAnnae.sigye()
             Girok.shared.namgi("gicha_annae_sijak", [:])
             mal("기차 안내를 시작합니다. 역에 다가가거나 서고 떠날 때, 터널에 들어가기 전에 알려 드립니다.")
         }
@@ -74,7 +76,7 @@ final class GichaAnnae {
     // MARK: 살피기 — 웹 길눈 gichaSalpim 을 그대로 옮김
 
     private func salpim(_ w: Wichi, _ y: Yeojeong) {
-        let now = Date()
+        let now = GichaAnnae.sigye()
         let me = (w.lat, w.lon)
         if w.ochae <= 300 { fx.append((now, w.lat, w.lon)) }
         fx = fx.filter { now.timeIntervalSince($0.t) <= 60 }
@@ -173,8 +175,11 @@ final class GichaAnnae {
         if let n = near, n.1 < 1200, said[n.0.ireum] == nil {
             said[n.0.ireum] = now
             var t = "지금 \(n.0.ireum)을 지나고 있습니다."
-            if let d = daeum(me) { t += " 가는 쪽으로 다음 역은 \(d.0.ireum), 약 \(Annae.geoMal(d.1))입니다." }
+            let dm = daeum(me)
+            if let d = dm { t += " 가는 쪽으로 다음 역은 \(d.0.ireum), 약 \(Annae.geoMal(d.1))입니다." }
             mal(t)
+            // 2.97.0 서지 않고 지나는 역에서도 다음 역을 시간표로 봄 — 그 역에 서는지 미리 알아야 「곧 섭니다」를 잘못 말하지 않음
+            if let yc = yeolcha, let d = dm { daeumSigakMal(yc, d.0) }
             return
         }
         // 10분마다 한 번 — 남은 거리와 도착 예정
@@ -239,7 +244,7 @@ final class GichaAnnae {
     private func yeokBatgi(_ me: (Double, Double)) {
         guard !yeokBatneun else { return }
         yeokBatneun = true
-        yeokQ = me; yeokQTtae = Date()
+        yeokQ = me; yeokQTtae = GichaAnnae.sigye()
         // 앱 안 목록을 먼저(통신이 끊겨도 큰 역은 말함)
         var mok: [String: Yeok] = [:]
         for (n, la, lo) in GichaYeok.mokrok where WichiEngine.geori(me.0, me.1, la, lo) <= 30_000 {
@@ -275,7 +280,7 @@ final class GichaAnnae {
     private func teoneolBatgi(_ me: (Double, Double)) {
         guard !teoneolBatneun else { return }
         teoneolBatneun = true
-        teoneolQ = me; teoneolQTtae = Date()
+        teoneolQ = me; teoneolQTtae = GichaAnnae.sigye()
         let q = ["lat": String(format: "%.6f", me.0), "lon": String(format: "%.6f", me.1), "ban": "8000"]
         Task { [weak self] in
             let d = try? await Tongsin.shared.getSae("cheolteoneol.php", q)
@@ -359,7 +364,7 @@ final class GichaAnnae {
     }
 
     private func pyeon(_ chulId: String, _ doId: String) async -> [[String: Any]]? {
-        let q = ["a": "pyeon", "gal": "gicha", "chul": chulId, "do": doId, "nal": GichaAnnae.nalPyo.string(from: Date())]
+        let q = ["a": "pyeon", "gal": "gicha", "chul": chulId, "do": doId, "nal": GichaAnnae.nalPyo.string(from: GichaAnnae.sigye())]
         guard let d = try? await Tongsin.shared.getSae("gyotong.php", q),
               let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return nil }
         return o["rows"] as? [[String: Any]]
