@@ -1,4 +1,4 @@
-// LVD투어스튜디오 앱 — 현장영상해설 탭 (판 1.0.0, 빌드 261012-T1)
+// LVD투어스튜디오 앱 — 현장영상해설 탭 (판 1.1.0, 빌드 261017-T3 — 읽으며 녹음과 되돌아보기, 연습 녹음 듣기. 1.0.0 261012-T1)
 // 현장에서 대본을 지점 차례대로 꺼내 보는 화면. 연습할 때는 폰 목소리로 들을 수 있습니다.
 import SwiftUI
 import AVFoundation
@@ -51,6 +51,7 @@ struct HaeseolTab: View {
                         Button(mok.malham ? "멈추기" : "폰 목소리로 듣기 (연습용)") { mok.malham ? mok.meomchum() : mok.ilkgi(t) }
                     }
                 }
+                YeonseupSection()
                 Section {
                     if let n = k.spotNext(s) { Button("다음 지점 — " + k.spotFull(n)) { mok.meomchum(); store.go(n); jjik() }.font(.headline) }
                     if let p = k.spotPrev(s) { Button("앞 지점 — " + k.spotFull(p)) { mok.meomchum(); store.go(p); jjik() } }
@@ -63,7 +64,7 @@ struct HaeseolTab: View {
             } else { KosEopseum() }
         }
         .navigationTitle("현장영상해설")
-        .onDisappear { mok.meomchum() }
+        .onDisappear { mok.meomchum(); Deutgi.shared.meomchum() }
     }
     private func jjik() { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { meori = true } }
 }
