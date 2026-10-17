@@ -7,6 +7,7 @@ import AVFoundation
 import CoreLocation
 import CoreMotion
 import PhotosUI
+import AVKit
 
 /// 담을 때 소리(삐) — 웹 SND.beep 과 같음. 아이폰 셔터 소리는 나라 규정으로 늘 납니다
 enum Sori {
@@ -130,11 +131,20 @@ final class JeoljeoroGi: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
 
 struct KameraMiri: UIViewRepresentable {
     let session: AVCaptureSession
+    var jjik: (() -> Void)? = nil
     final class V: UIView {
         override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
         var pl: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
     }
-    func makeUIView(context: Context) -> V { let v = V(); v.pl.session = session; v.pl.videoGravity = .resizeAspect; v.isAccessibilityElement = false; return v }
+    func makeUIView(context: Context) -> V {
+        let v = V(); v.pl.session = session; v.pl.videoGravity = .resizeAspect; v.isAccessibilityElement = false
+        // 1.3.0 — 음량 단추로 찍기(iOS 17.2부터, 카메라가 열려 있을 때)
+        if #available(iOS 17.2, *), let jjik {
+            let i = AVCaptureEventInteraction { ev in if ev.phase == .ended { jjik() } }
+            v.addInteraction(i)
+        }
+        return v
+    }
     func updateUIView(_ uiView: V, context: Context) {}
 }
 
@@ -154,7 +164,7 @@ struct JeoljeoroView: View {
             Text(g.jul).font(.title3.bold()).multilineTextAlignment(.center).padding(.top, 12).accessibilityFocused($f)
             Text([12, 3, 6, 9].map { (g.got.contains($0) ? "● " : "○ ") + "\($0)시" }.joined(separator: "  "))
                 .font(.headline).accessibilityLabel(damEun)
-            KameraMiri(session: g.session).frame(maxWidth: .infinity, maxHeight: .infinity).accessibilityHidden(true)
+            KameraMiri(session: g.session, jjik: { g.jjikgi(0) }).frame(maxWidth: .infinity, maxHeight: .infinity).accessibilityHidden(true)
             HStack(spacing: 16) {
                 Button("한 장 찍기") { g.jjikgi(0) }.font(.title2.bold()).buttonStyle(.borderedProminent)
                 Button("닫기") { g.datgi(); dismiss() }.font(.title3).buttonStyle(.bordered)
@@ -171,9 +181,10 @@ struct JeoljeoroView: View {
                 await store.photo(im, dir: "\(clock)시 방향", extra: ex)
             }
             g.yeolgi()
+            Danchu.shared.kamera = g
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { f = true }
         }
-        .onDisappear { g.datgi() }
+        .onDisappear { g.datgi(); Danchu.shared.kamera = nil; Danchu.shared.kameraYeolgi = false; Danchu.shared.buchigi() }
         .accessibilityAction(.escape) { g.datgi(); dismiss() }
     }
 }
