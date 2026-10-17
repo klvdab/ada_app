@@ -175,9 +175,10 @@ final class GichaAnnae {
             return
         }
         // 2.98.0 (시험에서 찾음) 역 1.2킬로미터 앞에서 「지나고 있습니다」라고 하고, 그 뒤에 그 역에 서던 일 —
-        //   역에 250미터 안으로 들거나, 가장 가까웠던 거리보다 80미터 넘게 멀어질 때(지나쳤을 때)만 말함
+        //   가장 가까웠던 거리보다 80미터 넘게 멀어지고(실제로 지나쳤고) 초속 8미터 넘게 달릴 때만 말함.
+        //   250미터 안이면 바로 말하던 것은 뺌 — 서려고 속도를 줄이며 역에 들어설 때 「지나고 있습니다」가 먼저 나왔음(광명)
         if let n = near, n.1 < 1200 { gajangGakka[n.0.ireum] = min(gajangGakka[n.0.ireum] ?? .infinity, n.1) }
-        if let n = near, n.1 < 1200, said[n.0.ireum] == nil, n.1 < 250 || n.1 > (gajangGakka[n.0.ireum] ?? n.1) + 80 {
+        if let n = near, n.1 < 1200, said[n.0.ireum] == nil, (sv ?? 0) > 8, n.1 > (gajangGakka[n.0.ireum] ?? n.1) + 80 {
             said[n.0.ireum] = now
             var t = "지금 \(n.0.ireum)을 지나고 있습니다."
             let dm = daeum(me)
