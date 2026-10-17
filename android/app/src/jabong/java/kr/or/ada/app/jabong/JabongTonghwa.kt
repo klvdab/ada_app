@@ -11,6 +11,7 @@ import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import kr.or.ada.app.gilnun.Chatgi
 import kr.or.ada.app.gilnun.Girok
 import kr.or.ada.app.gilnun.IceJuso
 import kr.or.ada.app.gilnun.Jeomjido
@@ -50,6 +51,22 @@ object JabongTonghwa {
     var byeonhwa: (() -> Unit)? = null
     /** 글만 바뀌면(화면 전체를 다시 그리지 않음) */
     var geulByeonhwa: (() -> Unit)? = null
+
+    /** 자봉 2.26.0 (261017-A22, 이사장님 승인 2026-10-17) 길손님이 보내는 자리를 5초마다 받아 보임(웹 길눈 jari_nanum.js 1.1에서 옮김, 아이폰 자봉 2.25.0과 같음) */
+    var jariGeul = ""; private set
+    var jariLa = 0.0; private set
+    var jariLo = 0.0; private set
+    var jariIsseum = false; private set
+    var jariByeonhwa: (() -> Unit)? = null
+    private var jariMal = ""
+    private var jariMalTtae = 0L
+    private val jariR = object : Runnable {
+        override fun run() {
+            if (!tonghwaJung || room.isEmpty()) return
+            jariBatda()
+            main.postDelayed(this, 5000)
+        }
+    }
 
     private var ctx: Context? = null
     /** 2.17.0 (261009-A13, 이사장님 승인 2026-10-09) 받기에서 지금 통화 중인 방을 알 수 있게 읽기만 엶 */
@@ -142,6 +159,9 @@ object JabongTonghwa {
         byeEopsi = false
         main.removeCallbacks(jikimR)
         main.postDelayed(jikimR, 3000)
+        jariIsseum = false; jariGeul = "길손님 자리를 기다리는 중입니다."; jariMal = ""; jariMalTtae = 0L   // 자봉 2.26.0
+        main.removeCallbacks(jariR)
+        main.postDelayed(jariR, 2000)
         byeonhwa?.invoke()
     }
 
@@ -261,6 +281,7 @@ object JabongTonghwa {
         val eojeotna = iEojim
         main.removeCallbacks(sigR)
         main.removeCallbacks(jikimR)
+        main.removeCallbacks(jariR); jariIsseum = false; jariGeul = ""   // 자봉 2.26.0
         hwamyeonTteoki()
         yeongsang = null
         try { pc?.dispose() } catch (x: Throwable) {}
@@ -284,6 +305,66 @@ object JabongTonghwa {
         room = ""
         byeonhwa?.invoke()
     }
+
+    // MARK: 자봉 2.26.0 (261017-A22, 이사장님 승인 2026-10-17) 길손님 자리 받기 — 주소·국가지점번호·바라보는 쪽(시계 방향)·빠르기·지도
+    private fun jariBatda() {
+        val r = room
+        il.execute {
+            val t = JbTongsin.getText(REL, mapOf("a" to "jariget", "room" to r), 8000) ?: return@execute
+            val o = try { JSONObject(t) } catch (x: Exception) { return@execute }
+            val j = o.optJSONObject("jari") ?: return@execute
+            fun su(k: String): Double? = j.opt(k)?.toString()?.toDoubleOrNull()
+            val la = su("la") ?: return@execute
+            val lo = su("lo") ?: return@execute
+            val jigeum = o.opt("now")?.toString()?.toDoubleOrNull() ?: (System.currentTimeMillis() / 1000.0)
+            val chu = maxOf(0, (jigeum - (su("t") ?: jigeum)).toInt())
+            val acc = su("acc") ?: 0.0
+            val bang = su("bang") ?: -1.0
+            val sok = su("sok") ?: 0.0
+            val jj = j.optString("jj", "")
+            main.post {
+                if (r != room || !tonghwaJung) return@post
+                val olmgim = if (jariIsseum) geori(jariLa, jariLo, la, lo) else 999.0
+                fun chaeum() {
+                    jariLa = la; jariLo = lo; jariIsseum = true
+                    jariGeul = jariMun(jariMal, jj, bang, sok, acc, chu)
+                    jariByeonhwa?.invoke()
+                }
+                if (jariMal.isEmpty() || olmgim > 30 || System.currentTimeMillis() - jariMalTtae > 30000) {
+                    Chatgi.jarimalJson(la, lo) { m ->
+                        main.post {
+                            if (r != room || !tonghwaJung) return@post
+                            val mm = m?.optString("mal", "") ?: ""
+                            if (mm.isNotEmpty() && mm != jariMal) { jariMal = mm; jariMalTtae = System.currentTimeMillis() }
+                            chaeum()
+                        }
+                    }
+                } else chaeum()
+            }
+        }
+    }
+
+    private fun geori(a1: Double, o1: Double, a2: Double, o2: Double): Double {
+        val d = FloatArray(1)
+        android.location.Location.distanceBetween(a1, o1, a2, o2, d)
+        return d[0].toDouble()
+    }
+
+    /** 바라보는 쪽은 지도 위쪽(북쪽)을 12시로 둔 시계 방향 */
+    private fun jariMun(juso: String, jj: String, bang: Double, sok: Double, acc: Double, chu: Int): String {
+        val l = mutableListOf(if (juso.isEmpty()) "길손님 자리를 받았습니다." else juso)
+        if (jj.isNotEmpty()) l.add("국가지점번호 $jj.")
+        if (bang >= 0) { val h = Math.round(bang / 30).toInt() % 12; l.add("지도 위쪽을 12시로 두면 ${if (h == 0) 12 else h}시 쪽을 보고 계십니다.") }
+        if (sok >= 0.5) l.add("초속 ${String.format(java.util.Locale.US, "%.1f", sok)}미터, 시속 ${Math.round(sok * 3.6)}킬로미터로 움직이고 계십니다.")
+        else l.add("지금은 멈춰 계십니다.")
+        if (acc > 0) l.add("오차 ${acc.toInt()}미터.")
+        l.add(if (chu < 3) "방금 받은 자리입니다." else "${chu}초 전에 받은 자리입니다.")
+        return l.joinToString(" ")
+    }
+
+    /** 카카오맵 「길손이」 표시 주소 */
+    fun jidoJuso(): String = "https://map.kakao.com/link/map/" + android.net.Uri.encode("길손이") +
+        ",${String.format(java.util.Locale.US, "%.6f", jariLa)},${String.format(java.util.Locale.US, "%.6f", jariLo)}"
 
     // MARK: 신호
 

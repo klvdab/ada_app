@@ -3,12 +3,15 @@
 package kr.or.ada.app.jabong
 
 object JabongPan {
-    const val pan = "2.25.0"
-    const val bild = "261016-A21"
+    const val pan = "2.26.0"
+    const val bild = "261017-A22"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.26.0", "261017-A22", "2026-10-17", listOf(
+            "★길손님 자리 보기(이사장님 승인 2026-10-17 「그러자」, 웹 길눈 jari_nanum.js 1.1에서 옮김) — 통화 화면에 5초마다 주소·국가지점번호·바라보는 쪽(시계 방향)·빠르기·오차·몇 초 전, 지도로 열기(카카오맵 길손이)", "도움말 — 긴급통화 길손님 자리 보기"
+        )),
         Gochim("2.25.0", "261016-A21", "2026-10-16", listOf(
             "★첫째 탭 이름을 봉사에서 그리기로(이사장님 지시 2026-10-16), 아이폰 자봉 2.24.0과 같게, 도움말과 안내 말도 그리기 탭으로"
         )),

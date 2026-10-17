@@ -77,6 +77,8 @@ class JabongActivity : AppCompatActivity() {
     private var nureunGeul: String? = null               // 방금 누른 단추 글 — 다시 그려도 그 단추에 커서를 둠
     private var deopgaeJong = ""                          // "", "ulim", "tonghwa"
     private var tonghwaGeul: TextView? = null
+    private var jariGeulView: TextView? = null   // 자봉 2.26.0
+    private var jidoDanchu: View? = null
     private var tonghwaDwi: (() -> Unit)? = null
     private var maikDwi: ((Boolean) -> Unit)? = null
 
@@ -147,6 +149,10 @@ class JabongActivity : AppCompatActivity() {
         JabongDaegi.ulimHwamyeon = { runOnUiThread { deopgaeMatchugi() } }
         JabongTonghwa.byeonhwa = { runOnUiThread { deopgaeMatchugi() } }
         JabongTonghwa.geulByeonhwa = { runOnUiThread { tonghwaGeul?.text = JabongTonghwa.geul } }
+        JabongTonghwa.jariByeonhwa = { runOnUiThread {   // 자봉 2.26.0 (261017-A22, 이사장님 승인 2026-10-17)
+            jariGeulView?.text = JabongTonghwa.jariGeul
+            jidoDanchu?.visibility = if (JabongTonghwa.jariIsseum) View.VISIBLE else View.GONE
+        } }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -204,6 +210,7 @@ class JabongActivity : AppCompatActivity() {
         JabongDaegi.ulimHwamyeon = null
         JabongTonghwa.byeonhwa = null
         JabongTonghwa.geulByeonhwa = null
+        JabongTonghwa.jariByeonhwa = null
         // 자봉 화면이 닫히면 통화를 끊고 카메라·마이크를 치움(길눈 앱과 같음)
         if (JabongTonghwa.tonghwaJung) JabongTonghwa.kkeunki(true)
         JabongTonghwa.hwamyeonTteoki()
@@ -379,6 +386,7 @@ class JabongActivity : AppCompatActivity() {
         deopgaeJong = jong
         deopgae.removeAllViews()
         tonghwaGeul = null
+        jariGeulView = null; jidoDanchu = null
         if (jong.isEmpty()) {
             deopgae.visibility = View.GONE
             bon.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
@@ -412,6 +420,16 @@ class JabongActivity : AppCompatActivity() {
             }
             deoh(v, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
             JabongTonghwa.hwamyeonBuchigi(v)
+            // 자봉 2.26.0 (261017-A22, 이사장님 승인 2026-10-17) 길손님 자리 — 주소·국가지점번호·바라보는 쪽·빠르기, 지도로 열기
+            val jg = geulView(JabongTonghwa.jariGeul, false)
+            jariGeulView = jg
+            deoh(jg)
+            val jd = danchuView("지도로 열기 — 카카오맵에 길손이 표시") {
+                try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(JabongTonghwa.jidoJuso()))) } catch (x: Exception) {}
+            }
+            jd.visibility = if (JabongTonghwa.jariIsseum) View.VISIBLE else View.GONE
+            jidoDanchu = jd
+            deoh(jd)
             deoh(danchuView("통화 마치기") { JabongTonghwa.kkeutnaegi() })
         }
         cheot?.let { omgigi(it) }
@@ -1221,6 +1239,7 @@ class DoumalHwamyeon : JbHwamyeon("도움말") {
             "점지도 일곱 가지 약속" to "시작과 끝은 문 앞에서, 걸음을 끊지 않기, 폰은 가슴 앞에 걷는 쪽으로, 꺾이는 그 자리에서 바로 표시, 짝 표시는 시작과 끝을 함께, 보폭은 걷기 전에, 표시마다 짧게 말로 남기기입니다. 서버의 점지도 점검과 같은 잣대라, 약속대로 걸으시면 점검을 통과합니다. 내 기록 탭 교육 마당의 점지도 일곱 가지 약속 보기에서 언제든 보고 들으실 수 있습니다. 약속 한 장을 누르시면 그 약속만 다시 들으실 수 있습니다.",
             "탭 넷" to "화면 아래에 봉사, 나눔, 내 기록, 알림·설정 탭이 있고, 속 화면에서도 늘 보입니다. 속 화면의 뒤로 단추는 위에 하나 있고, 폰의 뒤로 동작을 하셔도 앞 화면으로 갑니다. 첫 화면에서는 앱 밖으로 나가지 않고 여기가 첫 화면이라고 알려 드립니다. 같은 탭을 한 번 더 누르시면 그 탭의 첫 화면으로 갑니다.",
             "긴급통화 받기" to "그리기 탭 맨 위에 있습니다. 자원봉사자나 현장영상해설사 가운데 받으실 역할을 고르고, 별명과 수료 번호(해설사는 협회에 등록한 전화번호)를 적은 뒤 함께하겠습니다를 한 번 누르시면 됩니다. 이때 카메라와 마이크, 알림 허락도 한 번에 받아 두고, 배터리 아끼기에서 자봉을 빼 달라고 한 번 여쭙니다. 그 뒤로는 길손님이 도움을 청하면 폰이 잠겨 있어도 벨소리와 진동이 울리고 받기와 거절이 뜹니다. 받기를 누르시면 곧바로 길손님 카메라 화면과 말소리가 이어집니다. 다른 길눈님이 먼저 받으시면 벨이 멈추고 다른 분께 연결되었다고 알려 드립니다. 실명과 전화번호는 화면에 나오지 않고 별명만 씁니다. 잠시 쉬기를 누르시면 울리지 않습니다. 긴급통화는 이 자봉 앱으로만 받습니다. 자원봉사자와 현장영상해설사는 누구를 고를 수 없게 되어 있고, 받을 수 있는 분 가운데 먼저 받는 분이 연결됩니다. 기회가 고르게 가도록 처음 15초는 최근에 덜 받으신 다섯 분께 먼저 울리고, 그래도 아무도 안 받으면 모든 분께 울립니다. 통화료는 들지 않고 데이터만 씁니다(와이파이에서는 따로 드는 돈이 없음). 곧바로 잇지 못할 때 거치는 영상 다리 주소는 나스에서 받아 쓰므로, 다리를 옮겨도 앱을 새로 받으실 필요가 없습니다. 밤 10시부터 아침 7시까지는 밤에도 받기를 켜 두신 자원봉사자와 현장영상해설사께만 울립니다. 긴급통화 받기 화면의 더 보기 펼치기에서 켜고 끄실 수 있습니다(처음에는 꺼져 있습니다). 가족·지인으로 받으시는 요청은 밤에도 늘 울립니다.",
+            "긴급통화 — 길손님 자리 보기" to "길손님 길눈이 보내는 자리를 통화 화면의 카메라 화면 아래에 5초마다 새로 보여 드립니다. 주소, 국가지점번호, 지도 위쪽을 12시로 둔 길손님이 바라보시는 쪽, 움직이시는 빠르기나 멈춰 계신지, 위성 오차, 몇 초 전에 받은 자리인지가 나옵니다. 지도로 열기를 누르시면 카카오맵에 길손이로 표시됩니다. 길손님이 내 자리 보내기를 멈추시면 마지막으로 받은 자리와 몇 초 전인지가 남습니다.",   // 자봉 2.26.0 (261017-A22, 이사장님 승인 2026-10-17)
             "긴급통화 — 거절과 끊김" to "울리는 긴급통화를 거절하시면 길눈님께 곧바로 알려 드려 다른 분께 넘어가게 합니다. 30초 안에 받지 않으시면 저절로 닫히고, 받으신 뒤 45초 안에 이어지지 않으면 연결되지 않았습니다라고 알려 드리고 닫습니다. 길눈과 자봉을 한 폰에 함께 깔아 두셨으면, 그 폰에서 보낸 긴급통화 요청은 그 폰의 자봉으로 울리지 않습니다. 받으시면 길눈님께 별명, 없으면 등록한 이름으로 알려 드립니다. 여러 분이 함께 받으시면 먼저 받으신 한 분만 이어지고, 다른 분은 다른 분이 먼저 받으셨습니다를 듣고 전화 화면이 닫힙니다. 길손님이 통화를 마치시면 곧바로 닫히고, 100초 동안 받지 않으면 울림이 저절로 멈춥니다. 통화 중에 새 요청이 오면 자봉이 대신 지금 받기 어렵다고 알려 길눈님이 곧바로 다른 분께 넘어가시며, 받기를 누른 뒤 8초 안에 연결이 확인되지 않거나 그사이 끊으시면 받기가 풀려 길눈님이 오래 기다리지 않으십니다.",   // 2.17.0 (261009-A13, 이사장님 승인 2026-10-09)
             "가족·지인으로 받기 — 이음 번호" to "길눈을 쓰시는 가족이나 지인이 나를 콕 집어 화상통화를 요청하실 수 있게 등록합니다. 먼저 길눈님이 길눈 설정 탭의 가족·지인 명단에서 이음 번호 받기를 누르면 세 자리 숫자가 나옵니다. 이 번호를 전화로 불러 받으십시오. 번호는 30분 동안만 쓰입니다. 자봉 앱 그리기 탭, 긴급통화 받기에서 가족·지인으로 받기를 고르고, 이음 번호와 길눈님이 부르실 내 이름(보기: 큰딸)을 넣고 가족·지인으로 등록하기를 누르시면 끝입니다. 그 뒤로 그 길눈님이 나를 고르시면 이 폰만 벨소리와 진동이 울리고 화면에 그분 이름이 뜹니다. 자원봉사자로도 함께하시는 분은 두 가지가 다 됩니다.",
             "긴급통화 받지 않기" to "점지도만 그려 주시고 통화는 원치 않으시면, 긴급통화 받기 화면의 긴급통화 받지 않기(처음이면 긴급통화는 받지 않겠습니다)를 누르십시오. 어떤 요청도 울리지 않고, 알림 칸의 자봉도 살피기를 멈춥니다. 점지도 그리기는 그대로 쓰십니다. 마음이 바뀌시면 같은 화면의 긴급통화 받기 시작을 누르시면 됩니다.",
