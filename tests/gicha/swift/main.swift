@@ -3,6 +3,9 @@
 import Foundation
 
 var silpae = 0
+// 2.99.0 철길 자료 — 앱에 싣는 것과 같은 파일
+Cheolgil.ilgeum = { FileManager.default.contents(atPath: "Gilnun/cheolgil.bin") }
+if Cheolgil.shared == nil { print("철길 자료를 못 읽음"); exit(1) }
 for pail in CommandLine.arguments.dropFirst() {
     guard let d = FileManager.default.contents(atPath: pail),
           let s = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { print("못 읽음: \(pail)"); silpae += 1; continue }
