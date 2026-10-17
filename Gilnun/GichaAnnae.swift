@@ -49,6 +49,7 @@ final class GichaAnnae {
     private var cgTeoneol: [Cheolgil.Teoneol] = []
     private var cgSaid: Set<Int> = []
     private var cgMatTtae = Date.distantPast
+    private var cgM: Cheolgil.Matchum?
     private var jariTtae = Date.distantPast
 
     // MARK: 켜기·끄기
@@ -58,7 +59,8 @@ final class GichaAnnae {
         kyeojim = false
         fx = []; vh = []; said = [:]; gajangGakka = [:]; got = [:]; stopTtae = nil; stopSaid = ""; tteonSaid = ""
         head = nil; headFrom = nil; teoneolSaid = []; yeolcha = nil; yeolchaChateun = []; mokYeok = nil
-        cgIreo = []; cgTeoneol = []; cgSaid = []; cgMatTtae = .distantPast; jariTtae = .distantPast
+        cgIreo = []; cgTeoneol = []; cgSaid = []; cgMatTtae = .distantPast; cgM = nil; jariTtae = .distantPast
+        daeumMalhan = []; yeokSigakPyo = [:]; yeokSeoji = []   // 2.99.0 다음 여정에 지난 열차의 서는 역이 남지 않게
         Girok.shared.namgi("gicha_annae_kkeut", [:])
     }
 
@@ -129,7 +131,7 @@ final class GichaAnnae {
         if let cg = Cheolgil.shared, w.ochae <= 100, let bh = cgBang,
            let m = cg.matchugi(w.lat, w.lon, bang: bh, ochae: w.ochae, ireo: cgIreo) {
             let r = cg.ttaragagi(m, gil: max(1500, (sv ?? 0) * 45) + 200)
-            cgIreo = r.jul; cgTeoneol = r.teoneol; cgMatTtae = now; cgMat = true
+            cgIreo = r.jul; cgTeoneol = r.teoneol; cgMatTtae = now; cgMat = true; cgM = m
         }
         // 터널 미리 알림(역 안내보다 먼저 — 들어가면 알 수 없으므로)
         if cgMat, let s = sv, s > 3, let bh = cgBang { cheolgilTeoneolBoda(me, bh, s, now) }
@@ -234,6 +236,17 @@ final class GichaAnnae {
 
     /// 가는 쪽 다음 역 — 2.5킬로미터 넘게 떨어지고, 가는 쪽 35도 안
     private func daeum(_ me: (Double, Double)) -> (Yeok, Double)? {
+        // 2.99.0 철길에 붙어 있으면 철길을 따라 앞에 있는 첫 역(거리도 철길을 따라 잰 것).
+        //   곧은 줄 방향으로만 고르다 철길이 굽는 용산역에서 다음 역을 서울역이 아닌 청량리역으로 말하던 일(시험에서 찾음)
+        if let cg = Cheolgil.shared, let m = cgM, GichaAnnae.sigye().timeIntervalSince(cgMatTtae) < 30 {
+            let g = cg.ttaragagi(m, gil: 40000).jeom
+            var best: (Yeok, Double)?
+            for k in yeok {
+                guard let w = Cheolgil.gilWi(g, k.lat, k.lon), w.yeop <= 400, w.ap > 300 else { continue }
+                if best == nil || w.ap < best!.1 { best = (k, w.ap) }
+            }
+            if let b = best { return b }
+        }
         guard let h = head else { return nil }
         var best: (Yeok, Double)?
         for k in yeok {
@@ -465,6 +478,46 @@ final class GichaAnnae {
                 Girok.shared.namgi("gicha_yeolcha", ["beon": beon, "jong": jong, "chul": chul, "do": doN])
                 self.mal("타신 열차는 \(jong) \(bn > 0 ? "\(bn)호" : "")로 보입니다. \(mk.ireum) 도착 예정은 \(self.sigakMal(at))입니다.")
                 if let dy = daeumYeok, dy.ireum != mk.ireum { self.daeumSigakMal(yc, dy) }
+                self.jeongchaBatgi(yc)
+            }
+        }
+    }
+
+    /// 2.99.0 타신 열차가 서는 역 전체 — 떠난 역과 내리실 역 사이의 큰 기차역(GichaYeok)마다 시간표로 그 열차가 서는지 봄.
+    ///   한 역씩 차례로 물어 서버를 몰아붙이지 않음. 다 알면 서는 역을 한 번에 알려 드리고,
+    ///   서지 않는 역은 곧 도착 안내·내릴 역에서 빼는 데 씀
+    private func jeongchaBatgi(_ yc: Yeolcha) {
+        guard let mk = mokYeok else { return }
+        let a: (Double, Double)
+        if let k = yeok.first(where: { $0.ireum == yc.chul + "역" }) { a = (k.lat, k.lon) }
+        else if let k = GichaYeok.mokrok.first(where: { $0.0 == yc.chul }) { a = (k.1, k.2) }
+        else { return }
+        let b = (mk.lat, mk.lon)
+        let ab = geori(a, b)
+        let hubo = GichaYeok.mokrok
+            .filter { $0.0 != yc.chul && $0.0 + "역" != mk.ireum && modu[$0.0] != nil }
+            .filter { geori(a, ($0.1, $0.2)) + geori(($0.1, $0.2), b) <= ab * 1.15 + 3000 }
+            .sorted { geori(a, ($0.1, $0.2)) < geori(a, ($1.1, $1.2)) }
+            .map { ($0.0, modu[$0.0]!) }
+        guard !hubo.isEmpty else { return }
+        Task { [weak self] in
+            var seo: [String] = []
+            for (n, id) in hubo {
+                guard let self = self, self.yeolcha?.beon == yc.beon else { return }
+                guard let rows = await self.pyeon(yc.chulId, id) else { continue }
+                let gat = rows.first { ($0["trainno"] as? String ?? ($0["trainno"] as? NSNumber)?.stringValue) == yc.beon }
+                let t: Date? = gat.flatMap { g in (g["arrplandtime"] as? String ?? (g["arrplandtime"] as? NSNumber)?.stringValue).flatMap { GichaAnnae.sigakPyo.date(from: $0) } }
+                let k = n + "역", eopda = rows.isEmpty
+                if t != nil { seo.append(k) }
+                await MainActor.run {
+                    if let t = t { self.yeokSigakPyo[k] = t } else if !eopda { self.yeokSeoji.insert(k) }
+                }
+            }
+            let seoyeok = seo
+            await MainActor.run {
+                guard let self = self, self.yeolcha?.beon == yc.beon, !seoyeok.isEmpty else { return }
+                Girok.shared.namgi("gicha_jeongcha", ["beon": yc.beon, "seo": seoyeok.joined(separator: ",")])
+                self.mal("타신 열차는 \(mk.ireum)까지 가는 동안 \(seoyeok.joined(separator: ", "))에 섭니다.")
             }
         }
     }
@@ -475,6 +528,9 @@ final class GichaAnnae {
         let n = yeokIreum(dy.ireum)
         guard !daeumMalhan.contains(n), let did = modu[n] else { return }
         daeumMalhan.insert(n)
+        // 2.99.0 서는 역 전체를 이미 알면 다시 묻지 않음
+        if let t = yeokSigakPyo[dy.ireum] { mal("\(dy.ireum) 도착 예정은 \(sigakMal(t))입니다."); return }
+        if yeokSeoji.contains(dy.ireum) { mal("타신 열차는 \(dy.ireum)에 서지 않고 지나갑니다."); return }
         Task { [weak self] in
             guard let self = self, let rows = await self.pyeon(yc.chulId, did) else { return }
             let gat = rows.first { ($0["trainno"] as? String ?? ($0["trainno"] as? NSNumber)?.stringValue) == yc.beon }

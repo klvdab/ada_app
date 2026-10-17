@@ -25,6 +25,23 @@ final class Cheolgil {
     struct Matchum { let jul: Int; let i: Int; let t: Double; let bang: Int; let geori: Double; let lat: Double; let lon: Double }
     struct Teoneol { let sijak: Double; let gil: Double; let ireum: String; let jul: [Int] }
 
+    /// 따라간 길에서 어떤 자리가 얼마나 떨어져 있고, 철길을 따라 몇 미터 앞인지
+    static func gilWi(_ gil: [(Double, Double, Double)], _ a: Double, _ o: Double) -> (yeop: Double, ap: Double)? {
+        guard gil.count >= 2 else { return nil }
+        let c = cos(a * .pi / 180)
+        var best: (Double, Double)?
+        for i in 1..<gil.count {
+            let p = gil[i - 1], q = gil[i]
+            let ax = (p.1 - o) * 111320 * c, ay = (p.0 - a) * 110540
+            let bx = (q.1 - o) * 111320 * c, by = (q.0 - a) * 110540
+            let dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy
+            let t = L2 == 0 ? 0 : max(0, min(1, -(ax * dx + ay * dy) / L2))
+            let g = hypot(ax + t * dx, ay + t * dy)
+            if best == nil || g < best!.0 { best = (g, p.2 + (q.2 - p.2) * t) }
+        }
+        return best.map { (yeop: $0.0, ap: $0.1) }
+    }
+
     private(set) var la: [Double] = []
     private(set) var lo: [Double] = []
     private(set) var jul: [Jul] = []
@@ -134,7 +151,7 @@ final class Cheolgil {
     }
 
     /// 맞춘 자리에서 가는 쪽으로 철길을 따라감 — 앞에 놓인 터널과 지나갈 줄들
-    func ttaragagi(_ m: Matchum, gil: Double) -> (teoneol: [Teoneol], jul: Set<Int>) {
+    func ttaragagi(_ m: Matchum, gil: Double) -> (teoneol: [Teoneol], jul: Set<Int>, jeom: [(Double, Double, Double)]) {
         var tn: [Teoneol] = []
         var jeon: (Double, Double, String, [Int])?    // 지금 이어 재는 터널(시작, 끝, 이름, 줄)
         var gan: Set<Int> = [m.jul]
@@ -142,7 +159,8 @@ final class Cheolgil {
         var k = d > 0 ? m.i + 1 : m.i              // 다음에 닿을 점 자리
         var pa = m.lat, po = m.lon
         var s = 0.0
-        for _ in 0..<400 {
+        var gilJeom: [(Double, Double, Double)] = [(m.lat, m.lon, 0)]   // 따라간 길의 점(위도, 경도, 철길 따라 잰 거리)
+        for _ in 0..<1500 {
             let j = jul[ji]
             let v = Int(j.jeom[k])
             let L = Cheolgil.m(pa, po, la[v], lo[v])
@@ -153,6 +171,7 @@ final class Cheolgil {
             }
             s += L
             pa = la[v]; po = lo[v]
+            gilJeom.append((pa, po, s))
             if s >= gil, jeon == nil || s - jeon!.1 > 40 { break }
             if s > gil + 30000 { break }
             // 다음 길 고르기 — 이 점에서 나가는 모든 길 가운데 가장 덜 꺾이는 쪽(35도 안)
@@ -178,6 +197,6 @@ final class Cheolgil {
             ji = g.0; k = g.1; d = g.2
         }
         if let t = jeon { tn.append(Teoneol(sijak: t.0, gil: t.1 - t.0, ireum: t.2, jul: t.3)) }
-        return (tn, gan)
+        return (tn, gan, gilJeom)
     }
 }
