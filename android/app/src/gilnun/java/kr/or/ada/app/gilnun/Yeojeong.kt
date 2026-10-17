@@ -158,6 +158,7 @@ object YeojeongEngine {
         dir.mkdirs()
         pail = File(dir, "yeojeong.json")
         Jeulgyeo.sijak(c)
+        Chajeun.sijak(c)   // 2.63.0 요즘 찾으신 곳
         AnnaeEngine.sijak(c)
         JihacheolEngine.sijak(c)
         Wichi.deutgi { w -> sokdoBoda(w) }
@@ -220,6 +221,7 @@ object YeojeongEngine {
             main.post { AnnaeEngine.jikimRo(jikimIeum, "${jikimIeum.ireum} 안에서 목적지를 바꾸심") }
         }
         Girok.namgi("yeojeong_sijak", mapOf("mok" to m.ireum))
+        Chajeun.damgi(m)   // 2.63.0 요즘 찾으신 곳
         // 2.62.0 (261017-A50, 이사장님 승인 2026-10-17) 예상 도착 시간을 셈할 곧은 거리를 적어 두고,
         //   가는 길 둘레의 길 자료를 서버가 미리 받아 두게 함(웹 길눈 miribada.php — 걷는 도중 사거리 안내를 기다리지 않게, 아이폰과 같음)
         jinanMureum = false; dochakMureum = false; gakkaiTtae = 0L

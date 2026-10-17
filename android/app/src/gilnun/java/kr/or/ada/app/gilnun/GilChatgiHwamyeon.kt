@@ -133,12 +133,18 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
                         try {
                             (t.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)?.hideSoftInputFromWindow(v.windowToken, 0)
                         } catch (x: Exception) {}
-                        t.yeolgi(ChatgiGyeolgwaHwamyeon(q))
+                        // 2.63.0 (261017-A51, 이사장님 승인 2026-10-17) 자동 입력 — 엔터를 치면 맨 위 후보로(딱 맞는 이름이면 그것, 역·정류장·터미널로 끝나면 적으신 그대로 찾기)
+                        val h = Chajeun.wi(q)
+                        if (h != null) t.yeolgi(MokjeokHwamyeon(h.j)) else t.yeolgi(ChatgiGyeolgwaHwamyeon(q))
                     }
                     true
                 }
+                // 2.63.0 (261017-A51, 이사장님 승인 2026-10-17) 자동 입력 — 요즘 찾으신 곳과 즐겨찾기에서 맞는 곳 세 줄까지(웹 길눈 jachu.js에서 옮김, 아이폰과 같음)
+                Chajeun.huboDalgi(t, e)
                 t.danchu("즐겨찾기 — 자주 가는 곳") { t.yeolgi(JeulgyeoHwamyeon()) }
+                t.danchu("요즘 찾으신 곳 — 다시 한 번에 가기") { t.yeolgi(ChajeunHwamyeon()) }   // 2.63.0
                 t.danchu("차 부르기 — 복지콜, 교통약자 콜, 정기 호출") { t.yeolgi(ChaBureugiHwamyeon()) }   // 2.29.0 이사장님 승인
+                t.danchu("교통편 — 기차, 고속버스, 시외버스, 여객선 시간표") { t.yeolgi(GyotongHwamyeon()) }   // 2.63.0
                 t.danchu("지금 내 자리 듣기") { AnnaeEngine.jigeumJari() }
             }
         }
@@ -454,8 +460,21 @@ class ChatgiGyeolgwaHwamyeon(private val mal: String) : Hwamyeon("$mal 찾기") 
 /** 정한 곳 — 걸어가기, 차로 가기, 지하철로, 버스로, 즐겨찾기에 담기 */
 class MokjeokHwamyeon(private val j: Jangso) : Hwamyeon(j.ireum) {
     private var damam = false
+    private var chaengPyeol = false   // 2.63.0
+    private var baram = ""
 
     override fun chaeugi(t: GilnunActivity) {
+        // 2.63.0 (261017-A51, 이사장님 승인 2026-10-17) 섬이면 육지 교통편을 내놓지 않고 타는 공항·항구를(웹 길눈 seom.js에서 옮김, 아이폰과 같음)
+        val w = Wichi.jigeum
+        val sm = Seom.chatgi(j)?.takeIf { !Seom.anIn(it, w) }
+        if (sm != null) {
+            t.geul(Seom.malGoreugi(sm, w), true)
+            for ((g, m) in Seom.taneungot(sm, w, true).take(3))
+                t.danchu("비행기로 — ${g.ireum}" + (if (m > 0) ", 여기서 ${Annae.geoMal(m)}" else "") + Seom.ttaeKkori("bihaeng")) { t.yeolgi(MokjeokHwamyeon(Jangso(g.ireum, "", g.lat, g.lon))) }
+            for ((g, m) in Seom.taneungot(sm, w, false).take(3))
+                t.danchu("배로 — ${g.ireum}" + (if (m > 0) ", 여기서 ${Annae.geoMal(m)}" else "") + Seom.ttaeKkori("bae")) { t.yeolgi(MokjeokHwamyeon(Jangso(g.ireum, "", g.lat, g.lon))) }
+            t.danchu("교통편 — 여객선 시간표") { t.yeolgi(GyotongHwamyeon()) }
+        } else {
         t.danchu("${j.ireum}${geoMal()} — 걸어가기, 걷는 안내 시작") {
             Jeulgyeo.sseum(j)
             // 맞는 점지도가 있으면 "점지도로 걸을까요, 위성으로 걸을까요" 한 번 여쭘(점지도를 먼저 권함)
@@ -474,8 +493,27 @@ class MokjeokHwamyeon(private val j: Jangso) : Hwamyeon(j.ireum) {
         }
         if (!gicha) gichaDanchu(t)
         if (!bae) baeDanchu(t)
-        t.danchu("지하철로 가기 — 가까운 역, 갈아타기, 나갈 출구를 찾아 드립니다") { t.yeolgi(JihacheolGilHwamyeon(j)) }
-        t.danchu("버스로 가기 — 가까운 정류장과 오는 버스") { t.yeolgi(BeoseuChatgiHwamyeon(j)) }
+        // 2.63.0 지하철이 다니는 고장에서만(웹 길눈 seom.js 2026-09-08), 지금 시각에 끊겼을 만하면 그렇다고
+        if (Seom.jicheolItna(j.lat, j.lon) || (w != null && Seom.jicheolItna(w.lat, w.lon)))
+            t.danchu("지하철로 가기 — 가까운 역, 갈아타기, 나갈 출구를 찾아 드립니다" + Seom.ttaeKkori("jicheol")) { t.yeolgi(JihacheolGilHwamyeon(j)) }
+        t.danchu("버스로 가기 — 가까운 정류장과 오는 버스" + Seom.ttaeKkori("beoseu")) { t.yeolgi(BeoseuChatgiHwamyeon(j)) }
+        if (w != null && Wichi.geori(w.lat, w.lon, j.lat, j.lon) > 25_000) t.danchu("교통편 — 기차, 고속버스, 시외버스, 여객선 시간표") { t.yeolgi(GyotongHwamyeon()) }
+        }
+        // 2.63.0 목적지가 공항·항구면 「타기 전에 챙길 것」
+        val jong = Seom.taneungosinga(j.ireum)
+        if (jong != null) {
+            t.pyeolchigi("타기 전에 챙길 것", chaengPyeol) { chaengPyeol = !chaengPyeol }
+            if (chaengPyeol) {
+                for (m in Seom.chaenggim[jong] ?: emptyList()) t.geul(m, true)
+                if (j.ireum.contains("인천") && jong == "bihaenggi") t.geul(Seom.incheonAnsim, true)
+                if (jong == "bae") {
+                    var bb: android.widget.Button? = null
+                    bb = t.danchu(if (baram.isEmpty()) "그곳 바람 알아보기" else baram) {
+                        Seom.baramMal(j.lat, j.lon) { m -> baram = m ?: "바람을 알아보지 못했습니다."; bb?.text = baram; Sori.mal(baram) }
+                    }
+                }
+            }
+        }
         if (damam || Jeulgyeo.itna(j)) {
             t.geul("즐겨찾기에 담겨 있습니다.", true)
         } else {
