@@ -81,6 +81,9 @@ class GilnunActivity : AppCompatActivity() {
         Seoljeong.sijak(this)
         HaiGilnun.sijak(this)   // 2.26.0 하이 길눈 부르기(설정에서 켜야 들음)
         Girok.sijak(this)
+        // 2.68.0 선로 맞추기 — 앱 안의 철길 자료(assets/cheolgil.bin)를 기차 안내가 처음 쓸 때 읽음
+        val ac = applicationContext
+        Cheolgil.ilgeum = { try { ac.assets.open("cheolgil.bin").use { it.readBytes() } } catch (e: Exception) { null } }
         Sori.sijak(this)
         Wichi.sijak(this)
         TalgeotGamji.sijak(this)   // 2.9.0 탈것 저절로 알아채기(걸음 센서·가속도·기압계, 땅속에서도)
