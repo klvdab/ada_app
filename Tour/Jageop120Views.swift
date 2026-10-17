@@ -1027,7 +1027,8 @@ struct GineungView: View {
         G(id: "봐 달라는 코스", k: "봐달라 알림 확인", tab: nil, master: true),
         G(id: "화면 안 보고 답사하기 — 이어폰 단추 (답사 탭)", k: "이어폰 단추 리모컨 음량 단추 화면 안 보고 메모 사진", tab: 1, master: false),
         G(id: "걸으며 저절로 재기 — 이동 구간 안내 초안 (답사 탭)", k: "걸음 계단 오르막 내리막 꺾은 방향 재기 이동 구간 안내 초안", tab: 1, master: false),
-        G(id: "판 기록 — 누가 어떤 판을 쓰나", k: "판 기록 설치 업데이트 버전 오류", tab: nil, master: true)
+        G(id: "판 기록 — 누가 어떤 판을 쓰나", k: "판 기록 설치 업데이트 버전 오류", tab: nil, master: true),
+        G(id: "말로 대본 쓰기 — 받아쓰기를 바로 대본으로 (지점 한 화면)", k: "말로 대본 받아쓰기 음성 입력 마침표 쉼표 줄 바꿔 시계 방향 이어폰 한 번", tab: 2, master: false)
     ]
     var body: some View {
         List {
