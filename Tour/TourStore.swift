@@ -82,6 +82,7 @@ final class TourStore: NSObject, ObservableObject, CLLocationManagerDelegate {
             } else { dropDraft(id) }
         }
         UserDefaults.standard.set(id, forKey: "lastCourse")
+        if Daegi.mokrok().contains(where: { $0.c == id }) { Task { await self.daegiOllim(quiet: true) } }
         return true
     }
     private func setKos(_ k: Kos) { kos = k; curId = "sOpen"; gen += 1 }
@@ -271,10 +272,207 @@ final class TourStore: NSObject, ObservableObject, CLLocationManagerDelegate {
         if TourAPI.ok(j) {
             shot["f"] = geulja(j["file"])
             var a = s.shots; a.append(shot); s.shots = a
+            lastShot = (s.id, a.count - 1)
             say(k.spotLab(s) + " 사진 \(a.count)번째, " + dir + " 올렸습니다.")
             bakkwim()
         } else {
-            say("사진을 올리지 못했습니다. " + TourAPI.err(j))
+            // 못 올린 사진은 폰에 남겨 두고, 코스에는 「아직 못 올림」으로 적어 둠(웹 qref 와 같음)
+            let ref = Daegi.saeRef("photo")
+            Daegi.neoki(DaegiGeot(ref: ref, jong: "photo", c: k.id, s: s.id, ext: "jpg", kind: "", at: ISO8601DateFormatter().string(from: Date())), jpg)
+            shot["qref"] = ref
+            var a = s.shots; a.append(shot); s.shots = a
+            lastShot = (s.id, a.count - 1)
+            daegiSu = Daegi.su
+            say("사진을 올리지 못해 폰에 남겨 두었습니다. 인터넷이 되면 설정의 「못 올린 것 지금 올리기」로 올리십시오. 이 코스를 다시 열 때도 저절로 올립니다. " + TourAPI.err(j))
+            bakkwim()
+        }
+    }
+
+    // ================= 1.1.0판 (261017-T3) — 웹에 있던 것을 앱에도 =================
+    @Published var lastShot: (String, Int)? = nil       // 방금 찍은 사진(지점 번호, 몇째)
+    @Published var daegiSu = Daegi.su                   // 폰에 남은 못 올린 것
+
+    /// 사진 지우기 — 웹 deleteShot 과 같음(되돌릴 수 없음)
+    func deletePhoto(_ s: Spot, _ i: Int) {
+        guard let k = kos, !k.isGyobon else { say("교본의 사진은 지울 수 없습니다."); return }
+        var a = s.shots
+        guard i >= 0 && i < a.count else { return }
+        let shot = a.remove(at: i)
+        s.shots = a
+        let f = geulja(shot["f"]), q = geulja(shot["qref"]), dir = geulja(shot["dir"])
+        if !f.isEmpty { Task { _ = await TourAPI.call("delete_photo", ["c": k.id, "f": f]) } }
+        if !q.isEmpty { Daegi.ppaegi(q); daegiSu = Daegi.su }
+        if let l = lastShot, l.0 == s.id, l.1 == i { lastShot = nil }
+        say((dir.isEmpty ? "" : dir + " ") + "사진을 지웠습니다. " + s.name + " 지점에 \(a.count)장 남았습니다.")
+        bakkwim()
+    }
+
+    /// 이 지점 지우기 — 웹 spotDel 과 같음(오프닝·클로징 지점은 지우지 않음)
+    func deleteSpot(_ s: Spot) {
+        guard let k = kos, !k.isGyobon, s.kind.isEmpty else { return }
+        let pv = k.spotPrev(s)
+        let nm = s.name
+        k.spots.removeAll { $0 === s }
+        k.syncMove()
+        if curId == s.id, let pv { curId = pv.id }
+        if let l = lastShot, l.0 == s.id { lastShot = nil }
+        gen += 1
+        say(nm + "을(를) 지웠습니다. 지점은 모두 \(k.spots.count)곳입니다.")
+        bakkwim()
+    }
+
+    /// 코스 지우기 — 휴지통으로(되살릴 수 있음)
+    func deleteCourse(_ id: String, _ nm: String) async {
+        let j = await TourAPI.call("delete_course", ["id": id])
+        guard TourAPI.ok(j) else { say(TourAPI.err(j)); return }
+        if kos?.id == id { kos = nil }
+        await loadCourses()
+        say(nm + " 코스를 지웠습니다. 휴지통으로 갔습니다.")
+    }
+    func listTrash() async -> [[String: Any]]? {
+        let j = await TourAPI.call("list_trash")
+        guard TourAPI.ok(j) else { say(TourAPI.err(j)); return nil }
+        return (j["list"] as? [[String: Any]]) ?? []
+    }
+    func restoreTrash(_ f: String, _ nm: String) async -> Bool {
+        let j = await TourAPI.call("restore_trash", ["f": f])
+        guard TourAPI.ok(j) else { say(TourAPI.err(j)); return false }
+        await loadCourses()
+        say(nm + " 코스를 되살렸습니다." + ((sutja(j["renum"]) ?? 0) > 0 ? " 같은 번호의 코스가 그새 생겨 새 번호로 되살렸습니다." : "") + " 코스 목록에 들어갔습니다.")
+        return true
+    }
+
+    /// 관리자에게 봐 달라고 알리기 — 웹 askReview 와 같음
+    func askReview(_ msg: String) async -> Bool {
+        guard let k = kos else { return false }
+        await save(quiet: true)
+        let j = await TourAPI.call("ask_review", ["c": k.id, "msg": msg])
+        if TourAPI.ok(j) { say("관리자에게 봐 달라고 알렸습니다."); return true }
+        say(TourAPI.err(j)); return false
+    }
+
+    /// 판 되돌리기 — 웹 loadVersions·restore_version 과 같음
+    func listVersions() async -> [[String: Any]]? {
+        guard let k = kos else { return nil }
+        let j = await TourAPI.call("list_versions", ["c": k.id])
+        guard TourAPI.ok(j) else { say(TourAPI.err(j)); return nil }
+        return (j["list"] as? [[String: Any]]) ?? []
+    }
+    func restoreVersion(_ v: String) async -> Bool {
+        guard let k = kos else { return false }
+        let j = await TourAPI.call("restore_version", ["c": k.id, "v": v])
+        guard TourAPI.ok(j), let c = j["course"] as? [String: Any] else { say(TourAPI.err(j)); return false }
+        base = geulja(j["updated"])
+        setKos(Kos(c))
+        lastSaved = snap()
+        say("되돌렸습니다. 지점 \(kos?.spots.count ?? 0)곳입니다.")
+        return true
+    }
+
+    // ---- 소리 올리기(현장 메모·연습 녹음) ----
+    /// 담은 소리를 mp3 로 바꾸고 받아써서 올림. 못 올리면 폰에 남겨 둠. (파일 이름, 못 올린 표, 받아쓴 말, 초)
+    private func soriOllim(_ k: Kos, _ s: Spot, kind: String, wav: URL, sec: Int) async -> (String, String, String) {
+        say("담은 소리를 mp3 로 바꾸고 있습니다.")
+        let heard = await Badasseugi.geullo(wav)
+        var data: Data, ext: String
+        if let mp3 = await Mp3Gi.shared.bakkugi(wav) { data = mp3; ext = "mp3" }
+        else { data = (try? Data(contentsOf: wav)) ?? Data(); ext = "wav" }
+        try? FileManager.default.removeItem(at: wav)
+        let j = await TourAPI.call("save_audio", ["c": k.id, "s": s.id, "kind": kind, "ext": ext, "data": data.base64EncodedString()], timeout: 120)
+        if TourAPI.ok(j) { return (geulja(j["file"]), "", heard) }
+        let ref = Daegi.saeRef("audio")
+        Daegi.neoki(DaegiGeot(ref: ref, jong: "audio", c: k.id, s: s.id, ext: ext, kind: kind, at: ISO8601DateFormatter().string(from: Date())), data)
+        daegiSu = Daegi.su
+        return ("", ref, heard)
+    }
+
+    /// 현장 메모 말로 적기 — 끝내면 담고, 받아쓴 말은 고른 칸에 붙임(웹 afterAudio memo 와 같음)
+    func memoMal(_ s: Spot, where_: String, wav: URL, sec: Int) async {
+        guard let k = kos, !k.isGyobon else { return }
+        if sec < 1 { say("담긴 소리가 없습니다."); return }
+        let (f, q, heard) = await soriOllim(k, s, kind: "memo", wav: wav, sec: sec)
+        var m = (s.d["memos"] as? [[String: Any]]) ?? []
+        m.append(["f": f, "qref": q, "sec": sec, "text": heard, "where": where_, "at": ISO8601DateFormatter().string(from: Date())])
+        s.d["memos"] = m
+        if !heard.isEmpty { kanBuchigi(k, s, where_, heard) }
+        var mal = heard.isEmpty ? "\(sec)초 담았습니다. 이 폰은 받아쓰기가 안 되어 소리로만 남겼습니다. 나중에 들어 보실 수 있습니다."
+                                : "\(sec)초 말씀하셨습니다. 글로 옮겨 " + MemoKan.ireum(where_) + " 칸에 넣었습니다. " + heard
+        if !q.isEmpty { mal += " 소리는 아직 올리지 못해 폰에 남겨 두었습니다." }
+        say(mal)
+        bakkwim()
+    }
+    /// 현장 메모 글로 적기 — 웹 memoTextPut 과 같음
+    func memoGeul(_ s: Spot, where_: String, text: String) {
+        guard let k = kos, !k.isGyobon else { return }
+        let tx = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if tx.isEmpty { say("적으신 글이 없습니다. 글 칸에 적고 다시 누르십시오."); return }
+        var m = (s.d["memos"] as? [[String: Any]]) ?? []
+        m.append(["f": "", "qref": "", "sec": 0, "text": tx, "where": where_, "at": ISO8601DateFormatter().string(from: Date()), "typed": 1])
+        s.d["memos"] = m
+        kanBuchigi(k, s, where_, tx)
+        say("글로 담았습니다. " + MemoKan.ireum(where_) + " 칸에 넣었습니다.")
+        bakkwim()
+    }
+    private func kanBuchigi(_ k: Kos, _ s: Spot, _ where_: String, _ t: String) {
+        if where_ == "text" {
+            let o = k.spotText(s); k.setSpotText(s, o.isEmpty ? t : o + " " + t)
+        } else {
+            let o = s.s(where_); s.d[where_] = o.isEmpty ? t : o + " " + t
+        }
+    }
+
+    /// 지점별 읽으며 녹음 — 걸린 시간·빠르기·금지어 되돌아보기(웹 pracReview 와 같음)
+    func yeonseup(_ s: Spot, wav: URL, sec: Int) async {
+        guard let k = kos, !k.isGyobon else { return }
+        if sec < 1 { say("담긴 소리가 없습니다."); return }
+        let (f, q, heard) = await soriOllim(k, s, kind: "prac", wav: wav, sec: sec)
+        s.d["real"] = sec
+        s.d["pracFile"] = f
+        if !q.isEmpty { s.d["pracQref"] = q } else { s.d.removeValue(forKey: "pracQref") }
+        k.d["practiced"] = true
+        s.d["prac"] = Yeonseup.review(k, s, sec: sec, heard: heard)
+        say(Yeonseup.mal(k, s) + (q.isEmpty ? "" : " 소리는 아직 올리지 못해 폰에 남겨 두었습니다."))
+        bakkwim()
+    }
+
+    /// 못 올린 것 올리기 — 지금 연 코스의 것부터. 다른 코스의 것은 그 코스를 열 때 올림
+    func daegiOllim(quiet: Bool) async {
+        let L = Daegi.mokrok()
+        if L.isEmpty { daegiSu = 0; if !quiet { say("못 올린 것이 없습니다.") }; return }
+        guard let k = kos else { if !quiet { say("못 올린 것 \(L.count)개가 있습니다. 그 코스를 열면 올립니다.") }; return }
+        var ollin = 0, mot = 0
+        for g in L where g.c == k.id {
+            guard let data = Daegi.data(g) else { Daegi.ppaegi(g.ref); continue }
+            let j: [String: Any]
+            if g.jong == "photo" {
+                j = await TourAPI.call("save_photo", ["c": g.c, "s": g.s, "ext": g.ext, "data": data.base64EncodedString()], timeout: 90)
+            } else {
+                j = await TourAPI.call("save_audio", ["c": g.c, "s": g.s, "kind": g.kind, "ext": g.ext, "data": data.base64EncodedString()], timeout: 120)
+            }
+            guard TourAPI.ok(j) else { mot += 1; continue }
+            let f = geulja(j["file"])
+            for s in k.allSpots {
+                var a = s.shots
+                for i in a.indices where geulja(a[i]["qref"]) == g.ref { a[i]["f"] = f; a[i].removeValue(forKey: "qref") }
+                s.shots = a
+                if var m = s.d["memos"] as? [[String: Any]] {
+                    for i in m.indices where geulja(m[i]["qref"]) == g.ref { m[i]["f"] = f; m[i]["qref"] = "" }
+                    s.d["memos"] = m
+                }
+                if s.s("pracQref") == g.ref { s.d["pracFile"] = f; s.d.removeValue(forKey: "pracQref") }
+            }
+            Daegi.ppaegi(g.ref)
+            ollin += 1
+        }
+        daegiSu = Daegi.su
+        if ollin > 0 { bakkwim() }
+        let namun = Daegi.su
+        if !quiet || ollin > 0 {
+            var m = ollin > 0 ? "못 올린 것 \(ollin)개를 올렸습니다." : ""
+            if mot > 0 { m += " \(mot)개는 아직 못 올렸습니다. 인터넷을 확인해 주십시오." }
+            if namun - mot > 0 { m += " 다른 코스의 것 \(namun - mot)개는 그 코스를 열면 올립니다." }
+            if m.isEmpty { m = "이 코스에는 못 올린 것이 없습니다." }
+            say(m.trimmingCharacters(in: .whitespaces))
         }
     }
 }
