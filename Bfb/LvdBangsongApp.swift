@@ -1,4 +1,4 @@
-// LVD 방송 아이폰(듣는 앱) — 시작과 화면 (2.0.0판, 빌드 261015-LI1, 방송클, 이사장님 승인 「1」)
+// LVD 방송 아이폰(듣는 앱) — 시작과 화면 (2.1.0판, 빌드 261016-LI2, 방클, 이사장님 승인 「1」)
 // 배프 웹 껍데기(BfbApp)를 속까지 앱으로 새로 지음. 고유 번호 kr.or.ada.bfb 를 그대로 이어 업데이트로 바뀝니다.
 // 이사장님 뜻: 듣는 분께는 들을 것만. 방송 방식·공유기 같은 말은 어디에도 보이지 않게.
 // 첫 화면: 협회 로고 머리 → 「현장영상해설 듣기」(큰 단추, 커서가 여기에) → 상태 한 줄(바뀔 때만 알림)
@@ -9,8 +9,8 @@ import UIKit
 import AVFoundation
 
 enum Pan {
-    static let PAN = "2.0.0"   // 2.0.0(261015-LI1) LVD 방송 아이폰 첫 판 — 행사장 와이파이 저절로 붙기, 앱 열면 곧바로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
-    static let BILD = "261015-LI1"
+    static let PAN = "2.1.0"   // 2.1.0(261016-LI2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 인터넷 생방송 듣기로 이름 줄임, 앱 안 누리집의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-LI1) LVD 방송 아이폰 첫 판 — 행사장 와이파이 저절로 붙기, 앱 열면 곧바로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
+    static let BILD = "261016-LI2"
     static let BAEP = "https://lvd.ada.or.kr/bfblive/"
 }
 
@@ -153,8 +153,11 @@ struct CheotHwamyeon: View {
                 }
                 Danchu(deoYeollim ? "더 보기 접기" : "더 보기") { deoYeollim.toggle() }
                 if deoYeollim {
-                    Danchu("인터넷으로 배리어프리방송국 생방송 듣기") { hwamyeon = .web("배리어프리방송국 생방송", Pan.BAEP + "deutgi2.html") }
+                    Danchu("인터넷 생방송 듣기") { hwamyeon = .web("인터넷 생방송 듣기", Pan.BAEP + "deutgi2.html") }
                     Danchu("지난 방송 다시 듣기") { hwamyeon = .web("지난 방송 다시 듣기", Pan.BAEP + "dasi.html") }
+                    Danchu("TV해설방송 듣기") { hwamyeon = .web("TV해설방송 듣기", "https://lvd.ada.or.kr/lvds/haeseol_deutgi.html") }
+                    Danchu("TV방송") { hwamyeon = .web("TV방송", Pan.BAEP + "chae.html?kind=tv") }
+                    Danchu("라디오방송") { hwamyeon = .web("라디오방송", Pan.BAEP + "chae.html?kind=radio") }
                     Danchu(jeoljeolo ? "행사장에 들어서면 저절로 듣기: 켜짐. 누르면 끕니다" : "행사장에 들어서면 저절로 듣기: 꺼짐. 누르면 켭니다") {
                         jeoljeolo.toggle()
                         UserDefaults.standard.set(jeoljeolo, forKey: "jeoljeolo_deutgi")
