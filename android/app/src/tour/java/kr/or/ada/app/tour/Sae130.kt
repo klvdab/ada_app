@@ -157,7 +157,7 @@ internal val TourActivity.danchuOn: Boolean get() = sp.getBoolean("danchuOn", fa
 internal fun TourActivity.malhae(t: String) {
     malhagi(t)
     val am = getSystemService(android.content.Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
-    if (danchuOn && malsori && !Nokeumgi.jung && !am.isTouchExplorationEnabled && ttsOk) tts?.speak(t, TextToSpeech.QUEUE_FLUSH, null, "danchu")
+    if (danchuOn && malsori && !Nokeumgi.jung && !s14.jung && !am.isTouchExplorationEnabled && ttsOk) tts?.speak(t, TextToSpeech.QUEUE_FLUSH, null, "danchu")
 }
 internal fun TourActivity.danchuKyeogi(v: Boolean) {
     sp.edit().putBoolean("danchuOn", v).apply()
@@ -217,7 +217,7 @@ internal fun TourActivity.danchuHagi(n: Int) {
     when (n) {
         2 -> if (cur() is Hw.Jeoljeoro && s12.cam != null) camJjikgi(0) else { malhae("나침반 카메라를 엽니다. " + k.spotLab(s) + "입니다."); tab = 1; go(Hw.Jeoljeoro) }
         3 -> if (s13.jaegi) jaegiKkeut(true) else jaegiSijak(s)
-        else -> danchuMemo(k, s)
+        else -> if (danchuHanbeon == "daebon") danchuMalDaebon(k, s) else danchuMemo(k, s)
     }
 }
 internal fun TourActivity.danchuMemo(k: Kos, s: Spot) {
@@ -242,7 +242,13 @@ internal fun TourActivity.danchuKey(code: Int): Boolean {
 internal fun TourActivity.danchu130(k: Kos) {
     geul("화면 안 보고 답사하기 — 이어폰 단추·음량 단추", jemok = true)
     danchu(if (danchuOn) "이어폰 단추로 답사하기 — 켜짐. 누르면 끕니다" else "이어폰 단추로 답사하기 — 꺼짐. 누르면 켭니다") { danchuKyeogi(!danchuOn) }
-    geul("이어폰 단추를 한 번 누르면 현장 메모 녹음을 시작하고, 다시 한 번 누르면 끝납니다. 두 번 누르면 나침반 카메라가 열리고, 열린 뒤 두 번 누르면 찍습니다. 세 번 누르면 이동 구간 재기를 시작하거나 끝냅니다. 답사 탭과 나침반 카메라에서는 음량 크게 단추로 사진, 작게 단추로 메모 녹음을 합니다. 켜 두는 동안 다른 앱의 음악은 멈출 수 있습니다.", jakge = true)
+    danchu("한 번 누름 — " + (if (danchuHanbeon == "daebon") "대본 받아쓰기" else "현장 메모 녹음") + ". 누르면 바꿉니다") {
+        val v = if (danchuHanbeon == "daebon") "memo" else "daebon"
+        sp.edit().putString("danchuHanbeon", v).apply()
+        malhagi(if (v == "daebon") "한 번 누르면 대본 받아쓰기입니다. 넣을 칸은 지점 한 화면의 말로 대본 쓰기에서 고릅니다." else "한 번 누르면 현장 메모 녹음입니다.")
+        draw()
+    }
+    geul("이어폰 단추를 한 번 누르면 현장 메모 녹음(또는 위에서 고른 대본 받아쓰기)을 시작하고, 다시 한 번 누르면 끝납니다. 두 번 누르면 나침반 카메라가 열리고, 열린 뒤 두 번 누르면 찍습니다. 세 번 누르면 이동 구간 재기를 시작하거나 끝냅니다. 답사 탭과 나침반 카메라에서는 음량 크게 단추로 사진, 작게 단추로 한 번 누름과 같은 일을 합니다. 켜 두는 동안 다른 앱의 음악은 멈출 수 있습니다.", jakge = true)
     geul("걸으며 저절로 재기 — 이동 구간 안내 초안", jemok = true)
     danchu(if (jaegiJeoljeoro) "경계를 적으면 저절로 재기 시작 — 켜짐. 누르면 끕니다" else "경계를 적으면 저절로 재기 시작 — 꺼짐. 누르면 켭니다") { sp.edit().putBoolean("geoleumAuto", !jaegiJeoljeoro).apply(); draw() }
     if (s13.jaegi) {
