@@ -114,14 +114,14 @@ final class YeojeongEngine: ObservableObject {
     private let pail: URL
 
     init() {
-        // 2.92.0 지난 여정 여쭙기 — 1분마다
-        DispatchQueue.main.async { [weak self] in
-            self?.jinanTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.jinanSalpim() }
-        }
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("gilnun", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         pail = dir.appendingPathComponent("yeojeong.json")
+        // 2.92.0 지난 여정 여쭙기 — 1분마다
+        DispatchQueue.main.async { [weak self] in
+            self?.jinanTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.jinanSalpim() }
+        }
         WichiEngine.shared.saeWichi
             .sink { [weak self] w in self?.sokdoBoda(w) }
             .store(in: &ssak)
