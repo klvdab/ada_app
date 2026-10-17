@@ -9,8 +9,11 @@ on:
     paths:
       - Gilnun/GichaAnnae.swift
       - Gilnun/GichaYeok.swift
+      - Gilnun/Cheolgil.swift
+      - Gilnun/cheolgil.bin
       - android/app/src/gilnun/java/kr/or/ada/app/gilnun/GichaAnnae.kt
       - android/app/src/gilnun/java/kr/or/ada/app/gilnun/GichaYeok.kt
+      - android/app/src/gilnun/java/kr/or/ada/app/gilnun/Cheolgil.kt
       - tests/gicha/**
       - .github/workflows/gicha-siheom.yml
   workflow_dispatch:
@@ -29,7 +32,7 @@ jobs:
           sudo xcode-select -s "$X/Contents/Developer"
           swiftc --version
       - name: 짓기
-        run: swiftc -swift-version 5 -O Gilnun/GichaAnnae.swift Gilnun/GichaYeok.swift tests/gicha/swift/Bakkat.swift tests/gicha/swift/main.swift -o siheom_aipon
+        run: swiftc -swift-version 5 -O Gilnun/GichaAnnae.swift Gilnun/GichaYeok.swift Gilnun/Cheolgil.swift tests/gicha/swift/Bakkat.swift tests/gicha/swift/main.swift -o siheom_aipon
       - name: 돌려 보기
         run: ./siheom_aipon tests/gicha/s*.json
 
@@ -51,6 +54,6 @@ jobs:
       - name: 짓기
         run: |
           K=android/app/src/gilnun/java/kr/or/ada/app/gilnun
-          kotlinc/bin/kotlinc $K/GichaAnnae.kt $K/GichaYeok.kt tests/gicha/kotlin/Bakkat.kt tests/gicha/kotlin/Siheom.kt -cp json.jar -include-runtime -d siheom.jar
+          kotlinc/bin/kotlinc $K/GichaAnnae.kt $K/GichaYeok.kt $K/Cheolgil.kt tests/gicha/kotlin/Bakkat.kt tests/gicha/kotlin/Siheom.kt -cp json.jar -include-runtime -d siheom.jar
       - name: 돌려 보기
         run: java -cp siheom.jar:json.jar kr.or.ada.app.gilnun.SiheomKt tests/gicha/s*.json
