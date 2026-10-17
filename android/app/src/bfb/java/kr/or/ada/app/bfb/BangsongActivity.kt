@@ -1,8 +1,8 @@
-// LVD 방송(듣는 앱) — 첫 화면 (2.0.0판, 빌드 261015-L1, 방송클, 이사장님 승인 「1」)
+// LVD 방송(듣는 앱) — 첫 화면 (2.1.0판, 빌드 261016-L2, 방클, 이사장님 승인 「1」)
 // 이사장님 뜻: 듣는 분께는 들을 것만. 방송 방식·공유기 같은 말은 어디에도 보이지 않게.
 // 첫 화면 차례: 협회 로고와 이름 → 「현장영상해설 듣기」(큰 단추, 커서가 여기에) → 상태 한 줄(바뀔 때만 알림)
 //   → 「현장영상해설사 도움 요청」(누르면 바로 아래에 세 가지) → (처음 한 번) 행사장에 들어서면 저절로 들리게 하기 → 더 보기
-// 더 보기 안: 인터넷 배리어프리방송국 생방송 듣기, 지난 방송 다시 듣기, 저절로 듣기 켜고 끄기, 와이파이 저절로 붙기 다시 하기,
+// 더 보기 안: 인터넷 생방송 듣기, 지난 방송 다시 듣기, TV해설방송 듣기, TV방송, 라디오방송, 저절로 듣기 켜고 끄기, 와이파이 저절로 붙기 다시 하기,
 //   프로그램 말소리, 도움말, 새로고침, 업데이트, 판 정보.
 // 행사장에 들어서면(행사장 와이파이에 붙으면) 앱을 열기만 해도 곧바로 들려줍니다. 뒤로 가기로 앱 밖에 나가지 않습니다.
 package kr.or.ada.app.bfb
@@ -37,8 +37,8 @@ import java.util.Locale
 class BangsongActivity : Activity() {
 
     companion object {
-        const val PAN = "2.0.0"   // 2.0.0(261015-L1) LVD 방송 첫 판(배프 웹 껍데기 1.2.1의 뒤를 이음) — 배프 웹 껍데기를 속까지 앱으로: 행사장 와이파이 저절로 붙기와 저절로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 같은 폰 LVD 송출과 부딪치지 않기, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
-        const val BILD = "261015-L1"
+        const val PAN = "2.1.0"   // 2.1.0(261016-L2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 「인터넷 생방송 듣기」로 이름 줄임, 앱 안 누리집 화면의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-L1) LVD 방송 첫 판(배프 웹 껍데기 1.2.1의 뒤를 이음) — 배프 웹 껍데기를 속까지 앱으로: 행사장 와이파이 저절로 붙기와 저절로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 같은 폰 LVD 송출과 부딪치지 않기, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
+        const val BILD = "261016-L2"
         const val BAEP = "https://lvd.ada.or.kr/bfblive/"
     }
 
@@ -207,8 +207,11 @@ class BangsongActivity : Activity() {
         deoDanchu = danchu("더 보기") { deoBogi(deoAn.visibility != View.VISIBLE) }
         mom.addView(deoDanchu)
         deoAn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
-        deoAn.addView(danchu("인터넷으로 배리어프리방송국 생방송 듣기") { webYeolgi("배리어프리방송국 생방송", BAEP + "deutgi2.html") })
+        deoAn.addView(danchu("인터넷 생방송 듣기") { webYeolgi("인터넷 생방송 듣기", BAEP + "deutgi2.html") })
         deoAn.addView(danchu("지난 방송 다시 듣기") { webYeolgi("지난 방송 다시 듣기", BAEP + "dasi.html") })
+        deoAn.addView(danchu("TV해설방송 듣기") { webYeolgi("TV해설방송 듣기", "https://lvd.ada.or.kr/lvds/haeseol_deutgi.html") })
+        deoAn.addView(danchu("TV방송") { webYeolgi("TV방송", BAEP + "chae.html?kind=tv") })
+        deoAn.addView(danchu("라디오방송") { webYeolgi("라디오방송", BAEP + "chae.html?kind=radio") })
         jeoljeoloDanchu = danchu(jeoljeoloMal()) { jeoljeoloBakkugi() }
         deoAn.addView(jeoljeoloDanchu)
         deoAn.addView(danchu("행사장 와이파이 저절로 붙기 다시 하기") { cheoeumHeorak() })
