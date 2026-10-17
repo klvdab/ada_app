@@ -1,4 +1,4 @@
-// LVD투어스튜디오 앱 — 지점 탭: 지점 목록과 지점 한 화면 (판 1.0.0, 빌드 261012-T1)
+// LVD투어스튜디오 앱 — 지점 탭: 지점 목록과 지점 한 화면 (판 1.1.0, 빌드 261017-T3 — 이 지점 지우기, 사진 크게 보기·지우기·다시 찍기, 담긴 메모. 1.0.0 261012-T1)
 // 지점 하나는 「어디서부터 어디까지」로 정합니다. 오프닝 지점과 클로징 지점도 지점입니다.
 import SwiftUI
 
@@ -47,6 +47,7 @@ struct JijeomTab: View {
 struct SpotView: View {
     @EnvironmentObject var store: TourStore
     @State var id: String
+    @State private var jiulkka = false
     @AccessibilityFocusState private var meori: Bool
     static let bangHyang = ["12시 방향", "1시 방향", "2시 방향", "3시 방향", "4시 방향", "5시 방향", "6시 방향", "7시 방향", "8시 방향", "9시 방향", "10시 방향", "11시 방향"]
 
@@ -91,11 +92,11 @@ struct SpotView: View {
                         }
                     }
                 }
-                Section("사진 \(s.shots.count)장") {
-                    if s.shots.isEmpty { Text("아직 사진이 없습니다. 답사 탭에서 찍으십시오.") }
-                    Jang(items: s.shots.enumerated().map { Jul(id: "\($0.offset)|" + geulja($0.element["f"]), t: geulja($0.element["dir"])) }) { x in
-                        SajinJul(kosId: k.id, jul: x)
-                    }
+                Section("사진 \(s.shots.count)장 (두드리면 크게 보기·지우기·다시 찍기)") {
+                    SajinMokrok(s: s)
+                }
+                Section("현장 메모") {
+                    NavigationLink("담긴 메모 \(((s.d["memos"] as? [[String: Any]]) ?? []).count)개 보기와 듣기") { MemoMokrokView(spotId: s.id).dwiro() }
                 }
                 Section {
                     if let p = k.spotPrev(s) { Button("앞 지점 — " + k.spotFull(p)) { olgim(p.id) } }
@@ -105,6 +106,17 @@ struct SpotView: View {
                         Button("이 지점을 한 칸 뒤로") { if k.moveSpot(s, by: 1) { store.bakkwim(); store.say(k.spotFull(s) + "이 되었습니다.") } }
                     }
                     Button("지금 저장") { Task { await store.save(quiet: false) } }
+                    if s.kind.isEmpty && !k.isGyobon {
+                        Button("이 지점 지우기", role: .destructive) { jiulkka = true }
+                    }
+                }
+                .alert(s.name + "을(를) 지울까요? 담은 사진 기록도 함께 지워집니다.", isPresented: $jiulkka) {
+                    Button("지우기", role: .destructive) {
+                        let pv = k.spotPrev(s)
+                        store.deleteSpot(s)
+                        if let pv { id = pv.id }
+                    }
+                    Button("그만두기", role: .cancel) {}
                 }
             } else { KosEopseum() }
         }
