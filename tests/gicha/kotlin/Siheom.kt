@@ -11,6 +11,9 @@ import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
     var silpae = 0
+    // 2.68.0 철길 자료 — 앱에 싣는 것과 같은 파일
+    Cheolgil.ilgeum = { File("Gilnun/cheolgil.bin").takeIf { it.exists() }?.readBytes() }
+    if (Cheolgil.shared == null) { println("철길 자료를 못 읽음"); exitProcess(1) }
     val tz = TimeZone.getTimeZone("Asia/Seoul")
     for (pail in args) {
         val s = JSONObject(File(pail).readText(Charsets.UTF_8))
