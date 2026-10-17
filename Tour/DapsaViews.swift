@@ -1,4 +1,4 @@
-// LVD투어스튜디오 앱 — 답사 탭 (판 1.2.0, 빌드 261017-T4 — 저절로 찍기·담는 모양·폰 사진 넣기·코스 벗어남 알림. 1.1.0 261017-T3 — 방금 찍은 사진·담긴 사진 크게 보기·지우기·다시 찍기, 현장 메모. 1.0.1 261014-T2)
+// LVD투어스튜디오 앱 — 답사 탭 (판 1.3.0, 빌드 261018-T5 — 이어폰 단추로 답사, 걸으며 저절로 재기. 1.2.0 261017-T4 — 저절로 찍기·담는 모양·폰 사진 넣기·코스 벗어남 알림. 1.1.0 261017-T3 — 방금 찍은 사진·담긴 사진 크게 보기·지우기·다시 찍기, 현장 메모. 1.0.1 261014-T2)
 // 현장을 걸으며: 「여기서부터 다음 지점 시작」으로 경계를 적고, 정지 현장영상해설 자리에서 시계 방향 네 쪽 사진을 찍습니다.
 import SwiftUI
 import UIKit
@@ -24,7 +24,7 @@ struct DapsaTab: View {
                 if !k.isGyobon {
                     Section("경계 적기") {
                         if let nx = k.spotNext(s) {
-                            Button("여기서부터 " + k.spotFull(nx) + " 시작") { store.boundGo(); jjik() }
+                            Button("여기서부터 " + k.spotFull(nx) + " 시작") { store.boundGo(); jaegiJeoljeoro(); jjik() }
                                 .font(.headline)
                         } else {
                             Text("클로징 지점이 마지막입니다. 해산하는 자리를 아래 어디까지 칸에 적으십시오.")
@@ -36,7 +36,7 @@ struct DapsaTab: View {
                         }
                         TextField("새 지점 이름 (없어도 됩니다)", text: $saeIreum)
                         Button("여기서부터 새 지점 시작 (" + (s.kind == "close" ? "클로징 지점 바로 앞에" : k.spotLab(s) + " 바로 뒤에") + " 넣기)") {
-                            store.addHere(name: saeIreum.trimmingCharacters(in: .whitespaces)); saeIreum = ""; jjik()
+                            store.addHere(name: saeIreum.trimmingCharacters(in: .whitespaces)); saeIreum = ""; jaegiJeoljeoro(); jjik()
                         }
                     }
                     Section("사진 찍기 — 시계 방향으로 네 쪽") {
@@ -55,6 +55,7 @@ struct DapsaTab: View {
                         Text(nameun.isEmpty ? "네 방향을 다 담았습니다. 다음 지점으로 옮기셔도 됩니다." : "아직 담지 않은 방향: " + nameun.joined(separator: ", "))
                     }
                     Kamera120Section()
+                    Danchu130Section()
                     BangeumSajin()
                     Section("담긴 사진 보기 — \(s.shots.count)장 (두드리면 크게 보기·지우기·다시 찍기)") { SajinMokrok(s: s) }
                     MemoSection()
@@ -86,6 +87,8 @@ struct DapsaTab: View {
             .ignoresSafeArea()
         }
     }
+    /// 1.3.0 — 경계를 적으면 새 지점의 이동 구간을 저절로 재기 시작
+    private func jaegiJeoljeoro() { if GeoleumJaegi.shared.jeoljeoro, let s = store.cur { GeoleumJaegi.shared.sijak(s) } }
     private func jjik() { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { meori = true } }
 }
 
