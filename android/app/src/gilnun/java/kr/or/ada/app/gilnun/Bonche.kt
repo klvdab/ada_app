@@ -23,12 +23,17 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.64.0"
-    const val bild = "261017-A52"
+    const val pan = "2.65.0"
+    const val bild = "261017-A53"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.65.0", "261017-A53", "2026-10-17", listOf(
+            "★웹 길눈에 있었는데 앱으로 옮기지 못한 것 4단계 첫째(이사장님 승인 2026-10-17 「그러자」) — 아이폰 2.95.0과 같게",
+            "미리 걸어 보기 — 점지도 길 고르기에서 나서기 전에 한 마디씩 듣기, 한 마디 뒤로·다시 듣기·5초마다 저절로 넘기기, 요약만 듣기(꺾임·계단·건널목·턱·승강기·문), 돌아오는 길로 걸어 보기, 방향은 시계 방향으로(웹 mirigeot.html 1.0)",
+            "도움말 — 미리 걸어 보기"
+        )),
         Gochim("2.64.0", "261017-A52", "2026-10-17", listOf(
             "★웹 길눈에 있었는데 앱으로 옮기지 못한 것 3단계(이사장님 승인 2026-10-17 「그러자」) — 아이폰 2.94.0과 같게",
             "긴급통화 내 자리 보내기 — 요청·통화하는 동안 8초마다 주소·국가지점번호·바라보는 쪽·빠르기를 받는 분께, 그만 보내기·다시 보내기 단추(웹 jari_nanum.js 1.1)",

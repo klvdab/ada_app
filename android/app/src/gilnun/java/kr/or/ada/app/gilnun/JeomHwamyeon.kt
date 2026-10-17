@@ -157,6 +157,8 @@ class JeomGilGoreugi(private val j: JeomMok) : Hwamyeon(j.ireum) {
             t.danchu("거꾸로 걷기(되돌아가기) — ${j.to}에서 ${j.from}까지") { geotgi(t, true) }
         }
         t.geul(j.julMal)
+        // 2.65.0 (261017-A53, 이사장님 승인 2026-10-17) 나서기 전에 한 마디씩 들어 보기(웹 길눈 mirigeot.html 1.0에서 옮김, 아이폰과 같음)
+        t.danchu("미리 걸어 보기 — 나서기 전에 한 마디씩 듣기") { t.yeolgi(MiriGeotgiHwamyeon(j, dwitMeonjeo())) }
         cheot?.let { t.chojeomJul(it) }
     }
 
