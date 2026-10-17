@@ -89,6 +89,7 @@ struct SpotView: View {
                     let t = k.spotText(s)
                     Text(Wonchik.textFb(k, t, roomMin: s.kind.isEmpty ? (s.n("stay") ?? 0) : 0, wantDir: s.kind.isEmpty)).font(.footnote)
                 }
+                if !k.isGyobon { MalDaebonSection(s: s) }
                 if Wonchik.isTheme(k) { TtSection(s: s) }
                 DirSection(k: k, s: s)
                 Section("사진 \(s.shots.count)장 (두드리면 크게 보기·지우기·다시 찍기)") {
