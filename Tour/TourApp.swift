@@ -6,8 +6,8 @@ import SwiftUI
 import UIKit
 
 enum Pan {
-    static let pan = "1.0.1"
-    static let bildeu = "261014-T2"
+    static let pan = "1.1.0"      // 261017-T3 웹에 있던 것 열네 가지(사진 지우기·다시 찍기·크게 보기, 지점 지우기, 현장 메모, 연습 녹음, 못 올린 것, 판 되돌리기, 휴지통 등) — 방클, 이사장님 승인
+    static let bildeu = "261017-T3"
     static let ireum = "LVD투어스튜디오 \(pan)판 (빌드 \(bildeu))"
 }
 
