@@ -1,4 +1,4 @@
-// LVD투어스튜디오 앱 — 답사 탭 (판 1.0.1, 빌드 261014-T2)
+// LVD투어스튜디오 앱 — 답사 탭 (판 1.1.0, 빌드 261017-T3 — 방금 찍은 사진·담긴 사진 크게 보기·지우기·다시 찍기, 현장 메모. 1.0.1 261014-T2)
 // 현장을 걸으며: 「여기서부터 다음 지점 시작」으로 경계를 적고, 정지 현장영상해설 자리에서 시계 방향 네 쪽 사진을 찍습니다.
 import SwiftUI
 import UIKit
@@ -54,6 +54,9 @@ struct DapsaTab: View {
                         let nameun = DapsaTab.ne.filter { !jjigeun.contains($0) }
                         Text(nameun.isEmpty ? "네 방향을 다 담았습니다. 다음 지점으로 옮기셔도 됩니다." : "아직 담지 않은 방향: " + nameun.joined(separator: ", "))
                     }
+                    BangeumSajin()
+                    Section("담긴 사진 보기 — \(s.shots.count)장 (두드리면 크게 보기·지우기·다시 찍기)") { SajinMokrok(s: s) }
+                    MemoSection()
                 }
                 Section("지점 옮겨 보기") {
                     if let p = k.spotPrev(s) { Button("앞 지점 — " + k.spotFull(p)) { store.go(p); jjik() } }
