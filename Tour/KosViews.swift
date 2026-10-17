@@ -1,4 +1,4 @@
-// LVD투어스튜디오 앱 — 들어오기와 코스 탭 (판 1.1.0, 빌드 261017-T3 — 봐 달라고 알리기·판 되돌리기·코스 지우기·휴지통·더 적을 것. 1.0.0 261012-T1)
+// LVD투어스튜디오 앱 — 들어오기와 코스 탭 (판 1.2.0, 빌드 261017-T4 — 가입 신청, 다음 할 일, 승인 표시, 씨앗 코스, 내보내기·협회 승인, 관리 묶음, 장소 평면도. 1.1.0 261017-T3 — 봐 달라고 알리기·판 되돌리기·코스 지우기·휴지통·더 적을 것. 1.0.0 261012-T1)
 import SwiftUI
 
 struct LoginView: View {
@@ -13,7 +13,7 @@ struct LoginView: View {
             Form {
                 Section { Meori().listRowInsets(EdgeInsets()).listRowBackground(Color.clear) }
                 Section {
-                    Text("웹 투어스튜디오와 같은 아이디와 비밀번호로 들어오십시오. 아이디가 없으시면 웹 투어스튜디오에서 가입을 신청해 주십시오.")
+                    Text("웹 투어스튜디오와 같은 아이디와 비밀번호로 들어오십시오. 아이디가 없으시면 아래 가입 신청하기를 눌러 주십시오.")
                     TextField("아이디", text: $id)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -33,7 +33,7 @@ struct LoginView: View {
                     if !mal.isEmpty { Text(mal).accessibilityFocused($malF) }
                 }
                 Section {
-                    Link("웹 투어스튜디오 열기 (가입 신청)", destination: URL(string: "https://lvd.ada.or.kr/lvdts/lvdts.html")!)
+                    NavigationLink("가입 신청하기") { SignupView().dwiro() }
                     Text(Pan.ireum).font(.footnote)
                 }
             }
@@ -54,7 +54,7 @@ struct KosJul: Identifiable {
         let pl = geulja(j["place"]); if !pl.isEmpty { t += ", " + pl }
         if let n = sutja(j["spots"]) { t += ", 지점 \(Int(n))곳" }
         if let m = sutja(j["total"]), m > 0 { t += ", " + fmtMin(m) }
-        let f = geulja(j["final"]); if !f.isEmpty { t += ", 승인 " + f }
+        if let f = j["final"] as? [String: Any] { let b = Wonchik.finalBadge(f); if !b.isEmpty { t += ", " + b } }
         return t
     }
 }
@@ -64,13 +64,16 @@ struct KosTab: View {
     @EnvironmentObject var nav: Nav
     @State private var saeIreum = ""
     @State private var saeJangso = ""
-    @State private var seungin = ""
+    @State private var ssiat = -1
     var body: some View {
         List {
             Section { Meori().listRowInsets(EdgeInsets()).listRowBackground(Color.clear) }
             TourOllimJul()
             AllimJul()
             if let k = store.kos {
+                Section("다음 할 일") {
+                    Text(Wonchik.nextTodo(k, store.meName)).font(.headline)
+                }
                 Section("지금 연 코스") {
                     Text(k.name + " — 지점 \(k.spots.count)곳과 오프닝·클로징 지점, 모두 " + fmtMin(k.courseMin()))
                         .font(.headline)
@@ -80,24 +83,15 @@ struct KosTab: View {
                         Button("교본을 내 코스로 복사") { Task { _ = await store.copyGyobon() } }
                     }
                     NavigationLink("코스 정보 (이름·장소·집합 장소·비 올 때)") { KosJeongbo().dwiro() }
-                    NavigationLink("원칙 16개 점검 (작성원칙 통합본)") { JeomgeomView().dwiro() }
+                    NavigationLink("대본 살펴보기·원칙 16개 점검표") { JeomgeomView().dwiro() }
+                    NavigationLink("내보내기·협회 최종 승인 요청 — " + Wonchik.finalStatus(k.d["final"] as? [String: Any])) { NaebonaegiView().dwiro() }
+                    if store.isMaster && !k.isGyobon { NavigationLink("클에게 대본 맡기기") { ClaudeView().dwiro() } }
+                    NavigationLink("기능 찾기") { GineungView().dwiro() }
                     Button("지점 탭으로 가기") { nav.tab = 2 }
-                }
-                if !k.isGyobon {
-                    Section("협회 승인 요청") {
-                        TextField("승인 요청에 붙일 말 (없어도 됩니다)", text: $seungin, axis: .vertical)
-                        Button("협회 승인 요청 보내기") {
-                            Task {
-                                await store.save(quiet: true)
-                                let j = await TourAPI.call("submit_final", ["c": k.id, "msg": seungin])
-                                if TourAPI.ok(j) { seungin = ""; store.say("협회 승인 요청을 보냈습니다. 승인되면 코스 목록에 표시됩니다.") }
-                                else { store.say(TourAPI.err(j)) }
-                            }
-                        }
-                    }
                 }
                 KosGwanri()
             }
+            GwanriSection()
             Section("코스 목록 (\(store.courses.count)개)") {
                 if store.courses.isEmpty { Text(store.bappeum ? "불러오는 중입니다." : "코스가 없습니다. 아래에서 새 코스를 만드십시오.") }
                 Jang(items: store.courses.map { KosJul(id: geulja($0["id"]), j: $0) }) { c in
@@ -119,6 +113,14 @@ struct KosTab: View {
                 }
                 .disabled(saeIreum.trimmingCharacters(in: .whitespaces).isEmpty)
             }
+            Section("이 코스로 시작하기 (씨앗 코스 — 지점이 미리 들어 있음)") {
+                Picker("씨앗 코스", selection: $ssiat) {
+                    Text("고르기").tag(-1)
+                    ForEach(Array(Wonchik.SEEDS.enumerated()), id: \.offset) { i, x in Text(x.name + " — " + x.place).tag(i) }
+                }
+                Button("고른 씨앗 코스로 시작하기") { Task { await ssiatSijak() } }
+                NavigationLink("장소 지식 들이기 (장소 이름으로 코스 뼈대 짜기)") { JisikView().dwiro() }
+            }
             Section("휴지통") {
                 NavigationLink("휴지통 — 지운 코스 되살리기") { HyujitongView().dwiro() }
             }
@@ -126,6 +128,20 @@ struct KosTab: View {
         .navigationTitle("코스")
         .scrollContentBackground(.hidden)
         .background(Saek.bada)
+        .task { if store.isMaster { await Gwan.shared.loadAlerts(tell: true) } }
+    }
+    /// 씨앗 코스 — 웹 newCourse(seed) 와 같음(분야·집합 장소·메모·지점 이름을 미리 넣고 저장)
+    private func ssiatSijak() async {
+        guard ssiat >= 0 && ssiat < Wonchik.SEEDS.count else { store.say("먼저 씨앗 코스를 골라 주십시오."); return }
+        let x = Wonchik.SEEDS[ssiat]
+        guard await store.newCourse(name: x.name, place: x.place), let k = store.kos else { return }
+        k.d["field"] = x.field; k.d["meet"] = x.meet; k.d["note"] = x.note
+        var cur: Spot? = k.openSpot
+        for n in x.spots { let s = k.addSpot(after: cur, name: n); s.d["move"] = 5; cur = s }
+        store.bakkwim()
+        _ = await store.save(quiet: true)
+        ssiat = -1
+        store.say(x.name + " 을(를) 바탕으로 시작했습니다. 지점 \(k.spots.count)곳이 미리 들어갔습니다.")
     }
 }
 
@@ -144,6 +160,7 @@ struct KosJeongbo: View {
                     kan(k, "rain", "비 올 때")
                     kan(k, "note", "메모")
                 }
+                PyeongmyeonSection(k: k)
                 Section("더 적을 것 (분야·지역·인원)") {
                     Picker("분야", selection: Binding(get: { k.s("field") }, set: { k.d["field"] = $0; store.bakkwim() })) {
                         ForEach(KosJeongbo.BUNYA, id: \.self) { Text($0.isEmpty ? "고르지 않음" : $0).tag($0) }
@@ -179,25 +196,6 @@ struct KosJeongbo: View {
             TextField(nm, text: Binding(get: { k.s(key) }, set: { k.d[key] = $0; store.bakkwim() }), axis: .vertical)
                 .accessibilityLabel(nm)
         }
-    }
-}
-
-struct JeomgeomView: View {
-    @EnvironmentObject var store: TourStore
-    var body: some View {
-        List {
-            if let k = store.kos {
-                let L = Jeomgeom.lines(k)
-                Section {
-                    Text(L.isEmpty ? "앱이 살필 수 있는 것은 모두 갖추었습니다. 나머지 원칙은 웹 투어스튜디오의 원칙 16개 점검표에서 확인하십시오." : "고칠 곳 \(L.count)가지입니다.")
-                        .font(.headline)
-                }
-                Section("고칠 곳") {
-                    Jang(items: L.enumerated().map { Jul(id: "\($0.offset)", t: $0.element) }) { x in Text(x.t) }
-                }
-            } else { KosEopseum() }
-        }
-        .navigationTitle("원칙 16개 점검")
     }
 }
 
