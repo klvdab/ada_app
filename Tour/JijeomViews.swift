@@ -1,4 +1,4 @@
-// LVD투어스튜디오 앱 — 지점 탭: 지점 목록과 지점 한 화면 (판 1.1.0, 빌드 261017-T3 — 이 지점 지우기, 사진 크게 보기·지우기·다시 찍기, 담긴 메모. 1.0.0 261012-T1)
+// LVD투어스튜디오 앱 — 지점 탭: 지점 목록과 지점 한 화면 (판 1.2.0, 빌드 261017-T4 — 걷는 시간 어림·답사 지도·사전, 대본 살핌 한 줄, 테마투어 느낌 칸, 방향 도우미 스무 낱말을 고른 칸에. 1.1.0 261017-T3 — 이 지점 지우기, 사진 크게 보기·지우기·다시 찍기, 담긴 메모. 1.0.0 261012-T1)
 // 지점 하나는 「어디서부터 어디까지」로 정합니다. 오프닝 지점과 클로징 지점도 지점입니다.
 import SwiftUI
 
@@ -19,6 +19,12 @@ struct JijeomTab: View {
                             }
                             .accessibilityElement(children: .combine)
                         }
+                    }
+                }
+                if !k.isGyobon { WalkSection(k: k) } else {
+                    Section {
+                        NavigationLink("답사 지도 보기") { SurveyMapView().dwiro() }
+                        NavigationLink("용어 뜻 찾기·우리 용어 사전") { DictView().dwiro() }
                     }
                 }
                 if !k.isGyobon {
@@ -81,17 +87,10 @@ struct SpotView: View {
                         .lineLimit(6...30)
                         .accessibilityLabel("대본")
                     let t = k.spotText(s)
-                    Text("\(t.filter { !$0.isWhitespace }.count)자, 읽는 데 \(k.readSec(t))초쯤").font(.footnote)
+                    Text(Wonchik.textFb(k, t, roomMin: s.kind.isEmpty ? (s.n("stay") ?? 0) : 0, wantDir: s.kind.isEmpty)).font(.footnote)
                 }
-                Section("방향 도우미 (대본 끝에 붙습니다)") {
-                    Jang(items: SpotView.bangHyang.map { Jul(id: $0, t: $0) }, per: 4) { w in
-                        Button(w.t + " 붙이기") {
-                            let t = k.spotText(s)
-                            k.setSpotText(s, t + (t.isEmpty || t.hasSuffix(" ") ? "" : " ") + w.t)
-                            store.bakkwim(); store.say(w.t + "을 붙였습니다.")
-                        }
-                    }
-                }
+                if Wonchik.isTheme(k) { TtSection(s: s) }
+                DirSection(k: k, s: s)
                 Section("사진 \(s.shots.count)장 (두드리면 크게 보기·지우기·다시 찍기)") {
                     SajinMokrok(s: s)
                 }
