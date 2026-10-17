@@ -19,8 +19,11 @@ object Api {
         get() = ctx.getSharedPreferences("tour", Context.MODE_PRIVATE).getString("token", "") ?: ""
         set(v) { ctx.getSharedPreferences("tour", Context.MODE_PRIVATE).edit().putString("token", v).apply() }
 
+    /** 최고관리자가 보고 있는 남의 자리(아이디). 비어 있으면 내 자리 — 웹 asWho 와 같음 */
+    @Volatile var asWho = ""
     fun call(action: String, body: JSONObject = JSONObject(), timeoutMs: Int = 40000, tk: String? = null): JSONObject {
         body.put("action", action)
+        if (asWho.isNotEmpty() && !body.has("as") && action != "login" && action != "logout") body.put("as", asWho)
         return try {
             val c = URL(BASE).openConnection() as HttpURLConnection
             c.requestMethod = "POST"; c.doOutput = true; c.useCaches = false
