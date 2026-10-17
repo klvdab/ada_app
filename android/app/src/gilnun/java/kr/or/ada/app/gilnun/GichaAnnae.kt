@@ -34,6 +34,8 @@ object GichaAnnae {
     private var mokYeok: Yeok? = null
     private var naerilM = 8000.0
     private val said = HashMap<String, Long>()
+    /** 2.67.0 역마다 가장 가까웠던 거리 — 「지나고 있습니다」는 역을 실제로 지날 때만(아이폰과 같음) */
+    private val gajangGakka = HashMap<String, Double>()
     private val got = HashMap<String, Long>()
     private var stopTtae = 0L
     private var stopSaid = ""
@@ -56,7 +58,7 @@ object GichaAnnae {
     fun kkeut() {
         if (!kyeojim) return
         kyeojim = false
-        fx.clear(); vh.clear(); said.clear(); got.clear(); stopTtae = 0L; stopSaid = ""; tteonSaid = ""
+        fx.clear(); vh.clear(); said.clear(); gajangGakka.clear(); got.clear(); stopTtae = 0L; stopSaid = ""; tteonSaid = ""
         head = null; headFrom = null; teoneolSaid.clear(); yeolcha = null; yeolchaChateun.clear(); mokYeok = null
         daeumMalhan.clear(); yeokSigakPyo.clear()
         Girok.namgi("gicha_annae_kkeut")
@@ -184,7 +186,9 @@ object GichaAnnae {
             return
         }
         val n = near
-        if (n != null && n.second < 1200 && said[n.first.ireum] == null) {
+        // 2.67.0 (시험에서 찾음) 역 1.2킬로미터 앞에서 「지나고 있습니다」라고 하던 일 — 250미터 안이거나 가장 가까웠던 거리보다 80미터 넘게 멀어질 때만
+        if (n != null && n.second < 1200) gajangGakka[n.first.ireum] = Math.min(gajangGakka[n.first.ireum] ?: Double.MAX_VALUE, n.second)
+        if (n != null && n.second < 1200 && said[n.first.ireum] == null && (n.second < 250 || n.second > (gajangGakka[n.first.ireum] ?: n.second) + 80)) {
             said[n.first.ireum] = now
             var t = "지금 ${n.first.ireum}을 지나고 있습니다."
             val dm = daeum(me)
