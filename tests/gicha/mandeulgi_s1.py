@@ -70,7 +70,8 @@ out = {
   "jari": fixes,
   "dulle": pix["dulle"], "teoneol": pix["teoneol"], "modu": pix["modu"], "pyeon": pix["pyeon"],
   "isseoya": ["타신 열차는 KTX 64호로 보입니다", "영등포역에 서지 않고", "용산역에 서지 않고", "서울역에 도착했습니다. 여기서 내리십시오"],
-  "eopseoya": ["영등포역에 도착했습니다", "곧 영등포역", "용산역에 도착했습니다", "곧 용산역",
+  "charye": ["타신 열차는 KTX 64호", "영등포역 가까이에서 잠시 멈췄습니다", "지금 영등포역을 지나고", "지금 용산역을 지나고", "곧 서울역에 도착합니다", "서울역에 도착했습니다"],
+  "eopseoya": ["지금 광명역을 지나고", "영등포역에 도착했습니다", "곧 영등포역", "용산역에 도착했습니다", "곧 용산역",
                "영등포역[^.]*내리십", "용산역[^.]*내리십", "9.2킬로미터", "5.6킬로미터", "9킬로미터"]
 }
 json.dump(out, open('s1_gwangmyeong_seoul.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=0)
