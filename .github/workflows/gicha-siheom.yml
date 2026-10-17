@@ -1,0 +1,50 @@
+# 기차 안내 여정 다시 돌려 보기 시험 0.1 (빌드 261017-1, 이사장님 승인 2026-10-17 「1」)
+# 이사장님이 다니신 여정(과 그것을 본뜬 시나리오, tests/gicha/*.json)을 아이폰·안드로이드 길눈 기차 안내에 그대로 돌려,
+# 있어야 할 말이 빠지거나 없어야 할 말(잘못 내리라는 말, 다른 노선 터널 등)이 나오면 실패로 알림.
+# 기차 안내를 고치면 저절로 돌고, 손으로도 돌릴 수 있음. 새 판을 내기 전에 통과해야 함.
+name: gicha-siheom
+
+on:
+  push:
+    paths:
+      - Gilnun/GichaAnnae.swift
+      - Gilnun/GichaYeok.swift
+      - android/app/src/gilnun/java/kr/or/ada/app/gilnun/GichaAnnae.kt
+      - android/app/src/gilnun/java/kr/or/ada/app/gilnun/GichaYeok.kt
+      - tests/gicha/**
+      - .github/workflows/gicha-siheom.yml
+  workflow_dispatch:
+
+jobs:
+  aipon:
+    name: 아이폰 기차 안내 시험
+    runs-on: macos-14
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: 짓기
+        run: swiftc -O Gilnun/GichaAnnae.swift Gilnun/GichaYeok.swift tests/gicha/swift/Bakkat.swift tests/gicha/swift/main.swift -o siheom_aipon
+      - name: 돌려 보기
+        run: ./siheom_aipon tests/gicha/s*.json
+
+  android:
+    name: 안드로이드 기차 안내 시험
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: 도구 받기
+        run: |
+          curl -sSL -o kotlinc.zip https://github.com/JetBrains/kotlin/releases/download/v2.0.21/kotlin-compiler-2.0.21.zip
+          unzip -q kotlinc.zip
+          curl -sSL -o json.jar https://repo1.maven.org/maven2/org/json/json/20240303/json-20240303.jar
+      - name: 짓기
+        run: |
+          K=android/app/src/gilnun/java/kr/or/ada/app/gilnun
+          kotlinc/bin/kotlinc $K/GichaAnnae.kt $K/GichaYeok.kt tests/gicha/kotlin/Bakkat.kt tests/gicha/kotlin/Siheom.kt -cp json.jar -include-runtime -d siheom.jar
+      - name: 돌려 보기
+        run: java -cp siheom.jar:json.jar kr.or.ada.app.gilnun.SiheomKt tests/gicha/s*.json
