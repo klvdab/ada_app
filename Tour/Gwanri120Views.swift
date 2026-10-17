@@ -99,6 +99,7 @@ struct GwanriSection: View {
             Section("최고관리자 도구") {
                 NavigationLink("가입 신청 함") { SignupsView().dwiro() }
                 NavigationLink("명부 관리") { UsersView().dwiro() }
+                NavigationLink("판 기록 — 누가 어떤 판을 쓰나") { PanGirokView().dwiro() }
                 NavigationLink("반 관리") { ClassesView().dwiro() }
                 NavigationLink("수업 진행판") { BoardView().dwiro() }
                 NavigationLink("수업 채점표") { GradeView().dwiro() }
