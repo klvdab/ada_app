@@ -26,6 +26,8 @@ final class GichaAnnae {
     private var mokYeok: Yeok?            // 내리실 역(목적지에서 가장 가까운 기차역)
     private var naerilM: Double = 8000
     private var said: [String: Date] = [:]
+    /// 2.98.0 역마다 가장 가까웠던 거리 — 「지나고 있습니다」는 역을 실제로 지날 때(가장 가까운 자리를 넘어설 때)만
+    private var gajangGakka: [String: Double] = [:]
     private var got: [String: Date] = [:]
     private var stopTtae: Date?
     private var stopSaid = ""
@@ -48,7 +50,7 @@ final class GichaAnnae {
     func kkeut() {
         guard kyeojim else { return }
         kyeojim = false
-        fx = []; vh = []; said = [:]; got = [:]; stopTtae = nil; stopSaid = ""; tteonSaid = ""
+        fx = []; vh = []; said = [:]; gajangGakka = [:]; got = [:]; stopTtae = nil; stopSaid = ""; tteonSaid = ""
         head = nil; headFrom = nil; teoneolSaid = []; yeolcha = nil; yeolchaChateun = []; mokYeok = nil
         Girok.shared.namgi("gicha_annae_kkeut", [:])
     }
@@ -172,7 +174,10 @@ final class GichaAnnae {
             else { mal("곧 \(a.0.ireum)에 도착합니다.\(si)") }
             return
         }
-        if let n = near, n.1 < 1200, said[n.0.ireum] == nil {
+        // 2.98.0 (시험에서 찾음) 역 1.2킬로미터 앞에서 「지나고 있습니다」라고 하고, 그 뒤에 그 역에 서던 일 —
+        //   역에 250미터 안으로 들거나, 가장 가까웠던 거리보다 80미터 넘게 멀어질 때(지나쳤을 때)만 말함
+        if let n = near, n.1 < 1200 { gajangGakka[n.0.ireum] = min(gajangGakka[n.0.ireum] ?? .infinity, n.1) }
+        if let n = near, n.1 < 1200, said[n.0.ireum] == nil, n.1 < 250 || n.1 > (gajangGakka[n.0.ireum] ?? n.1) + 80 {
             said[n.0.ireum] = now
             var t = "지금 \(n.0.ireum)을 지나고 있습니다."
             let dm = daeum(me)
