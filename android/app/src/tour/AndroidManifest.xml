@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- 새 판 업데이트 — 받은 새 판을 스스로 설치 화면에 넘김(AI점자도서관과 같음) -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
     <application>
         <activity android:name="kr.or.ada.app.MainActivity" tools:node="remove" />
