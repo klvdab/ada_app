@@ -40,8 +40,8 @@ def hanja_su(n):
 def norm(t):
     t = t.replace("—", ",").replace(" - ", ", ").replace("「", "").replace("」", "").replace("·", ", ")
     t = re.sub(r"(\d+)\.(\d+)\.(\d+)판", lambda m: f"{hanja_su(m[1])} 쩜 {hanja_su(m[2])}{' 쩜 ' + hanja_su(m[3]) if m[3] != '0' else ''} 판", t)
-    t = re.sub(r"(\d+)-(\d+)편", lambda m: f"{hanja_su(m[1])}의 {hanja_su(m[2])}편", t)
-    t = re.sub(r"(\d+)-(\d+)", lambda m: f"{hanja_su(m[1])}의 {hanja_su(m[2])}", t)
+    t = re.sub(r"(\d+)-(\d+)편", lambda m: f"{hanja_su(m[1])} 다시 {hanja_su(m[2])} 편", t)
+    t = re.sub(r"(\d+)-(\d+)", lambda m: f"{hanja_su(m[1])} 다시 {hanja_su(m[2])}", t)
     t = re.sub(r"(\d+)\.(\d)킬로미터", lambda m: f"{hanja_su(m[1])} 쩜 {hanja_su(m[2])} 킬로미터", t)
     t = re.sub(r"(\d+)(미터|킬로미터|분|초|번째|번|층|개|명|시)", lambda m: (hanja_su(m[1]) if m[2] in ("미터", "킬로미터", "분", "초", "층") else m[1]) + " " + m[2], t)
     return t
