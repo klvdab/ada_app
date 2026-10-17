@@ -18,12 +18,18 @@ on:
 jobs:
   aipon:
     name: 아이폰 기차 안내 시험
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: 앱 짓기와 같은 엑스코드 고르기
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1)
+          [ -z "$X" ] && X=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -n 1)
+          sudo xcode-select -s "$X/Contents/Developer"
+          swiftc --version
       - name: 짓기
-        run: swiftc -O Gilnun/GichaAnnae.swift Gilnun/GichaYeok.swift tests/gicha/swift/Bakkat.swift tests/gicha/swift/main.swift -o siheom_aipon
+        run: swiftc -swift-version 5 -O Gilnun/GichaAnnae.swift Gilnun/GichaYeok.swift tests/gicha/swift/Bakkat.swift tests/gicha/swift/main.swift -o siheom_aipon
       - name: 돌려 보기
         run: ./siheom_aipon tests/gicha/s*.json
 
