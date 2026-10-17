@@ -73,7 +73,7 @@ android {
             applicationId = "kr.or.ada.bfb"
             resValue("string", "app_name", "LVD 방송")
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/bfb/\"")
-            versionName = "2.0.0"   // 261015-L1 듣는 앱 LVD 방송 첫 판 — 배프 웹 껍데기를 속까지 앱(BangsongActivity·DeutService, src/bfb)으로: 행사장 와이파이 저절로 붙기와 저절로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 같은 폰 LVD 송출과 부딪치지 않기(방송클, 이사장님 승인 「1」)
+            versionName = "2.1.0"   // 261016-L2 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 인터넷 생방송 듣기로 이름 줄임, 앱 안 누리집의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 261015-L1 듣는 앱 LVD 방송 첫 판 — 배프 웹 껍데기를 속까지 앱(BangsongActivity·DeutService, src/bfb)으로: 행사장 와이파이 저절로 붙기와 저절로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 같은 폰 LVD 송출과 부딪치지 않기(방송클, 이사장님 승인 「1」)
         }
         create("byod") {   // 261003-B1 BYOD 방송 — 삼성 태블릿이 노트북 대신 현장 방송 서버를 맡음(ByodActivity·ByodService, src/byod), 이사장님 승인 2026-10-03
             dimension = "ap"
