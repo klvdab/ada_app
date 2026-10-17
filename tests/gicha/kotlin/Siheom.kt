@@ -37,6 +37,15 @@ fun main(args: Array<String>) {
         val modu = Sori.malMok.map { it.second }
         val is_ = s.optJSONArray("isseoya")
         if (is_ != null) for (i in 0 until is_.length()) { val p = Regex(is_.getString(i)); if (modu.none { p.containsMatchIn(it) }) { println("  ✗ 있어야 할 말이 없음: ${p.pattern}"); silpae++ } }
+        // 차례 — 이 말들이 이 차례대로 나와야 함
+        val ch = s.optJSONArray("charye")
+        var jari = 0
+        if (ch != null) for (i in 0 until ch.length()) {
+            val p = Regex(ch.getString(i))
+            var k = -1
+            for (j in jari until modu.size) if (p.containsMatchIn(modu[j])) { k = j; break }
+            if (k >= 0) jari = k + 1 else { println("  ✗ 차례가 어긋남(이 말이 앞 말 뒤에 없음): ${p.pattern}"); silpae++ }
+        }
         val eop = s.optJSONArray("eopseoya")
         if (eop != null) for (i in 0 until eop.length()) { val p = Regex(eop.getString(i)); for (m in modu) if (p.containsMatchIn(m)) { println("  ✗ 없어야 할 말이 나옴(${p.pattern}): $m"); silpae++ } }
     }
