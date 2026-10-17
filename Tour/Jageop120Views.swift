@@ -82,7 +82,7 @@ struct NaebonaegiView: View {
                 }
                 Section("지금 상태") {
                     let s = k.spots
-                    Text("지점 \(s.count)곳 / 대본 쓴 곳 \(s.filter { !Wonchik.bin($0.s("text")) }.count)곳 / 사진 없는 곳 \(s.filter { $0.shots.isEmpty }.count)곳 / 오프닝 " + (Wonchik.bin(k.s("opening")) ? "없음" : "있음") + " / 클로징 " + (Wonchik.bin(k.s("closing")) ? "없음" : "있음") + " / 모두 " + fmtMin(k.courseMin()))
+                    Text(NaebonaegiView.sangtae(k))
                     NavigationLink("대본 살펴보기·원칙 16개 점검표") { JeomgeomView().dwiro() }
                 }
                 Section("내보내기 — 만들어 이 폰에 받은 뒤 파일 앱·문자·카톡으로 보냅니다") {
@@ -144,6 +144,16 @@ struct NaebonaegiView: View {
         .alert(jeonsong, isPresented: Binding(get: { !jeonsong.isEmpty }, set: { if !$0 { jeonsong = "" } })) {
             Button("확인") { jeonsong = "" }
         }
+    }
+    static func sangtae(_ k: Kos) -> String {
+        let s = k.spots
+        let sseun = s.filter { !Wonchik.bin($0.s("text")) }.count
+        let eopsa = s.filter { $0.shots.isEmpty }.count
+        var t = "지점 \(s.count)곳 / 대본 쓴 곳 \(sseun)곳 / 사진 없는 곳 \(eopsa)곳"
+        t += " / 오프닝 " + (Wonchik.bin(k.s("opening")) ? "없음" : "있음")
+        t += " / 클로징 " + (Wonchik.bin(k.s("closing")) ? "없음" : "있음")
+        t += " / 모두 " + fmtMin(k.courseMin())
+        return t
     }
     private func junbi(_ k: Kos) {
         if k.spots.isEmpty { store.say("지점이 없는 코스는 요청할 수 없습니다."); return }
@@ -392,7 +402,7 @@ struct DictView: View {
                 Button("찾기") { Task { await chatgi() } }
                 if !mal.isEmpty { Text(mal) }
                 ForEach(Array(gyeol.enumerated()), id: \.offset) { i, x in
-                    Text("\(i + 1). " + geulja(x["mal"]) + (geulja(x["pum"]).isEmpty ? "" : " (" + geulja(x["pum"]) + ")") + " — " + geulja(x["ddeut"]) + " [" + geulja(x["sajeon"]) + "]")
+                    Text(DictView.ddeutJul(i, x))
                 }
                 if let f = gyeol.first {
                     Button("찾은 뜻 우리 사전에 담아 두기 (아래 칸에 올림)") { tMal = geulja(f["mal"]); tDdeut = geulja(f["ddeut"]); tChul = geulja(f["sajeon"]); store.say("아래 칸에 올렸습니다. 시각장애인이 소리로 듣고 바로 그려지도록 우리 말로 고쳐 담으십시오.") }
@@ -406,7 +416,7 @@ struct DictView: View {
                     Task {
                         if Wonchik.bin(tMal) || Wonchik.bin(tDdeut) { store.say("낱말과 뜻을 모두 넣어 주십시오."); return }
                         let r = await TourAPI.call("add_term", ["mal": tMal.trimmingCharacters(in: .whitespaces), "ddeut": tDdeut.trimmingCharacters(in: .whitespaces), "chulcheo": tChul])
-                        if TourAPI.ok(r) { store.say(tMal + ((r["gochim"] as? Bool) == true ? "의 뜻을 고쳐 담았습니다." : "을(를) 우리 사전에 담았습니다.") + " 모두 \(Int(sutja(r["count"]) ?? 0))개입니다."); tMal = ""; tDdeut = ""; tChul = ""; await mokrok() }
+                        if TourAPI.ok(r) { let gc = (r["gochim"] as? Bool) == true; let n = Int(sutja(r["count"]) ?? 0); store.say(tMal + (gc ? "의 뜻을 고쳐 담았습니다." : "을(를) 우리 사전에 담았습니다.") + " 모두 \(n)개입니다."); tMal = ""; tDdeut = ""; tChul = ""; await mokrok() }
                         else { store.say(TourAPI.err(r)) }
                     }
                 }
@@ -419,6 +429,12 @@ struct DictView: View {
         }
         .navigationTitle("용어 뜻 찾기·우리 사전")
         .task { await mokrok() }
+    }
+    static func ddeutJul(_ i: Int, _ x: [String: Any]) -> String {
+        var t = "\(i + 1). " + geulja(x["mal"])
+        let pum = geulja(x["pum"]); if !pum.isEmpty { t += " (" + pum + ")" }
+        t += " — " + geulja(x["ddeut"]) + " [" + geulja(x["sajeon"]) + "]"
+        return t
     }
     private func chatgi() async {
         let w = q.trimmingCharacters(in: .whitespaces)
@@ -471,7 +487,7 @@ struct JisikView: View {
                 let hap = hapGye()
                 let mk = Int(sutja(j["mok"]) ?? 110)
                 Section((geulja(j["goreun"]).isEmpty ? "" : geulja(j["goreun"]) + " ") + geulja(j["q"]) + " 코스 뼈대") {
-                    Text("들르는 곳 \(order.count)곳, 모두 " + fmtMin(Double(hap)) + "입니다. 목표는 \(mk)분입니다. " + (hap > mk ? "\(hap - mk)분 넘칩니다." : "목표 안에 들어옵니다."))
+                    Text(JisikView.hapJul(order.count, hap, mk))
                     Button("모두 차례대로 넣기") { let ppo = (j["ppo"] as? [String]) ?? []; order = list.indices.filter { !ppo.contains(geulja(list[$0]["ireum"])) }; store.say("목록 차례대로 \(order.count)곳을 모두 넣었습니다.") }
                     Button("모두 빼기 (다시 고르기)") { order = []; store.say("모두 뺐습니다. 가실 차례대로 누르십시오.") }
                     Text(jidoGeul()).font(.footnote)
@@ -528,6 +544,10 @@ struct JisikView: View {
             Button("새 코스를 따로 만들기") { Task { await mandeulgi(into: false) } }
             Button("그만두기", role: .cancel) {}
         }
+    }
+    static func hapJul(_ n: Int, _ hap: Int, _ mk: Int) -> String {
+        let dwi = hap > mk ? "\(hap - mk)분 넘칩니다." : "목표 안에 들어옵니다."
+        return "들르는 곳 \(n)곳, 모두 " + fmtMin(Double(hap)) + "입니다. 목표는 \(mk)분입니다. " + dwi
     }
     private func hapGye() -> Int {
         var h = 10
@@ -637,11 +657,17 @@ struct JisikView: View {
             his += "\(k + 1). " + geulja(r["ireum"]) + " (" + geulja(r["jong"]) + (geulja(r["sidae"]).isEmpty ? "" : " · " + geulja(r["sidae"])) + ")\n"
             his += (geulja(r["geul"]).isEmpty ? "(밑글이 없습니다)" : geulja(r["geul"])) + "\n"
             if !geulja(r["gunggeul"]).isEmpty { his += "[궁궐·종묘 자료] " + geulja(r["gunggeul"]) + "\n" }
-            if let sj = r["sajins"] as? [[String: Any]], !sj.isEmpty { his += "[사진 \(sj.count)장] " + sj.map { geulja($0["seol"]).isEmpty ? "설명 없음" : geulja($0["seol"]) }.joined(separator: " / ") + "\n" }
+            if let sj = r["sajins"] as? [[String: Any]], !sj.isEmpty {
+                let seol: [String] = sj.map { (x: [String: Any]) -> String in let v = geulja(x["seol"]); return v.isEmpty ? "설명 없음" : v }
+                his += "[사진 \(sj.count)장] " + seol.joined(separator: " / ") + "\n"
+            }
             if !geulja(r["sori"]).isEmpty { his += "[국가유산청 음성 해설] " + geulja(r["sori"]) + "\n" }
             his += "\n"
         }
-        if let deo = j["deo"] as? [[String: Any]], !deo.isEmpty { his += "\n[이 안에서 더 볼 것 — 위치가 안 나와 지점으로 넣지 못한 곳]\n\n" + deo.map { "· " + geulja($0["ireum"]) + "\n" + geulja($0["geul"]) + "\n\n" }.joined() }
+        if let deo = j["deo"] as? [[String: Any]], !deo.isEmpty {
+            his += "\n[이 안에서 더 볼 것 — 위치가 안 나와 지점으로 넣지 못한 곳]\n\n"
+            for x in deo { his += "· " + geulja(x["ireum"]) + "\n" + geulja(x["geul"]) + "\n\n" }
+        }
         c["history"] = (isTema ? "[테마투어 — 한국관광공사·카카오·오픈스트리트맵 자료로 짠 뼈대입니다. 자료가 없는 곳이니 현장의 소리·냄새·발밑·손·볕과 바람·기척과 현장영상해설사의 기억으로 짓고, 아래는 참고로만 쓰십시오.]\n\n" : "[국가유산청 자료 — 참고 밑글입니다. 그대로 읽지 마시고 우리 원칙으로 다시 쓰십시오.]\n\n") + his
         let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
         c["refs"] = "국가유산청 국가유산포털(www.khs.go.kr) 국가유산 정보·해설문·궁궐 정보, 공공누리 제1유형(출처 표시) / 한국관광공사 관광정보(api.visitkorea.or.kr) 국문 관광정보·무장애 여행 정보, 공공누리 제1유형(출처 표시) / 위치: 오픈스트리트맵 기여자(ODbL) (받은 날 " + f.string(from: Date()) + ")"
@@ -753,7 +779,7 @@ struct HyeonjangView: View {
             if let c {
                 Section {
                     Text(geulja(c["name"])).font(.title3.bold()).accessibilityAddTraits(.isHeader)
-                    Text(geulja(c["place"]) + " / 집합 " + geulja(c["meet"]) + " / 승인번호 " + geulja(entry["no"]) + " / 지점 \(spots.count)곳").font(.footnote)
+                    Text(meoriJul(c)).font(.footnote)
                 }
                 Section("현장에서 쓰는 단추") {
                     Toggle("화면 안 꺼지게 하기", isOn: $kkeojim).onChange(of: kkeojim) { _, v in UIApplication.shared.isIdleTimerDisabled = v; store.say(v ? "현장영상해설하는 동안 화면이 꺼지지 않습니다." : "화면 켜 두기를 껐습니다.") }
@@ -772,7 +798,7 @@ struct HyeonjangView: View {
                 } else if idx < spots.count {
                     let s = spots[idx]
                     Section {
-                        Text("\(idx + 1)지점 " + geulja(s["name"]) + " (\(idx + 1)/\(spots.count))").font(.title2.bold()).accessibilityAddTraits(.isHeader).accessibilityFocused($meori)
+                        Text(jijeomJemok(s)).font(.title2.bold()).accessibilityAddTraits(.isHeader).accessibilityFocused($meori)
                         Text(hjSigan(idx, s)).font(.footnote)
                         Text(Wonchik.bin(geulja(s["text"])) ? "(이 지점의 대본이 비어 있습니다.)" : geulja(s["text"])).font(.title3).textSelection(.enabled)
                         Button(timer == nil ? "머무는 시간 재기 시작" : "시간 재기 멈춤 — 남은 시간 \(left / 60)분 \(left % 60)초") { timer == nil ? sijakTimer(s) : meomTimer(true) }
@@ -817,8 +843,18 @@ struct HyeonjangView: View {
     @ViewBuilder var omgim: some View {
         Section {
             if idx >= 0 { Button(idx == 0 ? "앞머리로" : "앞 지점") { boyeo(idx - 1) } }
-            if idx < spots.count { Button(idx + 1 < spots.count ? "다음 지점 — \(idx + 2)지점 " + geulja(spots[idx + 1]["name"]) : (idx + 1 == spots.count ? "클로징으로" : "1지점으로")) { boyeo(idx + 1) }.font(.headline) }
+            if idx < spots.count { Button(daeumMal()) { boyeo(idx + 1) }.font(.headline) }
         }
+    }
+    private func meoriJul(_ c: [String: Any]) -> String {
+        var t = geulja(c["place"]) + " / 집합 " + geulja(c["meet"])
+        t += " / 승인번호 " + geulja(entry["no"]) + " / 지점 \(spots.count)곳"
+        return t
+    }
+    private func jijeomJemok(_ s: [String: Any]) -> String { "\(idx + 1)지점 " + geulja(s["name"]) + " (\(idx + 1)/\(spots.count))" }
+    private func daeumMal() -> String {
+        if idx + 1 < spots.count { return "다음 지점 — \(idx + 2)지점 " + geulja(spots[idx + 1]["name"]) }
+        return idx + 1 == spots.count ? "클로징으로" : "1지점으로"
     }
     private func hjSigan(_ i: Int, _ s: [String: Any]) -> String {
         var t = hjRange(i, s) + " / 머무는 시간 \(Int(sutja(s["stay"]) ?? 0))분"
