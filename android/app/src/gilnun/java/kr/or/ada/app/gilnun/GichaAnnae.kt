@@ -130,6 +130,14 @@ object GichaAnnae {
         if (seo) {
             if (stopTtae == 0L) stopTtae = now
             val n = near
+            if (now - stopTtae >= 10_000 && n != null && n.second < 1500 && stopSaid != n.first.ireum && yeokSeoji.contains(n.first.ireum)) {
+                // 2.66.0 시간표로 서지 않는 역 — 가까이에서 멈춰도 도착이 아님
+                if (said["멈춤:" + n.first.ireum] == null) {
+                    said["멈춤:" + n.first.ireum] = now
+                    mal("${n.first.ireum} 가까이에서 잠시 멈췄습니다. 타신 열차는 이 역에 서지 않으니 그대로 계십시오.")
+                }
+                return
+            }
             if (now - stopTtae >= 10_000 && n != null && n.second < 1500 && stopSaid != n.first.ireum) {
                 stopSaid = n.first.ireum; tteonSaid = ""
                 said[n.first.ireum] = now; got[n.first.ireum] = now
@@ -163,7 +171,7 @@ object GichaAnnae {
                 if (ap == null || m < ap.second) ap = Pair(k, m)
             }
         }
-        if (ap != null && got[ap.first.ireum] == null && s0 != null && vmax > 20 && s0 < vmax * 0.65 && s0 < 25) {
+        if (ap != null && got[ap.first.ireum] == null && !yeokSeoji.contains(ap.first.ireum) && s0 != null && vmax > 20 && s0 < vmax * 0.65 && s0 < 25) {
             got[ap.first.ireum] = now; said[ap.first.ireum] = now
             val si = yeokSigak(ap.first)
             when (naeril(ap.first)) {
@@ -186,7 +194,10 @@ object GichaAnnae {
             namTtae = now
             var t = "기차로 가시는 중입니다." + namMal(me, y)
             val yc = yeolcha
-            if (yc != null) t += " ${yc.doIreum} 도착 예정은 ${sigakMal(yc.doTtae)}입니다."
+            if (yc != null) {
+                t += if (now > yc.doTtae + 60_000) " ${yc.doIreum} 도착 예정 시각 ${sigakMal(yc.doTtae)}을 조금 넘겼습니다. 열차가 늦어지고 있습니다."
+                     else " ${yc.doIreum} 도착 예정은 ${sigakMal(yc.doTtae)}입니다."
+            }
             else {
                 val bun = Math.round(geori(me, Pair(y.mokjeok.lat, y.mokjeok.lon)) / v / 60).toInt()
                 if (bun > 0) t += " 지금 빠르기로 곧장 가면 약 ${bun}분 거리입니다."
@@ -211,9 +222,17 @@ object GichaAnnae {
     }
 
     private fun naeril(k: Yeok): Boolean? {
-        val y = YeojeongEngine.jigeum ?: return null
-        return Wichi.geori(y.mokjeok.lat, y.mokjeok.lon, k.lat, k.lon) < naerilM
+        YeojeongEngine.jigeum ?: return null
+        // 2.66.0 (261017-A54, 이사장님 KTX에서 겪으심 2026-10-17, 아이폰과 같음) 목적지 8킬로미터 안의 역을 모두 내릴 역으로 보아
+        //   서울역에 가시는데 영등포역·용산역에서 「여기서 내리십시오」라고 하던 일 — 내릴 역은 한 곳만
+        if (yeokSeoji.contains(k.ireum)) return false
+        val yc = yeolcha
+        if (yc != null) return yeokIreumMan(k.ireum) == yeokIreumMan(yc.doIreum)
+        val mk = mokYeok ?: return null
+        return yeokIreumMan(k.ireum) == yeokIreumMan(mk.ireum) || geori(Pair(k.lat, k.lon), Pair(mk.lat, mk.lon)) < 300
     }
+    private fun yeokIreumMan(n: String) = if (n.endsWith("역")) n.dropLast(1) else n
+    private val yeokSeoji = HashSet<String>()
 
     private fun mokYeokJeonghagi(y: Yeojeong) {
         var best: Pair<Yeok, Double>? = null
@@ -291,6 +310,9 @@ object GichaAnnae {
             val dIp = Math.min(da, db)
             if (dIp < 120 || dIp > ap) continue
             if (gakCha(bangwi(me, ip), h) > 30) continue
+            // 2.66.0 터널이 가는 쪽으로 뻗어야 함 — 서울역·용산역 둘레에서 갈라져 나가는 다른 노선 터널을 잘못 알리던 일
+            val meonKkeut = if (da < db) t.b else t.a
+            if (t.m >= 300 && gakCha(bangwi(ip, meonKkeut), h) > 45) continue
             teoneolSaid.add(k)
             for (u in teoneol) if (geori(u.a, t.a) < 300 || geori(u.b, t.b) < 300 || geori(u.a, t.b) < 300 || geori(u.b, t.a) < 300) teoneolSaid.add("${u.a.first},${u.a.second}")
             var m = if (t.ireum.isNotEmpty()) "곧 ${t.ireum}입니다." else "곧 터널입니다."
@@ -393,6 +415,7 @@ object GichaAnnae {
                 yeokSigakPyo[dy.ireum] = t
                 mal("${dy.ireum} 도착 예정은 ${sigakMal(t)}입니다.")
             } else if (rows.length() > 0) {
+                yeokSeoji.add(dy.ireum)
                 mal("타신 열차는 ${dy.ireum}에 서지 않고 지나갑니다.")
             }
         }
