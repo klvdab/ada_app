@@ -910,7 +910,8 @@ object AnnaeEngine {
 
     private fun wichiBatda(w: Jari) {
         val y = yj.jigeum
-        if (y == null) { namEunGeori = null; return }
+        if (y == null) { namEunGeori = null; GichaAnnae.kkeut(); return }
+        if (!(y.danggye == Danggye.TANEUN_JUNG && yj.talgeot == Talgeot.GICHA)) GichaAnnae.kkeut()   // 2.61.0
         val d = Wichi.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
         namEunGeori = d
         jeomChaBoda(w)   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 탈것 구간이 없는 점지도를 걷다 차를 타셨는가(아이폰과 같음)
@@ -935,7 +936,11 @@ object AnnaeEngine {
         }
         when (y.danggye) {
             // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 배 안에서는 길 벗어남·사거리·간판 대신 바다 위 지금 자리(아이폰과 같음)
-            Danggye.TANEUN_JUNG -> if (yj.talgeot == Talgeot.SEONBAK) TalgeotJikimi.baeAnnae(w, d, y) else chaAnnae(w, d, y)
+            Danggye.TANEUN_JUNG -> {
+                if (yj.talgeot == Talgeot.SEONBAK) TalgeotJikimi.baeAnnae(w, d, y) else chaAnnae(w, d, y)
+                // 2.61.0 (261017-A49, 이사장님 승인 2026-10-17) 기차 안에서는 역·터널·도착 예정 안내를 함께(웹 길눈에서 옮김, 아이폰 2.91.0과 같음)
+                if (yj.talgeot == Talgeot.GICHA) GichaAnnae.wichi(w, y) else GichaAnnae.kkeut()
+            }
             Danggye.NAM_EUN_GIL -> { val t = bgJari(w, y.mokjeok.lat, y.mokjeok.lon, y.mokjeok.ireum); georeumAnnae(w, y.mokjeok.ireum, t.first, t.second, false, y) }   // 2.16.0 볼거리 자리
             else -> {}
         }
@@ -1411,7 +1416,8 @@ object AnnaeEngine {
         if (!st.gilOn || System.currentTimeMillis() - gilMalTtae < st.gilGap * 1000L) return
         val jeonGil = majimakGil
         val jeonDong = majimakDong
-        if (gil.isNotEmpty() && gil != majimakGil) {
+        // 2.61.0 (261017-A49) 기차는 찻길을 달리지 않으니 길 이름은 말하지 않음(동네는 그대로, 웹 길눈과 같음)
+        if (gil.isNotEmpty() && gil != majimakGil && yj.talgeot != Talgeot.GICHA) {
             if (majimakGil.isEmpty()) malHagi("지금 달리는 길은 ${gil}입니다.", MalGeup.JEONGBO)
             else malHagi("이제 ${gil}에 들어섰습니다.", MalGeup.JEONGBO)
             majimakGil = gil
