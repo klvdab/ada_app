@@ -59,6 +59,7 @@ object GichaAnnae {
     private var cgTeoneol: List<Cheolgil.Teoneol> = emptyList()
     private val cgSaid = HashSet<Int>()
     private var cgMatTtae = 0L
+    private var cgM: Cheolgil.Matchum? = null
     private var jariTtae = 0L
 
     fun kkeut() {
@@ -67,7 +68,7 @@ object GichaAnnae {
         fx.clear(); vh.clear(); said.clear(); gajangGakka.clear(); got.clear(); stopTtae = 0L; stopSaid = ""; tteonSaid = ""
         head = null; headFrom = null; teoneolSaid.clear(); yeolcha = null; yeolchaChateun.clear(); mokYeok = null
         daeumMalhan.clear(); yeokSigakPyo.clear()
-        cgIreo = emptySet(); cgTeoneol = emptyList(); cgSaid.clear(); cgMatTtae = 0L; jariTtae = 0L
+        cgIreo = emptySet(); cgTeoneol = emptyList(); cgSaid.clear(); cgMatTtae = 0L; cgM = null; jariTtae = 0L
         Girok.namgi("gicha_annae_kkeut")
     }
 
@@ -144,7 +145,7 @@ object GichaAnnae {
             val mt = cg.matchugi(w.lat, w.lon, cgBang, w.ochae, cgIreo)
             if (mt != null) {
                 val r = cg.ttaragagi(mt, Math.max(1500.0, (sv ?: 0.0) * 45) + 200)
-                cgTeoneol = r.first; cgIreo = r.second; cgMatTtae = now; cgMat = true
+                cgTeoneol = r.teoneol; cgIreo = r.jul; cgMatTtae = now; cgMat = true; cgM = mt
             }
         }
         // 터널 미리 알림(역 안내보다 먼저 — 들어가면 알 수 없으므로)
@@ -247,6 +248,19 @@ object GichaAnnae {
         " ${y.mokjeok.ireum}까지 곧장 잰 거리로 ${Annae.geoMal(geori(me, Pair(y.mokjeok.lat, y.mokjeok.lon)))} 남았습니다."
 
     private fun daeum(me: Pair<Double, Double>): Pair<Yeok, Double>? {
+        // 2.68.0 철길에 붙어 있으면 철길을 따라 앞에 있는 첫 역(거리도 철길을 따라 잰 것).
+        //   곧은 줄 방향으로만 고르다 철길이 굽는 용산역에서 다음 역을 서울역이 아닌 청량리역으로 말하던 일(시험에서 찾음)
+        val cg = Cheolgil.shared; val m0 = cgM
+        if (cg != null && m0 != null && sigye() - cgMatTtae < 30_000) {
+            val g = cg.ttaragagi(m0, 40000.0)
+            var b: Pair<Yeok, Double>? = null
+            for (k in yeok) {
+                val w = g.wi(k.lat, k.lon) ?: continue
+                if (w.first > 400 || w.second <= 300) continue
+                if (b == null || w.second < b.second) b = Pair(k, w.second)
+            }
+            if (b != null) return b
+        }
         val h = head ?: return null
         var best: Pair<Yeok, Double>? = null
         for (k in yeok) {
@@ -459,8 +473,49 @@ object GichaAnnae {
                 Girok.namgi("gicha_yeolcha", mapOf("beon" to beon, "jong" to jong, "chul" to chul, "do" to doN))
                 mal("타신 열차는 $jong ${if (bn > 0) "${bn}호" else ""}로 보입니다. ${mk.ireum} 도착 예정은 ${sigakMal(at)}입니다.")
                 if (daeumYeok != null && daeumYeok.ireum != mk.ireum) daeumSigakMal(yc, daeumYeok)
+                jeongchaBatgi(yc)
             }
         }
+    }
+
+    /** 2.68.0 타신 열차가 서는 역 전체 — 떠난 역과 내리실 역 사이의 큰 기차역(GichaYeok)마다 시간표로 그 열차가 서는지 봄.
+     *  한 역씩 차례로 물어 서버를 몰아붙이지 않음. 다 알면 서는 역을 한 번에 알려 드리고,
+     *  서지 않는 역은 곧 도착 안내·내릴 역에서 빼는 데 씀(아이폰 2.99.0과 같음) */
+    private fun jeongchaBatgi(yc: Yeolcha) {
+        val mk = mokYeok ?: return
+        val a: Pair<Double, Double> = yeok.firstOrNull { it.ireum == yc.chul + "역" }?.let { Pair(it.lat, it.lon) }
+            ?: GichaYeok.mokrok.firstOrNull { it.ireum == yc.chul }?.let { Pair(it.lat, it.lon) } ?: return
+        val b = Pair(mk.lat, mk.lon)
+        val ab = geori(a, b)
+        val hubo = GichaYeok.mokrok
+            .filter { it.ireum != yc.chul && it.ireum + "역" != mk.ireum && modu[it.ireum] != null }
+            .filter { geori(a, Pair(it.lat, it.lon)) + geori(Pair(it.lat, it.lon), b) <= ab * 1.15 + 3000 }
+            .sortedBy { geori(a, Pair(it.lat, it.lon)) }
+            .map { Pair(it.ireum, modu[it.ireum]!!) }
+        if (hubo.isEmpty()) return
+        val seo = ArrayList<String>()
+        fun hana(i: Int) {
+            if (yeolcha?.beon != yc.beon) return
+            if (i >= hubo.size) {
+                if (seo.isNotEmpty()) {
+                    Girok.namgi("gicha_jeongcha", mapOf("beon" to yc.beon, "seo" to seo.joinToString(",")))
+                    mal("타신 열차는 ${mk.ireum}까지 가는 동안 ${seo.joinToString(", ")}에 섭니다.")
+                }
+                return
+            }
+            val (n, id) = hubo[i]
+            pyeon(yc.chulId, id) { rows ->
+                if (rows != null) {
+                    var gat: JSONObject? = null
+                    for (k in 0 until rows.length()) { val r = rows.optJSONObject(k) ?: continue; if (r.optString("trainno") == yc.beon) { gat = r; break } }
+                    val t = gat?.let { sigakBatgi(it.optString("arrplandtime")) }
+                    val k = n + "역"
+                    if (t != null) { yeokSigakPyo[k] = t; seo.add(k) } else if (rows.length() > 0) yeokSeoji.add(k)
+                }
+                hana(i + 1)
+            }
+        }
+        hana(0)
     }
 
     private fun daeumSigakMal(yc: Yeolcha, dy: Yeok) {
@@ -468,6 +523,9 @@ object GichaAnnae {
         val did = modu[n] ?: return
         if (daeumMalhan.contains(n)) return
         daeumMalhan.add(n)
+        // 2.68.0 서는 역 전체를 이미 알면 다시 묻지 않음
+        yeokSigakPyo[dy.ireum]?.let { mal("${dy.ireum} 도착 예정은 ${sigakMal(it)}입니다."); return }
+        if (yeokSeoji.contains(dy.ireum)) { mal("타신 열차는 ${dy.ireum}에 서지 않고 지나갑니다."); return }
         pyeon(yc.chulId, did) { rows ->
             if (rows == null) return@pyeon
             var gat: JSONObject? = null

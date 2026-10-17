@@ -41,6 +41,25 @@ class Cheolgil private constructor(b: ByteArray) {
     class Jul(val pyo: Int, val ireum: String, val jeom: IntArray)
     class Matchum(val jul: Int, val i: Int, val t: Double, val bang: Int, val geori: Double, val lat: Double, val lon: Double)
     class Teoneol(val sijak: Double, val gil: Double, val ireum: String, val jul: List<Int>)
+    /** 따라간 결과 — 앞의 터널, 지나갈 줄, 따라간 길의 점(위도, 경도, 철길 따라 잰 거리) */
+    class Gil(val teoneol: List<Teoneol>, val jul: Set<Int>, val jeom: List<DoubleArray>) {
+        /** 어떤 자리가 길에서 얼마나 떨어져 있고(yeop), 철길을 따라 몇 미터 앞인지(ap) */
+        fun wi(a: Double, o: Double): Pair<Double, Double>? {
+            if (jeom.size < 2) return null
+            val c = cos(a * PI / 180)
+            var bg = -1.0; var ba = 0.0
+            for (i in 1 until jeom.size) {
+                val p = jeom[i - 1]; val q = jeom[i]
+                val ax = (p[1] - o) * 111320 * c; val ay = (p[0] - a) * 110540
+                val bx = (q[1] - o) * 111320 * c; val by = (q[0] - a) * 110540
+                val dx = bx - ax; val dy = by - ay; val l2 = dx * dx + dy * dy
+                val t = if (l2 == 0.0) 0.0 else max(0.0, min(1.0, -(ax * dx + ay * dy) / l2))
+                val g = hypot(ax + t * dx, ay + t * dy)
+                if (bg < 0 || g < bg) { bg = g; ba = p[2] + (q[2] - p[2]) * t }
+            }
+            return Pair(bg, ba)
+        }
+    }
 
     val la: DoubleArray
     val lo: DoubleArray
@@ -118,7 +137,7 @@ class Cheolgil private constructor(b: ByteArray) {
     }
 
     /** 맞춘 자리에서 가는 쪽으로 철길을 따라감 — 앞에 놓인 터널과 지나갈 줄들 */
-    fun ttaragagi(mt: Matchum, gil: Double): Pair<List<Teoneol>, Set<Int>> {
+    fun ttaragagi(mt: Matchum, gil: Double): Gil {
         val tn = ArrayList<Teoneol>()
         var jS = 0.0; var jE = 0.0; var jIr = ""; var jJul: MutableList<Int>? = null
         val gan = HashSet<Int>(); gan.add(mt.jul)
@@ -126,7 +145,8 @@ class Cheolgil private constructor(b: ByteArray) {
         var k = if (d > 0) mt.i + 1 else mt.i
         var pa = mt.lat; var po = mt.lon
         var s = 0.0
-        for (step in 0 until 400) {
+        val gilJeom = ArrayList<DoubleArray>(); gilJeom.add(doubleArrayOf(mt.lat, mt.lon, 0.0))
+        for (step in 0 until 1500) {
             val j = jul[ji]
             val v = j.jeom[k]
             val l = m(pa, po, la[v], lo[v])
@@ -141,6 +161,7 @@ class Cheolgil private constructor(b: ByteArray) {
             }
             s += l
             pa = la[v]; po = lo[v]
+            gilJeom.add(doubleArrayOf(pa, po, s))
             if (s >= gil && (jJul == null || s - jE > 40)) break
             if (s > gil + 30000) break
             // 다음 길 고르기 — 이 점에서 나가는 모든 길 가운데 가장 덜 꺾이는 쪽(35도 안)
@@ -167,6 +188,6 @@ class Cheolgil private constructor(b: ByteArray) {
             ji = g[0]; k = g[1]; d = g[2]
         }
         jJul?.let { tn.add(Teoneol(jS, jE - jS, jIr, it)) }
-        return Pair(tn, gan)
+        return Gil(tn, gan, gilJeom)
     }
 }
