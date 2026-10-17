@@ -1,29 +1,33 @@
-// LVD투어스튜디오 앱 — 1.1.0판에 넣은 화면 (빌드 261017-T3, 방클, 이사장님 승인 「첫단계부터 시작해」)
+// LVD투어스튜디오 앱 — 1.1.0판에 넣은 화면 (1.2.0 261017-T4 사진 크게 보기 보강. 빌드 261017-T3, 방클, 이사장님 승인 「첫단계부터 시작해」)
 // 웹 투어스튜디오에 있던 것을 앱에도: 사진 크게 보기·지우기·다시 찍기, 현장 메모(말·글), 메모 듣기,
 // 읽으며 녹음과 되돌아보기, 판 되돌리기, 휴지통, 관리자에게 봐 달라고 알리기, 코스 지우기.
 // 맞대기 표: 저장소 matdae/tour_web_app.txt
 import SwiftUI
 import UIKit
 
-// MARK: - 사진 한 장 크게 보기 (지우기·같은 방향 다시 찍기)
+// MARK: - 사진 한 장 크게 보기 (지우기·같은 방향 다시 찍기, 1.2.0: 앞·다음 사진, 밝기·또렷함, 방향 고치기, 폰에 저장하기, 다른 지점으로 옮기기 — 웹 shotView 와 같음)
 struct SajinView: View {
     @EnvironmentObject var store: TourStore
     @Environment(\.dismiss) private var dismiss
     let spotId: String
-    let idx: Int
+    @State private var idx: Int
     @State private var url: URL? = nil
     @State private var jiulkka = false
     @State private var kamera = false
     @State private var dasiBang = ""
+    @State private var omgilGot = ""
+    @State private var omgilkka = false
     @AccessibilityFocusState private var meori: Bool
+    init(spotId: String, idx: Int) { self.spotId = spotId; _idx = State(initialValue: idx) }
 
     var body: some View {
         List {
             if let k = store.kos, let s = k.spot(spotId), idx < s.shots.count {
                 let p = s.shots[idx]
                 let dir = geulja(p["dir"]), f = geulja(p["f"])
+                let q = p["q"] as? [String: Any]
                 Section {
-                    Text(k.spotFull(s) + ", \(s.shots.count)장 가운데 \(idx + 1)번째, " + (dir.isEmpty ? "방위 모름" : dir) + (f.isEmpty ? ", 아직 나스에 올리지 못함" : ""))
+                    Text(k.spotFull(s) + ", \(s.shots.count)장 가운데 \(idx + 1)번째, " + (dir.isEmpty ? "방위 모름" : dir) + (geulja(q?["warn"]).isEmpty ? ", 밝기와 또렷함 좋음" : ", " + geulja(q?["warn"])) + (f.isEmpty ? ", 아직 나스에 올리지 못함" : ""))
                         .font(.headline).accessibilityAddTraits(.isHeader).accessibilityFocused($meori)
                     if let url {
                         AsyncImage(url: url) { im in im.resizable().scaledToFit() } placeholder: { ProgressView() }
@@ -32,6 +36,12 @@ struct SajinView: View {
                     } else if f.isEmpty {
                         Text("이 사진은 폰에 남아 있고 아직 나스에 올라가지 않았습니다. 설정의 「못 올린 것 지금 올리기」로 올리십시오.")
                     }
+                    if let q, sutja(q["bright"]) ?? -1 >= 0 { Text("밝기 \(Int(sutja(q["bright"]) ?? 0)), 또렷함 " + geulja(q["sharp"]) + (geulja(p["head"]).isEmpty ? "" : ", 찍을 때 나침반 \(Int(sutja(p["head"]) ?? 0))도")).font(.footnote) }
+                    if idx > 0 { Button("앞 사진") { bogi(idx - 1) } }
+                    if idx + 1 < s.shots.count { Button("다음 사진") { bogi(idx + 1) } }
+                }
+                if !f.isEmpty {
+                    Section { Button("이 사진 폰에 저장하기 (사진 앱)") { Task { await jeojang(k, s, p) } } }
                 }
                 if !k.isGyobon {
                     Section {
@@ -40,24 +50,37 @@ struct SajinView: View {
                             Button("이 방향 다시 찍기 (" + dir + ")") { dasiBang = dir; jiulkka = false; dasiJjikgi(s) }
                         }
                     }
+                    Section("방향 고치기") {
+                        ForEach(["12시 방향", "3시 방향", "6시 방향", "9시 방향"], id: \.self) { d in
+                            Button(d + "으로 적기" + (d == dir ? " (지금)" : "")) {
+                                var a = s.shots; a[idx]["dir"] = d; s.shots = a
+                                store.bakkwim(); store.say("이 사진 방향을 " + d + "으로 적었습니다.")
+                            }
+                        }
+                    }
+                    Section("다른 지점으로 옮기기") {
+                        Picker("옮길 지점", selection: $omgilGot) {
+                            Text("고르기").tag("")
+                            ForEach(k.allSpots.filter { $0.id != s.id }) { o in Text(k.spotFull(o)).tag(o.id) }
+                        }
+                        Button("고른 지점으로 옮기기") { if omgilGot.isEmpty { store.say("옮길 지점을 먼저 골라 주십시오.") } else { omgilkka = true } }
+                    }
                 }
             } else {
-                Text("이 사진은 지워졌습니다. 뒤로 가십시오.")
+                Text("이 사진은 지워졌거나 옮겨졌습니다. 뒤로 가십시오.")
             }
         }
         .navigationTitle("사진 크게 보기")
-        .task {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { meori = true }
-            if let s = store.kos?.spot(spotId), idx < s.shots.count, let k = store.kos {
-                let f = geulja(s.shots[idx]["f"])
-                if !f.isEmpty { let tk = await TourAPI.needTicket(); url = TourAPI.fileURL("photo", course: k.id, f: f, tk: tk) }
-            }
-        }
+        .task { await juso() }
         .alert("사진을 지웁니다. 되돌릴 수 없습니다. 지울까요?", isPresented: $jiulkka) {
             Button("지우기", role: .destructive) {
                 if let s = store.kos?.spot(spotId) { store.deletePhoto(s, idx) }
                 dismiss()
             }
+            Button("그만두기", role: .cancel) {}
+        }
+        .alert("이 사진을 " + (store.kos?.spot(omgilGot)?.name ?? "") + " 지점으로 옮깁니다. 옮길까요?", isPresented: $omgilkka) {
+            Button("옮기기") { omgigi() }
             Button("그만두기", role: .cancel) {}
         }
         .fullScreenCover(isPresented: $kamera) {
@@ -68,6 +91,31 @@ struct SajinView: View {
             }
             .ignoresSafeArea()
         }
+    }
+    private func bogi(_ i: Int) { idx = i; url = nil; Task { await juso() } }
+    private func juso() async {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { meori = true }
+        if let s = store.kos?.spot(spotId), idx < s.shots.count, let k = store.kos {
+            let f = geulja(s.shots[idx]["f"])
+            if !f.isEmpty { let tk = await TourAPI.needTicket(); url = TourAPI.fileURL("photo", course: k.id, f: f, tk: tk) }
+        }
+    }
+    private func jeojang(_ k: Kos, _ s: Spot, _ p: [String: Any]) async {
+        let tk = await TourAPI.needTicket()
+        guard let u = TourAPI.fileURL("photo", course: k.id, f: geulja(p["f"]), tk: tk) else { return }
+        store.say("사진을 폰에 저장합니다.")
+        guard let rd = try? await URLSession.shared.data(from: u), let im = UIImage(data: rd.0) else { store.say("사진을 저장하지 못했습니다. 잠시 뒤 다시 눌러 주십시오."); return }
+        UIImageWriteToSavedPhotosAlbum(im, nil, nil, nil)
+        store.say("사진 앱에 저장했습니다. " + s.name + " " + (geulja(p["dir"]).isEmpty ? "방위 모름" : geulja(p["dir"])) + " 사진입니다.")
+    }
+    private func omgigi() {
+        guard let k = store.kos, let s = k.spot(spotId), let t = k.spot(omgilGot), idx < s.shots.count else { return }
+        var a = s.shots; let p = a.remove(at: idx); s.shots = a
+        var b = t.shots; b.append(p); t.shots = b
+        if let l = store.lastShot, l.0 == s.id, l.1 == idx { store.lastShot = (t.id, b.count - 1) }
+        store.bakkwim()
+        store.say("사진을 " + t.name + " 지점으로 옮겼습니다. " + s.name + " 지점에 \(a.count)장, " + t.name + " 지점에 \(b.count)장입니다.")
+        dismiss()
     }
 
     /// 같은 방향 다시 찍기 — 이 사진을 지우고 같은 방향으로 카메라를 엶(웹 redoShot 과 같음)
