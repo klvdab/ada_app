@@ -228,7 +228,7 @@ final class Danchu: ObservableObject {
             let gj = GeoleumJaegi.shared
             if gj.jung { gj.kkeut(neoki: true) } else { gj.sijak(s) }
         default:
-            memo(k, s)
+            if UserDefaults.standard.string(forKey: "danchuHanbeon") == "daebon" { malDaebon(k, s) } else { memo(k, s) }
         }
     }
     private func memo(_ k: Kos, _ s: Spot) {
@@ -255,11 +255,25 @@ final class Danchu: ObservableObject {
             else { st.allim = "녹음 중입니다. 다 말씀하시면 이어폰 단추를 한 번 누르십시오." }
         }
     }
+    /// 1.4.0 — 한 번 누름을 대본 받아쓰기로 고른 경우: 말로 대본 쓰기 시작·끝
+    private func malDaebon(_ k: Kos, _ s: Spot) {
+        let m = MalSseugi.shared
+        if m.jung { Gwan.ppi(); m.kkeut(neoki: true); return }
+        if Nokeumgi.shared.jung { malhae("녹음 중입니다. 먼저 끝내 주십시오."); return }
+        malhae(k.spotLab(s) + " " + MalDaebon.ireum(m.kan) + " 칸에 말로 씁니다. 삐 소리 뒤에 말씀하십시오.")
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_800_000_000)
+            Gwan.ppi()
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            if let e = await m.sijak(s) { Danchu.shared.malhae(e) }
+            else { TourStore.shared.allim = "받아쓰는 중입니다. 다 말씀하시면 이어폰 단추를 한 번 누르십시오." }
+        }
+    }
     /// 화면을 안 보고 쓸 때는 폰이 소리 내어 알림(말소리를 켜 둔 경우)
     func malhae(_ t: String) {
         let st = TourStore.shared
         st.say(t)
-        guard on, st.malsori, !Nokeumgi.shared.jung, !UIAccessibility.isVoiceOverRunning else { return }
+        guard on, st.malsori, !Nokeumgi.shared.jung, !MalSseugi.shared.jung, !UIAccessibility.isVoiceOverRunning else { return }
         syn.stopSpeaking(at: .immediate)
         let u = AVSpeechUtterance(string: t)
         u.voice = AVSpeechSynthesisVoice(language: "ko-KR")
@@ -286,7 +300,12 @@ struct Danchu130Section: View {
     var body: some View {
         Section("화면 안 보고 답사하기 — 이어폰 단추") {
             Toggle("이어폰 단추로 답사하기", isOn: Binding(get: { d.on }, set: { d.kyeogi($0) }))
-            Text("이어폰 단추를 한 번 누르면 현장 메모 녹음을 시작하고, 다시 한 번 누르면 끝납니다. 두 번 누르면 나침반 카메라가 열리고, 열린 뒤 두 번 누르면 찍습니다. 세 번 누르면 이동 구간 재기를 시작하거나 끝냅니다. 나침반 카메라 안에서는 음량 단추로도 찍습니다. 켜 두는 동안 다른 앱의 음악은 멈춥니다.")
+            Picker("한 번 누름", selection: Binding(get: { UserDefaults.standard.string(forKey: "danchuHanbeon") ?? "memo" },
+                                                 set: { UserDefaults.standard.set($0, forKey: "danchuHanbeon"); d.objectWillChange.send(); store.say($0 == "daebon" ? "한 번 누르면 대본 받아쓰기입니다. 넣을 칸은 지점 한 화면의 말로 대본 쓰기에서 고릅니다." : "한 번 누르면 현장 메모 녹음입니다.") })) {
+                Text("현장 메모 녹음").tag("memo")
+                Text("대본 받아쓰기 (말한 대로 글로)").tag("daebon")
+            }
+            Text("이어폰 단추를 한 번 누르면 현장 메모 녹음(또는 위에서 고른 대본 받아쓰기)을 시작하고, 다시 한 번 누르면 끝납니다. 두 번 누르면 나침반 카메라가 열리고, 열린 뒤 두 번 누르면 찍습니다. 세 번 누르면 이동 구간 재기를 시작하거나 끝냅니다. 나침반 카메라 안에서는 음량 단추로도 찍습니다. 켜 두는 동안 다른 앱의 음악은 멈춥니다.")
                 .font(.footnote)
         }
         Section("걸으며 저절로 재기 — 이동 구간 안내 초안") {
