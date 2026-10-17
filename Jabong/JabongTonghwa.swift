@@ -6,6 +6,8 @@ import Foundation
 import SwiftUI
 import AVFoundation
 import WebRTC
+import MapKit
+import CoreLocation
 
 final class JabongTonghwa: NSObject, ObservableObject, RTCPeerConnectionDelegate {
     static let shared = JabongTonghwa()
@@ -29,6 +31,12 @@ final class JabongTonghwa: NSObject, ObservableObject, RTCPeerConnectionDelegate
     /// 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 잇는 동안 지킴 — 길손님의 제안(offer)이 30초 안에 오지 않거나, 나스에서 방이 닫혔거나 다른 분 것이 되면
     /// 통화 화면에 갇히지 않게 "연결되지 않았습니다."로 닫음(길눈은 hangup 만 보내고 bye 를 못 보낼 때가 있음)
     private var jikimTimer: Timer?
+    /// 자봉 2.25.0 (261017-I19, 이사장님 승인 2026-10-17) 길손님이 보내는 자리를 5초마다 받아 보임(웹 길눈 jari_nanum.js 1.1에서 옮김)
+    @Published private(set) var jari: JariBatgi?
+    @Published private(set) var jariGeul = ""
+    private var jariTimer: Timer?
+    private var jariMalTtae = Date.distantPast
+    private var jariMal = ""
     private var offerOm = false
     private var jindoMutneun = false
     /// 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 지킴으로 닫을 때 마지막에 할 말(없으면 빈 글) — 옛 motIeum 을 넓힘
@@ -79,6 +87,45 @@ final class JabongTonghwa: NSObject, ObservableObject, RTCPeerConnectionDelegate
         byeEopsi = false
         jikimTimer?.invalidate()
         jikimTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in self?.jikim() }
+        jari = nil; jariGeul = "길손님 자리를 기다리는 중입니다."; jariMal = ""; jariMalTtae = .distantPast
+        jariTimer?.invalidate()
+        jariTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.jariBatda() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.jariBatda() }
+    }
+
+    // MARK: 자봉 2.25.0 (261017-I19, 이사장님 승인 2026-10-17) 길손님 자리 받기 — 주소·국가지점번호·바라보는 쪽(시계 방향)·빠르기·지도
+    private func jariBatda() {
+        guard tonghwaJung, !room.isEmpty else { jariTimer?.invalidate(); jariTimer = nil; return }
+        let r = room
+        Task { [weak self] in
+            guard let self = self,
+                  let d = try? await Tongsin.shared.getSae(self.REL, ["a": "jariget", "room": r]),
+                  let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+                  let j = o["jari"] as? [String: Any] else { return }
+            func su(_ k: String) -> Double? {
+                if let v = j[k] as? Double { return v }
+                if let v = j[k] as? Int { return Double(v) }
+                if let v = j[k] as? String, !v.isEmpty { return Double(v) }
+                return nil
+            }
+            guard let la = su("la"), let lo = su("lo") else { return }
+            let jigeum = (o["now"] as? Double) ?? (o["now"] as? Int).map(Double.init) ?? Date().timeIntervalSince1970
+            let chu = max(0, Int(jigeum - (su("t") ?? jigeum)))
+            let b = JariBatgi(la: la, lo: lo, acc: su("acc") ?? 0, bang: su("bang") ?? -1, sok: su("sok") ?? 0,
+                              jj: (j["jj"] as? String) ?? "", chu: chu)
+            // 주소는 30미터 넘게 옮기셨거나 30초 지났을 때만 다시 여쭘
+            var mal = self.jariMal
+            let olmgim = self.jari.map { JariBatgi.geori($0.la, $0.lo, la, lo) } ?? 999
+            if mal.isEmpty || olmgim > 30 || Date().timeIntervalSince(self.jariMalTtae) > 30 {
+                if let m = await Chatgi.jarimal(la, lo) { mal = m }
+            }
+            await MainActor.run {
+                guard r == self.room, self.tonghwaJung else { return }
+                if mal != self.jariMal { self.jariMal = mal; self.jariMalTtae = Date() }
+                self.jari = b
+                self.jariGeul = b.geul(juso: mal)
+            }
+        }
     }
 
     /// 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 통화 내내 지킴 — a=jindo 에 내 열쇠(k)를 실어 나스가 "받은 분이 살아 있다"고 알게 함
@@ -168,6 +215,7 @@ final class JabongTonghwa: NSObject, ObservableObject, RTCPeerConnectionDelegate
         let eojeotna = iEojim
         sigTimer?.invalidate(); sigTimer = nil
         jikimTimer?.invalidate(); jikimTimer = nil
+        jariTimer?.invalidate(); jariTimer = nil; jari = nil; jariGeul = ""   // 자봉 2.25.0
         pc?.close(); pc = nil
         yeongsang = nil
         tonghwaJung = false
@@ -317,9 +365,66 @@ struct TonghwaView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.black)
                 .accessibilityLabel("길손님 카메라 화면")
+            JariBogi(t: t)   // 자봉 2.25.0
             Button("통화 마치기") { t.kkeutnaegi() }.buttonStyle(KeunDanchu())
         }
         .padding()
         .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { cheot = true } }
+    }
+}
+
+// MARK: 자봉 2.25.0 (261017-I19, 이사장님 승인 2026-10-17) 길손님 자리
+struct JariBatgi: Identifiable {
+    let id = UUID()
+    let la: Double, lo: Double, acc: Double, bang: Double, sok: Double
+    let jj: String
+    let chu: Int
+
+    static func geori(_ a1: Double, _ o1: Double, _ a2: Double, _ o2: Double) -> Double {
+        CLLocation(latitude: a1, longitude: o1).distance(from: CLLocation(latitude: a2, longitude: o2))
+    }
+
+    /// 바라보는 쪽은 지도 위쪽(북쪽)을 12시로 둔 시계 방향
+    var si: Int? {
+        guard bang >= 0 else { return nil }
+        let h = Int((bang / 30).rounded()) % 12
+        return h == 0 ? 12 : h
+    }
+
+    func geul(juso: String) -> String {
+        var j: [String] = []
+        j.append(juso.isEmpty ? "길손님 자리를 받았습니다." : juso)
+        if !jj.isEmpty { j.append("국가지점번호 \(jj).") }
+        if let h = si { j.append("지도 위쪽을 12시로 두면 \(h)시 쪽을 보고 계십니다.") }
+        if sok >= 0.5 { j.append("초속 \(String(format: "%.1f", sok))미터, 시속 \(Int((sok * 3.6).rounded()))킬로미터로 움직이고 계십니다.") }
+        else { j.append("지금은 멈춰 계십니다.") }
+        if acc > 0 { j.append("오차 \(Int(acc))미터.") }
+        j.append(chu < 3 ? "방금 받은 자리입니다." : "\(chu)초 전에 받은 자리입니다.")
+        return j.joined(separator: " ")
+    }
+
+    var jidoJuso: URL? {
+        URL(string: "https://map.kakao.com/link/map/%EA%B8%B8%EC%86%90%EC%9D%B4,\(String(format: "%.6f", la)),\(String(format: "%.6f", lo))")
+    }
+}
+
+struct JariBogi: View {
+    @ObservedObject var t: JabongTonghwa
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(t.jariGeul).font(.body).fixedSize(horizontal: false, vertical: true)
+            if let j = t.jari {
+                Map(coordinateRegion: .constant(MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: j.la, longitude: j.lo),
+                                                                   latitudinalMeters: 300, longitudinalMeters: 300)),
+                    annotationItems: [j]) { p in
+                    MapMarker(coordinate: CLLocationCoordinate2D(latitude: p.la, longitude: p.lo), tint: .red)
+                }
+                .frame(height: 160)
+                .accessibilityLabel("길손이 자리 지도")
+                if let u = j.jidoJuso {
+                    Link("지도로 열기 — 카카오맵", destination: u).buttonStyle(KeunDanchu())
+                }
+            }
+        }
     }
 }
