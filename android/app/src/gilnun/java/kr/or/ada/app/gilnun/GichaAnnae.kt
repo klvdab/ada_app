@@ -186,9 +186,10 @@ object GichaAnnae {
             return
         }
         val n = near
-        // 2.67.0 (시험에서 찾음) 역 1.2킬로미터 앞에서 「지나고 있습니다」라고 하던 일 — 250미터 안이거나 가장 가까웠던 거리보다 80미터 넘게 멀어질 때만
+        // 2.67.0 (시험에서 찾음) 역 1.2킬로미터 앞에서 「지나고 있습니다」라고 하던 일 — 가장 가까웠던 거리보다 80미터 넘게 멀어지고 초속 8미터 넘게 달릴 때만.
+        //   250미터 안이면 바로 말하던 것은 뺌 — 서려고 속도를 줄이며 역에 들어설 때 먼저 나왔음(광명)
         if (n != null && n.second < 1200) gajangGakka[n.first.ireum] = Math.min(gajangGakka[n.first.ireum] ?: Double.MAX_VALUE, n.second)
-        if (n != null && n.second < 1200 && said[n.first.ireum] == null && (n.second < 250 || n.second > (gajangGakka[n.first.ireum] ?: n.second) + 80)) {
+        if (n != null && n.second < 1200 && said[n.first.ireum] == null && (sv ?: 0.0) > 8 && n.second > (gajangGakka[n.first.ireum] ?: n.second) + 80) {
             said[n.first.ireum] = now
             var t = "지금 ${n.first.ireum}을 지나고 있습니다."
             val dm = daeum(me)
