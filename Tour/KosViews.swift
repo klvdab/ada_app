@@ -1,4 +1,4 @@
-// LVD투어스튜디오 앱 — 들어오기와 코스 탭 (판 1.0.0, 빌드 261012-T1)
+// LVD투어스튜디오 앱 — 들어오기와 코스 탭 (판 1.1.0, 빌드 261017-T3 — 봐 달라고 알리기·판 되돌리기·코스 지우기·휴지통·더 적을 것. 1.0.0 261012-T1)
 import SwiftUI
 
 struct LoginView: View {
@@ -96,6 +96,7 @@ struct KosTab: View {
                         }
                     }
                 }
+                KosGwanri()
             }
             Section("코스 목록 (\(store.courses.count)개)") {
                 if store.courses.isEmpty { Text(store.bappeum ? "불러오는 중입니다." : "코스가 없습니다. 아래에서 새 코스를 만드십시오.") }
@@ -118,6 +119,9 @@ struct KosTab: View {
                 }
                 .disabled(saeIreum.trimmingCharacters(in: .whitespaces).isEmpty)
             }
+            Section("휴지통") {
+                NavigationLink("휴지통 — 지운 코스 되살리기") { HyujitongView().dwiro() }
+            }
         }
         .navigationTitle("코스")
         .scrollContentBackground(.hidden)
@@ -125,9 +129,11 @@ struct KosTab: View {
     }
 }
 
-/// 코스 정보 — 웹 1단계의 기본 칸
+/// 코스 정보 — 웹 1단계의 기본 칸 (1.1.0: 웹 「더 적을 것」의 분야·지역·참가 인원·현장영상해설사 수도)
 struct KosJeongbo: View {
     @EnvironmentObject var store: TourStore
+    static let BUNYA = ["", "문화유산 분야", "박물관·전시 분야", "자연·경관 분야", "공연·행사 분야", "스포츠 관람 분야", "교육·체험 분야", "실시간 퍼포먼스 분야", "테마투어 분야"]
+    static let JIYEOK = ["", "서울", "경기", "인천", "부산", "대구", "광주", "대전", "강원", "충청", "전라", "경상", "제주"]
     var body: some View {
         Form {
             if let k = store.kos {
@@ -137,6 +143,20 @@ struct KosJeongbo: View {
                     kan(k, "meet", "집합 장소 (첫 만남 자리 — 오프닝 지점이 여기서 시작)")
                     kan(k, "rain", "비 올 때")
                     kan(k, "note", "메모")
+                }
+                Section("더 적을 것 (분야·지역·인원)") {
+                    Picker("분야", selection: Binding(get: { k.s("field") }, set: { k.d["field"] = $0; store.bakkwim() })) {
+                        ForEach(KosJeongbo.BUNYA, id: \.self) { Text($0.isEmpty ? "고르지 않음" : $0).tag($0) }
+                    }
+                    Picker("지역", selection: Binding(get: { k.s("region") }, set: { k.d["region"] = $0; store.bakkwim() })) {
+                        ForEach(KosJeongbo.JIYEOK, id: \.self) { Text($0.isEmpty ? "고르지 않음" : $0).tag($0) }
+                    }
+                    Stepper(value: Binding(get: { Int(sutja(k.d["people"]) ?? 0) }, set: { k.d["people"] = max(0, $0); store.bakkwim() }), in: 0...500) {
+                        Text("참가 인원 \(Int(sutja(k.d["people"]) ?? 0))명")
+                    }
+                    Stepper(value: Binding(get: { max(1, Int(sutja(k.d["guides"]) ?? 1)) }, set: { k.d["guides"] = max(1, $0); store.bakkwim() }), in: 1...50) {
+                        Text("현장영상해설사 수 \(max(1, Int(sutja(k.d["guides"]) ?? 1)))명")
+                    }
                 }
                 Section("앞머리 (작성원칙 통합본 1·3·5·6·16번)") {
                     kan(k, "first", "1번 · 첫 만남 인사말")
