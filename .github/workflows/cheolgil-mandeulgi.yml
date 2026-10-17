@@ -1,0 +1,33 @@
+# 철길 자료 만들기 0.1 (빌드 261017-1, 이사장님 승인 2026-10-17 「1」 — 선로 맞추기)
+# 오픈스트리트맵의 우리나라 기찻길을 받아 길눈 앱에 싣는 철길 자료(cheolgil.bin)를 만들어 cheolgil-jaryo 갈래에 올림.
+# 클이 그 자료를 살펴본 뒤 앱(아이폰 Gilnun, 안드로이드 assets)에 옮겨 실음. 철길이 크게 바뀌면 손으로 다시 돌림.
+name: cheolgil-mandeulgi
+
+on:
+  push:
+    paths:
+      - tools/cheolgil/**
+      - .github/workflows/cheolgil-mandeulgi.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  mandeulgi:
+    name: 철길 자료 만들기
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: 만들기
+        run: python3 tools/cheolgil/mandeulgi.py cheolgil.bin | tee mandeun.txt
+      - name: 올리기
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir out && cp cheolgil.bin mandeun.txt out/ && cd out
+          git init -q && git checkout -q -b cheolgil-jaryo
+          git config user.name "github-actions" && git config user.email "actions@github.com"
+          git add . && git commit -qm "철길 자료 $(date -u +%Y-%m-%d)"
+          git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" cheolgil-jaryo
