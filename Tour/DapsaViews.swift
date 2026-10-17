@@ -1,4 +1,4 @@
-// LVD투어스튜디오 앱 — 답사 탭 (판 1.1.0, 빌드 261017-T3 — 방금 찍은 사진·담긴 사진 크게 보기·지우기·다시 찍기, 현장 메모. 1.0.1 261014-T2)
+// LVD투어스튜디오 앱 — 답사 탭 (판 1.2.0, 빌드 261017-T4 — 저절로 찍기·담는 모양·폰 사진 넣기·코스 벗어남 알림. 1.1.0 261017-T3 — 방금 찍은 사진·담긴 사진 크게 보기·지우기·다시 찍기, 현장 메모. 1.0.1 261014-T2)
 // 현장을 걸으며: 「여기서부터 다음 지점 시작」으로 경계를 적고, 정지 현장영상해설 자리에서 시계 방향 네 쪽 사진을 찍습니다.
 import SwiftUI
 import UIKit
@@ -40,7 +40,7 @@ struct DapsaTab: View {
                         }
                     }
                     Section("사진 찍기 — 시계 방향으로 네 쪽") {
-                        Text("정지 현장영상해설 자리에 서서 참여자가 바라볼 쪽을 12시로 두고 찍으십시오. 첫 사진을 찍을 때 이 지점의 자리가 적히고, 앞 지점에서 걸어온 거리로 이동 시간을 잡습니다.")
+                        Text("아래 카메라 묶음의 저절로 찍기는 나침반으로 네 방향을 차례로 담습니다. 여기서는 아이폰 기본 카메라로 한 장씩 찍습니다. 정지 현장영상해설 자리에 서서 참여자가 바라볼 쪽을 12시로 두고 찍으십시오. 첫 사진을 찍을 때 이 지점의 자리가 적히고, 앞 지점에서 걸어온 거리로 이동 시간을 잡습니다.")
                             .font(.footnote)
                         Picker("찍을 방향", selection: $bang) {
                             ForEach(DapsaTab.ne, id: \.self) { Text($0).tag($0) }
@@ -54,6 +54,7 @@ struct DapsaTab: View {
                         let nameun = DapsaTab.ne.filter { !jjigeun.contains($0) }
                         Text(nameun.isEmpty ? "네 방향을 다 담았습니다. 다음 지점으로 옮기셔도 됩니다." : "아직 담지 않은 방향: " + nameun.joined(separator: ", "))
                     }
+                    Kamera120Section()
                     BangeumSajin()
                     Section("담긴 사진 보기 — \(s.shots.count)장 (두드리면 크게 보기·지우기·다시 찍기)") { SajinMokrok(s: s) }
                     MemoSection()
