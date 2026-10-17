@@ -1,0 +1,23 @@
+# 길눈 사용법 동영상 짜임 알아보기 0.1 (빌드 261018-1, 이사장님 승인 2026-10-18 「1」)
+# 지난 동영상의 화면·소리·말을 뽑아 sayong-bunseok 갈래에 올림(클이 보고 같은 짜임으로 다시 만들려고)
+name: sayong-bunseok
+on:
+  workflow_dispatch:
+  push:
+    paths: [tools/sayong/bunseok.sh, .github/workflows/sayong-bunseok.yml]
+permissions:
+  contents: write
+jobs:
+  bunseok:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - run: bash tools/sayong/bunseok.sh
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd out && git init -q && git checkout -q -b sayong-bunseok
+          git config user.name "github-actions" && git config user.email "actions@github.com"
+          git add . && git commit -qm "사용법 동영상 짜임" && git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" sayong-bunseok
