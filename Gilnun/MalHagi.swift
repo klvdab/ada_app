@@ -827,6 +827,12 @@ final class MalHagi: ObservableObject {
             AnnaeEngine.shared.haneunIlMeomchum()
             return
         }
+        // 0-M. 2.94.0 (261017-I48, 이사장님 승인 2026-10-17) 「집에 가자」·「사무실 가자」 — 말로 그린 길이 있으면 손 없이 바로 안내 시작(웹 길눈 malbuteugi.js 1.9에서 옮김)
+        if let hit = MalgilEngine.shared.malroChatgi(z) {
+            dap("\(hit.2) 말로 그린 길 안내를 시작합니다.", false)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) { MalgilEngine.shared.sijak(hit.0, ogi: hit.1) }
+            return
+        }
         // 0-0. 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 콜 취소 — "콜 취소", "콜 취소했어", "택시 취소"(아래 「그만」의 취소보다 먼저)
         if MalHagi.kolChwisoMal(z) {
             hwaginBiugi()

@@ -68,6 +68,9 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
     @Published private(set) var sangtae: Sangtae = .eopseum
     @Published private(set) var geul = ""
     @Published var malHan = ""
+    /// 2.94.0 (261017-I48, 이사장님 승인 2026-10-17) 요청·통화하는 동안 내 자리를 8초마다 받는 분께 보냄(웹 길눈 jari_nanum.js 1.1에서 옮김)
+    @Published private(set) var jariBonaem = true
+    private var jariTimer: Timer?
     /// 2.42.0 가족·지인이 받지 않으셨을 때 — 자원봉사자와 현장영상해설사에게 넘길지 여쭘
     @Published var neomgilkka = false
     /// 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 넘길지 여쭌 때 — 2분이 지나면 물음(「예, 요청합니다」 단추)을 거둠
@@ -131,6 +134,7 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
         room = "j" + String(UUID().uuidString.lowercased().filter { $0.isLetter || $0.isNumber }.prefix(10))
         sijakTtae = Date()
         sangtae = .yocheong
+        jariSijak()   // 2.94.0
         var mal: String
         if g == .jiin {
             let nm = s?.name ?? "가족·지인"
@@ -407,7 +411,32 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
         }
     }
 
+    // MARK: 2.94.0 (261017-I48, 이사장님 승인 2026-10-17) 내 자리 보내기 — 받는 분 화면에 주소·국가지점번호·바라보는 쪽·빠르기·지도
+    private func jariSijak() {
+        jariBonaem = true
+        jariTimer?.invalidate()
+        jariTimer = Timer.scheduledTimer(withTimeInterval: 8, repeats: true) { [weak self] _ in self?.jariBonae() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.jariBonae() }
+    }
+
+    func jariBonaegiBakkugi() {
+        jariBonaem.toggle()
+        SoriEngine.shared.mal(jariBonaem ? "내 자리를 다시 보냅니다." : "내 자리를 보내지 않습니다. 받는 분은 지금 어디 계신지 모르십니다.")
+        if jariBonaem { jariBonae() }
+    }
+
+    private func jariBonae() {
+        guard jariBonaem, sangtae != .eopseum, !room.isEmpty, let w = WichiEngine.shared.jigeum else { return }
+        var q: [String: String] = ["a": "jari", "room": room,
+                                   "la": String(format: "%.6f", w.lat), "lo": String(format: "%.6f", w.lon),
+                                   "acc": String(Int(w.ochae)), "bang": w.banghyang >= 0 ? String(Int(w.banghyang)) : "",
+                                   "sok": w.sokdo > 0 ? String(format: "%.1f", w.sokdo) : "0"]
+        q["jj"] = Jijeom.geul(w.lat, w.lon) ?? ""
+        Task { _ = try? await Tongsin.shared.getSae(REL, q) }
+    }
+
     private func kkeut(_ mal: String) {
+        jariTimer?.invalidate(); jariTimer = nil   // 2.94.0
         let tonghwaYeollim = pc != nil   // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16)
         jindoTimer?.invalidate()
         jindoTimer = nil

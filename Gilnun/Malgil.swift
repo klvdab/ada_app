@@ -49,6 +49,43 @@ final class MalgilEngine: ObservableObject {
     private var tk: String { Yeolsoe.ilgi("eumakTk") ?? "" }
     var yeolsoeItda: Bool { !tk.isEmpty }
 
+    /// 2.94.0 (261017-I48, 이사장님 승인 2026-10-17) 「집에 가자」·「사무실 가자」 — 말로 하기에서 곧바로 쓸 수 있게 목록을 폰에 남겨 둠(웹 길눈 malbuteugi.js 1.9·malgil_mok.js 0.1에서 옮김)
+    private static let MOK_KI = "gilnunMalgilMok"
+    private init() {
+        if let a = UserDefaults.standard.array(forKey: MalgilEngine.MOK_KI) as? [[String: Any]] {
+            mok = a.compactMap { r in
+                guard let id = r["id"] as? String else { return nil }
+                return MalgilMok(id: id, ireum: (r["ireum"] as? String) ?? id, gagiSu: (r["gagi"] as? Int) ?? 0, ogiSu: (r["ogi"] as? Int) ?? 0)
+            }
+        }
+        if yeolsoeItda { Task { await self.mokBatgi() } }
+    }
+
+    private static func ro(_ w: String) -> String {
+        guard let c = w.unicodeScalars.last?.value, c >= 0xAC00, c < 0xAC00 + 11172 else { return "으로" }
+        let j = (c - 0xAC00) % 28
+        return (j == 0 || j == 8) ? "로" : "으로"
+    }
+
+    /// 말(띄어쓰기 뺀 글)에서 「○○ 가자」를 찾음 — 찾으면 (길, 오는 길인지, 이름)
+    func malroChatgi(_ z: String) -> (MalgilMok, Bool, String)? {
+        guard yeolsoeItda, !geotneun, !mok.isEmpty,
+              z.range(of: "(가자|갈래|가줘|데려다|안내해|가고싶|갈게)", options: .regularExpression) != nil else { return nil }
+        for m in mok {
+            let nm = m.ireum.components(separatedBy: "↔").map {
+                String($0.split(separator: "(").first ?? "").filter { !$0.isWhitespace }
+            }
+            guard nm.count >= 2, !nm[0].isEmpty, !nm[1].isEmpty else { continue }
+            for (from, to, ogi) in [(nm[0], nm[1], false), (nm[1], nm[0], true)] {
+                let pt = NSRegularExpression.escapedPattern(for: to) + "(에|으로|로|까지)?(가자|갈래|가줘|데려|안내|가고|갈게)"
+                if z.range(of: pt, options: .regularExpression) != nil {
+                    return (m, ogi, "\(from)에서 \(to)\(MalgilEngine.ro(to))")
+                }
+            }
+        }
+        return nil
+    }
+
     // MARK: 받기
 
     /// 목록 — 거짓이면 열쇠가 없거나 닿지 못함
@@ -63,6 +100,8 @@ final class MalgilEngine: ObservableObject {
                              gagiSu: Int(Chatgi.su(r["gagi"]) ?? 0), ogiSu: Int(Chatgi.su(r["ogi"]) ?? 0))
         }
         await MainActor.run { self.mok = ls }
+        // 2.94.0 말로 하기에서 곧바로 쓰도록 남겨 둠
+        UserDefaults.standard.set(ls.map { ["id": $0.id, "ireum": $0.ireum, "gagi": $0.gagiSu, "ogi": $0.ogiSu] as [String: Any] }, forKey: MalgilEngine.MOK_KI)
         return true
     }
 

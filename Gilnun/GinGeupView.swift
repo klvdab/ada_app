@@ -9,6 +9,12 @@ struct GinGeupView: View {
     @AccessibilityFocusState private var chojeom: Bool
     @AccessibilityFocusState private var neomChojeom: Bool
 
+    /// 2.94.0 (261017-I48, 이사장님 승인 2026-10-17) 내 자리 보내기 — 그만 보내기·다시 보내기
+    private var jariDanchu: some View {
+        Button(g.jariBonaem ? "내 자리 보내는 중 — 그만 보내기" : "내 자리 보내기 — 다시 보내기") { g.jariBonaegiBakkugi() }
+            .buttonStyle(KeunDanchu())
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
@@ -37,10 +43,12 @@ struct GinGeupView: View {
                     Button("\(g.geul) — 끊기") { g.geumanhagi() }
                         .buttonStyle(KeunDanchu())
                         .accessibilityFocused($chojeom)
+                    jariDanchu   // 2.94.0
                 default:
                     Button("\(g.geul) — 요청 그만두기") { g.geumanhagi() }
                         .buttonStyle(KeunDanchu())
                         .accessibilityFocused($chojeom)
+                    jariDanchu   // 2.94.0
                     if g.galrae == .jiin, let s = g.saram, !Jiin.shared.tel(s.id).isEmpty {
                         Button("\(s.name) 님께 전화 걸기") { g.jeonhwa() }
                             .buttonStyle(KeunDanchu())
