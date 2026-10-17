@@ -308,6 +308,10 @@ object GichaAnnae {
 
     private fun pyo(f: String) = SimpleDateFormat(f, Locale.KOREA).apply { timeZone = TimeZone.getTimeZone("Asia/Seoul") }
 
+    /** 2.62.0 말로 하기 「얼마나 걸려」에서 씀 — 맞춘 열차의 내리실 역 도착 예정 */
+    val dochakYejeong: Pair<String, Long>? get() = yeolcha?.let { Pair(it.doIreum, it.doTtae) }
+    fun sigakMalHagi(t: Long) = sigakMal(t)
+
     private fun sigakMal(t: Long): String {
         val c = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); c.timeInMillis = t
         val h = c.get(Calendar.HOUR_OF_DAY); val m = c.get(Calendar.MINUTE)

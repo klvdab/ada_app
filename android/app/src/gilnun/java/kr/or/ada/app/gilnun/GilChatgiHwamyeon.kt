@@ -245,6 +245,7 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
         }
         sb.append(if (TalgeotJikimi.naerimMureum) "N" else "-")   // 2.36.0 내리셨는지 여쭙기
         sb.append(if (YeojeongEngine.talgeotPyeolchim) "P" else "-")   // 2.60.0 탈것 목록 펼침
+        sb.append(if (YeojeongEngine.jinanMureum) "J" else "-").append(if (YeojeongEngine.dochakMureum) "D" else "-")   // 2.62.0 지난 여정·도착 여쭙기
         sb.append(JeomPan.giun())   // 2.7.0 b2 — 문이 여럿이 되거나 함께 시험 번호가 생기면 다시 그림
         return sb.toString()
     }
@@ -321,6 +322,12 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
                     t.danchu("배에 탔습니다 — 배 안 안내 시작") { a.talgeotBarojapgi(Talgeot.SEONBAK) }
                 }
             }
+        }
+        // 2.62.0 (261017-A50, 이사장님 승인 2026-10-17) 지난 여정·도착을 여쭌 바로 그 자리에 대답 단추(웹 길눈에서 옮김, 아이폰과 같음)
+        if (YeojeongEngine.dochakMureum) t.danchu("${mok}에 도착했습니다 — 여정 끝내기") { a.kkeut() }
+        if (YeojeongEngine.jinanMureum) {
+            t.danchu("지난 여정 끝내기 — 예상 도착 시간이 30분 넘게 지났습니다") { a.kkeut() }
+            t.danchu("이어서 가기 — ${mok}까지 안내를 이어 갑니다") { YeojeongEngine.ieogaGagi() }
         }
         // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 「내리셨습니까」를 여쭌 바로 그 자리에 대답 단추(아이폰과 같음)
         if (TalgeotJikimi.naerimMureum && yj.danggye == Danggye.TANEUN_JUNG) {

@@ -910,8 +910,10 @@ object AnnaeEngine {
 
     private fun wichiBatda(w: Jari) {
         val y = yj.jigeum
-        if (y == null) { namEunGeori = null; GichaAnnae.kkeut(); return }
+        if (y == null) { namEunGeori = null; GichaAnnae.kkeut(); ChaGeodeul.kkeut(); return }
         if (!(y.danggye == Danggye.TANEUN_JUNG && yj.talgeot == Talgeot.GICHA)) GichaAnnae.kkeut()   // 2.61.0
+        if (!(y.danggye == Danggye.TANEUN_JUNG && yj.talgeot != Talgeot.GICHA && yj.talgeot != Talgeot.SEONBAK && y.jiha == null)) ChaGeodeul.kkeut()   // 2.62.0
+        yj.dochakBoda(w)   // 2.62.0 목적지 50미터 안 2분이면 도착을 여쭘
         val d = Wichi.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
         namEunGeori = d
         jeomChaBoda(w)   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 탈것 구간이 없는 점지도를 걷다 차를 타셨는가(아이폰과 같음)
@@ -1344,6 +1346,8 @@ object AnnaeEngine {
 
     private fun chaAnnae(w: Jari, d0: Double, y: Yeojeong) {
         GanpanAllim.chaAn(w)   // 차 안 간판 알림
+        // 2.62.0 (261017-A50, 이사장님 승인 2026-10-17) 터널 미리 알림·크게 돌 때·멈춘 까닭(웹 길눈에서 옮김, 아이폰 2.92.0과 같음) — 기차는 GichaAnnae 가 맡음
+        if (y.talgeot != Talgeot.GICHA) ChaGeodeul.wichi(w, y) else ChaGeodeul.kkeut()
         // 2.31.0 (이사장님 승인) 승용차·택시는 받아 둔 차 길을 따라 남은 거리로 셈(아이폰과 같음)
         val d = (if (y.talgeot == Talgeot.CHA && ChaMat.gatEun(y.mokjeok.lat, y.mokjeok.lon)) ChaMat.namEunGilGeori(w) else null) ?: d0
         val mok = y.mokjeok.ireum

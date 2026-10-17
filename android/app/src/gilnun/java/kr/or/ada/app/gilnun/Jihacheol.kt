@@ -197,6 +197,40 @@ object JihacheolEngine : SensorEventListener {
     // MARK: 타기와 역 알림
 
     /** 타는 역 출구에 닿음 — 이제 열차가 움직이면 저절로 역 알림을 시작 */
+    /** 2.62.0 (261017-A50, 이사장님 승인 2026-10-17) 다음 열차가 몇 분 뒤에 오는지 — 웹 길눈 jicheol.html(빌드 260926-11)에서 옮김(아이폰 2.92.0과 같음).
+     *  타는 역의 실시간 도착(yeok.php a=dochak, 서울 열린데이터)에서 내 호선·방면 열차 가운데 가장 먼저 오는 것 */
+    fun daeumYeolchaMal(g: JihaGil, kkeut: (String?) -> Unit) {
+        val gg = g.gugan.firstOrNull() ?: run { kkeut(null); return }
+        val yeok = if (g.from.endsWith("역")) g.from.dropLast(1) else g.from
+        Tongsin.json("yeok.php", mapOf("a" to "dochak", "yeok" to yeok)) { o ->
+            val rows = o?.optJSONArray("rows")
+            if (rows == null || rows.length() == 0) { kkeut(null); return@json }
+            val ho = gg.hoseon.replace(" ", "")
+            val bang = gg.bangmyeon.replace("방면", "").replace("행", "").trim()
+            var best: org.json.JSONObject? = null; var bestCho = 0.0
+            for (i in 0 until rows.length()) {
+                val r = rows.optJSONObject(i) ?: continue
+                val rh = r.optString("hoseon").replace(" ", "")
+                if (ho.isNotEmpty() && rh.isNotEmpty() && rh != ho) continue
+                val rb = r.optString("bangmyeon")
+                if (bang.isNotEmpty() && !rb.contains(bang)) continue
+                val cho = r.optDouble("cho", 9999.0)
+                if (best == null || cho < bestCho) { best = r; bestCho = cho }
+            }
+            val b = best ?: run { kkeut(null); return@json }
+            val rb = b.optString("bangmyeon")
+            val haeng = rb.split(" - ").firstOrNull() ?: rb
+            val ml = b.optString("mal")
+            val sigan = when {
+                ml.contains("전역") -> "전 역을 떠났습니다"
+                ml.contains("진입") || ml.contains("도착") -> "곧 들어옵니다"
+                bestCho < 9999 -> { val bun = bestCho.toInt() / 60; val c = bestCho.toInt() % 60; (if (bun > 0) "${bun}분" else "") + (if (c > 0) " ${c}초" else "") + " 뒤에 옵니다" }
+                else -> ml
+            }
+            kkeut("다음 $ho $haeng 열차는 ${sigan.trim()}.")
+        }
+    }
+
     fun ipguDochak() {
         val g0 = gil ?: return
         val g = g0.copy(ipguDochak = true)
@@ -206,6 +240,7 @@ object JihacheolEngine : SensorEventListener {
         val gg = g.gugan.firstOrNull()
         val bang = if ((gg?.bangmyeon ?: "").isEmpty()) "" else " ${gg?.bangmyeon} 방면"
         Sori.mal("${g.ipgu.ireum}입니다. 들어가셔서 ${gg?.hoseon ?: ""}$bang 열차를 타십시오. 열차가 움직이면 저절로 역 알림을 시작합니다.")
+        daeumYeolchaMal(g) { m -> if (m != null) Sori.mal(m) }   // 2.62.0 다음 열차가 몇 분 뒤에 오는지 이어서
         Girok.namgi("jiha_ipgu")
     }
 
@@ -542,6 +577,9 @@ class JihacheolGilHwamyeon(private val mok: Jangso) : Hwamyeon("지하철로 가
     private var t0: GilnunActivity? = null
     private var cheot: View? = null
     private var chojeomHal = false
+    private var daeumYeolcha = ""   // 2.62.0 다음 열차
+    private var yeolchaDan: android.widget.Button? = null
+    private fun yeolchaGeul() = if (daeumYeolcha.isEmpty()) "다음 열차 알아보기" else "$daeumYeolcha 다시 알아보기"
 
     override fun chaeugi(t: GilnunActivity) {
         t0 = t
@@ -561,6 +599,14 @@ class JihacheolGilHwamyeon(private val mok: Jangso) : Hwamyeon("지하철로 가
                 AnnaeEngine.jihacheolGagi(mok, g)
                 JihacheolEngine.tatda(false)
                 t.cheotHwamyeonEuro(null)
+            }
+            // 2.62.0 (261017-A50, 이사장님 승인 2026-10-17) 다음 열차가 몇 분 뒤에 오는지(웹 길눈에서 옮김, 아이폰과 같음)
+            yeolchaDan = t.danchu(yeolchaGeul()) {
+                JihacheolEngine.daeumYeolchaMal(g) { m ->
+                    daeumYeolcha = m ?: ""
+                    yeolchaDan?.text = yeolchaGeul()
+                    Sori.mal(m ?: "지금은 열차 도착 정보를 받지 못했습니다. 서울 지하철만 알려 드릴 수 있습니다.")
+                }
             }
         } else {
             cheot = t.danchu("$kkadak — 걸어가기로 안내 시작") {
@@ -585,6 +631,7 @@ class JihacheolGilHwamyeon(private val mok: Jangso) : Hwamyeon("지하철로 가
             chatneunJung = false
             batam = true
             if (g == null) Sori.mal(k)   // 찾은 길은 단추 글자로 읽힘 — 못 찾은 까닭만 한 번 말함
+            if (g != null) JihacheolEngine.daeumYeolchaMal(g) { m -> daeumYeolcha = m ?: ""; yeolchaDan?.text = yeolchaGeul() }   // 2.62.0 그 자리에서 글자만 바꿈(커서가 흔들리지 않게)
             val t = t0 ?: return@gilChatgi
             chojeomHal = true
             if (t.wiHwamyeon === this) t.dasiGeurigi()

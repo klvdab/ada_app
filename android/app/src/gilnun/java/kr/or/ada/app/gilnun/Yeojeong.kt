@@ -87,7 +87,11 @@ data class Yeojeong(
     val jungganJadong: Boolean = false,
     /** 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 탈것 지킴(기차·배) — 알아챘거나 「기차입니다」·「배입니다」를 누르시면 바꾸실 때까지 지킴.
      *  기차·배 안에서 걸어 다니셔도 풀지 않음. 다른 탈것으로 바로잡으시거나 내렸습니다·도착·여정 끝에만 풂(아이폰과 같음) */
-    val jikim: Talgeot? = null
+    val jikim: Talgeot? = null,
+    /** 2.62.0 (261017-A50, 이사장님 승인 2026-10-17) 목적지를 정할 때 잰 곧은 거리 — 예상 도착 시간을 어림함(웹 길눈 dangye.js 260927-14, 아이폰과 같음) */
+    val yegeori: Double? = null,
+    /** 2.62.0 예상 도착 시간이 지나 여쭌 뒤 「이어서 가기」를 누르셨는가 */
+    val ieoga: Boolean = false
 )
 
 object YeojeongEngine {
@@ -157,6 +161,7 @@ object YeojeongEngine {
         AnnaeEngine.sijak(c)
         JihacheolEngine.sijak(c)
         Wichi.deutgi { w -> sokdoBoda(w) }
+        jinanDolligi()   // 2.62.0 지난 여정 여쭙기 — 1분마다
         jeomJapgi()
         // 차·버스·기차에 타면 지나는 고장 노래, 내리면 멈춤(지하철은 땅속이라 빼냄 — 아이폰 2.12.7)
         if (chaTamHook == null) chaTamHook = { tam -> if (tam) Bangsong.chaTamGojangNorae() else Bangsong.chaNaerimGojangNorae() }
@@ -215,7 +220,74 @@ object YeojeongEngine {
             main.post { AnnaeEngine.jikimRo(jikimIeum, "${jikimIeum.ireum} 안에서 목적지를 바꾸심") }
         }
         Girok.namgi("yeojeong_sijak", mapOf("mok" to m.ireum))
+        // 2.62.0 (261017-A50, 이사장님 승인 2026-10-17) 예상 도착 시간을 셈할 곧은 거리를 적어 두고,
+        //   가는 길 둘레의 길 자료를 서버가 미리 받아 두게 함(웹 길눈 miribada.php — 걷는 도중 사거리 안내를 기다리지 않게, 아이폰과 같음)
+        jinanMureum = false; dochakMureum = false; gakkaiTtae = 0L
+        val q = HashMap<String, String>()
+        q["mlat"] = String.format(java.util.Locale.US, "%.6f", m.lat); q["mlon"] = String.format(java.util.Locale.US, "%.6f", m.lon)
+        Wichi.jigeum?.let { w ->
+            jigeum = jigeum?.copy(yegeori = Wichi.geori(w.lat, w.lon, m.lat, m.lon))
+            q["slat"] = String.format(java.util.Locale.US, "%.6f", w.lat); q["slon"] = String.format(java.util.Locale.US, "%.6f", w.lon)
+        }
+        Tongsin.json("miribada.php", q) { }
         jeojang()
+    }
+
+    // MARK: 2.62.0 (261017-A50, 이사장님 승인 2026-10-17) 지난 여정·도착 여쭙기 — 웹 길눈 dangye.js 0.4(260927-14)에서 옮김(아이폰 2.92.0과 같음)
+    @Volatile var jinanMureum = false
+        private set
+    @Volatile var dochakMureum = false
+        private set
+    private var gakkaiTtae = 0L
+    private var jinanDolgi = false
+
+    private fun yesangTtae(y: Yeojeong): Long {
+        val g = y.yegeori ?: 0.0
+        if (g <= 0) return y.sijak + 3_600_000L
+        val tago = y.danggye == Danggye.TANEUN_JUNG || y.danggye == Danggye.TANEUN_GOT_KKAJI || y.talgeot != Talgeot.GEOREUM
+        val bun = if (tago) (g * 1.4 / 1000) / 25 * 60 else (g * 1.3 / 1000) / 4 * 60
+        return y.sijak + ((bun + 30) * 60_000).toLong()
+    }
+
+    private fun jinanSalpim() {
+        val y = jigeum ?: return
+        if (y.danggye == Danggye.DOCHAK || y.ieoga || jinanMureum) return
+        if (System.currentTimeMillis() <= yesangTtae(y)) return
+        jinanMureum = true
+        Girok.namgi("jinan_yeojeong_mureum", mapOf("mok" to y.mokjeok.ireum))
+        Sori.mal("${y.mokjeok.ireum}로 가시는 여정이 예상 도착 시간을 30분 넘게 지났습니다. 아직 가시는 중이면 맨 위의 이어서 가기를, 아니면 지난 여정 끝내기를 누르십시오.")
+        allim()
+    }
+
+    fun ieogaGagi() {
+        val y = jigeum ?: return
+        jigeum = y.copy(ieoga = true)
+        jinanMureum = false
+        jeojang()
+        Sori.mal("${y.mokjeok.ireum}까지 이어서 안내합니다.")
+    }
+
+    /** 목적지 50미터 안에서 2분 — 걸어서 가는 차례는 걷는 안내가 도착을 알리므로 뺌 */
+    fun dochakBoda(w: Jari) {
+        val y = jigeum
+        if (y == null || y.danggye == Danggye.DOCHAK || y.danggye == Danggye.NAM_EUN_GIL || y.jiha != null || dochakMureum) { gakkaiTtae = 0L; return }
+        if (Wichi.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon) <= 50) {
+            val now = System.currentTimeMillis()
+            if (gakkaiTtae == 0L) gakkaiTtae = now
+            else if (now - gakkaiTtae >= 120_000) {
+                dochakMureum = true
+                Girok.namgi("dochak_mureum", mapOf("mok" to y.mokjeok.ireum))
+                Sori.mal("${y.mokjeok.ireum} 가까이에서 2분째 머물고 계십니다. 도착하셨습니까? 맨 위에 도착했습니다 단추가 있습니다.")
+                allim()
+            }
+        } else gakkaiTtae = 0L
+    }
+
+    private fun jinanDolligi() {
+        if (jinanDolgi) return
+        jinanDolgi = true
+        val r = object : Runnable { override fun run() { try { jinanSalpim() } catch (e: Exception) {}; main.postDelayed(this, 60_000L) } }
+        main.postDelayed(r, 60_000L)
     }
 
     fun danggyeBakkugi(d: Danggye) {
@@ -286,6 +358,7 @@ object YeojeongEngine {
     fun kkeut() {
         if (jigeum != null) Girok.namgi("yeojeong_kkeut")
         talgeotMokrokJeopgi()   // 2.60.0
+        jinanMureum = false; dochakMureum = false; gakkaiTtae = 0L   // 2.62.0
         main.post { chaTamHook?.invoke(false) }
         jigeum = null
         try { pail?.delete() } catch (e: Exception) {}
@@ -438,6 +511,8 @@ object YeojeongEngine {
         }
         if (y.jungganJadong) o.put("jungganJadong", true)   // 2.32.0 아이폰 Codable 과 같은 이름
         y.jikim?.let { o.put("jikim", it.raw) }   // 2.36.0
+        y.yegeori?.let { o.put("yegeori", it) }   // 2.62.0
+        if (y.ieoga) o.put("ieoga", true)
         y.beoseu?.let { b ->
             val j = b.jeongryujang
             o.put("beoseu", JSONObject()
@@ -485,7 +560,9 @@ object YeojeongEngine {
             o.optLong("gaengsin", 0L),
             jiha, beoseu,
             o.optBoolean("jungganJadong", false),
-            o.optString("jikim", "").let { if (it.isEmpty()) null else Talgeot.batgi(it) }
+            o.optString("jikim", "").let { if (it.isEmpty()) null else Talgeot.batgi(it) },
+            if (o.has("yegeori")) o.optDouble("yegeori") else null,
+            o.optBoolean("ieoga", false)
         )
     }
 }

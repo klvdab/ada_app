@@ -200,7 +200,7 @@ object YeojeongMal {
         }
         if (s.itda(alts, "sigan")) {
             if (y == null) dap("아직 가시는 곳이 없습니다. ${Seoljeong.ho}, 어디로 가실까요?", true)
-            else dap(geollineunMal(), false)
+            else geollineunDap(dap)   // 2.62.0
             return true
         }
         if (s.itda(alts, "jigeum_gil") || s.itda(alts, "charye")) {
@@ -383,6 +383,29 @@ object YeojeongMal {
     }
 
     /** 남은 거리와 대략 걸리는 시간(길 막힘은 넣지 못한 셈) */
+    /** 2.62.0 (261017-A50, 이사장님 승인 2026-10-17) 「차에 탔어, 집까지 얼마나 걸리겠니」 — 차로 가시면 지금 길 상황(카카오 길찾기, 협회 서버 sigan.php)으로,
+     *  기차는 맞춘 열차의 도착 예정 시각으로 답함(웹 길눈 2026-09-17에서 옮김, 아이폰과 같음). 못 받으면 예전처럼 거리로 어림 */
+    private fun geollineunDap(dap: (String, Boolean) -> Unit) {
+        val y = YeojeongEngine.jigeum; val w = Wichi.jigeum
+        if (y == null || w == null) { dap(geollineunMal(), false); return }
+        val t = YeojeongEngine.talgeot
+        val dy = GichaAnnae.dochakYejeong
+        if (t == Talgeot.GICHA && dy != null) {
+            dap("타신 열차는 ${dy.first}에 ${GichaAnnae.sigakMalHagi(dy.second)}에 도착할 예정입니다. " + geollineunMal().replace(" 길 막힘은 넣지 못한 셈입니다.", ""), false)
+            return
+        }
+        val meon = Wichi.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
+        if (!(t == Talgeot.CHA || t == Talgeot.BEOSEU || t == Talgeot.GOSOKBEOSEU || (t == Talgeot.GEOREUM && meon > 3000))) { dap(geollineunMal(), false); return }
+        val f = { v: Double -> String.format(java.util.Locale.US, "%.6f", v) }
+        Tongsin.json("sigan.php", mapOf("la1" to f(w.lat), "lo1" to f(w.lon), "la2" to f(y.mokjeok.lat), "lo2" to f(y.mokjeok.lon))) { o ->
+            if (o == null || !o.optBoolean("ok", false) || !o.has("sec")) { dap(geollineunMal(), false); return@json }
+            val bun = Math.max(1, Math.round(o.optDouble("sec") / 60).toInt())
+            val bunMal = if (bun < 60) "${bun}분" else if (bun % 60 == 0) "${bun / 60}시간" else "${bun / 60}시간 ${bun % 60}분"
+            val deo = if (t == Talgeot.BEOSEU) " 버스는 정류장마다 서므로 이보다 더 걸립니다." else ""
+            dap("${y.mokjeok.ireum}까지 차로 가는 길로 ${Annae.geoMal(o.optDouble("meter"))}, 지금 길 상황으로 약 $bunMal 걸립니다.$deo", false)
+        }
+    }
+
     fun geollineunMal(): String {
         val y = YeojeongEngine.jigeum ?: return "아직 가시는 곳이 없습니다."
         val w = Wichi.jigeum ?: return "아직 위치를 잡는 중입니다. 잠시 뒤 다시 물어 주십시오."
