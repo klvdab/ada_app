@@ -158,6 +158,7 @@ object MalHagi {
         sijakham = true
         AnnaeEngine.meomchumHooks.add { mureumChoGihwa() }   // 2.7.0 묶음 b1 — 하던 일 멈추기 때 묻던 말도 비움
         AnnaeEngine.meomchumHooks.add { MalgilEngine.geuman(false) }   // 2.7.0 묶음 b2 — 하던 일 멈추기 때 말로 그린 길 안내도 말없이 멈춤
+        MalgilEngine.mokJunbi(c)   // 2.64.0 (261017-A52) 「집에 가자」·「사무실 가자」
         MalSajeon.bureogi()
         Sori.gyeonggoHook = { gyeonggoOm() }
         JeonhwaGamsi.deullim.add { j -> if (j) main.post { jeonhwaOm() } else main.postDelayed({ if (!JeonhwaGamsi.jeonhwaJung) kkeunkinDasiMutgi() }, 2000) }   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 전화가 오면 묻던 말·알아보던 명령을 거둠
@@ -582,6 +583,13 @@ object MalHagi {
         if (s.itda(alts, "hadeon_meomchum") && z.length <= 10) {
             dap("", false)
             AnnaeEngine.haneunIlMeomchum()   // 2.7.0 묶음 b1 — 여정·따라 걷기·지하철·되짚어 나가기·말로 그린 길·묻던 말·신호기 찾기·카메라 눈·길눈 말을 모두 멈추고 첫 화면으로(말은 한 번)
+            return
+        }
+        // 0-M. 2.64.0 (261017-A52, 이사장님 승인 2026-10-17) 「집에 가자」·「사무실 가자」 — 말로 그린 길이 있으면 손 없이 바로 안내 시작(웹 길눈 malbuteugi.js 1.9에서 옮김, 아이폰과 같음)
+        MalgilEngine.malroChatgi(z)?.let { (mg, ogi, ireum) ->
+            dap("$ireum 말로 그린 길 안내를 시작합니다.", false)
+            val cc = ctx
+            if (cc != null) main.postDelayed({ MalgilEngine.sijak(cc, mg, ogi) }, 1800)
             return
         }
         // 0-0. 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 콜 취소 — "콜 취소", "콜 취소했어", "택시 취소"(아래 「그만」의 취소보다 먼저, 아이폰과 같음)

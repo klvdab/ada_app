@@ -20,12 +20,16 @@ class GinGeupHwamyeon : Hwamyeon("긴급통화서비스") {
     private var gurin: GinGeupSangtae? = null
     private var cheotDanchu: Button? = null
     private var geulView: TextView? = null
+    private var jariDanchu: Button? = null
+
+    private fun jariGeul(): String = if (GinGeup.jariBonaem) "내 자리 보내는 중 — 그만 보내기" else "내 자리 보내기 — 다시 보내기"
 
     override fun chaeugi(t: GilnunActivity) {
         val g = GinGeup
         g.neomgilkkaSalpigi()   // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 2분 지난 물음은 거둠
         gurin = g.sangtae
         geulView = null
+        jariDanchu = null
         when (g.sangtae) {
             GinGeupSangtae.EOPSEUM -> {
                 // 2.11.0 가족·지인이 받지 않으셨으면 — 안내를 읽은 바로 그 자리에 단추
@@ -45,6 +49,8 @@ class GinGeupHwamyeon : Hwamyeon("긴급통화서비스") {
                 b.minHeight = t.dp(96)
                 b.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
                 cheotDanchu = b
+                // 2.64.0 (261017-A52, 이사장님 승인 2026-10-17) 내 자리 보내기 — 그만 보내기·다시 보내기
+                jariDanchu = t.danchu(jariGeul()) { g.jariBonaegiBakkugi() }
                 val s = g.saram
                 if (g.sangtae != GinGeupSangtae.TONGHWA && g.galrae == GinGeupGalrae.JIIN && s != null && Jiin.tel(s.id).isNotEmpty()) {
                     t.danchu("${s.name} 님께 전화 걸기") { g.jeonhwa(t) }
@@ -62,6 +68,8 @@ class GinGeupHwamyeon : Hwamyeon("긴급통화서비스") {
                 } else {
                     val n = kkeunkiGeul()
                     cheotDanchu?.let { if (it.text.toString() != n) it.text = n }
+                    val j = jariGeul()
+                    jariDanchu?.let { if (it.text.toString() != j) it.text = j }
                 }
             }
         }

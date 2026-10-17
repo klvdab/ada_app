@@ -73,6 +73,46 @@ object MalgilEngine : SensorEventListener {
         JeomSeol.sijak(c)
     }
 
+    // MARK: 2.64.0 (261017-A52, 이사장님 승인 2026-10-17) 「집에 가자」·「사무실 가자」 — 말로 하기에서 곧바로 쓸 수 있게 목록을 폰에 남겨 둠
+    //   (웹 길눈 malbuteugi.js 1.9·malgil_mok.js 0.1에서 옮김, 아이폰 2.94.0과 같음)
+    private const val MOK_KI = "gilnunMalgilMok"
+    private var mokIlgeum = false
+
+    /** 말로 하기를 세울 때 한 번 — 남겨 둔 목록을 읽고, 열쇠가 있으면 새로 받음 */
+    fun mokJunbi(c: Context) {
+        if (ctx == null) ctx = c.applicationContext
+        if (mokIlgeum) return
+        mokIlgeum = true
+        if (mok.isEmpty()) try {
+            val a = org.json.JSONArray(c.getSharedPreferences("gilnun_malgil", Context.MODE_PRIVATE).getString(MOK_KI, "[]") ?: "[]")
+            val l = ArrayList<MalgilMok>()
+            for (i in 0 until a.length()) { val r = a.optJSONObject(i) ?: continue
+                l.add(MalgilMok(r.optString("id"), r.optString("ireum"), r.optInt("gagi"), r.optInt("ogi"))) }
+            mok = l.filter { it.id.isNotEmpty() }
+        } catch (x: Exception) {}
+        if (yeolsoeItda) mokBatgi { }
+    }
+
+    private fun ro(w: String): String {
+        val c = (w.lastOrNull() ?: return "으로").code - 0xAC00
+        return if (c in 0 until 11172 && (c % 28 == 0 || c % 28 == 8)) "로" else "으로"
+    }
+
+    /** 말(띄어쓰기 뺀 글)에서 「○○ 가자」를 찾음 — 찾으면 (길, 오는 길인지, 이름) */
+    fun malroChatgi(z: String): Triple<MalgilMok, Boolean, String>? {
+        if (!yeolsoeItda || geotneun || mok.isEmpty()) return null
+        if (!Regex("(가자|갈래|가줘|데려다|안내해|가고싶|갈게)").containsMatchIn(z)) return null
+        for (m in mok) {
+            val nm = m.ireum.split("↔").map { it.substringBefore("(").filter { ch -> !ch.isWhitespace() } }
+            if (nm.size < 2 || nm[0].isEmpty() || nm[1].isEmpty()) continue
+            for ((from, to, ogi) in listOf(Triple(nm[0], nm[1], false), Triple(nm[1], nm[0], true))) {
+                if (Regex(Regex.escape(to) + "(에|으로|로|까지)?(가자|갈래|가줘|데려|안내|가고|갈게)").containsMatchIn(z))
+                    return Triple(m, ogi, "${from}에서 $to${ro(to)}")
+            }
+        }
+        return null
+    }
+
     // MARK: 받기
 
     /** 목록 — 거짓이면 열쇠가 없거나 닿지 못함 */
@@ -88,6 +128,12 @@ object MalgilEngine : SensorEventListener {
                 l.add(MalgilMok(id, (r.opt("ireum") as? String) ?: id, (Jeomjido.su(r, "gagi") ?: 0.0).toInt(), (Jeomjido.su(r, "ogi") ?: 0.0).toInt()))
             }
             mok = l
+            // 2.64.0 말로 하기에서 곧바로 쓰도록 남겨 둠
+            try {
+                val a = org.json.JSONArray()
+                l.forEach { a.put(JSONObject().put("id", it.id).put("ireum", it.ireum).put("gagi", it.gagiSu).put("ogi", it.ogiSu)) }
+                ctx?.getSharedPreferences("gilnun_malgil", Context.MODE_PRIVATE)?.edit()?.putString(MOK_KI, a.toString())?.apply()
+            } catch (x: Exception) {}
             kkeut(true)
         }
     }

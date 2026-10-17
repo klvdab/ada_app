@@ -151,6 +151,16 @@ object GinGeup {
 
     private var room = ""
     private var sijakTtae = 0L
+    /** 2.64.0 (261017-A52, 이사장님 승인 2026-10-17) 요청·통화하는 동안 내 자리를 8초마다 받는 분께 보냄(웹 길눈 jari_nanum.js 1.1에서 옮김, 아이폰 2.94.0과 같음) */
+    var jariBonaem = true
+        private set
+    private val jariR = object : Runnable {
+        override fun run() {
+            if (sangtae == GinGeupSangtae.EOPSEUM || room.isEmpty()) return
+            jariBonae()
+            main.postDelayed(this, 8000)
+        }
+    }
     private var sigN = 0
     private var sigMutneun = false
     private var cheot = true
@@ -272,6 +282,9 @@ object GinGeup {
         if (g == GinGeupGalrae.JIIN && s != null) Jiin.majimakNoki(s.id)   // 워치 긴급통화가 부를 한 분
         MalHagi.meomchum()   // 긴급통화 중에는 마이크를 통화에 내어 줌
         bakkum(GinGeupSangtae.YOCHEONG)
+        jariBonaem = true   // 2.64.0
+        main.removeCallbacks(jariR)
+        main.postDelayed(jariR, 1500)
         var mal: String
         if (g == GinGeupGalrae.JIIN) {
             val nm = s?.name ?: "가족·지인"
@@ -564,7 +577,27 @@ object GinGeup {
     }
 
     /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) malEopsi 면 말은 하지 않음(말로 하기가 대신 말하고 다 말한 뒤 마이크를 엶) */
+    // MARK: 2.64.0 (261017-A52, 이사장님 승인 2026-10-17) 내 자리 보내기 — 받는 분 화면에 주소·국가지점번호·바라보는 쪽·빠르기·지도
+    fun jariBonaegiBakkugi() {
+        jariBonaem = !jariBonaem
+        Sori.mal(if (jariBonaem) "내 자리를 다시 보냅니다." else "내 자리를 보내지 않습니다. 받는 분은 지금 어디 계신지 모르십니다.")
+        if (jariBonaem) jariBonae()
+        byeonhwa?.invoke()
+    }
+
+    private fun jariBonae() {
+        if (!jariBonaem || sangtae == GinGeupSangtae.EOPSEUM || room.isEmpty()) return
+        val w = Wichi.jigeum ?: return
+        val q = mapOf("a" to "jari", "room" to room,
+            "la" to String.format(Locale.US, "%.6f", w.lat), "lo" to String.format(Locale.US, "%.6f", w.lon),
+            "acc" to w.ochae.toInt().toString(), "bang" to (if (w.banghyang >= 0) w.banghyang.toInt().toString() else ""),
+            "sok" to (if (w.sokdo > 0) String.format(Locale.US, "%.1f", w.sokdo) else "0"),
+            "jj" to (Jijeom.geul(w.lat, w.lon) ?: ""))
+        il.execute { getText(REL, q) }
+    }
+
     private fun kkeut(mal: String, malEopsi: Boolean = false) {
+        main.removeCallbacks(jariR)   // 2.64.0
         main.removeCallbacks(jindoR)
         main.removeCallbacks(badeunJikimR)   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09)
         main.removeCallbacks(sigR)
