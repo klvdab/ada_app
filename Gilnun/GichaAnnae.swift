@@ -44,6 +44,12 @@ final class GichaAnnae {
     private var yeolchaChateun: Set<String> = []
     private var modu: [String: String] = [:]   // 역 이름 → 시간표 역 번호
     private var namTtae = GichaAnnae.sigye()
+    // 2.99.0 선로 맞추기(Cheolgil) — 맞춘 줄과 그 앞으로 이어질 줄, 앞에 놓인 터널, 알린 터널 줄
+    private var cgIreo: Set<Int> = []
+    private var cgTeoneol: [Cheolgil.Teoneol] = []
+    private var cgSaid: Set<Int> = []
+    private var cgMatTtae = Date.distantPast
+    private var jariTtae = Date.distantPast
 
     // MARK: 켜기·끄기
 
@@ -52,6 +58,7 @@ final class GichaAnnae {
         kyeojim = false
         fx = []; vh = []; said = [:]; gajangGakka = [:]; got = [:]; stopTtae = nil; stopSaid = ""; tteonSaid = ""
         head = nil; headFrom = nil; teoneolSaid = []; yeolcha = nil; yeolchaChateun = []; mokYeok = nil
+        cgIreo = []; cgTeoneol = []; cgSaid = []; cgMatTtae = .distantPast; jariTtae = .distantPast
         Girok.shared.namgi("gicha_annae_kkeut", [:])
     }
 
@@ -109,8 +116,24 @@ final class GichaAnnae {
         if mokYeok == nil { mokYeokJeonghagi(y) }
         if teoneolQ == nil || now.timeIntervalSince(teoneolQTtae) > 180 || geori(teoneolQ!, me) > 3000 { teoneolBatgi(me) }
 
+        // 2.99.0 기차 위치 기록 — 5초마다 한 번(다음에 이 여정을 그대로 시험에 다시 돌려 보려고)
+        if now.timeIntervalSince(jariTtae) >= 5 {
+            jariTtae = now
+            Girok.shared.namgi("gicha_jari", ["la": String(format: "%.6f", w.lat), "lo": String(format: "%.6f", w.lon),
+                                              "o": Int(w.ochae), "s": String(format: "%.1f", w.sokdo), "b": Int(w.banghyang)])
+        }
+        // 2.99.0 선로 맞추기 — 위치를 실제 철길 선 위에 붙이고, 그 선로를 가는 쪽으로 따라가 앞에 놓인 터널만 봄.
+        //   바로 옆에 나란히 놓인 다른 노선의 터널(서울역 앞 740미터)을 타신 기차의 터널로 알리던 일을 막음
+        var cgMat = false
+        let cgBang: Double? = ((pv ?? 0) > 5 && w.banghyang >= 0) ? w.banghyang : head
+        if let cg = Cheolgil.shared, w.ochae <= 100, let bh = cgBang,
+           let m = cg.matchugi(w.lat, w.lon, bang: bh, ochae: w.ochae, ireo: cgIreo) {
+            let r = cg.ttaragagi(m, gil: max(1500, (sv ?? 0) * 45) + 200)
+            cgIreo = r.jul; cgTeoneol = r.teoneol; cgMatTtae = now; cgMat = true
+        }
         // 터널 미리 알림(역 안내보다 먼저 — 들어가면 알 수 없으므로)
-        if let s = sv, s > 8 { teoneolBoda(me, s) }
+        if cgMat, let s = sv, s > 3, let bh = cgBang { cheolgilTeoneolBoda(me, bh, s, now) }
+        else if let s = sv, s > 8, now.timeIntervalSince(cgMatTtae) > 20 { teoneolBoda(me, s) }   // 철길에 붙지 않을 때만 예전 방식
 
         var near: (Yeok, Double)?
         for k in yeok {
@@ -325,14 +348,39 @@ final class GichaAnnae {
             for u in teoneol where geori(u.a, t.a) < 300 || geori(u.b, t.b) < 300 || geori(u.a, t.b) < 300 || geori(u.b, t.a) < 300 {
                 teoneolSaid.insert("\(u.a.0),\(u.a.1)")
             }
-            var m = "곧 터널입니다."
-            if !t.ireum.isEmpty { m = "곧 \(t.ireum)입니다." }
-            if t.m >= 100 { m += " 길이 약 \(Annae.geoMal(Double(t.m)))" }
-            if t.m >= 2000, sv > 10 {
-                let bun = Int((Double(t.m) / sv / 60).rounded())
-                m += bun >= 1 ? ", 약 \(bun)분 동안 터널 안을 지납니다." : "입니다."
-            } else if t.m >= 100 { m += "입니다." }
-            mal(m)
+            teoneolMal(t.ireum, t.m, sv)
+            return
+        }
+    }
+
+    private func teoneolMal(_ ireum: String, _ tm: Int, _ sv: Double) {
+        var m = "곧 터널입니다."
+        if !ireum.isEmpty { m = "곧 \(ireum)입니다." }
+        if tm >= 100 { m += " 길이 약 \(Annae.geoMal(Double(tm)))" }
+        if tm >= 2000, sv > 10 {
+            let bun = Int((Double(tm) / sv / 60).rounded())
+            m += bun >= 1 ? ", 약 \(bun)분 동안 터널 안을 지납니다." : "입니다."
+        } else if tm >= 100 { m += "입니다." }
+        mal(m)
+    }
+
+    /// 2.99.0 맞춘 선로 앞쪽의 터널만 — 거리는 철길을 따라 잰 거리(45초 앞, 적어도 1.5킬로미터)
+    ///   역에 서려고 속도를 줄이는 중이거나 터널 앞에 역이 있으면 기다렸다가, 역을 떠나며 알림
+    private func cheolgilTeoneolBoda(_ me: (Double, Double), _ bh: Double, _ sv: Double, _ now: Date) {
+        let ap = max(1500, sv * 45)
+        let v10 = vh.last(where: { now.timeIntervalSince($0.t) >= 10 })?.v ?? sv
+        let julim = sv < v10 - 2
+        for t in cgTeoneol {
+            if t.jul.contains(where: { cgSaid.contains($0) }) { continue }
+            if t.sijak < 20 || (t.sijak < 120 && sv >= 12) { cgSaid.formUnion(t.jul); continue }   // 이미 들어섰음 — 늦게 말하지 않음
+            if t.sijak > ap { continue }
+            if julim { return }
+            if sv < 25, yeok.contains(where: { k in
+                let d = geori(me, (k.lat, k.lon))
+                return d > 50 && d < t.sijak + 150 && gakCha(WichiEngine.bangwi(me.0, me.1, k.lat, k.lon), bh) < 50
+            }) { return }
+            cgSaid.formUnion(t.jul)
+            teoneolMal(t.ireum, Int(t.gil.rounded()), sv)
             return
         }
     }
