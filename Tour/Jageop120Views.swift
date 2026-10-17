@@ -1024,7 +1024,10 @@ struct GineungView: View {
         G(id: "수업 진행판", k: "진행판 수업 학생 상태", tab: nil, master: true),
         G(id: "수업 채점표", k: "채점 채점표 학생", tab: nil, master: true),
         G(id: "협회 승인 보관소", k: "보관소 승인 돌려보내기 공개 내려받기 비교", tab: nil, master: true),
-        G(id: "봐 달라는 코스", k: "봐달라 알림 확인", tab: nil, master: true)
+        G(id: "봐 달라는 코스", k: "봐달라 알림 확인", tab: nil, master: true),
+        G(id: "화면 안 보고 답사하기 — 이어폰 단추 (답사 탭)", k: "이어폰 단추 리모컨 음량 단추 화면 안 보고 메모 사진", tab: 1, master: false),
+        G(id: "걸으며 저절로 재기 — 이동 구간 안내 초안 (답사 탭)", k: "걸음 계단 오르막 내리막 꺾은 방향 재기 이동 구간 안내 초안", tab: 1, master: false),
+        G(id: "판 기록 — 누가 어떤 판을 쓰나", k: "판 기록 설치 업데이트 버전 오류", tab: nil, master: true)
     ]
     var body: some View {
         List {
@@ -1062,6 +1065,7 @@ struct GineungView: View {
         case GineungView.L[19].id: BoardView()
         case GineungView.L[20].id: GradeView()
         case GineungView.L[21].id: FinalsView()
+        case GineungView.L[25].id: PanGirokView()
         default: ReviewsView()
         }
     }
