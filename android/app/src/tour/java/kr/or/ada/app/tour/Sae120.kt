@@ -281,6 +281,7 @@ internal fun TourActivity.gwanriSection() {
         danchu("수업 채점표") { go(Hw.Grade) }
         danchu("협회 승인 보관소") { s12.finals = null; go(Hw.Finals(false)) }
         danchu("봐 달라는 코스") { s12.reviews = null; go(Hw.Reviews) }
+        danchu("판 기록 — 누가 어떤 판을 쓰나") { s13.panRows = null; go(Hw.PanGirok) }
     }
     geul("도구", jemok = true)
     danchu("장소 지식 들이기 (코스 뼈대 짜기)") { go(Hw.Jisik) }
@@ -1548,7 +1549,10 @@ internal val GINEUNG = listOf(
     Gi("수업 진행판", "진행판 수업 학생 상태", null, true, Hw.Board),
     Gi("수업 채점표", "채점 채점표 학생", null, true, Hw.Grade),
     Gi("협회 승인 보관소", "보관소 승인 돌려보내기 공개 내려받기 비교", null, true, Hw.Finals(false)),
-    Gi("봐 달라는 코스", "봐달라 알림 확인", null, true, Hw.Reviews))
+    Gi("봐 달라는 코스", "봐달라 알림 확인", null, true, Hw.Reviews),
+    Gi("화면 안 보고 답사하기 — 이어폰 단추·음량 단추 (답사 탭)", "이어폰 단추 리모컨 음량 단추 화면 안 보고 메모 사진", 1, false, null),
+    Gi("걸으며 저절로 재기 — 이동 구간 안내 초안 (답사 탭)", "걸음 계단 오르막 내리막 꺾은 방향 재기 이동 구간 안내 초안", 1, false, null),
+    Gi("판 기록 — 누가 어떤 판을 쓰나", "판 기록 설치 업데이트 버전 오류", null, true, Hw.PanGirok))
 internal fun TourActivity.gineungHwamyeon() {
     geul("기능 찾기", jemok = true)
     ipryeok("찾을 낱말 (예: 사진, 대본, 승인, 지도)", s12.gineungQ) { s12.gineungQ = it }
@@ -1560,7 +1564,7 @@ internal fun TourActivity.gineungHwamyeon() {
         danchu(g.id) {
             val t = g.tab
             if (t != null) { tab = t; draw() }
-            else g.ga?.let { s12.finals = null; s12.signups = null; s12.users = null; s12.reviews = null; s12.boardRows = null; s12.diag = null; s12.terms = null; if (it is Hw.Urijaryo) { s12.uriOpen = false; s12.uriQ = kos?.s("place") ?: "" }; go(it) }
+            else g.ga?.let { s13.panRows = null; s12.finals = null; s12.signups = null; s12.users = null; s12.reviews = null; s12.boardRows = null; s12.diag = null; s12.terms = null; if (it is Hw.Urijaryo) { s12.uriOpen = false; s12.uriQ = kos?.s("place") ?: "" }; go(it) }
         }
     }
 }
@@ -1889,6 +1893,7 @@ internal fun TourActivity.sae120(h: Hw) {
         Hw.Grade -> gradeHwamyeon()
         Hw.Claude -> claudeHwamyeon()
         Hw.Jeoljeoro -> jeoljeoroHwamyeon()
+        Hw.PanGirok -> panGirokHwamyeon()
         else -> {}
     }
 }
