@@ -125,7 +125,7 @@ struct AsPickView: View {
             Section("명부 \(g.users.count)명") {
                 Button("내 자리") { Task { await g.boda("", ""); dismiss() } }
                 Jang(items: g.users.map { Mok(id: geulja($0["id"]), j: $0) }) { u in
-                    Button(geulja(u.j["name"]) + " (" + u.id + ")" + (u.id == g.asWho ? " — 지금 보는 자리" : "")) {
+                    Button(Ju.saram(u.j, u.id == g.asWho ? " — 지금 보는 자리" : "")) {
                         Task { await g.boda(u.id, geulja(u.j["name"])); dismiss() }
                     }
                 }
@@ -169,7 +169,7 @@ struct SignupsView: View {
                     Jang(items: L.map { Mok(id: geulja($0["id"]), j: $0) }) { x in
                         VStack(alignment: .leading, spacing: 6) {
                             Text(geulja(x.j["name"]) + " (" + x.id + ")").font(.headline)
-                            Text("신청 " + ttae(geulja(x.j["at"])) + (geulja(x.j["tel"]).isEmpty ? "" : " / 연락처 " + geulja(x.j["tel"]))).font(.footnote)
+                            Text(Ju.sincheong(x.j)).font(.footnote)
                             if !geulja(x.j["note"]).isEmpty { Text(geulja(x.j["note"])) }
                             Button("받아들이기") { Task { await cheori("approve_signup", x.j) } }.buttonStyle(.borderless)
                             Button("거절하기") { geojeol = x.j }.buttonStyle(.borderless)
@@ -180,7 +180,7 @@ struct SignupsView: View {
         }
         .navigationTitle("가입 신청 함")
         .task { await g.loadClasses(); await load() }
-        .alert(geulja(geojeol?["id"]) + " 님의 신청을 거절할까요?", isPresented: Binding(get: { geojeol != nil }, set: { if !$0 { geojeol = nil } })) {
+        .alert(Ju.geojeolMal(geojeol), isPresented: Binding(get: { geojeol != nil }, set: { if !$0 { geojeol = nil } })) {
             Button("거절하기", role: .destructive) { let w = geojeol; geojeol = nil; if let w { Task { await cheori("reject_signup", w) } } }
             Button("그만두기", role: .cancel) { geojeol = nil }
         }
@@ -248,7 +248,7 @@ struct UsersView: View {
                 Jang(items: g.users.map { Mok(id: geulja($0["id"]), j: $0) }) { u in
                     let locked = (u.j["locked"] as? Bool) == true
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(geulja(u.j["name"]) + " (" + u.id + ") — " + (geulja(u.j["role"]) == "master" ? "최고관리자" : "현장영상해설사") + (locked ? " / 막힘" : "")).font(.headline)
+                        Text(Ju.myeongbu(u.j, locked)).font(.headline)
                         Button("비밀번호 다시 주기") { pwWho = u.id; pwSae = "" }.buttonStyle(.borderless)
                         Button(locked ? "다시 열기" : "못 들어오게 막기") {
                             Task {
@@ -286,8 +286,8 @@ struct ReviewsView: View {
             Section {
                 Jang(items: L.enumerated().map { Mok(id: "\($0.offset)", j: $0.element) }) { x in
                     VStack(alignment: .leading, spacing: 6) {
-                        Text((geulja(x.j["ownerName"]).isEmpty ? geulja(x.j["owner"]) : geulja(x.j["ownerName"])) + " — " + geulja(x.j["name"])).font(.headline)
-                        Text(geulja(x.j["place"]) + " / 지점 \(Int(sutja(x.j["spots"]) ?? 0))곳, 대본 \(Int(sutja(x.j["texts"]) ?? 0))곳 / " + ttae(geulja(x.j["at"]))).font(.footnote)
+                        Text(Ju.nugu(x.j) + " — " + geulja(x.j["name"])).font(.headline)
+                        Text(Ju.review(x.j)).font(.footnote)
                         if !geulja(x.j["msg"]).isEmpty { Text(geulja(x.j["msg"])) }
                         Button("이 코스 열어 보기") {
                             Task {
@@ -346,8 +346,8 @@ struct FinalsView: View {
                     let v = Int(sutja(x.j["ver"]) ?? 0)
                     let prev = L.filter { geulja($0["owner"]) == geulja(x.j["owner"]) && geulja($0["cid"]) == geulja(x.j["cid"]) && Int(sutja($0["ver"]) ?? 0) < v }.map { Int(sutja($0["ver"]) ?? 0) }.max()
                     VStack(alignment: .leading, spacing: 6) {
-                        Text((geulja(x.j["ownerName"]).isEmpty ? geulja(x.j["owner"]) : geulja(x.j["ownerName"])) + " — " + geulja(x.j["name"]) + " (\(v)판)").font(.headline)
-                        Text(geulja(x.j["place"]) + " / 지점 \(Int(sutja(x.j["spots"]) ?? 0))곳, 대본 \(Int(sutja(x.j["texts"]) ?? 0))곳 / 사진 \(Int(sutja(x.j["photos"]) ?? 0))장, 소리 \(Int(sutja(x.j["audio"]) ?? 0))개 / 요청 " + ttae(geulja(x.j["requestedAt"]))).font(.footnote)
+                        Text(Ju.nugu(x.j) + " — " + geulja(x.j["name"]) + " (\(v)판)").font(.headline)
+                        Text(Ju.finalJul(x.j)).font(.footnote)
                         Text(FinalsView.st(x.j)).font(.subheadline.weight(.semibold))
                         if !geulja(x.j["msg"]).isEmpty { Text("전한 말: " + geulja(x.j["msg"])).font(.footnote) }
                         NavigationLink("이 판 현장영상해설 화면으로 보기") { HyeonjangView(entry: x.j).dwiro() }
@@ -463,13 +463,13 @@ struct CompareView: View {
                 Jang(items: out.enumerated().map { Jul(id: "\($0.offset)", t: "") }) { x in
                     let o = out[Int(x.id) ?? 0]
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("\((Int(x.id) ?? 0) + 1). " + o.label + " — " + o.kind).font(.subheadline.weight(.semibold))
+                        Text(Ju.bigyoJemok(x.id, o.label, o.kind)).font(.subheadline.weight(.semibold))
                         if o.a.count > 60 || o.b.count > 60 {
                             DisclosureGroup("앞 판과 새 판 글 보기") {
-                                Text("\(vA)판: " + (o.a.isEmpty ? "(없음)" : o.a)).font(.footnote)
-                                Text("\(vB)판: " + (o.b.isEmpty ? "(없음)" : o.b)).font(.footnote)
+                                Text(Ju.pan(vA, o.a)).font(.footnote)
+                                Text(Ju.pan(vB, o.b)).font(.footnote)
                             }
-                        } else { Text((o.a.isEmpty ? "(없음)" : o.a) + " → " + (o.b.isEmpty ? "(없음)" : o.b)).font(.footnote) }
+                        } else { Text(Ju.hwasal(o.a, o.b)).font(.footnote) }
                     }
                 }
             }
@@ -521,9 +521,9 @@ struct ClassesView: View {
                     }
                 }
             }
-            Section("반 \(g.classes.count)개" + (g.curClassObj.map { ", 지금 수업 반은 " + geulja($0["name"]) } ?? ", 지금 수업 반은 아직 없습니다")) {
+            Section(Ju.banJemok(g.classes.count, g.curClassObj)) {
                 Jang(items: g.classes.map { Mok(id: geulja($0["id"]), j: $0) }) { c in
-                    NavigationLink(geulja(c.j["name"]) + " — \(((c.j["members"] as? [String]) ?? []).count)명" + (c.id == g.curClass ? ", 지금 수업 반" : "")) { ClassOneView(id: c.id).dwiro() }
+                    NavigationLink(Ju.banJul(c.j, c.id == g.curClass)) { ClassOneView(id: c.id).dwiro() }
                 }
             }
         }
@@ -564,7 +564,7 @@ struct ClassOneView: View {
             Section("학생 넣고 빼기") {
                 Jang(items: users.map { Mok(id: geulja($0["id"]), j: $0) }) { u in
                     let inC = mem.contains(u.id)
-                    Button(geulja(u.j["name"]) + " (" + u.id + ") — " + (inC ? "이 반에 있음, 누르면 빼기" : "반에 없음, 누르면 넣기")) {
+                    Button(Ju.saram(u.j, inC ? " — 이 반에 있음, 누르면 빼기" : " — 반에 없음, 누르면 넣기")) {
                         Task {
                             let j = await TourAPI.call("save_class", inC ? ["id": id, "remove": [u.id]] : ["id": id, "add": [u.id]])
                             if TourAPI.ok(j) { await g.loadClasses(); store.say((inC ? "뺐습니다. " : "넣었습니다. ") + "이 반 \(((g.classes.first { geulja($0["id"]) == id }?["members"] as? [String]) ?? []).count)명.") } else { store.say(TourAPI.err(j)) }
@@ -836,5 +836,44 @@ struct ClaudeView: View {
         if !bad.isEmpty { store.say("금지어가 있는 지점은 넣지 않았습니다. " + bad.joined(separator: " / ")) }
         else { store.say("\(got)곳에 대본을 넣었습니다." + (fromAI ? " 초안으로 표시해 두었으니 살펴보시고 손보십시오." : "")); if fromAI { buchyeo = "" } }
         store.bakkwim()
+    }
+}
+
+/// 1.2.0 — 화면에 쓰는 긴 글을 미리 지어 둠(컴파일러가 한 줄 식을 오래 붙들지 않게)
+enum Ju {
+    static func saram(_ j: [String: Any], _ dwi: String) -> String { geulja(j["name"]) + " (" + geulja(j["id"]) + ")" + dwi }
+    static func sincheong(_ j: [String: Any]) -> String {
+        var t = "신청 " + ttae(geulja(j["at"]))
+        let tel = geulja(j["tel"]); if !tel.isEmpty { t += " / 연락처 " + tel }
+        return t
+    }
+    static func geojeolMal(_ j: [String: Any]?) -> String { geulja(j?["id"]) + " 님의 신청을 거절할까요?" }
+    static func myeongbu(_ j: [String: Any], _ locked: Bool) -> String {
+        var t = geulja(j["name"]) + " (" + geulja(j["id"]) + ") — "
+        t += geulja(j["role"]) == "master" ? "최고관리자" : "현장영상해설사"
+        if locked { t += " / 막힘" }
+        return t
+    }
+    static func nugu(_ j: [String: Any]) -> String { let n = geulja(j["ownerName"]); return n.isEmpty ? geulja(j["owner"]) : n }
+    static func su(_ j: [String: Any], _ k: String) -> Int { Int(sutja(j[k]) ?? 0) }
+    static func review(_ j: [String: Any]) -> String {
+        geulja(j["place"]) + " / 지점 \(su(j, "spots"))곳, 대본 \(su(j, "texts"))곳 / " + ttae(geulja(j["at"]))
+    }
+    static func finalJul(_ j: [String: Any]) -> String {
+        var t = geulja(j["place"]) + " / 지점 \(su(j, "spots"))곳, 대본 \(su(j, "texts"))곳"
+        t += " / 사진 \(su(j, "photos"))장, 소리 \(su(j, "audio"))개 / 요청 " + ttae(geulja(j["requestedAt"]))
+        return t
+    }
+    static func bigyoJemok(_ id: String, _ label: String, _ kind: String) -> String { "\((Int(id) ?? 0) + 1). " + label + " — " + kind }
+    static func eopseum(_ s: String) -> String { s.isEmpty ? "(없음)" : s }
+    static func pan(_ v: Int, _ s: String) -> String { "\(v)판: " + eopseum(s) }
+    static func hwasal(_ a: String, _ b: String) -> String { eopseum(a) + " → " + eopseum(b) }
+    static func banJemok(_ n: Int, _ cur: [String: Any]?) -> String {
+        if let cur { return "반 \(n)개, 지금 수업 반은 " + geulja(cur["name"]) }
+        return "반 \(n)개, 지금 수업 반은 아직 없습니다"
+    }
+    static func banJul(_ j: [String: Any], _ jigeum: Bool) -> String {
+        let n = ((j["members"] as? [String]) ?? []).count
+        return geulja(j["name"]) + " — \(n)명" + (jigeum ? ", 지금 수업 반" : "")
     }
 }
