@@ -67,6 +67,7 @@ sealed class Hw {
     object Seoljeong : Hw(); data class Doum(val i: Int) : Hw(); object Bakkwin : Hw()
     data class Sajin(val spotId: String, val idx: Int) : Hw(); data class Memos(val spotId: String) : Hw()
     object PanDoerigi : Hw(); object Hyujitong : Hw()
+    object PanGirok : Hw()   // 1.3.0
     // 1.2.0
     object Naebo : Hw(); object Jisik : Hw(); object Urijaryo : Hw(); object Dict : Hw(); object SurveyMap : Hw()
     data class Finals(val hj: Boolean) : Hw(); data class Hyeonjang(val entry: String) : Hw()
@@ -78,9 +79,9 @@ sealed class Hw {
 
 class TourActivity : Activity() {
     companion object {
-        const val PAN = "1.2.0"; const val BILDEU = "261017-T4"
+        const val PAN = "1.3.0"; const val BILDEU = "261018-T5"
         const val PAN_IREUM = "LVD투어스튜디오 ${PAN}판 (빌드 ${BILDEU})"
-        const val SAJIN = 71; const val HEORAK_KAMERA = 72; const val HEORAK_JARI = 73; const val HEORAK_MIC = 74; const val SAJIN_GAJYEO = 75
+        const val SAJIN = 71; const val HEORAK_KAMERA = 72; const val HEORAK_JARI = 73; const val HEORAK_MIC = 74; const val SAJIN_GAJYEO = 75; const val HEORAK_GEOLEUM = 76
         val BUNYA = listOf("", "문화유산 분야", "박물관·전시 분야", "자연·경관 분야", "공연·행사 분야", "스포츠 관람 분야", "교육·체험 분야", "실시간 퍼포먼스 분야", "테마투어 분야")
         val JIYEOK = listOf("", "서울", "경기", "인천", "부산", "대구", "광주", "대전", "강원", "충청", "전라", "경상", "제주")
         val NE = listOf("12시 방향", "3시 방향", "6시 방향", "9시 방향")
@@ -111,7 +112,9 @@ class TourActivity : Activity() {
     internal val saveRun = Runnable { save(true) }
     // 1.1.0
     internal var lastShot: Pair<String, Int>? = null      // 방금 찍은 사진(지점 번호, 몇째)
-    internal var memoKan = "access"
+    internal var memoKan: String   // 1.3.0 — 담는 칸을 기억(이어폰 단추 메모도 이 칸)
+        get() = sp.getString("memoKan", "access") ?: "access"
+        set(v) { sp.edit().putString("memoKan", v).apply() }
     internal var memoGeul = ""
     internal var micGidarim: (() -> Unit)? = null
     internal var player: MediaPlayer? = null; internal var deunneun = ""
@@ -119,6 +122,7 @@ class TourActivity : Activity() {
     internal val sp get() = getSharedPreferences("tour", MODE_PRIVATE)
     internal val malsori get() = sp.getBoolean("malsori", true)
     internal val s12 = S120()
+    internal val s13 = S130()
 
     override fun onCreate(s: Bundle?) {
         super.onCreate(s)
@@ -143,7 +147,7 @@ class TourActivity : Activity() {
             val j = Api.call("me")
             main.post {
                 when {
-                    Api.ok(j) -> { me = j.optJSONObject("me") ?: JSONObject(); loadCourses(); allimSalpigi(true) }
+                    Api.ok(j) -> { me = j.optJSONObject("me") ?: JSONObject(); loadCourses(); allimSalpigi(true); panAlrigi(); danchuBuchigi() }
                     j.optBoolean("offline", false) -> me = JSONObject().put("name", sp.getString("meName", "") ?: "")
                     else -> Api.token = ""
                 }
@@ -157,7 +161,7 @@ class TourActivity : Activity() {
     override fun onResume() { super.onResume(); Ollim.dorawatda(this) }
     override fun onPause() { super.onPause(); if (kos != null) { main.removeCallbacks(saveRun); save(true) } }
     override fun onNewIntent(i: Intent) { super.onNewIntent(i); setIntent(i); Ollim.intentBoda(this, i) }
-    override fun onDestroy() { Ollim.byeonhwa = null; Ollim.malhagi = null; Api.naga = null; tts?.shutdown(); deutgiMeomchum(); super.onDestroy() }
+    override fun onDestroy() { danchuTteigi(); s13.jaegiSensor?.let { (getSystemService(SENSOR_SERVICE) as android.hardware.SensorManager).unregisterListener(it) }; Ollim.byeonhwa = null; Ollim.malhagi = null; Api.naga = null; tts?.shutdown(); deutgiMeomchum(); super.onDestroy() }
 
     @Deprecated("뒤로 가기 — 앱 밖으로 나가지 않음")
     override fun onBackPressed() {
@@ -323,7 +327,7 @@ class TourActivity : Activity() {
                         Api.token = j.geul("token")
                         me = j.optJSONObject("me") ?: JSONObject().put("id", i).put("name", j.geul("name")).put("role", j.geul("role"))
                         sp.edit().putString("meName", me?.geul("name") ?: "").apply()
-                        draw(); loadCourses(); allimSalpigi(true)
+                        draw(); loadCourses(); allimSalpigi(true); panAlrigi(); danchuBuchigi()
                     } else { mal.text = Api.err(j); cheotJul(mal) }
                 }
             }
@@ -577,12 +581,12 @@ class TourActivity : Activity() {
         if (!k.isGyobon) {
             geul("경계 적기", jemok = true)
             val nx = k.spotNext(s)
-            if (nx != null) danchu("여기서부터 " + k.spotFull(nx) + " 시작", keun = true) { boundGo() }
+            if (nx != null) danchu("여기서부터 " + k.spotFull(nx) + " 시작", keun = true) { boundGo(); jaegiGyeonggye() }
             else geul("클로징 지점이 마지막입니다. 해산하는 자리를 아래 어디까지 칸에 적으십시오.")
             kan(k.spotLab(s) + " " + k.spotToName(s), s.s("to")) { s.d.put("to", it) }
             val ir = EditText(this).apply { hint = "새 지점 이름 (없어도 됩니다)"; background = kadeuBg(); setPadding(dp(14), dp(12), dp(14), dp(12)) }
             body.addView(ir, lp(4))
-            danchu("여기서부터 새 지점 시작 (" + (if (s.kind == "close") "클로징 지점 바로 앞에" else k.spotLab(s) + " 바로 뒤에") + " 넣기)") { addHere(ir.text.toString().trim()) }
+            danchu("여기서부터 새 지점 시작 (" + (if (s.kind == "close") "클로징 지점 바로 앞에" else k.spotLab(s) + " 바로 뒤에") + " 넣기)") { addHere(ir.text.toString().trim()); jaegiGyeonggye() }
             geul("사진 찍기 — 시계 방향으로 네 쪽", jemok = true)
             geul("정지 현장영상해설 자리에 서서 참여자가 바라볼 쪽을 12시로 두고 찍으십시오. 첫 사진을 찍을 때 이 지점의 자리가 적히고, 앞 지점에서 걸어온 거리로 이동 시간을 잡습니다.", jakge = true)
             val jjigeun = (0 until s.shots.length()).map { s.shots.optJSONObject(it)?.geul("dir") ?: "" }.toSet()
@@ -591,6 +595,7 @@ class TourActivity : Activity() {
             geul(if (nameun.isEmpty()) "네 방향을 다 담았습니다. 다음 지점으로 옮기셔도 됩니다." else "아직 담지 않은 방향: " + nameun.joinToString(", "))
             bangeumSajin(k)
             kamera120(k)
+            danchu130(k)
             geul("담긴 사진 보기 — ${s.shots.length()}장 (두드리면 크게 보기·지우기·다시 찍기)", jemok = true)
             val shots = (0 until s.shots.length()).mapNotNull { s.shots.optJSONObject(it) }
             jangMok("dsj", shots.withIndex().toList()) { (i, o) -> sajinJul(k.id, i + 1, o).apply { setOnClickListener { go(Hw.Sajin(s.id, i)) } } }
@@ -667,12 +672,19 @@ class TourActivity : Activity() {
             startActivityForResult(i, SAJIN)
         } catch (e: Exception) { malhagi("카메라를 열지 못했습니다.") }
     }
+    /** 1.3.0 — 음량 단추·이어폰 단추로 답사 */
+    override fun onKeyDown(code: Int, ev: android.view.KeyEvent): Boolean {
+        if (ev.repeatCount == 0 && danchuKey(code)) return true
+        if (ev.repeatCount > 0 && danchuOn && tab == 1 && (code == android.view.KeyEvent.KEYCODE_VOLUME_UP || code == android.view.KeyEvent.KEYCODE_VOLUME_DOWN)) return true
+        return super.onKeyDown(code, ev)
+    }
     override fun onRequestPermissionsResult(rq: Int, p: Array<out String>, g: IntArray) {
         super.onRequestPermissionsResult(rq, p, g)
         val ok = g.isNotEmpty() && g[0] == PackageManager.PERMISSION_GRANTED
         when (rq) {
             HEORAK_KAMERA -> if (ok) kamera(sajinBang) else malhagi("카메라를 허락하지 않으셔서 사진을 찍을 수 없습니다.")
             HEORAK_JARI -> { val k = jariGidarim; jariGidarim = null; if (ok && k != null) jari(k) else k?.invoke(null) }
+            HEORAK_GEOLEUM -> if (ok) spot()?.let { jaegiSijak(it) } else malhagi("신체 활동을 허락하지 않으셔서 걸음을 셀 수 없습니다.")
             HEORAK_MIC -> { val k = micGidarim; micGidarim = null; if (ok) k?.invoke() else malhagi("마이크를 허락하지 않으셔서 녹음할 수 없습니다. 폰 설정의 투어스튜디오에서 마이크를 켜 주십시오.") }
         }
     }
@@ -775,6 +787,14 @@ class TourActivity : Activity() {
     internal fun doum(i: Int) { val d = DOUM.getOrNull(i) ?: return; geul(d.first, jemok = true); geul(d.second) }
     internal fun bakkwin() {
         geul("무엇이 바뀌었나", jemok = true)
+        geul("1.3.0판 (빌드 261018-T5, 2026-10-18)", jemok = true)
+        listOf(
+            "웹과 같게 맞춘 1.2.0판 위에, 앱만 할 수 있는 것을 더하기 시작했습니다(이사장님 승인). 아이폰 1.3.0판과 같습니다.",
+            "화면 안 보고 답사하기: 이어폰 단추 한 번은 현장 메모 녹음, 두 번은 사진, 세 번은 이동 구간 재기. 답사 탭에서는 음량 단추로도.",
+            "걸으며 저절로 재기: 걸음 수, 꺾은 방향(시계 방향), 계단 칸 수, 오르막과 내리막을 재어 이동 구간 안내 초안을 씀.",
+            "판 기록: 들어오면 이 폰의 판과 지난 오류를 협회에 알리고, 최고관리자는 누가 어떤 판을 쓰는지 봄.",
+            "도움말 세 가지를 더했습니다."
+        ).forEach { geul(it) }
         geul("1.2.0판 (빌드 261017-T4, 2026-10-17)", jemok = true)
         listOf(
             "웹 투어스튜디오에 있는 기능을 앱에도 모두 넣었습니다(이사장님 지시). 아이폰 1.2.0판과 같습니다.",
@@ -1319,5 +1339,8 @@ val DOUM: List<Pair<String, String>> = listOf(
     "최고관리자 — 가입 신청 함과 명부" to "가입 신청 함에서 신청을 받아들이거나 거절하고, 넣을 반을 고르거나 모두 받아들입니다. 받아들이면 알려 드릴 글이 나오고 복사하거나 보낼 수 있습니다. 명부 관리에서 사람 넣기, 비밀번호 다시 주기, 막기와 다시 열기를 합니다.",
     "최고관리자 — 반·수업 진행판·채점표" to "반 관리에서 반을 만들고 사람을 넣고 빼며 지금 수업 반을 정합니다. 수업 진행판은 반 사람마다 지금 어느 단계, 어느 코스에서 무엇을 하는지, 막힌 곳과 도움 요청을 보여 주고, 30초마다 저절로 살피게 할 수 있습니다. 수업 채점표는 사람마다 코스를 훑어 걸린 것을 보여 주고 글로 복사합니다.",
     "최고관리자 — 협회 승인 보관소" to "협회 승인 보관소에서 올라온 시나리오를 보고 최종 승인(승인번호가 매겨짐), 돌려보내기(살펴볼 것이 미리 채워진 까닭 칸), 공개하기와 거두기, 워드와 소리 묶음 내려받기, 판 비교를 합니다. 제출된 최종본 모두 내려받기는 한 묶음으로 받습니다.",
-    "최고관리자 — 봐 달라는 코스와 클에게 대본 맡기기" to "봐 달라는 코스에서 코스를 열면 그분 자리로 가서 그 코스를 엽니다. 다 보면 확인함으로 내립니다. 클에게 대본 맡기기는 코스를 연 뒤 몇 번부터 몇 번까지 나스로 맡기고, 초안이 오면 클 초안 넣기로 대본에 넣습니다."
+    "최고관리자 — 봐 달라는 코스와 클에게 대본 맡기기" to "봐 달라는 코스에서 코스를 열면 그분 자리로 가서 그 코스를 엽니다. 다 보면 확인함으로 내립니다. 클에게 대본 맡기기는 코스를 연 뒤 몇 번부터 몇 번까지 나스로 맡기고, 초안이 오면 클 초안 넣기로 대본에 넣습니다.",
+    "화면 안 보고 답사하기 (이어폰 단추·음량 단추)" to "답사 탭의 이어폰 단추로 답사하기를 켜면, 폰을 주머니에 넣고도 답사합니다. 이어폰 단추를 한 번 누르면 삐 소리 뒤에 현장 메모 녹음이 시작되고, 다시 한 번 누르면 끝나 고른 칸에 담깁니다(담는 칸은 현장 메모에서 고른 칸). 두 번 누르면 나침반 카메라가 열리고, 열린 뒤 두 번 누르면 한 장 찍습니다. 세 번 누르면 이동 구간 재기를 시작하거나 끝냅니다. 답사 탭과 나침반 카메라에서는 음량 크게 단추로 사진을 찍고, 작게 단추로 메모 녹음을 시작하고 끝냅니다. 앱이 알리는 말은 폰이 소리 내어 읽어 줍니다. 켜 두는 동안 다른 앱의 음악은 멈출 수 있습니다.",
+    "걸으며 저절로 재기 (이동 구간 안내 초안)" to "답사 탭에서 여기서부터 다음 지점 시작을 누르면, 그 지점까지 걸어가는 이동 구간을 저절로 재기 시작합니다(경계를 적으면 저절로 재기 시작을 끄면 직접 시작). 처음 한 번 신체 활동을 허락해 주십시오. 폰을 손에 들고 걸으면 걸음 수, 꺾은 방향(출발할 때 바라본 쪽을 12시로 한 시계 방향), 계단 칸 수, 오르막과 내리막을 잽니다. 도착해서 도착 — 잰 것을 이동 구간 안내에 넣기를 누르면 「12시 방향으로 약 42걸음. 3시 방향으로 꺾어 약 20걸음, 그 사이 계단 약 12칸 오름」 같은 초안이 그 지점의 이동 구간 안내 칸 끝에 붙고, 이동 시간이 비어 있으면 걸린 분도 채웁니다. 다음 경계를 적어도 저절로 넣습니다. 계단과 오르막은 기압 센서가 있는 폰에서만 잽니다. 걸음과 계단은 어림이니 현장에서 확인해 고치십시오.",
+    "판 기록 (최고관리자)" to "1.3.0판부터 앱에 들어오면 이 폰의 판, 빌드, 기기, 지난번에 난 오류 한 줄을 협회에 알립니다. 최고관리자는 코스 탭 최고관리자 도구의 판 기록에서 누가 아이폰·안드로이드의 어느 판을 쓰는지, 옛 판을 쓰는 분이 누구인지, 최근 오류가 무엇이었는지 봅니다."
 )
