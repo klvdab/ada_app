@@ -1,4 +1,4 @@
-// LVD투어스튜디오 앱 — 앱 살림 (판 1.0.0, 빌드 261012-T1)
+// LVD투어스튜디오 앱 — 앱 살림 (판 1.2.0, 빌드 261017-T4 — 사진에 담는 모양·밝기와 또렷함·방위, 저장 실패 셈. 1.0.0 261012-T1)
 // 들어온 사람, 코스 목록, 열린 코스, 저절로 저장, 폰에 남겨 두기(인터넷이 끊겨도 잃지 않음), 앱 안내 말소리
 import SwiftUI
 import UIKit
@@ -145,6 +145,7 @@ final class TourStore: NSObject, ObservableObject, CLLocationManagerDelegate {
             if !quiet { say("저장했습니다.") }
         } else {
             saveMark = "저장 못 함 — 폰에 남겨 두었습니다"
+            Gwan.shared.fails += 1; Gwan.shared.err = String(TourAPI.err(j).prefix(80))
             say("저장하지 못했습니다. 고친 것은 폰에 남겨 두었습니다. " + TourAPI.err(j))
         }
         if saveAgain { saveAgain = false; await save(quiet: true) }
@@ -257,23 +258,27 @@ final class TourStore: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
 
     /// 사진 올리기 — 웹과 같은 자리(shots)에 같은 모양으로 적음
-    func photo(_ img: UIImage, dir: String) async {
+    func photo(_ img: UIImage, dir: String, extra: [String: Any] = [:]) async {
         guard let k = kos, let s = cur else { return }
         if k.isGyobon { say("교본은 읽기만 됩니다."); return }
-        let im = img.keugi(1600)
+        let im = Wonchik.jareugi(img).keugi(1600)      // 1.2.0 담는 모양(원본·가로·세로·정사각) — 웹과 같음
         guard let jpg = im.jpegData(compressionQuality: 0.82) else { return }
-        say("사진을 올립니다.")
+        let q = Wonchik.photoQuality(im)
+        let moyangMal = Wonchik.moyangMal(im)
+        let qWarn = geulja(q["warn"])
+        say(moyangMal + " 사진을 올립니다.")
         let l: CLLocation? = await withCheckedContinuation { c in jari { c.resume(returning: $0) } }
         spotPosHere(s, l)
         var shot: [String: Any] = ["f": "", "dir": dir, "garo": Int(im.size.width * im.scale), "sero": Int(im.size.height * im.scale),
-                                   "at": ISO8601DateFormatter().string(from: Date()), "zoom": 1, "app": "ios"]
+                                   "at": ISO8601DateFormatter().string(from: Date()), "zoom": 1, "app": "ios", "q": q]
+        for (kk, v) in extra { shot[kk] = v }
         if let la = s.lat, let lo = s.lng { shot["lat"] = la; shot["lng"] = lo } else { shot["lat"] = NSNull(); shot["lng"] = NSNull() }
         let j = await TourAPI.call("save_photo", ["c": k.id, "s": s.id, "ext": "jpg", "data": jpg.base64EncodedString()], timeout: 90)
         if TourAPI.ok(j) {
             shot["f"] = geulja(j["file"])
             var a = s.shots; a.append(shot); s.shots = a
             lastShot = (s.id, a.count - 1)
-            say(k.spotLab(s) + " 사진 \(a.count)번째, " + dir + " 올렸습니다.")
+            say(moyangMal + " " + k.spotLab(s) + " 사진 \(a.count)번째, " + dir + " 올렸습니다." + (qWarn.isEmpty ? "" : " " + qWarn + " 다시 담으시려면 같은 방향으로 한 장 더 찍으십시오."))
             bakkwim()
         } else {
             // 못 올린 사진은 폰에 남겨 두고, 코스에는 「아직 못 올림」으로 적어 둠(웹 qref 와 같음)
@@ -371,7 +376,7 @@ final class TourStore: NSObject, ObservableObject, CLLocationManagerDelegate {
 
     // ---- 소리 올리기(현장 메모·연습 녹음) ----
     /// 담은 소리를 mp3 로 바꾸고 받아써서 올림. 못 올리면 폰에 남겨 둠. (파일 이름, 못 올린 표, 받아쓴 말, 초)
-    private func soriOllim(_ k: Kos, _ s: Spot, kind: String, wav: URL, sec: Int) async -> (String, String, String) {
+    func soriOllim(_ k: Kos, _ s: Spot, kind: String, wav: URL, sec: Int) async -> (String, String, String) {
         say("담은 소리를 mp3 로 바꾸고 있습니다.")
         let heard = await Badasseugi.geullo(wav)
         var data: Data, ext: String
