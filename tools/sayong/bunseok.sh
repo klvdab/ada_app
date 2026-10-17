@@ -10,12 +10,14 @@ for f in i2 a2 i13; do
   ffmpeg -loglevel error -y -i out/$f.mp4 -vf "fps=1/5,scale=640:-1" out/${f}_%03d.png
   ffmpeg -loglevel error -y -i out/$f.mp4 -ac 1 -ar 16000 out/$f.wav
 done
-pip install -q faster-whisper
+pip install -q faster-whisper soundfile
 python3 - <<'P'
 from faster_whisper import WhisperModel
+import soundfile as sf
 m = WhisperModel("small", compute_type="int8")
 for f in ["i2", "a2", "i13"]:
-    segs, _ = m.transcribe(f"out/{f}.wav", language="ko")
+    a, _ = sf.read(f"out/{f}.wav", dtype="float32")
+    segs, _ = m.transcribe(a, language="ko")
     with open(f"out/{f}.sseugi.txt", "w") as o:
         for s in segs: o.write(f"{s.start:7.1f} {s.end:7.1f}  {s.text.strip()}\n")
 P
