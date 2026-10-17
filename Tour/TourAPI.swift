@@ -38,6 +38,7 @@ enum TourAPI {
                 let t = String(data: d.prefix(120), encoding: .utf8) ?? ""
                 return ["ok": false, "error": "서버가 이상한 대답을 했습니다: " + t]
             }
+            if (j["ok"] as? Bool) != true { PanGirok.oryu(action, geulja(j["error"])) }
             if (j["needLogin"] as? Bool) == true && action != "logout" {
                 await MainActor.run { TourStore.shared.naga(mal: "들어오기 표가 끝났습니다. 다시 들어와 주십시오.") }
             }
