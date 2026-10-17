@@ -49,6 +49,11 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
     /// 말하는 중인가(폰 목소리든 선희 목소리든)
     private var malJung: Bool { synth.isSpeaking || msJung }
     private var meomchum = false
+    /// 2.96.0 (261017-I50, 이사장님 KTX에서 겪으심 2026-10-17) 소리 자리를 빼앗긴 때와 지금 말을 시작한 때 — 막힘 풀기에 씀
+    private var meomchumTtae = Date.distantPast
+    private var malSijakTtae = Date.distantPast
+    private var malGilyi = 0
+    private var jikimTimer: Timer?
     /// 화상통화 중 — 길눈 말소리를 내지 않음(통화 소리 보호, 2026-09-11 이사장님 지시: 통화 중에는 화면 글로만)
     var tonghwaJung = false
     /// 2.59.0 폰 전화 중(벨·걸기·통화) — JeonhwaGamsi 가 켜고 끔. 화상통화 때와 같이 말하지 않고 경고는 진동
@@ -122,6 +127,10 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.msKkaeugi() }   // 2.28.0
         NotificationCenter.default.addObserver(self, selector: #selector(kkeunkim(_:)),
                                                name: AVAudioSession.interruptionNotification, object: nil)
+        // 2.96.0 (261017-I50) 5초마다 막힘 살피기 — 끊김이 끝났다는 알림이 오지 않거나, 말이 끝났다는 신호가 오지 않아도 줄이 멈추지 않게
+        DispatchQueue.main.async {
+            self.jikimTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.makhimPulgi() }
+        }
         // 2.12.0 끊김이 끝났다는 알림이 오지 않아도 앱으로 돌아오면 다시 말함
         NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
             guard let self = self, self.meomchum else { return }
@@ -214,6 +223,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
         u.preUtteranceDelay = 0.05
         jigeumGeup = m.geup
         majimak = m.t
+        malSijakTtae = Date(); malGilyi = m.t.count   // 2.96.0
         if !m.t.hasPrefix("앞 안내. ") {   // 다시 들려 드린 앞 안내는 기록에 넣지 않음
             malGirok.append(m.t)
             if malGirok.count > 12 { malGirok.removeFirst(malGirok.count - 12) }
@@ -622,13 +632,66 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
         DispatchQueue.main.asyncAfter(deadline: .now() + dwi, execute: w)
     }
 
+    // MARK: 2.96.0 (261017-I50, 이사장님 승인 2026-10-17) 막힘 풀기
+    // KTX에서 김천을 지난 뒤 안내가 한 마디도 나오지 않던 일 — 선희 목소리로 말하는 중에 다른 소리가 소리 자리를 가져가자
+    // 말이 끝났다는 신호가 오지 않아 「아직 말하는 중」으로 남고, 뒤의 말이 모두 줄에서 멈춰 있었음.
+
+    /// 소리 자리를 빼앗기면 하던 말을 멈추고 줄 맨 앞에 다시 세움(돌려받으면 처음부터 다시 말함)
+    private func kkeunginMalDollyeonoki() {
+        guard malJung else { return }
+        let t = majimak
+        let g = jigeumGeup ?? .annae
+        if msJung {
+            msBeon += 1
+            msPlayer?.stop()
+            msPlayer = nil
+            msJung = false
+        }
+        if synth.isSpeaking { synth.stopSpeaking(at: .immediate) }
+        if !t.isEmpty, !t.hasPrefix("앞 안내. ") { jul.insert(Mal(t: t, geup: g), at: 0) }
+        jigeumGeup = nil
+    }
+
+    /// 5초마다 — ① 빼앗긴 지 8초가 지나도 돌려받았다는 알림이 없으면 스스로 다시 잡음 ② 말 하나가 너무 오래 끝나지 않으면 끊고 다음 말로
+    private func makhimPulgi() {
+        let now = Date()
+        if meomchum, !malAnham, now.timeIntervalSince(meomchumTtae) > 8, !jul.isEmpty {
+            do {
+                try AVAudioSession.sharedInstance().setActive(true)
+                meomchum = false
+                Girok.shared.namgi("sori_kkeunkim", ["dan": "seuseuro"])
+                naeboenda()
+            } catch {
+                meomchumTtae = now   // 아직 못 잡으면 8초 뒤 다시
+            }
+            return
+        }
+        guard malJung else { return }
+        // 말 한 자에 0.25초쯤, 받는 시간 10초를 더 넉넉히 — 이보다 오래면 막힌 것으로 봄
+        let hando = 15.0 + Double(malGilyi) * 0.25
+        if now.timeIntervalSince(malSijakTtae) > hando {
+            Girok.shared.namgi("sori_makhim_pulgi", ["ms": msJung, "geulja": malGilyi])
+            if msJung {
+                msBeon += 1
+                msPlayer?.stop()
+                msPlayer = nil
+                msJung = false
+                daeum()
+            } else {
+                synth.stopSpeaking(at: .immediate)   // didCancel 에서 다음 말로
+            }
+        }
+    }
+
     @objc private func kkeunkim(_ n: Notification) {
         guard let v = n.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
               let ty = AVAudioSession.InterruptionType(rawValue: v) else { return }
         DispatchQueue.main.async {
             if ty == .began {
                 self.meomchum = true
+                self.meomchumTtae = Date()
                 Girok.shared.namgi("sori_kkeunkim", ["dan": "sijak"])
+                self.kkeunginMalDollyeonoki()   // 2.96.0
             } else {
                 self.meomchum = false
                 Girok.shared.namgi("sori_kkeunkim", ["dan": "kkeut"])
