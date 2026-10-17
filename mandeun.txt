@@ -1,0 +1,31 @@
+실패 https://overpass-api.de/api/interpreter HTTP Error 502: Bad Gateway
+받음 https://overpass-api.de/api/interpreter 37277546 바이트 30398 줄
+점 69002 줄 30398 터널 2266 크기 1098192
+서울역 둘레 터널 405594535 504 경의선 None None main
+서울역 둘레 터널 405594536 481 경의선 None None main
+서울역 둘레 터널 405594538 502 경의선 None None main
+서울역 둘레 터널 405594541 229 None None siding None
+서울역 둘레 터널 405594542 254 None None siding None
+서울역 둘레 터널 405594545 208 None None siding None
+서울역 둘레 터널 405596906 481 경의선 None None main
+서울역 둘레 터널 405596908 395 경의선 None None main
+서울역 둘레 터널 405596910 396 경의선 None None main
+서울역 둘레 터널 477057733 387 용산선 None None branch
+서울역 둘레 터널 484898230 204 None None siding None
+서울역 둘레 터널 717933086 21 인천국제공항선 None None main
+서울역 둘레 터널 717933087 205 인천국제공항선 None None main
+서울역 둘레 터널 717933088 244 인천국제공항선 None None main
+서울역 둘레 터널 717933089 18 None None crossover None
+서울역 둘레 터널 717933090 9180 인천국제공항선 None None main
+서울역 둘레 터널 847193802 5582 용산선 None None branch
+서울역 둘레 터널 847193803 350 용산선 None None branch
+서울역 둘레 터널 923712312 32312 수도권광역급행철도에이선 None None main
+서울역 둘레 터널 1212198787 21 None None crossover None
+서울역 둘레 터널 1212198788 567 None None yard None
+서울역 둘레 터널 1212198789 568 None None yard None
+서울역 둘레 터널 1212198790 263 None None siding None
+서울역 둘레 터널 1212198791 66 None None yard None
+서울역 둘레 터널 1212198792 36 None None crossover None
+서울역 둘레 터널 1212198793 37 None None crossover None
+서울역 둘레 터널 1346616770 733 수도권광역급행철도에이선 None None main
+서울역 둘레 터널 1346616771 719 수도권광역급행철도에이선 None None main
