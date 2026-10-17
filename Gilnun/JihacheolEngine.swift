@@ -160,6 +160,38 @@ final class JihacheolEngine {
 
     // MARK: 타기와 역 알림
 
+    /// 2.92.0 (261017-I46, 이사장님 승인 2026-10-17) 다음 열차가 몇 분 뒤에 오는지 — 웹 길눈 jicheol.html(빌드 260926-11)에서 옮김.
+    ///   타는 역의 실시간 도착(yeok.php a=dochak, 서울 열린데이터)에서 내 호선·방면 열차 가운데 가장 먼저 오는 것
+    static func daeumYeolchaMal(_ g: JihaGil) async -> String? {
+        guard let gg = g.gugan.first else { return nil }
+        let yeok = g.from.hasSuffix("역") ? String(g.from.dropLast()) : g.from
+        guard let o = await Chatgi.json("yeok.php", ["a": "dochak", "yeok": yeok]),
+              let rows = o["rows"] as? [[String: Any]], !rows.isEmpty else { return nil }
+        let ho = gg.hoseon.replacingOccurrences(of: " ", with: "")
+        let bang = gg.bangmyeon.replacingOccurrences(of: "방면", with: "").replacingOccurrences(of: "행", with: "").trimmingCharacters(in: .whitespaces)
+        var best: ([String: Any], Double)?
+        for r in rows {
+            let rh = ((r["hoseon"] as? String) ?? "").replacingOccurrences(of: " ", with: "")
+            if !ho.isEmpty && !rh.isEmpty && rh != ho { continue }
+            let rb = (r["bangmyeon"] as? String) ?? ""
+            if !bang.isEmpty && !rb.contains(bang) { continue }
+            let cho = Chatgi.su(r["cho"]) ?? 9999
+            if best == nil || cho < best!.1 { best = (r, cho) }
+        }
+        guard let b = best else { return nil }
+        let rb = (b.0["bangmyeon"] as? String) ?? ""
+        let haeng = rb.components(separatedBy: " - ").first ?? rb
+        let ml = (b.0["mal"] as? String) ?? ""
+        let sigan: String
+        if ml.contains("전역") || ml.contains("진입") || ml.contains("도착") {
+            sigan = ml.contains("전역") ? "전 역을 떠났습니다" : "곧 들어옵니다"
+        } else if b.1 < 9999 {
+            let bun = Int(b.1) / 60, cho = Int(b.1) % 60
+            sigan = (bun > 0 ? "\(bun)분" : "") + (cho > 0 ? " \(cho)초" : "") + " 뒤에 옵니다"
+        } else { sigan = ml }
+        return "다음 \(ho) \(haeng) 열차는 \(sigan.trimmingCharacters(in: .whitespaces))."
+    }
+
     /// 타는 역 출구에 닿음 — 이제 열차가 움직이면 저절로 역 알림을 시작
     func ipguDochak() {
         guard var g = gil else { return }
@@ -170,6 +202,8 @@ final class JihacheolEngine {
         let gg = g.gugan.first
         let bang = (gg?.bangmyeon ?? "").isEmpty ? "" : " \(gg!.bangmyeon) 방면"
         SoriEngine.shared.mal("\(g.ipgu.ireum)입니다. 들어가셔서 \(gg?.hoseon ?? "")\(bang) 열차를 타십시오. 열차가 움직이면 저절로 역 알림을 시작합니다.")
+        // 2.92.0 다음 열차가 몇 분 뒤에 오는지 이어서
+        Task { if let m = await JihacheolEngine.daeumYeolchaMal(g) { SoriEngine.shared.mal(m) } }
         Girok.shared.namgi("jiha_ipgu", [:])
     }
 

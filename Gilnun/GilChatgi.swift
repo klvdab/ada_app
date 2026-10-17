@@ -258,6 +258,17 @@ struct YeojeongPan: View {
             } else {
                 gibonDanchu
             }
+            // 2.92.0 (261017-I46, 이사장님 승인 2026-10-17) 지난 여정·도착을 여쭌 바로 그 자리에 대답 단추(웹 길눈에서 옮김)
+            if yje.dochakMureum {
+                Button("\(mok)에 도착했습니다 — 여정 끝내기") { a.kkeut() }
+                    .buttonStyle(KeunDanchu())
+            }
+            if yje.jinanMureum {
+                Button("지난 여정 끝내기 — 예상 도착 시간이 30분 넘게 지났습니다") { a.kkeut() }
+                    .buttonStyle(KeunDanchu())
+                Button("이어서 가기 — \(mok)까지 안내를 이어 갑니다") { yje.ieogaGagi() }
+                    .buttonStyle(KeunDanchu())
+            }
             // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 「내리셨습니까」를 여쭌 바로 그 자리에 대답 단추
             if jikimi.naerimMureum && yj.danggye == .taneunJung {
                 Button("아직 \(Annae.talgeotIreum(YeojeongEngine.shared.talgeot))에 타고 있습니다 — 안내 이어 가기") { jikimi.ajikTago() }

@@ -864,10 +864,12 @@ final class AnnaeEngine: ObservableObject {
     }
 
     private func wichiBatda(_ w: Wichi) {
-        guard let y = yj.jigeum else { namEunGeori = nil; GichaAnnae.shared.kkeut(); return }
+        guard let y = yj.jigeum else { namEunGeori = nil; GichaAnnae.shared.kkeut(); ChaGeodeul.shared.kkeut(); return }
         if !(y.danggye == .taneunJung && yj.talgeot == .gicha) { GichaAnnae.shared.kkeut() }   // 2.91.0
+        if !(y.danggye == .taneunJung && yj.talgeot != .gicha && yj.talgeot != .seonbak && y.jiha == nil) { ChaGeodeul.shared.kkeut() }   // 2.92.0
         let d = WichiEngine.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
         namEunGeori = d
+        yj.dochakBoda(w)   // 2.92.0 목적지 50미터 안 2분이면 도착을 여쭘
         jeomChaBoda(w)   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 탈것 구간이 없는 점지도를 걷다 차를 타셨는가
         // 2.10.0 점지도를 따라 걷는 동안(도착 뒤 포함)과 점지도로 걸을지 여쭙는 동안에는 점지도 엔진이 안내를 맡음
         // 2.12.0 점지도로 닿은 뒤에는 이 엔진이 다시 맡음(차를 타시거나 다시 걸으실 때 조용하지 않게)
@@ -1342,6 +1344,8 @@ final class AnnaeEngine: ObservableObject {
 
     private func chaAnnae(_ w: Wichi, _ d0: Double, _ y: Yeojeong) {
         GanpanAllim.shared.chaAn(w)   // 2.25.0 차 안 간판 알림
+        // 2.92.0 (261017-I46, 이사장님 승인 2026-10-17) 터널 미리 알림·크게 돌 때·멈춘 까닭(웹 길눈에서 옮김) — 기차는 GichaAnnae 가 맡음
+        if y.talgeot != .gicha { ChaGeodeul.shared.wichi(w, y) } else { ChaGeodeul.shared.kkeut() }
         // 2.60.0 (261009-I14, 이사장님 승인) 승용차·택시는 받아 둔 차 길을 따라 남은 거리로 셈(돌아가는 길에서 "곧 부근입니다"가 너무 이르던 일)
         let d = (y.talgeot == .cha && ChaMat.shared.gatEun(y.mokjeok.lat, y.mokjeok.lon) ? ChaMat.shared.namEunGilGeori(w) : nil) ?? d0
         let mok = y.mokjeok.ireum

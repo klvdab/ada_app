@@ -315,6 +315,10 @@ final class GichaAnnae {
         f.dateFormat = "yyyyMMdd"; return f
     }()
 
+    /// 2.92.0 말로 하기 「얼마나 걸려」에서 씀 — 맞춘 열차의 내리실 역 도착 예정
+    var dochakYejeong: (String, Date)? { yeolcha.map { ($0.doIreum, $0.doTtae) } }
+    func sigakMalHagi(_ d: Date) -> String { sigakMal(d) }
+
     private func sigakMal(_ d: Date) -> String {
         var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(identifier: "Asia/Seoul")!
         let h = c.component(.hour, from: d), m = c.component(.minute, from: d)

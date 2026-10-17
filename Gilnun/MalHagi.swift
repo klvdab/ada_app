@@ -1608,7 +1608,7 @@ final class MalHagi: ObservableObject {
                 mureumTtae = Date()
                 dap("아직 가시는 곳이 없습니다. \(ho), 어디로 가실까요?", true)
             } else {
-                dap(geollineunMal(), false)
+                geollineunDap(dap)   // 2.92.0
             }
             return true
         }
@@ -2395,6 +2395,32 @@ final class MalHagi: ObservableObject {
     // MARK: 돕는 말
 
     /// 남은 거리와 대략 걸리는 시간(길 막힘은 넣지 못한 셈)
+    /// 2.92.0 (261017-I46, 이사장님 승인 2026-10-17) 「차에 탔어, 집까지 얼마나 걸리겠니」 — 차로 가시면 지금 길 상황(카카오 길찾기, 협회 서버 sigan.php)으로,
+    ///   기차는 맞춘 열차의 도착 예정 시각으로 답함(웹 길눈 2026-09-17에서 옮김). 못 받으면 예전처럼 거리로 어림
+    private func geollineunDap(_ dap: @escaping (String, Bool) -> Void) {
+        guard let y = YeojeongEngine.shared.jigeum, let w = WichiEngine.shared.jigeum else { dap(geollineunMal(), false); return }
+        let t = YeojeongEngine.shared.talgeot
+        if t == .gicha, let dy = GichaAnnae.shared.dochakYejeong {
+            dap("타신 열차는 \(dy.0)에 \(GichaAnnae.shared.sigakMalHagi(dy.1))에 도착할 예정입니다. " + geollineunMal().replacingOccurrences(of: " 길 막힘은 넣지 못한 셈입니다.", with: ""), false)
+            return
+        }
+        guard t == .cha || t == .beoseu || t == .gosokbeoseu || (t == .georeum && WichiEngine.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon) > 3000) else { dap(geollineunMal(), false); return }
+        let q = ["la1": String(format: "%.6f", w.lat), "lo1": String(format: "%.6f", w.lon),
+                 "la2": String(format: "%.6f", y.mokjeok.lat), "lo2": String(format: "%.6f", y.mokjeok.lon)]
+        Task {
+            let o = await Chatgi.json("sigan.php", q)
+            await MainActor.run {
+                guard let o = o, (o["ok"] as? Bool) == true, let sec = Chatgi.su(o["sec"]), let mt = Chatgi.su(o["meter"]) else {
+                    dap(self.geollineunMal(), false); return
+                }
+                let bun = max(1, Int((sec / 60).rounded()))
+                let bunMal = bun < 60 ? "\(bun)분" : (bun % 60 == 0 ? "\(bun / 60)시간" : "\(bun / 60)시간 \(bun % 60)분")
+                let deo = t == .beoseu ? " 버스는 정류장마다 서므로 이보다 더 걸립니다." : ""
+                dap("\(y.mokjeok.ireum)까지 차로 가는 길로 \(Annae.geoMal(mt)), 지금 길 상황으로 약 \(bunMal) 걸립니다.\(deo)", false)
+            }
+        }
+    }
+
     private func geollineunMal() -> String {
         guard let y = YeojeongEngine.shared.jigeum else { return "아직 가시는 곳이 없습니다." }
         guard let w = WichiEngine.shared.jigeum else { return "아직 위치를 잡는 중입니다. 잠시 뒤 다시 물어 주십시오." }

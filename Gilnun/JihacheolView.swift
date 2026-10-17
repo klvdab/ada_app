@@ -6,6 +6,7 @@ struct JihacheolGilView: View {
     @State private var gil: JihaGil?
     @State private var kkadak = ""
     @State private var chatneunJung = true
+    @State private var daeumYeolcha = ""   // 2.92.0 다음 열차
 
     var body: some View {
         ScrollView {
@@ -26,6 +27,9 @@ struct JihacheolGilView: View {
                         GilGil.shared.cheotHwamyeon()
                     }
                     .buttonStyle(KeunDanchu())
+                    // 2.92.0 (261017-I46, 이사장님 승인 2026-10-17) 다음 열차가 몇 분 뒤에 오는지(웹 길눈에서 옮김)
+                    Button(daeumYeolcha.isEmpty ? "다음 열차 알아보기" : "\(daeumYeolcha) 다시 알아보기") { yeolchaBoda(g, malHagi: true) }
+                        .buttonStyle(KeunDanchu())
                 } else {
                     Button("\(kkadak) — 걸어가기로 안내 시작") {
                         AnnaeEngine.shared.georeoGagi(mok)
@@ -50,6 +54,17 @@ struct JihacheolGilView: View {
                 gil = g
                 kkadak = k
                 chatneunJung = false
+                if let g = g { yeolchaBoda(g, malHagi: false) }
+            }
+        }
+    }
+
+    private func yeolchaBoda(_ g: JihaGil, malHagi: Bool) {
+        Task {
+            let m = await JihacheolEngine.daeumYeolchaMal(g)
+            await MainActor.run {
+                daeumYeolcha = m ?? ""
+                if malHagi { SoriEngine.shared.mal(m ?? "지금은 열차 도착 정보를 받지 못했습니다. 서울 지하철만 알려 드릴 수 있습니다.") }
             }
         }
     }
