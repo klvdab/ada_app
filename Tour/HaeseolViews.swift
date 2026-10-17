@@ -1,4 +1,4 @@
-// LVD투어스튜디오 앱 — 현장영상해설 탭 (판 1.1.0, 빌드 261017-T3 — 읽으며 녹음과 되돌아보기, 연습 녹음 듣기. 1.0.0 261012-T1)
+// LVD투어스튜디오 앱 — 현장영상해설 탭 (판 1.2.0, 빌드 261017-T4 — 전체 시간, 협회 승인본 현장영상해설 화면. 1.1.0 261017-T3 — 읽으며 녹음과 되돌아보기, 연습 녹음 듣기. 1.0.0 261012-T1)
 // 현장에서 대본을 지점 차례대로 꺼내 보는 화면. 연습할 때는 폰 목소리로 들을 수 있습니다.
 import SwiftUI
 import AVFoundation
@@ -61,7 +61,13 @@ struct HaeseolTab: View {
                         Button(k.spotFull(x) + ", " + k.spotMinTxt(x) + (x.id == s.id ? " (지금)" : "")) { mok.meomchum(); store.go(x); jjik() }
                     }
                 }
+                Section("전체 시간") {
+                    ForEach(Array(Wonchik.timeSum(k).enumerated()), id: \.offset) { Text($0.element) }
+                }
             } else { KosEopseum() }
+            Section("현장에서 — 협회 승인본") {
+                NavigationLink("협회 승인본으로 현장영상해설 화면 열기 (시간 재기·화면 안 꺼짐·읽어 주기·따라가기)") { FinalsView(hyeonjang: true).dwiro() }
+            }
         }
         .navigationTitle("현장영상해설")
         .onDisappear { mok.meomchum(); Deutgi.shared.meomchum() }
