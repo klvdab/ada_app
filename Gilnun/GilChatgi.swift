@@ -24,6 +24,8 @@ enum GilHwamyeon: Hashable {
     case yudo         // 2.14.0 음성유도기와 승강기
     case munChatgi    // 2.15.0 문 찾기(카메라 눈)
     case chaBureugi   // 2.58.0 차 부르기(복지콜·교통약자 콜·정기 호출)
+    case chajeun      // 2.93.0 요즘 찾으신 곳
+    case gyotong      // 2.93.0 교통편(기차·고속버스·시외버스·여객선)
 }
 
 /// 길 찾기 탭의 길(화면 쌓임) — 목적지를 정하면 첫 화면으로 곧장 돌아가게
@@ -60,6 +62,8 @@ struct GilChatgiTab: View {
                     case .yudo: YudoView()
                     case .munChatgi: MunChatgiView()
                     case .chaBureugi: ChaBureugiView()
+                    case .chajeun: ChajeunView()
+                    case .gyotong: GyotongView()
                     }
                 }
         }
@@ -93,7 +97,11 @@ struct GilChatgiView: View {
     }
     private func chatgi() {
         let q = mal.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces)
-        if !q.isEmpty { pyeonjip = false; GilGil.shared.path.append(GilHwamyeon.gyeolgwa(q)) }
+        guard !q.isEmpty else { return }
+        pyeonjip = false
+        // 2.93.0 (261017-I47, 이사장님 승인 2026-10-17) 자동 입력 — 엔터를 치면 맨 위 후보로(딱 맞는 이름이면 그것, 역·정류장·터미널로 끝나면 적으신 그대로 찾기)
+        if let h = Chajeun.shared.wi(q) { GilGil.shared.path.append(GilHwamyeon.mokjeok(h.j)); return }
+        GilGil.shared.path.append(GilHwamyeon.gyeolgwa(q))
     }
 
     var body: some View {
@@ -153,9 +161,15 @@ struct GilChatgiView: View {
                         .accessibilityFocused($meoriChojeom)
                         .onSubmit { chatgi() }
                         .onChange(of: mal) { v in if v.contains("\n") { chatgi(); mal = mal.replacingOccurrences(of: "\n", with: "") } }
+                    // 2.93.0 (261017-I47, 이사장님 승인 2026-10-17) 자동 입력 — 요즘 찾으신 곳과 즐겨찾기에서 맞는 곳 세 줄까지(웹 길눈 jachu.js에서 옮김)
+                    if !mal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { JachuHubo(mal: mal) }
                     NavigationLink(value: GilHwamyeon.jeulgyeo) { Text("즐겨찾기 — 자주 가는 곳") }
                         .buttonStyle(KeunDanchu())
+                    NavigationLink(value: GilHwamyeon.chajeun) { Text("요즘 찾으신 곳 — 다시 한 번에 가기") }   // 2.93.0
+                        .buttonStyle(KeunDanchu())
                     NavigationLink(value: GilHwamyeon.chaBureugi) { Text("차 부르기 — 복지콜, 교통약자 콜, 정기 호출") }
+                        .buttonStyle(KeunDanchu())
+                    NavigationLink(value: GilHwamyeon.gyotong) { Text("교통편 — 기차, 고속버스, 시외버스, 여객선 시간표") }   // 2.93.0
                         .buttonStyle(KeunDanchu())
                     Button("지금 내 자리 듣기") { AnnaeEngine.shared.jigeumJari() }
                         .buttonStyle(KeunDanchu())
@@ -468,6 +482,24 @@ struct MokjeokView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
+                // 2.93.0 (261017-I47, 이사장님 승인 2026-10-17) 섬이면 육지 교통편을 내놓지 않고 타는 공항·항구를(웹 길눈 seom.js에서 옮김)
+                if let sm = seom {
+                    Text(Seom.malGoreugi(sm, WichiEngine.shared.jigeum)).font(.title3)
+                    ForEach(Array(Seom.taneungot(sm, WichiEngine.shared.jigeum, bihaeng: true).prefix(3).enumerated()), id: \.offset) { e in
+                        NavigationLink(value: GilHwamyeon.mokjeok(Jangso(ireum: e.element.0.ireum, juso: "", lat: e.element.0.lat, lon: e.element.0.lon))) {
+                            Text("비행기로 — \(e.element.0.ireum)" + (e.element.1 > 0 ? ", 여기서 \(Annae.geoMal(e.element.1))" : "") + Seom.ttaeKkori("bihaeng"))
+                        }
+                        .buttonStyle(KeunDanchu())
+                    }
+                    ForEach(Array(Seom.taneungot(sm, WichiEngine.shared.jigeum, bihaeng: false).prefix(3).enumerated()), id: \.offset) { e in
+                        NavigationLink(value: GilHwamyeon.mokjeok(Jangso(ireum: e.element.0.ireum, juso: "", lat: e.element.0.lat, lon: e.element.0.lon))) {
+                            Text("배로 — \(e.element.0.ireum)" + (e.element.1 > 0 ? ", 여기서 \(Annae.geoMal(e.element.1))" : "") + Seom.ttaeKkori("bae"))
+                        }
+                        .buttonStyle(KeunDanchu())
+                    }
+                    NavigationLink(value: GilHwamyeon.gyotong) { Text("교통편 — 여객선 시간표") }
+                        .buttonStyle(KeunDanchu())
+                } else {
                 Button("\(j.ireum)\(geoMal) — 걸어가기, 걷는 안내 시작") {
                     jeul.sseum(j)
                     // 2.10.0 맞는 점지도가 있으면 "점지도로 걸을까요, 위성으로 걸을까요" 한 번 여쭘(점지도를 먼저 권함)
@@ -485,14 +517,30 @@ struct MokjeokView: View {
                 .buttonStyle(KeunDanchu())
                 if !gichaMok { gichaDanchu }
                 if !baeMok { baeDanchu }
-                NavigationLink(value: GilHwamyeon.jiha(j)) {
-                    Text("지하철로 가기 — 가까운 역, 갈아타기, 나갈 출구를 찾아 드립니다")
+                // 2.93.0 지하철이 다니는 고장에서만(웹 길눈 seom.js 2026-09-08), 지금 시각에 끊겼을 만하면 그렇다고
+                if jicheolGojang {
+                    NavigationLink(value: GilHwamyeon.jiha(j)) {
+                        Text("지하철로 가기 — 가까운 역, 갈아타기, 나갈 출구를 찾아 드립니다" + Seom.ttaeKkori("jicheol"))
+                    }
+                    .buttonStyle(KeunDanchu())
                 }
-                .buttonStyle(KeunDanchu())
                 NavigationLink(value: GilHwamyeon.beoseu(j)) {
-                    Text("버스로 가기 — 가까운 정류장과 오는 버스")
+                    Text("버스로 가기 — 가까운 정류장과 오는 버스" + Seom.ttaeKkori("beoseu"))
                 }
                 .buttonStyle(KeunDanchu())
+                if meon { NavigationLink(value: GilHwamyeon.gyotong) { Text("교통편 — 기차, 고속버스, 시외버스, 여객선 시간표") }.buttonStyle(KeunDanchu()) }
+                }
+                // 2.93.0 목적지가 공항·항구면 「타기 전에 챙길 것」
+                if let jong = Seom.taneungosinga(j.ireum) {
+                    DisclosureGroup("타기 전에 챙길 것 펼치기") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(Seom.chaenggim[jong] ?? [], id: \.self) { t in Text(t).font(.title3) }
+                            if j.ireum.contains("인천") && jong == "bihaenggi" { Text(Seom.incheonAnsim).font(.title3) }
+                            if jong == "bae" { Button(baram.isEmpty ? "그곳 바람 알아보기" : baram) { baramBoda() }.buttonStyle(KeunDanchu()) }
+                        }
+                    }
+                    .font(.title3)
+                }
                 if damam || jeul.itna(j) {
                     Text("즐겨찾기에 담겨 있습니다.").font(.title3)
                 } else {
@@ -513,6 +561,31 @@ struct MokjeokView: View {
     private var geoMal: String {
         guard let w = WichiEngine.shared.jigeum else { return "" }
         return ", 여기서 " + Annae.geoMal(WichiEngine.geori(w.lat, w.lon, j.lat, j.lon))
+    }
+
+    // MARK: 2.93.0 (261017-I47) 섬·지하철 고장·먼 곳·바람
+    @State private var baram = ""
+    /// 목적지가 섬이고 아직 그 섬 밖에 계시면
+    private var seom: SeomJeongbo? {
+        guard let s = Seom.chatgi(j), !Seom.anIn(s, WichiEngine.shared.jigeum) else { return nil }
+        return s
+    }
+    /// 지금 자리나 목적지가 지하철이 다니는 고장이면(자리를 모르면 목적지로)
+    private var jicheolGojang: Bool {
+        if Seom.jicheolItna(j.lat, j.lon) { return true }
+        guard let w = WichiEngine.shared.jigeum else { return false }
+        return Seom.jicheolItna(w.lat, w.lon)
+    }
+    /// 25킬로미터 넘게 먼 곳이면 교통편을 함께
+    private var meon: Bool {
+        guard let w = WichiEngine.shared.jigeum else { return false }
+        return WichiEngine.geori(w.lat, w.lon, j.lat, j.lon) > 25_000
+    }
+    private func baramBoda() {
+        Task {
+            let m = await Seom.baramMal(j.lat, j.lon)
+            await MainActor.run { baram = m ?? "바람을 알아보지 못했습니다."; SoriEngine.shared.mal(baram) }
+        }
     }
 
     // MARK: 2.90.0 (261017-I44, 이사장님 승인 2026-10-17) 기차로 가기·배로 가기 — 부산역을 목적지로 정하고 기차가 없어 차로 가기를 누르셔야 했던 일

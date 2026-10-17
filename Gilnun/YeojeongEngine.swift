@@ -172,6 +172,7 @@ final class YeojeongEngine: ObservableObject {
             DispatchQueue.main.async { self.jikimSinho.send((jt, "\(jt.ireum) 안에서 목적지를 바꾸심")) }
         }
         Girok.shared.namgi("yeojeong_sijak", ["mok": m.ireum])
+        Chajeun.shared.damgi(m)   // 2.93.0 요즘 찾으신 곳
         // 2.92.0 (261017-I46, 이사장님 승인 2026-10-17) 예상 도착 시간을 셈할 곧은 거리를 적어 두고,
         //   가는 길 둘레의 길 자료를 서버가 미리 받아 두게 함(웹 길눈 miribada.php — 걷는 도중 사거리 안내를 기다리지 않게)
         jinanMureum = false; dochakMureum = false
