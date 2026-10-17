@@ -67,50 +67,58 @@ sealed class Hw {
     object Seoljeong : Hw(); data class Doum(val i: Int) : Hw(); object Bakkwin : Hw()
     data class Sajin(val spotId: String, val idx: Int) : Hw(); data class Memos(val spotId: String) : Hw()
     object PanDoerigi : Hw(); object Hyujitong : Hw()
+    // 1.2.0
+    object Naebo : Hw(); object Jisik : Hw(); object Urijaryo : Hw(); object Dict : Hw(); object SurveyMap : Hw()
+    data class Finals(val hj: Boolean) : Hw(); data class Hyeonjang(val entry: String) : Hw()
+    data class Compare(val owner: String, val cid: String, val a: Int, val b: Int) : Hw()
+    object Diag : Hw(); object Gineung : Hw(); object Pw : Hw(); object AsPick : Hw()
+    object Signups : Hw(); object Users : Hw(); object Reviews : Hw(); object Classes : Hw(); data class ClassOne(val id: String) : Hw()
+    object Board : Hw(); object Grade : Hw(); object Claude : Hw(); object Jeoljeoro : Hw()
 }
 
 class TourActivity : Activity() {
     companion object {
-        const val PAN = "1.1.0"; const val BILDEU = "261017-T3"
+        const val PAN = "1.2.0"; const val BILDEU = "261017-T4"
         const val PAN_IREUM = "LVD투어스튜디오 ${PAN}판 (빌드 ${BILDEU})"
-        const val SAJIN = 71; const val HEORAK_KAMERA = 72; const val HEORAK_JARI = 73; const val HEORAK_MIC = 74
+        const val SAJIN = 71; const val HEORAK_KAMERA = 72; const val HEORAK_JARI = 73; const val HEORAK_MIC = 74; const val SAJIN_GAJYEO = 75
         val BUNYA = listOf("", "문화유산 분야", "박물관·전시 분야", "자연·경관 분야", "공연·행사 분야", "스포츠 관람 분야", "교육·체험 분야", "실시간 퍼포먼스 분야", "테마투어 분야")
         val JIYEOK = listOf("", "서울", "경기", "인천", "부산", "대구", "광주", "대전", "강원", "충청", "전라", "경상", "제주")
         val NE = listOf("12시 방향", "3시 방향", "6시 방향", "9시 방향")
         val BANGHYANG = listOf("12시 방향") + (1..11).map { "${it}시 방향" }
     }
-    private val main = Handler(Looper.getMainLooper())
-    private val pool = Executors.newFixedThreadPool(3)
-    private val stacks = arrayOf(mutableListOf<Hw>(Hw.Kos), mutableListOf<Hw>(Hw.Dapsa), mutableListOf<Hw>(Hw.Jijeom), mutableListOf<Hw>(Hw.Haeseol), mutableListOf<Hw>(Hw.Seoljeong))
-    private var tab = 0
-    private lateinit var scroll: ScrollView
-    private lateinit var body: LinearLayout
-    private lateinit var tabbar: LinearLayout
+    internal val main = Handler(Looper.getMainLooper())
+    internal val pool = Executors.newFixedThreadPool(3)
+    internal val stacks = arrayOf(mutableListOf<Hw>(Hw.Kos), mutableListOf<Hw>(Hw.Dapsa), mutableListOf<Hw>(Hw.Jijeom), mutableListOf<Hw>(Hw.Haeseol), mutableListOf<Hw>(Hw.Seoljeong))
+    internal var tab = 0
+    internal lateinit var scroll: ScrollView
+    internal lateinit var body: LinearLayout
+    internal lateinit var tabbar: LinearLayout
 
     // ── 앱 살림 ──
-    private var me: JSONObject? = null
-    private var sijakham = false
-    private var courses = listOf<JSONObject>()
-    private var kos: Kos? = null
-    private var curId = "sOpen"
-    private var base = ""
-    private var lastSaved = ""
-    private var saving = false; private var saveAgain = false
-    private var saveMark = ""
-    private var allim = ""
-    private val jang = HashMap<String, Int>()   // 목록마다 지금 쪽
-    private var tts: TextToSpeech? = null; private var ttsOk = false
-    private var sajinBang = "12시 방향"; private var sajinFile: File? = null
-    private val saveRun = Runnable { save(true) }
+    internal var me: JSONObject? = null
+    internal var sijakham = false
+    internal var courses = listOf<JSONObject>()
+    internal var kos: Kos? = null
+    internal var curId = "sOpen"
+    internal var base = ""
+    internal var lastSaved = ""
+    internal var saving = false; internal var saveAgain = false
+    internal var saveMark = ""
+    internal var allim = ""
+    internal val jang = HashMap<String, Int>()   // 목록마다 지금 쪽
+    internal var tts: TextToSpeech? = null; internal var ttsOk = false
+    internal var sajinBang = "12시 방향"; internal var sajinFile: File? = null
+    internal val saveRun = Runnable { save(true) }
     // 1.1.0
-    private var lastShot: Pair<String, Int>? = null      // 방금 찍은 사진(지점 번호, 몇째)
-    private var memoKan = "access"
-    private var memoGeul = ""
-    private var micGidarim: (() -> Unit)? = null
-    private var player: MediaPlayer? = null; private var deunneun = ""
-    private var panMok: List<JSONObject>? = null; private var hyujiMok: List<JSONObject>? = null
-    private val sp get() = getSharedPreferences("tour", MODE_PRIVATE)
-    private val malsori get() = sp.getBoolean("malsori", true)
+    internal var lastShot: Pair<String, Int>? = null      // 방금 찍은 사진(지점 번호, 몇째)
+    internal var memoKan = "access"
+    internal var memoGeul = ""
+    internal var micGidarim: (() -> Unit)? = null
+    internal var player: MediaPlayer? = null; internal var deunneun = ""
+    internal var panMok: List<JSONObject>? = null; internal var hyujiMok: List<JSONObject>? = null
+    internal val sp get() = getSharedPreferences("tour", MODE_PRIVATE)
+    internal val malsori get() = sp.getBoolean("malsori", true)
+    internal val s12 = S120()
 
     override fun onCreate(s: Bundle?) {
         super.onCreate(s)
@@ -135,13 +143,14 @@ class TourActivity : Activity() {
             val j = Api.call("me")
             main.post {
                 when {
-                    Api.ok(j) -> { me = j.optJSONObject("me") ?: JSONObject(); loadCourses() }
+                    Api.ok(j) -> { me = j.optJSONObject("me") ?: JSONObject(); loadCourses(); allimSalpigi(true) }
                     j.optBoolean("offline", false) -> me = JSONObject().put("name", sp.getString("meName", "") ?: "")
                     else -> Api.token = ""
                 }
                 sijakham = true; draw()
             }
         }
+        pingSijak()
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 44)
     }
@@ -160,15 +169,15 @@ class TourActivity : Activity() {
         }
     }
 
-    private fun cur() = stacks[tab].last()
-    private fun go(h: Hw) { stacks[tab].add(h); draw() }
-    private fun dp(v: Int) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics).toInt()
-    private fun malhagi(s: String) { allim = s; if (malsori) scroll.announceForAccessibility(s) }
-    private fun spot(): Spot? = kos?.spot(curId)
+    internal fun cur() = stacks[tab].last()
+    internal fun go(h: Hw) { stacks[tab].add(h); draw() }
+    internal fun dp(v: Int) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics).toInt()
+    internal fun malhagi(s: String) { allim = s; if (malsori) scroll.announceForAccessibility(s) }
+    internal fun spot(): Spot? = kos?.spot(curId)
 
     // ── 그리기 부품 ──
-    private fun kadeuBg(): GradientDrawable = GradientDrawable().apply { cornerRadius = dp(14).toFloat(); setColor(Saek.kadeu(this@TourActivity)) }
-    private fun danchu(ireum: String, keun: Boolean = false, onClick: () -> Unit): Button {
+    internal fun kadeuBg(): GradientDrawable = GradientDrawable().apply { cornerRadius = dp(14).toFloat(); setColor(Saek.kadeu(this@TourActivity)) }
+    internal fun danchu(ireum: String, keun: Boolean = false, onClick: () -> Unit): Button {
         val b = Button(this).apply {
             text = ireum; isAllCaps = false; gravity = Gravity.START or Gravity.CENTER_VERTICAL
             setTextSize(TypedValue.COMPLEX_UNIT_SP, if (keun) 18f else 16f)
@@ -179,7 +188,7 @@ class TourActivity : Activity() {
         }
         body.addView(b, lp(6)); return b
     }
-    private fun geul(t: String, jemok: Boolean = false, jakge: Boolean = false): TextView {
+    internal fun geul(t: String, jemok: Boolean = false, jakge: Boolean = false): TextView {
         val v = TextView(this).apply {
             text = t; setTextColor(if (jemok) Saek.ganjo(this@TourActivity) else if (jakge) Saek.buGeulja(this@TourActivity) else Saek.geulja(this@TourActivity))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, if (jemok) 20f else if (jakge) 14f else 16f)
@@ -187,10 +196,10 @@ class TourActivity : Activity() {
         }
         body.addView(v, lp(8)); return v
     }
-    private fun lp(top: Int) = LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(top) }
-    private fun cheotJul(v: View?) { v ?: return; v.postDelayed({ v.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null) }, 400) }
+    internal fun lp(top: Int) = LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(top) }
+    internal fun cheotJul(v: View?) { v ?: return; v.postDelayed({ v.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null) }, 400) }
     /** 이름표가 붙은 글 칸 — 고치면 바로 자료에 넣고 2초 뒤 저장 */
-    private fun kan(ireum: String, gap: String, yeoreo: Boolean = true, susja: Boolean = false, neoki: (String) -> Unit): EditText {
+    internal fun kan(ireum: String, gap: String, yeoreo: Boolean = true, susja: Boolean = false, neoki: (String) -> Unit): EditText {
         geul(ireum, jakge = true).importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         val e = EditText(this).apply {
             setText(gap); contentDescription = null; hint = ireum
@@ -211,7 +220,7 @@ class TourActivity : Activity() {
         body.addView(e, lp(4)); return e
     }
     /** 다섯 줄씩 — 더 보기·이전 보기, 넘기면 커서는 첫 줄 */
-    private fun <T> jangMok(key: String, items: List<T>, per: Int = 5, row: (T) -> View) {
+    internal fun <T> jangMok(key: String, items: List<T>, per: Int = 5, row: (T) -> View) {
         val n = maxOf(1, (items.size + per - 1) / per)
         val p = minOf(jang[key] ?: 0, n - 1)
         var cheot: View? = null
@@ -220,10 +229,10 @@ class TourActivity : Activity() {
         if (p > 0) danchu("이전 보기 (앞의 ${seum(per)})") { jang[key] = p - 1; draw(); cheotJul(jangCheotJari[key]) }
         jangCheotJari[key] = cheot
     }
-    private val jangCheotJari = HashMap<String, View?>()
-    private fun seum(k: Int) = when (k) { 4 -> "넷"; 5 -> "다섯"; else -> "${k}개" }
+    internal val jangCheotJari = HashMap<String, View?>()
+    internal fun seum(k: Int) = when (k) { 4 -> "넷"; 5 -> "다섯"; else -> "${k}개" }
 
-    private fun tabs() {
+    internal fun tabs() {
         tabbar.removeAllViews()
         listOf("코스", "답사", "지점", "현장영상해설", "설정").forEachIndexed { k, n ->
             val b = Button(this).apply {
@@ -237,20 +246,24 @@ class TourActivity : Activity() {
     }
 
     // ── 화면 ──
-    private fun draw() {
-        if (cur() !is Hw.Haeseol) tts?.stop()
+    internal fun draw() {
+        if (cur() !is Hw.Haeseol && cur() !is Hw.Hyeonjang && cur() !is Hw.Naebo) tts?.stop()
+        if (cur() !is Hw.Jeoljeoro && s12.cam != null) kameraDatgi()
+        if (cur() !is Hw.Hyeonjang && s12.hjKey.isNotEmpty()) { hjDatgi(); s12.hjKey = "" }
+        if (cur() !is Hw.Dapsa && cur() !is Hw.Jeoljeoro && s12.offLm != null) offMeom()
         body.removeAllViews(); tabs(); jangCheotJari.clear()
         if (me == null || Api.token.isEmpty()) {
             tabbar.visibility = View.GONE
-            if (!sijakham) geul("들어오는 중입니다.") else login()
+            if (!sijakham) geul("들어오는 중입니다.") else if (s12.sinCheong) sinCheongHwamyeon() else login()
             return
         }
+        if (me?.optBoolean("mustChange") == true) { tabbar.visibility = View.GONE; meori(); pwHwamyeon(true); return }
         tabbar.visibility = View.VISIBLE
         if (stacks[tab].size > 1) danchu("뒤로") { onBackPressed() }
         when (val h = cur()) {
             Hw.Kos -> kosHwamyeon()
             Hw.KosJeongbo -> kosJeongbo()
-            Hw.Jeomgeom -> jeomgeom()
+            Hw.Jeomgeom -> wonchik16()
             Hw.Dapsa -> dapsa()
             Hw.Jijeom -> jijeom()
             is Hw.Spot -> spotHwamyeon(h.id)
@@ -262,10 +275,11 @@ class TourActivity : Activity() {
             is Hw.Memos -> memoHwamyeon(h.spotId)
             Hw.PanDoerigi -> panDoerigi()
             Hw.Hyujitong -> hyujitong()
+            else -> sae120(h)
         }
     }
 
-    private fun meori() {
+    internal fun meori() {
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(14), dp(14), dp(14), dp(14))
@@ -282,17 +296,17 @@ class TourActivity : Activity() {
         box.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         body.addView(box, lp(0))
     }
-    private fun allimJul() { if (allim.isNotEmpty()) geul(allim, jakge = true) }
-    private fun gyeonggye() { geul(RULE_TXT).apply { setTypeface(typeface, Typeface.BOLD); setTextColor(Saek.ganjo(this@TourActivity)) } }
-    private fun kosEopseum() {
+    internal fun allimJul() { if (allim.isNotEmpty()) geul(allim, jakge = true) }
+    internal fun gyeonggye() { geul(RULE_TXT).apply { setTypeface(typeface, Typeface.BOLD); setTextColor(Saek.ganjo(this@TourActivity)) } }
+    internal fun kosEopseum() {
         geul("아직 연 코스가 없습니다. 코스 탭에서 코스를 열어 주십시오.")
         danchu("코스 탭으로 가기") { tab = 0; draw() }
     }
 
     // ── 들어오기 ──
-    private fun login() {
+    internal fun login() {
         meori()
-        geul("웹 투어스튜디오와 같은 아이디와 비밀번호로 들어오십시오. 아이디가 없으시면 웹 투어스튜디오에서 가입을 신청해 주십시오.")
+        geul("웹 투어스튜디오와 같은 아이디와 비밀번호로 들어오십시오. 아이디가 없으시면 아래 가입 신청을 눌러 주십시오.")
         val id = EditText(this).apply { hint = "아이디"; inputType = InputType.TYPE_CLASS_TEXT; background = kadeuBg(); setPadding(dp(14), dp(12), dp(14), dp(12)) }
         val pw = EditText(this).apply { hint = "비밀번호"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD; background = kadeuBg(); setPadding(dp(14), dp(12), dp(14), dp(12)) }
         body.addView(id, lp(8)); body.addView(pw, lp(6))
@@ -309,25 +323,25 @@ class TourActivity : Activity() {
                         Api.token = j.geul("token")
                         me = j.optJSONObject("me") ?: JSONObject().put("id", i).put("name", j.geul("name")).put("role", j.geul("role"))
                         sp.edit().putString("meName", me?.geul("name") ?: "").apply()
-                        draw(); loadCourses()
+                        draw(); loadCourses(); allimSalpigi(true)
                     } else { mal.text = Api.err(j); cheotJul(mal) }
                 }
             }
         }
         body.addView(mal, lp(8))
-        danchu("웹 투어스튜디오 열기 (가입 신청)") { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://lvd.ada.or.kr/lvdts/lvdts.html"))) }
+        danchu("가입 신청") { s12.sinCheong = true; draw() }
         geul(PAN_IREUM, jakge = true)
     }
-    private fun naga(m: String) {
+    internal fun naga(m: String) {
         val tk = Api.token
         if (tk.isNotEmpty()) pool.execute { Api.call("logout", tk = tk) }
-        Api.token = ""; me = null; kos = null; courses = listOf()
+        Api.token = ""; Api.asWho = ""; s12.asWhoName = ""; me = null; kos = null; courses = listOf()
         for (st in stacks) while (st.size > 1) st.removeAt(st.size - 1)
         tab = 0; malhagi(m); draw()
     }
 
     // ── 코스 ──
-    private fun loadCourses(kkeut: (() -> Unit)? = null) {
+    internal fun loadCourses(kkeut: (() -> Unit)? = null) {
         pool.execute {
             val j = Api.call("list_courses")
             main.post {
@@ -337,7 +351,7 @@ class TourActivity : Activity() {
             }
         }
     }
-    private fun openKos(id: String, kkeut: ((Boolean) -> Unit)? = null) {
+    internal fun openKos(id: String, kkeut: ((Boolean) -> Unit)? = null) {
         pool.execute {
             val j = Api.call("get_course", JSONObject().put("id", id))
             main.post {
@@ -360,7 +374,7 @@ class TourActivity : Activity() {
     }
     private fun setKos(k: Kos) { kos = k; curId = "sOpen"; jang.clear(); lastShot = null }
 
-    private fun kosHwamyeon() {
+    internal fun kosHwamyeon() {
         meori()
         Ollim.julMal(this)?.let { m -> danchu(m, keun = true) { Ollim.olligi(this) } }
         allimJul()
@@ -376,22 +390,9 @@ class TourActivity : Activity() {
                 }
             }
             danchu("코스 정보 (이름·장소·집합 장소·비 올 때)") { go(Hw.KosJeongbo) }
-            danchu("원칙 16개 점검 (작성원칙 통합본)") { go(Hw.Jeomgeom) }
             danchu("지점 탭으로 가기") { tab = 2; draw() }
-            if (!k.isGyobon) {
-                geul("협회 승인 요청", jemok = true)
-                val msg = EditText(this).apply { hint = "승인 요청에 붙일 말 (없어도 됩니다)"; background = kadeuBg(); setPadding(dp(14), dp(12), dp(14), dp(12)) }
-                body.addView(msg, lp(4))
-                danchu("협회 승인 요청 보내기") {
-                    save(true)
-                    val m = msg.text.toString()
-                    pool.execute {
-                        val j = Api.call("submit_final", JSONObject().put("c", k.id).put("msg", m))
-                        main.post { if (Api.ok(j)) { msg.setText(""); malhagi("협회 승인 요청을 보냈습니다. 승인되면 코스 목록에 표시됩니다.") } else malhagi(Api.err(j)); draw() }
-                    }
-                }
-                kosGwanri(k)
-            }
+            kosTab120(k)
+            if (!k.isGyobon) kosGwanri(k)
         }
         geul("코스 목록 (${courses.size}개)", jemok = true)
         if (courses.isEmpty()) geul("코스가 없거나 불러오는 중입니다. 아래에서 새 코스를 만드실 수 있습니다.")
@@ -401,7 +402,7 @@ class TourActivity : Activity() {
             c.geul("place").let { if (it.isNotEmpty()) t += ", $it" }
             c.su("spots")?.let { t += ", 지점 ${it.toInt()}곳" }
             c.su("total")?.let { if (it > 0) t += ", " + fmtMin(it) }
-            c.geul("final").let { if (it.isNotEmpty()) t += ", 승인 $it" }
+            Wonchik.finalBadge(c.optJSONObject("final")).let { if (it.isNotEmpty()) t += ", $it" }
             if (kos?.id == id) t += " (열려 있음)"
             danchu(t) { openKos(id) { ok -> if (ok) malhagi(c.geul("name") + " 코스를 열었습니다. 지점 ${kos?.spots?.size ?: 0}곳입니다.") } }
         }
@@ -421,11 +422,13 @@ class TourActivity : Activity() {
                 }
             }
         }
+        ssiatSection()
         geul("휴지통", jemok = true)
         danchu("휴지통 — 지운 코스 되살리기") { hyujiMok = null; jang.remove("hj"); go(Hw.Hyujitong) }
+        gwanriSection()
     }
 
-    private fun kosJeongbo() {
+    internal fun kosJeongbo() {
         val k = kos ?: return kosEopseum()
         geul("코스 정보", jemok = true)
         val ro = k.isGyobon
@@ -444,9 +447,10 @@ class TourActivity : Activity() {
         kk("first", "1번 · 첫 만남 인사말"); kk("history", "3번 · 장소 소개 — 역사"); kk("access", "3번 · 장소 소개 — 위치와 찾아오는 길")
         kk("scale", "3번 · 장소 소개 — 규모와 형태"); kk("points", "3번 · 장소 소개 — 전체 포인트")
         kk("tactile", "5번 · 촉각지도·손바닥 지도 안내"); kk("safety", "6번 · 출발 전 안전 고지"); kk("refs", "16번 · 참고문헌")
+        pyeongmyeon(k)
     }
 
-    private fun jeomgeom() {
+    internal fun jeomgeom() {
         val k = kos ?: return kosEopseum()
         val L = Jeomgeom.lines(k)
         geul("원칙 16개 점검", jemok = true)
@@ -455,7 +459,7 @@ class TourActivity : Activity() {
     }
 
     // ── 지점 ──
-    private fun jijeom() {
+    internal fun jijeom() {
         gyeonggye(); allimJul()
         val k = kos ?: return kosEopseum()
         geul("지점 목록 — " + k.name + ", 모두 " + fmtMin(k.courseMin()), jemok = true)
@@ -474,9 +478,10 @@ class TourActivity : Activity() {
                 malhagi(k.spotFull(s) + "을 넣었습니다. 지점은 모두 ${k.spots.size}곳입니다."); bakkwim(); draw()
             }
         }
+        walkSection(k)
     }
 
-    private fun spotHwamyeon(id: String) {
+    internal fun spotHwamyeon(id: String) {
         val k = kos ?: return kosEopseum()
         val s = k.spot(id) ?: return kosEopseum()
         curId = s.id
@@ -502,19 +507,14 @@ class TourActivity : Activity() {
         kan("현장영상해설사 위치·현장영상해설 순서 (8번)", s.s("gpos")) { s.d.put("gpos", it) }.isEnabled = !ro
         geul(if (s.kind == "open") "오프닝 지점 대본" else if (s.kind == "close") "클로징 지점 대본" else "이 지점 현장영상해설 글 (대본)", jemok = true)
         var fb: TextView? = null
-        val daebon = kan("대본", k.spotText(s)) { k.setSpotText(s, it); fb?.text = "${it.count { c -> !c.isWhitespace() }}자, 읽는 데 ${k.readSec(it)}초쯤" }
+        fun fbMal(t: String) = Wonchik.textFb(k, t, if (s.kind.isEmpty()) (s.n("stay") ?: 0.0) else 0.0, s.kind.isEmpty())
+        val daebon = kan("대본", k.spotText(s)) { k.setSpotText(s, it); fb?.text = fbMal(it) }
         daebon.minLines = 6; daebon.isEnabled = !ro
-        val t = k.spotText(s)
-        fb = geul("${t.count { !it.isWhitespace() }}자, 읽는 데 ${k.readSec(t)}초쯤", jakge = true)
+        fb = geul(fbMal(k.spotText(s)), jakge = true)
         if (!ro) {
-            geul("방향 도우미 (대본 끝에 붙습니다)", jemok = true)
-            jangMok("bh", BANGHYANG, per = 4) { w ->
-                danchu("$w 붙이기") {
-                    val x = k.spotText(s); val y = x + (if (x.isEmpty() || x.endsWith(" ")) "" else " ") + w
-                    daebon.setText(y); daebon.setSelection(y.length); malhagi("${w}을 붙였습니다.")
-                }
-            }
+            dirSection(k, s, daebon)
         }
+        if (s.kind.isEmpty() && (Wonchik.isTheme(k) || s.d.optJSONObject("tt") != null)) ttSection(s, ro)
         geul("사진 ${s.shots.length()}장", jemok = true)
         if (s.shots.length() == 0) geul("아직 사진이 없습니다. 답사 탭에서 찍으십시오.")
         val shots = (0 until s.shots.length()).mapNotNull { s.shots.optJSONObject(it) }
@@ -540,13 +540,13 @@ class TourActivity : Activity() {
         }
         t0.tag = "meori"
     }
-    private fun olgim(id: String) {
+    internal fun olgim(id: String) {
         save(true)
         val st = stacks[tab]; st[st.size - 1] = Hw.Spot(id); curId = id; jang.remove("sj"); jang.remove("bh")
         kos?.let { k -> k.spot(id)?.let { malhagi(k.spotFull(it) + "입니다.") } }
         draw(); scroll.scrollTo(0, 0); cheotJul(body.findViewWithTag<View>("meori"))
     }
-    private fun sajinJul(kosId: String, beon: Int, o: JSONObject): View {
+    internal fun sajinJul(kosId: String, beon: Int, o: JSONObject): View {
         val f = o.geul("f"); val dir = o.geul("dir")
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(12), dp(8), dp(12), dp(8)); background = kadeuBg()
@@ -567,7 +567,7 @@ class TourActivity : Activity() {
     }
 
     // ── 답사 ──
-    private fun dapsa() {
+    internal fun dapsa() {
         gyeonggye(); allimJul()
         val k = kos ?: return kosEopseum()
         val s = spot() ?: return kosEopseum()
@@ -590,6 +590,7 @@ class TourActivity : Activity() {
             val nameun = NE.filter { !jjigeun.contains(it) }
             geul(if (nameun.isEmpty()) "네 방향을 다 담았습니다. 다음 지점으로 옮기셔도 됩니다." else "아직 담지 않은 방향: " + nameun.joinToString(", "))
             bangeumSajin(k)
+            kamera120(k)
             geul("담긴 사진 보기 — ${s.shots.length()}장 (두드리면 크게 보기·지우기·다시 찍기)", jemok = true)
             val shots = (0 until s.shots.length()).mapNotNull { s.shots.optJSONObject(it) }
             jangMok("dsj", shots.withIndex().toList()) { (i, o) -> sajinJul(k.id, i + 1, o).apply { setOnClickListener { go(Hw.Sajin(s.id, i)) } } }
@@ -599,9 +600,9 @@ class TourActivity : Activity() {
         k.spotPrev(s)?.let { p -> danchu("앞 지점 — " + k.spotFull(p)) { curId = p.id; draw(); cheotJul(body.findViewWithTag<View>("meori")) } }
         k.spotNext(s)?.let { n -> danchu("다음 지점 보기 — " + k.spotFull(n) + " (경계는 적지 않음)") { curId = n.id; draw(); cheotJul(body.findViewWithTag<View>("meori")) } }
     }
-    private fun nowIso(): String = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }.format(Date())
-    private fun r6(x: Double) = Math.round(x * 1e6) / 1e6
-    private fun boundGo() {
+    internal fun nowIso(): String = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }.format(Date())
+    internal fun r6(x: Double) = Math.round(x * 1e6) / 1e6
+    internal fun boundGo() {
         val k = kos ?: return; val c = spot() ?: return
         val nx = k.spotNext(c) ?: run { malhagi("클로징 지점이 마지막입니다. 클로징 지점의 어디까지 칸에 해산하는 자리를 적어 주십시오."); return }
         markBound(c, nx); curId = nx.id
@@ -610,7 +611,7 @@ class TourActivity : Activity() {
             (if (nx.kind == "close") " 해산하는 자리에서 클로징을 마치십시오." else " 정지 현장영상해설 자리에 서시면 사진 찍기를 누르십시오."))
         bakkwim(); draw(); cheotJul(body.findViewWithTag<View>("meori"))
     }
-    private fun addHere(name: String) {
+    internal fun addHere(name: String) {
         val k = kos ?: return
         val s = k.addSpot(spot(), name); val pv = k.spotPrev(s)
         markBound(pv, s); k.syncMove(); curId = s.id
@@ -618,16 +619,16 @@ class TourActivity : Activity() {
             (if (name.isEmpty()) " 이름은 지점 탭에서 적으십시오." else ""))
         bakkwim(); draw(); cheotJul(body.findViewWithTag<View>("meori"))
     }
-    private fun markBound(p: Spot?, q: Spot?) {
+    internal fun markBound(p: Spot?, q: Spot?) {
         val at = nowIso()
         p?.d?.put("endAt", at); q?.d?.put("startAt", at)
         jari { l -> if (l != null) { val pos = JSONObject().put("lat", r6(l.latitude)).put("lng", r6(l.longitude)).put("at", at); p?.d?.put("endPos", pos); q?.d?.put("startPos", JSONObject(pos.toString())); bakkwim() } }
     }
 
     // ── 자리(위치) ──
-    private var jariGidarim: ((Location?) -> Unit)? = null
+    internal var jariGidarim: ((Location?) -> Unit)? = null
     @Suppress("DEPRECATION")
-    private fun jari(kkeut: (Location?) -> Unit) {
+    internal fun jari(kkeut: (Location?) -> Unit) {
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             jariGidarim = kkeut; requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), HEORAK_JARI); return
         }
@@ -641,7 +642,7 @@ class TourActivity : Activity() {
             main.postDelayed({ han(try { lm.getLastKnownLocation(pr) } catch (e: SecurityException) { null }) }, 12000)
         } catch (e: SecurityException) { han(null) } catch (e: Exception) { han(null) }
     }
-    private fun spotPosHere(s: Spot, l: Location?) {
+    internal fun spotPosHere(s: Spot, l: Location?) {
         val k = kos ?: return
         if (l == null || s.lat != null) return
         s.d.put("lat", r6(l.latitude)).put("lng", r6(l.longitude))
@@ -654,7 +655,7 @@ class TourActivity : Activity() {
     }
 
     // ── 사진 ──
-    private fun kamera(b: String) {
+    internal fun kamera(b: String) {
         sajinBang = b
         if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) { requestPermissions(arrayOf(Manifest.permission.CAMERA), HEORAK_KAMERA); return }
         try {
@@ -678,47 +679,19 @@ class TourActivity : Activity() {
     @Deprecated("사진 받기")
     override fun onActivityResult(rq: Int, rs: Int, data: Intent?) {
         super.onActivityResult(rq, rs, data)
+        if (rq == SAJIN_GAJYEO) { if (rs == RESULT_OK) sajinGajyeoBatgi(data) else malhagi("사진을 고르지 않았습니다."); return }
         if (rq != SAJIN) return
         val f = sajinFile
         if (rs != RESULT_OK || f == null || !f.exists() || f.length() < 1000) { malhagi("사진을 찍지 않았습니다."); return }
-        val k = kos ?: return; val s = spot() ?: return
+        if (kos == null || spot() == null) return
         val dir = sajinBang
-        malhagi("사진을 올립니다.")
-        jari { l ->
-            spotPosHere(s, l)
-            pool.execute {
-                val jpg = jureugi(f)
-                if (jpg == null) { main.post { malhagi("사진을 읽지 못했습니다.") }; return@execute }
-                val j = Api.call("save_photo", JSONObject().put("c", k.id).put("s", s.id).put("ext", "jpg").put("data", Base64.encodeToString(jpg.first, Base64.NO_WRAP)), timeoutMs = 90000)
-                main.post {
-                    if (Api.ok(j)) {
-                        val shot = JSONObject().put("f", j.geul("file")).put("dir", dir).put("garo", jpg.second).put("sero", jpg.third).put("at", nowIso()).put("zoom", 1).put("app", "android")
-                        val la = s.lat; val lo = s.lng
-                        if (la != null && lo != null) shot.put("lat", la).put("lng", lo) else shot.put("lat", JSONObject.NULL).put("lng", JSONObject.NULL)
-                        s.shots.put(shot); lastShot = s.id to (s.shots.length() - 1)
-                        val jjigeun = (0 until s.shots.length()).map { s.shots.optJSONObject(it)?.geul("dir") ?: "" }.toSet()
-                        val i = NE.indexOf(dir)
-                        val da = (NE.drop(i + 1) + NE.take(maxOf(0, i))).firstOrNull { !jjigeun.contains(it) }
-                        if (da != null) sajinBang = da
-                        malhagi(k.spotLab(s) + " 사진 ${s.shots.length()}번째, $dir 올렸습니다." + if (da != null) " 몸을 시계 방향으로 돌리신 뒤 찍으십시오. 다음은 ${da}입니다." else " 네 방향을 다 담았습니다.")
-                        bakkwim(); draw()
-                    } else {
-                        // 못 올린 사진은 폰에 남겨 두고, 코스에는 「아직 못 올림」으로 적어 둠(웹 qref 와 같음)
-                        val ref = Daegi.saeRef("photo")
-                        Daegi.neoki(this, JSONObject().put("ref", ref).put("jong", "photo").put("c", k.id).put("s", s.id).put("ext", "jpg").put("kind", "").put("at", nowIso()), jpg.first)
-                        val shot = JSONObject().put("f", "").put("qref", ref).put("dir", dir).put("garo", jpg.second).put("sero", jpg.third).put("at", nowIso()).put("zoom", 1).put("app", "android")
-                        val la = s.lat; val lo = s.lng
-                        if (la != null && lo != null) shot.put("lat", la).put("lng", lo) else shot.put("lat", JSONObject.NULL).put("lng", JSONObject.NULL)
-                        s.shots.put(shot); lastShot = s.id to (s.shots.length() - 1)
-                        malhagi("사진을 올리지 못해 폰에 남겨 두었습니다. 인터넷이 되면 설정의 못 올린 것 지금 올리기로 올리십시오. 이 코스를 다시 열 때도 저절로 올립니다. " + Api.err(j))
-                        bakkwim(); draw()
-                    }
-                }
-            }
+        pool.execute {
+            val bm = bitmapBaro(f)
+            main.post { if (bm == null) malhagi("사진을 읽지 못했습니다.") else sajinOllim(bm, dir, JSONObject()) }
         }
     }
     /** 긴 쪽을 1600점으로 줄이고 바로 세움 — (jpg, 가로, 세로) */
-    private fun jureugi(f: File): Triple<ByteArray, Int, Int>? = try {
+    internal fun jureugi(f: File): Triple<ByteArray, Int, Int>? = try {
         val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(f.path, o)
         var smp = 1; while (maxOf(o.outWidth, o.outHeight) / (smp * 2) >= 1600) smp *= 2
@@ -737,8 +710,9 @@ class TourActivity : Activity() {
     } catch (e: Exception) { null }
 
     // ── 현장영상해설 ──
-    private fun haeseol() {
+    internal fun haeseol() {
         allimJul()
+        danchu("협회 승인본 현장영상해설 화면") { s12.finals = null; go(Hw.Finals(true)) }
         val k = kos ?: return kosEopseum()
         val s = spot() ?: return kosEopseum()
         val t0 = geul(k.spotFull(s), jemok = true); t0.tag = "meori"
@@ -765,7 +739,7 @@ class TourActivity : Activity() {
     }
 
     // ── 설정 ──
-    private fun seoljeong() {
+    internal fun seoljeong() {
         geul("설정", jemok = true)
         danchu("새로고침") {
             loadCourses { kos?.id?.let { openKos(it) }; malhagi("새로 받았습니다. 코스 ${courses.size}개입니다.") }
@@ -779,6 +753,8 @@ class TourActivity : Activity() {
         val ds = Daegi.su(this)
         danchu(if (ds > 0) "못 올린 것 ${ds}개 — 지금 올리기" else "못 올린 것이 없습니다 — 살펴보기") { daegiOllim(false) }
         allimJul()
+        danchu("기능 찾기") { go(Hw.Gineung) }
+        danchu("점검 (카메라·위치·마이크·나스)") { s12.diag = null; go(Hw.Diag) }
         geul("도움말 찾기", jemok = true)
         val q = EditText(this).apply { hint = "찾을 낱말 (예: 경계, 사진, 저장)"; setText(doumQ); background = kadeuBg(); setPadding(dp(14), dp(12), dp(14), dp(12)) }
         body.addView(q, lp(4))
@@ -795,10 +771,23 @@ class TourActivity : Activity() {
         danchu("나가기") { naga("나갔습니다.") }
         body.addView(LogoView(this), LinearLayout.LayoutParams(dp(120), ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(16); gravity = Gravity.CENTER_HORIZONTAL })
     }
-    private var doumQ = ""
-    private fun doum(i: Int) { val d = DOUM.getOrNull(i) ?: return; geul(d.first, jemok = true); geul(d.second) }
-    private fun bakkwin() {
+    internal var doumQ = ""
+    internal fun doum(i: Int) { val d = DOUM.getOrNull(i) ?: return; geul(d.first, jemok = true); geul(d.second) }
+    internal fun bakkwin() {
         geul("무엇이 바뀌었나", jemok = true)
+        geul("1.2.0판 (빌드 261017-T4, 2026-10-17)", jemok = true)
+        listOf(
+            "웹 투어스튜디오에 있는 기능을 앱에도 모두 넣었습니다(이사장님 지시). 아이폰 1.2.0판과 같습니다.",
+            "들어오기: 가입 신청, 비밀번호 바꾸기(처음 들어오면 먼저).",
+            "코스: 다음 할 일, 씨앗 코스, 장소 지식 들이기, 우리가 확인한 것, 장소 평면도, 코스 목록의 승인 상태.",
+            "대본: 대본 살펴보기·원칙 16개 점검표(웹 4단계와 같은 잣대), 칠 때마다 알려 주는 한 줄, 방향 도우미 스무 낱말과 붙일 칸 고르기, 테마투어 느낌 칸.",
+            "지점: 걷는 시간 어림, 답사 지도, 용어 뜻 찾기와 우리 용어 사전.",
+            "내보내기: 대본집·점자 대본·참가자 안내문·운영표·지도 자료를 폰에 받아 보내기, 통째로 내려받기, 참가자 안내문 소리 판, 지도 앱에 올리기, 협회 최종 승인 요청과 전송 완료 알림.",
+            "현장: 협회 승인본 현장영상해설 화면(시간 재기, 화면 안 꺼지게, 읽어 주기, 따라가기, 통신 끊겨도 열림).",
+            "답사: 몸을 돌리면 저절로 찍기, 담는 모양, 사진 밝기·또렷함 알림, 담을 때 소리, 폰 사진 넣기, 코스 벗어남 알림, 사진 방향 고치기·폰에 저장·다른 지점으로 옮기기.",
+            "최고관리자: 알림, 누구의 자리, 가입 신청 함, 명부, 반, 수업 진행판, 수업 채점표, 협회 승인 보관소, 봐 달라는 코스, 클에게 대본 맡기기.",
+            "점검과 기능 찾기, 도움말 스물여섯 가지를 더했습니다."
+        ).forEach { geul(it) }
         geul("1.1.0판 (빌드 261017-T3, 2026-10-17)", jemok = true)
         listOf(
             "웹 투어스튜디오에 있는데 앱에 없던 것 가운데 현장에 꼭 필요한 열네 가지를 넣었습니다(이사장님 승인). 아이폰 1.1.0판과 같습니다.",
@@ -829,20 +818,20 @@ class TourActivity : Activity() {
 
     // ================= 1.1.0판 (261017-T3) — 웹에 있던 것을 앱에도 (아이폰 Sae110Views·TourStore 와 같음) =================
     /** 하나 고르기 — 번호 목록 대화창 */
-    private fun goreugi(jemok: String, mok: List<String>, kkeut: (String) -> Unit) {
+    internal fun goreugi(jemok: String, mok: List<String>, kkeut: (String) -> Unit) {
         AlertDialog.Builder(this).setTitle(jemok + " 고르기")
             .setItems(mok.map { it.ifEmpty { "고르지 않음" } }.toTypedArray()) { _, i -> kkeut(mok[i]) }
             .setNegativeButton("그만두기", null).show()
     }
     /** 한 번 묻기 — 지우기·되돌리기처럼 되돌리기 어려운 일 */
-    private fun mutgi(mal: String, ye: String, kkeut: () -> Unit) {
+    internal fun mutgi(mal: String, ye: String, kkeut: () -> Unit) {
         AlertDialog.Builder(this).setMessage(mal).setPositiveButton(ye) { _, _ -> kkeut() }.setNegativeButton("그만두기", null).show()
     }
-    private fun shotsOf(s: Spot) = (0 until s.shots.length()).mapNotNull { s.shots.optJSONObject(it) }
-    private fun memosOf(s: Spot): List<JSONObject> { val a = s.d.optJSONArray("memos") ?: return listOf(); return (0 until a.length()).mapNotNull { a.optJSONObject(it) } }
+    internal fun shotsOf(s: Spot) = (0 until s.shots.length()).mapNotNull { s.shots.optJSONObject(it) }
+    internal fun memosOf(s: Spot): List<JSONObject> { val a = s.d.optJSONArray("memos") ?: return listOf(); return (0 until a.length()).mapNotNull { a.optJSONObject(it) } }
 
     /** 사진 지우기 — 웹 deleteShot 과 같음(되돌릴 수 없음) */
-    private fun deletePhoto(s: Spot, i: Int) {
+    internal fun deletePhoto(s: Spot, i: Int) {
         val k = kos ?: return
         if (k.isGyobon) { malhagi("교본의 사진은 지울 수 없습니다."); return }
         val a = shotsOf(s); if (i < 0 || i >= a.size) return
@@ -856,7 +845,7 @@ class TourActivity : Activity() {
         bakkwim()
     }
     /** 이 지점 지우기 — 웹 spotDel 과 같음(오프닝·클로징 지점은 지우지 않음) */
-    private fun deleteSpot(s: Spot) {
+    internal fun deleteSpot(s: Spot) {
         val k = kos ?: return
         if (k.isGyobon || s.kind.isNotEmpty()) return
         val pv = k.spotPrev(s); val nm = s.name
@@ -869,7 +858,7 @@ class TourActivity : Activity() {
     }
 
     // ---- 사진 크게 보기 ----
-    private fun sajinHwamyeon(spotId: String, idx: Int) {
+    internal fun sajinHwamyeon(spotId: String, idx: Int) {
         val k = kos ?: return kosEopseum()
         val s = k.spot(spotId)
         val a = s?.let { shotsOf(it) } ?: listOf()
@@ -894,10 +883,11 @@ class TourActivity : Activity() {
             }
             if (dir.isNotEmpty()) danchu("이 방향 다시 찍기 ($dir)") { dasiJjikgi(s, idx, dir) }
         }
+        sajin120(k, s, idx)
         t0.tag = "meori"; cheotJul(t0)
     }
     /** 같은 방향 다시 찍기 — 이 사진을 지우고 같은 방향으로 카메라를 엶(웹 redoShot 과 같음) */
-    private fun dasiJjikgi(s: Spot, idx: Int, dir: String) {
+    internal fun dasiJjikgi(s: Spot, idx: Int, dir: String) {
         deletePhoto(s, idx); curId = s.id
         val st = stacks[tab]; if (st.size > 1 && st.last() is Hw.Sajin) st.removeAt(st.size - 1)
         draw()
@@ -905,7 +895,7 @@ class TourActivity : Activity() {
         main.postDelayed({ kamera(dir) }, 800)
     }
     /** 방금 찍은 사진 (답사 탭) */
-    private fun bangeumSajin(k: Kos) {
+    internal fun bangeumSajin(k: Kos) {
         val l = lastShot ?: return
         val s = k.spot(l.first) ?: return
         val a = shotsOf(s); if (l.second >= a.size) return
@@ -917,11 +907,11 @@ class TourActivity : Activity() {
     }
 
     // ---- 녹음 (현장 메모·연습) ----
-    private fun micHeorak(kkeut: () -> Unit) {
+    internal fun micHeorak(kkeut: () -> Unit) {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) { kkeut(); return }
         micGidarim = kkeut; requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), HEORAK_MIC)
     }
-    private fun nokeumSijak(galle: String, s: Spot, where_: String, mal: String) {
+    internal fun nokeumSijak(galle: String, s: Spot, where_: String, mal: String) {
         micHeorak {
             tts?.stop()
             val e = Nokeumgi.start(this, galle, s.id, where_)
@@ -930,7 +920,7 @@ class TourActivity : Activity() {
         }
     }
     /** 녹음 끝 — 담은 소리를 mp3 로 바꾸고 올림. 못 올리면 폰에 남김 */
-    private fun nokeumKkeut() {
+    internal fun nokeumKkeut() {
         val galle = Nokeumgi.galle; val sid = Nokeumgi.spotId; val w = Nokeumgi.where_
         malhagi("녹음을 끝냈습니다. 담은 소리를 mp3로 바꾸고 있습니다.")
         pool.execute {
@@ -955,12 +945,12 @@ class TourActivity : Activity() {
             }
         }
     }
-    private fun kanBuchigi(k: Kos, s: Spot, where_: String, t: String) {
+    internal fun kanBuchigi(k: Kos, s: Spot, where_: String, t: String) {
         if (where_ == "text") { val o = k.spotText(s); k.setSpotText(s, if (o.isEmpty()) t else "$o $t") }
         else { val o = s.s(where_); s.d.put(where_, if (o.isEmpty()) t else "$o $t") }
     }
     /** 현장 메모 말로 적기 — 웹 afterAudio memo 와 같음 */
-    private fun memoMal(k: Kos, s: Spot, where_: String, f: String, q: String, sec: Int, heard: String) {
+    internal fun memoMal(k: Kos, s: Spot, where_: String, f: String, q: String, sec: Int, heard: String) {
         val a = s.d.optJSONArray("memos") ?: JSONArray().also { s.d.put("memos", it) }
         a.put(JSONObject().put("f", f).put("qref", q).put("sec", sec).put("text", heard).put("where", where_).put("at", nowIso()))
         if (heard.isNotEmpty()) kanBuchigi(k, s, where_, heard)
@@ -970,7 +960,7 @@ class TourActivity : Activity() {
         malhagi(m); bakkwim()
     }
     /** 현장 메모 글로 적기 — 웹 memoTextPut 과 같음 */
-    private fun memoGeulDam(k: Kos, s: Spot, where_: String, text: String) {
+    internal fun memoGeulDam(k: Kos, s: Spot, where_: String, text: String) {
         val tx = text.trim()
         if (tx.isEmpty()) { malhagi("적으신 글이 없습니다. 글 칸에 적고 다시 누르십시오."); return }
         val a = s.d.optJSONArray("memos") ?: JSONArray().also { s.d.put("memos", it) }
@@ -980,7 +970,7 @@ class TourActivity : Activity() {
         malhagi("글로 담았습니다. " + MemoKan.ireum(where_) + " 칸에 넣었습니다."); bakkwim()
     }
     /** 지점별 읽으며 녹음 — 웹 pracReview 와 같음 */
-    private fun yeonseupDam(k: Kos, s: Spot, f: String, q: String, sec: Int, heard: String) {
+    internal fun yeonseupDam(k: Kos, s: Spot, f: String, q: String, sec: Int, heard: String) {
         s.d.put("real", sec).put("pracFile", f)
         if (q.isNotEmpty()) s.d.put("pracQref", q) else s.d.remove("pracQref")
         k.d.put("practiced", true)
@@ -989,7 +979,7 @@ class TourActivity : Activity() {
         bakkwim()
     }
     /** 현장 메모 칸 (답사 탭) */
-    private fun memoSection(k: Kos, s: Spot) {
+    internal fun memoSection(k: Kos, s: Spot) {
         if (k.isGyobon) return
         geul("현장 메모 — " + k.spotLab(s) + " (말로 적기 · 글로 적기)", jemok = true)
         danchu("어디에 담을지 — " + MemoKan.ireum(memoKan) + ". 누르면 고릅니다") {
@@ -1017,7 +1007,7 @@ class TourActivity : Activity() {
         danchu("담긴 메모 ${memosOf(s).size}개 보기와 듣기") { jang.remove("mm"); go(Hw.Memos(s.id)) }
     }
     /** 담긴 메모 — 새것부터 다섯 개씩 */
-    private fun memoHwamyeon(spotId: String) {
+    internal fun memoHwamyeon(spotId: String) {
         val k = kos ?: return kosEopseum()
         val s = k.spot(spotId) ?: return kosEopseum()
         val m = memosOf(s)
@@ -1035,7 +1025,7 @@ class TourActivity : Activity() {
         t0.tag = "meori"
     }
     /** 연습 — 읽으며 녹음 (현장영상해설 탭) */
-    private fun yeonseupSection(k: Kos, s: Spot) {
+    internal fun yeonseupSection(k: Kos, s: Spot) {
         geul("연습 — 읽으며 녹음", jemok = true)
         val real = (s.n("real") ?: 0.0).toInt()
         geul("어림 ${k.readSec(k.spotText(s))}초" + if (real > 0) " / 실제 ${real}초" else " / 아직 재지 않았습니다")
@@ -1054,7 +1044,7 @@ class TourActivity : Activity() {
         else if (s.s("pracQref").isNotEmpty()) geul("연습 녹음은 아직 나스에 올리지 못해 폰에 남아 있습니다.", jakge = true)
     }
     /** 나스의 소리 듣기 — 같은 것을 다시 누르면 멈춤 */
-    private fun deutgi(kosId: String, f: String) {
+    internal fun deutgi(kosId: String, f: String) {
         if (deunneun == f) { deutgiMeomchum(); malhagi("듣기를 멈췄습니다."); draw(); return }
         deutgiMeomchum(); tts?.stop()
         deunneun = f; draw()
@@ -1074,10 +1064,10 @@ class TourActivity : Activity() {
             }
         }
     }
-    private fun deutgiMeomchum() { try { player?.stop() } catch (e: Exception) { }; try { player?.release() } catch (e: Exception) { }; player = null; deunneun = "" }
+    internal fun deutgiMeomchum() { try { player?.stop() } catch (e: Exception) { }; try { player?.release() } catch (e: Exception) { }; player = null; deunneun = "" }
 
     // ---- 코스 관리 (봐 달라고 알리기·판 되돌리기·코스 지우기) ----
-    private fun kosGwanri(k: Kos) {
+    internal fun kosGwanri(k: Kos) {
         if (k.isGyobon) return
         geul("관리자에게 봐 달라고 알리기", jemok = true)
         val msg = EditText(this).apply { hint = "함께 전할 말 (없어도 됩니다)"; background = kadeuBg(); setPadding(dp(14), dp(12), dp(14), dp(12)) }
@@ -1107,7 +1097,7 @@ class TourActivity : Activity() {
             }
         }
     }
-    private fun panDoerigi() {
+    internal fun panDoerigi() {
         val k = kos ?: return kosEopseum()
         val t0 = geul("판 되돌리기", jemok = true)
         allimJul()
@@ -1147,7 +1137,7 @@ class TourActivity : Activity() {
         }
         t0.tag = "meori"
     }
-    private fun hyujitong() {
+    internal fun hyujitong() {
         val t0 = geul("휴지통", jemok = true)
         allimJul()
         val L = hyujiMok
@@ -1185,7 +1175,7 @@ class TourActivity : Activity() {
     }
 
     /** 못 올린 것 올리기 — 지금 연 코스의 것부터. 다른 코스의 것은 그 코스를 열 때 올림 */
-    private fun daegiOllim(quiet: Boolean) {
+    internal fun daegiOllim(quiet: Boolean) {
         val L = Daegi.mokrok(this)
         if (L.isEmpty()) { if (!quiet) { malhagi("못 올린 것이 없습니다."); draw() }; return }
         val k = kos ?: run { if (!quiet) { malhagi("못 올린 것 ${L.size}개가 있습니다. 그 코스를 열면 올립니다."); draw() }; return }
@@ -1229,8 +1219,8 @@ class TourActivity : Activity() {
     }
 
     // ── 저장 ──
-    private fun bakkwim() { main.removeCallbacks(saveRun); main.postDelayed(saveRun, 2000) }
-    private fun save(quiet: Boolean) {
+    internal fun bakkwim() { main.removeCallbacks(saveRun); main.postDelayed(saveRun, 2000) }
+    internal fun save(quiet: Boolean) {
         val k = kos ?: return
         if (k.isGyobon) { if (!quiet) malhagi("교본은 읽기만 됩니다. 코스 탭에서 내 코스로 복사한 뒤 쓰십시오."); return }
         val snap = k.json().toString()
@@ -1260,11 +1250,11 @@ class TourActivity : Activity() {
             }
         }
     }
-    private fun draftFile(id: String) = File(File(filesDir, "draft").apply { mkdirs() }, id.replace("/", "_") + ".json")
-    private fun draftKeep(id: String, snap: String) { try { draftFile(id).writeText(JSONObject(snap).put("savedAt", nowIso()).toString()) } catch (e: Exception) { } }
-    private fun draftDrop(id: String) { draftFile(id).delete() }
-    private fun draft(id: String): JSONObject? = try { val f = draftFile(id); if (f.exists()) JSONObject(f.readText()) else null } catch (e: Exception) { null }
-    private fun draftOllim() {
+    internal fun draftFile(id: String) = File(File(filesDir, "draft").apply { mkdirs() }, id.replace("/", "_") + ".json")
+    internal fun draftKeep(id: String, snap: String) { try { draftFile(id).writeText(JSONObject(snap).put("savedAt", nowIso()).toString()) } catch (e: Exception) { } }
+    internal fun draftDrop(id: String) { draftFile(id).delete() }
+    internal fun draft(id: String): JSONObject? = try { val f = draftFile(id); if (f.exists()) JSONObject(f.readText()) else null } catch (e: Exception) { null }
+    internal fun draftOllim() {
         val k = kos ?: return
         val dr = draft(k.id) ?: run { malhagi("폰에 남은 것이 없습니다."); return }
         dr.remove("savedAt"); setKos(Kos(dr)); lastSaved = ""
@@ -1281,17 +1271,17 @@ val DOUM: List<Pair<String, String>> = listOf(
     "답사 — 여기서부터 다음 지점 시작" to "현장에서 앞 지점의 현장영상해설을 마치고 출발하는 자리에 서면 답사 탭의 여기서부터 다음 지점 시작을 누르십시오. 앞 지점의 끝과 다음 지점의 시작이 이 자리와 이 시각으로 적힙니다. 앞 지점의 어디까지 칸에 그 자리를 말로 적어 두십시오.",
     "답사 — 여기서부터 새 지점 시작" to "아직 없는 지점을 현장에서 만들 때 씁니다. 지금 지점 바로 뒤에 새 지점이 들어가고, 이 자리가 앞 지점의 끝이자 새 지점의 시작이 됩니다.",
     "답사 — 사진 찍기" to "정지 현장영상해설 자리에서 참여자가 바라볼 쪽을 12시로 두고, 12시, 3시, 6시, 9시 방향 차례로 찍습니다. 한 장을 올리면 다음 방향을 알려 드립니다. 첫 사진 때 지점 자리가 적히고, 앞 지점에서 걸어온 거리로 이동 시간을 잡습니다.",
-    "지점 한 화면" to "지점 탭에서 지점을 두드리면 그 지점의 어디서부터, 어디까지, 시간, 이동 구간 안내, 만져 볼 수 있는 것, 조심할 것, 현장영상해설사 위치, 대본을 한 화면에서 고칩니다. 맨 아래에 앞 지점, 다음 지점, 한 칸 앞으로, 한 칸 뒤로, 지금 저장이 있습니다.",
+    "지점 한 화면" to "지점 탭에서 지점을 두드리면 그 지점의 어디서부터, 어디까지, 시간, 이동 구간 안내, 만져 볼 수 있는 것, 조심할 것, 현장영상해설사 위치, 대본을 한 화면에서 고칩니다. 대본 칸 아래 한 줄이 글자 수, 읽는 시간, 방향을 짚었는지, 상대 방향 표현, 금지어, 머무는 시간 안에 드는지를 바로 알려 줍니다. 맨 아래에 앞 지점, 다음 지점, 한 칸 앞으로, 한 칸 뒤로, 지금 저장이 있습니다.",
     "오프닝 지점과 클로징 지점의 대본" to "오프닝 지점의 대본은 웹 4단계의 오프닝 칸과 같은 글이고, 클로징 지점의 대본은 클로징 칸과 같은 글입니다. 정지 현장영상해설 시간을 0으로 두면 대본 읽는 시간으로 셉니다.",
-    "방향 도우미" to "지점 한 화면의 방향 도우미에서 12시 방향부터 11시 방향까지 골라 대본 끝에 붙입니다. 방향은 늘 시계 방향으로 말합니다.",
+    "방향 도우미" to "지점 한 화면의 방향 도우미에서 붙일 칸(대본, 어디까지, 이동 구간 안내, 만져 볼 것, 조심할 것, 현장영상해설사 위치)을 고르고, 시계 방향과 바로 앞·발밑·머리 위 같은 스무 낱말 가운데 하나를 골라 그 칸 끝에 붙입니다. 방향은 늘 시계 방향으로 말합니다. 웹의 방향 도우미와 같은 낱말입니다.",
     "저장" to "고친 뒤 2초가 지나면 저절로 저장합니다. 인터넷이 끊겨 저장하지 못하면 폰에 남겨 두고, 설정의 폰에 남은 것 올리기로 올립니다. 다른 기기에서 먼저 저장된 경우에는 지금 고친 것으로 맞추고, 앞 것은 웹의 판 되돌리기에 남습니다.",
-    "원칙 16개 점검" to "코스 탭의 원칙 16개 점검에서 어디까지를 안 적은 지점, 현장영상해설사 위치가 없는 지점, 시계 방향으로 짚지 않은 지점, 시각 전제 표현 같은 고칠 곳을 다섯 줄씩 듣습니다. 번호는 작성원칙 통합본 16개의 번호입니다.",
+    "대본 살펴보기·원칙 16개 점검표" to "코스 탭의 대본 살펴보기·원칙 16개 점검표를 누르면 웹 4단계와 같은 잣대로 다음 할 일, 살펴볼 것(빈 대본, 금지어, 상대 방향, 더듬다, 분면, 시계 방향 차례, 머무는 시간 넘침, 오프닝·클로징 빠진 것), 원칙 16개를 차례로 됨·손볼 것·사람이 판단으로 나눈 표, 사람이 읽어야 아는 것이 나옵니다. 번호는 작성원칙 통합본 16개의 번호입니다.",
     "현장영상해설 탭" to "현장에서 지금 지점의 대본을 크게 보여 줍니다. 다음 지점 단추로 차례대로 넘기고, 연습할 때는 폰 목소리로 듣기를 씁니다.",
-    "협회 승인 요청" to "코스 탭의 협회 승인 요청 보내기를 누르면 지금 코스를 저장하고 협회에 승인을 요청합니다. 승인되면 코스 목록에 표시됩니다.",
+    "협회 최종 승인 요청" to "코스 탭의 내보내기·협회 최종 승인 요청에서 협회에 최종 승인 요청하기를 누릅니다. 대본이 한 곳도 없으면 요청할 수 없고, 대본 없는 지점이나 살펴볼 것이 남아 있으면 그 수를 먼저 알려 드리고 한 번 묻습니다. 보내기를 누르면 시나리오 전체와 답사 사진·소리가 협회 DB에 원본으로 저장되고, 협회 DB에 전송 완료라는 알림과 판 번호·사진 수·소리 수가 나옵니다. 코스 목록에는 승인 기다리는 중, 승인 완료와 승인번호, 돌려보냄과 까닭이 표시됩니다.",
     "새로고침과 업데이트" to "설정 맨 위의 새로고침은 코스 목록과 지금 코스를 서버에서 다시 받습니다. 그 아래 업데이트는 새 판이 있는지 살피고, 있으면 받아서 설치 화면을 엽니다.",
     "말소리" to "설정의 앱 안내 말소리를 끄면 앱이 스스로 말하는 안내가 꺼지고, 안내는 화면에 글로 남습니다.",
-    "웹 투어스튜디오와 함께 쓰기" to "앱과 웹은 같은 서버의 같은 코스를 씁니다. 대본집 내려받기, 워드 내려받기, 관리자 일은 아직 웹 투어스튜디오에서 하십시오. 설정에 웹 투어스튜디오 열기가 있습니다.",
-    "사진 크게 보기" to "답사 탭의 방금 찍은 사진 크게 보기, 또는 답사 탭과 지점 한 화면의 담긴 사진 목록에서 사진을 두드리면 크게 봅니다. 함께 가는 분이 사진을 보실 수 있습니다. 톡백은 지점과 몇째 사진인지, 방향을 읽어 줍니다.",
+    "웹 투어스튜디오와 함께 쓰기" to "앱과 웹은 같은 서버의 같은 코스를 씁니다. 1.2.0판부터 웹에 있는 기능은 앱에도 모두 있습니다. 어느 쪽에서 고쳐도 같습니다. 설정에 웹 투어스튜디오 열기가 있습니다.",
+    "사진 크게 보기" to "답사 탭의 방금 찍은 사진 크게 보기, 또는 답사 탭과 지점 한 화면의 담긴 사진 목록에서 사진을 두드리면 크게 봅니다. 사진 위에 지점, 몇째 사진인지, 방향, 밝기와 또렷함이 글로 적혀 있습니다. 앞 사진과 다음 사진으로 넘겨 봅니다.",
     "사진 지우기" to "사진 크게 보기 화면의 이 사진 지우기, 또는 답사 탭의 방금 찍은 사진 아래 이 사진 지우기를 누릅니다. 사진을 지웁니다, 되돌릴 수 없습니다, 지울까요 하고 한 번 묻습니다. 지우기를 누르면 지워집니다. 교본의 사진은 지울 수 없습니다.",
     "같은 방향 다시 찍기" to "사진 크게 보기 화면이나 답사 탭의 방금 찍은 사진 아래 이 방향 다시 찍기를 누르면 그 사진을 지우고 같은 방향으로 카메라가 열립니다. 같은 방향을 바라보고 다시 찍으십시오.",
     "이 지점 지우기" to "지점 탭에서 지점을 두드려 지점 한 화면을 열고, 맨 아래의 이 지점 지우기를 누릅니다. 지점 이름을 지울까요, 담은 사진 기록도 함께 지워집니다 하고 묻습니다. 지우기를 누르면 지워지고 저절로 저장됩니다. 오프닝 지점과 클로징 지점은 지울 수 없습니다. 차례는 같은 화면의 한 칸 앞으로, 한 칸 뒤로로 바꿉니다.",
@@ -1303,5 +1293,31 @@ val DOUM: List<Pair<String, String>> = listOf(
     "판 되돌리기" to "코스 탭의 판 되돌리기에서 예전에 저장된 판이 새것부터 나옵니다. 고르면 이 판으로 되돌립니다, 지금 것도 판으로 남습니다 하고 묻습니다. 되돌려도 지금 것이 판으로 남으므로 잃지 않습니다.",
     "코스 지우기와 휴지통" to "코스 탭의 이 코스 지우기를 누르면 한 번 묻고 휴지통으로 보냅니다. 코스 탭 맨 아래 휴지통에서 지운 코스를 골라 되살리면 코스 목록에 다시 들어갑니다. 교본은 지울 수 없습니다.",
     "관리자에게 봐 달라고 알리기" to "코스 탭의 관리자에게 봐 달라고 알리기에 함께 전할 말을 적고(없어도 됩니다) 누르면, 지금 코스를 저장하고 관리자에게 봐 달라고 알립니다.",
-    "분야·지역·참가 인원·현장영상해설사 수" to "코스 탭의 코스 정보에서 더 적을 것의 분야와 지역 단추를 눌러 고르고, 참가 인원과 현장영상해설사 수를 숫자로 적습니다. 웹 1단계의 더 적을 것과 같은 칸입니다."
+    "분야·지역·참가 인원·현장영상해설사 수" to "코스 탭의 코스 정보에서 더 적을 것의 분야와 지역 단추를 눌러 고르고, 참가 인원과 현장영상해설사 수를 숫자로 적습니다. 웹 1단계의 더 적을 것과 같은 칸입니다.",
+    "가입 신청" to "들어오기 화면의 가입 신청에서 이름, 전화번호, 비밀번호를 적어 보냅니다. 전화번호가 아이디가 됩니다. 협회에서 확인한 뒤 열어 드립니다.",
+    "비밀번호 바꾸기" to "코스 탭 도구의 비밀번호 바꾸기에서 지금 비밀번호와 새 비밀번호를 넣습니다. 처음 들어오신 분은 들어오자마자 이 화면이 먼저 나옵니다.",
+    "다음 할 일" to "코스를 열면 코스 탭에 다음 할 일이 한 줄 나옵니다. 장소 정하기, 답사, 대본 쓰기, 원칙 점검, 협회 승인까지 이 코스에서 지금 해야 할 것을 알려 드립니다.",
+    "씨앗 코스" to "코스 탭의 이 코스로 시작하기에서 씨앗 코스 고르기를 누르고 씨앗 코스를 고르면, 분야·집합 장소와 지점 이름이 미리 들어간 새 코스가 만들어져 열립니다.",
+    "장소 지식 들이기" to "코스 탭 도구의 장소 지식 들이기에서 장소 이름과 갈래(국가유산·관광지 또는 테마투어), 목표 시간을 고르고 코스 뼈대 짜기를 누릅니다. 들를 만한 곳이 나오면 가실 차례대로 누르십시오. 누르는 차례가 곧 지점 번호입니다. 지도와 시계 방향 글, 되돌아가는 길 알림, 관람 안내와 무장애 정보, 현장영상해설 밑글이 함께 나옵니다. 이 뼈대로 코스 만들기를 누르면 지금 코스에 채우거나 새 코스를 만듭니다.",
+    "우리가 확인한 것 채워 넣기" to "나라 자료에 비어 있는 여는 시간, 쉬는 날, 계단과 턱, 점자블록, 음성 안내, 만져 볼 것 같은 칸을 협회가 채워 쌓습니다. 협회 현장영상해설사 명단에 있는 전화번호를 넣고 장소를 열어 채운 뒤 저장합니다. 채운 것은 장소 지식 들이기에 먼저 나옵니다.",
+    "장소 평면도" to "코스 정보의 장소 평면도에서 장소 자리 찾기(장소 이름으로) 또는 지금 자리로 잡기를 누르면 기준 자리가 정해지고, 지점마다 기준 자리에서 몇 시 방향 몇 미터인지 글과 지도로 나옵니다. 지점 차례가 왔던 길로 되돌아가면 알려 드립니다.",
+    "걷는 시간 어림과 답사 지도" to "지점 탭의 걷는 시간 어림에서 1분에 걷는 거리를 정하고 위치로 걷는 시간 다시 어림을 누르면, 위치가 적힌 지점 사이의 거리로 이동 시간을 다시 잡습니다. 답사 지도 보기를 누르면 지점 번호와 지점을 잇는 점선, 사진 찍은 방향 붉은 선이 지도에 나오고, 지점마다 위치와 사진 방향이 글로도 나옵니다.",
+    "테마투어 느낌 칸" to "코스 정보의 분야가 테마투어 분야이면 지점 한 화면에 소리, 냄새, 발밑, 손, 볕과 바람, 사람과 기척, 기억 칸이 나옵니다. 자료가 없는 곳은 현장의 느낌과 현장영상해설사의 기억으로 짓습니다. 비어 있는 칸은 두셔도 됩니다.",
+    "용어 뜻 찾기와 우리 용어 사전" to "지점 탭의 용어 뜻 찾기·우리 용어 사전에서 낱말을 넣고 찾기를 누르면 한국어기초사전과 표준국어대사전의 뜻이 나옵니다. 찾은 뜻 우리 사전에 담아 두기를 누르면 아래 칸에 올라오고, 우리 말로 고쳐 우리 사전에 담기를 누르면 모든 현장영상해설사가 함께 씁니다. 담아 둔 말은 지우기 단추로 지웁니다.",
+    "내보내기" to "코스 탭의 내보내기·협회 최종 승인 요청에서 대본집, 점자 대본, 참가자 안내문, 파견 운영표, 지도 앱에 넣을 자료를 만듭니다. 만들면 이 폰에 받아지고, 받은 파일 보내기·저장하기로 파일 앱에 저장하거나 문자·카톡으로 보냅니다. 글 파일은 점자정보단말기에서 바로 읽히는 한글 글자판으로 저장됩니다. 이 코스 통째로 내려받기는 코스 기록, 답사 사진, 소리, 내보낸 것을 한 묶음으로 받습니다.",
+    "참가자 안내문 소리 판" to "내보내기 화면의 참가자 안내문 소리 판에서 안내문을 폰 음성으로 미리 듣거나, 현장영상해설사 목소리로 읽어 녹음합니다. 다 읽었습니다를 누르면 mp3로 올라가고, 녹음 들어보기와 소리 파일 내려받기가 생깁니다.",
+    "지도 앱에 올리기" to "최고관리자만 씁니다. 협회 승인을 받은 코스를 지도 앱에 올리거나 내립니다. 지점별 대본과 답사 사진은 올라가지 않습니다.",
+    "협회 승인본 현장영상해설 화면" to "현장영상해설 탭 맨 위나 코스 탭 도구의 현장영상해설 화면에서 승인된 시나리오를 고르면 엽니다. 앞머리, 지점마다 어디서부터 어디까지·머무는 시간·대본·사진·현장 소리, 클로징이 차례로 나오고 앞 지점·다음 지점 단추가 위아래에 있습니다. 머무는 시간 재기(1분 남으면 알림, 다 되면 떨림과 소리), 화면 안 꺼지게 하기, 대본 읽어 주기, 지금 자리로 따라가기(다음 지점까지 거리와 시계 방향, 5미터 안에 들면 저절로 다음 지점), 코스 벗어남 알림을 켤 수 있습니다. 한 번 연 승인본은 이 폰에 담겨 통신이 끊겨도 열립니다.",
+    "저절로 찍기" to "답사 탭의 카메라 묶음에서 찍는 방식을 몸을 돌리면 저절로 찍기로 고르고 카메라를 엽니다. 앞을 향하고 잠시 서 계시면 12시를 담고, 시계 방향으로 천천히 도시면 3시·6시·9시가 나침반으로 차례대로 담깁니다. 폰이 너무 올라가거나 내려가면 알려 드립니다. 나침반이 잡히지 않으면 한 장 찍기를 누를 때마다 12시·3시·6시·9시 차례로 담습니다. 한 장씩 찍기를 고르면 지금 잡힌 방향으로 한 장씩 담습니다.",
+    "담는 모양·담을 때 소리·사진 품질" to "답사 탭의 카메라 묶음에서 담는 모양(원본 그대로, 가로 16대9, 세로 9대16, 정사각)을 고르면 가운데를 그 비율로 잘라 담습니다. 담으면 가로인지 세로인지와 크기를 알려 드리고, 너무 어둡거나 너무 밝거나 흐릿하면 바로 알려 드립니다. 담을 때 삐 소리는 끌 수 있습니다.",
+    "폰에 담긴 사진 넣기" to "답사 탭의 카메라 묶음에서 폰에 담긴 사진 넣기를 누르고 사진을 고르면 지금 지점에 방위 모름으로 담깁니다. 사진 크게 보기의 방향 고치기로 방향을 적으십시오.",
+    "사진 방향 고치기·폰에 저장·다른 지점으로 옮기기" to "사진 크게 보기 화면에서 방향 고치기로 12시·3시·6시·9시를 다시 적고, 이 사진 폰에 저장하기로 사진 앱에 저장하며, 다른 지점으로 옮기기에서 지점을 골라 옮깁니다. 옮길 때 한 번 묻습니다.",
+    "코스 벗어남 알림" to "답사 탭의 코스 벗어남 알림을 켜 두면, 지점을 잇는 길에서 정한 거리(처음 40미터)보다 정한 시간(처음 20초) 넘게 벗어날 때 떨림과 소리로 알리고, 가장 가까운 지점이 몇 시 방향 몇 미터인지 말씀드립니다. 위치 오차가 60미터 넘는 값은 버립니다. 돌아오면 코스로 돌아왔습니다라고 알립니다.",
+    "점검" to "코스 탭 도구의 점검을 누르면 카메라, 위치, 나침반, 마이크, 받아쓰기 허락과 못 올린 사진·소리 수, 나스 연결과 저장, 코스 통째로 묶기가 되는지 한 번에 살핍니다. 현장에 나가시기 전에 한 번 누르십시오.",
+    "기능 찾기" to "코스 탭의 기능 찾기나 설정의 기능 찾기에서 낱말(예: 사진, 대본, 승인, 지도)을 넣으면 그 기능이 있는 화면이 나오고, 누르면 바로 그 화면으로 갑니다.",
+    "최고관리자 — 알림과 누구의 자리" to "최고관리자로 들어오면 코스 탭에 기다리는 가입 신청, 봐 달라는 코스, 승인 기다리는 시나리오 수가 나옵니다. 누구의 자리를 볼지에서 다른 현장영상해설사를 고르면 그분의 코스 목록과 코스를 그대로 보고 고칩니다. 내 자리로를 누르면 돌아옵니다.",
+    "최고관리자 — 가입 신청 함과 명부" to "가입 신청 함에서 신청을 받아들이거나 거절하고, 넣을 반을 고르거나 모두 받아들입니다. 받아들이면 알려 드릴 글이 나오고 복사하거나 보낼 수 있습니다. 명부 관리에서 사람 넣기, 비밀번호 다시 주기, 막기와 다시 열기를 합니다.",
+    "최고관리자 — 반·수업 진행판·채점표" to "반 관리에서 반을 만들고 사람을 넣고 빼며 지금 수업 반을 정합니다. 수업 진행판은 반 사람마다 지금 어느 단계, 어느 코스에서 무엇을 하는지, 막힌 곳과 도움 요청을 보여 주고, 30초마다 저절로 살피게 할 수 있습니다. 수업 채점표는 사람마다 코스를 훑어 걸린 것을 보여 주고 글로 복사합니다.",
+    "최고관리자 — 협회 승인 보관소" to "협회 승인 보관소에서 올라온 시나리오를 보고 최종 승인(승인번호가 매겨짐), 돌려보내기(살펴볼 것이 미리 채워진 까닭 칸), 공개하기와 거두기, 워드와 소리 묶음 내려받기, 판 비교를 합니다. 제출된 최종본 모두 내려받기는 한 묶음으로 받습니다.",
+    "최고관리자 — 봐 달라는 코스와 클에게 대본 맡기기" to "봐 달라는 코스에서 코스를 열면 그분 자리로 가서 그 코스를 엽니다. 다 보면 확인함으로 내립니다. 클에게 대본 맡기기는 코스를 연 뒤 몇 번부터 몇 번까지 나스로 맡기고, 초안이 오면 클 초안 넣기로 대본에 넣습니다."
 )
