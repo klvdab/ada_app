@@ -10,13 +10,18 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.94.0"
-    static let bild = "261017-I48"
+    static let pan = "2.95.0"
+    static let bild = "261017-I49"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.95.0", bild: "261017-I49", nal: "2026-10-17", naeyong: [
+            "★웹 길눈에 있었는데 앱으로 옮기지 못한 것 4단계 첫째(이사장님 승인 2026-10-17 「그러자」) — 안드로이드 2.65.0과 같게",
+            "미리 걸어 보기 — 점지도 길 고르기에서 나서기 전에 한 마디씩 듣기, 한 마디 뒤로·다시 듣기·5초마다 저절로 넘기기, 요약만 듣기(꺾임·계단·건널목·턱·승강기·문), 돌아오는 길로 걸어 보기, 방향은 시계 방향으로(웹 mirigeot.html 1.0)",
+            "도움말 — 미리 걸어 보기"
+        ]),
         Gochim(pan: "2.94.0", bild: "261017-I48", nal: "2026-10-17", naeyong: [
             "★웹 길눈에 있었는데 앱으로 옮기지 못한 것 3단계(이사장님 승인 2026-10-17 「그러자」) — 안드로이드 2.64.0과 같게",
             "긴급통화 내 자리 보내기 — 요청·통화하는 동안 8초마다 주소·국가지점번호·바라보는 쪽·빠르기를 받는 분께, 그만 보내기·다시 보내기 단추(웹 jari_nanum.js 1.1)",

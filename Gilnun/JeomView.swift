@@ -190,6 +190,13 @@ struct JeomGilGoreugiView: View {
                     dwitDanchu
                 }
                 Text(j.julMal).font(.body)
+                // 2.95.0 (261017-I49, 이사장님 승인 2026-10-17) 나서기 전에 한 마디씩 들어 보기(웹 길눈 mirigeot.html 1.0에서 옮김)
+                NavigationLink {
+                    MiriGeotgiView(j: j, dwit: JeomGilGoreugiView.dwitMeonjeo(j))
+                } label: {
+                    Text("미리 걸어 보기 — 나서기 전에 한 마디씩 듣기")
+                }
+                .buttonStyle(KeunDanchu())
             }
             .padding()
         }
