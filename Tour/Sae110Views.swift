@@ -25,9 +25,8 @@ struct SajinView: View {
             if let k = store.kos, let s = k.spot(spotId), idx < s.shots.count {
                 let p = s.shots[idx]
                 let dir = geulja(p["dir"]), f = geulja(p["f"])
-                let q = p["q"] as? [String: Any]
                 Section {
-                    Text(k.spotFull(s) + ", \(s.shots.count)장 가운데 \(idx + 1)번째, " + (dir.isEmpty ? "방위 모름" : dir) + (geulja(q?["warn"]).isEmpty ? ", 밝기와 또렷함 좋음" : ", " + geulja(q?["warn"])) + (f.isEmpty ? ", 아직 나스에 올리지 못함" : ""))
+                    Text(SajinView.meori(k, s, idx, p))
                         .font(.headline).accessibilityAddTraits(.isHeader).accessibilityFocused($meori)
                     if let url {
                         AsyncImage(url: url) { im in im.resizable().scaledToFit() } placeholder: { ProgressView() }
@@ -36,7 +35,7 @@ struct SajinView: View {
                     } else if f.isEmpty {
                         Text("이 사진은 폰에 남아 있고 아직 나스에 올라가지 않았습니다. 설정의 「못 올린 것 지금 올리기」로 올리십시오.")
                     }
-                    if let q, sutja(q["bright"]) ?? -1 >= 0 { Text("밝기 \(Int(sutja(q["bright"]) ?? 0)), 또렷함 " + geulja(q["sharp"]) + (geulja(p["head"]).isEmpty ? "" : ", 찍을 때 나침반 \(Int(sutja(p["head"]) ?? 0))도")).font(.footnote) }
+                    if let pm = SajinView.pumjil(p) { Text(pm).font(.footnote) }
                     if idx > 0 { Button("앞 사진") { bogi(idx - 1) } }
                     if idx + 1 < s.shots.count { Button("다음 사진") { bogi(idx + 1) } }
                 }
@@ -91,6 +90,20 @@ struct SajinView: View {
             }
             .ignoresSafeArea()
         }
+    }
+    static func meori(_ k: Kos, _ s: Spot, _ idx: Int, _ p: [String: Any]) -> String {
+        let dir = geulja(p["dir"]), f = geulja(p["f"])
+        let warn = geulja((p["q"] as? [String: Any])?["warn"])
+        var t = k.spotFull(s) + ", \(s.shots.count)장 가운데 \(idx + 1)번째, " + (dir.isEmpty ? "방위 모름" : dir)
+        t += warn.isEmpty ? ", 밝기와 또렷함 좋음" : ", " + warn
+        if f.isEmpty { t += ", 아직 나스에 올리지 못함" }
+        return t
+    }
+    static func pumjil(_ p: [String: Any]) -> String? {
+        guard let q = p["q"] as? [String: Any], let b = sutja(q["bright"]), b >= 0 else { return nil }
+        var t = "밝기 \(Int(b)), 또렷함 " + geulja(q["sharp"])
+        if let h = sutja(p["head"]) { t += ", 찍을 때 나침반 \(Int(h))도" }
+        return t
     }
     private func bogi(_ i: Int) { idx = i; url = nil; Task { await juso() } }
     private func juso() async {
