@@ -116,6 +116,15 @@ final class GichaAnnae {
         let seo = (sv.map { $0 < 1.5 } ?? false) && (pv.map { $0 < 1.5 } ?? true)
         if seo {
             if stopTtae == nil { stopTtae = now }
+            if let st = stopTtae, now.timeIntervalSince(st) >= 10, let n = near, n.1 < 1500, stopSaid != n.0.ireum,
+               yeokSeoji.contains(n.0.ireum) {
+                // 2.97.0 시간표로 서지 않는 역 — 가까이에서 멈춰도 도착이 아님(신호를 기다리는 것)
+                if said["멈춤:" + n.0.ireum] == nil {
+                    said["멈춤:" + n.0.ireum] = now
+                    mal("\(n.0.ireum) 가까이에서 잠시 멈췄습니다. 타신 열차는 이 역에 서지 않으니 그대로 계십시오.")
+                }
+                return
+            }
             if let st = stopTtae, now.timeIntervalSince(st) >= 10, let n = near, n.1 < 1500, stopSaid != n.0.ireum {
                 stopSaid = n.0.ireum; tteonSaid = ""
                 said[n.0.ireum] = now; got[n.0.ireum] = now
@@ -152,7 +161,7 @@ final class GichaAnnae {
                 if ap == nil || m < ap!.1 { ap = (k, m) }
             }
         }
-        if let a = ap, got[a.0.ireum] == nil, let s = sv, vmax > 20, s < vmax * 0.65, s < 25 {
+        if let a = ap, got[a.0.ireum] == nil, !yeokSeoji.contains(a.0.ireum), let s = sv, vmax > 20, s < vmax * 0.65, s < 25 {
             got[a.0.ireum] = now; said[a.0.ireum] = now
             let nr = naeril(a.0)
             let si = yeokSigak(a.0)
@@ -172,7 +181,11 @@ final class GichaAnnae {
         if v > 10, now.timeIntervalSince(namTtae) > 600 {
             namTtae = now
             var t = "기차로 가시는 중입니다." + namMal(me, y)
-            if let yc = yeolcha { t += " \(yc.doIreum) 도착 예정은 \(sigakMal(yc.doTtae))입니다." }
+            if let yc = yeolcha {
+                // 2.97.0 예정 시각이 지났으면 지난 시각을 그대로 말하지 않음
+                if now > yc.doTtae.addingTimeInterval(60) { t += " \(yc.doIreum) 도착 예정 시각 \(sigakMal(yc.doTtae))을 조금 넘겼습니다. 열차가 늦어지고 있습니다." }
+                else { t += " \(yc.doIreum) 도착 예정은 \(sigakMal(yc.doTtae))입니다." }
+            }
             else {
                 let bun = Int((geori(me, (y.mokjeok.lat, y.mokjeok.lon)) / v / 60).rounded())
                 if bun > 0 { t += " 지금 빠르기로 곧장 가면 약 \(bun)분 거리입니다." }
@@ -200,8 +213,13 @@ final class GichaAnnae {
 
     /// 내리실 역인가 — 목적지가 없으면 nil
     private func naeril(_ k: Yeok) -> Bool? {
-        guard let y = YeojeongEngine.shared.jigeum else { return nil }
-        return WichiEngine.geori(y.mokjeok.lat, y.mokjeok.lon, k.lat, k.lon) < naerilM
+        guard YeojeongEngine.shared.jigeum != nil else { return nil }
+        // 2.97.0 (261017-I51, 이사장님 KTX에서 겪으심 2026-10-17) 목적지 8킬로미터 안의 역을 모두 내릴 역으로 보아
+        //   서울역에 가시는데 영등포역·용산역에서 「여기서 내리십시오」라고 하던 일 — 내릴 역은 한 곳만
+        if yeokSeoji.contains(k.ireum) { return false }
+        if let yc = yeolcha { return yeokIreum(k.ireum) == yeokIreum(yc.doIreum) }
+        guard let mk = mokYeok else { return nil }
+        return yeokIreum(k.ireum) == yeokIreum(mk.ireum) || geori((k.lat, k.lon), (mk.lat, mk.lon)) < 300
     }
 
     /// 목적지에서 가장 가까운 기차역 — 그 거리의 두 배(적어도 8킬로미터) 안의 역을 내릴 역으로 봄(웹 길눈과 같음)
@@ -287,6 +305,10 @@ final class GichaAnnae {
             let dIp = min(da, db)
             if dIp < 120 || dIp > ap { continue }
             if gakCha(WichiEngine.bangwi(me.0, me.1, ip.0, ip.1), h) > 30 { continue }
+            // 2.97.0 터널이 가는 쪽으로 뻗어야 함 — 서울역·용산역 둘레에서 갈라져 나가는 공항철도·경의중앙선 터널(9.2·5.6킬로미터)을
+            //   타신 기차의 터널로 잘못 알리던 일
+            let meonKkeut = da < db ? t.b : t.a
+            if t.m >= 300, gakCha(WichiEngine.bangwi(ip.0, ip.1, meonKkeut.0, meonKkeut.1), h) > 45 { continue }
             teoneolSaid.insert(k)
             // 같은 터널의 다른 조각(위아래 선로)도 함께 말한 것으로
             for u in teoneol where geori(u.a, t.a) < 300 || geori(u.b, t.b) < 300 || geori(u.a, t.b) < 300 || geori(u.b, t.a) < 300 {
