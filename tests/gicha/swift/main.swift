@@ -37,6 +37,12 @@ for pail in CommandLine.arguments.dropFirst() {
     for p in (s["isseoya"] as? [String]) ?? [] where !modu.contains(where: { $0.range(of: p, options: .regularExpression) != nil }) {
         print("  ✗ 있어야 할 말이 없음: \(p)"); silpae += 1
     }
+    // 차례 — 이 말들이 이 차례대로 나와야 함
+    var jari = 0
+    for p in (s["charye"] as? [String]) ?? [] {
+        if let k = modu[jari...].firstIndex(where: { $0.range(of: p, options: .regularExpression) != nil }) { jari = k + 1 }
+        else { print("  ✗ 차례가 어긋남(이 말이 앞 말 뒤에 없음): \(p)"); silpae += 1 }
+    }
     for p in (s["eopseoya"] as? [String]) ?? [] {
         for m in modu where m.range(of: p, options: .regularExpression) != nil { print("  ✗ 없어야 할 말이 나옴(\(p)): \(m)"); silpae += 1 }
     }
