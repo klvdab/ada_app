@@ -16,6 +16,8 @@ import java.util.Locale
 import java.util.TimeZone
 
 object GichaAnnae {
+    /** 2.66.0 지금 시각 — 여정 다시 돌려 보기 시험(tests/gicha)에서 기록의 시각을 넣으려고 바꿀 수 있게 함. 앱에서는 늘 지금 */
+    var sigye: () -> Long = { System.currentTimeMillis() }
     private data class Yeok(val ireum: String, val lat: Double, val lon: Double)
     private data class Teoneol(val ireum: String, val m: Int, val a: Pair<Double, Double>, val b: Pair<Double, Double>)
     private data class Yeolcha(val beon: String, val jong: String, val chul: String, val chulId: String, val doIreum: String, val doTtae: Long)
@@ -64,7 +66,7 @@ object GichaAnnae {
     fun wichi(w: Jari, y: Yeojeong) {
         if (!kyeojim) {
             kyeojim = true
-            namTtae = System.currentTimeMillis()
+            namTtae = sigye()
             Girok.namgi("gicha_annae_sijak")
             mal("기차 안내를 시작합니다. 역에 다가가거나 서고 떠날 때, 터널에 들어가기 전에 알려 드립니다.")
         }
@@ -83,7 +85,7 @@ object GichaAnnae {
     // MARK: 살피기 — 웹 길눈 gichaSalpim 을 그대로 옮김
 
     private fun salpim(w: Jari, y: Yeojeong) {
-        val now = System.currentTimeMillis()
+        val now = sigye()
         val me = Pair(w.lat, w.lon)
         if (w.ochae <= 300) fx.add(Fx(now, w.lat, w.lon))
         fx.removeAll { now - it.t > 60_000 }
@@ -188,6 +190,9 @@ object GichaAnnae {
             val dm = daeum(me)
             if (dm != null) t += " 가는 쪽으로 다음 역은 ${dm.first.ireum}, 약 ${Annae.geoMal(dm.second)}입니다."
             mal(t)
+            // 2.66.0 서지 않고 지나는 역에서도 다음 역을 시간표로 봄(아이폰과 같음)
+            val yc = yeolcha
+            if (yc != null && dm != null) daeumSigakMal(yc, dm.first)
             return
         }
         if (v > 10 && now - namTtae > 600_000) {
@@ -253,7 +258,7 @@ object GichaAnnae {
     private fun yeokBatgi(me: Pair<Double, Double>) {
         if (yeokBatneun) return
         yeokBatneun = true
-        yeokQ = me; yeokQTtae = System.currentTimeMillis()
+        yeokQ = me; yeokQTtae = sigye()
         val mok = LinkedHashMap<String, Yeok>()
         for (g in GichaYeok.mokrok) if (Wichi.geori(me.first, me.second, g.lat, g.lon) <= 30_000) mok[g.ireum + "역"] = Yeok(g.ireum + "역", g.lat, g.lon)
         if (yeok.isEmpty()) yeok = mok.values.toList()
@@ -282,7 +287,7 @@ object GichaAnnae {
     private fun teoneolBatgi(me: Pair<Double, Double>) {
         if (teoneolBatneun) return
         teoneolBatneun = true
-        teoneolQ = me; teoneolQTtae = System.currentTimeMillis()
+        teoneolQ = me; teoneolQTtae = sigye()
         val q = mapOf("lat" to String.format(Locale.US, "%.6f", me.first), "lon" to String.format(Locale.US, "%.6f", me.second), "ban" to "8000")
         Tongsin.json("cheolteoneol.php", q) { o ->
             teoneolBatneun = false
