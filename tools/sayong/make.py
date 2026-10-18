@@ -39,7 +39,17 @@ def hanja_su(n):
         q, n = divmod(n, v)
         if q: out += ("" if q == 1 else SU[q]) + w
     return out + (SU[n] if n else "")
+# 소리 사전 — 잘 뭉개지는 낱말을 소리로 낼 때만 끊어 읽기 좋게(화면 글자는 그대로). 2026-10-18 이사장님: 협회 이름이 뭉개짐
+SORI = [
+    ("사단법인 한국시각장애인현장영상해설협회", "사단 법인, 한국 시각 장애인, 현장 영상 해설 협회"),
+    ("현장영상해설사", "현장 영상 해설사"), ("현장영상해설", "현장 영상 해설"),
+    ("긴급통화서비스", "긴급 통화 서비스"), ("긴급통화", "긴급 통화"),
+    ("보이스오버", "보이스 오버"), ("음향신호기", "음향 신호기"), ("음성유도기", "음성 유도기"),
+    ("국가지점번호", "국가 지점 번호"), ("교통약자", "교통 약자"), ("시각장애인", "시각 장애인"),
+]
 def norm(t):
+    for a, b in SORI:
+        t = t.replace(a, b)
     t = t.replace("—", ",").replace(" - ", ", ").replace("「", "").replace("」", "").replace("·", ", ")
     t = re.sub(r"(\d+)\.(\d+)\.(\d+)판", lambda m: f"{hanja_su(m[1])} 쩜 {hanja_su(m[2])}{' 쩜 ' + hanja_su(m[3]) if m[3] != '0' else ''} 판", t)
     t = re.sub(r"(\d+)-(\d+)편", lambda m: f"{hanja_su(m[1])} 다시 {hanja_su(m[2])} 편", t)
@@ -55,11 +65,11 @@ def norm(t):
     t = re.sub(r"(\d+)(미터|킬로미터|분|초|번째|번|층|개|명|시)", lambda m: (hanja_su(m[1]) if m[2] in ("미터", "킬로미터", "분", "초", "층") else m[1]) + " " + m[2], t)
     return t
 
-def malsori(kind, text):
+def _hanbeon(kind, sori):
     sid, sp, neul = MOKSORI[kind]
     import sherpa_onnx as s
     g = s.GenerationConfig(); g.sid = sid; g.speed = sp; g.extra = {"lang": "ko"}
-    a = tts().generate(norm(text), g)
+    a = tts().generate(sori, g)
     x = np.array(a.samples, dtype=np.float32)
     if a.sample_rate != SR:
         import librosa
@@ -69,6 +79,49 @@ def malsori(kind, text):
                             "-af", f"atempo={neul}", "-f", "f32le", "pipe:1"], input=x.tobytes(), capture_output=True, check=True)
         x = np.frombuffer(r.stdout, dtype=np.float32).copy()
     return x
+
+# 말소리 점검 — 문장마다 받아쓰기로 다시 들어 보고, 뭉개졌으면 다시 만들어 가장 또렷한 것을 씀(2026-10-18 이사장님 승인 「1」)
+ASR = os.environ.get("SENSEVOICE", "/home/claude/tts/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/")
+_asr = None
+JEOMSU = []          # (종류, 글, 점수, 받아쓴 것)
+def _deutgi(x):
+    global _asr
+    if _asr is None:
+        import sherpa_onnx as s
+        _asr = s.OfflineRecognizer.from_sense_voice(model=ASR + "model.int8.onnx", tokens=ASR + "tokens.txt", language="ko", use_itn=False)
+    import librosa
+    y = librosa.resample(x, orig_sr=SR, target_sr=16000)
+    st = _asr.create_stream(); st.accept_waveform(16000, y); _asr.decode_stream(st)
+    return st.result.text
+def _hangeul(t): return re.sub(r"[^가-힣]", "", t)
+def _jeom(sori, x):
+    import difflib
+    h = _deutgi(x)
+    a, b = _hangeul(sori), _hangeul(h)
+    return (difflib.SequenceMatcher(None, a, b).ratio() if a else 1.0), h
+def malsori(kind, text):
+    sori = norm(text)
+    if not os.path.exists(ASR + "model.int8.onnx") or os.environ.get("JEOMGEOM") == "0":
+        return _hanbeon(kind, sori)
+    best = None
+    himdeun = "해설 협회" in sori            # 협회 이름은 늘 토막으로 나누어 토막마다 골라 씀
+    for n in range(0 if himdeun else 4):     # 많아야 네 번 만들어 봄
+        x = _hanbeon(kind, sori); sc, h = _jeom(sori, x)
+        if best is None or sc > best[0]: best = (sc, x, h)
+        if sc >= 0.96: break
+    if (himdeun or best[0] < 0.95) and ", " in sori:   # 그래도 뭉개지면 쉼표에서 나누어 토막마다 골라 이어 붙임
+        tok = []
+        for p in [q for q in sori.split(", ") if q.strip()]:
+            bb = None
+            for n in range(8 if "협회" in p else 3):
+                y = _hanbeon(kind, p); sc, h = _jeom(p, y)
+                if bb is None or sc > bb[0]: bb = (sc, y)
+                if sc >= 0.96: break
+            tok += [bb[1], np.zeros(int(SR * 0.12), dtype=np.float32)]
+        x = np.concatenate(tok[:-1]); sc, h = _jeom(sori, x)
+        if best is None or sc > best[0]: best = (sc, x, h)
+    JEOMSU.append((kind, text, round(best[0], 3), best[2]))
+    return best[1]
 
 def ttak(beon=1):
     # 보이스오버·톡백이 줄로 옮길 때의 짧은 딸깍 소리, 두 번 두드리면 두 번
@@ -204,6 +257,11 @@ def main():
                     "-vf", "fps=10,format=yuv420p", "-c:v", "libx264", "-preset", "veryfast", "-tune", "stillimage", "-crf", "30",
                     "-c:a", "aac", "-ac", "1", "-b:a", "64k", "-shortest", "-movflags", "+faststart", nae], check=True)
     shutil.rmtree(tmp)
+    if JEOMSU:
+        with open(nae + ".jeomsu.tsv", "w") as f:
+            for k, t, sc, h in sorted(JEOMSU, key=lambda r: r[2]):
+                f.write(f"{sc}\t{k}\t{t}\t{h}\n")
+        print("말소리 점수 가장 낮은 것", min(r[2] for r in JEOMSU), "평균", round(sum(r[2] for r in JEOMSU) / len(JEOMSU), 3))
     print(nae, round(sum(d for _, d in jul)), "초")
 
 if __name__ == "__main__":
