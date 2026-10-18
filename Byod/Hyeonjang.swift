@@ -27,7 +27,12 @@ enum Hyeonjang {
         var l: [Jul] = []
         // 1. 방송
         l.append(b.kyeojim ? Jul(doem: true, mal: "방송: 켜져 있습니다. 듣는 분 \(b.deutnunSu)명.")
-                           : Jul(doem: false, mal: "방송: 꺼져 있습니다. 첫 화면의 LVD 송출 시작을 누르십시오. 방송을 켜야 소리 크기도 잴 수 있습니다."))
+                           : Jul(doem: false, mal: "방송: 꺼져 있습니다. 첫 화면의 현장 방송 시작을 누르십시오. 방송을 켜야 소리 크기도 잴 수 있습니다."))
+        // 1.5.0 함께 나가는 인터넷 방송
+        if !InteonetBonaegi.hamkke { l.append(Jul(doem: true, mal: "인터넷 방송: 꺼 두셨습니다. 현장 방송만 나갑니다.")) }
+        else if InteonetBonaegi.jeonhwa.count < 9 { l.append(Jul(doem: false, mal: "인터넷 방송: 현장영상해설사 전화번호가 없어 함께 나가지 않습니다. 첫 화면의 전화번호 칸에 협회 명단의 번호를 넣으십시오.")) }
+        else if b.kyeojim { l.append(Jul(doem: b.inteonet.contains("함께 나가고"), mal: b.inteonet.isEmpty ? "인터넷 방송: 준비 중입니다." : b.inteonet)) }
+        else { l.append(Jul(doem: true, mal: "인터넷 방송: 현장 방송을 켜면 함께 나갑니다.")) }
         // 2. 사운드카드
         l.append(Sori.usbInneunga() ? Jul(doem: true, mal: "사운드카드: 잡혔습니다.")
                  : Jul(doem: false, mal: "사운드카드: 보이지 않습니다. 카메라 어댑터를 아이폰에 끝까지 꽂았는지, 사운드카드가 어댑터에 꽂혔는지, 어댑터 충전 구멍에 충전기가 꽂혔는지 확인하십시오."))
