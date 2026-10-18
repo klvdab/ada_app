@@ -134,11 +134,18 @@ final class HaengsaOlligi {
             if nasBonaegi(h.sid, nokU.pathExtension == "mp3" ? "mp3" : "ul", nok) && nasBonaegi(h.sid, "bogo", bogo) && nasBonaegi(h.sid, "girok", gir) {
                 try? Data("1".utf8).write(to: d.appendingPathComponent("olim"))
                 _ = batgi("/haengsa_olim?sid=\(h.sid)")
-                mal("\(h.jemok) 녹음과 결과보고를 배프 다시듣기에 올렸습니다.")
+                mal("\(h.jemok) 녹음과 결과보고를 LVD 방송 다시 듣기에 올렸습니다.")
             } else {
-                mal("배프 다시듣기에 아직 올리지 못했습니다. 인터넷이 되면 저절로 다시 올립니다.")
+                mal("LVD 방송 다시 듣기에 아직 올리지 못했습니다. 인터넷이 되면 저절로 다시 올립니다.")
                 break
             }
+        }
+        // 3. 1.5.0 공유기 녹음이 다 올라갔으면, 같은 때 인터넷으로 나간 녹음은 다시 듣기 목록에서 감춤(지우지 않음)
+        let olin = HaengsaOlligi.mokrok().filter { $0.olim }
+        for g in GamchumDaegi.mokrok {
+            // 인터넷 방을 연 때가 올라간 공유기 녹음의 시간 안(앞뒤 2분 여유)에 들 때만
+            guard olin.contains(where: { g.ttae.timeIntervalSince($0.sijak) > -120 && g.ttae.timeIntervalSince($0.sijak) < $0.gilee + 120 }) else { continue }
+            if bonae("\(HaengsaOlligi.NAS)?k=\(HaengsaOlligi.YEOLSOE)&step=gamchum&inteonet=\(g.sid)", Data()) { GamchumDaegi.ppaegi(g.sid) } else { break }
         }
     }
 }
