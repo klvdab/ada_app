@@ -4,7 +4,7 @@
 #   왼쪽: 폰 화면(지금 줄에 주황 테두리와 손가락), 오른쪽: 절 제목·지금 줄 크게, 아래: [안내]/[보이스오버]/[톡백]/[길눈] 자막
 #   목소리 셋(수퍼톤 2, 비용 없음): 안내는 남자 목소리, 보이스오버·톡백은 조금 빠른 여자 목소리, 길눈이 하는 말은 또 다른 목소리
 #   보이스오버·톡백이 줄을 읽기 전에는 따닥 소리, 두 번 두드리면 두 번
-# 쓰는 법: python3 make.py 대본.py 나올파일.mp4
+# 쓰는 법: python3 make.py 대본.py 나올파일.mp4  (나올 파일 이름이 i로 시작하면 아이폰, a로 시작하면 안드로이드)
 import sys, os, re, json, wave, struct, math, subprocess, importlib.util, tempfile, shutil, html
 import numpy as np, soundfile as sf
 
@@ -43,6 +43,13 @@ def norm(t):
     t = re.sub(r"(\d+)-(\d+)편", lambda m: f"{hanja_su(m[1])} 다시 {hanja_su(m[2])} 편", t)
     t = re.sub(r"(\d+)-(\d+)", lambda m: f"{hanja_su(m[1])} 다시 {hanja_su(m[2])}", t)
     t = re.sub(r"(\d+)\.(\d)킬로미터", lambda m: f"{hanja_su(m[1])} 쩜 {hanja_su(m[2])} 킬로미터", t)
+    t = re.sub(r"(\d+)\.(\d+)(?=[초배])", lambda m: f"{hanja_su(m[1])} 쩜 {' '.join(SU[int(c)] for c in m[2])} ", t)   # 2.5초, 1.5배, 0.8초
+    t = t.replace("TV", "티브이").replace("QR", "큐알").replace("iOS", "아이오에스")
+    t = re.sub(r"(?<![\d.])(\d)((?: \d)+)(?!\d|\.\d)", lambda m: " ".join("공" if c == "0" else SU[int(c)] for c in (m[1] + m[2]).split()), t)   # 정류장 번호·함께 시험 번호는 한 자씩
+    HOE = ["", "한", "두", "세", "네", "다섯", "여섯", "일곱", "여덟", "아홉", "열", "열한", "열두"]
+    t = re.sub(r"(?<![\d.])(1[0-2]|[1-9])시(?=[ ,.에는부까쯤]|$)", lambda m: HOE[int(m[1])] + " 시", t)   # 시계 방향은 한 시, 열두 시
+    t = re.sub(r"(\d+)(정거장|곳|분께|분이|분까지|대|칸|가지|구간|번째)", lambda m: (("첫" if m[1] == "1" and m[2] == "번째" else HOE[int(m[1])]) if int(m[1]) <= 12 else hanja_su(m[1])) + " " + m[2], t)
+    t = re.sub(r"(\d+)(걸음|도|호선|호터널|센티|배|킬로미터|퍼센트|시간|단계)", lambda m: hanja_su(m[1]) + ("" if m[2] in ("호선", "호터널") else " ") + m[2], t)
     t = re.sub(r"(\d+)(미터|킬로미터|분|초|번째|번|층|개|명|시)", lambda m: (hanja_su(m[1]) if m[2] in ("미터", "킬로미터", "분", "초", "층") else m[1]) + " " + m[2], t)
     return t
 
@@ -115,7 +122,8 @@ def gurim_html(s, meori, pan_ireum):
     on = s.get("on")
     h.append('<div class="phone"><div class="scr"><div class="st">9:41</div>')
     if sc.get("jemok"):
-        h.append(f'<div class="hd">{"<span class=b>‹ 뒤로</span>" if sc.get("dwiro", True) else ""}<span class="t">{e(sc["jemok"])}</span></div>')
+        dw = "‹ 뒤로" if pan_ireum == "보이스오버" else "‹ 뒤로 - " + sc.get("ap", "길 찾기")
+        h.append(f'<div class="hd">{"<span class=b>" + e(dw) + "</span>" if sc.get("dwiro", True) else ""}<span class="t">{e(sc["jemok"])}</span></div>')
     else:
         h.append('<div style="height:14px"></div>')
     h.append('<div class="rows">')
@@ -143,6 +151,8 @@ def gurim_html(s, meori, pan_ireum):
 
 def main():
     dae, nae = sys.argv[1], sys.argv[2]
+    # 한 대본으로 두 판: python3 make.py dae/c1.py i1.mp4 (PAN=i 아이폰, PAN=a 안드로이드 — 나올 파일 이름 첫 글자로 정함)
+    os.environ.setdefault("PAN", os.path.basename(nae)[0])
     spec = importlib.util.spec_from_file_location("dae", dae); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
     meori = m.MEORI
     nr = m.NAEDOGI   # "보이스오버" 또는 "톡백"
