@@ -2,7 +2,13 @@
 # 길눈 사용법 동영상 짜임 알아보기 (빌드 261018-1, 이사장님 승인 2026-10-18 「1」 — 동영상 다시 만들기)
 # 나스에 있는 지난 동영상을 받아 화면·소리 짜임과 말소리 받아쓰기를 뽑음
 set -e
-mkdir -p out
+mkdir -p out/geul
+# 사용법 글(EUC-KR)도 UTF-8로 받아 둠 — 동영상 대본을 글과 맞추려고
+for n in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16; do for p in ti ta; do
+  curl -sSL -A "gilnun-sayong/1.0" "https://lvd.ada.or.kr/gilnun_sayong/$p$n.txt" | iconv -c -f euc-kr -t utf-8 | tr -d '\r' > out/geul/$p$n.txt || true
+done; done
+wc -c out/geul/* | tail -3
+[ "${DONGYEONGSANG:-0}" = 1 ] || exit 0
 for f in i2 a2 i13; do
   curl -sSL -A "gilnun-sayong/1.0" -o out/$f.mp4 "https://lvd.ada.or.kr/gilnun_sayong/$f.mp4"
   ls -l out/$f.mp4
