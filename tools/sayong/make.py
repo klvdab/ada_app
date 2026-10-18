@@ -41,7 +41,7 @@ def hanja_su(n):
     return out + (SU[n] if n else "")
 # 소리 사전 — 잘 뭉개지는 낱말을 소리로 낼 때만 끊어 읽기 좋게(화면 글자는 그대로). 2026-10-18 이사장님: 협회 이름이 뭉개짐
 SORI = [
-    ("사단법인 한국시각장애인현장영상해설협회", "사단 법인, 한국 시각 장애인, 현장 영상 해설 협회"),
+    ("사단법인 한국시각장애인현장영상해설협회", "사단법인, 한국시각장애인, 현장 영상 해설, 협회"),   # 이사장님(15:46): 사단법인 / 한국시각장애인 / 현장영상해설협회로 끊기. 해설이 뭉개져 해설 뒤에 아주 짧은 쉼
     ("현장영상해설사", "현장 영상 해설사"), ("현장영상해설", "현장 영상 해설"),
     ("긴급통화서비스", "긴급 통화 서비스"), ("긴급통화", "긴급 통화"),
     ("보이스오버", "보이스 오버"), ("음향신호기", "음향 신호기"), ("음성유도기", "음성 유도기"),
@@ -61,7 +61,7 @@ def norm(t):
     HOE = ["", "한", "두", "세", "네", "다섯", "여섯", "일곱", "여덟", "아홉", "열", "열한", "열두"]
     t = re.sub(r"(?<![\d.])(1[0-2]|[1-9])시(?=[ ,.에는부까쯤]|$)", lambda m: HOE[int(m[1])] + " 시", t)   # 시계 방향은 한 시, 열두 시
     t = re.sub(r"(\d+)(정거장|곳|분께|분이|분까지|대|칸|가지|구간|번째)", lambda m: (("첫" if m[1] == "1" and m[2] == "번째" else HOE[int(m[1])]) if int(m[1]) <= 12 else hanja_su(m[1])) + " " + m[2], t)
-    t = re.sub(r"(\d+)(걸음|도|호선|호터널|센티|배|킬로미터|퍼센트|시간|단계)", lambda m: hanja_su(m[1]) + ("" if m[2] in ("호선", "호터널") else " ") + m[2], t)
+    t = re.sub(r"(\d+)(걸음|도|호선|호터널|센티|배|킬로미터|퍼센트|시간|단계|년)", lambda m: hanja_su(m[1]) + ("" if m[2] in ("호선", "호터널") else " ") + m[2], t)
     t = re.sub(r"(\d+)(미터|킬로미터|분|초|번째|번|층|개|명|시)", lambda m: (hanja_su(m[1]) if m[2] in ("미터", "킬로미터", "분", "초", "층") else m[1]) + " " + m[2], t)
     return t
 
@@ -98,22 +98,32 @@ def _jeom(sori, x):
     import difflib
     h = _deutgi(x)
     a, b = _hangeul(sori), _hangeul(h)
-    return (difflib.SequenceMatcher(None, a, b).ratio() if a else 1.0), h
+    sc = difflib.SequenceMatcher(None, a, b).ratio() if a else 1.0
+    deol = lambda t: len(re.findall(r"(?=(.)\1)", t)) + len(re.findall(r"(?=(.).\1)", t))   # 「장애인애인」, 「협회회」처럼 말이 되풀이되어 더듬은 곳(원래 글보다 많은 만큼만 깎음)
+    sc -= 0.05 * max(0, deol(b) - deol(a))
+    for k in ("협회", "해설", "장애인"):   # 잘 뭉개지는 낱말이 빠졌으면 크게 깎음
+        sc -= 0.1 * max(0, a.count(k) - b.count(k))
+    return sc, h
 def malsori(kind, text):
     sori = norm(text)
     if not os.path.exists(ASR + "model.int8.onnx") or os.environ.get("JEOMGEOM") == "0":
         return _hanbeon(kind, sori)
     best = None
-    himdeun = "해설 협회" in sori            # 협회 이름은 늘 토막으로 나누어 토막마다 골라 씀
-    for n in range(0 if himdeun else 4):     # 많아야 네 번 만들어 봄
+    himdeun = "해설, 협회" in sori           # 협회 이름: 받아쓰기가 「현장영상해설협회」를 온전히 알아들을 때까지 많아야 열두 번
+    eoryeoun = any(k in sori for k in ("협회", "해설"))   # 잘 뭉개지는 낱말이 든 문장은 여덟 번까지
+    for n in range(12 if himdeun else 8 if eoryeoun else 4):    # 그 밖에는 많아야 네 번 만들어 봄
         x = _hanbeon(kind, sori); sc, h = _jeom(sori, x)
+        if himdeun:
+            hh = _hangeul(h)
+            if not all(k in hh for k in ("사단법인", "한국시각장애인", "현장영상해설협회")): sc -= 0.2
+            if "협회회" in hh or "장애인애인" in hh: sc -= 0.1
         if best is None or sc > best[0]: best = (sc, x, h)
-        if sc >= 0.96: break
-    if (himdeun or best[0] < 0.95) and ", " in sori:   # 그래도 뭉개지면 쉼표에서 나누어 토막마다 골라 이어 붙임
+        if sc >= 0.96 and (not himdeun or sc >= 0.99): break
+    if not himdeun and best[0] < 0.95 and ", " in sori:   # 그래도 뭉개지면 쉼표에서 나누어 토막마다 골라 이어 붙임
         tok = []
         for p in [q for q in sori.split(", ") if q.strip()]:
             bb = None
-            for n in range(8 if "협회" in p else 3):
+            for n in range(3):
                 y = _hanbeon(kind, p); sc, h = _jeom(p, y)
                 if bb is None or sc > bb[0]: bb = (sc, y)
                 if sc >= 0.96: break
