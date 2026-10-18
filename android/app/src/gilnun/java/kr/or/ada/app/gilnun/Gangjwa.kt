@@ -13,8 +13,18 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object Gangjwa {
-    /** 새 홈 온라인강좌의 강좌 번호 — 안드로이드 길눈은 안드로이드 강좌 */
-    const val GJ = "gilnun_a"
+    /** 새 홈 온라인강좌의 강좌 번호 — 길눈은 길눈 안드로이드 강좌, 자봉(같은 부품을 함께 씀)은 자봉 안드로이드 강좌.
+     *  자봉 2.27.0 (261018-A23, 이사장님 승인 2026-10-18 「3」) 앱 이름으로 가림 */
+    @Volatile var GJ = "gilnun_a"
+        private set
+    @Volatile private var apPan = Pan.pan
+    private var apGarim = false
+    private fun apGarigi(c: Context) {
+        if (apGarim) return
+        apGarim = true
+        if (c.packageName.contains("jabong")) GJ = "jabong_a"
+        try { apPan = c.packageManager.getPackageInfo(c.packageName, 0).versionName ?: apPan } catch (e: Exception) {}
+    }
 
     class Pyeon(val id: String, val title: String, val url: String, val gin: List<String>)
 
@@ -43,6 +53,7 @@ object Gangjwa {
 
     /** 폰에 담아 둔 차례를 먼저 꺼냄 */
     fun damunGeot(c: Context) {
+        apGarigi(c)
         if (damaDum) return
         damaDum = true
         val s = pref(c).getString("gangjwaPyeon_$GJ", null) ?: return
@@ -81,7 +92,7 @@ object Gangjwa {
     fun seda(id: String, e: String, cho: Long) {
         Girok.namgi("gangjwa_$e", mapOf("v" to id, "cho" to cho))
         NanumNas.get("gangjwa.php", listOf("a" to "seda", "gj" to GJ, "v" to id, "e" to e, "dev" to Seoljeong.dev,
-            "src" to "app", "cho" to cho.toString(), "pan" to Pan.pan, "os" to "a")) { }
+            "src" to "app", "cho" to cho.toString(), "pan" to apPan, "os" to "a")) { }
     }
 
     /** 한 편 틀기 — 폰의 동영상 틀기 재생기로(워치로 보내지 않음) */
@@ -110,7 +121,7 @@ class GangjwaHwamyeon : Hwamyeon("동영상 강의") {
             bureum = true
             Gangjwa.batgi(t) { if (t.wiHwamyeon === this) t.dasiGeurigi() }
         }
-        t.geul("길눈 사용법 동영상 강의입니다. 편 이름을 누르시면 앱 안에서 바로 틀어 드립니다.")
+        t.geul("${if (Gangjwa.GJ.startsWith("jabong")) "자봉" else "길눈"} 사용법 동영상 강의입니다. 편 이름을 누르시면 앱 안에서 바로 틀어 드립니다.")
         val l = Gangjwa.pyeon
         if (l.isEmpty()) {
             t.geul(if (Gangjwa.badeum) "강의 차례를 받지 못했습니다. 인터넷이 이어진 뒤 이 화면을 다시 열어 주십시오." else "강의 차례를 받는 중입니다.")
