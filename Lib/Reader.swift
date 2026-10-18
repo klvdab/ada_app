@@ -1,4 +1,5 @@
 // AI점자도서관 앱 — 독서기 (판 0.1.0, 빌드 260930-1)
+// 0.8.2 (261019-L21) 이용 장부(책 열기·1분마다 들은 시간·끝까지 들음) — 실적용(이사장님 승인 2026-10-18 「1」). 13곡째쯤 곡 중간에 멈추던 것 바로잡음 — 곡마다 붙인 끝남·멈춤 지킴이를 떼지 않아 쌓이던 것을 떼고, 6초 넘게 멈추면 스스로 다시 이어 틂, 미리 받은 다음 곡을 그대로 써서 두 번 내려받지 않음(이사장님 겪으심 23시 35분)
 // 0.8.0 (261018-L19) 엔터테인먼트 이어 듣기·이어 보기 — 곡·회가 끝나면 듣는 방식대로 다음 것을 저절로(곡 하나 끝나면 멈추던 것, 이사장님 지적·승인 「1」), 이어폰·잠금 화면 다음 곡, 다음 곡 미리 받기
 // 0.7.1 (261014-L17) 앱이 점점 무거워지고 멈춤(이사장님 지적) — 미리 받기를 세 문단 차례로, 묻기 줄이기, 멀어진 미리 받기는 그만둠(이사장님 승인 23시 17분 「1」)
 // 0.6.3 (261014-L15) 이용 기록 — 책 열기, 소리를 5초 넘게 기다림, 소리를 못 만듦, 글자를 못 가져옴을 LibGirok 에 남김(책 이름·내용은 남기지 않음, 이사장님 승인)
@@ -46,21 +47,82 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
     private var miriBang = ""
     private var ieoJung = false
     private var ieoGiNotis: [NSObjectProtocol] = []
+    // 0.8.2 곡마다 붙이는 끝남·멈춤 지킴이 — stop() 에서 반드시 뗌
+    private var itemNotis: [NSObjectProtocol] = []
+    private var miriAsset: AVURLAsset?
+    private var miriAssetI = -1
+    private var meomSijak: Date?        // 소리가 멈춘(기다리는) 때
+    private var meomGirokMaji = Date.distantPast
+    private var meomDasi = 0            // 이 곡에서 스스로 다시 튼 횟수
+    private var deutNu = 0              // 이용 장부 — 아직 보내지 않은 들은 초
+    private var deutI = -1
+    private var deutK = ""
+    private var jikimiSigye: Timer?
 
     override init() {
         super.init()
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [])
         setupRemote()
+        // 0.8.2 3초마다: 들은 시간 세기(이용 장부)와 멈춤 지킴이
+        jikimiSigye = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in Task { @MainActor in self?.jikimi() } }
+    }
+
+    // MARK: 0.8.2 이용 장부와 멈춤 지킴이
+    private func jangbuK() -> String { API.isEnt(i) ? "ent" : kind }
+    func deutBonaegi() {
+        if deutNu >= 5 && deutI >= 0 { LibIyong.shared.namgi("deut", i: deutI, k: deutK, s: deutNu) }
+        deutNu = 0
+    }
+    private func jikimi() {
+        guard playing, i >= 0 else { meomSijak = nil; return }
+        if kind == "geul" && waiting { return }   // 글자책은 소리를 굽는 동안 세지 않음
+        if deutI != i { deutBonaegi(); deutI = i; deutK = jangbuK() }
+        if kind != "geul", let p = player {
+            if p.timeControlStatus == .waitingToPlayAtSpecifiedRate {
+                if meomSijak == nil { meomSijak = Date() }
+                let cho = Date().timeIntervalSince(meomSijak!)
+                if cho >= 6 { meomDasiTeulgi() }
+                return
+            }
+            meomSijak = nil
+            if p.timeControlStatus != .playing { return }
+        }
+        deutNu += 3
+        if deutNu >= 60 { deutBonaegi() }
+    }
+    /// 6초 넘게 멈추면: 처음엔 그 자리로 다시 찾아 틀고, 그래도 안 되면 그 곡을 새로 열어 그 자리부터
+    private func meomDasiTeulgi() {
+        guard let p = player else { return }
+        meomSijak = nil; meomDasi += 1
+        let t = p.currentTime()
+        LibGirok.shared.namgi("lib_sori_dasi", ["beon": meomDasi, "ent": API.isEnt(i), "cho": Int(t.seconds.isFinite ? t.seconds : 0)])
+        if meomDasi <= 1 {
+            p.seek(to: t, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in Task { @MainActor in guard let self, self.playing else { return }; self.player?.play(); self.player?.rate = self.store.rate } }
+            return
+        }
+        let ui = i, ti = title, ki = kind, s = t.seconds
+        if s.isFinite && s > 1 { store.remember(i: ui, t: ti, kind: ki, pos: s, modu: Int(p.currentItem?.duration.seconds.isFinite == true ? p.currentItem!.duration.seconds : 0)) }
+        let ieoOn = ieoSijak, ael = aelbeom
+        Task {
+            self.i = -1
+            await self.open(i: ui, title: ti, kind: ki, cheoum: false, ieo: true)
+            self.ieoSijak = ieoOn; self.aelbeom = ael
+            if !self.playing { self.toggle() }
+            self.updateNowPlaying()
+        }
     }
 
     // MARK: 책 열기
     func open(i: Int, title: String, kind: String, cheoum: Bool = false, ieo: Bool = false) async {
         if self.i == i { return }
+        let mAsset = (miriAssetI == i) ? miriAsset : nil   // 0.8.2 미리 받은 다음 곡을 그대로 씀
         stop()
+        meomDasi = 0; meomSijak = nil; miriAsset = nil; miriAssetI = -1
         self.i = i; self.title = title; self.kind = kind
         miri = nil; miriUi = -1
         if !ieo { ieoSijak = i; aelbeom = "" }
         LibGirok.shared.namgi("lib_chaek_yeolgi", ["kind": kind, "ent": API.isEnt(i), "naeryeo": Offline.loadParas(i) != nil || Offline.asset(i) != nil])   // 0.6.3 이용 기록
+        LibIyong.shared.namgi("yeol", i: i, k: API.isEnt(i) ? "ent" : kind)   // 0.8.2 이용 장부
         paras = [:]; pageTasks = [:]; audioTasks = [:]; text = ""; modu = 0; wons = [:]; won = ""; hjgal = false
         if kind == "geul" { await store.gulPan4Omgigi(i) }   // 0.5.2 (261012) 글 판 4 — 옛 판 자리·책갈피를 새 판 자리로(처음 열 때 한 번)
         let saved = store.rec(i)
@@ -78,7 +140,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
             text = paras[pos] ?? ""; won = wons[pos] ?? ""
             store.remember(i: i, t: title, kind: kind, pos: Double(pos), modu: modu)
         } else {
-            let p = AVPlayer(playerItem: AVPlayerItem(asset: Offline.asset(i) ?? AVURLAsset(url: API.mediaURL(i), options: ["AVURLAssetHTTPHeaderFieldsKey": ["User-Agent": API.userAgent]])))
+            let p = AVPlayer(playerItem: AVPlayerItem(asset: Offline.asset(i) ?? mAsset ?? AVURLAsset(url: API.mediaURL(i), options: ["AVURLAssetHTTPHeaderFieldsKey": ["User-Agent": API.userAgent]])))
             p.automaticallyWaitsToMinimizeStalling = true
             player = p
             let start = cheoum ? 0 : (saved?.pos ?? 0)
@@ -91,12 +153,14 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 }
             }
             // 0.7.1 멈춤 까닭을 이용 기록에 — 소리가 모자라 멈춤(stalled)과 다른 소리에 끊김(전화·알림 등). 끊김이 끝나 이어 들어도 되면 저절로 이어 틂
-            NotificationCenter.default.addObserver(forName: .AVPlayerItemPlaybackStalled, object: p.currentItem, queue: .main) { [weak self] _ in
+            itemNotis.append(NotificationCenter.default.addObserver(forName: .AVPlayerItemPlaybackStalled, object: p.currentItem, queue: .main) { [weak self] _ in
                 Task { @MainActor in
                     guard let self else { return }
+                    if Date().timeIntervalSince(self.meomGirokMaji) < 10 { return }   // 0.8.2 한 번 멈춤에 한 줄만
+                    self.meomGirokMaji = Date()
                     LibGirok.shared.namgi("lib_sori_meomchum", ["kka": "moja", "ent": API.isEnt(self.i), "cho": Int(self.player?.currentTime().seconds ?? 0)])
                 }
-            }
+            })
             ieoGiNotis.forEach { NotificationCenter.default.removeObserver($0) }; ieoGiNotis = []
             ieoGiNotis.append(NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] n in
                 let ty = (n.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt).flatMap { AVAudioSession.InterruptionType(rawValue: $0) }
@@ -107,9 +171,12 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
                     if ty == .ended && op.contains(.shouldResume) && self.playing { try? AVAudioSession.sharedInstance().setActive(true); pl.play(); pl.rate = self.store.rate }
                 }
             })
-            NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: p.currentItem, queue: .main) { [weak self] _ in
+            let endId = p.currentItem.map { ObjectIdentifier($0) }
+            itemNotis.append(NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: p.currentItem, queue: .main) { [weak self] n in
+                let oid = (n.object as AnyObject?).map { ObjectIdentifier($0) }
                 Task { @MainActor in
-                    guard let self else { return }
+                    guard let self, oid != nil, oid == endId, oid == self.player?.currentItem.map({ ObjectIdentifier($0) }) else { return }   // 0.8.2 지금 곡이 끝났을 때만
+                    self.deutBonaegi(); LibIyong.shared.namgi("kkeut", i: self.i, k: self.jangbuK())
                     self.store.remember(i: self.i, t: self.title, kind: self.kind, pos: 0, modu: self.modu, done: true)
                     if API.isEnt(self.i) && self.store.ieo != "han" {   // 0.8.0 이어 듣기
                         if self.store.ieo == "ban" { self.player?.seek(to: .zero); self.player?.play(); self.player?.rate = self.store.rate; return }
@@ -118,7 +185,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
                     self.playing = false
                     self.store.say("끝까지 들었습니다.")
                 }
-            }
+            })
             if API.isEnt(i) { ieoMiri() }
         }
         updateNowPlaying()
@@ -135,6 +202,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
             self.miri = d; self.miriUi = ui; self.miriBang = b
             if let ni = d.i, Offline.asset(ni) == nil {
                 let a = AVURLAsset(url: API.mediaURL(ni), options: ["AVURLAssetHTTPHeaderFieldsKey": ["User-Agent": API.userAgent]])
+                self.miriAsset = a; self.miriAssetI = ni   // 0.8.2 열 때 그대로 씀(두 번 받지 않음)
                 _ = try? await a.load(.isPlayable)
             }
         }
@@ -275,6 +343,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
     func pause() {
         token += 1
+        deutBonaegi()
         audio?.pause(); player?.pause(); Offline.synth.stopSpeaking(at: .immediate)
         playing = false; waiting = false
         updateNowPlaying()
@@ -282,6 +351,9 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
     func stop() {
         token += 1
+        deutBonaegi()   // 0.8.2 들은 시간 마저 보냄
+        itemNotis.forEach { NotificationCenter.default.removeObserver($0) }; itemNotis = []   // 0.8.2 끝남·멈춤 지킴이 떼기
+        meomSijak = nil
         audio?.stop(); audio = nil; Offline.synth.stopSpeaking(at: .immediate)
         if let o = timeObs { player?.removeTimeObserver(o) }
         timeObs = nil
@@ -362,6 +434,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
             } else {
                 self.playing = false
                 self.store.remember(i: self.i, t: self.title, kind: self.kind, pos: Double(self.pos), modu: self.modu, done: true)
+                self.deutBonaegi(); LibIyong.shared.namgi("kkeut", i: self.i, k: "geul")   // 0.8.2 이용 장부
                 self.store.say("책을 끝까지 읽었습니다.")
                 self.updateNowPlaying()
             }
@@ -451,6 +524,7 @@ extension Reader: AVSpeechSynthesizerDelegate {
             } else {
                 self.playing = false
                 self.store.remember(i: self.i, t: self.title, kind: self.kind, pos: Double(self.pos), modu: self.modu, done: true)
+                self.deutBonaegi(); LibIyong.shared.namgi("kkeut", i: self.i, k: "geul")   // 0.8.2 이용 장부
                 self.store.say("책을 끝까지 읽었습니다.")
                 self.updateNowPlaying()
             }
