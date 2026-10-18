@@ -50,6 +50,14 @@
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:label="@string/app_name" />
 
+        <!-- 2.27.0(261018-A23) 동영상 강의 — 길눈과 같은 재생기(받기 문 없음, 자봉 앱 안에서만 엶) -->
+        <activity
+            android:name="kr.or.ada.app.gilnun.DongyeongActivity"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:launchMode="singleTop"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden" />
+
         <service
             android:name="kr.or.ada.app.jabong.JabongService"
             android:exported="false"
