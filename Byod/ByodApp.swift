@@ -5,6 +5,8 @@
 // 도움말·접속 도구 화면은 맨 위와 맨 아래에 뒤로 단추를 두고, 보이스오버 두 손가락 문지르기로도 돌아옵니다.
 // 1.2.0 (261014-BI3, 이사장님 승인 「1」, 방송클) 플린트 2 방식이 기본 — 더 보기에 방송 방식 바꾸기와 공유기 방송 서버 확인하기
 // 1.3.0 (261014-BI4, 이사장님 승인 「1」, 방송클) 행사 이름·현장영상해설사 칸, 방송을 멈추면 녹음과 결과보고를 받아 배프에 올림, 더 보기에 지난 행사 기록
+// 1.5.0 (261018-BI7, 이사장님 승인 「1」, 방클) LVD 방송 정리 — 첫 화면 차례: 행사 이름·현장영상해설사 이름·전화번호 칸, 현장 방송 시작(인터넷 방송도 함께), 상태 두 줄,
+//   현장 점검, 인터넷 방송만 하기, TV해설방송 하기, 현장영상해설교육 녹화, 새 판, 더 보기(함께 나가는 인터넷 방송 켜고 끄기 더함)
 import SwiftUI
 import UIKit
 
@@ -72,10 +74,12 @@ struct Geul: View {
 struct Kan: View {
     let ireum: String
     @Binding var gap: String
+    var pan: UIKeyboardType = .default   // 1.5.0 전화번호 칸은 숫자 자판
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(ireum).font(.body).foregroundStyle(Saek.yeonhan).accessibilityHidden(true)
             TextField(ireum, text: $gap)
+                .keyboardType(pan)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .font(.title3)
@@ -89,7 +93,7 @@ struct Kan: View {
 
 // MARK: 화면 고르기
 
-enum Hwamyeon { case cheot, doumal, jeopsok, haengsa, gyoyuk, live }   // 1.4.0 gyoyuk 교육 녹화
+enum Hwamyeon { case cheot, doumal, jeopsok, haengsa, gyoyuk, live, tv }   // 1.4.0 gyoyuk 교육 녹화, 1.5.0 tv TV해설방송 하기
 
 struct RootView: View {
     @State private var hwamyeon = Hwamyeon.cheot
@@ -102,7 +106,8 @@ struct RootView: View {
             case .jeopsok: JeopsokView(dwiro: { hwamyeon = .cheot })
             case .haengsa: HaengsaView(dwiro: { hwamyeon = .cheot })   // 1.3.0
             case .gyoyuk: GyoyukView(dwiro: { hwamyeon = .cheot })   // 1.4.0
-            case .live: GyoyukView(jemok: "라이브 현장영상해설 방송", juso: GyoyukPan.LIVE, dwiro: { hwamyeon = .cheot })   // 1.4.0
+            case .live: GyoyukView(jemok: "인터넷 방송", juso: GyoyukPan.LIVE, dwiro: { hwamyeon = .cheot })   // 1.4.0, 1.5.0 이름
+            case .tv: GyoyukView(jemok: "TV해설방송", juso: GyoyukPan.TV, dwiro: { hwamyeon = .cheot })   // 1.5.0
             }
         }
     }
@@ -120,14 +125,15 @@ final class SangtaeBogi: ObservableObject {
     private var jalmot = ""
     private var yocheongSeq = -1
     private var cheoeum = true
+    private var inteonetJul = ""   // 1.5.0
 
     func gochigi(baro: Bool) {
         let b = Bang.shared
         let now = Date()
         let k = b.kyeojim, so = b.sojae, jm = b.jalmot
         let fl = Flint.flintInga
-        let t = !k ? "방송이 꺼져 있습니다." + (fl ? " 방송 방식: 플린트 2 공유기." : " 방송 방식: 이 아이폰이 서버.") + (jm.isEmpty ? "" : " " + jm)
-                   : "방송 중입니다. 듣는 분 \(b.deutnunSu)명. 소리 받는 곳: \(so)." + (fl && FlintBonaegi.shared.bonaenda ? " 공유기로 보내고 있습니다." : "") + (jm.isEmpty ? "" : " " + jm)
+        let t = !k ? "현장 방송이 꺼져 있습니다." + (fl ? " 방송 방식: 플린트 2 공유기." : " 방송 방식: 이 아이폰이 서버.") + (jm.isEmpty ? "" : " " + jm)
+                   : "현장 방송 중입니다. 듣는 분 \(b.deutnunSu)명. 소리 받는 곳: \(so)." + (fl && FlintBonaegi.shared.bonaenda ? " 공유기로 보내고 있습니다." : "") + (jm.isEmpty ? "" : " " + jm)
         let keunBakkwim = k != kyeojim || so != sojae || jm != jalmot
         if t != geul && (baro || keunBakkwim || now.timeIntervalSince(ttae) >= 10) {
             let allil = !cheoeum && !baro
@@ -138,6 +144,11 @@ final class SangtaeBogi: ObservableObject {
             if allil { allyeo(t) }   // 낭독기에 바뀐 것만 한 번
         }
         cheoeum = false
+        // 1.5.0 인터넷 방송 한 줄 — 바뀔 때만 한 번(시작·끝의 빈 글은 알리지 않음)
+        if b.inteonet != inteonetJul {
+            inteonetJul = b.inteonet
+            if !inteonetJul.isEmpty && !baro { if Malsori.shared.kyeojim { Malsori.shared.mal(inteonetJul) } else { allyeo(inteonetJul) } }
+        }
         // 듣기 주소 — 방송 중에만
         if k {
             let j = fl ? Flint.JUSO : Juso.deutgiJuso()   // 와이파이에서 랜으로 바꾸거나 주소가 바뀌면 바로 따라감(1.2.0 플린트 2 방식은 공유기 주소)
@@ -179,6 +190,8 @@ struct CheotView: View {
     @State private var flintOn = Flint.flintInga   // 1.2.0
     @AppStorage("haengsa_jemok") private var haengsaJemok = ""   // 1.3.0
     @AppStorage("haeseolsa") private var haeseolsa = ""
+    @AppStorage("haeseolsa_phone") private var haeseolsaPhone = ""   // 1.5.0 인터넷 방송에 씀(협회 명단 번호)
+    @State private var hamkkeOn = InteonetBonaegi.hamkke   // 1.5.0
     @State private var tikSu = 0
     @State private var damgim = Jaryo.damgimMal
     @State private var jeomgeomGeul = ""
@@ -191,26 +204,28 @@ struct CheotView: View {
 
     private var bangDanchuGeul: String {
         if meomchumMal { return "한 번 더 누르면 방송을 멈춥니다" }
-        return bang.kyeojim ? "LVD 송출 멈추기" : "LVD 송출 시작"
+        return bang.kyeojim ? "현장 방송 멈추기" : "현장 방송 시작"
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 HyeophoeMeori(ireum: "LVD 송출")
-                if flintOn {   // 1.3.0 행사 이름과 현장영상해설사(녹음 이름·다시듣기 제목·결과보고에 쓰임, 한 번 넣으면 기억)
-                    Kan(ireum: "행사 이름 (비워 두면 날짜와 시각)", gap: $haengsaJemok)
-                    Kan(ireum: "현장영상해설사 이름", gap: $haeseolsa)
-                }
+                // 1.3.0 행사 이름과 현장영상해설사(녹음 이름·다시듣기 제목·결과보고에 쓰임, 한 번 넣으면 기억), 1.5.0 두 방식 모두·전화번호(인터넷 방송)
+                Kan(ireum: "행사 이름 (비워 두면 날짜와 시각)", gap: $haengsaJemok)
+                Kan(ireum: "현장영상해설사 이름", gap: $haeseolsa)
+                Kan(ireum: "현장영상해설사 전화번호 (인터넷 방송에 씀)", gap: $haeseolsaPhone, pan: .phonePad)
                 Danchu(geul: bangDanchuGeul, keun: true, norang: true) { bangNureum() }
                     .accessibilityFocused($bangChojeom)
+                Geul(st.geul, gulgeum: true)
+                if !bang.inteonet.isEmpty { Geul(bang.inteonet) }   // 1.5.0 함께 나가는 인터넷 방송
                 Danchu(geul: "현장 점검") { hyeonjangJeomgeom() }
-                Danchu(geul: "라이브 현장영상해설 방송 (인터넷)") { gagi(.live) }   // 1.4.0 한 폰 한 화면에서
+                Danchu(geul: "인터넷 방송만 하기 (공유기 없이)") { gagi(.live) }   // 1.4.0 한 폰 한 화면에서, 1.5.0 이름
+                Danchu(geul: "TV해설방송 하기") { gagi(.tv) }   // 1.5.0
                 Danchu(geul: "현장영상해설교육 녹화") { gagi(.gyoyuk) }   // 1.4.0 (261016-BI6) 교육 녹화를 앱 안에서
                 if let p = ollim.saePan {
                     Danchu(geul: "LVD 송출 새 판 \(p)이 나왔습니다. 두드리면 테스트플라이트에서 업데이트합니다") { ollim.yeolgi() }
                 }
-                Geul(st.geul, gulgeum: true)
                 if !st.juso.isEmpty {
                     Geul(Flint.flintInga ? "듣기 화면(와이파이에 붙으면 저절로 뜸)" : "듣기 주소", saek: Saek.yeonhan).accessibilityHidden(true)
                     Text(st.juso).font(.title2.weight(.bold)).foregroundStyle(Saek.norang)
@@ -231,6 +246,7 @@ struct CheotView: View {
                         .accessibilityFocused($deoChojeom)
                     Danchu(geul: "공유기 방송 서버 확인하기") { flintHwagin() }   // 1.2.0
                     Danchu(geul: flintOn ? "방송 방식: 플린트 2 공유기. 누르면 이 아이폰이 서버인 예비 방식으로 바꿉니다" : "방송 방식: 이 아이폰이 서버(예비). 누르면 플린트 2 공유기 방식으로 바꿉니다") { bangsikBakkugi() }   // 1.2.0
+                    Danchu(geul: hamkkeOn ? "현장 방송과 함께 인터넷 방송: 켜짐. 누르면 끕니다" : "현장 방송과 함께 인터넷 방송: 꺼짐. 누르면 켭니다") { hamkkeBakkugi() }   // 1.5.0
                     Danchu(geul: "기기 점검: 소리 장치와 연결 보기") { gigiGeul = Sori.gigiJeomgeom(); gigiBoim = true }
                     Danchu(geul: "새로고침") { saerogochim() }
                     Danchu(geul: ollim.seoljeongGeul) { ollim.seoljeongNureum() }
@@ -257,7 +273,7 @@ struct CheotView: View {
             st.gochigi(baro: false)
             // 1.3.0 배프에 아직 못 올린 행사가 있으면 1분마다 다시 올려 봄
             tikSu += 1
-            if tikSu % 60 == 0 && !bang.kyeojim && HaengsaOlligi.nameum { HaengsaOlligi.shared.sijak(maegam: false) }
+            if tikSu % 60 == 0 && !bang.kyeojim && (HaengsaOlligi.nameum || !GamchumDaegi.mokrok.isEmpty) { HaengsaOlligi.shared.sijak(maegam: false) }   // 1.5.0 감출 인터넷 녹음도
         }
         .alert("현장 점검", isPresented: $jeomgeomBoim) {
             Button("닫기", role: .cancel) { }
@@ -340,6 +356,17 @@ struct CheotView: View {
                 jeomgeomGeul = t; jeomgeomBoim = true
             }
         }
+    }
+
+    // 1.5.0 현장 방송과 함께 인터넷 방송 켜고 끄기 — 다음 방송부터
+    private func hamkkeBakkugi() {
+        let on = !hamkkeOn
+        InteonetBonaegi.hamkke = on
+        hamkkeOn = on
+        let ap: String = on ? "현장 방송을 켜면 인터넷 방송도 함께 나갑니다." : "현장 방송만 나갑니다. 인터넷 방송은 함께 나가지 않습니다."
+        let dwi: String = bang.kyeojim ? " 다음 방송부터 적용됩니다." : ""
+        let t = ap + dwi
+        allyeo(t); malhagi(t)
     }
 
     private func malsoriBakkugi() {
@@ -435,12 +462,12 @@ struct HaengsaView: View {
                     Geul("아직 담아 둔 행사가 없습니다. 플린트 2 방식으로 방송을 멈추면 녹음과 결과보고가 여기에 담깁니다.")
                 } else {
                     if mok.contains(where: { !$0.olim }) {
-                        Danchu(geul: "배프에 아직 못 올린 것 지금 올리기") { HaengsaOlligi.shared.sijak(maegam: false); allyeo("배프에 올리고 있습니다.") }
+                        Danchu(geul: "다시 듣기에 아직 못 올린 것 지금 올리기") { HaengsaOlligi.shared.sijak(maegam: false); allyeo("다시 듣기에 올리고 있습니다.") }
                     }
                     let sijak = jjok * 5
                     let ichjjok = Array(mok[min(sijak, mok.count)..<min(sijak + 5, mok.count)])
                     ForEach(Array(ichjjok.enumerated()), id: \.element.id) { i, x in
-                        let geul = "\(x.jemok), \(nalMal(x.sijak)), \(gileeMal(x.gilee)), " + (x.olim ? "배프에 올림" : "아직 못 올림")
+                        let geul = "\(x.jemok), \(nalMal(x.sijak)), \(gileeMal(x.gilee)), " + (x.olim ? "다시 듣기에 올림" : "아직 못 올림")
                         if i == 0 {
                             Danchu(geul: geul) { yeoldat(x.sid) }.accessibilityFocused($cheotChojeom)
                         } else {
