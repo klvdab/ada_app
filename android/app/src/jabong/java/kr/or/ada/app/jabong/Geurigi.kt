@@ -406,7 +406,7 @@ object Geurigi {
                     val t = (alts.firstOrNull() ?: "").trim().take(60)
                     if (t.isEmpty()) Sori.mal("말씀이 들리지 않았습니다. 다시 눌러 주십시오.") else kkadakJeokgi(id, k, t)
                 }
-                if (!ok) { Sori.deutgiKkeut(); Sori.mal("지금은 마이크를 열지 못했습니다.") }
+                if (!ok) { Sori.deutgiKkeut(); Sori.mal("지금은 마이크를 열지 못했습니다. 잠시 뒤 다시 눌러 주십시오.") }   // 261019 이사장님 승인 「1」 — 다음에 하실 일을 함께
             }, 350)
         }
     }
@@ -484,15 +484,21 @@ object Geurigi {
         alrigi(mal)
         mitGyeonjugi(g.optString("id"))   // 2.21.0
         // 도착한 자리 주소를 저절로 적음
+        // 261019 이사장님 승인 「1」 — 도착지 이름을 넣으셨으면 그 이름을 알리고 주소는 적지도 말하지도 않음
+        val dochak = g.optString("to", "")
         val w = Wichi.jigeum
-        if (w != null) {
+        if (dochak.isNotEmpty()) {
+            Sori.mal("도착지는 ${dochak}입니다.", MalGeup.JEONGBO)
+        } else if (w != null) {
             val id = g.optString("id")
             JbTongsin.juso(w.lat, w.lon) { j ->
                 if (j == null) return@juso
+                var neoeum = false
                 for (i in 0 until geurinGil.length()) {
                     val o = geurinGil.optJSONObject(i) ?: continue
-                    if (o.optString("id") == id) { if (o.optString("to", "").isEmpty()) o.put("to", j); break }
+                    if (o.optString("id") == id) { if (o.optString("to", "").isEmpty()) { o.put("to", j); neoeum = true }; break }
                 }
+                if (!neoeum) return@juso
                 mokJeojang()
                 Sori.mal("도착한 자리는 ${j}입니다.", MalGeup.JEONGBO)
                 bakkwim?.invoke()

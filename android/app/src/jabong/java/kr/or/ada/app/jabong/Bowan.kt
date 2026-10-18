@@ -27,6 +27,8 @@ object JbBowan {
     var mok: List<JSONObject> = emptyList(); private set
     var allim = ""; private set
     private var majimak = 0L
+    private var jjok = 0   // 261019 이사장님 승인 「1」 — 보완 부탁 목록 몇째 쪽(다섯 건씩)
+    private var neomgim = false   // 더 보기·이전 보기를 누른 뒤에만 커서를 첫 줄로(탭을 열 때마다 끌어가지 않게)
 
     fun ireum(g: JSONObject): String {
         val ti = g.optString("title")
@@ -118,11 +120,17 @@ object JbBowan {
         if (allim.isNotEmpty()) t.geul(allim)
         if (mok.isEmpty()) return
         t.keunGeul("보완 부탁 ${mok.size}건 — $BUTAK", 20f, saek("빨강"))
-        for (g in mok.take(5)) {
+        // 261019 이사장님 승인 「1」 — 다섯 건씩, 그린 길 목록처럼 아래에 더 보기, 그 아래에 이전 보기. 넘기면 커서를 첫 줄로
+        if (jjok * 5 >= mok.size) jjok = (mok.size - 1) / 5
+        val sijak = jjok * 5
+        for ((i, g) in mok.drop(sijak).take(5).withIndex()) {
             val gh = g.optString("gihan")
-            t.danchu(ireum(g) + " — " + g.optString("dangye", "보완 대기") + if (gh.isNotEmpty()) ", 기한 " + nalMal(gh) else "") { t.yeolgi(BowanGilHwamyeon(g)) }
+            val v = t.danchu(ireum(g) + " — " + g.optString("dangye", "보완 대기") + if (gh.isNotEmpty()) ", 기한 " + nalMal(gh) else "") { t.yeolgi(BowanGilHwamyeon(g)) }
+            if (i == 0 && neomgim) t.chojeom(v)
         }
-        if (mok.size > 5) t.geul("보완 부탁이 ${mok.size}건이라 앞의 다섯 건부터 보여 드립니다. 보완하시면 다음 건이 올라옵니다.")
+        neomgim = false
+        if (sijak + 5 < mok.size) t.danchu("더 보기") { jjok += 1; neomgim = true; t.dasiGeurigi() }
+        if (jjok > 0) t.danchu("이전 보기") { jjok -= 1; neomgim = true; t.dasiGeurigi() }
     }
 }
 

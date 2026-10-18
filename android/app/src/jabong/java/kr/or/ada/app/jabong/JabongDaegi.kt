@@ -300,7 +300,7 @@ object JabongDaegi {
         salpigi(u)
     }
 
-    /** 울리는 동안 2초마다: 다른 분이 받았는지, 길손님이 그만두었는지. 1분 30초 넘게 울리면 멈춤(길손님 쪽 기다림과 같음) */
+    /** 울리는 동안 2초마다: 다른 분이 받았는지, 길손님이 그만두었는지. 100초 넘게 울리면 멈춤(길손님 쪽 기다림과 같음) — 261019 이사장님 승인 「1」 주석을 실제 100초에 맞춤 */
     private fun salpigi(u: Ulim) {
         salpimR?.let { main.removeCallbacks(it) }
         val r = object : Runnable {
