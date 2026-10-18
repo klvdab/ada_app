@@ -1,0 +1,25 @@
+# 길눈 사용법 52편 한 묶음 (빌드 261018-4, 이사장님 지시 2026-10-18 「하나의 파일로 압축」)
+# zip 하나와 90메가 조각을 sayong-mukeum 갈래에 올림(대장클이 나스에 이어 붙여 받기 주소를 만듦)
+name: sayong-mukgi
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  mukgi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          git fetch -q origin sayong-dongyeongsang sayong-bunseok
+          mkdir -p dong geulb out
+          git archive origin/sayong-dongyeongsang | tar x -C dong
+          git archive origin/sayong-bunseok geul | tar x -C geulb
+          python3 tools/sayong/mukgi.py dong geulb/geul out/gilnun_sayong_52.zip
+          cd out && split -b 90m -d -a 2 gilnun_sayong_52.zip jogak_ && rm gilnun_sayong_52.zip && ls -l
+          sha256sum jogak_* > jogak.sha
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd out && git init -q && git checkout -q -b sayong-mukeum
+          git config user.name "github-actions" && git config user.email "actions@github.com"
+          git add . && git commit -qm "길눈 사용법 52편 한 묶음" && git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" sayong-mukeum
