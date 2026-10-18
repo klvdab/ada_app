@@ -16,8 +16,10 @@ struct GangjwaPyeon: Identifiable, Codable, Equatable {
 
 final class Gangjwa: ObservableObject {
     static let shared = Gangjwa()
-    /// 새 홈 온라인강좌의 강좌 번호 — 아이폰 길눈은 아이폰 강좌
-    static let gj = "gilnun_i"
+    /// 새 홈 온라인강좌의 강좌 번호 — 아이폰 길눈은 길눈 아이폰 강좌, 아이폰 자봉(같은 부품을 실음)은 자봉 아이폰 강좌
+    /// 자봉 2.26.0 (261018-I20, 이사장님 승인 2026-10-18 「3」)
+    static let gj = (Bundle.main.bundleIdentifier ?? "").contains("jabong") ? "jabong_i" : "gilnun_i"
+    static let apIreum = (Bundle.main.bundleIdentifier ?? "").contains("jabong") ? "자봉" : "길눈"
 
     @Published private(set) var pyeon: [GangjwaPyeon] = []
     @Published private(set) var badeum = false
@@ -63,7 +65,7 @@ final class Gangjwa: ObservableObject {
     /// 조회수 남기기 — e: si(틀었다) kkeut(끝까지) dat(도중에 닫음)
     func seda(_ p: GangjwaPyeon, _ e: String, _ cho: Int) {
         Girok.shared.namgi("gangjwa_" + e, ["v": p.id, "cho": cho])
-        let pan = Pan.pan
+        let pan = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? ""   // 길눈·자봉 어느 앱이든 제 판
         let dev = Girok.shared.dev
         Task.detached {
             _ = await Nas.get("gangjwa.php", [("a", "seda"), ("gj", Gangjwa.gj), ("v", p.id), ("e", e), ("dev", dev),
@@ -81,7 +83,7 @@ struct GangjwaView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                Text("길눈 사용법 동영상 강의입니다. 편 이름을 누르시면 앱 안에서 바로 틀어 드립니다.")
+                Text("\(Gangjwa.apIreum) 사용법 동영상 강의입니다. 편 이름을 누르시면 앱 안에서 바로 틀어 드립니다.")
                     .font(.title3)
                 if g.pyeon.isEmpty {
                     Text(g.badeum ? "강의 차례를 받지 못했습니다. 인터넷이 이어진 뒤 이 화면을 다시 열어 주십시오." : "강의 차례를 받는 중입니다.")
