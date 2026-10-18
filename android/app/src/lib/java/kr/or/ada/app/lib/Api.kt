@@ -10,8 +10,10 @@ import java.net.URLEncoder
 import java.util.UUID
 
 data class Gal(val g: String, val n: Int, val dan: String)
-data class Item(val i: Int?, val j: String?, val t: String, val g: String?)
+data class Item(val i: Int?, val j: String?, val t: String, val g: String?, val k: String? = null)   // 0.7.2 k: 엔터테인먼트 작품이 영상(yeongsang)인지 소리(sori)인지
 data class ListResp(val modu: Int, val o: Int, val items: List<Item>, val ttl: String?)
+/** 0.8.0 (261018-L19) 이어 듣기 — 다음(앞) 곡·회 */
+data class Daeum(val ok: Boolean, val i: Int?, val t: String, val k: String, val aelbeom: String, val saeAelbeom: Boolean, val msg: String?)
 data class BookResp(val i: Int, val t: String, val g: String, val meg: Double, val nal: String, val kind: String, val sogae: String = "", val jieun: String = "", val chulpan: String = "")   // 0.4.2 — 책 소개
 
 class Makhim : Exception()   // 403 — 회원 열쇠가 막힘
@@ -52,7 +54,7 @@ object Api {
         val a = j.optJSONArray("items")
         val items = if (a == null) emptyList() else (0 until a.length()).map {
             val o = a.getJSONObject(it)
-            Item(if (o.has("i") && !o.isNull("i")) o.optInt("i") else null, o.optString("j").ifEmpty { null }, o.optString("t"), o.optString("g").ifEmpty { null })
+            Item(if (o.has("i") && !o.isNull("i")) o.optInt("i") else null, o.optString("j").ifEmpty { null }, o.optString("t"), o.optString("g").ifEmpty { null }, o.optString("k").ifEmpty { null })
         }
         return ListResp(j.optInt("modu", items.size), j.optInt("o", off), items, j.optString("ttl").ifEmpty { null })
     }
@@ -133,6 +135,11 @@ object Api {
     fun entGal(): List<Gal> {
         val a = getJson("enter.php", mapOf("m" to "j_gal")).optJSONArray("gal") ?: return emptyList()
         return (0 until a.length()).map { val o = a.getJSONObject(it); Gal(o.optString("g"), o.optInt("n"), o.optString("dan")) }
+    }
+    /** 0.8.0 bang: ap 앨범·작품 안(여러 장은 이어서), gal 갈래 끝까지, seokgi 섞어 듣기. dwi 이면 앞 것 */
+    fun daeum(i: Int, bang: String, dwi: Boolean): Daeum {
+        val j = getJson("enter.php", mapOf("m" to "daeum", "i" to "$i", "bang" to bang, "dwi" to if (dwi) "1" else ""))
+        return Daeum(j.optBoolean("ok"), if (j.has("i") && !j.isNull("i")) j.getInt("i") else null, j.optString("t"), j.optString("k"), j.optString("aelbeom"), j.optBoolean("sae_aelbeom"), j.optString("msg").ifEmpty { null })
     }
     fun entList(j: String, o: Int) = listResp(getJson("enter.php", mapOf("m" to "j_list", "j" to j, "o" to "$o", "n" to "$PER")), o)
     fun entFind(s: String, o: Int) = listResp(getJson("enter.php", mapOf("m" to "j_find", "s" to s, "o" to "$o", "n" to "$PER")), o)

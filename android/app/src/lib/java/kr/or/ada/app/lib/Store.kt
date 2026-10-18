@@ -27,6 +27,11 @@ object Store {
     /** 0.6.1 (261012) 한자음 읽기: 1 음만 듣기, 2 음과 원문 함께 보기, 0 꺼짐 */
     var hanjaeum: Int get() = p.getInt("hanjaeum", 1); set(v) { p.edit().putInt("hanjaeum", v).apply() }
     fun hanjaeumIreum(v: Int = hanjaeum) = if (v == 0) "꺼짐" else if (v == 2) "음과 원문 함께 보기" else "음만 듣기"
+    /** 0.8.0 (261018-L19) 엔터테인먼트 듣는 방식, 넘어갈 때 이름 알리기 */
+    val IEO = listOf("ap" to "앨범·작품 끝까지", "gal" to "갈래 전체 이어서", "seokgi" to "섞어 듣기", "ban" to "한 곡 반복", "han" to "한 곡만")
+    var ieo: String get() = p.getString("ieo", "ap") ?: "ap"; set(v) { p.edit().putString("ieo", v).apply() }
+    var gogmal: Boolean get() = p.getBoolean("gogmal", true); set(v) { p.edit().putBoolean("gogmal", v).apply() }
+    fun ieoIreum(v: String = ieo) = IEO.firstOrNull { it.first == v }?.second ?: "앨범·작품 끝까지"
     /** 앱이 스스로 내는 안내 말(톡백 알림) 켜기·끄기 */
     var speechOn: Boolean get() = p.getBoolean("speech", true); set(v) { p.edit().putBoolean("speech", v).apply() }
     val rate get() = rates[rateIndex.coerceIn(0, rates.size - 1)]

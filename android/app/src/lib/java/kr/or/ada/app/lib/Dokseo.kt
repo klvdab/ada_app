@@ -42,6 +42,49 @@ object Dokseo {
     private val pageLoading = HashSet<Int>()
     private var token = 0
     private var queued = -1                     // 줄에 넣은 마지막 문단
+    // 0.8.0 (261018-L19) 이어 듣기·이어 보기(엔터테인먼트) — 곡·회가 끝나면 듣는 방식대로 다음 것을 저절로(곡 하나 끝나면 멈추던 것, 이사장님 지적·승인 「1」)
+    var ieoBakkwim: ((Int, String, String) -> Unit)? = null   // 화면을 새 곡·회로 바꾸기
+    var aelbeom = ""
+    private var miri: Daeum? = null
+    private var miriUi = -1
+    private var miriBang = ""
+    private var ieoJung = false
+    private fun ieoBang(): String { val s = Store.ieo; return if (s == "han" || s == "ban") "ap" else s }
+    /** 다음 것을 미리 알아 두어 곡 사이 기다림을 줄임 */
+    fun ieoMiri() {
+        val ui = i; val b = Store.ieo
+        if (!Api.isEnt(ui) || (b != "ap" && b != "gal")) return
+        apPool.execute { val d = runCatching { Api.daeum(ui, b, false) }.getOrNull(); main.post { if (d != null && d.ok && i == ui) { miri = d; miriUi = ui; miriBang = b } } }
+    }
+    /** b = 1 다음, -1 앞. 듣는 방식대로 다음(앞) 곡·회를 열어 바로 틂 */
+    fun ieoGa(b: Int) {
+        if (!Api.isEnt(i) || ieoJung) return
+        ieoJung = true
+        val ui = i; val bang = ieoBang()
+        val pre = if (b > 0 && miriUi == ui && miriBang == bang) miri else null
+        pool.execute {
+            val d = pre ?: runCatching { Api.daeum(ui, bang, b < 0) }.getOrNull()
+            main.post {
+                ieoJung = false
+                if (i != ui) return@post
+                val ni = d?.i
+                if (d == null || !d.ok || ni == null) {
+                    if (b > 0 && player?.isPlaying != true) { playing = false; bakkwim?.invoke() }
+                    allim?.invoke(d?.msg ?: "다음 것을 받지 못했습니다. 인터넷을 확인해 주십시오."); return@post
+                }
+                LibGirok.namgi("lib_ieo", mapOf("bang" to bang, "dwi" to (b < 0)))
+                val k = if (d.k == "yeongsang") "yeongsang" else "sori"
+                aelbeom = d.aelbeom
+                open(ctx, ni, d.t, k, 0.0, ieo = true)
+                play()
+                ieoBakkwim?.invoke(ni, d.t, k)
+                if (Store.gogmal) {
+                    val ap = if (d.saeAelbeom) (if (b > 0) "다음 앨범, " else "앞 앨범, ") + d.aelbeom + ", " else if (b > 0) "다음, " else "앞, "
+                    main.postDelayed({ allim?.invoke(ap + d.t) }, 500)
+                }
+            }
+        }
+    }
 
     private fun cacheDir() = File(ctx.cacheDir, "sori").apply { mkdirs() }
     fun hash(t: String, v: Int): String = MessageDigest.getInstance("SHA-1").digest("st3|$v|$t".toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
@@ -55,7 +98,7 @@ object Dokseo {
     }
     /** 0.4.4 잠금 화면·알림 칸에 책 이름이 나오게 */
     private fun mi(uri: String, id: String): MediaItem = MediaItem.Builder().setUri(uri).setMediaId(id)
-        .setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(title).setArtist("AI점자도서관").build()).build()
+        .setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(title).setArtist("AI점자도서관").setAlbumTitle(aelbeom.ifEmpty { null }).build()).build()
 
     private fun ensurePlayer(service: Boolean = true): ExoPlayer {
         player?.let { if (service) DokseoService.kyeogi(ctx); return it }
@@ -83,6 +126,10 @@ object Dokseo {
             override fun onPlaybackStateChanged(state: Int) {
                 // 0.7.1 소리책·동영상·엔터테인먼트가 틀던 중 소리가 모자라 기다리면 이용 기록에(멈춤 까닭 살피기)
                 if (kind != "geul" && state == Player.STATE_BUFFERING && player?.playWhenReady == true) LibGirok.namgi("lib_sori_meomchum", mapOf("kka" to "moja", "ent" to Api.isEnt(i), "cho" to ((player?.currentPosition ?: 0) / 1000).toInt()))
+                if (kind != "geul" && state == Player.STATE_ENDED) {   // 0.8.0 이어 듣기
+                    Store.remember(i, title, kind, 0.0, ((player?.duration ?: 0) / 1000).toInt(), done = true)
+                    if (Api.isEnt(i) && Store.ieo != "han") { if (Store.ieo == "ban") { player?.seekTo(0); player?.play() } else ieoGa(1) }
+                }
                 if (kind == "geul" && state == Player.STATE_ENDED && playing) {
                     if (pos >= modu - 1 && modu > 0) { playing = false; Store.remember(i, title, kind, pos.toDouble(), modu, done = true); allim?.invoke("책을 끝까지 읽었습니다."); bakkwim?.invoke() }
                     else { waiting = true; bakkwim?.invoke() }    // 다음 문단이 아직 안 구워짐 — 들어오면 이어 틂
@@ -97,7 +144,7 @@ object Dokseo {
     }
 
     /** at — 책갈피처럼 정해진 자리에서 열 때(0.4.4: 열기 전에 자리를 옮기면 읽던 자리가 첫 문단으로 지워지던 것 바로잡음) */
-    fun open(c: Context, bi: Int, bt: String, bk: String, at: Double? = null) {
+    fun open(c: Context, bi: Int, bt: String, bk: String, at: Double? = null, ieo: Boolean = false) {
         ctx = c.applicationContext
         if (i == bi) { if (at != null) gaPo(at.toInt()); return }
         // 0.5.2 (261012) 글 판 4 — 처음 여는 글자책은 옛 판 자리·책갈피를 새 판 자리로 옮긴 뒤 엶(내려받은 책은 그대로)
@@ -117,6 +164,8 @@ object Dokseo {
             }
         }
         stop()
+        if (!ieo) aelbeom = ""
+        miri = null; miriUi = -1
         i = bi; title = bt; kind = bk; paras.clear(); gajineun.clear(); soriGidari.clear(); pageLoading.clear(); modu = 0; wons.clear(); hjgal = false
         LibGirok.namgi("lib_chaek_yeolgi", mapOf("kind" to bk, "ent" to Api.isEnt(bi), "naeryeo" to (Naeryeo.isDown(c, bi))))   // 0.6.3 이용 기록
         val saved = Store.rec(bi)
@@ -134,6 +183,7 @@ object Dokseo {
             val st = at ?: saved?.pos
             st?.let { p.seekTo((it * 1000).toLong()) }
             Store.remember(i, title, kind, st ?: 0.0, 0)
+            if (Api.isEnt(bi)) ieoMiri()   // 0.8.0
         }
     }
 

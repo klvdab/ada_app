@@ -86,6 +86,10 @@ class LibActivity : Activity() {
         Api.ctx = applicationContext; Store.load(this); Dokseo.ctx = applicationContext
         Dokseo.bakkwim = { main.post { if (cur() is Hm.Reader) drawReaderState() } }
         Dokseo.allim = { m -> main.post { malhagi(m) } }
+        Dokseo.ieoBakkwim = { ni, nt, nk -> main.post {   // 0.8.0 이어 듣기 — 독서기 화면을 새 곡·회로
+            val st = stacks[tab]; val top = st.lastOrNull()
+            if (top is Hm.Reader && Api.isEnt(top.i)) { st[st.size - 1] = Hm.Reader(ni, nt, nk); draw() }
+        } }
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Saek.bada(this@LibActivity)) }
         scroll = ScrollView(this).apply { isFillViewport = true }
         body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(12), dp(14), dp(24)) }
@@ -107,7 +111,7 @@ class LibActivity : Activity() {
     override fun onResume() { super.onResume(); Ollim.dorawatda(this) }   // 0.4.3 돌아오면 새 판 살피기(1시간에 한 번까지)
     override fun onNewIntent(i: android.content.Intent) { super.onNewIntent(i); setIntent(i); Ollim.intentBoda(this, i) }   // 0.4.3 새 판 알림을 두드렸을 때
     override fun onStop() { LibGirok.jeojang(); LibGirok.bonaegi(); super.onStop() }   // 0.6.3 이용 기록 — 앱이 뒤로 갈 때 폰에 저장하고 보냄
-    override fun onDestroy() { Dokseo.bakkwim = null; Ollim.byeonhwa = null; Ollim.malhagi = null; super.onDestroy() }
+    override fun onDestroy() { Dokseo.bakkwim = null; Dokseo.ieoBakkwim = null; Ollim.byeonhwa = null; Ollim.malhagi = null; super.onDestroy() }
 
     @Deprecated("뒤로 가기 — 앱 밖으로 나가지 않음")
     override fun onBackPressed() {
@@ -321,13 +325,13 @@ class LibActivity : Activity() {
             cheot = chaekJul(l, "이어 듣기, ${l.t}, ${l.wichiMal}부터", "이어 듣기 · ${l.wichiMal}부터", { go(Hm.Reader(l.i, l.t, l.kind)) }, false)
         }
         if (cheot == null) cheot = chaj   // 0.7.1
-        geul("화면해설 작품", jemok = true)
+        geul("갈래", jemok = true)   // 0.7.2 여덟 갈래가 다 보임
         val mal = geul("가져오는 중입니다.", jakge = true)
         val jari = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         body.addView(jari, lp(0))
         danchu(if (entDeo) "더 보기 접기" else "더 보기") { entDeo = !entDeo; dasi("더 보기") }
         if (entDeo) {
-            geul("엔터테인먼트는 협회가 모아 온 영화, 드라마, 다큐 같은 자료 가운데 공개해도 되는 것을 하나씩 열어 가는 곳입니다. 지금은 화면해설 작품이 있습니다. 작품을 한 번 두드리면 바로 틀고, 듣던 자리를 기억합니다.")
+            geul("엔터테인먼트는 협회가 모아 온 영화, 드라마, 다큐 같은 자료를 모은 곳입니다. 영화, 드라마, 다큐·시사·교양, 애니메이션, 라디오·오디오 드라마, 음악, 화면해설 작품, 교육 여덟 갈래가 있습니다. 작품을 한 번 두드리면 바로 틀고, 영상은 화면도 함께 나오며, 듣던 자리를 기억합니다.")
             geul("AI점자도서관 ${PAN}판, 빌드 $BILDEU", jakge = true)
         }
         pool.execute {
@@ -364,7 +368,7 @@ class LibActivity : Activity() {
                 mal.text = "모두 ${"%,d".format(lr.modu)}개 가운데 ${lr.o + 1}번부터 ${lr.o + lr.items.size}번"
                 var first: View? = null
                 for (it in lr.items) {
-                    val b = danchu(it.t) { if (ent) { if (it.i != null) go(Hm.Reader(it.i, it.t, "sori")) else if (it.j != null) go(Hm.Ent(it.j, it.t)) } else if (it.i != null) go(Hm.Reader(it.i, it.t, "")) else if (it.j != null) go(Hm.Jakbon(it.j, it.t)) }   // 0.7.0 엔터테인먼트는 폴더면 그 안으로, 작품이면 소리로 바로   // 0.5.1 한 번 두드리면 독서기가 열려 바로 읽음
+                    val b = danchu(it.t) { if (ent) { if (it.i != null) go(Hm.Reader(it.i, it.t, it.k ?: "sori")) else if (it.j != null) go(Hm.Ent(it.j, it.t)) } else if (it.i != null) go(Hm.Reader(it.i, it.t, "")) else if (it.j != null) go(Hm.Jakbon(it.j, it.t)) }   // 0.7.0 엔터테인먼트는 폴더면 그 안으로, 작품이면 소리로 바로   // 0.5.1 한 번 두드리면 독서기가 열려 바로 읽음
                     if (first == null) { first = b; if (lr.o > 0) b.contentDescription = "${lr.o + 1}번부터, ${it.t}" }   // 0.5.0 넘긴 뒤 첫 줄에서 몇 번부터인지 들림
                 }
                 val dam = lr.o + Api.PER < lr.modu
@@ -459,6 +463,18 @@ class LibActivity : Activity() {
         danchu("앞으로 30초") { Dokseo.gaCho(30.0) }   // 0.4.0 — 헷갈리지 않는 이름(이사장님)
         danchu("뒤로 30초") { Dokseo.gaCho(-30.0) }
         jaesaengMakdae()   // 0.4.0 — 재생 위치 막대
+        if (Api.isEnt(h.i)) {   // 0.8.0 (261018-L19) 이어 듣기·이어 보기
+            danchu(if (h.k == "yeongsang") "다음 회" else "다음 곡") { Dokseo.ieoGa(1) }
+            danchu(if (h.k == "yeongsang") "앞 회" else "앞 곡") { Dokseo.ieoGa(-1) }
+            danchu("듣는 방식, 지금 " + Store.ieoIreum()) {
+                val k = Store.IEO.indexOfFirst { it.first == Store.ieo }
+                Store.ieo = Store.IEO[(k + 1) % Store.IEO.size].first
+                malhagi(Store.ieoIreum() + "로 듣습니다."); Dokseo.ieoMiri(); dasi("듣는 방식")
+            }
+            danchu("넘어갈 때 이름 알리기, 지금 " + (if (Store.gogmal) "켜짐" else "꺼짐")) {
+                Store.gogmal = !Store.gogmal; malhagi(if (Store.gogmal) "켜짐" else "꺼짐"); dasi("넘어갈 때 이름 알리기")
+            }
+        }
         readerMun = if (h.k == "geul") geul("") else null
         danchu(if (readerDeo) "더 보기 접기" else "더 보기, 빠르기·목소리·책갈피·처음부터·책 정보") { readerDeo = !readerDeo; dasi("더 보기") }
         if (readerDeo) {
@@ -909,7 +925,9 @@ class LibActivity : Activity() {
         "앱 안내 말" to "앱이 스스로 알리는 말(책갈피를 꽂았습니다 등)을 켜고 끕니다. 책 읽는 목소리는 그대로입니다.",
         "소리를 기다릴 때" to "처음 듣는 문단은 도서관 서버가 그 자리에서 목소리를 만듭니다. 여러 분이 함께 들으시면 조금 기다리실 수 있습니다. 10초가 넘으면 소리를 만들고 있다고, 45초가 넘으면 조금 더 걸린다고 한 번씩 알려 드리고, 4분까지 기다립니다. 한 번 만든 소리는 다음 분이 바로 들으십니다. 도서관은 한가할 때 새 책과 읽던 책 앞부분을 미리 만들어 둡니다.",
         "이용 기록" to "앱이 잘 듣는지 살피려고, 앱 판과 안드로이드 판, 책을 연 때, 소리를 오래 기다리거나 만들지 못한 일을 협회 서버에 남깁니다. 이름, 전화번호, 듣는 책 이름과 내용은 남기지 않습니다. 협회는 이 기록으로 막히는 곳을 먼저 찾아 고칩니다.",
-        "엔터테인먼트" to "아래 탭의 둘째 칸입니다. 협회가 모아 온 영화, 드라마, 다큐 같은 자료 가운데 공개해도 되는 것을 하나씩 열어 갑니다. 지금은 화면해설 작품(화면해설 영화, 화면해설 드라마, 화면해설 다큐와 교양)이 있습니다. 갈래를 누르면 작품이 나오고, 드라마는 작품을 누르면 회차가 차례로 나옵니다. 회차를 한 번 두드리면 바로 틉니다. 독서기와 같아서 앞으로 30초, 뒤로 30초, 재생 위치, 빠르기, 책갈피를 그대로 쓰고, 듣던 자리를 기억해 엔터테인먼트 첫 화면의 이어 듣기와 내 서재에 나옵니다. 작품 이름을 적어 찾을 수도 있습니다.",
+        "엔터테인먼트" to "아래 탭의 둘째 칸입니다. 협회가 모아 온 영화, 드라마, 다큐 같은 자료를 모은 곳입니다. 영화, 드라마, 다큐·시사·교양, 애니메이션, 라디오·오디오 드라마, 음악, 화면해설 작품, 교육 여덟 갈래가 있습니다. 갈래를 누르면 작품이 나오고, 드라마는 작품을 누르면 회차가 차례로 나옵니다. 회차를 한 번 두드리면 바로 틉니다. 독서기와 같아서 앞으로 30초, 뒤로 30초, 재생 위치, 빠르기, 책갈피를 그대로 쓰고, 듣던 자리를 기억해 엔터테인먼트 첫 화면의 이어 듣기와 내 서재에 나옵니다. 작품 이름을 적어 찾을 수도 있습니다.",
+        "음악·드라마 이어 듣기" to "엔터테인먼트에서 음악을 틀면 곡이 끝날 때 다음 곡이 저절로 나오고, 드라마는 다음 회로 이어집니다. 독서기 화면의 듣는 방식 단추를 누를 때마다 앨범·작품 끝까지(여러 장짜리 앨범은 다음 장까지), 갈래 전체 이어서, 섞어 듣기, 한 곡 반복, 한 곡만 차례로 바뀝니다. 고른 것은 기억해 둡니다. 다음 곡·앞 곡 단추(드라마는 다음 회·앞 회)로 넘기고, 이어폰 단추와 잠금 화면의 다음 곡 단추로도 넘깁니다. 넘어갈 때 곡 이름을 한 번 알려 드리며, 넘어갈 때 이름 알리기를 끄면 조용히 넘어갑니다.",   // 0.8.0
+        "영상 보기" to "엔터테인먼트의 영상 작품은 소리와 함께 화면이 나옵니다. 화면은 읽기 단추 위에 있고, 화면을 두드리면 폰이 주는 재생 단추와 크게 보기가 나옵니다. 앞으로 30초, 뒤로 30초, 재생 위치, 책갈피는 소리 작품과 똑같이 씁니다. 영상은 데이터를 많이 쓰니 와이파이에서 보시기를 권합니다.",   // 0.7.2
         "회원 등록" to "처음 켤 때 이름과 휴대전화 번호로 한 번만 등록합니다. 등록하면 이 폰만의 회원 열쇠가 담겨 도서관과 독서기가 열립니다. 폰을 바꾸면 새 폰에서 같은 번호로 다시 등록합니다. 설정 아래에 회원 이름이 나옵니다.",
         "새로고침" to "앱이 이상하거나 새 책이 안 보일 때 설정의 새로고침을 누르십시오.",
         "업데이트 — 새 판 받기" to "도서관 앱은 켤 때와 하루 두 번쯤 협회 서버에 새 판이 나왔는지 스스로 물어봅니다. 새 판이 있으면 폰 알림으로 AI점자도서관 새 판이 나왔습니다, 두드리면 업데이트합니다라고 알려 드리고, 도서관 첫 화면 머리 바로 아래에도 같은 말과 단추를 한 줄로 띄웁니다. 알림이나 그 줄을 두드리시면 앱이 새 판을 스스로 받아 설치 화면을 엽니다. 설치를 한 번 눌러 주시면 됩니다. 처음 한 번은 이 출처 허용을 켜는 화면이 열리니 켜신 뒤 폰의 뒤로 동작으로 돌아오시면 이어서 업데이트합니다. 새 판으로 바뀌면 바뀌었다고 알림을 드립니다. 설정의 새로고침 바로 아래 업데이트 단추로 언제든 새 판이 있는지 살피실 수 있습니다. 내 서재, 책갈피, 내려받은 책은 그대로 남습니다."

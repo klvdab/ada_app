@@ -74,10 +74,11 @@ internal class DokseoSessionPlayer(p: Player) : ForwardingPlayer(p) {
     override fun play() { if (!Dokseo.playing) Dokseo.play() }
     override fun pause() { if (Dokseo.playing) Dokseo.pause() }
     override fun setPlayWhenReady(playWhenReady: Boolean) { if (playWhenReady) play() else pause() }
-    override fun seekToNext() { Dokseo.next() }
-    override fun seekToNextMediaItem() { Dokseo.next() }
-    override fun seekToPrevious() { Dokseo.prev() }
-    override fun seekToPreviousMediaItem() { Dokseo.prev() }
+    // 0.8.0 (261018-L19) 엔터테인먼트는 이어폰·잠금 화면 다음·앞이 다음 곡·앞 곡
+    override fun seekToNext() { if (Api.isEnt(Dokseo.i)) Dokseo.ieoGa(1) else Dokseo.next() }
+    override fun seekToNextMediaItem() { if (Api.isEnt(Dokseo.i)) Dokseo.ieoGa(1) else Dokseo.next() }
+    override fun seekToPrevious() { if (Api.isEnt(Dokseo.i)) Dokseo.ieoGa(-1) else Dokseo.prev() }
+    override fun seekToPreviousMediaItem() { if (Api.isEnt(Dokseo.i)) Dokseo.ieoGa(-1) else Dokseo.prev() }
 
     override fun getAvailableCommands(): Player.Commands =
         super.getAvailableCommands().buildUpon()
