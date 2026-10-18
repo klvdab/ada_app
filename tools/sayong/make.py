@@ -2,7 +2,7 @@
 # 길눈 사용법 동영상 만들기 1.0 (빌드 261018-1, 이사장님 승인 2026-10-18 「1」)
 # 지난 동영상(2026-10-15~17, 1920×1080)과 같은 짜임으로 다시 만듦.
 #   왼쪽: 폰 화면(지금 줄에 주황 테두리와 손가락), 오른쪽: 절 제목·지금 줄 크게, 아래: [안내]/[보이스오버]/[톡백]/[길눈] 자막
-#   목소리 셋(수퍼톤 2, 비용 없음): 안내는 남자 목소리, 보이스오버·톡백은 조금 빠른 여자 목소리, 길눈이 하는 말은 또 다른 목소리
+#   목소리 셋(수퍼톤 2, 비용 없음): 안내는 남자 목소리, 보이스오버·톡백은 더 빠른 여자 목소리, 길눈이 하는 말은 또 다른 여자 목소리
 #   보이스오버·톡백이 줄을 읽기 전에는 따닥 소리, 두 번 두드리면 두 번
 # 쓰는 법: python3 make.py 대본.py 나올파일.mp4  (나올 파일 이름이 i로 시작하면 아이폰, a로 시작하면 안드로이드)
 import sys, os, re, json, wave, struct, math, subprocess, importlib.util, tempfile, shutil, html
@@ -11,7 +11,9 @@ import numpy as np, soundfile as sf
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODEL = os.environ.get("SUPERTONIC", "/home/claude/tts/sherpa-onnx-supertonic-tts-int8-2026-03-06/")
 SR = 44100
-MOKSORI = {"N": (8, 1.0), "V": (3, 1.25), "G": (0, 1.05)}   # 안내(남자), 낭독기(여자, 빠르게), 길눈
+# (목소리 번호, 만들 때 빠르기, 늘이기 빠르기) — 2026-10-18 이사장님: 약 50% 빠르게, 보이스오버 발음 또렷하게
+# 만들 때 빠르기를 올리면 말이 뭉개져(받아쓰기 정확도 0.65~0.84), 보통 빠르기로 만든 뒤 소리 높이는 그대로 두고 길이만 줄임(0.97~0.99)
+MOKSORI = {"N": (8, 1.0, 1.5), "V": (1, 1.1, 1.6), "G": (2, 1.05, 1.45)}   # 안내(남자), 낭독기(여자, 더 빠르게), 길눈(다른 여자)
 TAG = {"N": "안내", "G": "길눈"}
 
 _tts = None
@@ -54,7 +56,7 @@ def norm(t):
     return t
 
 def malsori(kind, text):
-    sid, sp = MOKSORI[kind]
+    sid, sp, neul = MOKSORI[kind]
     import sherpa_onnx as s
     g = s.GenerationConfig(); g.sid = sid; g.speed = sp; g.extra = {"lang": "ko"}
     a = tts().generate(norm(text), g)
@@ -62,6 +64,10 @@ def malsori(kind, text):
     if a.sample_rate != SR:
         import librosa
         x = librosa.resample(x, orig_sr=a.sample_rate, target_sr=SR)
+    if neul != 1.0:
+        r = subprocess.run(["ffmpeg", "-loglevel", "error", "-f", "f32le", "-ar", str(SR), "-ac", "1", "-i", "pipe:0",
+                            "-af", f"atempo={neul}", "-f", "f32le", "pipe:1"], input=x.tobytes(), capture_output=True, check=True)
+        x = np.frombuffer(r.stdout, dtype=np.float32).copy()
     return x
 
 def ttak(beon=1):
@@ -182,7 +188,7 @@ def main():
             if kind == "V": a.append(ttak(1))
             if kind == "VV": a.append(ttak(2))
             a.append(malsori("V" if kind in ("V", "VV") else kind, text))
-            a.append(swim(0.55 if kind == "N" else 0.35))
+            a.append(swim(0.4 if kind == "N" else 0.3))
             x = np.concatenate(a)
             sori.append(x)
             jul.append((png, len(x) / SR))
