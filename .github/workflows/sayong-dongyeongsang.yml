@@ -1,3 +1,4 @@
+# 1.2 (261018-6, 이사장님 승인 2026-10-18 「3」) ap=jabong 이면 자봉 사용법(대본 dae_jabong, 갈래 sayong-jabong)
 # 길눈 사용법 동영상 만들기 1.1 (빌드 261018-5, 말소리 점검: 문장마다 받아쓰기로 들어 보고 뭉개지면 다시 만듦) — 1.0 (빌드 261018-2, 이사장님 승인 2026-10-18 「1」 — 52편 모두 새 목소리로)
 # 편마다 한 일꾼이 아이폰·안드로이드 두 판을 만들고, 다 모아 sayong-dongyeongsang 갈래에 올림(대장클이 받아 나스에 올림)
 name: sayong-dongyeongsang
@@ -7,6 +8,9 @@ on:
       pyeon:
         description: "만들 편(띄어 쓰기). 비우면 모두"
         default: ""
+      ap:
+        description: "어느 앱 (gilnun = 길눈, jabong = 자봉)"
+        default: "gilnun"
 permissions:
   contents: write
 jobs:
@@ -15,10 +19,14 @@ jobs:
     outputs:
       list: ${{ steps.m.outputs.list }}
     steps:
+      - uses: actions/checkout@v4
       - id: m
         run: |
           P="${{ github.event.inputs.pyeon }}"
-          [ -z "$P" ] && P="c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 c12 c13 c14 c15 c16 c21 c22 c23 c24 c25 c26 c27 c28 c29 c210"
+          if [ -z "$P" ]; then
+            if [ "${{ github.event.inputs.ap }}" = "jabong" ]; then P=$(ls tools/sayong/dae_jabong/c*.py 2>/dev/null | xargs -n1 basename | sed 's/\.py$//' | tr '\n' ' ')
+            else P="c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 c12 c13 c14 c15 c16 c21 c22 c23 c24 c25 c26 c27 c28 c29 c210"; fi
+          fi
           echo "list=$(printf '%s\n' $P | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
   mandeulgi:
     needs: mokrok
@@ -49,8 +57,9 @@ jobs:
           mkdir -p nae
           c=${{ matrix.c }}; n=${c#c}
           cd tools/sayong
-          python3 make.py dae/$c.py ../../nae/i$n.mp4
-          python3 make.py dae/$c.py ../../nae/a$n.mp4
+          D=dae; [ "${{ github.event.inputs.ap }}" = "jabong" ] && D=dae_jabong
+          python3 make.py $D/$c.py ../../nae/i$n.mp4
+          python3 make.py $D/$c.py ../../nae/a$n.mp4
       - uses: actions/upload-artifact@v4
         with: { name: "dy-${{ matrix.c }}", path: "nae/*", retention-days: 3 }
   moeugi:
@@ -66,6 +75,7 @@ jobs:
         run: |
           cd nae && mkdir -p jeomsu && mv *.jeomsu.tsv jeomsu/ 2>/dev/null; ls -l *.mp4 | awk '{print $9, $5}' > keugi.txt && cat keugi.txt
           for f in *.mp4; do ffprobe -v error -show_entries format=duration -of csv=p=0 "$f" | xargs printf "%s %s\n" "$f"; done > gil.txt
-          git init -q && git checkout -q -b sayong-dongyeongsang
+          B=sayong-dongyeongsang; [ "${{ github.event.inputs.ap }}" = "jabong" ] && B=sayong-jabong
+          git init -q && git checkout -q -b $B
           git config user.name "github-actions" && git config user.email "actions@github.com"
-          git add . && git commit -qm "길눈 사용법 동영상" && git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" sayong-dongyeongsang
+          git add . && git commit -qm "사용법 동영상 ${{ github.event.inputs.ap }}" && git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" $B
