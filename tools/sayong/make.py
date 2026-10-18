@@ -46,6 +46,7 @@ SORI = [
     ("긴급통화서비스", "긴급 통화 서비스"), ("긴급통화", "긴급 통화"),
     ("보이스오버", "보이스 오버"), ("음향신호기", "음향 신호기"), ("음성유도기", "음성 유도기"),
     ("국가지점번호", "국가 지점 번호"), ("교통약자", "교통 약자"), ("시각장애인", "시각 장애인"),
+    ("1365", "일삼육오"), ("AI", "에이아이"),   # 261018-6 자봉 사용법 — 봉사 누리집 이름과 AI 밑그림
 ]
 def norm(t):
     for a, b in SORI:
@@ -179,19 +180,23 @@ CSS = """
 HAND = ('<svg class="hand" style="left:{x}px;top:{y}px" viewBox="0 0 44 52"><path d="M6 2 L6 38 L15 30 L22 47 L29 44 L22 28 L34 28 Z" '
         'fill="#fff" stroke="#111" stroke-width="3" stroke-linejoin="round"/></svg>')
 
+# 1.2 (261018-6, 이사장님 승인 2026-10-18 「3」) 앱마다 — 대본이 AP(앱 이름)·TABS(아래 탭 이름)를 주면 그것으로, 없으면 길눈
+AP = "길눈"
+TABS = ["길 찾기", "둘러보기", "음악·방송", "나눔", "설정"]
+
 def gurim_html(s, meori, pan_ireum):
     e = html.escape
     if s.get("pyoji"):
         return (f'<html><head><style>{CSS}</style></head><body><div class="title">{LOGO.format(w=260)}'
                 f'<h2>{e(s["pyoji"])}</h2><p>사단법인 한국시각장애인현장영상해설협회</p>'
                 f'<div class="cap">{e(s["cap"])}</div></div></body></html>')
-    h = [f'<html><head><style>{CSS}</style></head><body><div class="top">{LOGO.format(w=70)}<h1>{e(meori)}</h1><div class="r">길눈 사용법</div></div>']
+    h = [f'<html><head><style>{CSS}</style></head><body><div class="top">{LOGO.format(w=70)}<h1>{e(meori)}</h1><div class="r">{e(AP)} 사용법</div></div>']
     sc = s.get("hwamyeon") or {}
     rows = sc.get("jul", [])
     on = s.get("on")
     h.append('<div class="phone"><div class="scr"><div class="st">9:41</div>')
     if sc.get("jemok"):
-        dw = "‹ 뒤로" if pan_ireum == "보이스오버" else "‹ 뒤로 - " + sc.get("ap", "길 찾기")
+        dw = "‹ 뒤로" if pan_ireum == "보이스오버" else "‹ 뒤로 - " + sc.get("ap", TABS[0])
         h.append(f'<div class="hd">{"<span class=b>" + e(dw) + "</span>" if sc.get("dwiro", True) else ""}<span class="t">{e(sc["jemok"])}</span></div>')
     else:
         h.append('<div style="height:14px"></div>')
@@ -201,8 +206,8 @@ def gurim_html(s, meori, pan_ireum):
         txt = r.split(":", 1)[1] if kind else r
         h.append(f'<div class="row {kind}{" on" if i == on else ""}" id="r{i}">{e(txt)}</div>')
     h.append('</div>')
-    tab = sc.get("tab", "길 찾기")
-    h.append('<div class="tabs">' + "".join(f'<span class="{"on" if t == tab else ""}">{t}</span>' for t in ["길 찾기", "둘러보기", "음악·방송", "나눔", "설정"]) + '</div>')
+    tab = sc.get("tab", TABS[0])
+    h.append('<div class="tabs">' + "".join(f'<span class="{"on" if t == tab else ""}">{t}</span>' for t in TABS) + '</div>')
     h.append('<div id="handslot"></div></div></div>')
     if s.get("jeol"):
         h.append(f'<div class="sec">{e(s["jeol"])}</div>')
@@ -225,6 +230,8 @@ def main():
     sys.path.insert(0, os.path.dirname(os.path.abspath(dae)))   # 대본 곁의 teul.py(여는 말·맺는 말)
     spec = importlib.util.spec_from_file_location("dae", dae); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
     meori = m.MEORI
+    global AP, TABS
+    AP = getattr(m, "AP", AP); TABS = getattr(m, "TABS", TABS); TAG["G"] = AP
     nr = m.NAEDOGI   # "보이스오버" 또는 "톡백"
     tmp = tempfile.mkdtemp()
     from playwright.sync_api import sync_playwright
