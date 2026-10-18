@@ -131,11 +131,28 @@ object Haengsa {
         }
         // 2. 아직 올리지 않은 것을 배프에 올리기
         val an = mokrok(ctx).filter { !it.olim }
-        if (an.isEmpty()) return
+        if (an.isEmpty() && GamchumDaegi.mokrok(ctx).isEmpty()) return   // 1.5.0 감출 인터넷 녹음이 있으면 그것도
         val n = inteonet(ctx)
-        try { olligi(ctx, an, n) } finally {
+        try { if (an.isNotEmpty()) olligi(ctx, an, n); gamchum(ctx, n) } finally {
             mangCb?.let { cb -> try { (ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager).unregisterNetworkCallback(cb) } catch (_: Exception) { } }
             mangCb = null
+        }
+    }
+
+    /** 1.5.0 공유기 녹음이 다시 듣기에 올라갔으면, 같은 때 인터넷으로 나간 녹음은 목록에서 감춤(지우지 않음) */
+    private fun gamchum(ctx: Context, n: Network?) {
+        val olin = mokrok(ctx).filter { it.olim }
+        for ((s, ttae) in GamchumDaegi.mokrok(ctx)) {
+            // 인터넷 방을 연 때가 올라간 공유기 녹음의 시간 안(앞뒤 2분 여유)에 들 때만
+            if (olin.none { ttae - it.sijak > -120 && ttae - it.sijak < it.gilee + 120 }) continue
+            try {
+                val u = URL("$NAS?k=$YEOLSOE&step=gamchum&inteonet=$s")
+                val c = (n?.openConnection(u) ?: u.openConnection()) as HttpURLConnection
+                c.connectTimeout = 10000; c.readTimeout = 20000
+                val t = c.inputStream.bufferedReader().readText()
+                c.disconnect()
+                if (t.contains("\"ok\":true")) GamchumDaegi.ppaegi(ctx, s) else break
+            } catch (_: Exception) { break }
         }
     }
 
@@ -149,9 +166,9 @@ object Haengsa {
                 nasBonaegi(n, h.sid, "girok", File(d, "girok.json").readBytes())
                 File(d, "olim").writeText("1")
                 if (Flint.mang(ctx) != null) batgi(ctx, "/haengsa_olim?sid=" + h.sid)
-                mal(h.jemok + " 녹음과 결과보고를 배프 다시듣기에 올렸습니다.")
+                mal(h.jemok + " 녹음과 결과보고를 LVD 방송 다시 듣기에 올렸습니다.")
             } catch (_: Exception) {
-                mal("배프 다시듣기에 아직 올리지 못했습니다. 인터넷이 되면 저절로 다시 올립니다.")
+                mal("LVD 방송 다시 듣기에 아직 올리지 못했습니다. 인터넷이 되면 저절로 다시 올립니다.")
                 break
             }
         }
