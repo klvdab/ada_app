@@ -101,7 +101,7 @@ def _jeom(sori, x):
     sc = difflib.SequenceMatcher(None, a, b).ratio() if a else 1.0
     deol = lambda t: len(re.findall(r"(?=(.)\1)", t)) + len(re.findall(r"(?=(.).\1)", t))   # 「장애인애인」, 「협회회」처럼 말이 되풀이되어 더듬은 곳(원래 글보다 많은 만큼만 깎음)
     sc -= 0.05 * max(0, deol(b) - deol(a))
-    for k in ("협회", "해설", "장애인"):   # 잘 뭉개지는 낱말이 빠졌으면 크게 깎음
+    for k in ("협회", "해설", "장애인", "우리"):   # 잘 뭉개지는 낱말이 빠졌으면 크게 깎음(「우리」는 2026-10-18 여는 말에서 빠져 더함)
         sc -= 0.1 * max(0, a.count(k) - b.count(k))
     return sc, h
 def malsori(kind, text):
