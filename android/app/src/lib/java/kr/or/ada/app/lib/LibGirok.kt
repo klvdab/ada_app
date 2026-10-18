@@ -31,6 +31,7 @@ object LibGirok {
     fun sijak(ctx: Context) {
         if (sijakDoem) return
         sijakDoem = true
+        LibIyong.sijak(ctx)   // 0.8.2 이용 장부
         val sp = ctx.getSharedPreferences("lib_girok", Context.MODE_PRIVATE)
         dev = sp.getString("dev", null) ?: UUID.randomUUID().toString().take(8).uppercase().also { sp.edit().putString("dev", it).apply() }
         pail = File(ctx.filesDir, "lib_girok_jul.json")
@@ -38,7 +39,7 @@ object LibGirok {
         namgi("lib_kyeojim")
         var beon = 0
         val r = object : Runnable {
-            override fun run() { bonaegi(); beon += 1; if (beon % 3 == 0) jeojang(); main.postDelayed(this, 20000) }
+            override fun run() { bonaegi(); LibIyong.bonaegi(); beon += 1; if (beon % 3 == 0) { jeojang(); LibIyong.jeojang() }; main.postDelayed(this, 20000) }   // 0.8.2 이용 장부도 같은 때
         }
         main.postDelayed(r, 3000)
     }
