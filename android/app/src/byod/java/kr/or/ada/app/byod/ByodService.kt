@@ -124,10 +124,11 @@ class ByodService : Service() {
         Bang.keu = true
         Bang.kyeojim = true
         Bang.sigakTtae = System.currentTimeMillis()
-        val so = Sori(this) { b -> s.ppurida(b) }
+        val so = Sori(this) { b -> s.ppurida(b); Inteonet.neoki(b) }   // 1.5.0 인터넷 방송에도 같은 소리
         so.sijak()
         sori = so
         Bang.gwanchal.add(gwan)
+        inteonetSijak()
         Bang.allyeo()
     }
 
@@ -140,11 +141,19 @@ class ByodService : Service() {
         Bang.keu = true
         Bang.kyeojim = true
         Bang.sigakTtae = System.currentTimeMillis()
-        val so = Sori(this) { x -> b.neoki(x) }
+        val so = Sori(this) { x -> b.neoki(x); Inteonet.neoki(x) }   // 1.5.0 인터넷 방송에도 같은 소리
         so.sijak()
         sori = so
         Bang.gwanchal.add(gwan)
+        inteonetSijak()
         Bang.allyeo()
+    }
+
+    /** 1.5.0 현장 방송과 함께 인터넷 방송 — 제목은 행사 이름(비면 날짜와 시각), 현장영상해설사 이름을 함께 */
+    private fun inteonetSijak() {
+        val p = getSharedPreferences("byod", Context.MODE_PRIVATE)
+        val jm = (p.getString("haengsa_jemok", "") ?: "").trim().ifEmpty { "현장영상해설 방송 " + java.text.SimpleDateFormat("M월 d일 a h시 m분", java.util.Locale.KOREA).format(java.util.Date()) }
+        Inteonet.sijak(this, jm, (p.getString("haeseolsa", "") ?: "").trim())
     }
 
     // 1.3.1 (261015-B11) 같은 폰의 LVD 방송(듣는 앱)에 「지금 송출 중」을 알림 — 스피커로 틀어 마이크로 되돌아 들어가지 않게.
@@ -165,6 +174,7 @@ class ByodService : Service() {
         Bang.gwanchal.remove(gwan)
         Bang.keu = false
         Bang.kyeojim = false
+        Inteonet.meomchugi()   // 1.5.0
         try { sori?.meomchugi() } catch (_: Exception) { }
         try { seobeo?.meomchugi() } catch (_: Exception) { }
         val flintDolatda = bonaegi != null
