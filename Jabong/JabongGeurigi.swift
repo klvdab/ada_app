@@ -471,8 +471,11 @@ final class JeomGeurigi: ObservableObject {
         alrigi(mal)
         mitGyeonjugi(g.id)   // 2.20.0
         // 도착한 자리 주소를 저절로 적음
+        // 261019 이사장님 승인 「1」 — 도착지 이름을 넣으셨으면 그 이름을 같은 길로 알림(주소는 이름이 없을 때만)
         let id = g.id
-        if let w = WichiEngine.shared.jigeum {
+        if !g.to.isEmpty {
+            SoriEngine.shared.mal("도착지는 \(g.to)입니다.", .jeongbo)
+        } else if let w = WichiEngine.shared.jigeum {
             Task {
                 let j = await Chatgi.juso(w.lat, w.lon)
                 await MainActor.run {
@@ -1160,8 +1163,9 @@ struct GeurigiView: View {
                 }
                 Button("지금 상태 듣기") { g.sangtaeAllim() }.buttonStyle(KeunDanchu())
                 Button("잠깐 멈춤") { g.jamkkan() }.buttonStyle(KeunDanchu())
-                // 2.11.0 안내 말소리 끄기 — 끄면 화면 글자와 진동으로만(설정의 말소리와 같은 스위치)
-                Toggle("안내 말소리 — 끄면 화면 글자와 진동으로만", isOn: $s.malKyeojim).font(.title3)
+                // 2.11.0 안내 말소리 끄기 — 끄면 화면 글자로만(설정의 말소리와 같은 스위치)
+                // 261019 이사장님 승인 「1」 — 실제로 없는 「진동」 말을 뺌
+                Toggle("안내 말소리 — 끄면 화면 글자로만", isOn: $s.malKyeojim).font(.title3)
                 Toggle("꺾임 여쭙기 — 방향이 크게 바뀌면 폰이 먼저 여쭘", isOn: $kkeokMutgi)
                     .font(.title3).onChange(of: kkeokMutgi) { v in JeomGeurigi.kkeokMutgi = v }
                 Toggle("AI 밑그림 꺾는 곳 미리 알림 — 15미터 앞에서 한 번", isOn: $mitAllim)   // 2.20.0

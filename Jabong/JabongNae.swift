@@ -94,15 +94,18 @@ final class JabongNae: ObservableObject {
     }
 
     /// 등록 정보를 나스에서 다시 받아 봄(새로고침)
-    func dasiBatgi() async {
+    // 261019 이사장님 승인 「1」 — 받았는지 못 받았는지 돌려줌(못 받았는데 「새로 받았습니다」라 하지 않게)
+    @discardableResult
+    func dasiBatgi() async -> Bool {
         guard deungrokham, let jam = Yeolsoe.ilgi("jbJam"),
-              let j = await JabongNae.mutgi("nae", ["beonho": beonho, "jam": jam]), (j["ok"] as? Bool) == true else { return }
+              let j = await JabongNae.mutgi("nae", ["beonho": beonho, "jam": jam]), (j["ok"] as? Bool) == true else { return false }
         let su = (j["girok"] as? [Any])?.count ?? geurinSu
         await MainActor.run {
             self.dameum(self.beonho, (j["ireum"] as? String) ?? self.ireum, (j["jiyeok"] as? String) ?? self.jiyeok, (j["id1365"] as? String) ?? self.id1365)
             self.geurinSu = su
             self.d.set(su, forKey: "jb.geurinSu")
         }
+        return true
     }
 
     /// 2.21.0 내 기록 탭에서 1365 아이디를 넣거나 고침 — 나스 등록 창고(gochim)에도 함께. 성공하면 nil, 안 되면 까닭

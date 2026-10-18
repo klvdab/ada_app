@@ -154,7 +154,8 @@ struct JbGirokpanView: View {
         .onAppear { bulreogi() }
     }
 
-    private func bulreogi() {
+    // 261019 이사장님 승인 「1」 — 박수 뒤 다시 불러올 때는 요약을 또 읽거나 커서를 옮기지 않음(박수 알림을 덮지 않게)
+    private func bulreogi(malHagi: Bool = true) {
         mot = false
         Task {
             let r = await Hamkke.girokpan()
@@ -163,12 +164,14 @@ struct JbGirokpanView: View {
                     g = r
                     var m = "모두 그린 길 \(r.gilModu + r.nasGil)개. 이번 주 함께 그린 길 \(r.gilJu)개, 약 \(r.geoJu)미터."
                     if let t = r.top.first { m += " 이번 주 가장 많이 그려 주신 분은 \(t.0)님, \(t.1)개입니다." }
-                    SoriEngine.shared.mal(m)
-                    chojeom = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true }
+                    if malHagi {
+                        SoriEngine.shared.mal(m)
+                        chojeom = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true }
+                    }
                 } else {
                     mot = true
-                    SoriEngine.shared.mal("기록판이 잠시 쉬고 있습니다. 조금 뒤에 다시 불러 주십시오.")
+                    if malHagi { SoriEngine.shared.mal("기록판이 잠시 쉬고 있습니다. 조금 뒤에 다시 불러 주십시오.") }
                 }
             }
         }
@@ -188,7 +191,7 @@ struct JbGirokpanView: View {
                 guard let r = r else { SoriEngine.shared.mal("박수를 보내지 못했습니다. 잠시 뒤 다시 눌러 주십시오."); return }
                 if r.1 { SoriEngine.shared.mal("이번 주에는 이미 박수를 보내셨습니다. 이번 주 모두 \(r.0)번입니다.") }
                 else { Baksu.chigi(keuge: true); SoriEngine.shared.mal("모든 자봉님께 응원 박수를 보냈습니다. 이번 주 모두 \(r.0)번입니다.") }
-                bulreogi()
+                bulreogi(malHagi: false)   // 261019 이사장님 승인 「1」 — 숫자만 새로 고침
             }
         }
     }

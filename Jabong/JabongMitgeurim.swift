@@ -260,7 +260,7 @@ extension JeomGeurigi {
                     guard !t.isEmpty else { SoriEngine.shared.mal("말씀이 들리지 않았습니다. 다시 눌러 주십시오."); return }
                     self.kkadakJeokgi(id, i, t)
                 }
-                if !ok { SoriEngine.shared.mal("지금은 마이크를 열지 못했습니다. 글로 적어 주십시오.") }
+                if !ok { SoriEngine.shared.mal("지금은 마이크를 열지 못했습니다. 잠시 뒤 다시 눌러 주십시오.") }   // 261019 이사장님 승인 「1」 — 글로 적는 칸이 없으므로 다시 누르시게
             }
         }
     }
