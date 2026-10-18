@@ -35,7 +35,14 @@ object Hyeonjang {
         val am = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         // 1. 방송
         l.add(if (Bang.kyeojim) Jul(true, "방송: 켜져 있습니다. 듣는 분 " + Bang.deutnunSu + "명.")
-              else Jul(false, "방송: 꺼져 있습니다. 첫 화면의 LVD 송출 시작을 누르십시오. 방송을 켜야 소리 크기도 잴 수 있습니다."))
+              else Jul(false, "방송: 꺼져 있습니다. 첫 화면의 현장 방송 시작을 누르십시오. 방송을 켜야 소리 크기도 잴 수 있습니다."))
+        // 1.5.0 함께 나가는 인터넷 방송
+        l.add(when {
+            !Inteonet.hamkke(ctx) -> Jul(true, "인터넷 방송: 꺼 두셨습니다. 현장 방송만 나갑니다.")
+            Inteonet.jeonhwa(ctx).length < 9 -> Jul(false, "인터넷 방송: 현장영상해설사 전화번호가 없어 함께 나가지 않습니다. 첫 화면의 전화번호 칸에 협회 명단의 번호를 넣으십시오.")
+            Bang.kyeojim -> Jul(Inteonet.jul.contains("함께 나가고"), Inteonet.jul.ifEmpty { "인터넷 방송: 준비 중입니다." })
+            else -> Jul(true, "인터넷 방송: 현장 방송을 켜면 함께 나갑니다.")
+        })
         // 2. 사운드카드
         val ins = am.getDevices(AudioManager.GET_DEVICES_INPUTS)
         val usbSori = ins.any { it.type == AudioDeviceInfo.TYPE_USB_DEVICE || it.type == AudioDeviceInfo.TYPE_USB_HEADSET || it.type == AudioDeviceInfo.TYPE_USB_ACCESSORY }
