@@ -1,16 +1,17 @@
 // LVD 방송 아이폰(듣는 앱) — 시작과 화면 (2.1.0판, 빌드 261016-LI2, 방클, 이사장님 승인 「1」)
 // 배프 웹 껍데기(BfbApp)를 속까지 앱으로 새로 지음. 고유 번호 kr.or.ada.bfb 를 그대로 이어 업데이트로 바뀝니다.
 // 이사장님 뜻: 듣는 분께는 들을 것만. 방송 방식·공유기 같은 말은 어디에도 보이지 않게.
-// 첫 화면: 협회 로고 머리 → 「현장영상해설 듣기」(큰 단추, 커서가 여기에) → 상태 한 줄(바뀔 때만 알림)
-//   → 「현장영상해설사 도움 요청」(누르면 바로 아래에 세 가지) → (처음 한 번) 행사장에 들어서면 저절로 들리게 하기 → 새 판 한 줄 → 더 보기
+// 첫 화면(2.2.0): 협회 로고 머리 → 「지금 현장영상해설 듣기」(큰 단추, 커서, 행사장이면 현장 방송·아니면 인터넷 방송) → 상태 한 줄(바뀔 때만 알림)
+//   → (인터넷 방송이 여럿이면 고르기) → TV해설방송 듣기 → 다시 듣기 → 「현장영상해설사 도움 요청」(행사장에서) → (처음 한 번) 저절로 들리게 하기 → 새 판 한 줄
+//   → 더 보기(방송 알림 받기, 인터넷 방송 목록, 그 밖에 들을 거리 TV방송·라디오방송, 저절로 듣기, 와이파이, 말소리, 도움말, 새로고침, 업데이트, 판 정보)
 // 행사장(행사장 와이파이)이면 앱을 열기만 해도 곧바로 들려 드립니다.
 import SwiftUI
 import UIKit
 import AVFoundation
 
 enum Pan {
-    static let PAN = "2.1.0"   // 2.1.0(261016-LI2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 인터넷 생방송 듣기로 이름 줄임, 앱 안 누리집의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-LI1) LVD 방송 아이폰 첫 판 — 행사장 와이파이 저절로 붙기, 앱 열면 곧바로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
-    static let BILD = "261016-LI2"
+    static let PAN = "2.2.0"   // 2.2.0(261018-LI3) LVD 방송 정리 — 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기를 첫 화면에, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 2.1.0(261016-LI2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 인터넷 생방송 듣기로 이름 줄임, 앱 안 누리집의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-LI1) LVD 방송 아이폰 첫 판 — 행사장 와이파이 저절로 붙기, 앱 열면 곧바로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
+    static let BILD = "261018-LI3"
     static let BAEP = "https://lvd.ada.or.kr/bfblive/"
 }
 
@@ -111,6 +112,7 @@ struct CheotHwamyeon: View {
     @State private var jeoljeolo = UserDefaults.standard.object(forKey: "jeoljeolo_deutgi") as? Bool ?? true
     @State private var malsori = Malsori.shared.kyeojim
     @State private var salpimJung = false
+    @State private var gitaYeollim = false   // 2.2.0 그 밖에 들을 거리
     @AccessibilityFocusState private var deutCursor: Bool
     @Environment(\.scenePhase) private var scenePhase
     private let tik = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
@@ -136,10 +138,16 @@ struct CheotHwamyeon: View {
         ScrollView {
             VStack(spacing: 14) {
                 HyeophoeMeori(ireum: "LVD 방송")
-                Danchu(deut.kyeojim ? "듣기 멈추기" : "현장영상해설 듣기", keun: true, norang: true) { deutNureum() }
+                Danchu(deut.kyeojim ? "듣기 멈추기" : "지금 현장영상해설 듣기", keun: true, norang: true) { deutNureum() }
                     .accessibilityFocused($deutCursor)
                 Geul(deut.sangtae, gulgeum: true)
-                Danchu("현장영상해설사 도움 요청") { yocheongYeollim.toggle() }
+                // 2.2.0 인터넷 방송이 여럿이면 고르기
+                ForEach(deut.gorgi) { b in
+                    Danchu(b.ireum) { deut.inteonetGoreum(b) }
+                }
+                Danchu("TV해설방송 듣기") { hwamyeon = .web("TV해설방송 듣기", "https://lvd.ada.or.kr/lvds/haeseol_deutgi.html") }
+                Danchu("다시 듣기") { hwamyeon = .web("다시 듣기", Pan.BAEP + "dasi.html") }
+                Danchu("현장영상해설사 도움 요청 (행사장에서)") { yocheongYeollim.toggle() }
                 if yocheongYeollim {
                     Danchu("도와주세요 (현장영상해설사가 찾아갑니다)") { yocheong("dowum") }
                     Danchu("소리가 끊겨요") { yocheong("kkeunkim") }
@@ -153,11 +161,13 @@ struct CheotHwamyeon: View {
                 }
                 Danchu(deoYeollim ? "더 보기 접기" : "더 보기") { deoYeollim.toggle() }
                 if deoYeollim {
-                    Danchu("인터넷 생방송 듣기") { hwamyeon = .web("인터넷 생방송 듣기", Pan.BAEP + "deutgi2.html") }
-                    Danchu("지난 방송 다시 듣기") { hwamyeon = .web("지난 방송 다시 듣기", Pan.BAEP + "dasi.html") }
-                    Danchu("TV해설방송 듣기") { hwamyeon = .web("TV해설방송 듣기", "https://lvd.ada.or.kr/lvds/haeseol_deutgi.html") }
-                    Danchu("TV방송") { hwamyeon = .web("TV방송", Pan.BAEP + "chae.html?kind=tv") }
-                    Danchu("라디오방송") { hwamyeon = .web("라디오방송", Pan.BAEP + "chae.html?kind=radio") }
+                    Danchu("방송 알림 받기") { hwamyeon = .web("방송 알림 받기", Pan.BAEP + "deutgi2.html#allim") }   // 2.2.0
+                    Danchu("인터넷 방송 목록 (누리집 화면)") { hwamyeon = .web("인터넷 방송 목록", Pan.BAEP + "deutgi2.html") }
+                    Danchu(gitaYeollim ? "그 밖에 들을 거리 접기" : "그 밖에 들을 거리 — TV방송과 라디오방송") { gitaYeollim.toggle() }   // 2.2.0
+                    if gitaYeollim {
+                        Danchu("TV방송") { hwamyeon = .web("TV방송", Pan.BAEP + "chae.html?kind=tv") }
+                        Danchu("라디오방송") { hwamyeon = .web("라디오방송", Pan.BAEP + "chae.html?kind=radio") }
+                    }
                     Danchu(jeoljeolo ? "행사장에 들어서면 저절로 듣기: 켜짐. 누르면 끕니다" : "행사장에 들어서면 저절로 듣기: 꺼짐. 누르면 켭니다") {
                         jeoljeolo.toggle()
                         UserDefaults.standard.set(jeoljeolo, forKey: "jeoljeolo_deutgi")
@@ -187,7 +197,7 @@ struct CheotHwamyeon: View {
     private func deutNureum() {
         if deut.kyeojim { deut.kkeugi(son: true); allim("듣기를 멈추었습니다. 다시 들으시려면 같은 단추를 누르십시오."); return }
         deut.kyeogi()
-        allim("현장영상해설을 찾고 있습니다.")
+        allim("현장영상해설을 찾고 있습니다. 행사장이면 현장 방송을, 아니면 인터넷 방송을 들려 드립니다.")
     }
 
     private func hyeonjangSalpigi(baro: Bool) {
