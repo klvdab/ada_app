@@ -23,12 +23,16 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.69.0"
-    const val bild = "261018-A57"
+    const val pan = "2.70.0"
+    const val bild = "261019-A58"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.70.0", "261019-A58", "2026-10-19", listOf(
+            "★나눔 마당 — 문장 끝 마침표를 바르게(겹치거나 빠지지 않게, 이사장님 승인 2026-10-19 「1」)",
+            "그려 주세요 — 다 그려진 길은 줄 끝에 「자원봉사자님이 그려 주셨습니다」"
+        )),
         Gochim("2.69.0", "261018-A57", "2026-10-18", listOf(
             "★동영상 강의 — 길눈 사용법 26편을 앱 안에서 바로 틂(설정 탭 → 도움말 → 맨 위 찾기 칸 아래 「동영상 강의」), 가입·로그인 없음",
             "도움말 한 항목을 펼치면 그 기능의 강의 한 편으로 가는 단추(지하철이면 1-6편처럼)",

@@ -149,8 +149,21 @@ internal object NnJeojang {
 // MARK: 나눔 마당
 
 data class NnMulGeul(val id: String, val mul: String, val got: String, val mal: String, val nugu: String, val yeon: String, val nal: String) {
-    val julMal: String get() = mul + (if (got.isEmpty()) "" else " — $got") + (if (mal.isEmpty()) "" else ". $mal") + " · " + nal
-    val jaseMal: String get() = "$mul. $mal 올리신 분은 " + (if (nugu.isEmpty()) "이름을 밝히지 않으셨습니다" else nugu) + ". 연락은 $yeon."
+    // 261019 이사장님 승인 「1」 — 마침표가 겹치거나 빠지지 않게(톡백이 문장을 끊어 읽도록)
+    companion object {
+        fun jjeom(s: String): String {
+            val t = s.trim()
+            if (t.isEmpty()) return ""
+            return if (t.endsWith(".") || t.endsWith("?") || t.endsWith("!")) t else "$t."
+        }
+    }
+    val julMal: String
+        get() {
+            val ap = mul + (if (got.isEmpty()) "" else " — $got")
+            val m = mal.trim()
+            return (if (m.isEmpty()) ap else jjeom(ap) + " " + m) + " · " + nal + "."
+        }
+    val jaseMal: String get() = jjeom(mul) + " " + (if (mal.isEmpty()) "" else jjeom(mal) + " ") + "올리신 분은 " + (if (nugu.isEmpty()) "이름을 밝히지 않으셨습니다" else nugu) + ". 연락은 $yeon."
     val jeonhwa: String?
         get() {
             val b = yeon.filter { it.isDigit() || it == '+' }
@@ -254,7 +267,7 @@ data class NnButak(
         get() {
             var t = "${sinMal}에서 ${min}까지"
             if (geori > 0) t += " · 약 " + (if (geori >= 1000) String.format(Locale.US, "%.1f킬로미터", geori / 1000) else "${geori.toInt()}미터")
-            if (doen) t += if (gil.isEmpty()) " · 다 그려졌습니다" else " · 길눈님이 그려 주셨습니다"
+            if (doen) t += if (gil.isEmpty()) " · 다 그려졌습니다" else " · 자원봉사자님이 그려 주셨습니다"   // 261019 이사장님 승인 「1」 — 그리는 분은 자원봉사자님
             return "$t · $eonje"
         }
     val jaseMal: String
