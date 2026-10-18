@@ -169,7 +169,37 @@ object Hoewon {
             val j = JSONObject(s)
             val tk = j.optString("tk")
             if (!j.optBoolean("ok") || tk.isEmpty()) j.optString("error").ifEmpty { "회원 등록을 하지 못했습니다. 잠시 뒤 다시 해 주십시오." }
-            else { p(c).edit().putString("tk", tk).putString("ireum", ir).apply(); null }
+            else { p(c).edit().putString("tk", tk).putString("ireum", ir).putBoolean("bogang", j.optBoolean("bogang")).apply(); null }
         } catch (e: Exception) { "도서관에 닿지 못했습니다. 인터넷을 확인한 뒤 다시 등록을 눌러 주십시오." }
     }
+    // ── 0.8.2 (261019-L21) 실적용 회원 정보 보강 — 장애 유형·지역·연령대·약관 동의(이사장님 승인 2026-10-18 「1」). 값은 서버 hoewon.php hw_bogang_mok 과 같아야 함
+    val JANGAE = listOf("시각장애(전맹)", "시각장애(저시력)", "그 밖의 독서장애", "장애 없음(가족·봉사자 등)", "밝히지 않음")
+    val JIYEOK = listOf("서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주", "해외", "밝히지 않음")
+    val NAI = listOf("10대 이하", "20대", "30대", "40대", "50대", "60대", "70대", "80대 이상", "밝히지 않음")
+    const val YAKGWAN = "AI점자도서관 이용 약관: 저작권이 있는 책은 저작권법 제33조에 따라 시각장애인 등 회원 본인만 듣고, 복사하거나 남에게 넘기지 않습니다. 협회는 이름과 전화번호를 회원 관리에만 쓰고, 이용 기록은 이름 없이 숫자로만 도서관 실적에 씁니다."
+    fun bogangDoem(c: Context) = p(c).getBoolean("bogang", false)
+    /** 켤 때 서버에 보강했는지 물음(다른 폰에서 이미 했으면 다시 묻지 않음) */
+    fun bogangHwakin(c: Context) {
+        if (!deungrokdoem(c) || bogangDoem(c)) return
+        try {
+            val con = URL(Api.BASE + "hoewon.php?a=sangtae&tk=" + URLEncoder.encode(yeolsoe(c), "UTF-8")).openConnection() as HttpURLConnection
+            con.connectTimeout = 15000; con.readTimeout = 15000; con.setRequestProperty("User-Agent", Api.UA)
+            val j = JSONObject(con.inputStream.use { String(it.readBytes(), Charsets.UTF_8) })
+            if (j.optBoolean("ok") && j.optBoolean("bogang")) p(c).edit().putBoolean("bogang", true).apply()
+        } catch (e: Exception) {}
+    }
+    /** 성공하면 null, 실패하면 알릴 말 */
+    fun bogang(c: Context, jangae: String, jiyeok: String, nai: String): String? = try {
+        val con = URL(Api.BASE + "hoewon.php?a=bogang").openConnection() as HttpURLConnection
+        val b = "hw" + UUID.randomUUID()
+        con.requestMethod = "POST"; con.doOutput = true; con.connectTimeout = 15000; con.readTimeout = 30000
+        con.setRequestProperty("User-Agent", Api.UA)
+        con.setRequestProperty("Content-Type", "multipart/form-data; boundary=$b")
+        val body = StringBuilder()
+        for ((k, v) in listOf("tk" to yeolsoe(c), "jangae" to jangae, "jiyeok" to jiyeok, "nai" to nai, "dongui" to "1")) body.append("--$b\r\nContent-Disposition: form-data; name=\"$k\"\r\n\r\n$v\r\n")
+        body.append("--$b--\r\n")
+        con.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+        val j = JSONObject((if (con.responseCode in 200..299) con.inputStream else con.errorStream).use { String(it.readBytes(), Charsets.UTF_8) })
+        if (j.optBoolean("ok")) { p(c).edit().putBoolean("bogang", true).apply(); null } else j.optString("error").ifEmpty { "보내지 못했습니다. 잠시 뒤 다시 해 주십시오." }
+    } catch (e: Exception) { "도서관에 닿지 못했습니다. 인터넷을 확인한 뒤 다시 눌러 주십시오." }
 }
