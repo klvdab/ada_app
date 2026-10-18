@@ -57,6 +57,7 @@ final class LibGirok {
     }
 
     func jeojang() {
+        LibIyong.shared.jeojang()   // 0.8.2 이용 장부도 함께
         q.async {
             if let d = try? JSONSerialization.data(withJSONObject: self.jul) {
                 try? d.write(to: self.pail, options: .atomic)
@@ -65,6 +66,7 @@ final class LibGirok {
     }
 
     func bonaegi() {
+        LibIyong.shared.bonaegi()   // 0.8.2 이용 장부도 같은 때(20초마다) 보냄
         q.async {
             guard !self.bonaeneunJung, !self.jul.isEmpty else { return }
             let mukeum = Array(self.jul.prefix(100))
@@ -89,6 +91,73 @@ final class LibGirok {
                     if let d = try? JSONSerialization.data(withJSONObject: self.jul) {
                         try? d.write(to: self.pail, options: .atomic)
                     }
+                    if !self.jul.isEmpty { DispatchQueue.main.async { self.bonaegi() } }
+                }
+            }.resume()
+        }
+    }
+}
+
+// MARK: 0.8.2 (261019-L21) 이용 장부 — 실적용(이사장님 승인 2026-10-18 「1」)
+// 책·작품을 연 것(yeol), 들은 시간(deut, 1분마다 초), 끝까지 들은 것(kkeut)을 협회 서버(nas/iyong.php)에 남깁니다.
+// 회원 열쇠로 보내면 서버가 이름·전화 대신 가명 번호로만 적습니다. 운영실 통계에는 숫자만 나갑니다.
+// 통신이 끊기면 폰에 쌓아 두었다가(앱을 껐다 켜도 남음) 이어지면 보냅니다.
+final class LibIyong {
+    static let shared = LibIyong()
+    private let q = DispatchQueue(label: "lib.iyong")
+    private var jul: [[String: Any]] = []
+    private var bonaeneunJung = false
+    private let pail: URL
+    private let url = URL(string: "https://lvd.ada.or.kr/nas/iyong.php")!
+
+    init() {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("lib", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        pail = dir.appendingPathComponent("iyong_jul.json")
+        if let d = try? Data(contentsOf: pail),
+           let a = try? JSONSerialization.jsonObject(with: d) as? [[String: Any]] {
+            jul = a
+        }
+    }
+
+    func namgi(_ e: String, i: Int, k: String, s: Int = 0) {
+        guard i >= 0 else { return }
+        var row: [String: Any] = ["t": Int(Date().timeIntervalSince1970), "e": e, "i": i, "k": k]
+        if s > 0 { row["s"] = s }
+        q.async {
+            self.jul.append(row)
+            if self.jul.count > 5000 { self.jul.removeFirst(self.jul.count - 5000) }
+        }
+    }
+
+    func jeojang() {
+        q.async {
+            if let d = try? JSONSerialization.data(withJSONObject: self.jul) { try? d.write(to: self.pail, options: .atomic) }
+        }
+    }
+
+    func bonaegi() {
+        q.async {
+            let tk = Hoewon.shared.yeolsoe
+            guard !self.bonaeneunJung, !self.jul.isEmpty, !tk.isEmpty else { return }
+            let mukeum = Array(self.jul.prefix(200))
+            let body: [String: Any] = ["tk": tk, "gi": "ios", "app": "lib-ios " + Pan.ver + "(" + Pan.build + ")", "ev": mukeum]
+            guard let data = try? JSONSerialization.data(withJSONObject: body) else { self.jul.removeFirst(mukeum.count); return }
+            self.bonaeneunJung = true
+            var r = URLRequest(url: self.url)
+            r.httpMethod = "POST"
+            r.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            r.httpBody = data
+            r.timeoutInterval = 15
+            URLSession.shared.dataTask(with: r) { _, res, _ in
+                let code = (res as? HTTPURLResponse)?.statusCode ?? 0
+                self.q.async {
+                    self.bonaeneunJung = false
+                    // 200 받음, 400·413 은 다시 보내도 안 되므로 버림. 403(열쇠 없음)·통신 끊김은 남겨 두었다가 다시
+                    guard code == 200 || code == 400 || code == 413 else { return }
+                    self.jul.removeFirst(min(mukeum.count, self.jul.count))
+                    if let d = try? JSONSerialization.data(withJSONObject: self.jul) { try? d.write(to: self.pail, options: .atomic) }
                     if !self.jul.isEmpty { DispatchQueue.main.async { self.bonaegi() } }
                 }
             }.resume()
