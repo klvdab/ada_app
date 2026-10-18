@@ -2,12 +2,17 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.25.0"
-    static let bild = "261017-I19"
+    static let pan = "2.26.0"
+    static let bild = "261018-I20"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.26.0", bild: "261018-I20", nal: "2026-10-18", naeyong: [
+            "★동영상 강의 — 자봉 사용법 21편을 앱 안에서 바로 틂(알림·설정 탭 → 도움말 → 맨 위 「동영상 강의」), 도움말 항목마다 그 기능의 강의, 이름 없는 조회수(이사장님 승인 2026-10-18 「3」)",
+            "도움말 바로잡음 — 「탭 넷」의 첫째 탭 이름을 그리기로, 「표시 남기기」의 나머지 표시를 스물두 가지로",
+            "도움말 — 동영상 강의"
+        ]),
         Gochim(pan: "2.25.0", bild: "261017-I19", nal: "2026-10-17", naeyong: [
             "★길손님 자리 보기(이사장님 승인 2026-10-17 「그러자」, 웹 길눈 jari_nanum.js 1.1에서 옮김) — 통화 화면에 5초마다 주소·국가지점번호·바라보는 쪽(시계 방향)·빠르기·오차·몇 초 전, 지도로 열기(카카오맵 길손이)", "통화 화면 안에 길손이 자리 지도", "도움말 — 긴급통화 길손님 자리 보기"
         ]),
