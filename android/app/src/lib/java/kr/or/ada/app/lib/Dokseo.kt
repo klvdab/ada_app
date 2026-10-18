@@ -1,4 +1,5 @@
 // AI점자도서관 안드로이드 — 독서기 (0.4.4판, 빌드 261008-L8)
+// 0.8.2 (261019-L21, 이사장님 승인 2026-10-18 「1」) 이용 장부(책 열기·1분마다 들은 시간·끝까지 들음), 8초 넘게 멈추면 스스로 다시 이어 틀기, 멈춤 기록은 한 번에 한 줄
 // 0.6.3 (261014-L15, 이사장님 승인) 이용 기록(책 열기·소리를 5초 넘게 기다림·소리를 못 만듦·글자를 못 가져옴, 책 이름·내용은 남기지 않음).
 //       미리 받던 문단을 곧바로 읽으려 하면 기다림이 풀리지 않던 것 바로잡음 — 같은 문단을 받는 중이면 기다리는 쪽도 함께 알려 줌(soriGidari)
 // 0.4.4 (261008-L8, 이사장님 승인 「1」) 화면을 꺼도 계속 읽기(DokseoService 미디어 세션), 이어폰 단추·잠금 화면, 전화·이어폰 뽑기 때 멈춤 표시 맞춤,
@@ -49,6 +50,36 @@ object Dokseo {
     private var miriUi = -1
     private var miriBang = ""
     private var ieoJung = false
+    // ── 0.8.2 이용 장부와 멈춤 지킴이 ──
+    private var deutNu = 0; private var deutI = -1; private var deutK = ""
+    private var meomSijak = 0L; private var meomGirokMaji = 0L; private var meomDasi = 0
+    private var jikimiDoem = false
+    private fun jangbuK() = if (Api.isEnt(i)) "ent" else kind
+    fun deutBonaegi() { if (deutNu >= 5 && deutI >= 0) LibIyong.namgi("deut", deutI, deutK, deutNu); deutNu = 0 }
+    private val jikimi = object : Runnable { override fun run() { jikimiTik(); main.postDelayed(this, 3000) } }
+    private fun jikimiSijak() { if (!jikimiDoem) { jikimiDoem = true; main.postDelayed(jikimi, 3000) } }
+    private fun jikimiTik() {
+        val p = player
+        val deunneun = if (kind == "geul") playing else (p?.playWhenReady == true)
+        if (!deunneun || i < 0) { meomSijak = 0; return }
+        if (kind == "geul" && waiting) return   // 글자책은 소리를 굽는 동안 세지 않음
+        if (deutI != i) { deutBonaegi(); deutI = i; deutK = jangbuK() }
+        if (kind != "geul" && p != null) {
+            if (p.playbackState == Player.STATE_BUFFERING) {
+                if (meomSijak == 0L) meomSijak = System.currentTimeMillis()
+                if (System.currentTimeMillis() - meomSijak >= 8000) {
+                    meomSijak = 0; meomDasi += 1
+                    LibGirok.namgi("lib_sori_dasi", mapOf("beon" to meomDasi, "ent" to Api.isEnt(i), "cho" to (p.currentPosition / 1000).toInt()))
+                    val at = p.currentPosition; p.prepare(); p.seekTo(at); p.play()
+                }
+                return
+            }
+            meomSijak = 0
+            if (!p.isPlaying) return
+        }
+        deutNu += 3
+        if (deutNu >= 60) deutBonaegi()
+    }
     private fun ieoBang(): String { val s = Store.ieo; return if (s == "han" || s == "ban") "ap" else s }
     /** 다음 것을 미리 알아 두어 곡 사이 기다림을 줄임 */
     fun ieoMiri() {
@@ -125,13 +156,14 @@ object Dokseo {
             }
             override fun onPlaybackStateChanged(state: Int) {
                 // 0.7.1 소리책·동영상·엔터테인먼트가 틀던 중 소리가 모자라 기다리면 이용 기록에(멈춤 까닭 살피기)
-                if (kind != "geul" && state == Player.STATE_BUFFERING && player?.playWhenReady == true) LibGirok.namgi("lib_sori_meomchum", mapOf("kka" to "moja", "ent" to Api.isEnt(i), "cho" to ((player?.currentPosition ?: 0) / 1000).toInt()))
+                if (kind != "geul" && state == Player.STATE_BUFFERING && player?.playWhenReady == true && System.currentTimeMillis() - meomGirokMaji > 10000 && run { meomGirokMaji = System.currentTimeMillis(); true }) LibGirok.namgi("lib_sori_meomchum", mapOf("kka" to "moja", "ent" to Api.isEnt(i), "cho" to ((player?.currentPosition ?: 0) / 1000).toInt()))
                 if (kind != "geul" && state == Player.STATE_ENDED) {   // 0.8.0 이어 듣기
+                    deutBonaegi(); LibIyong.namgi("kkeut", i, jangbuK())   // 0.8.2 이용 장부
                     Store.remember(i, title, kind, 0.0, ((player?.duration ?: 0) / 1000).toInt(), done = true)
                     if (Api.isEnt(i) && Store.ieo != "han") { if (Store.ieo == "ban") { player?.seekTo(0); player?.play() } else ieoGa(1) }
                 }
                 if (kind == "geul" && state == Player.STATE_ENDED && playing) {
-                    if (pos >= modu - 1 && modu > 0) { playing = false; Store.remember(i, title, kind, pos.toDouble(), modu, done = true); allim?.invoke("책을 끝까지 읽었습니다."); bakkwim?.invoke() }
+                    if (pos >= modu - 1 && modu > 0) { playing = false; Store.remember(i, title, kind, pos.toDouble(), modu, done = true); deutBonaegi(); LibIyong.namgi("kkeut", i, "geul"); allim?.invoke("책을 끝까지 읽었습니다."); bakkwim?.invoke() }
                     else { waiting = true; bakkwim?.invoke() }    // 다음 문단이 아직 안 구워짐 — 들어오면 이어 틂
                 }
             }
@@ -168,6 +200,7 @@ object Dokseo {
         miri = null; miriUi = -1
         i = bi; title = bt; kind = bk; paras.clear(); gajineun.clear(); soriGidari.clear(); pageLoading.clear(); modu = 0; wons.clear(); hjgal = false
         LibGirok.namgi("lib_chaek_yeolgi", mapOf("kind" to bk, "ent" to Api.isEnt(bi), "naeryeo" to (Naeryeo.isDown(c, bi))))   // 0.6.3 이용 기록
+        LibIyong.namgi("yeol", bi, if (Api.isEnt(bi)) "ent" else bk); meomDasi = 0; meomSijak = 0; jikimiSijak()   // 0.8.2 이용 장부·멈춤 지킴이
         val saved = Store.rec(bi)
         val p = ensurePlayer()
         p.setPlaybackParameters(PlaybackParameters(Store.rate))
@@ -306,12 +339,14 @@ object Dokseo {
     }
 
     fun pause() { tts?.stop();
+        deutBonaegi()   // 0.8.2
         token += 1
         player?.pause(); playing = false; waiting = false
         if (kind != "geul") player?.let { Store.remember(i, title, kind, it.currentPosition / 1000.0, 0) }
         bakkwim?.invoke()
     }
     fun stop() { tts?.stop();
+        deutBonaegi()   // 0.8.2 들은 시간 마저 보냄
         token += 1
         player?.stop(); player?.clearMediaItems()
         playing = false; waiting = false; gidari.clear()
