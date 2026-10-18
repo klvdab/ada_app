@@ -128,7 +128,7 @@ struct PagedList: View {
     }
     func go(_ it: Item) {
         if ent {
-            if let i = it.i { nav.push(Route.reader(i, it.t, "sori")) } else if let j = it.j { nav.push(Route.ent(j, it.t)) }
+            if let i = it.i { nav.push(Route.reader(i, it.t, it.k ?? "sori")) } else if let j = it.j { nav.push(Route.ent(j, it.t)) }
             return
         }
         if let i = it.i { nav.push(Route.reader(i, it.t, "")) }   // 0.5.1 한 번 두드리면 독서기가 열려 바로 읽음(형식은 독서기가 알아냄)
@@ -282,6 +282,9 @@ struct ReaderView: View {
         if k == "etc" || k.isEmpty { bulga = true; try? await Task.sleep(nanoseconds: 400_000_000); focus = true }
         else { kind = k }
     }
+    // 0.8.0 이어 듣기 중인가(이 화면에서 연 작품에서 이어져 지금 다른 곡·회를 틀고 있음)
+    var ieoJung: Bool { API.isEnt(i) && r.ieoSijak == i && API.isEnt(r.i) && r.i != i }
+    var boKind: String { ieoJung ? r.kind : kind }
     // 0.6.0 곱씹어 읽기
     func dasiDeutgi() { r.play(at: r.pos) }
     func jungyoPyosi() {
@@ -291,6 +294,9 @@ struct ReaderView: View {
     }
     var boneun: some View {
         List {
+            if let p = r.player, boKind == "yeongsang" {   // 0.7.2 영상 화면은 읽기 단추 위에(안드로이드와 같게)
+                Section { VideoPlayer(player: p).frame(height: 220) }
+            }
             Section {
                 Button(r.playing ? "멈춤" : (r.waiting ? "소리 만드는 중" : "읽기")) { r.toggle() }
                     .accessibilityFocused($focus)
@@ -300,6 +306,14 @@ struct ReaderView: View {
                 Button("앞으로 30초") { r.gaCho(30) }   // 0.4.0 — 헷갈리지 않는 이름(이사장님)
                 Button("뒤로 30초") { r.gaCho(-30) }
                 JaesaengWichi()   // 0.4.0 — 재생 위치 막대
+                if API.isEnt(i) {   // 0.8.0 (261018-L19) 이어 듣기·이어 보기
+                    Button(boKind == "yeongsang" ? "다음 회" : "다음 곡") { r.ieoGa(1) }
+                    Button(boKind == "yeongsang" ? "앞 회" : "앞 곡") { r.ieoGa(-1) }
+                    Picker("듣는 방식, 지금 " + Store.ieoIreum(store.ieo), selection: Binding(get: { store.ieo }, set: { store.ieo = $0; store.save(); store.say(Store.ieoIreum($0) + "로 듣습니다."); r.ieoMiri() })) {
+                        ForEach(Store.ieoGal, id: \.0) { Text($0.1).tag($0.0) }
+                    }
+                    Toggle("넘어갈 때 이름 알리기", isOn: Binding(get: { store.gogmal }, set: { store.gogmal = $0; store.save() }))
+                }
             }
             Section {
                 Text(r.wichiMal).font(.footnote)
@@ -307,8 +321,6 @@ struct ReaderView: View {
                 if kind == "geul" {
                     Text(r.text.isEmpty ? "글자를 가져오는 중입니다." : r.text)
                     if !r.won.isEmpty { Text("원문: " + r.won).font(.footnote) }   // 0.6.1 한자음 읽기 — 음과 원문 함께 보기
-                } else if let p = r.player, kind == "yeongsang" {
-                    VideoPlayer(player: p).frame(height: 220)
                 }
             }
             Section {
@@ -344,14 +356,14 @@ struct ReaderView: View {
                 }
             }
         }
-        .navigationTitle(title)
+        .navigationTitle(ieoJung ? r.title : title)
         .alert("중요 표시 메모", isPresented: $memoChang) {   // 0.6.0 — 자판의 마이크로 말로 적을 수 있음
             TextField("메모", text: $memoGeul)
             Button("붙이기") { if !Gomssip.shared.jungyo.contains(where: { $0.i == i && $0.pos == r.pos }) { jungyoPyosi() }; Gomssip.shared.memo(i: i, pos: r.pos, memoGeul); store.say("메모를 붙였습니다.") }
             Button("그만", role: .cancel) {}
         }
         .task {
-            await r.open(i: i, title: title, kind: kind)
+            if !ieoJung { await r.open(i: i, title: title, kind: kind) }   // 0.8.0 이어 들은 뒤 돌아와도 처음 작품으로 되돌아가지 않음
             if !yeolligo { yeolligo = true; if !r.playing { r.toggle() } }   // 0.5.1 열리면 바로 읽음(이사장님 지시 — 한 번 두드리면)
             try? await Task.sleep(nanoseconds: 500_000_000); focus = true   // 커서는 멈춤 단추에
         }
@@ -407,7 +419,7 @@ struct EntHomeView: View {
                 }
                 if let l = ieo {
                     Button {
-                        nav.ent.append(Route.reader(l.i, l.t, "sori"))
+                        nav.ent.append(Route.reader(l.i, l.t, l.kind.isEmpty ? "sori" : l.kind))   // 0.7.2 영상이었으면 영상으로
                     } label: {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("이어 듣기").font(.caption.weight(.semibold)).foregroundStyle(Saek.ganjo)
@@ -427,10 +439,10 @@ struct EntHomeView: View {
                 ForEach(gal) { g in
                     Button("\(g.dan), \(g.n)편") { nav.ent.append(Route.ent(g.g, g.dan)) }
                 }
-            } header: { Text("화면해설 작품").foregroundStyle(Saek.ganjo) }
+            } header: { Text("갈래").foregroundStyle(Saek.ganjo) }   // 0.7.2 여덟 갈래가 다 보임
             Section {
                 DisclosureGroup("더 보기", isExpanded: $more) {
-                    Text("엔터테인먼트는 협회가 모아 온 영화, 드라마, 다큐 같은 자료 가운데 공개해도 되는 것을 하나씩 열어 가는 곳입니다. 지금은 화면해설 작품이 있습니다. 작품을 한 번 두드리면 바로 틀고, 듣던 자리를 기억합니다.")
+                    Text("엔터테인먼트는 협회가 모아 온 영화, 드라마, 다큐 같은 자료를 모은 곳입니다. 영화, 드라마, 다큐·시사·교양, 애니메이션, 라디오·오디오 드라마, 음악, 화면해설 작품, 교육 여덟 갈래가 있습니다. 작품을 한 번 두드리면 바로 틀고, 영상은 화면도 함께 나오며, 듣던 자리를 기억합니다.")
                     Text(Pan.mal)
                 }
             }
@@ -688,7 +700,9 @@ enum Doum {
         ("앱 안내 말소리", "앱이 스스로 알리는 말(책갈피를 넣었습니다 등)을 켜고 끕니다. 책 읽는 목소리는 그대로입니다."),
         ("소리를 기다릴 때", "처음 듣는 문단은 도서관 서버가 그 자리에서 목소리를 만듭니다. 여러 분이 함께 들으시면 조금 기다리실 수 있습니다. 10초가 넘으면 소리를 만들고 있다고, 45초가 넘으면 조금 더 걸린다고 한 번씩 알려 드리고, 4분까지 기다립니다. 한 번 만든 소리는 다음 분이 바로 들으십니다. 도서관은 한가할 때 새 책과 읽던 책 앞부분을 미리 만들어 둡니다."),
         ("이용 기록", "앱이 잘 듣는지 살피려고, 앱 판과 아이폰 판, 책을 연 때, 소리를 오래 기다리거나 만들지 못한 일을 협회 서버에 남깁니다. 이름, 전화번호, 듣는 책 이름과 내용은 남기지 않습니다. 협회는 이 기록으로 막히는 곳을 먼저 찾아 고칩니다."),
-        ("엔터테인먼트", "아래 탭의 둘째 칸입니다. 협회가 모아 온 영화, 드라마, 다큐 같은 자료 가운데 공개해도 되는 것을 하나씩 열어 갑니다. 지금은 화면해설 작품(화면해설 영화, 화면해설 드라마, 화면해설 다큐와 교양)이 있습니다. 갈래를 누르면 작품이 나오고, 드라마는 작품을 누르면 회차가 차례로 나옵니다. 회차를 한 번 두드리면 바로 틉니다. 독서기와 같아서 앞으로 30초, 뒤로 30초, 재생 위치, 빠르기, 책갈피를 그대로 쓰고, 듣던 자리를 기억해 엔터테인먼트 첫 화면의 이어 듣기와 내 서재에 나옵니다. 작품 이름을 적어 찾을 수도 있습니다."),
+        ("엔터테인먼트", "아래 탭의 둘째 칸입니다. 협회가 모아 온 영화, 드라마, 다큐 같은 자료를 모은 곳입니다. 영화, 드라마, 다큐·시사·교양, 애니메이션, 라디오·오디오 드라마, 음악, 화면해설 작품, 교육 여덟 갈래가 있습니다. 갈래를 누르면 작품이 나오고, 드라마는 작품을 누르면 회차가 차례로 나옵니다. 회차를 한 번 두드리면 바로 틉니다. 독서기와 같아서 앞으로 30초, 뒤로 30초, 재생 위치, 빠르기, 책갈피를 그대로 쓰고, 듣던 자리를 기억해 엔터테인먼트 첫 화면의 이어 듣기와 내 서재에 나옵니다. 작품 이름을 적어 찾을 수도 있습니다."),
+        ("음악·드라마 이어 듣기", "엔터테인먼트에서 음악을 틀면 곡이 끝날 때 다음 곡이 저절로 나오고, 드라마는 다음 회로 이어집니다. 독서기 화면의 듣는 방식에서 앨범·작품 끝까지(여러 장짜리 앨범은 다음 장까지), 갈래 전체 이어서, 섞어 듣기, 한 곡 반복, 한 곡만 가운데 고릅니다. 고른 것은 기억해 둡니다. 다음 곡·앞 곡 단추(드라마는 다음 회·앞 회)로 넘기고, 이어폰 단추 두 번 누르기와 잠금 화면의 다음 곡 단추로도 넘깁니다. 넘어갈 때 곡 이름을 한 번 알려 드리며, 넘어갈 때 이름 알리기를 끄면 조용히 넘어갑니다."),   // 0.8.0
+        ("영상 보기", "엔터테인먼트의 영상 작품은 소리와 함께 화면이 나옵니다. 화면은 읽기 단추 위에 있고, 화면을 두드리면 폰이 주는 재생 단추와 크게 보기가 나옵니다. 앞으로 30초, 뒤로 30초, 재생 위치, 책갈피는 소리 작품과 똑같이 씁니다. 영상은 데이터를 많이 쓰니 와이파이에서 보시기를 권합니다."),   // 0.7.2
         ("회원 등록", "처음 켤 때 이름과 휴대전화 번호로 한 번만 등록합니다. 등록하면 이 폰만의 회원 열쇠가 담겨 도서관과 독서기가 열립니다. 폰을 바꾸면 새 폰에서 같은 번호로 다시 등록합니다. 열쇠가 막히면 등록 화면이 다시 나옵니다."),
         ("뒤로", "속 화면 맨 위에 뒤로가 있습니다. 보이스오버에서는 두 손가락으로 문질러도 뒤로 갑니다."),
     ]

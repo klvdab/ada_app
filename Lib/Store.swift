@@ -41,6 +41,10 @@ final class Store: ObservableObject {
     @Published var voice: Int = 0
     @Published var speechOn: Bool = true
     @Published var downloaded: Set<Int> = []
+    @Published var ieo: String = "ap"      // 0.8.0 (261018-L19) 엔터테인먼트 듣는 방식
+    @Published var gogmal: Bool = true     // 0.8.0 넘어갈 때 이름 알리기
+    static let ieoGal: [(String, String)] = [("ap", "앨범·작품 끝까지"), ("gal", "갈래 전체 이어서"), ("seokgi", "섞어 듣기"), ("ban", "한 곡 반복"), ("han", "한 곡만")]
+    static func ieoIreum(_ v: String) -> String { ieoGal.first(where: { $0.0 == v })?.1 ?? "앨범·작품 끝까지" }
     @Published var hanjaeum: Int = 1   // 0.6.1 (261012) 한자음 읽기: 1 음만 듣기, 2 음과 원문 함께 보기, 0 꺼짐
     static func hanjaeumIreum(_ v: Int) -> String { v == 0 ? "꺼짐" : (v == 2 ? "음과 원문 함께 보기" : "음만 듣기") }
 
@@ -59,6 +63,7 @@ final class Store: ObservableObject {
         speechOn = ud.object(forKey: "speechOn") as? Bool ?? true
         downloaded = Set((ud.array(forKey: "downloaded") as? [Int]) ?? [])
         hanjaeum = ud.object(forKey: "hanjaeum") as? Int ?? 1
+        ieo = ud.string(forKey: "ieo") ?? "ap"; gogmal = ud.object(forKey: "gogmal") as? Bool ?? true
     }
     func save() {
         if let d = try? JSONEncoder().encode(reads) { ud.set(d, forKey: "reads") }
@@ -66,6 +71,7 @@ final class Store: ObservableObject {
         ud.set(rateIndex, forKey: "rateIndex"); ud.set(voice, forKey: "voice"); ud.set(speechOn, forKey: "speechOn")
         ud.set(Array(downloaded), forKey: "downloaded")
         ud.set(hanjaeum, forKey: "hanjaeum")
+        ud.set(ieo, forKey: "ieo"); ud.set(gogmal, forKey: "gogmal")
     }
 
     var last: ReadRec? { reads.filter { !$0.done }.sorted { $0.at > $1.at }.first }

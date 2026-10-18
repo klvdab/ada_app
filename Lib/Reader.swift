@@ -1,4 +1,5 @@
 // AI점자도서관 앱 — 독서기 (판 0.1.0, 빌드 260930-1)
+// 0.8.0 (261018-L19) 엔터테인먼트 이어 듣기·이어 보기 — 곡·회가 끝나면 듣는 방식대로 다음 것을 저절로(곡 하나 끝나면 멈추던 것, 이사장님 지적·승인 「1」), 이어폰·잠금 화면 다음 곡, 다음 곡 미리 받기
 // 0.7.1 (261014-L17) 앱이 점점 무거워지고 멈춤(이사장님 지적) — 미리 받기를 세 문단 차례로, 묻기 줄이기, 멀어진 미리 받기는 그만둠(이사장님 승인 23시 17분 「1」)
 // 0.6.3 (261014-L15) 이용 기록 — 책 열기, 소리를 5초 넘게 기다림, 소리를 못 만듦, 글자를 못 가져옴을 LibGirok 에 남김(책 이름·내용은 남기지 않음, 이사장님 승인)
 // 글자책: 문단마다 서버 일꾼이 구운 사람 목소리를 받아 차례로 튼다. 앞 문단을 읽는 동안 뒤 세 문단을 미리 받는다.
@@ -37,6 +38,14 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
     private var token = 0
     private var apsu: [Int: Int] = [:]   // 0.6.3 문단마다 앞에 기다리는 문단 수(서버가 알려 줌)
     private var store: Store { Store.shared }
+    // 0.8.0 이어 듣기
+    var ieoSijak: Int = -1                 // 화면에서 연 첫 작품(이어 들은 뒤 화면에 돌아와도 그 자리로 되돌아가지 않게)
+    @Published var aelbeom: String = ""
+    private var miri: DaeumResp?
+    private var miriUi = -1
+    private var miriBang = ""
+    private var ieoJung = false
+    private var ieoGiNotis: [NSObjectProtocol] = []
 
     override init() {
         super.init()
@@ -45,10 +54,12 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
     }
 
     // MARK: 책 열기
-    func open(i: Int, title: String, kind: String) async {
+    func open(i: Int, title: String, kind: String, cheoum: Bool = false, ieo: Bool = false) async {
         if self.i == i { return }
         stop()
         self.i = i; self.title = title; self.kind = kind
+        miri = nil; miriUi = -1
+        if !ieo { ieoSijak = i; aelbeom = "" }
         LibGirok.shared.namgi("lib_chaek_yeolgi", ["kind": kind, "ent": API.isEnt(i), "naeryeo": Offline.loadParas(i) != nil || Offline.asset(i) != nil])   // 0.6.3 이용 기록
         paras = [:]; pageTasks = [:]; audioTasks = [:]; text = ""; modu = 0; wons = [:]; won = ""; hjgal = false
         if kind == "geul" { await store.gulPan4Omgigi(i) }   // 0.5.2 (261012) 글 판 4 — 옛 판 자리·책갈피를 새 판 자리로(처음 열 때 한 번)
@@ -70,7 +81,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
             let p = AVPlayer(playerItem: AVPlayerItem(asset: Offline.asset(i) ?? AVURLAsset(url: API.mediaURL(i), options: ["AVURLAssetHTTPHeaderFieldsKey": ["User-Agent": API.userAgent]])))
             p.automaticallyWaitsToMinimizeStalling = true
             player = p
-            let start = saved?.pos ?? 0
+            let start = cheoum ? 0 : (saved?.pos ?? 0)
             if start > 1 { await p.seek(to: CMTime(seconds: start, preferredTimescale: 600)) }
             timeObs = p.addPeriodicTimeObserver(forInterval: CMTime(seconds: 5, preferredTimescale: 1), queue: .main) { [weak self] t in
                 Task { @MainActor in
@@ -86,7 +97,8 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
                     LibGirok.shared.namgi("lib_sori_meomchum", ["kka": "moja", "ent": API.isEnt(self.i), "cho": Int(self.player?.currentTime().seconds ?? 0)])
                 }
             }
-            NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] n in
+            ieoGiNotis.forEach { NotificationCenter.default.removeObserver($0) }; ieoGiNotis = []
+            ieoGiNotis.append(NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] n in
                 let ty = (n.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt).flatMap { AVAudioSession.InterruptionType(rawValue: $0) }
                 let op = (n.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt).map { AVAudioSession.InterruptionOptions(rawValue: $0) } ?? []
                 Task { @MainActor in
@@ -94,17 +106,65 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
                     if ty == .began { LibGirok.shared.namgi("lib_sori_meomchum", ["kka": "kkeunkim", "ent": API.isEnt(self.i)]) }
                     if ty == .ended && op.contains(.shouldResume) && self.playing { try? AVAudioSession.sharedInstance().setActive(true); pl.play(); pl.rate = self.store.rate }
                 }
-            }
+            })
             NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: p.currentItem, queue: .main) { [weak self] _ in
                 Task { @MainActor in
                     guard let self else { return }
-                    self.playing = false
                     self.store.remember(i: self.i, t: self.title, kind: self.kind, pos: 0, modu: self.modu, done: true)
+                    if API.isEnt(self.i) && self.store.ieo != "han" {   // 0.8.0 이어 듣기
+                        if self.store.ieo == "ban" { self.player?.seek(to: .zero); self.player?.play(); self.player?.rate = self.store.rate; return }
+                        self.ieoGa(1); return
+                    }
+                    self.playing = false
                     self.store.say("끝까지 들었습니다.")
                 }
             }
+            if API.isEnt(i) { ieoMiri() }
         }
         updateNowPlaying()
+    }
+
+    // MARK: 0.8.0 이어 듣기·이어 보기(엔터테인먼트)
+    private func ieoBang() -> String { let s = store.ieo; return (s == "han" || s == "ban") ? "ap" : s }
+    /// 다음 것을 미리 알아 두고, 소리를 미리 열어 두어 곡 사이 기다림을 줄인다
+    func ieoMiri() {
+        let ui = i, b = store.ieo
+        guard API.isEnt(ui), b == "ap" || b == "gal" else { return }
+        Task {
+            guard let d = try? await API.daeum(ui, b, dwi: false), d.ok, self.i == ui else { return }
+            self.miri = d; self.miriUi = ui; self.miriBang = b
+            if let ni = d.i, Offline.asset(ni) == nil {
+                let a = AVURLAsset(url: API.mediaURL(ni), options: ["AVURLAssetHTTPHeaderFieldsKey": ["User-Agent": API.userAgent]])
+                _ = try? await a.load(.isPlayable)
+            }
+        }
+    }
+    /// b = 1 다음, -1 앞. 듣는 방식대로 다음(앞) 곡·회를 열어 바로 튼다
+    func ieoGa(_ b: Int) {
+        guard API.isEnt(i), !ieoJung else { return }
+        ieoJung = true
+        let ui = i
+        Task {
+            defer { self.ieoJung = false }
+            let bang = ieoBang()
+            var d: DaeumResp? = nil
+            if b > 0, miriUi == ui, miriBang == bang { d = miri }
+            if d == nil { d = try? await API.daeum(ui, bang, dwi: b < 0) }
+            guard let d, d.ok, let ni = d.i else {
+                if b > 0 && player?.timeControlStatus != .playing { playing = false }
+                store.say(d?.msg ?? "다음 것을 받지 못했습니다. 인터넷을 확인해 주십시오.")
+                updateNowPlaying(); return
+            }
+            if store.gogmal {
+                let ap = d.sae_aelbeom == true ? (b > 0 ? "다음 앨범, " : "앞 앨범, ") + (d.aelbeom ?? "") + ", " : (b > 0 ? "다음, " : "앞, ")
+                store.say(ap + (d.t ?? ""))
+            }
+            LibGirok.shared.namgi("lib_ieo", ["bang": bang, "dwi": b < 0])
+            await open(i: ni, title: d.t ?? "", kind: d.k == "yeongsang" ? "yeongsang" : "sori", cheoum: true, ieo: true)
+            aelbeom = d.aelbeom ?? ""
+            if !playing { toggle() }
+            updateNowPlaying()
+        }
     }
 
     // MARK: 글자 받기
@@ -344,14 +404,14 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
         c.playCommand.addTarget { [weak self] _ in Task { @MainActor in if self?.playing == false { self?.toggle() } }; return .success }
         c.pauseCommand.addTarget { [weak self] _ in Task { @MainActor in if self?.playing == true { self?.toggle() } }; return .success }
         c.togglePlayPauseCommand.addTarget { [weak self] _ in Task { @MainActor in self?.toggle() }; return .success }
-        c.nextTrackCommand.addTarget { [weak self] _ in Task { @MainActor in self?.next() }; return .success }
-        c.previousTrackCommand.addTarget { [weak self] _ in Task { @MainActor in self?.prev() }; return .success }
+        c.nextTrackCommand.addTarget { [weak self] _ in Task { @MainActor in guard let self else { return }; if API.isEnt(self.i) { self.ieoGa(1) } else { self.next() } }; return .success }   // 0.8.0 엔터테인먼트는 다음 곡
+        c.previousTrackCommand.addTarget { [weak self] _ in Task { @MainActor in guard let self else { return }; if API.isEnt(self.i) { self.ieoGa(-1) } else { self.prev() } }; return .success }
     }
 
     func updateNowPlaying() {
         guard i >= 0 else { MPNowPlayingInfoCenter.default().nowPlayingInfo = nil; return }
         var info: [String: Any] = [MPMediaItemPropertyTitle: title, MPMediaItemPropertyArtist: "AI점자도서관"]
-        if kind == "geul" { info[MPMediaItemPropertyAlbumTitle] = "전체 \(modu)문단 가운데 \(pos + 1)번째" }
+        if kind == "geul" { info[MPMediaItemPropertyAlbumTitle] = "전체 \(modu)문단 가운데 \(pos + 1)번째" } else if !aelbeom.isEmpty { info[MPMediaItemPropertyAlbumTitle] = aelbeom }
         info[MPNowPlayingInfoPropertyPlaybackRate] = playing ? Double(store.rate) : 0.0
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }

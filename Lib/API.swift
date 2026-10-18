@@ -73,6 +73,8 @@ enum API {
     static func isEnt(_ i: Int) -> Bool { i >= entBase }
     static func entGal() async throws -> GalResp { try await get("enter.php", ["m": "j_gal"], as: GalResp.self) }
     static func entList(_ j: String, _ o: Int) async throws -> ListResp { try await get("enter.php", ["m": "j_list", "j": j, "o": String(o), "n": String(perPage)], as: ListResp.self) }
+    // 0.8.0 (261018-L19) 이어 듣기 — 다음(앞) 곡·회. bang: ap 앨범·작품 안(여러 장은 이어서), gal 갈래 끝까지, seokgi 섞어 듣기
+    static func daeum(_ i: Int, _ bang: String, dwi: Bool) async throws -> DaeumResp { try await get("enter.php", ["m": "daeum", "i": String(i), "bang": bang, "dwi": dwi ? "1" : ""], as: DaeumResp.self) }
     static func entFind(_ s: String, _ o: Int) async throws -> ListResp { try await get("enter.php", ["m": "j_find", "s": s, "o": String(o), "n": String(perPage)], as: ListResp.self) }
 }
 
@@ -88,8 +90,10 @@ struct Item: Decodable, Identifiable, Hashable {
     let j: String?
     let t: String
     let g: String?
+    let k: String?   // 0.7.2 엔터테인먼트 작품이 영상(yeongsang)인지 소리(sori)인지 — 서버가 알려 줌
     var id: String { if let i { return "b\(i)" }; return "j\(j ?? t)" }
 }
+struct DaeumResp: Decodable { let ok: Bool; let i: Int?; let t: String?; let k: String?; let aelbeom: String?; let sae_aelbeom: Bool?; let msg: String?; let kkeut: Bool? }   // 0.8.0
 struct JariResp: Decodable { let ok: Bool; let jari: [Int]? }   // 0.5.2
 struct ListResp: Decodable { let ok: Bool; let modu: Int?; let o: Int?; let items: [Item]?; let ttl: String?; let msg: String? }
 struct BookResp: Decodable { let ok: Bool; let i: Int?; let t: String?; let g: String?; let meg: Double?; let nal: String?; let kind: String?; let sogae: String?; let jieun: String?; let chulpan: String?; let msg: String? }
