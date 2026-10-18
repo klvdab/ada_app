@@ -159,6 +159,7 @@ def main():
     dae, nae = sys.argv[1], sys.argv[2]
     # 한 대본으로 두 판: python3 make.py dae/c1.py i1.mp4 (PAN=i 아이폰, PAN=a 안드로이드 — 나올 파일 이름 첫 글자로 정함)
     os.environ.setdefault("PAN", os.path.basename(nae)[0])
+    sys.path.insert(0, os.path.dirname(os.path.abspath(dae)))   # 대본 곁의 teul.py(여는 말·맺는 말)
     spec = importlib.util.spec_from_file_location("dae", dae); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
     meori = m.MEORI
     nr = m.NAEDOGI   # "보이스오버" 또는 "톡백"
@@ -201,7 +202,7 @@ def main():
         f.write(f"file '{jul[-1][0]}'\n")
     subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav,
                     "-vf", "fps=10,format=yuv420p", "-c:v", "libx264", "-preset", "veryfast", "-tune", "stillimage", "-crf", "30",
-                    "-c:a", "aac", "-b:a", "96k", "-shortest", "-movflags", "+faststart", nae], check=True)
+                    "-c:a", "aac", "-ac", "1", "-b:a", "64k", "-shortest", "-movflags", "+faststart", nae], check=True)
     shutil.rmtree(tmp)
     print(nae, round(sum(d for _, d in jul)), "초")
 
