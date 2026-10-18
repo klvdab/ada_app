@@ -922,6 +922,7 @@ class DoumalHwamyeon : Hwamyeon("도움말") {
     private var chajeun = ""
     private var sijak = 0
     private var cheotJulRo = false
+    private var gangjwaBureum = false   // 2.69.0 동영상 강의 차례를 한 번 받음
 
     private fun ttuk(s: String) = s.replace(" ", "").lowercase()
 
@@ -936,6 +937,14 @@ class DoumalHwamyeon : Hwamyeon("도움말") {
                 (ev != null && ev.keyCode == android.view.KeyEvent.KEYCODE_ENTER && ev.action == android.view.KeyEvent.ACTION_DOWN)
             if (enter) { chajeun = mal.trim(); sijak = 0; yeollin = -1; cheotJulRo = true; t.dasiGeurigi() }
             enter
+        }
+        // 2.69.0 (261018-A57, 이사장님 승인 2026-10-18 「1」) 동영상 강의 — 길눈 사용법 26편, 항목마다 그 기능의 강의
+        t.danchu("동영상 강의 — 길눈 사용법 26편") { t.yeolgi(GangjwaHwamyeon()) }
+        Gangjwa.damunGeot(t)
+        if (!gangjwaBureum) {
+            gangjwaBureum = true
+            val bieoitda = Gangjwa.pyeon.isEmpty()
+            Gangjwa.batgi(t) { if (bieoitda && Gangjwa.pyeon.isNotEmpty() && yeollin >= 0 && t.wiHwamyeon === this) t.dasiGeurigi() }
         }
         val q = ttuk(chajeun)
         val l = DOUMAL.withIndex().filter { q.isEmpty() || ttuk(it.value.first).contains(q) || ttuk(it.value.second).contains(q) }
@@ -954,7 +963,10 @@ class DoumalHwamyeon : Hwamyeon("도움말") {
                 t.dasiGeurigi()
             }
             if (cheot == null) cheot = b
-            if (yeollin == i) t.geul(naeyong)
+            if (yeollin == i) {
+                t.geul(naeyong)
+                Gangjwa.matneun(jemok)?.let { p -> t.danchu("이 기능 동영상 강의 보기 — ${p.title}") { Gangjwa.teulgi(t, p) } }   // 2.69.0
+            }
         }
         if (kkeut < l.size) t.danchu("더 보기") { sijak += 5; yeollin = -1; cheotJulRo = true; t.dasiGeurigi() }
         if (sijak > 0) t.danchu("이전 보기") { sijak = maxOf(0, sijak - 5); yeollin = -1; cheotJulRo = true; t.dasiGeurigi() }
@@ -963,6 +975,8 @@ class DoumalHwamyeon : Hwamyeon("도움말") {
 
     companion object {
         val DOUMAL = listOf(
+            // 2.69.0 (261018-A57, 이사장님 승인 2026-10-18 「1」, 아이폰 2.100.0과 같음) 동영상 강의
+            "동영상 강의 — 길눈 사용법 26편" to "설정 탭의 도움말을 여시면 맨 위 찾기 칸 바로 아래에 동영상 강의가 있습니다. 누르시면 길눈 안드로이드 사용법 26편의 차례가 다섯 편씩 나오고, 편 이름을 누르시면 앱 안에서 바로 틀어 드립니다. 로그인이나 가입은 필요 없습니다. 틀면 뒤로, 재생과 멈춤, 10초 뒤로, 10초 앞으로, 다음 편 단추가 있습니다. 한 편을 다 보시면 다음 편 이름을 알려 드립니다. 도움말 한 항목을 펼치시면 내용 아래에 그 기능의 동영상 강의 보기 단추가 있는 것도 있습니다. 전화가 오거나 걸면 강의는 멈추고, 재생 단추로 다시 트십시오. 같은 강의는 협회 홈페이지 온라인강좌에서도 누구나 보실 수 있습니다. 어느 편을 몇 번 틀었는지는 이름 없이 협회로 보내 강의를 고치는 데 씁니다.",
             "길 찾기 첫 화면 차례" to "길 찾기 탭 첫 화면은 아이폰과 안드로이드가 같은 차례입니다. 하나, 하던 일 멈추기. 둘, 어디로 가실까요 칸 — 이름이나 주소를 넣고 엔터. 셋, 즐겨찾기. 넷, 차 부르기. 다섯, 지금 내 자리 듣기. 여섯, 말로 하기. 일곱, 긴급통화서비스. 여덟, 그 밖에 펼치기. 읽지 않은 긴급 공지, 새 판 알림, 통화로 멈춘 방송 이어 듣기가 있으면 그 줄이 맨 위에 생기고, 보폭을 아직 재지 않으셨으면 하던 일 멈추기 아래에 처음 안내가 생깁니다. 걷거나 차를 타고 가시는 중에는 어디로 가실까요 칸부터 지금 내 자리 듣기까지 대신 지금 여정의 차례와 단추가 나옵니다.",   // 2.43.0 (이사장님 승인 2026-10-14)
             "설정 탭 차례 — 어디에 무엇이 있는지" to "설정 탭은 아이폰과 안드로이드가 같은 차례, 같은 이름입니다. 자주 손대는 것이 위에, 시험용은 맨 아래 펼치기 안에 있습니다. 하나, 알림(읽지 않은 긴급 공지가 있으면 이 줄에 함께 나옵니다). 둘, 말하기 설정 — 맨 위에 길눈 말소리 켜기와 끄기, 빠르기, 그 아래 목소리, 얼마나 자세히, 무엇을 말할지. 셋, 말로 하기 설정 — 하이 길눈, 길눈이 부르는 내 호칭. 넷, 점지도와 걸음 — 맨 위에 보폭 재기, 그 아래 나만의 점지도, 걸음 오차 재기, 내 문. 다섯, 기기 설정 — 음향신호기, 이어폰 단추, 워치, 리모컨 배우기. 여섯, 가족·지인 명단 — 이음 번호 받기와 받는 분 화면에 뜰 내 이름. 일곱, 내 서류 보관함. 여덟, 폰 펼치기 — 흔들면 자리 번호, 현 위치정보 말할 내용. 아홉, 도움말. 열, 여기서 점검. 열하나, 새로고침. 열둘, 업데이트. 열셋, 길눈 정보 — 판과 빌드, 고친 기록. 열넷, 더 보기 펼치기 — 기초 시험, 그리고 관리자 폰에서만 보이는 아침 기록과 관리자 시험.",   // 2.42.0 설정 탭 차례(이사장님 승인 2026-10-14)
             // 2.29.0 차 부르기(이사장님 승인 2026-10-09, 아이폰 2.58.0과 같음)

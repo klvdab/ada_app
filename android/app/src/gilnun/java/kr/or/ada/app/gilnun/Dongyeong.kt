@@ -182,13 +182,21 @@ object Dongyeong {
 /** 폰에서 틀기 — 온 화면 재생기. "공유 → 길눈"으로 받는 문이기도 함(동영상 파일) */
 @OptIn(UnstableApi::class)
 class DongyeongActivity : AppCompatActivity() {
-    companion object { const val JUSO = "dongyeong_juso" }
+    companion object {
+        const val JUSO = "dongyeong_juso"
+        const val GANGJWA = "dongyeong_gangjwa"   // 2.69.0 (261018-A57) 동영상 강의 한 편이면 그 편 번호 — 조회수·다음 편
+    }
 
     private var player: ExoPlayer? = null
     private lateinit var pv: PlayerView
     private lateinit var jaesaengB: Button
     private lateinit var sangtaeG: TextView
     private lateinit var dwiroB: Button
+    // 2.69.0 (261018-A57, 이사장님 승인 2026-10-18 「1」) 동영상 강의 — 편 이름, 다음 편, 이름 없는 조회수
+    private lateinit var jemokG: TextView
+    private lateinit var daeumB: Button
+    private var gjId: String? = null
+    private var gjKkeut = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -213,6 +221,12 @@ class DongyeongActivity : AppCompatActivity() {
             visibility = View.GONE
         }
         bburi.addView(sangtaeG, jul())
+        jemokG = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
+            visibility = View.GONE
+        }
+        bburi.addView(jemokG, jul())
         pv = PlayerView(this).apply {
             useController = false
             resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
@@ -229,6 +243,9 @@ class DongyeongActivity : AppCompatActivity() {
         jul2.addView(dwi10, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(6) })
         jul2.addView(ap10, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(6) })
         bburi.addView(jul2, jul())
+        daeumB = keunDanchu("다음 편") { daeumPyeon() }
+        daeumB.visibility = View.GONE
+        bburi.addView(daeumB, jul())
         setContentView(bburi)
         title = "동영상"
 
@@ -246,6 +263,7 @@ class DongyeongActivity : AppCompatActivity() {
     private fun batgi(i: Intent?) {
         if (i == null) { finish(); return }
         val juso = i.getStringExtra(JUSO)
+        gangjwaJunbi(if (!juso.isNullOrEmpty()) i.getStringExtra(GANGJWA) else null)
         if (!juso.isNullOrEmpty()) { teulgi(juso); return }
         if (i.action == Intent.ACTION_SEND) {
             @Suppress("DEPRECATION")
@@ -303,6 +321,9 @@ class DongyeongActivity : AppCompatActivity() {
                 pv.player = np
                 np.addListener(object : Player.Listener {
                     override fun onIsPlayingChanged(isPlaying: Boolean) { jaesaengGeul() }
+                    override fun onPlaybackStateChanged(state: Int) {
+                        if (state == Player.STATE_ENDED) gangjwaKkeut()
+                    }
                     override fun onPlayerError(error: PlaybackException) {
                         Girok.namgi("dongyeong_oryu", mapOf("code" to error.errorCode))
                         Sori.mal("동영상을 틀지 못했습니다. 주소나 파일을 확인해 주십시오.")
@@ -316,6 +337,7 @@ class DongyeongActivity : AppCompatActivity() {
         p.setMediaItem(b.build())
         p.prepare()
         p.playWhenReady = true
+        gjId?.let { gjKkeut = false; Gangjwa.seda(it, "si", 0) }
         jaesaengGeul()
         dwiroB.post {
             dwiroB.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null)
@@ -338,7 +360,7 @@ class DongyeongActivity : AppCompatActivity() {
     private fun jaesaengMeomchum() {
         val p = player ?: return
         if (p.playWhenReady) p.pause() else {
-            if (p.playbackState == Player.STATE_ENDED) p.seekTo(0)
+            if (p.playbackState == Player.STATE_ENDED) { p.seekTo(0); gjId?.let { gjKkeut = false; Gangjwa.seda(it, "si", 0) } }
             if (p.playbackState == Player.STATE_IDLE) p.prepare()
             p.play()
         }
@@ -360,7 +382,49 @@ class DongyeongActivity : AppCompatActivity() {
         if (pm.isInteractive && !isChangingConfigurations) player?.pause()
     }
 
+    // MARK: 2.69.0 동영상 강의
+
+    /** 보던 강의 편이 있으면 끝까지 안 보았을 때 도중에 닫음으로 남기고, 새 편(없으면 null)으로 바꿈 */
+    private fun gangjwaJunbi(id: String?) {
+        gangjwaDatgi()
+        gjId = id
+        gjKkeut = false
+        if (id != null) Gangjwa.damunGeot(this)
+        val p = id?.let { Gangjwa.chatgi(it) }
+        jemokG.text = p?.title ?: ""
+        jemokG.visibility = if (p != null) View.VISIBLE else View.GONE
+        val n = id?.let { Gangjwa.daeum(it) }
+        daeumB.text = if (n != null) "다음 편 — ${n.title}" else "다음 편"
+        daeumB.visibility = if (n != null) View.VISIBLE else View.GONE
+        title = if (p != null) "동영상 강의" else "동영상"
+    }
+
+    private fun gangjwaDatgi() {
+        val id = gjId ?: return
+        if (!gjKkeut) Gangjwa.seda(id, "dat", (player?.currentPosition ?: 0L) / 1000)
+        gjId = null
+    }
+
+    private fun gangjwaKkeut() {
+        val id = gjId ?: return
+        if (gjKkeut) return
+        gjKkeut = true
+        Gangjwa.seda(id, "kkeut", (player?.currentPosition ?: 0L) / 1000)
+        val n = Gangjwa.daeum(id)
+        Sori.mal(if (n != null) "이 편을 다 보셨습니다. 다음 편은 ${n.title}입니다. 다음 편 단추를 누르시면 이어서 틀어 드립니다."
+            else "이 편을 다 보셨습니다. 마지막 편입니다.")
+    }
+
+    private fun daeumPyeon() {
+        val id = gjId ?: return
+        val n = Gangjwa.daeum(id) ?: return
+        player?.pause()
+        gangjwaJunbi(n.id)
+        teulgi(n.url)
+    }
+
     override fun onDestroy() {
+        gangjwaDatgi()   // 2.69.0
         JeonhwaGamsi.deullim.remove(jeonhwaDeullim)   // 2.30.0
         pv.player = null
         player?.release()
