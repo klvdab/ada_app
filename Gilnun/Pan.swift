@@ -10,13 +10,20 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.99.0"
-    static let bild = "261018-I53"
+    static let pan = "2.100.0"
+    static let bild = "261018-I54"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.100.0", bild: "261018-I54", nal: "2026-10-18", naeyong: [
+            "★동영상 강의 — 길눈 사용법 26편을 앱 안에서 바로 틂(설정 탭 → 도움말 → 맨 위 찾기 칸 아래 「동영상 강의」), 가입·로그인 없음",
+            "도움말 한 항목을 열면 그 기능의 강의 한 편으로 가는 단추(지하철이면 1-6편처럼)",
+            "한 편을 다 보시면 다음 편 이름을 알리고 다음 편 단추로 이어 봄, 전화가 오면 멈춤",
+            "어느 편을 틀었는지·끝까지 보았는지를 이름 없이 협회로 보냄 — 협회 홈페이지 「강좌 조회수」에서 봄",
+            "도움말 — 동영상 강의"
+        ]),
         Gochim(pan: "2.99.0", bild: "261018-I53", nal: "2026-10-18", naeyong: [
             "★기차 안내 선로 맞추기 — 위치를 실제 철길 선 위에 붙임(앱 안에 우리나라 철길 자료를 실음, 오픈스트리트맵)",
             "서울역 앞에서 바로 옆에 나란히 놓인 다른 노선(수도권광역급행철도 A선)의 740미터 터널을 타신 기차의 터널로 알리던 것 — 타신 선로 앞쪽의 터널만 알림",
