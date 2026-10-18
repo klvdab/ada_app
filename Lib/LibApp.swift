@@ -11,9 +11,13 @@ struct LibApp: App {
     @StateObject private var reader = Reader.shared
     @StateObject private var offline = Offline.shared
     @StateObject private var hoewon = Hoewon.shared
+    @State private var bogangNajung = false   // 0.8.2 보강 화면을 마쳤거나 다음에 하기
     var body: some Scene {
         WindowGroup {
-            if hoewon.deungrokdoem {
+            if hoewon.deungrokdoem && hoewon.bogangPilyo && !bogangNajung {   // 0.8.2 이미 등록한 분께 켤 때 한 번 회원 정보 여쭙기
+                BogangView { bogangNajung = true }
+                    .task { await hoewon.bogangHwakin() }
+            } else if hoewon.deungrokdoem {
                 RootView()
                     .environmentObject(store)
                     .environmentObject(reader)
