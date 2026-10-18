@@ -37,7 +37,7 @@ final class BangIl {
             b.jalmot = "방송 문(8080)을 열지 못했습니다. 아이폰을 다시 켠 뒤 해 보십시오."
             return b.jalmot
         }
-        let so = Sori { d in Seobeo.shared.ppurida(d) }
+        let so = Sori { d in Seobeo.shared.ppurida(d); InteonetBonaegi.shared.neoki(d) }   // 1.5.0 인터넷 방송에도 같은 소리
         do {
             try so.sijak()
         } catch {
@@ -50,14 +50,15 @@ final class BangIl {
         b.keu = true
         b.kyeojim = true
         b.sigakTtae = Date()
-        return "방송을 시작했습니다."
+        inteonetSijak()
+        return "현장 방송을 시작했습니다."
     }
 
     /// 1.2.0 플린트 2 방식 — 소리 받기는 그대로, 받은 소리를 공유기로 보냄
     private func flintKyeogi() -> String {
         let b = Bang.shared
         FlintBonaegi.shared.sijak()
-        let so = Sori { d in FlintBonaegi.shared.neoki(d) }
+        let so = Sori { d in FlintBonaegi.shared.neoki(d); InteonetBonaegi.shared.neoki(d) }   // 1.5.0 인터넷 방송에도 같은 소리
         do {
             try so.sijak()
         } catch {
@@ -70,12 +71,23 @@ final class BangIl {
         b.keu = true
         b.kyeojim = true
         b.sigakTtae = Date()
-        return "방송을 시작했습니다. 해설 소리를 플린트 2 공유기로 보냅니다."
+        inteonetSijak()
+        return "현장 방송을 시작했습니다. 해설 소리를 플린트 2 공유기로 보냅니다."
+    }
+
+    /// 1.5.0 현장 방송과 함께 인터넷 방송 — 제목은 행사 이름(비면 날짜와 시각), 현장영상해설사 이름을 함께
+    private func inteonetSijak() {
+        let d = UserDefaults.standard
+        var jm = (d.string(forKey: "haengsa_jemok") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if jm.isEmpty { let f = DateFormatter(); f.locale = Locale(identifier: "ko_KR"); f.dateFormat = "M월 d일 a h시 m분"; jm = "현장영상해설 방송 " + f.string(from: Date()) }
+        let who = (d.string(forKey: "haeseolsa") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        InteonetBonaegi.shared.sijak(jemok: jm, who: who)
     }
 
     func kkeugi() {
         let b = Bang.shared
         b.keu = false
+        InteonetBonaegi.shared.meomchugi()   // 1.5.0
         sori?.meomchugi()
         sori = nil
         Seobeo.shared.meomchugi()
