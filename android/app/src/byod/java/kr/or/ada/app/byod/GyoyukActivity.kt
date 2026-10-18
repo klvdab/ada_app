@@ -29,6 +29,7 @@ class GyoyukActivity : Activity() {
     companion object {
         const val JUSO = "https://lvd.ada.or.kr/bfblive/gyoyuk.html"
         const val LIVE = "https://lvd.ada.or.kr/bfblive/bang2.html"
+        const val TV = "https://lvd.ada.or.kr/lvds/lvds_live.html"   // 1.5.0 TV해설방송 하기
         // 화면 쪽 뒤로 단추(배프 대문으로 감)를 감춤 — 낭독기에도 안 읽힘
         const val GAMCHUGI = "(function(){var s=document.createElement('style');s.textContent='#btnDwi1,#btnDwi2,.dwiro-btn,#homeBtn{display:none!important}';(document.head||document.documentElement).appendChild(s);})();"
     }
