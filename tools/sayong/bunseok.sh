@@ -4,7 +4,7 @@
 set -e
 mkdir -p out/geul
 # 사용법 글(EUC-KR)도 UTF-8로 받아 둠 — 동영상 대본을 글과 맞추려고
-for n in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16; do for p in ti ta; do
+for n in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 21 22 23 24 25 26 27 28 29 210; do for p in ti ta; do
   curl -sSL -A "gilnun-sayong/1.0" "https://lvd.ada.or.kr/gilnun_sayong/$p$n.txt" | iconv -c -f euc-kr -t utf-8 | tr -d '\r' > out/geul/$p$n.txt || true
 done; done
 wc -c out/geul/* | tail -3
