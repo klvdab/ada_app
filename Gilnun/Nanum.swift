@@ -64,8 +64,20 @@ struct MulGeul: Identifiable, Hashable {
     let nugu: String
     let yeon: String
     let nal: String
-    var julMal: String { mul + (got.isEmpty ? "" : " — " + got) + (mal.isEmpty ? "" : ". " + mal) + " · " + nal }
-    var jaseMal: String { mul + ". " + mal + " 올리신 분은 " + (nugu.isEmpty ? "이름을 밝히지 않으셨습니다" : nugu) + ". 연락은 " + yeon + "." }
+    // 261019 이사장님 승인 「1」 — 마침표가 겹치거나 빠지지 않게(낭독기가 문장을 끊어 읽도록)
+    static func jjeom(_ s: String) -> String {
+        let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        if t.isEmpty { return "" }
+        return t.hasSuffix(".") || t.hasSuffix("?") || t.hasSuffix("!") ? t : t + "."
+    }
+    var julMal: String {
+        let ap = mul + (got.isEmpty ? "" : " — " + got)
+        let m = mal.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (m.isEmpty ? ap : MulGeul.jjeom(ap) + " " + m) + " · " + nal + "."
+    }
+    var jaseMal: String {
+        MulGeul.jjeom(mul) + " " + (mal.isEmpty ? "" : MulGeul.jjeom(mal) + " ") + "올리신 분은 " + (nugu.isEmpty ? "이름을 밝히지 않으셨습니다" : nugu) + ". 연락은 " + yeon + "."
+    }
     var jeonhwa: String? {
         let b = yeon.filter { $0.isNumber || $0 == "+" }
         return b.count >= 8 ? b : nil
@@ -187,7 +199,7 @@ struct Butak: Identifiable, Hashable {
     var julMal: String {
         var t = "\(sinMal)에서 \(min)까지"
         if geori > 0 { t += " · 약 " + (geori >= 1000 ? String(format: "%.1f킬로미터", geori / 1000) : "\(Int(geori))미터") }
-        if doen { t += gil.isEmpty ? " · 다 그려졌습니다" : " · 길눈님이 그려 주셨습니다" }
+        if doen { t += gil.isEmpty ? " · 다 그려졌습니다" : " · 자원봉사자님이 그려 주셨습니다" }   // 261019 이사장님 승인 「1」 — 그리는 분은 자원봉사자님
         return t + " · " + eonje
     }
 
