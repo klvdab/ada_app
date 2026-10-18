@@ -33,6 +33,7 @@ struct GyoyukView: View {
 struct GyoyukPan: UIViewRepresentable {
     static let JUSO = "https://lvd.ada.or.kr/bfblive/gyoyuk.html"
     static let LIVE = "https://lvd.ada.or.kr/bfblive/bang2.html"
+    static let TV = "https://lvd.ada.or.kr/lvds/lvds_live.html"   // 1.5.0 TV해설방송 하기
     var juso = GyoyukPan.JUSO
     final class Dowumi: NSObject, WKUIDelegate {
         // 카메라·마이크를 화면에 넘겨 줌(아이폰이 앱에 처음 한 번 허락을 물음)
