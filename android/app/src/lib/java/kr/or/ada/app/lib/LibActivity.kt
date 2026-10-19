@@ -41,6 +41,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.media3.ui.PlayerView
 import java.util.concurrent.Executors
+import org.json.JSONObject
 
 sealed class Hm {
     data class Mun(val mun: String, val t: String) : Hm(); data class Seoga(val mun: String, val k: String, val t: String) : Hm()   // 0.3.0 세 겹의 문
@@ -49,10 +50,11 @@ sealed class Hm {
     data class Book(val i: Int) : Hm(); data class Reader(val i: Int, val t: String, val k: String) : Hm(); data class Marks(val i: Int) : Hm()
     data class Pureo(val g: String) : Hm(); data class SokChatgi(val i: Int, val t: String) : Hm(); data class Sajeon(val c: String, val m: String) : Hm(); object Jungyo : Hm(); object Nanmal : Hm()   // 0.6.0 곱씹어 읽기와 사전
     object EntHome : Hm(); data class Ent(val j: String, val t: String) : Hm(); data class EntFind(val s: String) : Hm()   // 0.7.0 엔터테인먼트
+    object Gesipan : Hm(); data class GsMok(val b: String, val t: String, val w: Boolean) : Hm(); data class GsBogi(val b: String, val t: String, val id: String) : Hm(); data class GsSseugi(val b: String, val t: String) : Hm()   // 0.8.4 게시판
 }
 
 class LibActivity : Activity() {
-    companion object { const val PAN = "0.8.3"; const val BILDEU = "261019-L22" }   // 0.8.3 회원 등급 — 설정에 내 등급, 장애 확인 서류 사진 올리기, 잠긴 책 알림(이사장님 승인 2026-10-19 11시 50분 「1」)   // 0.7.1 탭 고르면 첫 줄·책 듣기 멈춤 줄이기   // 0.7.0 엔터테인먼트 탭   // 0.6.2 사전 우리말샘·한국고전종합DB 도움말   // 0.6.1 한자음 읽기(중국 고전을 우리 한자음으로, 간체자도, 원문 함께 보기)   // 0.6.0 곱씹어 읽기(다시 듣기·풀어 읽기·중요 표시·책 속 찾기)와 사전·내 낱말장   // 0.5.2 외국 도서 문(외국 도서 → 언어 → 장르와 주제), 글 판 4(강제 줄바꿈 바로잡은 글·옛 자리 옮기기), 도움말 둘   // 0.5.1 첫 화면 맨 위 이름 줄·바로 아래 찾기, 목록에서 한 번 두드리면 바로 읽기, 넘긴 뒤 커서 첫 줄 다지기(도서관 창 클, 이사장님 승인 「1」). 0.4.4 아이폰과 견주어 네 묶음 고침(도서관 창 클, 이사장님 승인 「1」). 0.4.3 새 판 알림과 업데이트(대장클, 이사장님 지시)
+    companion object { const val PAN = "0.8.4"; const val BILDEU = "261019-L23" }   // 0.8.4 게시판 — 공지·묻고 답하기·후기·제작 요청·불편 신고(도클, 대표님 승인 2026-10-19 「그래」)   // 0.8.3 회원 등급 — 설정에 내 등급, 장애 확인 서류 사진 올리기, 잠긴 책 알림(이사장님 승인 2026-10-19 11시 50분 「1」)   // 0.7.1 탭 고르면 첫 줄·책 듣기 멈춤 줄이기   // 0.7.0 엔터테인먼트 탭   // 0.6.2 사전 우리말샘·한국고전종합DB 도움말   // 0.6.1 한자음 읽기(중국 고전을 우리 한자음으로, 간체자도, 원문 함께 보기)   // 0.6.0 곱씹어 읽기(다시 듣기·풀어 읽기·중요 표시·책 속 찾기)와 사전·내 낱말장   // 0.5.2 외국 도서 문(외국 도서 → 언어 → 장르와 주제), 글 판 4(강제 줄바꿈 바로잡은 글·옛 자리 옮기기), 도움말 둘   // 0.5.1 첫 화면 맨 위 이름 줄·바로 아래 찾기, 목록에서 한 번 두드리면 바로 읽기, 넘긴 뒤 커서 첫 줄 다지기(도서관 창 클, 이사장님 승인 「1」). 0.4.4 아이폰과 견주어 네 묶음 고침(도서관 창 클, 이사장님 승인 「1」). 0.4.3 새 판 알림과 업데이트(대장클, 이사장님 지시)
     private val main = Handler(Looper.getMainLooper())
     private val pool = Executors.newFixedThreadPool(3)
     private val stacks = arrayOf(mutableListOf<Hm>(Hm.Home), mutableListOf<Hm>(Hm.Seojae), mutableListOf<Hm>(Hm.Seoljeong), mutableListOf<Hm>(Hm.EntHome))
@@ -235,6 +237,10 @@ class LibActivity : Activity() {
             Hm.EntHome -> entHome()
             is Hm.Ent -> paged(h.t, ent = true) { o -> Api.entList(h.j, o) }
             is Hm.EntFind -> paged("「${h.s}」 찾은 작품", ent = true) { o -> Api.entFind(h.s, o) }
+            Hm.Gesipan -> gesipan()
+            is Hm.GsMok -> gsMok(h)
+            is Hm.GsBogi -> gsBogi(h)
+            is Hm.GsSseugi -> gsSseugi(h)
         }
     }
 
@@ -349,6 +355,7 @@ class LibActivity : Activity() {
         val munJari = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         body.addView(munJari, lp(0))
         for ((k, t) in MUN) if (k != cm) danchu(if (k == "jujae") "주제별로 찾기, 십진분류" else "${t}로 찾기") { go(Hm.Mun(k, t)) }
+        danchu("게시판, 공지와 묻고 답하기, 후기, 제작 요청, 불편 신고") { go(Hm.Gesipan) }   // 0.8.4
         pool.execute {
             val r = runCatching { Api.mun("all") }
             main.post {
@@ -369,6 +376,104 @@ class LibActivity : Activity() {
             }
         }
         cheotJul(cheot)
+    }
+
+
+    // ── 0.8.4 게시판 ──
+    private fun gesipan() {
+        geul("게시판", jemok = true)
+        val mal = geul("가져오는 중입니다.", jakge = true)
+        pool.execute {
+            val r = runCatching { GsApi.pan() }
+            main.post {
+                if (cur() != Hm.Gesipan) return@post
+                r.onFailure { mal.text = "도서관에 닿지 못했습니다. 인터넷을 확인해 주십시오." }.onSuccess { (pan, _) ->
+                    body.removeView(mal); var first: View? = null
+                    for (p in pan) { val b = danchu(p.t + ", 글 ${p.su}개" + (if (p.sae > 0) ", 이번 주 새 글 ${p.sae}개" else "")) { go(Hm.GsMok(p.b, p.t, p.sseugi)) }; if (first == null) first = b }
+                    cheotJul(first)
+                }
+            }
+        }
+    }
+    private fun gsMok(h: Hm.GsMok) {
+        val jm = geul(h.t, jemok = true)
+        if (h.w) danchu(if (h.b == "jejak") "제작 요청하기" else "글쓰기", keun = true) { go(Hm.GsSseugi(h.b, h.t)) }
+        val mal = geul("가져오는 중입니다.", jakge = true)
+        val o = listO
+        pool.execute {
+            val r = runCatching { GsApi.mok(h.b, o) }
+            main.post {
+                if (cur() != h) return@post
+                r.onFailure { mal.text = "도서관에 닿지 못했습니다. 인터넷을 확인해 주십시오." }.onSuccess { (modu, mok, makhim) ->
+                    if (makhim.isNotEmpty()) { mal.text = makhim; cheotJul(jm); return@post }
+                    jm.text = "${h.t}, 글 ${modu}개"
+                    if (mok.isEmpty()) { mal.text = "아직 글이 없습니다." + if (h.w) " 위의 ${if (h.b == "jejak") "제작 요청하기" else "글쓰기"}로 첫 글을 올리실 수 있습니다." else ""; cheotJul(jm); return@post }
+                    body.removeView(mal); var first: View? = null
+                    for (g in mok) { val b = danchu(g.julMal) { go(Hm.GsBogi(h.b, h.t, g.id)) }; if (first == null) first = b }
+                    val dam = o + Api.PER < modu
+                    if (dam) danchu("다음 ${Api.PER}개") { listO = o + Api.PER; draw() }
+                    if (o > 0) danchu("앞 ${Api.PER}개") { listO = (o - Api.PER).coerceAtLeast(0); draw() }
+                    neomgigi(o > 0, dam, { listO = o + Api.PER; draw() }, { listO = (o - Api.PER).coerceAtLeast(0); draw() })
+                    cheotJul(first)
+                }
+            }
+        }
+    }
+    private fun gsBogi(h: Hm.GsBogi) {
+        val jm = geul("글 가져오는 중", jemok = true)
+        pool.execute {
+            val r = runCatching { GsApi.bogi(h.b, h.id) }
+            main.post {
+                if (cur() != h) return@post
+                r.onFailure { jm.text = "도서관에 닿지 못했습니다." }.onSuccess { (g, unyeong, makhim) ->
+                    if (g == null) { jm.text = makhim; cheotJul(jm); return@post }
+                    jm.text = "${g.beon}번. ${g.jemok}"
+                    geul(g.ireum + ", " + g.nal + (if (g.bimil) ", 비밀글" else "") + (if (g.dangyeT.isNotEmpty()) ", 지금 단계 ${g.dangyeT}" else ""), jakge = true)
+                    geul(g.naeyong)
+                    geul("운영자 답 ${g.dap.size}개", jemok = true)
+                    if (g.dap.isEmpty()) geul("아직 답이 없습니다.")
+                    for (d in g.dap) geul(d.nal + ". " + d.naeyong)
+                    if (unyeong) {
+                        val e = EditText(this).apply { hint = "답 내용"; setTextColor(Saek.geulja(this@LibActivity)); minLines = 3 }
+                        body.addView(e, lp(10))
+                        danchu("답 올리기") { val t = e.text.toString(); pool.execute { val (ok, m) = GsApi.bonae(mapOf("a" to "dap", "b" to h.b, "id" to h.id, "naeyong" to t)); main.post { scroll.announceForAccessibility(m); if (ok) draw() } } }
+                        if (h.b == "jejak") for ((k, t) in listOf("jeopsu" to "접수", "jejakjung" to "제작 중", "wallyo" to "완료", "bulga" to "제작할 수 없음"))
+                            danchu((if (g.dangye == k) "지금 단계, " else "단계를 ") + t + (if (g.dangye == k) "" else "(으)로")) { pool.execute { val (_, m) = GsApi.bonae(mapOf("a" to "dangye", "b" to h.b, "id" to h.id, "dangye" to k)); main.post { scroll.announceForAccessibility(m); draw() } } }
+                    }
+                    if (g.nae || unyeong) danchu("이 글 지우기") {
+                        android.app.AlertDialog.Builder(this).setTitle("이 글을 지울까요?")
+                            .setPositiveButton("지우기") { _, _ -> pool.execute { val (ok, m) = GsApi.bonae(mapOf("a" to "jiugi", "b" to h.b, "id" to h.id)); main.post { scroll.announceForAccessibility(m); if (ok) onBackPressed() } } }
+                            .setNegativeButton("그만두기", null).show()
+                    }
+                    cheotJul(jm)
+                }
+            }
+        }
+    }
+    private fun gsSseugi(h: Hm.GsSseugi) {
+        val sp = getSharedPreferences("gesipan", MODE_PRIVATE); val ck = "cho_" + h.b
+        val jm = geul(h.t + if (h.b == "jejak") " — 만들어 주셨으면 하는 책" else " 글쓰기", jemok = true)
+        if (h.b == "jejak") geul("책 이름과 지은이, 펴낸 곳을 아시는 대로 적어 주십시오. 한 달에 다섯 권까지 청하실 수 있고, 접수, 제작 중, 완료 단계를 목록에서 들으실 수 있습니다.", jakge = true)
+        val chogi = runCatching { JSONObject(sp.getString(ck, "{}") ?: "{}") }.getOrNull()
+        val je = EditText(this).apply { hint = "제목"; isSingleLine = true; setText(chogi?.optString("j") ?: ""); setTextColor(Saek.geulja(this@LibActivity)) }
+        body.addView(je, lp(10))
+        val na = EditText(this).apply { hint = "내용"; minLines = 5; setText(chogi?.optString("n") ?: ""); setTextColor(Saek.geulja(this@LibActivity)) }
+        body.addView(na, lp(6))
+        val nam = object : android.text.TextWatcher {   // 쓰던 글은 폰에 저절로 남김
+            override fun afterTextChanged(x: android.text.Editable?) { sp.edit().putString(ck, JSONObject().put("j", je.text.toString()).put("n", na.text.toString()).toString()).apply() }
+            override fun beforeTextChanged(x: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(x: CharSequence?, a: Int, b: Int, c: Int) {}
+        }
+        je.addTextChangedListener(nam); na.addTextChangedListener(nam)
+        var bimil = false; var gojeong = false
+        if (h.b == "mutdap") { lateinit var bb: Button; bb = danchu("비밀글, 꺼짐") { bimil = !bimil; bb.text = if (bimil) "비밀글, 켜짐 — 나와 운영자만 봅니다" else "비밀글, 꺼짐" } }
+        if (h.b == "gongji") { lateinit var gb: Button; gb = danchu("맨 위에 고정, 꺼짐") { gojeong = !gojeong; gb.text = if (gojeong) "맨 위에 고정, 켜짐" else "맨 위에 고정, 꺼짐" } }
+        danchu("올리기", keun = true) {
+            val q = mapOf("a" to "sseugi", "b" to h.b, "jemok" to je.text.toString(), "naeyong" to na.text.toString(), "bimil" to if (bimil) "1" else "0", "gojeong" to if (gojeong) "1" else "0")
+            pool.execute { val (ok, m) = GsApi.bonae(q); main.post { scroll.announceForAccessibility(m); if (ok) { sp.edit().remove(ck).apply(); onBackPressed() } } }
+        }
+        geul("쓰던 글은 이 폰에 저절로 남아, 화면을 닫아도 다시 이어 쓰실 수 있습니다.", jakge = true)
+        cheotJul(jm)
     }
 
     // 0.7.0 엔터테인먼트 첫 화면 — 이름 줄, 찾기 칸, 이어 듣기, 갈래 목록, 더 보기
@@ -1005,6 +1110,10 @@ class LibActivity : Activity() {
         "음악·드라마 이어 듣기" to "엔터테인먼트에서 음악을 틀면 곡이 끝날 때 다음 곡이 저절로 나오고, 드라마는 다음 회로 이어집니다. 독서기 화면의 듣는 방식 단추를 누를 때마다 앨범·작품 끝까지(여러 장짜리 앨범은 다음 장까지), 갈래 전체 이어서, 섞어 듣기, 한 곡 반복, 한 곡만 차례로 바뀝니다. 고른 것은 기억해 둡니다. 다음 곡·앞 곡 단추(드라마는 다음 회·앞 회)로 넘기고, 이어폰 단추와 잠금 화면의 다음 곡 단추로도 넘깁니다. 넘어갈 때 곡 이름을 한 번 알려 드리며, 설정의 곡이 넘어갈 때 제목 읽기를 끄면 조용히 넘어갑니다.",   // 0.8.0
         "곡이 넘어갈 때 제목 읽기" to "설정·도움말 탭에 있습니다. 켜 두면 음악이 다음 곡으로 넘어갈 때(드라마는 다음 회로 넘어갈 때) 제목을 한 번 읽어 드립니다. 새 앨범으로 넘어가면 앨범 이름도 함께 읽습니다. 끄면 제목을 읽지 않고 다음 곡이 바로 이어집니다. 처음에는 켜져 있습니다. 듣는 화면을 간결하게 두려고 이 설정은 설정·도움말 탭에만 둡니다.",   // 0.8.1
         "영상 보기" to "엔터테인먼트의 영상 작품은 소리와 함께 화면이 나옵니다. 화면은 읽기 단추 위에 있고, 화면을 두드리면 폰이 주는 재생 단추와 크게 보기가 나옵니다. 앞으로 30초, 뒤로 30초, 재생 위치, 책갈피는 소리 작품과 똑같이 씁니다. 영상은 데이터를 많이 쓰니 와이파이에서 보시기를 권합니다.",   // 0.7.2
+        "게시판" to "도서관 첫 화면 아래쪽의 게시판 단추를 누르면 공지, 묻고 답하기, 후기, 제작 요청, 불편 신고 다섯 가지가 나옵니다. 목록은 설정의 목록 줄 수만큼(처음 15줄) 나오고 최근 글이 맨 위입니다. 다음 목록과 앞 목록 단추로 넘깁니다.",   // 0.8.4
+        "게시판 글쓰기" to "게시판에 들어가 글쓰기를 누르고 제목과 내용을 적은 뒤 올리기를 누릅니다. 공지는 운영자만 씁니다. 쓰던 글은 폰에 저절로 남아 화면을 닫아도 다시 이어 쓸 수 있습니다. 내가 쓴 글은 열어서 이 글 지우기를 누르고 지우기를 한 번 더 고르면 지워집니다.",   // 0.8.4
+        "비밀글" to "묻고 답하기에서 글을 쓸 때 비밀글 단추를 눌러 켜면 나와 운영자만 봅니다.",   // 0.8.4
+        "제작 요청" to "읽고 싶은 책을 도서관에 만들어 달라고 청하는 곳입니다. 인증 회원부터 한 달에 다섯 권까지 청하실 수 있고, 목록에서 접수, 제작 중, 완료, 제작할 수 없음 단계를 들으실 수 있습니다.",   // 0.8.4
         "회원 등급" to "회원은 일반 회원, 인증 회원, 봉사 회원, 운영자, 최고관리자로 나뉩니다. 처음 등록하면 일반 회원이고, 일반 회원은 외국 도서(저작권이 끝난 책)만 들으실 수 있습니다. 설정·도움말 탭의 내 회원 등급에서 장애 확인하기를 누르고, 장애인 복지카드나 장애인증명서 사진을 골라 올리시면 협회가 확인해 인증 회원으로 바꿔 드립니다. 그러면 모든 책과 엔터테인먼트 작품을 들으실 수 있습니다. 잠긴 책을 열면 인증 회원만 들을 수 있다고 알려 드리고, 그 자리에 장애 확인하기 단추가 나옵니다. 확인됐는지 다시 보기를 누르면 지금 등급을 다시 알려 드립니다.",   // 0.8.3
         "회원 정보 여쭙기" to "처음 등록한 뒤, 이미 등록하신 분은 앱을 켤 때 한 번, 장애 유형, 사시는 지역, 연령대 세 가지를 한 가지씩 여쭙고 이용 약관에 동의를 받습니다. 도서관 실적을 숫자로만 내는 데 씁니다. 밝히고 싶지 않은 것은 「밝히지 않음」을 고르시면 됩니다. 「다음에 하기」를 누르면 앱을 다시 켤 때까지 묻지 않습니다.",   // 0.8.2
         "소리가 멈추면" to "음악이나 소리책이 듣는 중에 8초 넘게 멈추면 앱이 스스로 그 자리부터 다시 이어 틉니다.",   // 0.8.2
