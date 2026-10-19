@@ -45,6 +45,9 @@ enum Route: Hashable {
     case nanmal                           // 0.6.0 내 낱말장
     case ent(String, String)              // 0.7.0 엔터테인먼트 폴더(열쇠, 이름)
     case entFind(String)                  // 0.7.0 엔터테인먼트 찾기
+    case gesipan                          // 0.8.4 게시판
+    case gsMok(String, String, Bool)      // 0.8.4 게시판 목록(판, 이름, 쓸 수 있나)
+    case gsBogi(String, String, String)   // 0.8.4 글 보기(판, 이름, 글 번호)
 }
 
 final class Nav: ObservableObject {
@@ -119,6 +122,9 @@ extension View {
             case .nanmal: NanmalJangView().dwiro()
             case .ent(let j, let t): EntListView(j: j, ttl: t).dwiro()
             case .entFind(let s): EntFindView(s: s).dwiro()
+            case .gesipan: GesipanView().dwiro()
+            case .gsMok(let b, let t, let w): GsMokView(b: b, ttl: t, sseugi: w).dwiro()
+            case .gsBogi(let b, let t, let id): GsBogiView(b: b, ttl: t, gid: id).dwiro()
             }
         }
     }
