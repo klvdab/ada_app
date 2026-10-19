@@ -124,10 +124,18 @@ jobs:
           if [ "$FLAVOR" = "wear" ]; then
             TASKS=":wear:assembleRelease"
           else
-            TASKS=":app:assemble${FLAVOR_CAP}Release :app:bundle${FLAVOR_CAP}Release"
+            TASKS=":app:assemble${FLAVOR_CAP}Release"
           fi
           echo "짓는 일: $TASKS"
           gradle $TASKS --no-daemon --stacktrace 2>&1 | tee build.log | tail -n 120 || true
+          # 261019-P1 플레이 스토어에 올리는 AAB 는 따로 -Pplay=1 로 지음(스스로 업데이트 끔, 자봉은 설치 권한 뺌). 시험판 APK 는 그대로
+          if [ "$FLAVOR" != "wear" ] && grep -q "BUILD SUCCESSFUL" build.log; then
+            echo "플레이 판 AAB 짓기: :app:bundle${FLAVOR_CAP}Release -Pplay=1"
+            gradle ":app:bundle${FLAVOR_CAP}Release" -Pplay=1 --no-daemon --stacktrace 2>&1 | tee build_play.log | tail -n 60 || true
+            if ! grep -q "BUILD SUCCESSFUL" build_play.log; then
+              cp build_play.log build.log
+            fi
+          fi
           if ! grep -q "BUILD SUCCESSFUL" build.log; then
             echo "===== 잘못된 곳 ====="
             sed -n '/What went wrong/,/^$/p' build.log | head -n 40
