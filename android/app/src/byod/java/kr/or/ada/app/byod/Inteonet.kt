@@ -61,9 +61,9 @@ object Inteonet {
 
     fun sijak(ctx: Context, jm: String, wh: String) {
         val c = ctx.applicationContext
-        if (!hamkke(c)) { allim("인터넷 방송: 꺼 두셨습니다. 현장 방송만 나갑니다. 더 보기에서 켤 수 있습니다."); return }
+        if (!hamkke(c)) { allim("인터넷 방송: 꺼 두셨습니다. BYOD 방송만 나갑니다. 더 보기에서 켤 수 있습니다."); return }
         val p = jeonhwa(c)
-        if (p.length < 9) { allim("인터넷 방송: 첫 화면에 현장영상해설사 전화번호를 넣으시면 현장 방송과 함께 인터넷으로도 나갑니다."); return }
+        if (p.length < 9) { allim("인터넷 방송: 첫 화면에 현장영상해설사 전화번호를 넣으시면 BYOD 방송과 함께 인터넷으로도 나갑니다."); return }
         val t = th ?: HandlerThread("byod-inteonet").also { it.start(); th = it }
         val hh = h ?: Handler(t.looper).also { h = it }
         hh.post {
@@ -130,11 +130,11 @@ object Inteonet {
             allim("인터넷 방송: 함께 나가고 있습니다. LVD 방송 앱과 누리집의 지금 현장영상해설 듣기에서 들립니다.")
         } else if (code == 403) {
             geobu = true; moum.reset()
-            allim("인터넷 방송: 이 전화번호가 협회 현장영상해설사 명단에 없어 인터넷으로는 나가지 않습니다. 현장 방송은 그대로 나갑니다.")
+            allim("인터넷 방송: 이 전화번호가 협회 현장영상해설사 명단에 없어 인터넷으로는 나가지 않습니다. BYOD 방송은 그대로 나갑니다.")
         } else {
             silpae++
             if (silpae >= 2) { silpae = 0; app?.let { mangChonggi(it) } }
-            allim("인터넷 방송: 인터넷에 닿지 않습니다. 저절로 다시 시도합니다. 현장 방송은 그대로 나갑니다.")
+            allim("인터넷 방송: 인터넷에 닿지 않습니다. 저절로 다시 시도합니다. BYOD 방송은 그대로 나갑니다.")
         }
     }
 
@@ -162,7 +162,7 @@ object Inteonet {
             else -> {
                 silpae++
                 if (silpae >= 3) { silpae = 0; app?.let { mangChonggi(it) } }
-                allim("인터넷 방송: 인터넷에 닿지 않습니다. 저절로 다시 시도합니다. 현장 방송은 그대로 나갑니다.")
+                allim("인터넷 방송: 인터넷에 닿지 않습니다. 저절로 다시 시도합니다. BYOD 방송은 그대로 나갑니다.")
             }
         }
     }

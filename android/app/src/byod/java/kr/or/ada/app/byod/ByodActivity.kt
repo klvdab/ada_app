@@ -208,7 +208,7 @@ class ByodActivity : Activity() {
         mom.addView(kanMandeul("행사 이름 (비워 두면 날짜와 시각)", "haengsa_jemok"))
         mom.addView(kanMandeul("현장영상해설사 이름", "haeseolsa"))
         mom.addView(kanMandeul("현장영상해설사 전화번호 (인터넷 방송에 씀)", "haeseolsa_phone").apply { inputType = InputType.TYPE_CLASS_PHONE })
-        bangDanchu = danchu("현장 방송 시작", keun = true, norang = true) { bangDanchuNullim() }
+        bangDanchu = danchu("BYOD 방송 시작", keun = true, norang = true) { bangDanchuNullim() }
         mom.addView(bangDanchu)
 
         sangtae = geul("", 22f, true)
@@ -293,12 +293,12 @@ class ByodActivity : Activity() {
     }
 
     // 1.5.0 현장 방송과 함께 인터넷 방송 켜고 끄기 — 다음 방송부터
-    private fun hamkkeMal() = if (Inteonet.hamkke(this)) "현장 방송과 함께 인터넷 방송: 켜짐. 누르면 끕니다" else "현장 방송과 함께 인터넷 방송: 꺼짐. 누르면 켭니다"
+    private fun hamkkeMal() = if (Inteonet.hamkke(this)) "BYOD 방송과 함께 인터넷 방송: 켜짐. 누르면 끕니다" else "BYOD 방송과 함께 인터넷 방송: 꺼짐. 누르면 켭니다"
     private fun hamkkeBakkugi() {
         val on = !Inteonet.hamkke(this)
         Inteonet.hamkkeDugi(this, on)
         hamkkeDanchu.text = hamkkeMal()
-        val t = (if (on) "현장 방송을 켜면 인터넷 방송도 함께 나갑니다." else "현장 방송만 나갑니다. 인터넷 방송은 함께 나가지 않습니다.") + (if (Bang.kyeojim) " 다음 방송부터 적용됩니다." else "")
+        val t = (if (on) "BYOD 방송을 켜면 인터넷 방송도 함께 나갑니다." else "BYOD 방송만 나갑니다. 인터넷 방송은 함께 나가지 않습니다.") + (if (Bang.kyeojim) " 다음 방송부터 적용됩니다." else "")
         hamkkeDanchu.announceForAccessibility(t); malhagi(t)
     }
 
@@ -354,12 +354,12 @@ class ByodActivity : Activity() {
         sijakGidarim = false
         baeteoriMutgi()
         ByodService.kyeogi(this)
-        malhagi("현장 방송을 시작했습니다.")
+        malhagi("BYOD 방송을 시작했습니다.")
         h.postDelayed({ sangtaeGochigi(true) }, 600)
     }
 
     private fun bangDanchuGeul() {
-        bangDanchu.text = if (Bang.kyeojim) "현장 방송 멈추기" else "현장 방송 시작"
+        bangDanchu.text = if (Bang.kyeojim) "BYOD 방송 멈추기" else "BYOD 방송 시작"
     }
 
     private fun heorakDoem(): Boolean {
@@ -408,10 +408,10 @@ class ByodActivity : Activity() {
         val so = Bang.sojae
         val jm = Bang.jalmot
         val t = if (!k) {
-            "현장 방송이 꺼져 있습니다." + (if (Flint.flintInga(this)) " 방송 방식: 플린트 2 공유기." else " 방송 방식: 이 기기가 서버.") + (if (jm.isNotEmpty()) " " + jm else "")
+            "BYOD 방송이 꺼져 있습니다." + (if (Flint.flintInga(this)) " 방송 방식: 플린트 2 공유기." else " 방송 방식: 이 기기가 서버.") + (if (jm.isNotEmpty()) " " + jm else "")
         } else {
             (if (Bang.tonghwaJung) "통화 중입니다. 듣는 분께 잠시 기다려 달라는 안내를 보내고 있습니다. 통화가 끝나면 저절로 이어 보냅니다. " else "") +
-            "현장 방송 중입니다. 듣는 분 " + Bang.deutnunSu + "명. 소리 받는 곳: " + so + "." +
+            "BYOD 방송 중입니다. 듣는 분 " + Bang.deutnunSu + "명. 소리 받는 곳: " + so + "." +
                 (if (Flint.flintInga(this)) (if (Flint.bonaenda) " 공유기로 보내고 있습니다." else "") else "") + (if (jm.isNotEmpty()) " " + jm else "")
         }
         val keunBakkwim = k != boyeojunKyeojim || so != boyeojunSojae || jm != boyeojunJalmot || Bang.tonghwaJung != boyeojunTonghwa

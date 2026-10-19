@@ -67,6 +67,18 @@ class ByodService : Service() {
     private var jamgeum: PowerManager.WakeLock? = null
     private var wifiJamgeum: WifiManager.WifiLock? = null
     private var majimakSu = -1
+    // 1.6.0 (261019-B14) 방송 지킴이 — 해설 소리가 6초 넘게 안 들어오면 3초에 한 번 조용한 알림 소리와 떨림
+    @Volatile private var soriTtae = 0L
+    private var jikim: Jikim? = null
+    private fun jikimSijak() {
+        soriTtae = System.currentTimeMillis()
+        jikim?.meomchugi()
+        jikim = Jikim(this, { Bang.kyeojim && System.currentTimeMillis() - soriTtae > 6000 }) { m ->
+            if (m) Bang.jalmot = "해설 소리가 들어오지 않습니다. 마이크와 소리 받는 곳을 살펴 주십시오. 방송은 켜져 있습니다."
+            else if (Bang.jalmot.startsWith("해설 소리가 들어오지")) Bang.jalmot = ""
+            Bang.allyeo()
+        }.also { it.sijak() }
+    }
     private val gwan: () -> Unit = { allimGochigi() }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -124,9 +136,10 @@ class ByodService : Service() {
         Bang.keu = true
         Bang.kyeojim = true
         Bang.sigakTtae = System.currentTimeMillis()
-        val so = Sori(this) { b -> s.ppurida(b); Inteonet.neoki(b) }   // 1.5.0 인터넷 방송에도 같은 소리
+        val so = Sori(this) { b -> soriTtae = System.currentTimeMillis(); s.ppurida(b); Inteonet.neoki(b) }   // 1.5.0 인터넷 방송에도 같은 소리
         so.sijak()
         sori = so
+        jikimSijak()   // 1.6.0
         Bang.gwanchal.add(gwan)
         inteonetSijak()
         Bang.allyeo()
@@ -141,9 +154,10 @@ class ByodService : Service() {
         Bang.keu = true
         Bang.kyeojim = true
         Bang.sigakTtae = System.currentTimeMillis()
-        val so = Sori(this) { x -> b.neoki(x); Inteonet.neoki(x) }   // 1.5.0 인터넷 방송에도 같은 소리
+        val so = Sori(this) { x -> soriTtae = System.currentTimeMillis(); b.neoki(x); Inteonet.neoki(x) }   // 1.5.0 인터넷 방송에도 같은 소리
         so.sijak()
         sori = so
+        jikimSijak()   // 1.6.0
         Bang.gwanchal.add(gwan)
         inteonetSijak()
         Bang.allyeo()
@@ -170,6 +184,7 @@ class ByodService : Service() {
 
     override fun onDestroy() {
         songchulH.removeCallbacks(songchulAllim)
+        try { jikim?.meomchugi() } catch (_: Exception) { }; jikim = null   // 1.6.0
         songchulBonaegi(false)
         Bang.gwanchal.remove(gwan)
         Bang.keu = false

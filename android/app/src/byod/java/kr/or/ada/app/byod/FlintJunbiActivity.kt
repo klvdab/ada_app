@@ -46,7 +46,7 @@ class FlintJunbiActivity : Activity() {
         }
         body.addView(pw)
         sijakDanchu = danchu("플린트 2 준비 시작") { sijak() }
-        danchu("공유기 방송 서버 확인하기") { hwagin() }
+        danchu("BYOD 방송 서버 확인하기") { hwagin() }
         allim = geul("").apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE }
         girok = geul("").apply { textSize = 16f }
         danchu("뒤로") { finish() }
@@ -57,13 +57,13 @@ class FlintJunbiActivity : Activity() {
     private fun mal(t: String) { runOnUiThread { allim.text = t; allim.announceForAccessibility(t); girok.append(t + "\n") } }
 
     private fun hwagin() {
-        mal("공유기 방송 서버에 묻고 있습니다.")
+        mal("BYOD 방송 서버에 묻고 있습니다.")
         Thread {
             val t = Flint.mutgi(this, "/status")
-            if (t == null) mal("공유기 방송 서버가 답하지 않습니다. 이 기기가 " + Flint.SSID + " 와이파이에 붙었는지 보시고, 처음 쓰는 공유기면 플린트 2 준비 시작을 누르십시오.")
+            if (t == null) mal("BYOD 방송 서버가 답하지 않습니다. 이 기기가 " + Flint.SSID + " 와이파이에 붙었는지 보시고, 처음 쓰는 공유기면 플린트 2 준비 시작을 누르십시오.")
             else try {
                 val j = org.json.JSONObject(t)
-                mal("공유기 방송 서버가 답합니다. " + j.optString("pan") + "판, 듣는 분 " + j.optInt("n") + "명, " +
+                mal("BYOD 방송 서버가 답합니다. " + j.optString("pan") + "판, 듣는 분 " + j.optInt("n") + "명, " +
                     (if (j.optBoolean("mp3")) "화면을 잠가도 이어지는 소리를 쓸 수 있습니다." else "늦음이 가장 적은 소리만 씁니다."))
             } catch (_: Exception) { mal("공유기가 답했지만 내용을 읽지 못했습니다.") }
         }.start()

@@ -35,13 +35,13 @@ object Hyeonjang {
         val am = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         // 1. 방송
         l.add(if (Bang.kyeojim) Jul(true, "방송: 켜져 있습니다. 듣는 분 " + Bang.deutnunSu + "명.")
-              else Jul(false, "방송: 꺼져 있습니다. 첫 화면의 현장 방송 시작을 누르십시오. 방송을 켜야 소리 크기도 잴 수 있습니다."))
+              else Jul(false, "방송: 꺼져 있습니다. 첫 화면의 BYOD 방송 시작을 누르십시오. 방송을 켜야 소리 크기도 잴 수 있습니다."))
         // 1.5.0 함께 나가는 인터넷 방송
         l.add(when {
-            !Inteonet.hamkke(ctx) -> Jul(true, "인터넷 방송: 꺼 두셨습니다. 현장 방송만 나갑니다.")
+            !Inteonet.hamkke(ctx) -> Jul(true, "인터넷 방송: 꺼 두셨습니다. BYOD 방송만 나갑니다.")
             Inteonet.jeonhwa(ctx).length < 9 -> Jul(false, "인터넷 방송: 현장영상해설사 전화번호가 없어 함께 나가지 않습니다. 첫 화면의 전화번호 칸에 협회 명단의 번호를 넣으십시오.")
             Bang.kyeojim -> Jul(Inteonet.jul.contains("함께 나가고"), Inteonet.jul.ifEmpty { "인터넷 방송: 준비 중입니다." })
-            else -> Jul(true, "인터넷 방송: 현장 방송을 켜면 함께 나갑니다.")
+            else -> Jul(true, "인터넷 방송: BYOD 방송을 켜면 함께 나갑니다.")
         })
         // 2. 사운드카드
         val ins = am.getDevices(AudioManager.GET_DEVICES_INPUTS)
@@ -62,8 +62,8 @@ object Hyeonjang {
             l.add(if (mang) Jul(true, "공유기: 플린트 2에 붙었습니다.") else Jul(false, "공유기: 플린트 2 와이파이(" + Flint.SSID + ")나 랜선에 붙지 않았습니다. 이 기기를 공유기에 붙이십시오."))
             if (Bang.kyeojim) {
                 val dap = System.currentTimeMillis() - Flint.dapTtae < 10_000
-                l.add(if (dap) Jul(true, "공유기 방송 서버: 답합니다. " + Flint.seobeoPan + "판.")
-                      else Jul(false, "공유기 방송 서버: 답하지 않습니다. 처음 쓰는 공유기면 더 보기의 플린트 2 준비하기를 하십시오."))
+                l.add(if (dap) Jul(true, "BYOD 방송 서버: 답합니다. " + Flint.seobeoPan + "판.")
+                      else Jul(false, "BYOD 방송 서버: 답하지 않습니다. 처음 쓰는 공유기면 더 보기의 플린트 2 준비하기를 하십시오."))
                 l.add(if (Flint.bonaenda) Jul(true, "해설 소리: 공유기로 보내고 있습니다.") else Jul(false, "해설 소리: 공유기로 보내지 못하고 있습니다. 공유기 전원과 와이파이를 확인하십시오."))
                 if (dap) l.add(if (Flint.mp3) Jul(true, "화면을 잠가도 이어지는 소리: 쓸 수 있습니다.") else Jul(false, "화면을 잠가도 이어지는 소리: 공유기에 없습니다. 사무실에서 플린트 2 준비하기를 다시 하십시오."))
             }

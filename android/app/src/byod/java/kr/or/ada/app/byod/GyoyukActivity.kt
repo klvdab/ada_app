@@ -1,3 +1,5 @@
+// 1.6.0 (261019-B14, 방클, 이사장님 지시 2026-10-19 「녹화 끊김 막기」) 화면이 녹화 상태를 앱에 알림(LVDSongchul.nokhwa) — 녹화가 멈추거나,
+//   화면이 잠기거나 앱이 뒤로 가 녹화 소식이 8초 넘게 끊기면 3초에 한 번 조용한 알림 소리와 떨림(Jikim). 화면 쪽은 녹화 다시 잇기.
 // LVD 송출 — 라이브 현장영상해설 방송·현장영상해설교육 녹화 화면 (1.4.0판, 빌드 261016-B12, 방클, 이사장님 지시 「지금 앱으로 완성」 2026-10-16)
 // 배프 라이브 방송하기(bang2.html)·교육 녹화(gyoyuk.html) 화면을 앱 안에서 엽니다(이사장님 원칙: 공유기 방송·라이브 방송·교육 녹화를 한 폰, 한 화면에서). 보내기·중계·나스 담기는 그 화면이 그대로 합니다.
 // 앱이 하는 일: 카메라·마이크 허락을 받아 화면에 넘겨 줌, 녹화하는 동안 화면이 꺼지지 않게 붙잡음,
@@ -18,6 +20,7 @@ import android.util.TypedValue
 import android.view.KeyEvent
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -35,6 +38,22 @@ class GyoyukActivity : Activity() {
     }
 
     private lateinit var web: WebView
+    // 1.6.0 녹화 지킴이 — 화면(nokhwa_jikim.js)이 1초마다 알려 주는 녹화 상태
+    @Volatile private var nokhwaJung = false
+    @Volatile private var meomchumBat = false
+    @Volatile private var majimak = 0L
+    @Volatile private var boinda = true
+    private var jikim: Jikim? = null
+    inner class Dari {
+        @JavascriptInterface fun nokhwa(s: String) {
+            majimak = System.currentTimeMillis()
+            when (s) {
+                "sijak", "salaitda" -> { nokhwaJung = true; meomchumBat = false }
+                "meomchum" -> { nokhwaJung = true; meomchumBat = true }
+                "kkeut" -> { nokhwaJung = false; meomchumBat = false }
+            }
+        }
+    }
     private var gidarim: PermissionRequest? = null
     private var jemok = "현장영상해설교육 녹화"
 
@@ -77,6 +96,10 @@ class GyoyukActivity : Activity() {
                 }
             }
         }
+        web.addJavascriptInterface(Dari(), "LVDSongchul")   // 1.6.0 녹화 상태 받기
+        jikim = Jikim(this, {
+            nokhwaJung && (meomchumBat || System.currentTimeMillis() - majimak > 8000 || !boinda)
+        }) { m -> if (m) runOnUiThread { try { web.announceForAccessibility("녹화가 멈췄을 수 있습니다. 화면을 켜고 녹화를 살펴 주십시오.") } catch (_: Exception) { } } }.also { it.sijak() }
         android.webkit.CookieManager.getInstance().setAcceptCookie(true)
         android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
         mom.addView(web, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
@@ -118,7 +141,11 @@ class GyoyukActivity : Activity() {
         return super.onKeyDown(keyCode, event)
     }
 
+    override fun onStart() { super.onStart(); boinda = true; majimak = System.currentTimeMillis() }
+    override fun onStop() { boinda = false; super.onStop() }   // 1.6.0 화면이 잠기거나 앱이 뒤로 가면 녹화가 멈출 수 있어 지킴이가 알림
+
     override fun onDestroy() {
+        try { jikim?.meomchugi() } catch (_: Exception) { }
         try { web.destroy() } catch (_: Exception) { }
         super.onDestroy()
     }
