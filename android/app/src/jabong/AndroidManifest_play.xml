@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 플레이 스토어 판 얼개(261019-P1, -Pplay=1 일 때 씀) — 아래는 자봉 갈래 얼개 그대로이고 설치 권한만 뺌.
+     자봉 갈래 얼개 (안드로이드 자봉 2.3.0, 빌드 261002-J1, 대표님 지시 — 아이폰 자봉과 똑같이 모든 화면을 앱으로).
+     261001-A2 점지도 그리기를 속까지 앱(JabongActivity). 261002-J1 처음 등록·탭 넷·긴급통화 받기까지 앱으로.
+     MainActivity(웹 자봉)는 나눔 탭의 「웹 자봉 게시판 열기」로만 엶 — 게시판이 앱으로 옮겨 오면 뺌.
+     긴급통화 받기: 알림 칸의 자봉(JabongDaegiService)이 나스에 부름을 살피고(나스에 구글 알림이 없어서),
+     부름이 오면 벨소리·진동과 잠긴 화면 위에 받기·거절(전화 알림). 폰을 다시 켜면 저절로 다시 기다림(JabongBootReceiver). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- 261002-J1 긴급통화 받기 — 기다리는 알림 칸의 자봉(안드로이드 14 이상은 쓰임새를 밝혀야 함) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- 261002-J1 잠긴 화면 위에 전화처럼 받기·거절을 띄움 -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- 261002-J1 폰을 다시 켜면 긴급통화 받기를 이어 감 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- 261002-J1 배터리 아끼기에서 자봉을 빼 달라고 여쭘(화면이 꺼져도 늦지 않게 울리도록) -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- 261019-P1 플레이 스토어 판 — 스스로 설치하지 않으므로 설치 권한을 두지 않음(구글 정책) -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove" />
+
+    <application>
+        <activity
+            android:name="kr.or.ada.app.MainActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:label="@string/app_name"
+            tools:node="replace" />
+
+        <activity
+            android:name="kr.or.ada.app.jabong.JabongActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- 2.23.0(261014-A19) 교육 마당 사용법 동영상 — 앱 안에서 틂 -->
+        <activity
+            android:name="kr.or.ada.app.jabong.JbDonghwaActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:label="@string/app_name" />
+
+        <!-- 2.27.0(261018-A23) 동영상 강의 — 길눈과 같은 재생기(받기 문 없음, 자봉 앱 안에서만 엶) -->
+        <activity
+            android:name="kr.or.ada.app.gilnun.DongyeongActivity"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:launchMode="singleTop"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden" />
+
+        <service
+            android:name="kr.or.ada.app.jabong.JabongService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
+        <service
+            android:name="kr.or.ada.app.jabong.JabongDaegiService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="긴급통화 받기 — 시각장애인(길손님)이 도움을 청하면 자원봉사자 폰을 전화처럼 울리기 위해 협회 서버에 부름을 살핌" />
+        </service>
+
+        <receiver
+            android:name="kr.or.ada.app.jabong.JabongBootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 2.12.0 새 판 업데이트(길눈 부품 Ollim) — 설치 결과와 「새 판으로 바뀜」 알림 -->
+        <receiver
+            android:name="kr.or.ada.app.gilnun.OllimReceiver"
+            android:exported="false" />
+        <receiver
+            android:name="kr.or.ada.app.gilnun.OllimBakkwimReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 261002-B1 자봉 갈래도 src/gilnun 코드(카메라 눈 발 앞 턱의 구글 AR)를 함께 싣으므로 — 있으면 씀(없어도 앱은 깔림) -->
+        <meta-data android:name="com.google.ar.core" android:value="optional" />
+    </application>
+</manifest>
