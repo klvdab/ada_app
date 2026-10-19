@@ -8,6 +8,18 @@ import UIKit
 final class BangIl {
     static let shared = BangIl()
     private var sori: Sori?
+    // 1.6.0 (261019-BI8) 방송 지킴이 — 해설 소리가 6초 넘게 안 들어오면 3초에 한 번 조용한 알림 소리
+    private var soriTtae = Date().timeIntervalSince1970
+    private lazy var jikim = Jikim(meomchumInga: { [weak self] in
+        guard let self = self else { return false }
+        return Bang.shared.kyeojim && Date().timeIntervalSince1970 - self.soriTtae > 6
+    }, bakkwim: { m in
+        DispatchQueue.main.async {
+            let b = Bang.shared
+            if m { b.jalmot = "해설 소리가 들어오지 않습니다. 마이크와 소리 받는 곳을 살펴 주십시오. 방송은 켜져 있습니다."; allyeo(b.jalmot) }
+            else if b.jalmot.hasPrefix("해설 소리가 들어오지") { b.jalmot = "" }
+        }
+    })
 
     /// 마이크 허락을 묻고(처음 한 번), 되면 방송을 켬. 결과 한 줄을 화면 줄기에서 돌려줌
     func kyeogi(_ kkeut: @escaping (String) -> Void) {
@@ -37,7 +49,7 @@ final class BangIl {
             b.jalmot = "방송 문(8080)을 열지 못했습니다. 아이폰을 다시 켠 뒤 해 보십시오."
             return b.jalmot
         }
-        let so = Sori { d in Seobeo.shared.ppurida(d); InteonetBonaegi.shared.neoki(d) }   // 1.5.0 인터넷 방송에도 같은 소리
+        let so = Sori { [weak self] d in self?.soriTtae = Date().timeIntervalSince1970; Seobeo.shared.ppurida(d); InteonetBonaegi.shared.neoki(d) }   // 1.5.0 인터넷 방송에도 같은 소리
         do {
             try so.sijak()
         } catch {
@@ -51,14 +63,15 @@ final class BangIl {
         b.kyeojim = true
         b.sigakTtae = Date()
         inteonetSijak()
-        return "현장 방송을 시작했습니다."
+        soriTtae = Date().timeIntervalSince1970; jikim.sijak()   // 1.6.0
+        return "BYOD 방송을 시작했습니다."
     }
 
     /// 1.2.0 플린트 2 방식 — 소리 받기는 그대로, 받은 소리를 공유기로 보냄
     private func flintKyeogi() -> String {
         let b = Bang.shared
         FlintBonaegi.shared.sijak()
-        let so = Sori { d in FlintBonaegi.shared.neoki(d); InteonetBonaegi.shared.neoki(d) }   // 1.5.0 인터넷 방송에도 같은 소리
+        let so = Sori { [weak self] d in self?.soriTtae = Date().timeIntervalSince1970; FlintBonaegi.shared.neoki(d); InteonetBonaegi.shared.neoki(d) }   // 1.5.0 인터넷 방송에도 같은 소리
         do {
             try so.sijak()
         } catch {
@@ -72,7 +85,8 @@ final class BangIl {
         b.kyeojim = true
         b.sigakTtae = Date()
         inteonetSijak()
-        return "현장 방송을 시작했습니다. 해설 소리를 플린트 2 공유기로 보냅니다."
+        soriTtae = Date().timeIntervalSince1970; jikim.sijak()   // 1.6.0
+        return "BYOD 방송을 시작했습니다. 해설 소리를 플린트 2 공유기로 보냅니다."
     }
 
     /// 1.5.0 현장 방송과 함께 인터넷 방송 — 제목은 행사 이름(비면 날짜와 시각), 현장영상해설사 이름을 함께
@@ -87,6 +101,7 @@ final class BangIl {
     func kkeugi() {
         let b = Bang.shared
         b.keu = false
+        jikim.meomchugi()   // 1.6.0
         InteonetBonaegi.shared.meomchugi()   // 1.5.0
         sori?.meomchugi()
         sori = nil

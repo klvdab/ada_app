@@ -132,8 +132,8 @@ final class SangtaeBogi: ObservableObject {
         let now = Date()
         let k = b.kyeojim, so = b.sojae, jm = b.jalmot
         let fl = Flint.flintInga
-        let t = !k ? "현장 방송이 꺼져 있습니다." + (fl ? " 방송 방식: 플린트 2 공유기." : " 방송 방식: 이 아이폰이 서버.") + (jm.isEmpty ? "" : " " + jm)
-                   : "현장 방송 중입니다. 듣는 분 \(b.deutnunSu)명. 소리 받는 곳: \(so)." + (fl && FlintBonaegi.shared.bonaenda ? " 공유기로 보내고 있습니다." : "") + (jm.isEmpty ? "" : " " + jm)
+        let t = !k ? "BYOD 방송이 꺼져 있습니다." + (fl ? " 방송 방식: 플린트 2 공유기." : " 방송 방식: 이 아이폰이 서버.") + (jm.isEmpty ? "" : " " + jm)
+                   : "BYOD 방송 중입니다. 듣는 분 \(b.deutnunSu)명. 소리 받는 곳: \(so)." + (fl && FlintBonaegi.shared.bonaenda ? " 공유기로 보내고 있습니다." : "") + (jm.isEmpty ? "" : " " + jm)
         let keunBakkwim = k != kyeojim || so != sojae || jm != jalmot
         if t != geul && (baro || keunBakkwim || now.timeIntervalSince(ttae) >= 10) {
             let allil = !cheoeum && !baro
@@ -204,7 +204,7 @@ struct CheotView: View {
 
     private var bangDanchuGeul: String {
         if meomchumMal { return "한 번 더 누르면 방송을 멈춥니다" }
-        return bang.kyeojim ? "현장 방송 멈추기" : "현장 방송 시작"
+        return bang.kyeojim ? "BYOD 방송 멈추기" : "BYOD 방송 시작"
     }
 
     var body: some View {
@@ -244,9 +244,9 @@ struct CheotView: View {
                     Danchu(geul: "접속 도구: 엔에프시 태그와 큐알코드") { gagi(.jeopsok) }
                     Danchu(geul: "지난 행사 기록 (녹음과 결과보고)") { gagi(.haengsa) }   // 1.3.0
                         .accessibilityFocused($deoChojeom)
-                    Danchu(geul: "공유기 방송 서버 확인하기") { flintHwagin() }   // 1.2.0
+                    Danchu(geul: "BYOD 방송 서버 확인하기") { flintHwagin() }   // 1.2.0
                     Danchu(geul: flintOn ? "방송 방식: 플린트 2 공유기. 누르면 이 아이폰이 서버인 예비 방식으로 바꿉니다" : "방송 방식: 이 아이폰이 서버(예비). 누르면 플린트 2 공유기 방식으로 바꿉니다") { bangsikBakkugi() }   // 1.2.0
-                    Danchu(geul: hamkkeOn ? "현장 방송과 함께 인터넷 방송: 켜짐. 누르면 끕니다" : "현장 방송과 함께 인터넷 방송: 꺼짐. 누르면 켭니다") { hamkkeBakkugi() }   // 1.5.0
+                    Danchu(geul: hamkkeOn ? "BYOD 방송과 함께 인터넷 방송: 켜짐. 누르면 끕니다" : "BYOD 방송과 함께 인터넷 방송: 꺼짐. 누르면 켭니다") { hamkkeBakkugi() }   // 1.5.0
                     Danchu(geul: "기기 점검: 소리 장치와 연결 보기") { gigiGeul = Sori.gigiJeomgeom(); gigiBoim = true }
                     Danchu(geul: "새로고침") { saerogochim() }
                     Danchu(geul: ollim.seoljeongGeul) { ollim.seoljeongNureum() }
@@ -342,15 +342,15 @@ struct CheotView: View {
 
     // 1.2.0 공유기 방송 서버에 판·듣는 분 수를 물음(준비하기는 안드로이드 BYOD 앱에서)
     private func flintHwagin() {
-        allyeo("공유기 방송 서버에 묻고 있습니다.")
+        allyeo("BYOD 방송 서버에 묻고 있습니다.")
         Flint.mutgi("/status") { j in
             DispatchQueue.main.async {
                 let t: String
                 if let j = j {
-                    t = "공유기 방송 서버가 답합니다. \(j["pan"] as? String ?? "")판, 듣는 분 \(j["n"] as? Int ?? 0)명. " +
+                    t = "BYOD 방송 서버가 답합니다. \(j["pan"] as? String ?? "")판, 듣는 분 \(j["n"] as? Int ?? 0)명. " +
                         ((j["mp3"] as? Bool ?? false) ? "화면을 잠가도 이어지는 소리를 쓸 수 있습니다." : "늦음이 가장 적은 소리만 씁니다.")
                 } else {
-                    t = "공유기 방송 서버가 답하지 않습니다. 이 아이폰이 와이파이 \(Flint.SSID) 에 붙었는지 보십시오. 새 공유기는 안드로이드 LVD 송출 앱의 플린트 2 준비하기로 먼저 준비합니다."
+                    t = "BYOD 방송 서버가 답하지 않습니다. 이 아이폰이 와이파이 \(Flint.SSID) 에 붙었는지 보십시오. 새 공유기는 안드로이드 LVD 송출 앱의 플린트 2 준비하기로 먼저 준비합니다."
                 }
                 if Malsori.shared.kyeojim { malhagi(t) } else { allyeo(t) }
                 jeomgeomGeul = t; jeomgeomBoim = true
@@ -363,7 +363,7 @@ struct CheotView: View {
         let on = !hamkkeOn
         InteonetBonaegi.hamkke = on
         hamkkeOn = on
-        let ap: String = on ? "현장 방송을 켜면 인터넷 방송도 함께 나갑니다." : "현장 방송만 나갑니다. 인터넷 방송은 함께 나가지 않습니다."
+        let ap: String = on ? "BYOD 방송을 켜면 인터넷 방송도 함께 나갑니다." : "BYOD 방송만 나갑니다. 인터넷 방송은 함께 나가지 않습니다."
         let dwi: String = bang.kyeojim ? " 다음 방송부터 적용됩니다." : ""
         let t = ap + dwi
         allyeo(t); malhagi(t)

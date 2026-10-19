@@ -51,8 +51,8 @@ final class InteonetBonaegi {
         let fl = Flint.flintInga
         q.async {
             guard !self.dolgo else { return }
-            guard InteonetBonaegi.hamkke else { self.allim("인터넷 방송: 꺼 두셨습니다. 현장 방송만 나갑니다. 더 보기에서 켤 수 있습니다."); return }
-            guard p.count >= 9 else { self.allim("인터넷 방송: 첫 화면에 현장영상해설사 전화번호를 넣으시면 현장 방송과 함께 인터넷으로도 나갑니다."); return }
+            guard InteonetBonaegi.hamkke else { self.allim("인터넷 방송: 꺼 두셨습니다. BYOD 방송만 나갑니다. 더 보기에서 켤 수 있습니다."); return }
+            guard p.count >= 9 else { self.allim("인터넷 방송: 첫 화면에 현장영상해설사 전화번호를 넣으시면 BYOD 방송과 함께 인터넷으로도 나갑니다."); return }
             self.dolgo = true; self.yeollim = false; self.geobu = false
             self.jemok = jemok; self.who = who; self.phone = p
             self.flintBangsik = fl; self.cell = fl
@@ -124,11 +124,11 @@ final class InteonetBonaegi {
                 self.allim("인터넷 방송: 함께 나가고 있습니다. LVD 방송 앱과 누리집의 지금 현장영상해설 듣기에서 들립니다.")
             } else if code == 403 {
                 self.geobu = true; self.moum = Data()
-                self.allim("인터넷 방송: 이 전화번호가 협회 현장영상해설사 명단에 없어 인터넷으로는 나가지 않습니다. 현장 방송은 그대로 나갑니다.")
+                self.allim("인터넷 방송: 이 전화번호가 협회 현장영상해설사 명단에 없어 인터넷으로는 나가지 않습니다. BYOD 방송은 그대로 나갑니다.")
             } else {
                 self.silpae += 1
                 if self.silpae >= 2 { self.cell.toggle(); self.silpae = 0 }
-                self.allim("인터넷 방송: 인터넷에 닿지 않습니다. 저절로 다시 시도합니다. 현장 방송은 그대로 나갑니다.")
+                self.allim("인터넷 방송: 인터넷에 닿지 않습니다. 저절로 다시 시도합니다. BYOD 방송은 그대로 나갑니다.")
             }
         }
     }
@@ -158,7 +158,7 @@ final class InteonetBonaegi {
             } else {
                 self.silpae += 1
                 if self.silpae >= 3 { self.cell.toggle(); self.silpae = 0 }
-                self.allim("인터넷 방송: 인터넷에 닿지 않습니다. 저절로 다시 시도합니다. 현장 방송은 그대로 나갑니다.")
+                self.allim("인터넷 방송: 인터넷에 닿지 않습니다. 저절로 다시 시도합니다. BYOD 방송은 그대로 나갑니다.")
             }
         }
     }
