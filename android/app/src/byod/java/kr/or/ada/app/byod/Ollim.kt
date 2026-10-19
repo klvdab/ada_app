@@ -9,6 +9,8 @@
 //      (앱이 한 번 스스로 업데이트한 뒤로는 안드로이드 12 이상에서 설치 확인 없이 깔릴 수 있음 — 안드로이드가 정함)
 //   4. 새 판으로 바뀌면 폰 알림 「길눈이 새 판 ○○으로 바뀌었습니다」
 // 처음 한 번은 「이 앱에서 설치 허용」을 켜야 함 — 꺼져 있으면 그 설정 화면을 바로 열어 드림.
+// 1.2.0(261019-P1) 플레이 스토어 판(BuildConfig.PLAY) — 구글 정책상 스스로 받아 설치하지 않음. 협회 판 살피기·알림·일꾼을 모두 끄고,
+//   설정의 업데이트 단추는 플레이 스토어의 이 앱 쪽을 엶(이사장님 허락 2026-10-19 「그래」 — 나머지 앱도 비공개 시험에)
 package kr.or.ada.app.byod
 
 import android.Manifest
@@ -36,6 +38,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
+import kr.or.ada.app.BuildConfig
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -113,6 +116,7 @@ object Ollim {
     /** 앱을 켤 때 한 번 — 곧바로 살피고, 뒤 일꾼을 맡겨 둠 */
     fun sijak(c: Context) {
         ctx = c.applicationContext
+        if (BuildConfig.PLAY) return   // 261019-P1 플레이 판은 플레이가 업데이트함
         salpigi(c)
         try {
             val r = PeriodicWorkRequestBuilder<OllimWorker>(12, TimeUnit.HOURS)
@@ -126,6 +130,7 @@ object Ollim {
 
     /** 앱으로 돌아올 때 — 1시간에 한 번까지만 살핌 */
     fun dorawatda(a: Activity) {
+        if (BuildConfig.PLAY) return
         if (heorakGidarim) { heorakGidarim = false; if (sae != null && seolchiHeorak(a)) olligi(a); return }
         if (System.currentTimeMillis() - majimakSalpim > 3_600_000L) salpigi(a)
     }
@@ -167,6 +172,7 @@ object Ollim {
 
     /** 첫 화면 맨 위 한 줄 — 새 판이 있을 때만 */
     fun julMal(c: Context): String? {
+        if (BuildConfig.PLAY) return null
         val s = sae ?: return null
         if (jinhaengJung) return "${aeIreum(c)} 새 판 ${s.pan}을 받는 중입니다. 지금 ${peosenteu}퍼센트. 다 받으면 설치 화면이 열립니다"
         return "${aeIreum(c)} 새 판 ${s.pan}이 나왔습니다. 두드리면 업데이트합니다"
@@ -174,6 +180,7 @@ object Ollim {
 
     /** 설정 안 단추 글 — 늘 있음 */
     fun seoljeongMal(c: Context): String {
+        if (BuildConfig.PLAY) return "업데이트 — 지금 ${jigeumPan(c)}판. 누르면 플레이 스토어에서 새 판을 살핍니다"
         val s = sae
         return when {
             s != null && jinhaengJung -> "업데이트 — 새 판 ${s.pan}을 받는 중입니다"
@@ -184,6 +191,7 @@ object Ollim {
 
     /** 설정 단추를 누르면 — 새 판이 있으면 업데이트, 없으면 살펴서 알려 드림 */
     fun seoljeongNureum(a: Activity) {
+        if (BuildConfig.PLAY) { peulleiYeolgi(a); return }
         if (sae != null) { olligi(a); return }
         mal("새 판이 있는지 살핍니다.")
         salpigi(a) { r ->
@@ -202,8 +210,19 @@ object Ollim {
 
     // MARK: 받아서 설치
 
+    /** 261019-P1 플레이 판 — 플레이 스토어의 이 앱 쪽을 엶(플레이 앱이 없으면 누리집으로) */
+    private fun peulleiYeolgi(a: Activity) {
+        mal("플레이 스토어를 엽니다. 업데이트 단추가 있으면 눌러 주십시오.")
+        try {
+            a.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + a.packageName)).setPackage("com.android.vending"))
+        } catch (e: Exception) {
+            try { a.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=" + a.packageName))) } catch (e2: Exception) { }
+        }
+    }
+
     /** 알림으로 열렸으면 곧바로 업데이트 */
     fun intentBoda(a: Activity, i: Intent?) {
+        if (BuildConfig.PLAY) return
         if (i == null || !i.getBooleanExtra(YEOLGI, false)) return
         i.removeExtra(YEOLGI)
         if (sae != null) olligi(a) else salpigi(a) { r -> if (r == true) olligi(a) }
@@ -214,6 +233,7 @@ object Ollim {
         Build.VERSION.SDK_INT < 26 || c.packageManager.canRequestPackageInstalls()
 
     fun olligi(a: Activity) {
+        if (BuildConfig.PLAY) { peulleiYeolgi(a); return }   // 261019-P1
         val s = sae ?: return
         makgi?.invoke()?.let { mal(it); return }
         if (jinhaengJung) { mal("새 판을 받는 중입니다. 잠시만 기다려 주십시오."); return }
