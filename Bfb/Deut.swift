@@ -252,7 +252,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
         if eopseumTtae == nil { eopseumTtae = now }
         if !beoseona, let t = eopseumTtae, now.timeIntervalSince(t) > 8 {
             beoseona = true
-            bakkum("현장 방송에서 벗어났습니다. 다시 들어오시면 저절로 이어서 들려 드립니다. 그사이 인터넷 방송이 있으면 그것을 들려 드립니다.", malhal: true)
+            bakkum("BYOD 방송에서 벗어났습니다. 다시 들어오시면 저절로 이어서 들려 드립니다. 그사이 인터넷 방송이 있으면 그것을 들려 드립니다.", malhal: true)
         }
     }
 
