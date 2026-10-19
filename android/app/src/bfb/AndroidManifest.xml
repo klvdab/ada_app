@@ -7,6 +7,7 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />   <!-- 2.3.0 옛 안드로이드(9 이하)에서 다시 듣기 내려받기를 다운로드 폴더에 -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- 행사장 와이파이를 「저절로 붙을 와이파이」로 등록 -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
