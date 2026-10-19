@@ -164,6 +164,17 @@ jobs:
           git add . && git -c user.name=android-jitgi -c user.email=noreply@ada.or.kr commit -qm "$APPNAME 시험판"
           git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "sihum-apk-$FLAVOR"
           echo "올림: sihum-apk-$FLAVOR/$FLAVOR.apk"
+          # 261019-P1 플레이 판 AAB 도 따로 갈래에 올려 둠(플레이 콘솔에 올릴 때 씀)
+          B=$(find "$GITHUB_WORKSPACE/android/$MODULE/build/outputs/bundle" -name "*.aab" | head -n1)
+          if [ -n "$B" ]; then
+            mkdir -p /tmp/play && cd /tmp/play
+            git init -q && git checkout -q -b "play-aab-$FLAVOR"
+            cp "$B" "./$FLAVOR.aab"
+            echo "$APPNAME 플레이 판 $(TZ=Asia/Seoul date +%y%m%d%H%M) $GITHUB_SHA" > README.txt
+            git add . && git -c user.name=android-jitgi -c user.email=noreply@ada.or.kr commit -qm "$APPNAME 플레이 판"
+            git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "play-aab-$FLAVOR"
+            echo "올림: play-aab-$FLAVOR/$FLAVOR.aab"
+          fi
 
       - name: 기록 남기기
         if: always()
