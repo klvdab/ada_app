@@ -24,6 +24,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published var playing = false
     @Published var waiting = false
     @Published var status: String = ""
+    @Published var jamgeum = false        // 0.8.3 일반 회원에게 잠긴 책(장애 확인 뒤 들음)
 
     // 소리책·동영상
     @Published var player: AVPlayer?
@@ -124,6 +125,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
         LibGirok.shared.namgi("lib_chaek_yeolgi", ["kind": kind, "ent": API.isEnt(i), "naeryeo": Offline.loadParas(i) != nil || Offline.asset(i) != nil])   // 0.6.3 이용 기록
         LibIyong.shared.namgi("yeol", i: i, k: API.isEnt(i) ? "ent" : kind)   // 0.8.2 이용 장부
         paras = [:]; pageTasks = [:]; audioTasks = [:]; text = ""; modu = 0; wons = [:]; won = ""; hjgal = false
+        jamgeum = false; status = ""   // 0.8.3
         if kind == "geul" { await store.gulPan4Omgigi(i) }   // 0.5.2 (261012) 글 판 4 — 옛 판 자리·책갈피를 새 판 자리로(처음 열 때 한 번)
         let saved = store.rec(i)
         // 0.7.1 (261014-L17) 드라마가 나오다 멈췄다 함(이사장님 0시 21분) — 「책 읽는 소리」(spokenAudio) 설정은 보이스오버가 말할 때 소리를 멈춤.
@@ -140,6 +142,11 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
             text = paras[pos] ?? ""; won = wons[pos] ?? ""
             store.remember(i: i, t: title, kind: kind, pos: Double(pos), modu: modu)
         } else {
+            if Hoewon.shared.ilban && Offline.asset(i) == nil, let m = await API.jamgeumBogi(i) {   // 0.8.3 잠긴 소리책·영상은 틀지 않고 알림
+                guard self.i == i else { return }
+                jamgeum = true; status = m; store.say(m)
+                updateNowPlaying(); return
+            }
             let p = AVPlayer(playerItem: AVPlayerItem(asset: Offline.asset(i) ?? mAsset ?? AVURLAsset(url: API.mediaURL(i), options: ["AVURLAssetHTTPHeaderFieldsKey": ["User-Agent": API.userAgent]])))
             p.automaticallyWaitsToMinimizeStalling = true
             player = p
@@ -269,6 +276,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 for (k, v) in (r.mun ?? []).enumerated() { self.paras[pg + k] = v }
                 for (k, v) in (r.won ?? []).enumerated() { self.wons[pg + k] = v }   // 0.6.1
                 if let g = r.hjgal { self.hjgal = g }
+                if r.jamgeum == 1 { self.jamgeum = true }   // 0.8.3
                 if r.ok == false { self.status = r.msg ?? "이 책의 글자를 가져오지 못했습니다."; LibGirok.shared.namgi("lib_geulja_silpae", ["msg": String((r.msg ?? "").prefix(60))]) }   // 0.6.3 이용 기록
             } catch {
                 self.status = "글자를 가져오지 못했습니다. 인터넷을 확인해 주십시오."
@@ -333,6 +341,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
     // MARK: 읽기
     func toggle() {
+        if jamgeum { store.say(status.isEmpty ? "인증 회원만 들을 수 있는 책입니다." : status); return }   // 0.8.3
         if kind != "geul" {
             guard let p = player else { return }
             if playing { p.pause(); playing = false } else { p.play(); p.rate = store.rate; playing = true }

@@ -1,3 +1,4 @@
+// 0.8.3 (261019-L22) 잠긴 책 — 일반 회원이 인증 회원만 듣는 책을 열면 서버가 jamgeum 을 알려 줌, 소리책·영상은 미리 물어봄
 // AI점자도서관 앱 — 나스 창구 부르기 (판 0.5.2, 빌드 261012-L11 — 글 판 4: 강제 줄바꿈 바로잡은 글, 옛 자리 옮기기) (판 0.3.0, 빌드 261006-1) — 목록 줄 수, 책 전체 글 받기
 // 앱은 나스(lvd.ada.or.kr)로 요청만 넣고, 목소리 굽기는 서버 일꾼이 맡는다.
 import Foundation
@@ -66,6 +67,16 @@ enum API {
         return d
     }
 
+    struct JamDap: Decodable { let msg: String? }
+    /// 0.8.3 소리책·영상이 이 회원에게 잠겼는지 미리 물음. 잠겼으면 알릴 말, 아니면 nil. 403 이어도 회원 등록을 지우지 않음
+    static func jamgeumBogi(_ i: Int) async -> String? {
+        var r = request(mediaURL(i), timeout: 15)
+        r.setValue("bytes=0-1", forHTTPHeaderField: "Range")
+        guard let (d, resp) = try? await URLSession.shared.data(for: r), let hr = resp as? HTTPURLResponse, hr.statusCode == 403 else { return nil }
+        guard let j = try? JSONDecoder().decode(JamDap.self, from: d), let m = j.msg, m.contains("인증 회원") else { return nil }   // 열쇠가 막힌 403 은 잠김이 아님
+        return m
+    }
+
     static func mediaURL(_ i: Int) -> URL { i >= entBase ? url("enter.php", ["m": "media", "i": String(i)]) : url("dokseo.php", ["m": "media", "i": String(i)]) }   // 0.7.0 엔터테인먼트 작품은 enter.php 에서
 
     // 0.7.0 (261014-L16) 엔터테인먼트 — 나스 「AI문화관」의 공개 갈래(지금은 화면해설 작품). 작품 번호는 9000001부터라 도서관 책 번호와 겹치지 않음
@@ -97,5 +108,5 @@ struct DaeumResp: Decodable { let ok: Bool; let i: Int?; let t: String?; let k: 
 struct JariResp: Decodable { let ok: Bool; let jari: [Int]? }   // 0.5.2
 struct ListResp: Decodable { let ok: Bool; let modu: Int?; let o: Int?; let items: [Item]?; let ttl: String?; let msg: String? }
 struct BookResp: Decodable { let ok: Bool; let i: Int?; let t: String?; let g: String?; let meg: Double?; let nal: String?; let kind: String?; let sogae: String?; let jieun: String?; let chulpan: String?; let msg: String? }
-struct GulResp: Decodable { let ok: Bool; let ttl: String?; let modu: Int?; let o: Int?; let mun: [String]?; let msg: String?; let won: [String]?; let hjgal: Bool?; let hj: Int? }   // 0.6.1 한자음 읽기(won 원문, hjgal 대상 책, hj 지금 방식)
+struct GulResp: Decodable { let ok: Bool; let ttl: String?; let modu: Int?; let o: Int?; let mun: [String]?; let msg: String?; let won: [String]?; let hjgal: Bool?; let hj: Int?; let jamgeum: Int? }   // 0.8.3 jamgeum 잠긴 책   // 0.6.1 한자음 읽기(won 원문, hjgal 대상 책, hj 지금 방식)
 struct YoResp: Decodable { let ok: Bool; let h: String?; let msg: String?; let ap: Int? }   // 0.6.3 ap — 이 문단 앞에 기다리는 문단 수

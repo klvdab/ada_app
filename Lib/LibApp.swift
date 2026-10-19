@@ -95,7 +95,8 @@ struct RootView: View {
             .tag(2)
         }
         .environmentObject(nav)
-        .onAppear { LibOllim.shared.sijak(); LibGirok.shared.sijak() }   // 0.4.3 새 판 알림(대장클, 이사장님 지시) · 0.6.3 이용 기록(도서관 창 클, 이사장님 승인)
+        .onAppear { LibOllim.shared.sijak(); LibGirok.shared.sijak() }
+        .task { await Hoewon.shared.deungHwakin() }   // 0.8.3 켤 때 내 회원 등급   // 0.4.3 새 판 알림(대장클, 이사장님 지시) · 0.6.3 이용 기록(도서관 창 클, 이사장님 승인)
     }
 }
 

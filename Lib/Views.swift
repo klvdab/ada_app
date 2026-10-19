@@ -257,6 +257,7 @@ struct ReaderView: View {
     @State private var yeolligo = false  // 0.5.1 처음 한 번만 저절로 읽기
     @State private var memoChang = false   // 0.6.0 메모 창
     @State private var memoGeul = ""
+    @State private var jeungChang = false   // 0.8.3
     @AccessibilityFocusState private var focus: Bool
     init(i: Int, title: String, kind: String) { self.i = i; self.title = title; _kind = State(initialValue: kind) }
 
@@ -273,6 +274,7 @@ struct ReaderView: View {
                 .task { await hyeongsik() }
         } else {
             boneun
+                .sheet(isPresented: $jeungChang) { JeungView() }   // 0.8.3
         }
     }
     // 0.5.1 목록에서 바로 왔을 때 — 책 형식을 알아내 연다
@@ -317,6 +319,7 @@ struct ReaderView: View {
             Section {
                 Text(r.wichiMal).font(.footnote)
                 if !r.status.isEmpty { Text(r.status) }
+                if r.jamgeum { Button("장애 확인하기") { jeungChang = true } }   // 0.8.3 잠긴 책 — 서류 사진 올리는 화면
                 if kind == "geul" {
                     Text(r.text.isEmpty ? "글자를 가져오는 중입니다." : r.text)
                     if !r.won.isEmpty { Text("원문: " + r.won).font(.footnote) }   // 0.6.1 한자음 읽기 — 음과 원문 함께 보기
@@ -620,6 +623,8 @@ struct SettingsView: View {
     @State private var q = ""
     @AppStorage("cheotMun") private var cheotMun = "jangreu"
     @AccessibilityFocusState private var cheot: Bool   // 0.7.1 탭을 고르면 커서를 첫 줄에
+    @ObservedObject var hw = Hoewon.shared   // 0.8.3
+    @State private var jeungChang = false
     var body: some View {
         List {
             Section {   // 0.5.0 첫 화면에 바로 나올 목록(이사장님 승인 「1」)
@@ -650,9 +655,18 @@ struct SettingsView: View {
                         .accessibilityElement(children: .combine)
                 }
             }
+            Section("내 회원 등급") {   // 0.8.3 (261019-L22) 회원 등급
+                Text(hw.deungT.isEmpty ? "회원 등급을 확인하는 중입니다" : hw.deungT)
+                if hw.ilban {
+                    Text("지금은 외국 도서(저작권이 끝난 책)만 들으실 수 있습니다. 장애 확인을 받으시면 모든 책과 엔터테인먼트 작품을 들으십니다. " + Hoewon.jeungIreum(hw.jeung) + ".")
+                    Button("장애 확인하기") { jeungChang = true }
+                }
+            }
             Section { Text("회원: \(Hoewon.shared.ireum)"); Text(Pan.mal) }
         }
         .navigationTitle("설정·도움말")
+        .sheet(isPresented: $jeungChang) { JeungView() }   // 0.8.3
+        .task { await hw.deungHwakin() }
         .onAppear {
             guard nav.cheotJulBatgi(2) else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { cheot = true }
@@ -706,6 +720,7 @@ enum Doum {
         ("음악·드라마 이어 듣기", "엔터테인먼트에서 음악을 틀면 곡이 끝날 때 다음 곡이 저절로 나오고, 드라마는 다음 회로 이어집니다. 독서기 화면의 듣는 방식에서 앨범·작품 끝까지(여러 장짜리 앨범은 다음 장까지), 갈래 전체 이어서, 섞어 듣기, 한 곡 반복, 한 곡만 가운데 고릅니다. 고른 것은 기억해 둡니다. 다음 곡·앞 곡 단추(드라마는 다음 회·앞 회)로 넘기고, 이어폰 단추 두 번 누르기와 잠금 화면의 다음 곡 단추로도 넘깁니다. 넘어갈 때 곡 이름을 한 번 알려 드리며, 설정의 곡이 넘어갈 때 제목 읽기를 끄면 조용히 넘어갑니다."),   // 0.8.0
         ("곡이 넘어갈 때 제목 읽기", "설정·도움말 탭에 있습니다. 켜 두면 음악이 다음 곡으로 넘어갈 때(드라마는 다음 회로 넘어갈 때) 제목을 한 번 읽어 드립니다. 새 앨범으로 넘어가면 앨범 이름도 함께 읽습니다. 끄면 제목을 읽지 않고 다음 곡이 바로 이어집니다. 처음에는 켜져 있습니다. 듣는 화면을 간결하게 두려고 이 설정은 설정·도움말 탭에만 둡니다."),   // 0.8.1
         ("영상 보기", "엔터테인먼트의 영상 작품은 소리와 함께 화면이 나옵니다. 화면은 읽기 단추 위에 있고, 화면을 두드리면 폰이 주는 재생 단추와 크게 보기가 나옵니다. 앞으로 30초, 뒤로 30초, 재생 위치, 책갈피는 소리 작품과 똑같이 씁니다. 영상은 데이터를 많이 쓰니 와이파이에서 보시기를 권합니다."),   // 0.7.2
+        ("회원 등급", "회원은 일반 회원, 인증 회원, 봉사 회원, 운영자, 최고관리자로 나뉩니다. 처음 등록하면 일반 회원이고, 일반 회원은 외국 도서(저작권이 끝난 책)만 들으실 수 있습니다. 설정·도움말 탭의 내 회원 등급에서 장애 확인하기를 누르고, 장애인 복지카드나 장애인증명서를 사진으로 골라 올리시면 협회가 확인해 인증 회원으로 바꿔 드립니다. 그러면 모든 책과 엔터테인먼트 작품을 들으실 수 있습니다. 잠긴 책을 열면 인증 회원만 들을 수 있다고 알려 드리고, 그 자리에 장애 확인하기 단추가 나옵니다. 확인됐는지 다시 보기를 누르면 지금 등급을 다시 알려 드립니다."),   // 0.8.3
         ("회원 등록", "처음 켤 때 이름과 휴대전화 번호로 한 번만 등록합니다. 등록하면 이 폰만의 회원 열쇠가 담겨 도서관과 독서기가 열립니다. 폰을 바꾸면 새 폰에서 같은 번호로 다시 등록합니다. 열쇠가 막히면 등록 화면이 다시 나옵니다."),
         ("회원 정보 여쭙기", "처음 등록할 때, 이미 등록하신 분은 앱을 켤 때 한 번, 장애 유형, 사시는 지역, 연령대 세 가지를 여쭙고 이용 약관에 동의를 받습니다. 도서관 실적을 숫자로만 내는 데 씁니다. 셋 가운데 밝히고 싶지 않은 것은 「밝히지 않음」을 고르시면 됩니다. 「다음에 하기」를 누르면 그날은 다시 묻지 않습니다."),   // 0.8.2
         ("소리가 멈추면", "음악이나 소리책이 듣는 중에 6초 넘게 멈추면 앱이 스스로 그 자리부터 다시 이어 틉니다. 그래도 안 되면 그 곡을 새로 열어 멈춘 자리부터 틉니다."),   // 0.8.2
