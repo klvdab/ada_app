@@ -108,6 +108,8 @@ android {
             java.srcDirs("src/jabong/java", "src/gilnun/java")
             if (play) manifest.srcFile("src/jabong/AndroidManifest_play.xml")   // 261019-P1 플레이 판 — 설치 권한(REQUEST_INSTALL_PACKAGES) 뺌
         }
+        // 261019-P2 플레이 판 — 모든 앱의 설치 권한을 빼는 덧칠(src/play), release 얼개가 갈래보다 앞서므로 갈래 권한을 지움
+        if (play) getByName("release") { manifest.srcFile("src/play/AndroidManifest.xml") }
     }
 
     buildTypes {
