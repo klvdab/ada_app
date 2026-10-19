@@ -14,6 +14,7 @@ GALRAE = {
     "jabong": ((12, 96, 60), "자봉", True),
     "bfb": ((122, 20, 70), "배프", True),
     "byod": ((18, 52, 110), "BYOD", False),
+    "sueop": ((18, 52, 110), "수업", True),   # 261020-S1 LVD 수업 — src/sueop/icon-1024.png 를 씀(방클)
 }
 SIZES = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
 

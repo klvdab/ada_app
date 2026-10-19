@@ -100,6 +100,13 @@ android {
             versionName = "1.4.0"   // 261018-T6 말로 대본 쓰기(받아쓰기를 바로 대본으로), 이어폰 한 번 누름을 대본 받아쓰기로(이사장님 「1」). 261018-T5 앱만 할 수 있는 것 — 이어폰·음량 단추로 답사, 걸으며 저절로 재기, 판 기록(이사장님 승인 1·2·8번). 261017-T4 웹에 있는 기능 모두(가입 신청·비밀번호·최고관리자 도구·내보내기·승인 보관소·현장영상해설 화면·저절로 찍기·장소 지식·평면도·답사 지도·용어 사전 등) — 아이폰 1.2.0 과 같음(이사장님 지시). 261017-T3 웹에 있던 것 열네 가지(사진 크게 보기·지우기·다시 찍기, 지점 지우기, 현장 메모 말·글, 읽으며 녹음, 못 올린 것, 봐 달라고 알리기, 판 되돌리기, 코스 지우기·휴지통, 더 적을 것) — 아이폰 1.1.0 과 같음(이사장님 승인 「첫단계부터 시작해」). 261014-T2 사진 안내를 시계 방향으로, 네 개씩 목록 더 보기를 「넷」으로(이사장님 승인 「1」). 261012-T1 첫 판 — 코스·답사(지점 경계·새 지점·시계 방향 사진)·지점 한 화면·현장영상해설·원칙 16개 점검·승인 요청·저절로 저장
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/lvdts/lvdts.html\"")
         }
+        create("sueop") {   // 261020-S1 LVD 수업 — 교육생 폰에서 강사님 수업 자료를 그대로 봄(SueopActivity, src/sueop), 아이폰 0.1.0 과 같은 판(방클, 이사장님 승인 2026-10-20 「단독으로 가자」)
+            dimension = "ap"
+            applicationId = "kr.or.ada.sueop"
+            resValue("string", "app_name", "LVD 수업")
+            versionName = "0.1.0"   // 261020-S1 첫 판 — 웹 수업 보기 0.2판의 기능 모두와 바뀐 일만 알림·그림 크게 보기·글자 크기·지난번 방·도움말·새 판 알림·이용 기록
+            buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/sueop/\"")
+        }
     }
 
     // 261001-A2 자봉 갈래도 길눈 부품(말소리·위치·설정·기록·나스 통신)을 함께 씀 — 아이폰에서 Gilnun 폴더를 함께 싣는 것과 같음
@@ -149,7 +156,7 @@ dependencies {
     "libImplementation"("androidx.media3:media3-exoplayer:1.4.1")   // 261002-L1 도서관 독서기 — 문단 사이 틈 없이 이어 틀기
     "byodImplementation"("com.google.zxing:core:3.5.3")
     "byodImplementation"("com.github.mwiede:jsch:0.2.20")   // 261014-B9 플린트 2 준비하기 — 공유기에 방송 서버를 넣음(SSH)
-    listOf("libImplementation", "byodImplementation", "tourImplementation", "bfbImplementation").forEach { add(it, "androidx.work:work-runtime-ktx:2.9.1") }   // 261012-T1 투어스튜디오 새 판 알림 뒤 일꾼도   // 261007 새 판 알림 뒤 일꾼(OllimWorker) — 도서관·BYOD에도   // 261006-B2 BYOD 접속 도구 — 큐알코드 만들기
+    listOf("libImplementation", "byodImplementation", "tourImplementation", "bfbImplementation", "sueopImplementation").forEach { add(it, "androidx.work:work-runtime-ktx:2.9.1") }   // 261012-T1 투어스튜디오 새 판 알림 뒤 일꾼도   // 261007 새 판 알림 뒤 일꾼(OllimWorker) — 도서관·BYOD에도   // 261006-B2 BYOD 접속 도구 — 큐알코드 만들기
     "libImplementation"("androidx.media3:media3-ui:1.4.1")          // 261002-L1 도서관 동영상 보기
     "libImplementation"("androidx.media3:media3-session:1.4.1")     // 261008-L8 도서관 화면 꺼도 읽기·이어폰 단추·잠금 화면(DokseoService)
     gj.forEach { add(it, "com.google.android.gms:play-services-wearable:18.1.0") }   // 261002-A8 갤럭시 워치 길눈과 잇기

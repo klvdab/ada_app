@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- LVD 수업 갈래 얼개 (0.1.0, 빌드 261020-S1, 방클, 이사장님 승인 2026-10-20 「단독으로 가자」)
+     웹 껍데기(MainActivity) 대신 속까지 앱(SueopActivity). 교육생 폰에서 강사님 수업 자료를 그대로 봄.
+     인터넷 말고는 아무 허락도 쓰지 않음(카메라·마이크·위치·블루투스 뺌). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 새 판 업데이트 — 받은 새 판을 스스로 설치 화면에 넘김(플레이 판에서는 src/play 가 뺌) -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- 길눈 갈래의 허락들은 LVD 수업에 쓰지 않으므로 뺍니다 -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" tools:node="remove" />
+    <uses-permission android:name="android.permission.CAMERA" tools:node="remove" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" tools:node="remove" />
+    <uses-permission android:name="android.permission.VIBRATE" tools:node="remove" />
+    <uses-permission android:name="android.permission.BLUETOOTH" tools:node="remove" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" tools:node="remove" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" tools:node="remove" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" tools:node="remove" />
+
+    <application>
+        <activity android:name="kr.or.ada.app.MainActivity" tools:node="remove" />
+        <activity
+            android:name="kr.or.ada.app.sueop.SueopActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
+            android:windowSoftInputMode="adjustResize"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <!-- 새 판 업데이트 — 설치 결과와 「새 판으로 바뀜」 알림 -->
+        <receiver
+            android:name="kr.or.ada.app.sueop.OllimReceiver"
+            android:exported="false" />
+        <receiver
+            android:name="kr.or.ada.app.sueop.OllimBakkwimReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>
