@@ -11,6 +11,8 @@
     <!-- 0.4.4(261008-L8) 화면을 꺼도 계속 읽기 — 독서기 미디어 세션 서비스(포그라운드) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- 261019-P2 걸음 센서 허락은 길눈 부품(main) 몫 — 도서관은 쓰지 않으므로 뺌(플레이 건강 선언 대상에서 빠짐, 대장클) -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" tools:node="remove" />
 
     <application>
         <activity android:name="kr.or.ada.app.MainActivity" tools:node="remove" />
