@@ -21,6 +21,9 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// 261019-P1 플레이 스토어 판 — gradle ... -Pplay=1 로 지으면 스스로 업데이트를 끄고(BuildConfig.PLAY), 자봉은 설치 권한을 뺀 얼개를 씀
+val play = (project.findProperty("play") as String?) == "1"
+
 val keyProps = Properties()
 val keyFile = rootProject.file("keystore.properties")
 if (keyFile.exists()) {
@@ -38,6 +41,7 @@ android {
         versionName = "1.2.1"
         // 261002-A10 화상통화 부품(WebRTC)이 폰 종류별 부품을 넷 다 실어 APK 가 47메가바이트가 되던 것을 줄임 —
         //   요즘 폰(64비트)과 옛 폰(32비트) 두 가지만 실음. 플레이 스토어(AAB)는 폰마다 맞는 것만 따로 내려 보냄
+        buildConfigField("boolean", "PLAY", play.toString())   // 261019-P1
         ndk { abiFilters += listOf("arm64-v8a") }   // 261002-B1 64비트 폰만(2016년 뒤 거의 모든 폰) — 카메라 눈 부품이 커서 APK 크기를 줄임
     }
 
@@ -102,6 +106,7 @@ android {
     sourceSets {
         getByName("jabong") {
             java.srcDirs("src/jabong/java", "src/gilnun/java")
+            if (play) manifest.srcFile("src/jabong/AndroidManifest_play.xml")   // 261019-P1 플레이 판 — 설치 권한(REQUEST_INSTALL_PACKAGES) 뺌
         }
     }
 
