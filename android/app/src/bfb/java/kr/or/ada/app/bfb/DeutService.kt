@@ -224,7 +224,7 @@ class DeutService : Service() {
                 if (beoseonaTtae == 0L) beoseonaTtae = now
                 if (!beoseonaAllim && !cheotYeongyeol && now - beoseonaTtae > 8000) {
                     beoseonaAllim = true
-                    Deut.bakkum("현장 방송에서 벗어났습니다. 다시 들어오시면 저절로 이어서 들려 드립니다. 그사이 인터넷 방송이 있으면 그것을 들려 드립니다.", true)
+                    Deut.bakkum("BYOD 방송에서 벗어났습니다. 다시 들어오시면 저절로 이어서 들려 드립니다. 그사이 인터넷 방송이 있으면 그것을 들려 드립니다.", true)
                 }
                 // 2.2.0 행사장이 아니면 인터넷 방송
                 val s = inteonetGoreugi()
@@ -355,7 +355,7 @@ class DeutService : Service() {
                 if (meomchum > 10) break   // 10초 넘게 소리가 없으면 다시 붙음
                 if (cho % 10 == 0) {
                     // 행사장에 들어서면 현장 방송으로(더 빠름)
-                    if (Hyeonjang.mang(this) != null && Hyeonjang.salpigi(this) != null) { Deut.bakkum("행사장에 들어서서 현장 방송으로 바꿉니다.", true); break }
+                    if (Hyeonjang.mang(this) != null && Hyeonjang.salpigi(this) != null) { Deut.bakkum("행사장에 들어서서 BYOD 방송으로 바꿉니다.", true); break }
                     val j = jungyeMutgi("/sangtae?sid=$sid")
                     if (j != null && !j.optBoolean("on", true)) { Deut.bakkum("그 현장영상해설 방송이 끝났습니다. 다른 방송을 찾고 있습니다.", true); break }
                 }
