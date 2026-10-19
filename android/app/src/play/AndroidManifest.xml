@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 261019-P2 플레이 스토어 판 공통 덧칠(이사장님 허락 2026-10-19 「그래」) — gradle -Pplay=1 일 때만 release 얼개로 얹힘.
+     구글 정책상 스스로 받아 설치하지 않으므로 설치 권한을 모든 앱에서 뺌. 협회 받기 주소(apk) 판은 그대로 둠 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove" />
+</manifest>
