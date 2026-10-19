@@ -52,7 +52,7 @@ sealed class Hm {
 }
 
 class LibActivity : Activity() {
-    companion object { const val PAN = "0.8.2"; const val BILDEU = "261019-L21" }   // 0.7.1 탭 고르면 첫 줄·책 듣기 멈춤 줄이기   // 0.7.0 엔터테인먼트 탭   // 0.6.2 사전 우리말샘·한국고전종합DB 도움말   // 0.6.1 한자음 읽기(중국 고전을 우리 한자음으로, 간체자도, 원문 함께 보기)   // 0.6.0 곱씹어 읽기(다시 듣기·풀어 읽기·중요 표시·책 속 찾기)와 사전·내 낱말장   // 0.5.2 외국 도서 문(외국 도서 → 언어 → 장르와 주제), 글 판 4(강제 줄바꿈 바로잡은 글·옛 자리 옮기기), 도움말 둘   // 0.5.1 첫 화면 맨 위 이름 줄·바로 아래 찾기, 목록에서 한 번 두드리면 바로 읽기, 넘긴 뒤 커서 첫 줄 다지기(도서관 창 클, 이사장님 승인 「1」). 0.4.4 아이폰과 견주어 네 묶음 고침(도서관 창 클, 이사장님 승인 「1」). 0.4.3 새 판 알림과 업데이트(대장클, 이사장님 지시)
+    companion object { const val PAN = "0.8.3"; const val BILDEU = "261019-L22" }   // 0.8.3 회원 등급 — 설정에 내 등급, 장애 확인 서류 사진 올리기, 잠긴 책 알림(이사장님 승인 2026-10-19 11시 50분 「1」)   // 0.7.1 탭 고르면 첫 줄·책 듣기 멈춤 줄이기   // 0.7.0 엔터테인먼트 탭   // 0.6.2 사전 우리말샘·한국고전종합DB 도움말   // 0.6.1 한자음 읽기(중국 고전을 우리 한자음으로, 간체자도, 원문 함께 보기)   // 0.6.0 곱씹어 읽기(다시 듣기·풀어 읽기·중요 표시·책 속 찾기)와 사전·내 낱말장   // 0.5.2 외국 도서 문(외국 도서 → 언어 → 장르와 주제), 글 판 4(강제 줄바꿈 바로잡은 글·옛 자리 옮기기), 도움말 둘   // 0.5.1 첫 화면 맨 위 이름 줄·바로 아래 찾기, 목록에서 한 번 두드리면 바로 읽기, 넘긴 뒤 커서 첫 줄 다지기(도서관 창 클, 이사장님 승인 「1」). 0.4.4 아이폰과 견주어 네 묶음 고침(도서관 창 클, 이사장님 승인 「1」). 0.4.3 새 판 알림과 업데이트(대장클, 이사장님 지시)
     private val main = Handler(Looper.getMainLooper())
     private val pool = Executors.newFixedThreadPool(3)
     private val stacks = arrayOf(mutableListOf<Hm>(Hm.Home), mutableListOf<Hm>(Hm.Seojae), mutableListOf<Hm>(Hm.Seoljeong), mutableListOf<Hm>(Hm.EntHome))
@@ -106,10 +106,37 @@ class LibActivity : Activity() {
         Ollim.sijak(this)
         LibGirok.sijak(this)   // 0.6.3 이용 기록(도서관 창 클, 이사장님 승인)
         pool.execute { Hoewon.bogangHwakin(this); main.post { if (Hoewon.bogangDoem(this) && !bgNajung) draw() } }   // 0.8.2
+        pool.execute { Hoewon.deungHwakin(this); main.post { if (cur() is Hm.Seoljeong) draw() } }   // 0.8.3 켤 때 내 회원 등급
         Ollim.intentBoda(this, intent)
         if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 44)   // 새 판 알림을 띄우려고 한 번 여쭘
     }
+    // ── 0.8.3 (261019-L22) 장애 확인하기 — 복지카드·장애인증명서 사진을 골라 올림
+    private fun jeungGoreugi() {
+        val ig = android.content.Intent(android.content.Intent.ACTION_GET_CONTENT).apply { type = "image/*"; addCategory(android.content.Intent.CATEGORY_OPENABLE) }
+        try { @Suppress("DEPRECATION") startActivityForResult(android.content.Intent.createChooser(ig, "장애 확인 서류 사진 고르기"), 7301) }
+        catch (e: Exception) { malhagi("사진을 고를 앱을 열지 못했습니다.") }
+    }
+    @Deprecated("") override fun onActivityResult(rq: Int, rs: Int, d: android.content.Intent?) {
+        @Suppress("DEPRECATION") super.onActivityResult(rq, rs, d)
+        if (rq != 7301) return
+        val u = d?.data
+        if (rs != RESULT_OK || u == null) { malhagi("사진을 고르지 않으셨습니다."); return }
+        malhagi("올리는 중입니다.")
+        pool.execute {
+            val jpg = runCatching {
+                val raw = contentResolver.openInputStream(u)!!.use { it.readBytes() }
+                val bm = android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.size)!!
+                val k = minOf(1f, 2000f / maxOf(bm.width, bm.height))   // 너무 크면 줄여 8메가바이트를 넘지 않게
+                val sb = if (k < 1f) android.graphics.Bitmap.createScaledBitmap(bm, (bm.width * k).toInt(), (bm.height * k).toInt(), true) else bm
+                java.io.ByteArrayOutputStream().also { sb.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, it) }.toByteArray()
+            }.getOrNull()
+            val (e, ok) = if (jpg == null) ("사진을 읽지 못했습니다. 다른 사진을 골라 주십시오." to null) else Hoewon.jeungOllim(this, jpg)
+            main.post { jeungMal = e ?: ok ?: ""; malhagi(jeungMal); draw() }
+        }
+    }
+    private var jeungMal = ""
+
     override fun onResume() { super.onResume(); Ollim.dorawatda(this) }   // 0.4.3 돌아오면 새 판 살피기(1시간에 한 번까지)
     override fun onNewIntent(i: android.content.Intent) { super.onNewIntent(i); setIntent(i); Ollim.intentBoda(this, i) }   // 0.4.3 새 판 알림을 두드렸을 때
     override fun onStop() { LibGirok.jeojang(); LibGirok.bonaegi(); super.onStop() }   // 0.6.3 이용 기록 — 앱이 뒤로 갈 때 폰에 저장하고 보냄
@@ -469,6 +496,7 @@ class LibActivity : Activity() {
     }
 
     // ── 독서기 ──
+    private var readerJam: Button? = null   // 0.8.3
     private var readerJul: TextView? = null; private var readerMun: TextView? = null; private var readerDan: Button? = null
     private fun reader(h: Hm.Reader) {
         if (h.k.isEmpty()) {   // 0.5.1 목록에서 바로 왔을 때 — 책 형식을 알아내 연다
@@ -489,6 +517,7 @@ class LibActivity : Activity() {
         if (jeojeolloI == h.i) { jeojeolloI = -1; if (!Dokseo.playing) Dokseo.toggle() }   // 0.5.1 열리면 바로 읽음(이사장님 지시 — 한 번 두드리면), 커서는 멈춤 단추에
         geul(h.t, jemok = true)
         readerJul = geul("", jakge = true)
+        readerJam = danchu("장애 확인하기") { jeungGoreugi() }.apply { visibility = View.GONE }   // 0.8.3 잠긴 책이면 보임
         if (h.k == "yeongsang") {
             val pv = PlayerView(this).apply { player = Dokseo.player; useController = true }
             playerView = pv
@@ -700,6 +729,8 @@ class LibActivity : Activity() {
     private fun drawReaderState() {
         val d = Dokseo
         readerDan?.text = if (d.playing) (if (d.waiting) "목소리를 받는 중입니다, 멈춤" else "멈춤") else "읽기"
+        readerJam?.visibility = if (d.jamgeum != null) View.VISIBLE else View.GONE   // 0.8.3
+        if (d.jamgeum != null) { readerJul?.text = d.jamgeum; readerDan?.text = "읽기"; return }
         readerJul?.text = if (d.kind == "geul") (if (d.modu > 0) "${d.modu}문단 가운데 ${d.pos + 1}번째" else "글자를 가져오는 중입니다.") else ""
         readerMun?.text = d.text() + d.won().let { if (it.isEmpty()) "" else "\n원문: " + it }   // 0.6.1 음과 원문 함께 보기
     }
@@ -910,6 +941,15 @@ class LibActivity : Activity() {
         danchu("도움말 찾기") { chajgi() }
         danchu(if (doumPyeolchim) "도움말 모두 접기" else "도움말 모두 펼치기, ${DOUM.size}가지") { doumPyeolchim = !doumPyeolchim; dasi("도움말 모두") }
         if (doumPyeolchim) for ((q, a) in DOUM) geul("$q. $a")
+        geul("내 회원 등급", jemok = true)   // 0.8.3 (261019-L22) 회원 등급
+        geul(Hoewon.deungT(this).ifEmpty { "회원 등급을 확인하는 중입니다" })
+        if (Hoewon.ilban(this)) {
+            geul("지금은 외국 도서(저작권이 끝난 책)만 들으실 수 있습니다. 장애 확인을 받으시면 모든 책과 엔터테인먼트 작품을 들으십니다. " + Hoewon.jeungIreum(Hoewon.jeung(this)) + ".")
+            geul(Hoewon.JEUNG_MAL, jakge = true)
+            danchu("장애 확인하기, 사진 골라 올리기") { jeungGoreugi() }
+        }
+        danchu("확인됐는지 다시 보기") { pool.execute { Hoewon.deungHwakin(this); main.post { jeungMal = "내 회원 등급, " + Hoewon.deungT(this) + ". " + Hoewon.jeungIreum(Hoewon.jeung(this)); malhagi(jeungMal); dasi("확인됐는지 다시 보기") } } }
+        if (jeungMal.isNotEmpty()) geul(jeungMal, jakge = true)
         geul("회원: ${Hoewon.ireum(this)}", jakge = true)   // 0.4.4 아이폰과 같게
         geul("AI점자도서관 안드로이드 ${PAN}판, 빌드 $BILDEU", jakge = true)
         geul("주관 사단법인 한국시각장애인현장영상해설협회. 전화 02-363-4455, 메일 ada015@naver.com", jakge = true)
@@ -965,6 +1005,7 @@ class LibActivity : Activity() {
         "음악·드라마 이어 듣기" to "엔터테인먼트에서 음악을 틀면 곡이 끝날 때 다음 곡이 저절로 나오고, 드라마는 다음 회로 이어집니다. 독서기 화면의 듣는 방식 단추를 누를 때마다 앨범·작품 끝까지(여러 장짜리 앨범은 다음 장까지), 갈래 전체 이어서, 섞어 듣기, 한 곡 반복, 한 곡만 차례로 바뀝니다. 고른 것은 기억해 둡니다. 다음 곡·앞 곡 단추(드라마는 다음 회·앞 회)로 넘기고, 이어폰 단추와 잠금 화면의 다음 곡 단추로도 넘깁니다. 넘어갈 때 곡 이름을 한 번 알려 드리며, 설정의 곡이 넘어갈 때 제목 읽기를 끄면 조용히 넘어갑니다.",   // 0.8.0
         "곡이 넘어갈 때 제목 읽기" to "설정·도움말 탭에 있습니다. 켜 두면 음악이 다음 곡으로 넘어갈 때(드라마는 다음 회로 넘어갈 때) 제목을 한 번 읽어 드립니다. 새 앨범으로 넘어가면 앨범 이름도 함께 읽습니다. 끄면 제목을 읽지 않고 다음 곡이 바로 이어집니다. 처음에는 켜져 있습니다. 듣는 화면을 간결하게 두려고 이 설정은 설정·도움말 탭에만 둡니다.",   // 0.8.1
         "영상 보기" to "엔터테인먼트의 영상 작품은 소리와 함께 화면이 나옵니다. 화면은 읽기 단추 위에 있고, 화면을 두드리면 폰이 주는 재생 단추와 크게 보기가 나옵니다. 앞으로 30초, 뒤로 30초, 재생 위치, 책갈피는 소리 작품과 똑같이 씁니다. 영상은 데이터를 많이 쓰니 와이파이에서 보시기를 권합니다.",   // 0.7.2
+        "회원 등급" to "회원은 일반 회원, 인증 회원, 봉사 회원, 운영자, 최고관리자로 나뉩니다. 처음 등록하면 일반 회원이고, 일반 회원은 외국 도서(저작권이 끝난 책)만 들으실 수 있습니다. 설정·도움말 탭의 내 회원 등급에서 장애 확인하기를 누르고, 장애인 복지카드나 장애인증명서 사진을 골라 올리시면 협회가 확인해 인증 회원으로 바꿔 드립니다. 그러면 모든 책과 엔터테인먼트 작품을 들으실 수 있습니다. 잠긴 책을 열면 인증 회원만 들을 수 있다고 알려 드리고, 그 자리에 장애 확인하기 단추가 나옵니다. 확인됐는지 다시 보기를 누르면 지금 등급을 다시 알려 드립니다.",   // 0.8.3
         "회원 정보 여쭙기" to "처음 등록한 뒤, 이미 등록하신 분은 앱을 켤 때 한 번, 장애 유형, 사시는 지역, 연령대 세 가지를 한 가지씩 여쭙고 이용 약관에 동의를 받습니다. 도서관 실적을 숫자로만 내는 데 씁니다. 밝히고 싶지 않은 것은 「밝히지 않음」을 고르시면 됩니다. 「다음에 하기」를 누르면 앱을 다시 켤 때까지 묻지 않습니다.",   // 0.8.2
         "소리가 멈추면" to "음악이나 소리책이 듣는 중에 8초 넘게 멈추면 앱이 스스로 그 자리부터 다시 이어 틉니다.",   // 0.8.2
         "회원 등록" to "처음 켤 때 이름과 휴대전화 번호로 한 번만 등록합니다. 등록하면 이 폰만의 회원 열쇠가 담겨 도서관과 독서기가 열립니다. 폰을 바꾸면 새 폰에서 같은 번호로 다시 등록합니다. 설정 아래에 회원 이름이 나옵니다.",

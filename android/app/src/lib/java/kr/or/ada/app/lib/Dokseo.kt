@@ -35,6 +35,7 @@ object Dokseo {
     var playing = false; var waiting = false
     var bakkwim: (() -> Unit)? = null      // 화면 다시 그리기
     var allim: ((String) -> Unit)? = null  // 톡백 알림
+    @Volatile var jamgeum: String? = null  // 0.8.3 일반 회원에게 잠긴 책이면 알릴 말(장애 확인 뒤 들음)
     private val paras = HashMap<Int, String>()
     private val wons = HashMap<Int, String>()   // 0.6.1 (261012) 한자음 읽기 — 문단 원문
     var hjgal = false                           // 0.6.1 이 책이 한자음 읽기 대상인가
@@ -198,6 +199,7 @@ object Dokseo {
         stop()
         if (!ieo) aelbeom = ""
         miri = null; miriUi = -1
+        jamgeum = null; Api.jamMal.remove("$bi")   // 0.8.3
         i = bi; title = bt; kind = bk; paras.clear(); gajineun.clear(); soriGidari.clear(); pageLoading.clear(); modu = 0; wons.clear(); hjgal = false
         LibGirok.namgi("lib_chaek_yeolgi", mapOf("kind" to bk, "ent" to Api.isEnt(bi), "naeryeo" to (Naeryeo.isDown(c, bi))))   // 0.6.3 이용 기록
         LibIyong.namgi("yeol", bi, if (Api.isEnt(bi)) "ent" else bk); meomDasi = 0; meomSijak = 0; jikimiSijak()   // 0.8.2 이용 장부·멈춤 지킴이
@@ -217,6 +219,10 @@ object Dokseo {
             st?.let { p.seekTo((it * 1000).toLong()) }
             Store.remember(i, title, kind, st ?: 0.0, 0)
             if (Api.isEnt(bi)) ieoMiri()   // 0.8.0
+            if (Hoewon.ilban(c) && Naeryeo.localMedia(c, bi) == null) pool.execute {   // 0.8.3 잠긴 소리책·영상은 틀지 않고 알림
+                val m = Api.jamgeumBogi(bi)
+                if (m != null) main.post { if (i == bi) { jamgeum = m; player?.stop(); player?.clearMediaItems(); playing = false; allim?.invoke(m); bakkwim?.invoke() } }
+            }
         }
     }
 
@@ -231,6 +237,7 @@ object Dokseo {
             main.post {
                 pageLoading.remove(pg)
                 if (book != i || r == null) { if (r == null) { allim?.invoke("글자를 가져오지 못했습니다. 인터넷을 확인해 주십시오."); LibGirok.namgi("lib_geulja_silpae") }; return@post }   // 0.6.3 이용 기록
+                Api.jamMal.remove("$book")?.let { m -> jamgeum = m; allim?.invoke(m) }   // 0.8.3 잠긴 글자책
                 modu = r.first
                 r.second.forEachIndexed { k, s -> paras[pg + k] = s }
                 Api.hjWon.remove("$book:$pg")?.forEachIndexed { k, s -> wons[pg + k] = s }; Api.hjGal.remove("$book:$pg")?.let { hjgal = it }   // 0.6.1
@@ -284,9 +291,10 @@ object Dokseo {
         }
     }
 
-    fun toggle() { if (playing) pause() else play() }
+    fun toggle() { jamgeum?.let { m -> allim?.invoke(m); bakkwim?.invoke(); return }; if (playing) pause() else play() }   // 0.8.3 잠긴 책은 틀지 않음
 
     fun play(at: Int = pos) {
+        if (jamgeum != null) { playing = false; return }   // 0.8.3
         val p = ensurePlayer()
         p.setPlaybackParameters(PlaybackParameters(Store.rate))
         if (kind != "geul") { p.play(); playing = true; bakkwim?.invoke(); return }

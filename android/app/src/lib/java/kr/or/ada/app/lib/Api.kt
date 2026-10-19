@@ -1,3 +1,4 @@
+// 0.8.3 (261019-L22) 회원 등급 — 잠긴 책 알림(jamgeum), 소리책·영상은 미리 물음, 내 등급 묻기, 장애 확인 서류 사진 올리기(이사장님 승인 2026-10-19 11시 50분 「1」)
 // AI점자도서관 안드로이드 — 나스 창구 부르기 (0.2.0, 빌드 261002-L1) — 아이폰 Lib/API.swift 와 같은 약속
 package kr.or.ada.app.lib
 
@@ -73,6 +74,7 @@ object Api {
         val j = getJson("dokseo.php", mapOf("m" to "gul", "i" to "$i", "o" to "$o", "gp" to "4", "hj" to Store.hanjaeum.toString()))   // 0.6.1 한자음 읽기(hj)
         val a = j.optJSONArray("mun")
         val mun = if (a == null) emptyList() else (0 until a.length()).map { a.optString(it) }
+        if (j.optInt("jamgeum", 0) == 1) jamMal["$i"] = j.optString("msg").ifEmpty { "인증 회원만 들을 수 있는 책입니다." }   // 0.8.3 잠긴 책
         val w = j.optJSONArray("won"); hjWon["$i:$o"] = if (w == null) emptyList() else (0 until w.length()).map { w.optString(it) }; hjGal["$i:$o"] = j.optBoolean("hjgal", false)   // 0.6.1
         return Triple(j.optInt("modu", 0), mun, j.optString("ttl"))
     }
@@ -96,6 +98,18 @@ object Api {
         return j.optBoolean("ok") to j.optString("h")
     }
     @Volatile var apSu = 0
+    /** 0.8.3 잠긴 글자책 — 책 번호마다 서버가 준 알림 말 */
+    val jamMal = java.util.concurrent.ConcurrentHashMap<String, String>()
+    /** 0.8.3 소리책·영상이 이 회원에게 잠겼는지 미리 물음. 잠겼으면 알릴 말, 아니면 null. 403 이어도 회원 등록을 지우지 않음 */
+    fun jamgeumBogi(i: Int): String? = runCatching {
+        val c = open(mediaUrl(i), 15000)
+        c.setRequestProperty("Range", "bytes=0-1")
+        val code = c.responseCode
+        if (code != 403) { c.disconnect(); return@runCatching null }
+        val t = (c.errorStream ?: return@runCatching null).use { String(it.readBytes(), Charsets.UTF_8) }
+        val m = JSONObject(t).optString("msg")
+        if (m.contains("인증 회원")) m else null   // 열쇠가 막힌 403 은 잠김이 아님
+    }.getOrNull()
     /** 구운 소리 받기 — 아직이면 null */
     fun sori(h: String): ByteArray? {
         val c = open(url("dokseo.php", mapOf("m" to "sori", "h" to h)))
@@ -178,6 +192,42 @@ object Hoewon {
     val NAI = listOf("10대 이하", "20대", "30대", "40대", "50대", "60대", "70대", "80대 이상", "밝히지 않음")
     const val YAKGWAN = "AI점자도서관 이용 약관: 저작권이 있는 책은 저작권법 제33조에 따라 시각장애인 등 회원 본인만 듣고, 복사하거나 남에게 넘기지 않습니다. 협회는 이름과 전화번호를 회원 관리에만 쓰고, 이용 기록은 이름 없이 숫자로만 도서관 실적에 씁니다."
     fun bogangDoem(c: Context) = p(c).getBoolean("bogang", false)
+    // ── 0.8.3 (261019-L22) 회원 등급 — ilban 일반, injeung 인증, bongsa 봉사, unyeong 운영자, choego 최고관리자
+    fun deung(c: Context) = p(c).getString("deung", "") ?: ""
+    fun deungT(c: Context) = p(c).getString("deungT", "") ?: ""
+    fun jeung(c: Context) = p(c).getString("jeung", "") ?: ""
+    /** 일반 회원은 외국 도서(저작권이 끝난 책)만 듣고, 장애 확인을 받으면 모든 책을 들음 */
+    fun ilban(c: Context) = deung(c) == "ilban"
+    const val JEUNG_MAL = "장애인 복지카드나 장애인증명서를 사진으로 찍어 올려 주십시오. 협회가 확인하면 인증 회원이 되어 모든 책과 엔터테인먼트 작품을 들으실 수 있습니다. 올리신 사진은 장애 확인에만 쓰고, 운영하는 사람만 봅니다."
+    fun jeungIreum(j: String) = when (j) { "daegi" -> "올리신 서류를 협회가 확인하고 있습니다"; "seungin" -> "장애 확인을 마쳤습니다"; "georeo" -> "서류를 다시 올려 주셔야 합니다"; else -> "아직 서류를 올리지 않으셨습니다" }
+    /** 내 회원 등급을 서버에 물음(켤 때, 설정을 열 때). 다른 스레드에서 부를 것 */
+    fun deungHwakin(c: Context) {
+        if (!deungrokdoem(c)) return
+        try {
+            val con = URL(Api.BASE + "hoewon.php?a=sangtae&tk=" + URLEncoder.encode(yeolsoe(c), "UTF-8")).openConnection() as HttpURLConnection
+            con.connectTimeout = 15000; con.readTimeout = 15000; con.setRequestProperty("User-Agent", Api.UA)
+            if (con.responseCode !in 200..299) return
+            val j = JSONObject(con.inputStream.use { String(it.readBytes(), Charsets.UTF_8) })
+            if (j.optBoolean("ok")) p(c).edit().putString("deung", j.optString("deung", "ilban")).putString("deungT", j.optString("deung_t")).putString("jeung", j.optString("jeung")).apply()
+        } catch (e: Exception) {}
+    }
+    /** 장애 확인 서류(사진) 올리기. 첫째가 null 이면 성공이고 둘째가 알릴 말 */
+    fun jeungOllim(c: Context, jpg: ByteArray): Pair<String?, String?> = try {
+        val con = URL(Api.BASE + "hoewon.php?a=jeungmyeong").openConnection() as HttpURLConnection
+        val b = "hw" + UUID.randomUUID()
+        con.requestMethod = "POST"; con.doOutput = true; con.connectTimeout = 15000; con.readTimeout = 90000
+        con.setRequestProperty("User-Agent", Api.UA)
+        con.setRequestProperty("Content-Type", "multipart/form-data; boundary=$b")
+        val body = ByteArrayOutputStream()
+        body.write("--$b\r\nContent-Disposition: form-data; name=\"tk\"\r\n\r\n${yeolsoe(c)}\r\n".toByteArray(Charsets.UTF_8))
+        body.write("--$b\r\nContent-Disposition: form-data; name=\"f\"; filename=\"jeung.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n".toByteArray(Charsets.UTF_8))
+        body.write(jpg)
+        body.write("\r\n--$b--\r\n".toByteArray(Charsets.UTF_8))
+        con.outputStream.use { it.write(body.toByteArray()) }
+        val j = JSONObject((if (con.responseCode in 200..299) con.inputStream else con.errorStream).use { String(it.readBytes(), Charsets.UTF_8) })
+        if (j.optBoolean("ok")) { deungHwakin(c); null to j.optString("mal").ifEmpty { "올렸습니다. 협회가 확인하면 인증 회원이 됩니다." } }
+        else j.optString("error").ifEmpty { "올리지 못했습니다. 잠시 뒤 다시 해 주십시오." } to null
+    } catch (e: Exception) { "도서관에 닿지 못했습니다. 인터넷을 확인한 뒤 다시 해 주십시오." to null }
     /** 켤 때 서버에 보강했는지 물음(다른 폰에서 이미 했으면 다시 묻지 않음) */
     fun bogangHwakin(c: Context) {
         if (!deungrokdoem(c) || bogangDoem(c)) return
