@@ -32,11 +32,11 @@ if (keyFile.exists()) {
 
 android {
     namespace = "kr.or.ada.app"
-    compileSdk = 35
+    compileSdk = if (play) 36 else 35   // 261019-P1 플레이 스토어는 API 36 이상을 타겟팅해야 받아 줌 — 플레이 판만 36
 
     defaultConfig {
         minSdk = 24
-        targetSdk = 35
+        targetSdk = if (play) 36 else 35   // 261019-P1
         versionCode = (System.getenv("BUILD_NUMBER") ?: "1").toInt()
         versionName = "1.2.1"
         // 261002-A10 화상통화 부품(WebRTC)이 폰 종류별 부품을 넷 다 실어 APK 가 47메가바이트가 되던 것을 줄임 —
