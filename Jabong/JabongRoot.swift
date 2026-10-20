@@ -344,6 +344,8 @@ struct AllimTab: View {
     @ObservedObject private var s = Seoljeong.shared
     @ObservedObject private var nae = JabongNae.shared
     @State private var ijeugiMureum = false
+    @State private var taltoeMureum = false   // 2.28.0 회원 탈퇴
+    @State private var taltoeJam = ""
     var body: some View {
         TabCheot(jemok: "알림·설정") {
             BowanKan()   // 2.13.0 보완 부탁 — 있을 때만 맨 위에
@@ -365,8 +367,29 @@ struct AllimTab: View {
                 VStack(alignment: .leading, spacing: 12) {
                     NavigationLink { JabongPanView() } label: { Text("판 기록 — 자봉 앱 \(JabongPan.pan)") }.buttonStyle(KeunDanchu())
                     Button("이 폰에서 등록 지우기 — 나스 기록은 그대로") { ijeugiMureum = true }.buttonStyle(KeunDanchu())
+                    if nae.deungrokham {
+                        // 2.28.0 회원 탈퇴 — 협회 등록에서 이름·연락처까지 지움(이사장님 승인 2026-10-20 「그래」)
+                        Button("회원 탈퇴 — 협회 등록에서 내 이름과 연락처 지우기") { taltoeMureum = true }.buttonStyle(KeunDanchu())
+                        if !nae.jamIssum {
+                            TextField("등록 때 정하신 네 자리 숫자", text: $taltoeJam)
+                                .keyboardType(.numberPad).font(.title3).textFieldStyle(.roundedBorder)
+                                .accessibilityLabel("회원 탈퇴에 쓸 네 자리 숫자")
+                        }
+                    }
                 }
             }.font(.title3)
+        }
+        .confirmationDialog("회원 탈퇴를 할까요? 협회 등록에서 이름, 연락처, 1365 아이디, 네 자리 숫자가 지워지고 이 폰의 등록도 지워집니다. 그려 주신 길은 시각장애인을 위해 이름 없이 그대로 남습니다. 되돌릴 수 없으며, 다시 쓰시려면 새로 등록하셔야 합니다.", isPresented: $taltoeMureum, titleVisibility: .visible) {
+            Button("탈퇴하기", role: .destructive) {
+                Task {
+                    let kkadak = await nae.taltoe(jam: taltoeJam)
+                    await MainActor.run {
+                        taltoeJam = ""
+                        SoriEngine.shared.mal(kkadak ?? "회원 탈퇴를 마쳤습니다. 그동안 함께해 주셔서 고맙습니다.")
+                    }
+                }
+            }
+            Button("그만두기", role: .cancel) {}
         }
         .confirmationDialog("이 폰에서 등록을 지울까요? 자봉 번호와 네 자리 숫자로 언제든 다시 이어 쓰실 수 있습니다.", isPresented: $ijeugiMureum, titleVisibility: .visible) {
             Button("지우기", role: .destructive) { nae.ijeugi() }
@@ -395,6 +418,7 @@ struct JabongPanView: View {
 struct JabongDoumalView: View {
     static let hangmok: [(String, String)] = [
         ("동영상 강의 — 자봉 사용법 21편", "도움말 맨 위의 동영상 강의를 누르시면 자봉 아이폰 사용법 21편의 차례가 다섯 편씩 나오고, 편 이름을 누르시면 앱 안에서 바로 틀어 드립니다. 로그인이나 가입은 필요 없습니다. 틀면 뒤로, 재생과 멈춤, 10초 뒤로, 10초 앞으로, 다음 편 단추가 있고, 한 편을 다 보시면 다음 편 이름을 알려 드립니다. 도움말 한 항목을 펼치시면 내용 아래에 그 기능의 동영상 강의 보기 단추가 있는 것도 있습니다. 교육 마당의 짧은 동영상 네 편과 달리 기능마다 자세히 다룹니다. 같은 강의는 협회 홈페이지 온라인강좌에서도 누구나 보실 수 있습니다. 어느 편을 몇 번 틀었는지는 이름 없이 협회로 보내 강의를 고치는 데 씁니다."),   // 2.26.0 (261018-I20, 이사장님 승인 2026-10-18 「3」)
+        ("회원 탈퇴", "알림·설정 탭의 더 보기 펼치기 안에 회원 탈퇴 단추가 있습니다. 누르시면 한 번 더 여쭙고, 탈퇴하기를 누르시면 협회 등록 창고에서 이름, 연락처, 1365 아이디, 네 자리 숫자를 지우고 이 폰의 등록도 지웁니다. 그려 주신 길은 시각장애인을 위해 이름 없이 그대로 남습니다. 되돌릴 수 없으며, 다시 쓰시려면 새로 등록하셔야 합니다. 폰에 네 자리 숫자가 없으면 단추 아래 칸에 등록 때 정하신 네 자리 숫자를 먼저 적어 주십시오. 이 폰에서만 등록을 지우고 나중에 이어 쓰시려면 이 폰에서 등록 지우기를 누르십시오."),   // 2.28.0 (261020-I22, 이사장님 승인 2026-10-20 「그래」)
         ("처음 등록", "자봉 앱을 처음 여시면 한 번만 등록합니다. 이름, 연락처, 네 자리 숫자만 적고 등록 마치기를 누르시면 1분이면 끝납니다. 1365 아이디는 나중에 내 기록 탭에서 넣으시면 됩니다. 칸이 비었거나 맞지 않으면 무엇이 모자란지 말로 알려 드립니다. 등록을 마치면 큰 박수와 함께 환영 화면에서 자봉 번호를 알려 드리고, 첫 길 그려 보기를 누르시면 그리기 탭으로 갑니다. 처음 그리실 때는 그리기 화면에 세 가지만 알려 드립니다. 보폭부터 재기, 문 앞에서 시작하기, 꺾이는 그 자리에서 꺾임 누르기입니다. 첫 점지도를 올리시면 큰 박수로 축하드리고, 그리기 탭에 더 잘 그리고 싶으시면 2편 동영상 보기 단추가 나옵니다. 프로그램 말소리를 꺼 두셨으면 소리 대신 보이스오버 커서로 알려 드립니다. 웹 자봉에서 이미 등록하셨으면 자봉 번호와 네 자리 숫자로 이어서 쓰십시오."),   // 2.22.0
         ("교육 마당·사용법 동영상", "내 기록 탭 아래쪽에 있습니다. 사용법 동영상 네 편(1편 설치와 처음 등록, 2편 점지도 그리기, 3편 부탁 길과 AI 밑그림, 4편 점검과 보완)을 앱 안에서 바로 보실 수 있고, 한 편이 2분 안팎입니다. 끝까지 보신 편에는 다 보심이 붙습니다. 동영상 화면에는 재생과 멈춤, 10초 뒤로, 10초 앞으로, 처음부터 다시 보기, 다음 편 단추가 있습니다. 협회 점검에서 고칠 곳이 나오면 보완 부탁 화면의 도움 되는 동영상으로 맞는 편을 바로 여실 수 있습니다. 점지도 일곱 가지 약속도 이 교육 마당에서 보고 들으십니다. 첫 점지도, 약속 일곱 익힘, 동영상 다 보심, 길 열 개처럼 해 보신 만큼 배지가 늘어납니다."),   // 2.22.0
         ("실력 다지기", "교육 마당에 있는 아홉 문제입니다. 꼭 푸셔야 하는 것은 아니고, 더 잘하고 싶으실 때 편하게 풀어 보시면 됩니다. 문제와 고를 말 넷(가, 나, 다, 라)을 읽어 드리고, 맞히면 박수 소리와 진동으로, 틀리면 아쉽네요와 함께 풀이를 들려 드리니 한 번 더 고르시면 됩니다. 아홉 문제를 모두 맞히시면 약속 일곱 익힘 배지를 드리고, 교육을 마친 날짜가 협회 등록 창고에 남습니다."),   // 2.22.0

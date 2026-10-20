@@ -126,6 +126,26 @@ final class JabongNae: ObservableObject {
         return nil
     }
 
+    /// 2.28.0 회원 탈퇴 — 협회 등록 창고(deung.php taltoe)에서 이름·연락처·1365 아이디·네 자리 숫자를 비우고, 이 폰에서도 지움. 그려 주신 길은 그대로(애플 심사 요건, 이사장님 승인 2026-10-20 「그래」). 성공하면 nil, 안 되면 까닭
+    func taltoe(jam jamIp: String = "") async -> String? {
+        let jam = jamIssum ? (Yeolsoe.ilgi("jbJam") ?? "") : jamIp.filter(\.isNumber)
+        guard deungrokham else { return "등록된 자봉 번호가 없습니다." }
+        guard jam.count == 4 else { return "등록 때 정하신 네 자리 숫자를 적어 주십시오." }
+        let b = beonho
+        guard let j = await JabongNae.mutgi("taltoe", ["beonho": b, "jam": jam]) else {
+            return "통신이 닿지 않았습니다. 잠시 뒤 다시 눌러 주십시오."
+        }
+        guard (j["ok"] as? Bool) == true else { return (j["msg"] as? String) ?? "탈퇴하지 못했습니다." }
+        Girok.shared.namgi("jabong_taltoe", ["beonho": b])
+        Yeolsoe.sseugi("jbJam", "")
+        await MainActor.run {
+            self.dameum("", "", "", "")
+            self.geurinSu = 0; self.d.set(0, forKey: "jb.geurinSu")
+            self.gyoyukPan = 0; self.d.set(0, forKey: "jb.gyoyukPan")
+        }
+        return nil
+    }
+
     /// 이 폰에서 등록을 지움(나스 기록은 그대로)
     func ijeugi() {
         dameum("", "", "", "")
