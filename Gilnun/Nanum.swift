@@ -136,8 +136,9 @@ enum GeoreumNanum {
     static func mok(_ bu: Int) async -> ([NanumGeul], Int)? {
         guard let j = await Nas.get("nanum.php", [("a", "list"), ("bu", String(bu)), ("myeot", "5"), ("bo", "iyong")]),
               (j["ok"] as? Bool) == true else { return nil }
-        let ls = ((j["rows"] as? [[String: Any]]) ?? []).map { x -> NanumGeul in
-            let d = ((x["dat"] as? [[String: Any]]) ?? []).map { dd -> NanumDat in
+        let bo = bojiAneum, ga = garyeojin
+        let ls = ((j["rows"] as? [[String: Any]]) ?? []).filter { !ga.contains(Nas.gul($0["id"])) && !bo.contains(Nas.gul($0["byeol"])) }.map { x -> NanumGeul in
+            let d = ((x["dat"] as? [[String: Any]]) ?? []).filter { !bo.contains(Nas.gul($0["byeol"])) }.map { dd -> NanumDat in
                 let m = Nas.gul(dd["mun"])
                 return NanumDat(byeol: Nas.gul(dd["byeol"]), nugu: m == "kl" ? "길눈" : nugu(m), nal: Nas.gul(dd["nal"]), geul: Nas.gul(dd["geul"]))
             }
@@ -157,6 +158,23 @@ enum GeoreumNanum {
         let j = await Nas.postJson("nanum.php", [("a", "dat")], ["id": id, "byeol": byeol, "geul": geul, "jam": jam, "mun": "iyong"])
         if (j?["ok"] as? Bool) == true { return nil }
         return (j?["msg"] as? String) ?? "올리지 못했습니다."
+    }
+
+    /// 2.102.0 신고하기 — 누구든 남의 글을 신고하면 서버가 곧바로 가리고 협회가 살핌(애플 심사 요건 1.2, 이사장님 승인 2026-10-20)
+    static func singo(id: String) async -> (Bool, String) {
+        guard let j = await Nas.get("nanum.php", [("a", "singo"), ("id", id), ("mun", "iyong")]) else { return (false, "닿지 못했습니다. 잠시 뒤 다시 눌러 주십시오.") }
+        let ok = (j["ok"] as? Bool) == true
+        if ok { garyeojin.insert(id) }
+        return (ok, (j["msg"] as? String) ?? "")
+    }
+    /// 2.102.0 이 폰에서 보지 않을 별명·글
+    static var bojiAneum: Set<String> {
+        get { Set(UserDefaults.standard.stringArray(forKey: "gn.nanumBojiAneum") ?? []) }
+        set { UserDefaults.standard.set(Array(newValue), forKey: "gn.nanumBojiAneum") }
+    }
+    static var garyeojin: Set<String> {
+        get { Set(UserDefaults.standard.stringArray(forKey: "gn.nanumSingo") ?? []) }
+        set { UserDefaults.standard.set(Array(newValue), forKey: "gn.nanumSingo") }
     }
 
     /// 가리기 — (됨, 알림 말)

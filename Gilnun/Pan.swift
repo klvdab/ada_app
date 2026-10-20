@@ -10,13 +10,17 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.101.0"
-    static let bild = "261019-I55"
+    static let pan = "2.102.0"
+    static let bild = "261020-I56"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.102.0", bild: "261020-I56", nal: "2026-10-20", naeyong: [
+            "★걸음 나눔 글 — 신고하기(바로 가려지고 협회가 살핌)와 그 분 글 보지 않기, 욕설·비방 글 금지 안내(앱스토어 정식 심사 요건, 이사장님 승인 2026-10-20)",
+            "도움말 — 걸음 나눔과 게시판에 신고하기·보지 않기"
+        ]),
         Gochim(pan: "2.101.0", bild: "261019-I55", nal: "2026-10-19", naeyong: [
             "★나눔 마당 — 문장 끝 마침표를 바르게(겹치거나 빠지지 않게, 이사장님 승인 2026-10-19 「1」)",
             "그려 주세요 — 다 그려진 길은 줄 끝에 「자원봉사자님이 그려 주셨습니다」"

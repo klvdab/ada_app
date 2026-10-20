@@ -120,12 +120,14 @@ struct MulMokView: View {
                             .buttonStyle(KeunDanchu())
                             .accessibilityAction(named: g.jeonhwa != nil ? "전화 걸기" : "연락처 듣기") { yeonrak(g) }
                             .accessibilityAction(named: "다 나눴습니다 — 이 글 내리기") { naeril = g }
+                            .accessibilityAction(named: "불쾌한 글 신고하기 — 바로 내림") { naeril = g }   // 2.102.0 신고하기(애플 심사 요건 1.2)
                             .contextMenu {
                                 Button(g.jeonhwa != nil ? "전화 걸기" : "연락처 듣기") { yeonrak(g) }
                                 Button("다 나눴습니다 — 이 글 내리기") { naeril = g }
+                                Button("불쾌한 글 신고하기 — 바로 내림") { naeril = g }
                             }
                     }
-                    Text("이름을 두드리시면 자세히 읽어 드립니다. 전화와 글 내리기는 이름에서 위아래로 쓸어 고르십시오.").font(.body)
+                    Text("이름을 두드리시면 자세히 읽어 드립니다. 전화, 글 내리기, 불쾌한 글 신고하기는 이름에서 위아래로 쓸어 고르십시오.").font(.body)
                 } else if mok != nil {
                     Text("\(ireum)에 아직 올라온 글이 없습니다. 첫 글을 올려 주시면 다음 분께서 바로 보십니다.").font(.title3)
                 } else if mot {
@@ -269,7 +271,7 @@ struct NanumGeulView: View {
             VStack(alignment: .leading, spacing: 12) {
                 DisclosureGroup("한마디 적기 펼치기") {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("걸으신 이야기, 그려 주신 이야기, 이 프로그램에 바라시는 것을 자유롭게 적는 자리입니다. 전화번호나 주소는 적지 마십시오.").font(.body)
+                        Text("걸으신 이야기, 그려 주신 이야기, 이 프로그램에 바라시는 것을 자유롭게 적는 자리입니다. 전화번호나 주소는 적지 마십시오. 욕설, 비방, 불쾌한 글은 올릴 수 없으며, 신고되면 바로 가려집니다.").font(.body)
                         TextField("별명 (본명을 적지 않으셔도 됩니다)", text: $byeol).textFieldStyle(.roundedBorder).font(.title3)
                         TextField("하실 말씀", text: $geul, axis: .vertical).textFieldStyle(.roundedBorder).font(.title3).lineLimit(3...8)
                         TextField("지울 때 쓸 네 자리 숫자", text: $jam).textFieldStyle(.roundedBorder).font(.title3).keyboardType(.numberPad)
@@ -349,6 +351,7 @@ struct NanumSangseView: View {
     @State private var jam = ""
     @State private var garimJam = ""
     @State private var olineun = false
+    @State private var singoMureum = false   // 2.102.0 신고하기
     @AccessibilityFocusState private var chojeom: Bool
 
     var body: some View {
@@ -361,7 +364,7 @@ struct NanumSangseView: View {
                         Text("댓글이 없습니다.").font(.body)
                     } else {
                         Text("댓글 \(g.dat.count)개").font(.title3.weight(.bold)).accessibilityAddTraits(.isHeader)
-                        ForEach(Array(g.dat.enumerated()), id: \.offset) { _, d in
+                        ForEach(Array(g.dat.enumerated()), id: \.offset) { _, d in   // 보지 않기 별명은 GeoreumNanum.mok 에서 거름
                             Text("\(d.nugu == "길눈" ? "길눈" : d.byeol + " · " + d.nugu) · \(d.nal) — \(d.geul)").font(.body)
                         }
                     }
@@ -381,6 +384,18 @@ struct NanumSangseView: View {
                         }
                     }
                     .font(.title3)
+                    // 2.102.0 신고하기·보지 않기(애플 심사 요건 1.2, 이사장님 승인 2026-10-20)
+                    DisclosureGroup("신고하기·보지 않기 펼치기") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Button("이 글 신고하기 — 바로 가려지고 협회가 살핍니다") { singoMureum = true }.buttonStyle(KeunDanchu())
+                            Button("\(g.byeol) 님 글 보지 않기") {
+                                GeoreumNanum.bojiAneum.insert(g.byeol)
+                                SoriEngine.shared.mal("이제 이 폰에서는 \(g.byeol) 님의 글과 댓글을 보여 드리지 않습니다.")
+                                dismiss()
+                            }.buttonStyle(KeunDanchu())
+                        }
+                    }
+                    .font(.title3)
                 } else {
                     Text("글을 찾지 못했습니다.").font(.title3)
                 }
@@ -388,6 +403,18 @@ struct NanumSangseView: View {
             .padding()
         }
         .sokHwamyeon("걸음 나눔 글")
+        .confirmationDialog("이 글을 신고할까요? 바로 가려지고 협회가 살펴봅니다.", isPresented: $singoMureum, titleVisibility: .visible) {
+            Button("신고하기", role: .destructive) {
+                Task {
+                    let r = await GeoreumNanum.singo(id: id)
+                    await MainActor.run {
+                        SoriEngine.shared.mal(r.1.isEmpty ? (r.0 ? "신고를 받았습니다." : "신고하지 못했습니다.") : r.1)
+                        if r.0 { dismiss() }
+                    }
+                }
+            }
+            Button("그만두기", role: .cancel) {}
+        }
         .onAppear { chojeom = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }   // 2.12.1 매번 첫 줄로
     }
 
