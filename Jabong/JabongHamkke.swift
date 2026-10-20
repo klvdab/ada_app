@@ -207,12 +207,14 @@ struct JbGeoreumNanumView: View {
     @State private var baksu: [String: Int] = [:]
     @State private var sseulGeul = ""
     @State private var pyeol = false
+    @State private var singoGeul: NanumGeul?   // 2.28.0 신고하기(애플 심사 요건 1.2)
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 DisclosureGroup("한마디 적기 펼치기", isExpanded: $pyeol) {
                     VStack(alignment: .leading, spacing: 10) {
+                        Text("욕설, 비방, 불쾌한 글은 올릴 수 없으며, 신고되면 바로 가려집니다.").font(.body)
                         TextField("봉사 이야기나 응원 한마디", text: $sseulGeul)
                             .font(.title2).padding(12)
                             .overlay(RoundedRectangle(cornerRadius: 12).stroke(Saek.nam, lineWidth: 2))
@@ -235,6 +237,20 @@ struct JbGeoreumNanumView: View {
         }
         .sokHwamyeon("걸음 나눔")
         .onAppear { if mok == nil { bulreogi() } }
+        .confirmationDialog("이 글을 신고할까요? 바로 가려지고 협회가 살펴봅니다.", isPresented: Binding(get: { singoGeul != nil }, set: { if !$0 { singoGeul = nil } }), titleVisibility: .visible) {
+            Button("신고하기", role: .destructive) {
+                guard let g = singoGeul else { return }
+                singoGeul = nil
+                Task {
+                    let r = await GeoreumNanum.singo(id: g.id)
+                    await MainActor.run {
+                        SoriEngine.shared.mal(r.1.isEmpty ? (r.0 ? "신고를 받았습니다." : "신고하지 못했습니다.") : r.1)
+                        if r.0 { bulreogi() }
+                    }
+                }
+            }
+            Button("그만두기", role: .cancel) { singoGeul = nil }
+        }
     }
 
     /// 글 한 줄 — 머리, 글, 댓글(컴파일러가 빨리 읽도록 나눠 씀)
@@ -252,6 +268,16 @@ struct JbGeoreumNanumView: View {
         return VStack(alignment: .leading, spacing: 8) {
             Text(julMal(g)).font(.title3).fixedSize(horizontal: false, vertical: true)
             Button("응원 박수 — 지금 \(su)번") { baksuChigi(g.id) }.buttonStyle(KeunDanchu())
+            DisclosureGroup("신고하기·보지 않기 펼치기") {   // 2.28.0 (애플 심사 요건 1.2, 이사장님 승인 2026-10-20)
+                VStack(alignment: .leading, spacing: 10) {
+                    Button("이 글 신고하기 — 바로 가려지고 협회가 살핍니다") { singoGeul = g }.buttonStyle(KeunDanchu())
+                    Button("\(g.byeol) 님 글 보지 않기") {
+                        GeoreumNanum.bojiAneum.insert(g.byeol)
+                        SoriEngine.shared.mal("이제 이 폰에서는 \(g.byeol) 님의 글과 댓글을 보여 드리지 않습니다.")
+                        bulreogi()
+                    }.buttonStyle(KeunDanchu())
+                }
+            }.font(.title3)
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 16).fill(Saek.norang.opacity(0.18)))
