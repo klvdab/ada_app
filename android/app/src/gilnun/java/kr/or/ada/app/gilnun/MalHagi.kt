@@ -78,6 +78,10 @@ object MalHagi {
     /** 새 명령마다 하나씩 — 늦게 온 대답은 버림 */
     private var sedae = 0
     private var jadongYeolim = 0
+    // 2.71.0 (261021-A59, 이사장님 승인 2026-10-21, 아이폰 2.103.0과 같음) 소리 관리 — 마이크에 소리가 하나도 들어오지 않은 일이 두 번 잇달면 까닭을 한 번(10분에 한 번) 말씀드리고 저절로 듣기를 쉼
+    private var makhimYeonsok = 0
+    private var makhimMalTtae = 0L
+    private var jadongSwim = false
     // 2.17.0 대화 이어 가기(이사장님 승인 2026-10-06, 아이폰 2.49.0과 같음)
     private var ieoSu = 0
     private var ieoGeumman = false
@@ -297,6 +301,7 @@ object MalHagi {
             }
             jadongYeolim = 0
             dasiHanbeon = false
+            makhimYeonsok = 0; jadongSwim = false   // 2.71.0 (261021-A59, 이사장님 승인 2026-10-21, 아이폰 2.103.0과 같음) 단추를 직접 누르시면 쉬던 저절로 듣기를 풂
             ijeonMal = Sori.majimak
             gakkaunYeokGaengsin()   // 2.27.0 아이폰 2.12.5 — 가까운 역 이름을 받아쓰기에 미리 알려 줌
             yeolgi(true)
@@ -348,6 +353,12 @@ object MalHagi {
                 if (ok) yeolgi(sori)
                 else malHam("말로 하기에는 마이크 허락이 필요합니다. 폰 설정의 앱, 길눈, 권한에서 마이크를 허용해 주십시오.")
             }
+            return
+        }
+        // 2.71.0 (261021-A59, 이사장님 승인 2026-10-21, 아이폰 2.103.0과 같음) 마이크가 잇달아 막혀 쉬는 중이면 저절로는 열지 않음(말로 하기 단추를 누르시면 풀림)
+        if (jadongYeolim > 0 && jadongSwim) {
+            jadongYeolim = 0
+            Girok.namgi("maik_gidarim", mapOf("iyu" to "makhim_swim"))
             return
         }
         if (!MalDeutgi.sseulSuItda(c)) {
@@ -424,6 +435,25 @@ object MalHagi {
                 else -> maikMotMal()   // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 화면이 꺼져 있으면 화면을 켜시라고
             })
             return
+        }
+        // 2.71.0 (261021-A59, 이사장님 승인 2026-10-21, 아이폰 2.103.0과 같음) 소리가 하나도 들어오지 않음(받아쓰기가 소리 크기를 한 번도 알려 주지 않았거나 바닥값)
+        if (alts.isEmpty() && MalDeutgi.majimakKeugi <= -2f) {
+            makhimYeonsok += 1
+            if (makhimYeonsok >= 2) {
+                jadongSwim = true
+                Girok.namgi("maik_makhim_yeonsok", mapOf("su" to makhimYeonsok))
+                if (System.currentTimeMillis() - makhimMalTtae > 600_000L) {
+                    makhimMalTtae = System.currentTimeMillis()
+                    Girok.namgi("maik_makhim", mapOf("dan" to "yeonsok_allim"))
+                    bakkum(MalSangtae.SWIM)
+                    jadongYeolim = 0
+                    dasiHanbeon = false
+                    malHam("마이크에 소리가 들어오지 않습니다. 이어폰이나 블루투스 연결을 살펴 주십시오. 그때까지 길눈이 저절로 듣지 않습니다. 다시 하시려면 말로 하기 단추를 누르십시오.")
+                    return
+                }
+            }
+        } else if (alts.isNotEmpty()) {
+            makhimYeonsok = 0; jadongSwim = false
         }
         if (alts.isEmpty()) {
             // 2.38.0 소리 크기·말소리 길이·막힘으로 끝냈는지도 남김(아이폰 2.66.0과 같음)
@@ -678,6 +708,13 @@ object MalHagi {
         if (kd != null) {
             // 2.53.0 (261016-A41, 이사장님 승인 2026-10-16 「2」) 딴말을 하셔도 물음을 곧바로 지우지 않고 2분 동안 기다림(아이폰과 같음)
             if (now - kolDaegiTtae >= 120000) kolDaegi = null
+            else if (majimak == "kol" && hd == null && kolHwaginNe(alts)) {
+                // 2.71.0 (261021-A59, 이사장님 승인 2026-10-21 「그래」, 아이폰 2.103.0과 같음) 「오케이 알았어 네」처럼 말끝의 네, 「복지콜에 전화해 줘」「통화」도 거는 것으로 받음(같은 물음이 되풀이되던 일)
+                kolDaegi = null
+                Girok.namgi("malhagi_kol_georeum", mapOf("ireum" to kd.ireum))
+                ChaBureugi.geolgi(kd, false, dap)
+                return
+            }
             else if (majimak == "kol" && z.length <= 10) {
                 if (ye) {
                     kolDaegi = null
@@ -1711,6 +1748,16 @@ object MalHagi {
     fun jangsoGateunMal(t: String) = listOf("코스", "입구", "산책로", "공원", "출구", "정류장", "광장", "시장", "병원", "센터", "둘레길", "주차장", "매표소").any { t.contains(it) }
 
     /** 2.31.0 부르는 말인가 — 전화·불러·걸어·연결·호출·콜 해 */
+    /** 2.71.0 (261021-A59, 이사장님 승인 2026-10-21 「그래」, 아이폰 2.103.0과 같음) 「○○에 전화할까요?」를 여쭌 때만 — 말끝이 네·예·응(아니가 없을 때), 다시 거는 말, 「통화」면 네로 받음 */
+    fun kolHwaginNe(alts: List<String>): Boolean {
+        val a = alts.firstOrNull() ?: return false
+        val z = MalSajeon.ttuk(a)
+        if (z.isEmpty() || z.length > 20 || z.contains("아니") || z.contains("취소") || z.contains("하지마") || z.contains("말고")) return false
+        if (listOf("네", "예", "응", "네네", "예예", "네요", "예요").any { z.endsWith(it) }) return true
+        if (z.contains("통화")) return true
+        return kolBureumMal(listOf(a))
+    }
+
     fun kolBureumMal(alts: List<String>) = alts.any { a ->
         val z = MalSajeon.ttuk(a)
         listOf("전화", "불러", "부르", "걸어", "걸자", "걸까", "연결", "호출", "콜해", "콜좀", "콜불", "잡아", "요청").any { z.contains(it) }

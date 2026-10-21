@@ -123,7 +123,8 @@ object Wichi : SensorEventListener, LocationListener {
                 m.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 3000L, 0f, this, Looper.getMainLooper())
             Girok.namgi("wichi_yeolgi", mapOf("gps" to m.isProviderEnabled(LocationManager.GPS_PROVIDER)))
         } catch (e: Exception) {
-            Girok.namgi("wichi_oryu", mapOf("e" to (e.message ?: "")))
+            // 2.71.0 (261021-A59, 이사장님 승인 2026-10-21, 아이폰 2.103.0과 같음) 까닭을 가려 적음 — 허락이 없어 막힌 것(heorak)과 그 밖(gita)
+            Girok.namgi("wichi_oryu", mapOf("e" to (e.message ?: ""), "iyu" to (if (e is SecurityException) "heorak" else "gita")))
         }
         georeumDolligi()
     }

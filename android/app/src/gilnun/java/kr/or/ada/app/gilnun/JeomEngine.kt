@@ -139,6 +139,8 @@ object JeomEngine {
     private var gilRaw = ""
     private var wonGil: JeomGil? = null      // 되돌아가기 때 다시 받지 않고 쓰는 원래 길(통신이 끊긴 곳에서도 되돌아가게)
     private var sijakT = 0L
+    /** 2.71.0 (261021-A59, 이사장님 승인 2026-10-21 「그래」, 아이폰 2.103.0과 같음) 걸어 보신 뒤에야 도착 — 여섯 걸음을 걸으셨거나(걸음 센서), 걸음 센서가 없으면 20초가 지난 뒤(차에서 내리자마자 위성 오차로 도착하던 일) */
+    private val georeoBoatda: Boolean get() = S.stepSu >= 6 || System.currentTimeMillis() - sijakT >= 20_000L
 
     // 자리
     private var idx = 0
@@ -760,7 +762,10 @@ object JeomEngine {
             if (!munOn && rest < 30) {
                 munOn = true; munT = now; munSijakT = now; munGakkaum = dm
                 S.gyeol = ""; S.yeop = 0.0
-                mal("문까지 이어 안내합니다. 여기서부터 위성 안내입니다. " + munMal(MU) + (if (munList.size > 1) " 문이 ${munList.size}곳 있습니다." else ""))
+                // 2.71.0 (261021-A59, 이사장님 승인 2026-10-21, 아이폰 2.103.0과 같음) 문 생김새를 문에 닿기 전에 미리 말씀드림(찾을 것을 알고 가시게)
+                mal("문까지 이어 안내합니다. 여기서부터 위성 안내입니다. " + munMal(MU)
+                    + (if (MU.saengMal.isNotEmpty()) " 찾으실 문은 ${MU.saengMal}입니다." else "")
+                    + (if (munList.size > 1) " 문이 ${munList.size}곳 있습니다." else ""))
                 byeonhwa?.invoke()
                 return
             }
@@ -774,8 +779,9 @@ object JeomEngine {
                 if (g != null) {
                     if (g - dm >= 1.5) { munGakkaum = dm; eum(EumJong.HWAKSIN) } else if (dm > g + 3) munGakkaum = dm
                 }
-                if (dm < max(5.0, min(acc, 10.0))) {
-                    var t = "문 앞입니다. " + munMal(MU)
+                if (dm < max(5.0, min(acc, 10.0)) && georeoBoatda) {
+                    // 2.71.0 (261021-A59, 이사장님 승인 2026-10-21 「그래」, 아이폰 2.103.0과 같음) 문이 3미터 넘게 남았으면 「문 가까이 왔습니다」
+                    var t = (if (dm >= 3.0) "문 가까이 왔습니다. " else "문 앞입니다. ") + munMal(MU)
                     if (MU.saengMal.isNotEmpty()) t += " 문은 ${MU.saengMal}입니다."
                     dochak(t)
                     return
@@ -795,7 +801,7 @@ object JeomEngine {
             return
         }
         offSu = 0
-        if (rest < 5) { dochak(); return }
+        if (rest < 5 && georeoBoatda) { dochak(); return }   // 2.71.0 (261021-A59, 이사장님 승인 2026-10-21 「그래」, 아이폰 2.103.0과 같음)
         pyoBoda()
         // 건널목 끝 표시가 없는 점지도 — 건널목 길이만큼 지나면 다 건넜다고
         if (geonneolI >= 0 && ap(geonneolI, idx) >= geonneolLen + 2) {
