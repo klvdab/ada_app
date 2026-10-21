@@ -1,4 +1,4 @@
-# 올림 얹기 (1.0판, 261021-OE1, 방클, 이사장님 승인 2026-10-21 「그래」)
+# 올림 얹기 (1.1판, 261021-OE2 — 트리가 다르면 olim-eotgi-sihum 갈래에 올려 맞대 보게 함, 방클, 이사장님 승인 2026-10-21 「그래」)
 # olim-data 갈래에 받아 둔 묶음(git bundle)의 커밋을 main에 얹습니다. 결과 트리가 미리 맞춰 본 값과 다르면 멈춥니다.
 name: olim-eotgi
 on:
@@ -37,5 +37,6 @@ jobs:
           git -c user.name=olim-eotgi -c user.email=noreply@ada.or.kr cherry-pick -X ours $COMMITS
           T=$(git rev-parse 'HEAD^{tree}')
           echo "나온 트리 $T / 기대 $TREE"
-          [ "$T" = "$TREE" ] || exit 1
+          git --version
+          if [ "$T" != "$TREE" ]; then git push -f origin HEAD:refs/heads/olim-eotgi-sihum; echo "트리가 달라 main에 올리지 않고 olim-eotgi-sihum 갈래에만 올렸습니다"; exit 1; fi
           git push origin HEAD:main
