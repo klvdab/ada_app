@@ -448,7 +448,7 @@ object MalHagi {
                     bakkum(MalSangtae.SWIM)
                     jadongYeolim = 0
                     dasiHanbeon = false
-                    malHam("마이크에 소리가 들어오지 않습니다. 이어폰이나 블루투스 연결을 살펴 주십시오. 그때까지 길눈이 저절로 듣지 않습니다. 다시 하시려면 말로 하기 단추를 누르십시오.")
+                    malHam("마이크에 소리가 들어오지 않습니다. 이어폰이나 블루투스 연결을 살펴 주십시오. 그때까지 저절로 듣지 않습니다. 다시 하시려면 말로 하기 단추를 누르십시오.")
                     return
                 }
             }
