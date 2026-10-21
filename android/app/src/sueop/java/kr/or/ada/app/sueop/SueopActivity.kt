@@ -54,8 +54,8 @@ import java.util.concurrent.Executors
 class SueopActivity : Activity() {
 
     companion object {
-        const val PAN = "0.1.0"   // 0.1.0(261020-S1) LVD 수업 안드로이드 첫 판 — 웹 수업 보기 0.2판의 기능 모두와 바뀐 일만 알림·그림 크게 보기·글자 크기·지난번 방·도움말·새 판 알림·이용 기록(방클, 이사장님 승인 2026-10-20 「단독으로 가자」)
-        const val BILD = "261020-S1"
+        const val PAN = "0.1.1"   // 0.1.1(261021-S2) 도움말 「번호가 틀리면」을 실제 알림 말과 맞춤(새방클, 이사장님 승인 2026-10-21 「1」). 0.1.0(261020-S1) LVD 수업 안드로이드 첫 판 — 웹 수업 보기 0.2판의 기능 모두와 바뀐 일만 알림·그림 크게 보기·글자 크기·지난번 방·도움말·새 판 알림·이용 기록(방클, 이사장님 승인 2026-10-20 「단독으로 가자」)
+        const val BILD = "261021-S2"
         const val API = "https://lvd.ada.or.kr/sueop/sueop.php"
         const val BAN = "https://lvd.ada.or.kr/sueop/bang/"
     }
