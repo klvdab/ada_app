@@ -104,7 +104,7 @@ android {
             dimension = "ap"
             applicationId = "kr.or.ada.sueop"
             resValue("string", "app_name", "LVD 수업")
-            versionName = "0.1.0"   // 261020-S1 첫 판 — 웹 수업 보기 0.2판의 기능 모두와 바뀐 일만 알림·그림 크게 보기·글자 크기·지난번 방·도움말·새 판 알림·이용 기록
+            versionName = "0.1.1"   // 261021-S2 도움말 번호 틀릴 때 말 맞춤(새방클, 이사장님 승인 「1」) · 261020-S1 첫 판 — 웹 수업 보기 0.2판의 기능 모두와 바뀐 일만 알림·그림 크게 보기·글자 크기·지난번 방·도움말·새 판 알림·이용 기록
             buildConfigField("String", "ADA_HOME", "\"https://lvd.ada.or.kr/sueop/\"")
         }
     }
