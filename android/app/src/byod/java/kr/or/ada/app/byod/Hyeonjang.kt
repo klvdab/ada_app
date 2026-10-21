@@ -70,8 +70,12 @@ object Hyeonjang {
         } else {
             // 5. 공유기 연결
             val juso = ByodService.jusoChatgi()
-            l.add(if (juso.isEmpty()) Jul(false, "공유기: 붙지 않았습니다. 랜선을 허브에 꽂거나 태블릿을 공유기 와이파이에 붙이십시오.")
-                  else Jul(true, "공유기: 붙었습니다. 듣기 주소 " + juso))
+            // 1.7.0 (261021-B15) 아이피타임 방식 — 공유기 이름을 밝히고, 이 기기가 녹음하고 있는지 살핌
+            l.add(if (juso.isEmpty()) Jul(false, "공유기(아이피타임): 붙지 않았습니다. 아이피타임 공유기의 랜 구멍과 허브 랜 구멍을 랜선으로 잇거나, 이 기기를 아이피타임 와이파이에 붙이십시오.")
+                  else Jul(true, "공유기(아이피타임): 붙었습니다. 듣기 주소 " + juso))
+            if (Bang.kyeojim) l.add(if (GigiNokeum.sid.isNotEmpty() && GigiNokeum.sseunBaiteu > 0)
+                    Jul(true, "행사 녹음: 이 기기가 녹음하고 있습니다. 지금까지 " + (GigiNokeum.sseunBaiteu / 16000 / 60) + "분. 방송을 멈추면 다시 듣기에 올립니다.")
+                else Jul(false, "행사 녹음: 아직 녹음이 쌓이지 않습니다. 해설 소리가 들어오는지 확인하십시오."))
             // 6. 엔에프시 태그 주소와 지금 주소
             val st = stickerJuso(ctx)
             l.add(when {

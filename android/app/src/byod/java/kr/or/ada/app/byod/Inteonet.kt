@@ -70,7 +70,7 @@ object Inteonet {
             if (dolgo) return@post
             app = c; dolgo = true; yeollim = false; geobu = false
             jemok = jm; who = wh; phone = p
-            flintBangsik = Flint.flintInga(c)
+            flintBangsik = true   // 1.7.0 두 방식 모두 현장 녹음이 다시 듣기에 올라가므로, 같은 때 인터넷 녹음은 감춤 대기에 넣음(현장 녹음이 올라간 것을 확인한 뒤에만 감춤)
             silpae = 0; bonaenCho = 0.0; moum.reset(); cheot = true; yeolgiTtae = 0L
             mangChonggi(c)
             allim("인터넷 방송: 중계에 방을 열고 있습니다.")

@@ -136,7 +136,12 @@ class ByodService : Service() {
         Bang.keu = true
         Bang.kyeojim = true
         Bang.sigakTtae = System.currentTimeMillis()
-        val so = Sori(this) { b -> soriTtae = System.currentTimeMillis(); s.ppurida(b); Inteonet.neoki(b) }   // 1.5.0 인터넷 방송에도 같은 소리
+        // 1.7.0 (261021-B15) 아이피타임 방식 — 이 기기가 행사 녹음을 함(플린트 2 방식은 공유기가 녹음)
+        run {
+            val p = getSharedPreferences("byod", Context.MODE_PRIVATE)
+            GigiNokeum.sijak(this, (p.getString("haengsa_jemok", "") ?: "").trim(), (p.getString("haeseolsa", "") ?: "").trim())
+        }
+        val so = Sori(this) { b -> soriTtae = System.currentTimeMillis(); s.ppurida(b); GigiNokeum.sseugi(b); Inteonet.neoki(b) }   // 1.5.0 인터넷 방송에도 같은 소리, 1.7.0 녹음
         so.sijak()
         sori = so
         jikimSijak()   // 1.6.0
@@ -196,6 +201,10 @@ class ByodService : Service() {
         try { bonaegi?.meomchugi() } catch (_: Exception) { }
         bonaegi = null
         if (flintDolatda) Haengsa.sijak(this, true)   // 1.3.0 행사 마감·녹음과 결과보고 받기·배프에 올리기
+        if (GigiNokeum.sid.isNotEmpty()) {   // 1.7.0 아이피타임 방식 녹음 마감 — 긴 녹음을 잇는 일이라 화면 줄기를 붙잡지 않게 따로
+            val app = applicationContext
+            Thread({ if (GigiNokeum.maegam().isNotEmpty()) { while (Haengsa.dolgo) Thread.sleep(500); Haengsa.sijak(app, false) } }, "byod-maegam").start()
+        }
         sori = null
         seobeo = null
         try { jamgeum?.release() } catch (_: Exception) { }

@@ -91,6 +91,24 @@ object Haengsa {
         bonae("$q0&step=kkeut&su=$su&gil=${b.size}", ByteArray(0))
     }
 
+    /** 1.7.0 뮤 녹음(nokeum.ul)을 이 기기에서 들을 수 있게 웨이브 머리를 붙인 사본(임시 폴더) — 원본은 그대로 둠 */
+    fun deutgiWav(ctx: Context, sid: String): File? {
+        val ul = File(File(teo(ctx), sid), "nokeum.ul")
+        if (!ul.isFile) return null
+        val w = File(ctx.cacheDir, "deutgi_$sid.wav")
+        if (w.isFile && w.length() == ul.length() + 44) return w
+        return try {
+            val n = ul.length().toInt()
+            val h = java.nio.ByteBuffer.allocate(44).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            h.put("RIFF".toByteArray()); h.putInt(36 + n); h.put("WAVE".toByteArray())
+            h.put("fmt ".toByteArray()); h.putInt(16); h.putShort(7); h.putShort(1)   // 7 = 뮤(mu-law), 한 줄
+            h.putInt(16000); h.putInt(16000); h.putShort(1); h.putShort(8)
+            h.put("data".toByteArray()); h.putInt(n)
+            java.io.FileOutputStream(w).use { o -> o.write(h.array()); ul.inputStream().use { it.copyTo(o, 65536) } }
+            w
+        } catch (_: Exception) { null }
+    }
+
     /** 아직 배프에 올리지 못한 것이 있는가 */
     fun nameum(ctx: Context): Boolean = mokrok(ctx).any { !it.olim }
 
@@ -105,6 +123,7 @@ object Haengsa {
     }
 
     private fun dolgi(ctx: Context, maegam: Boolean) {
+        GigiNokeum.namunGeotMaegam(ctx)   // 1.7.0 방송 중 꺼진 아이피타임 방식 녹음을 먼저 마감
         // 1. 공유기에 붙어 있으면 마감하고 받기
         if (Flint.mang(ctx) != null) {
             if (maegam) batgi(ctx, "/haengsa_kkeut?k=" + Flint.yeolsoe(ctx))

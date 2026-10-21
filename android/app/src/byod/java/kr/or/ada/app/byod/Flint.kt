@@ -36,10 +36,13 @@ object Flint {
 
     private fun pref(ctx: Context) = ctx.getSharedPreferences("byod", Context.MODE_PRIVATE)
 
-    /** 방송 방식: flint(플린트 2 공유기 안 서버) 또는 taebeullit(이 기기가 서버) */
-    fun bangsik(ctx: Context): String = pref(ctx).getString("bangsik", "flint") ?: "flint"
+    /** 방송 방식: flint(플린트 2 공유기 안 서버) 또는 taebeullit(아이피타임 방식 — 이 기기가 서버, 아이피타임 공유기에 랜선으로 이음)
+     *  1.7.0 (261021-B15, 이사장님 승인) 처음값을 아이피타임으로 — 플린트 2가 오기 전이라 지금 가진 아이피타임 A1004NS 로 방송 */
+    fun bangsik(ctx: Context): String = pref(ctx).getString("bangsik", "taebeullit") ?: "taebeullit"
     fun bangsikBakkugi(ctx: Context, b: String) { pref(ctx).edit().putString("bangsik", b).apply() }
     fun flintInga(ctx: Context) = bangsik(ctx) == "flint"
+    /** 1.7.0 공유기 이름(첫 화면·도움말·현장 점검에 씀) */
+    fun gongyugiIreum(ctx: Context) = if (flintInga(ctx)) "플린트 2" else "아이피타임"
     fun yeolsoe(ctx: Context): String = pref(ctx).getString("flint_yeolsoe", "") ?: ""
 
     /** 공유기 쪽 망 — 주소가 192.168.8.0~11.255 인 망(와이파이든 랜이든) */
