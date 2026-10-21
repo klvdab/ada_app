@@ -1,4 +1,5 @@
 # 협회 앱·자봉 앱·배프 앱·AI점자도서관·BYOD 방송 자동 짓기·올리기 (1.0.7판, 빌드 261010-BI1)
+# 1.1.0 (261021-SG1, 이사장님 승인 「그래」, 대클) 앱마다 따로 된 설계도(seolgye_*.yml)만 써서 프로젝트를 만듦 — 다른 앱의 하다 만 일이 이 앱 짓기를 막지 않게
 # 1.0.9 (261020-SI1, 이사장님 승인 「단독으로 가자」, 방클) eoneu 에 sueop(LVD 수업) 더함
 # 1.0.8 (261012-T1, 이사장님 승인 「1」) eoneu 에 tour(LVD투어스튜디오) 더함
 # 1.0.7 (261010-BI1, 이사장님 승인, 방송클) eoneu 에 byod(BYOD 방송 아이폰) 더함
@@ -46,6 +47,15 @@ jobs:
             ada|"") SCH=AdaApp;    NM=협회앱 ;;
             *) echo "eoneu 는 ada, jabong, bfb, lib, byod, tour, sueop 중 하나여야 합니다 (받은 값: $EONEU)"; exit 1 ;;
           esac
+          case "$SCH" in
+            AdaApp|JabongApp) SPEC=seolgye_gilnun.yml ;;
+            BfbApp)  SPEC=seolgye_bfb.yml ;;
+            LibApp)  SPEC=seolgye_lib.yml ;;
+            ByodApp) SPEC=seolgye_byod.yml ;;
+            TourApp) SPEC=seolgye_tour.yml ;;
+            SueopApp) SPEC=seolgye_sueop.yml ;;
+          esac
+          echo "SPEC=$SPEC" >> "$GITHUB_ENV"
           echo "SCHEME=$SCH" >> "$GITHUB_ENV"
           echo "APPNAME=$NM" >> "$GITHUB_ENV"
           echo "짓는 앱: $NM (스킴 $SCH)"
@@ -103,7 +113,7 @@ jobs:
       - name: Xcode 프로젝트 만들기
         env:
           DEVELOPMENT_TEAM: ${{ env.TEAM_ID }}
-        run: xcodegen generate
+        run: xcodegen generate --spec "$SPEC"   # 1.1.0 앱마다 따로 된 설계도
 
       - name: 짓기(archive)
         run: |
