@@ -141,7 +141,7 @@ final class WichiEngine: NSObject, ObservableObject, CLLocationManagerDelegate {
                 guard Date().timeIntervalSince(self.heorakMalTtae) > 600 else { return }
                 self.heorakMalTtae = Date()
                 SoriEngine.shared.mal(CLLocationManager.locationServicesEnabled()
-                    ? "위치를 잡을 수 없습니다. 아이폰 설정의 길눈에서 위치를 켜 주십시오."
+                    ? "위치를 잡을 수 없습니다. 아이폰 설정의 \(OllimEngine.shared.aeIreum)에서 위치를 켜 주십시오."   // 2.103.0 자봉에서도 제 앱 이름으로(261021-J1)
                     : "위치를 잡을 수 없습니다. 아이폰 설정의 개인정보 보호에서 위치 서비스를 켜 주십시오.", .gyeonggo)
             }
         default:

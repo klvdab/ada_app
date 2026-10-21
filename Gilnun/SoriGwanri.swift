@@ -64,7 +64,7 @@ final class SoriGwanri {
         jadongSwim = false
     }
 
-    static let makhimMal = "마이크에 소리가 들어오지 않습니다. 이어폰이나 블루투스 연결을 살펴 주십시오. 그때까지 길눈이 저절로 듣지 않습니다. 다시 하시려면 말로 하기 단추를 누르십시오."
+    static let makhimMal = "마이크에 소리가 들어오지 않습니다. 이어폰이나 블루투스 연결을 살펴 주십시오. 그때까지 저절로 듣지 않습니다. 다시 하시려면 말로 하기 단추를 누르십시오."
 
     /// 지금 마이크 소리가 들어오는 자리(기록에 남김) — naejang 폰 마이크, ieopon 유선 이어폰, bluetooth, carplay, gita
     static func ipryeokJari() -> String {
