@@ -2,12 +2,19 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.28.0"
-    static let bild = "261020-I22"
+    static let pan = "2.29.0"
+    static let bild = "261021-I23"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.29.0", bild: "261021-I23", nal: "2026-10-21", naeyong: [
+            "★길눈과 함께 쓰는 부품 손질 (대클, 이사장님 승인 2026-10-21 「자봉도 해봐」, 길눈 2.103.0·2.71.0과 함께 쓰는 부품)",
+            "보이스오버가 화면 줄을 읽는 동안에는 자봉 안내 말이 기다렸다가 말함(위험 경고는 곧바로)",
+            "소리 멈춤 한 번을 한 줄로 기록 — 멈춘 까닭(전화·다른 앱·앱 쉼)과 다시 말하기까지 걸린 초",
+            "위치 오류를 까닭별로 — 잠깐 위성을 놓친 것은 오류로 세지 않고, 위치 허락·위치 서비스가 꺼졌을 때만 「설정의 자봉에서 위치를 켜 주십시오」로 한 번(10분에 한 번)",
+            "오래된 판 — 열 판 넘게 뒤처졌으면 하루 한 번 말로 업데이트를 알림"
+        ]),
         Gochim(pan: "2.28.0", bild: "261020-I22", nal: "2026-10-20", naeyong: [
             "★회원 탈퇴 — 알림·설정 탭 더 보기 안. 협회 등록에서 이름·연락처·1365 아이디·네 자리 숫자를 지우고 이 폰의 등록도 지움, 그려 주신 길은 이름 없이 그대로(앱스토어 정식 심사 요건, 이사장님 승인 2026-10-20 「그래」)",
             "★걸음 나눔 글 — 신고하기(바로 가려지고 협회가 살핌)와 그 분 글 보지 않기, 나눔 마당 불쾌한 글 신고하기(앱스토어 정식 심사 요건, 이사장님 승인 2026-10-20)",
