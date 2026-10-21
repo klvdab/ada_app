@@ -48,14 +48,13 @@ final class InteonetBonaegi {
 
     func sijak(jemok: String, who: String) {
         let p = InteonetBonaegi.jeonhwa
-        let fl = Flint.flintInga
         q.async {
             guard !self.dolgo else { return }
             guard InteonetBonaegi.hamkke else { self.allim("인터넷 방송: 꺼 두셨습니다. BYOD 방송만 나갑니다. 더 보기에서 켤 수 있습니다."); return }
             guard p.count >= 9 else { self.allim("인터넷 방송: 첫 화면에 현장영상해설사 전화번호를 넣으시면 BYOD 방송과 함께 인터넷으로도 나갑니다."); return }
             self.dolgo = true; self.yeollim = false; self.geobu = false
             self.jemok = jemok; self.who = who; self.phone = p
-            self.flintBangsik = fl; self.cell = fl
+            self.flintBangsik = true; self.cell = true   // 1.7.0 두 방식 모두 현장 녹음이 다시 듣기에 올라가므로 감춤 대기에 넣음(올라간 것을 확인한 뒤에만 감춤), 아이피타임 와이파이에도 인터넷이 없으므로 휴대전화망 먼저(안 되면 바꿈)
             self.silpae = 0; self.bonaenCho = 0; self.moum = Data(); self.cheot = true
             self.yeolgiTtae = .distantPast
             let t = DispatchSource.makeTimerSource(queue: self.q)

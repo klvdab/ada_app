@@ -17,11 +17,14 @@ enum Flint {
     static let SSID = "현장영상해설방송"
     static let JUSO = "http://192.168.8.2/"
 
-    /// 방송 방식: flint(플린트 2 공유기 안 서버, 기본) 또는 taebeullit(이 아이폰이 서버, 예비)
+    /// 방송 방식: flint(플린트 2 공유기 안 서버) 또는 taebeullit(아이피타임 방식 — 이 아이폰이 서버)
+    /// 1.7.0 (261021-BI9, 이사장님 승인) 처음값을 아이피타임으로 — 플린트 2가 오기 전이라 지금 가진 아이피타임 A1004NS 로 방송
     static var flintInga: Bool {
-        get { (UserDefaults.standard.string(forKey: "bangsik") ?? "flint") == "flint" }
+        get { (UserDefaults.standard.string(forKey: "bangsik") ?? "taebeullit") == "flint" }
         set { UserDefaults.standard.set(newValue ? "flint" : "taebeullit", forKey: "bangsik") }
     }
+    /// 1.7.0 공유기 이름(첫 화면·도움말·현장 점검에 씀)
+    static var gongyugiIreum: String { flintInga ? "플린트 2" : "아이피타임" }
 
     /// 공유기 안 서버에 묻기
     static func mutgi(_ gil: String, _ kkeut: @escaping ([String: Any]?) -> Void) {

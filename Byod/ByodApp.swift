@@ -132,7 +132,7 @@ final class SangtaeBogi: ObservableObject {
         let now = Date()
         let k = b.kyeojim, so = b.sojae, jm = b.jalmot
         let fl = Flint.flintInga
-        let t = !k ? "BYOD 방송이 꺼져 있습니다." + (fl ? " 방송 방식: 플린트 2 공유기." : " 방송 방식: 이 아이폰이 서버.") + (jm.isEmpty ? "" : " " + jm)
+        let t = !k ? "BYOD 방송이 꺼져 있습니다." + " 공유기: " + Flint.gongyugiIreum + "." + (jm.isEmpty ? "" : " " + jm)
                    : "BYOD 방송 중입니다. 듣는 분 \(b.deutnunSu)명. 소리 받는 곳: \(so)." + (fl && FlintBonaegi.shared.bonaenda ? " 공유기로 보내고 있습니다." : "") + (jm.isEmpty ? "" : " " + jm)
         let keunBakkwim = k != kyeojim || so != sojae || jm != jalmot
         if t != geul && (baro || keunBakkwim || now.timeIntervalSince(ttae) >= 10) {
@@ -215,6 +215,8 @@ struct CheotView: View {
                 Kan(ireum: "행사 이름 (비워 두면 날짜와 시각)", gap: $haengsaJemok)
                 Kan(ireum: "현장영상해설사 이름", gap: $haeseolsa)
                 Kan(ireum: "현장영상해설사 전화번호 (인터넷 방송에 씀)", gap: $haeseolsaPhone, pan: .phonePad)
+                // 1.7.0 (261021-BI9) 공유기 고르기 — 더 보기에서 첫 화면 방송 시작 바로 위로, 엔터 한 번에 번갈아
+                Danchu(geul: flintOn ? "공유기: 플린트 2. 누르면 아이피타임으로 바꿉니다" : "공유기: 아이피타임. 누르면 플린트 2로 바꿉니다") { bangsikBakkugi() }
                 Danchu(geul: bangDanchuGeul, keun: true, norang: true) { bangNureum() }
                     .accessibilityFocused($bangChojeom)
                 Geul(st.geul, gulgeum: true)
@@ -245,7 +247,6 @@ struct CheotView: View {
                     Danchu(geul: "지난 행사 기록 (녹음과 결과보고)") { gagi(.haengsa) }   // 1.3.0
                         .accessibilityFocused($deoChojeom)
                     Danchu(geul: "BYOD 방송 서버 확인하기") { flintHwagin() }   // 1.2.0
-                    Danchu(geul: flintOn ? "방송 방식: 플린트 2 공유기. 누르면 이 아이폰이 서버인 예비 방식으로 바꿉니다" : "방송 방식: 이 아이폰이 서버(예비). 누르면 플린트 2 공유기 방식으로 바꿉니다") { bangsikBakkugi() }   // 1.2.0
                     Danchu(geul: hamkkeOn ? "BYOD 방송과 함께 인터넷 방송: 켜짐. 누르면 끕니다" : "BYOD 방송과 함께 인터넷 방송: 꺼짐. 누르면 켭니다") { hamkkeBakkugi() }   // 1.5.0
                     Danchu(geul: "기기 점검: 소리 장치와 연결 보기") { gigiGeul = Sori.gigiJeomgeom(); gigiBoim = true }
                     Danchu(geul: "새로고침") { saerogochim() }
@@ -330,12 +331,12 @@ struct CheotView: View {
         }
     }
 
-    // 1.2.0 방송 방식 바꾸기 — 방송 중에는 바꾸지 않음
+    // 1.2.0 방송 방식 바꾸기 — 방송 중에는 바꾸지 않음. 1.7.0 「공유기: 아이피타임 / 플린트 2」
     private func bangsikBakkugi() {
-        if bang.kyeojim { let t = "방송 중에는 방식을 바꾸지 않습니다. 방송을 멈춘 뒤 눌러 주십시오."; allyeo(t); malhagi(t); return }
+        if bang.kyeojim { let t = "방송 중에는 공유기를 바꾸지 않습니다. 방송을 멈춘 뒤 눌러 주십시오."; allyeo(t); malhagi(t); return }
         Flint.flintInga = !Flint.flintInga
         flintOn = Flint.flintInga
-        let t = flintOn ? "플린트 2 공유기 방식으로 바꾸었습니다." : "이 아이폰이 서버인 예비 방식으로 바꾸었습니다."
+        let t = flintOn ? "플린트 2로 바꾸었습니다." : "아이피타임으로 바꾸었습니다. 이 아이폰을 랜 어댑터와 랜선으로 아이피타임 공유기에 잇거나 아이피타임 와이파이에 붙이십시오. 듣는 분은 와이파이에 붙은 뒤 듣기 주소 엔에프시 태그나 큐알로 듣습니다."
         allyeo(t); malhagi(t)
         st.gochigi(baro: true)
     }
@@ -459,7 +460,7 @@ struct HaengsaView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Danchu(geul: "뒤로") { NokeumDeutgi.shared.meomchum(); dwiro() }.accessibilityFocused($wiChojeom)
                 if mok.isEmpty {
-                    Geul("아직 담아 둔 행사가 없습니다. 플린트 2 방식으로 방송을 멈추면 녹음과 결과보고가 여기에 담깁니다.")
+                    Geul("아직 담아 둔 행사가 없습니다. 방송을 멈추면 녹음과 결과보고가 여기에 담깁니다.")
                 } else {
                     if mok.contains(where: { !$0.olim }) {
                         Danchu(geul: "다시 듣기에 아직 못 올린 것 지금 올리기") { HaengsaOlligi.shared.sijak(maegam: false); allyeo("다시 듣기에 올리고 있습니다.") }

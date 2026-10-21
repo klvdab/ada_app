@@ -101,9 +101,11 @@ final class HaengsaOlligi {
 
     private func dolgi(maegam: Bool) {
         let fm = FileManager.default
+        GigiNokeum.shared.namunGeotMaegam()   // 1.7.0 방송 중 꺼진 아이피타임 방식 녹음을 먼저 마감
+        let flint = Flint.flintInga            // 1.7.0 아이피타임 방식이면 플린트 2 공유기에 묻지 않음(없는 주소를 기다리지 않게)
         // 1. 공유기에서 마감하고 받기
-        if maegam { _ = batgi("/haengsa_kkeut?k=") }
-        if let m = batgi("/haengsa_mokrok"), let j = (try? JSONSerialization.jsonObject(with: m)) as? [String: Any],
+        if flint && maegam { _ = batgi("/haengsa_kkeut?k=") }
+        if flint, let m = batgi("/haengsa_mokrok"), let j = (try? JSONSerialization.jsonObject(with: m)) as? [String: Any],
            let l = j["mokrok"] as? [[String: Any]] {
             for h in l {
                 guard let sid = h["sid"] as? String, h["sangtae"] as? String == "kkeut",
@@ -133,7 +135,7 @@ final class HaengsaOlligi {
                   let gir = try? Data(contentsOf: d.appendingPathComponent("girok.json")) else { continue }
             if nasBonaegi(h.sid, nokU.pathExtension == "mp3" ? "mp3" : "ul", nok) && nasBonaegi(h.sid, "bogo", bogo) && nasBonaegi(h.sid, "girok", gir) {
                 try? Data("1".utf8).write(to: d.appendingPathComponent("olim"))
-                _ = batgi("/haengsa_olim?sid=\(h.sid)")
+                if flint { _ = batgi("/haengsa_olim?sid=\(h.sid)") }
                 mal("\(h.jemok) 녹음과 결과보고를 LVD 방송 다시 듣기에 올렸습니다.")
             } else {
                 mal("LVD 방송 다시 듣기에 아직 올리지 못했습니다. 인터넷이 되면 저절로 다시 올립니다.")
@@ -156,10 +158,27 @@ final class NokeumDeutgi {
     private var p: AVAudioPlayer?
     var deutneunJung: Bool { p?.isPlaying ?? false }
     func teulgi(_ sid: String) -> Bool {
-        let u = HaengsaOlligi.teo.appendingPathComponent(sid).appendingPathComponent("nokeum.mp3")
+        let d = HaengsaOlligi.teo.appendingPathComponent(sid)
+        let mp3 = d.appendingPathComponent("nokeum.mp3")
+        let u = FileManager.default.fileExists(atPath: mp3.path) ? mp3 : (NokeumDeutgi.wav(sid) ?? mp3)   // 1.7.0 아이피타임 방식 뮤 녹음도
         guard let pl = try? AVAudioPlayer(contentsOf: u) else { return false }
         p = pl
         return pl.play()
     }
     func meomchum() { p?.stop(); p = nil }
+
+    /// 1.7.0 뮤 녹음(nokeum.ul)에 웨이브 머리를 붙인 사본(임시 폴더) — 원본은 그대로 둠
+    static func wav(_ sid: String) -> URL? {
+        let ul = HaengsaOlligi.teo.appendingPathComponent(sid).appendingPathComponent("nokeum.ul")
+        guard let b = try? Data(contentsOf: ul) else { return nil }
+        var h = Data()
+        func u32(_ v: Int) { var x = UInt32(v).littleEndian; h.append(Data(bytes: &x, count: 4)) }
+        func u16(_ v: Int) { var x = UInt16(v).littleEndian; h.append(Data(bytes: &x, count: 2)) }
+        h.append(Data("RIFF".utf8)); u32(36 + b.count); h.append(Data("WAVE".utf8))
+        h.append(Data("fmt ".utf8)); u32(16); u16(7); u16(1); u32(16000); u32(16000); u16(1); u16(8)   // 7 = 뮤(mu-law), 한 줄
+        h.append(Data("data".utf8)); u32(b.count)
+        let w = FileManager.default.temporaryDirectory.appendingPathComponent("deutgi_\(sid).wav")
+        guard (try? (h + b).write(to: w)) != nil else { return nil }
+        return w
+    }
 }

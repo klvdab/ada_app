@@ -55,8 +55,15 @@ enum Hyeonjang {
         } else {
         // 5. 공유기 연결
         let juso = Juso.deutgiJuso()
-        l.append(juso.isEmpty ? Jul(doem: false, mal: "공유기: 붙지 않았습니다. 아이폰을 방송 공유기 와이파이에 붙이거나, 어댑터에 랜선을 꽂으십시오.")
-                              : Jul(doem: true, mal: "공유기: 붙었습니다. 듣기 주소 \(juso)"))
+        // 1.7.0 (261021-BI9) 아이피타임 방식 — 공유기 이름을 밝히고, 이 아이폰이 녹음하고 있는지 살핌
+        l.append(juso.isEmpty ? Jul(doem: false, mal: "공유기(아이피타임): 붙지 않았습니다. 아이폰을 아이피타임 와이파이에 붙이거나, 어댑터에 랜선을 꽂아 아이피타임 공유기의 랜 구멍과 이으십시오.")
+                              : Jul(doem: true, mal: "공유기(아이피타임): 붙었습니다. 듣기 주소 \(juso)"))
+        if b.kyeojim {
+            let gn = GigiNokeum.shared
+            l.append(!gn.sid.isEmpty && gn.sseunBaiteu > 0
+                     ? Jul(doem: true, mal: "행사 녹음: 이 아이폰이 녹음하고 있습니다. 지금까지 \(gn.sseunBaiteu / 16000 / 60)분. 방송을 멈추면 다시 듣기에 올립니다.")
+                     : Jul(doem: false, mal: "행사 녹음: 아직 녹음이 쌓이지 않습니다. 해설 소리가 들어오는지 확인하십시오."))
+        }
         // 6. 엔에프시 태그 주소와 지금 주소
         let st = stickerJuso
         if juso.isEmpty { l.append(Jul(doem: false, mal: "엔에프시 태그 주소: 공유기에 붙은 뒤 견줄 수 있습니다.")) }
