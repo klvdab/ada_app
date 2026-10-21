@@ -1,5 +1,5 @@
-# 올림 얹기 (1.1판, 261021-OE2 — 트리가 다르면 olim-eotgi-sihum 갈래에 올려 맞대 보게 함, 방클, 이사장님 승인 2026-10-21 「그래」)
-# olim-data 갈래에 받아 둔 묶음(git bundle)의 커밋을 main에 얹습니다. 결과 트리가 미리 맞춰 본 값과 다르면 멈춥니다.
+# 올림 얹기 (1.2판, 261021-OE3 — 바뀐 파일들만 맞대 봄(다른 클이 그사이 main에 올려도 됨). 워크플로 파일은 이 방법으로 못 바꾸므로 미리 웹으로 올림, 방클, 이사장님 승인 2026-10-21 「그래」)
+# olim-data 갈래에 받아 둔 묶음(git bundle)의 커밋을 main에 얹습니다. 바뀐 파일들의 값이 미리 맞춰 본 값과 다르면 멈춥니다.
 name: olim-eotgi
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ on:
         description: "얹을 커밋들(빈칸으로 나눔)"
         required: true
       tree:
-        description: "얹은 뒤 나와야 할 트리 값"
+        description: "얹은 뒤 바뀐 파일들의 값(git ls-tree -r HEAD -- 바뀐 파일 | sha1sum)"
         required: true
 permissions:
   contents: write
@@ -34,9 +34,10 @@ jobs:
           git fetch -q origin +olim-data:refs/remotes/origin/olim-data
           git show "origin/olim-data:$BUNDLE" > /tmp/b.bundle
           git fetch -q /tmp/b.bundle 'refs/heads/*:refs/remotes/bundle/*'
+          O=$(git rev-parse HEAD)
           git -c user.name=olim-eotgi -c user.email=noreply@ada.or.kr cherry-pick -X ours $COMMITS
-          T=$(git rev-parse 'HEAD^{tree}')
-          echo "나온 트리 $T / 기대 $TREE"
-          git --version
-          if [ "$T" != "$TREE" ]; then git push -f origin HEAD:refs/heads/olim-eotgi-sihum; echo "트리가 달라 main에 올리지 않고 olim-eotgi-sihum 갈래에만 올렸습니다"; exit 1; fi
+          git diff --name-only $O HEAD
+          T=$(git ls-tree -r HEAD -- $(git diff --name-only $O HEAD) | sha1sum | cut -c1-40)
+          echo "나온 값 $T / 기대 $TREE"
+          [ "$T" = "$TREE" ] || exit 1
           git push origin HEAD:main
