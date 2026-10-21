@@ -1,0 +1,49 @@
+# 2026-10-21 (261021-SG1, 이사장님 승인 「그래」, 대클) 앱마다 설계도를 따로 — 한 클이 하다 만 일이 다른 앱 짓기를 막지 않게.
+# LVD 방송(배프) 아이폰 설계도. 이 앱의 판 번호(MARKETING_VERSION)와 설정은 이 파일에서만 고칩니다.
+# 짓기: build.yml 이 eoneu 에 맞춰 이 파일만 씀(xcodegen generate --spec seolgye_bfb.yml)
+name: AdaApp
+include:
+  - seolgye_gongtong.yml
+targets:
+  BfbApp:
+    # 2.0.0 (261015-LI1, 이사장님 승인 「1」, 방송클) 듣는 앱 「LVD 방송」 — 배프 웹 껍데기(App 폴더)를 버리고 속까지 앱(Bfb 폴더)으로 새로 지음.
+    # 고유 번호 kr.or.ada.bfb 를 그대로 이어 배프 앱을 깔아 둔 아이폰은 업데이트로 바뀜.
+    # 행사장 와이파이 저절로 붙기(HotspotConfiguration), 화면 잠가도 듣기(audio), 행사장 방송은 http 192.168.8.2(로컬 네트워크)
+    type: application
+    platform: iOS
+    sources:
+      - path: Bfb
+    info:
+      path: Bfb/Info.plist
+      properties:
+        CFBundleDisplayName: LVD 방송
+        CFBundleDevelopmentRegion: ko
+        CFBundleLocalizations: [ko]
+        CFBundleName: BfbApp
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIBackgroundModes: [audio, remote-notification]
+        NSLocalNetworkUsageDescription: 행사장에서 현장영상해설을 받아 들려 드리는 데 로컬 네트워크를 씁니다.
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+          NSAllowsLocalNetworking: true
+    entitlements:
+      path: Bfb/BfbApp.entitlements
+      properties:
+        aps-environment: production
+        com.apple.developer.networking.HotspotConfiguration: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: kr.or.ada.bfb
+        TARGETED_DEVICE_FAMILY: "1"
+        MARKETING_VERSION: "2.3.0"   # 261019-LI4 다시 듣기 내려받기를 앱 안에서·화면 잠가도 다시 듣기·BYOD 방송 이름(방클, 이사장님 결정 2026-10-19). 261018-LI3 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기 첫 화면, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 261016-LI2 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 인터넷 생방송 듣기로 이름 줄임, 앱 안 누리집의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 261015-LI1 듣는 앱 LVD 방송 첫 판 — 행사장 와이파이 저절로 붙기, 앱 열면 곧바로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 인터넷 생방송·다시 듣기(방송클, 이사장님 승인 「1」)
+schemes:
+  BfbApp:
+    build:
+      targets:
+        BfbApp: all
+    archive:
+      config: Release
