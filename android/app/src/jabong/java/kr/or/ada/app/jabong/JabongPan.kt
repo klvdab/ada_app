@@ -3,12 +3,18 @@
 package kr.or.ada.app.jabong
 
 object JabongPan {
-    const val pan = "2.28.0"
-    const val bild = "261019-A24"
+    const val pan = "2.29.0"
+    const val bild = "261021-A25"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.29.0", "261021-A25", "2026-10-21", listOf(
+            "★길눈과 함께 쓰는 부품 손질 (대클, 이사장님 승인 2026-10-21 「자봉도 해봐」, 길눈 2.103.0·2.71.0과 함께 쓰는 부품)",
+            "점지도 따라 걷기 도착은 여섯 걸음 넘게 걸은 뒤, 문까지 3미터 넘게 남으면 「문 가까이 왔습니다」, 문 생김새를 미리 말씀드림",
+            "마이크에 소리가 두 번 잇달아 들어오지 않으면 까닭을 한 번 말씀드리고 저절로 듣기를 쉼",
+            "위치 오류를 까닭별로 적음"
+        )),
         Gochim("2.28.0", "261019-A24", "2026-10-19", listOf(
             "★앱 잘못 바로잡음(이사장님 승인 2026-10-19 「1」, 아이폰 자봉 2.27.0과 함께)",
             "마이크 허락 — 쓰임에 맞게 알림(표시마다 짧게 말을 남기려면, 말로 표시하려면, 까닭을 말로 남기려면)",
