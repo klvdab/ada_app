@@ -59,6 +59,24 @@ enum DulreoGabol {
 final class TabGil: ObservableObject {
     static let shared = TabGil()
     @Published var tab = 0
+    private var beon = 0
+
+    /// 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 탭 바에서 고르심 — 탭을 바꾸고, 화면이 자리 잡은 뒤 보이스오버 커서를 그 탭 맨 위 첫 줄로.
+    ///   onAppear 에 기대지 않으므로 iOS 27에서도, 같은 탭을 다시 고르셔도 됨. 탭을 고른 일과 커서를 옮긴 일을 기록에 남김
+    func goreum(_ v: Int) {
+        let gateun = v == tab
+        if !gateun { tab = v }
+        beon += 1
+        let b = beon
+        Girok.shared.namgi("tab_goreum", ["tab": v, "gateun": gateun, "vo": UIAccessibility.isVoiceOverRunning])
+        guard UIAccessibility.isVoiceOverRunning else { return }
+        // 각 화면이 0.5초에 제 머리 줄로 커서를 두는 것보다 뒤에 — 맨 위 첫 줄이 이김
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+            guard let self = self, self.beon == b, self.tab == v else { return }
+            UIAccessibility.post(notification: .screenChanged, argument: nil)
+            Girok.shared.namgi("tab_chojeom", ["tab": v])
+        }
+    }
 }
 
 final class DulreoGil: ObservableObject {

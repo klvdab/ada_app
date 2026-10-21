@@ -85,10 +85,35 @@ final class OllimEngine: ObservableObject {
                     e.saePan = chat?.0
                     e.testflight = chat?.1 ?? ""
                     if chat != nil { Girok.shared.namgi("ollim_sae", ["pan": chat?.0 ?? ""]) }
+                    // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21) 열 판 넘게 뒤처졌으면 하루 한 번 말로 알려 드림 — 첫 화면 맨 위 단추만으로는 낭독기로 지나치기 쉬움
+                    //   (10-21 아침 기록: 2.63.0판을 쓰는 기기가 서른여덟 판 뒤처져 그동안 고친 것이 하나도 들어가지 않던 일)
+                    if let p = chat?.0, OllimEngine.panChai(p, jigeum) >= 10 { e.oraedoenPanAllim(p) }
                 }
                 kkeut?(bateum ? (chat != nil) : nil)
             }
         }.resume()
+    }
+
+    /// 2.103.0 (261021-I57, 이사장님 승인 2026-10-21) 두 판 번호의 둘째 자리 차이(첫 자리가 다르면 큰 차이로 봄)
+    static func panChai(_ sae: String, _ jigeum: String) -> Int {
+        let x = sae.split(separator: ".").map { Int($0.filter(\.isNumber)) ?? 0 }
+        let y = jigeum.split(separator: ".").map { Int($0.filter(\.isNumber)) ?? 0 }
+        guard x.count >= 2, y.count >= 2 else { return 0 }
+        if x[0] != y[0] { return x[0] > y[0] ? 99 : 0 }
+        return x[1] - y[1]
+    }
+
+    /// 2.103.0 (261021-I57, 이사장님 승인 2026-10-21) 오래된 판 알림 — 하루 한 번만
+    private func oraedoenPanAllim(_ p: String) {
+        let k = "ollimOraedoenNal"
+        let f = DateFormatter(); f.dateFormat = "yyyyMMdd"
+        let oneul = f.string(from: Date())
+        guard UserDefaults.standard.string(forKey: k) != oneul else { return }
+        UserDefaults.standard.set(oneul, forKey: k)
+        Girok.shared.namgi("ollim_orae", ["pan": p, "jigeum": jigeumPan])
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
+            self.mal("\(self.aeIreum)이 오래된 \(self.jigeumPan)판입니다. 새 판 \(p)이 나와 있습니다. 업데이트하시면 그동안 고친 것이 들어갑니다. 설정의 업데이트 단추를 누르시면 테스트플라이트가 열립니다.")
+        }
     }
 
     /// 테스트플라이트의 이 앱 자리를 엶 — 거기서 업데이트를 누르시면 됨

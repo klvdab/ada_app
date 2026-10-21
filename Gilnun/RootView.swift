@@ -6,7 +6,9 @@ struct RootView: View {
     @ObservedObject private var dongyeong = Dongyeong.shared   // 2.34.0 동영상 받아 틀기
 
     var body: some View {
-        TabView(selection: $tabGil.tab) {
+        // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 탭 바에서 탭을 고르시면 그 탭의 맨 위 첫 줄로 커서를 보냄 — 같은 탭을 다시 고르셔도.
+        //   iOS 27에서 탭을 바꿔도 화면이 새로 열리지 않아(onAppear 가 불리지 않아) 커서가 따라가지 않던 일(10-21)
+        TabView(selection: Binding(get: { tabGil.tab }, set: { v in TabGil.shared.goreum(v) })) {
             GilChatgiTab()
                 .tabItem { Label("길 찾기", systemImage: "figure.walk") }
                 .tag(0)

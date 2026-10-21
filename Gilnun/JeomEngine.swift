@@ -105,6 +105,10 @@ final class JeomEngine: ObservableObject {
     private var kkeokHan = Set<String>()
     private var gilRaw = ""
     private var sijakT = Date()
+    private var munGeoreumMan = false   // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21) 카메라 없이 걸음 수로 문까지
+    /// 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 걸어 보신 뒤에야 도착 — 따라 걷기를 시작하고 여섯 걸음을 걸으셨거나(걸음 센서), 걸음 센서가 없으면 20초가 지난 뒤.
+    ///   (10-21 제기동: 차에서 내리시자마자 위성 오차 안이라 한 걸음도 걷지 않으셨는데 1초 만에 「문 앞입니다」로 마치던 일)
+    private var georeoBoatda: Bool { S.stepSu >= 6 || Date().timeIntervalSince(sijakT) >= 20 }
 
     // 자리
     private var idx = 0
@@ -417,7 +421,7 @@ final class JeomEngine: ObservableObject {
         dwiro = false; hdJul = []; gpsTeulSu = 0; jariGirokT = .distantPast
         jeop30 = false; jeop20 = false; cheotBang = false; dolgiMok = nil; geonneolOn = false; geonneol = nil
         geoMode = false; dwiNeolge = false; geollimJari = nil; geollimHan = []
-        munOn = false; mun = nil; munList = []; munSu = 0; munIdx = 0; munDasi = false; munGakkaum = nil; munKamera = false
+        munOn = false; mun = nil; munList = []; munSu = 0; munIdx = 0; munDasi = false; munGakkaum = nil; munKamera = false; munGeoreumMan = false
         juwiRows = []; juwiHan = []; juwiEonje = .distantPast; juwiJari = nil; juwiCenter = nil; juwiBatT = .distantPast
         sijakT = Date()
         jariTtae = Date(); wiseongTtae = Date()
@@ -506,7 +510,7 @@ final class JeomEngine: ObservableObject {
         if momNaega { MomSensor.shared.kkeugi(); momNaega = false }
         momSseum = false
         WichiEngine.shared.momBbareum = false
-        munOn = false; mun = nil; munList = []; munSu = 0; munKamera = false
+        munOn = false; mun = nil; munList = []; munSu = 0; munKamera = false; munGeoreumMan = false
         tagiJung = nil; tagiGugan = []; tagiHan = []   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09)
         gil = nil
         dochakHam = false
@@ -693,23 +697,33 @@ final class JeomEngine: ObservableObject {
             if !munOn && rest < 30 {
                 munOn = true; munT = now; munSijakT = now; munGakkaum = dm
                 S.gyeol = ""; S.yeop = 0
-                mal("문까지 이어 안내합니다. 여기서부터 위성 안내입니다. " + munMal(MU) + (munList.count > 1 ? " 문이 \(munList.count)곳 있습니다." : ""))
+                // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21) 문 생김새를 문에 닿기 전에 미리 말씀드림(찾을 것을 알고 가시게)
+                mal("문까지 이어 안내합니다. 여기서부터 위성 안내입니다. " + munMal(MU)
+                    + (MU.saengMal.isEmpty ? "" : " 찾으실 문은 \(MU.saengMal)입니다.")
+                    + (munList.count > 1 ? " 문이 \(munList.count)곳 있습니다." : ""))
                 return
             }
             if munOn {
                 // 2.15.0 문 10미터 안 — 카메라 문 찾기를 저절로(2.16.0 모든 폰). 위성 안내는 그대로 이어 감
                 if dm < 10 && !munKamera {
                     munKamera = true
-                    if MunChatgi.gigiGaneung {
+                    // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21) 라이다가 없는 폰(아이폰 12 같은)은 카메라로 문 모양을 거의 못 찾음(10-12~21 일곱 번에 여섯 번 못 찾음) —
+                    //   찍어 두신 문 글자가 있을 때만 카메라로 글자를 맞춰 보고, 없으면 카메라를 켜지 않고 걸음 수 안내를 촘촘히
+                    if MunChatgi.gigiGaneung && (MunChatgi.lidar || !MU.geul.isEmpty) {
                         if !MU.geul.isEmpty { MunChatgi.shared.gidae = (MU.ireum, MU.geul) }   // 찍어 두신 문의 글자로 맞는 문인지 가림
                         MunChatgi.shared.kyeogi("munkkaji")
+                    } else {
+                        munGeoreumMan = true
+                        Girok.shared.namgi("mun_georeum_annae", ["lidar": MunChatgi.lidar, "geul": !MU.geul.isEmpty])
+                        mal("여기서부터는 걸음 수로 문까지 안내합니다. " + munMal(MU))
                     }
                 }
                 if let g = munGakkaum {
                     if g - dm >= 1.5 { munGakkaum = dm; eum(.hwaksin) } else if dm > g + 3 { munGakkaum = dm }
                 }
-                if dm < max(5, min(acc, 10)) {
-                    var t = "문 앞입니다. " + munMal(MU)
+                if dm < max(5, min(acc, 10)) && georeoBoatda {
+                    // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 위성 오차 안이어도 문이 3미터 넘게 남았으면 「문 앞」이라 하지 않고 「문 가까이」로
+                    var t = (dm >= 3 ? "문 가까이 왔습니다. " : "문 앞입니다. ") + munMal(MU)
                     if !MU.saengMal.isEmpty { t += " 문은 \(MU.saengMal)입니다." }
                     dochak(munAp: t)
                     return
@@ -729,7 +743,7 @@ final class JeomEngine: ObservableObject {
             return
         }
         offSu = 0
-        if rest < 5 { dochak(); return }
+        if rest < 5 && georeoBoatda { dochak(); return }   // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」)
         pyoBoda()
         // 건널목 끝 표시가 없는 점지도 — 건널목 길이만큼 지나면 다 건넜다고
         if let gn = geonneol, ap(gn.i, idx) >= gn.len + 2 {

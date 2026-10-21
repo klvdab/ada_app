@@ -16,6 +16,7 @@ final class MunChatgi: NSObject, ObservableObject, ARSessionDelegate {
     static let shared = MunChatgi()
 
     @Published private(set) var kyeojim = false
+    private var munkkajiMotMal = false   // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」)
     @Published private(set) var munBoim = false
     @Published private(set) var sangtae = ""
 
@@ -97,7 +98,7 @@ final class MunChatgi: NSObject, ObservableObject, ARSessionDelegate {
         sijakT = Date()
         malT = Date.distantPast
         majimakSi = 0; majimakGeoreum = 0; gakkaum = 99
-        chatneunMalSu = 0; ireotdaMal = false; ilgeunGeul = []; geulSun = []; majatda = false
+        chatneunMalSu = 0; ireotdaMal = false; ilgeunGeul = []; geulSun = []; majatda = false; munkkajiMotMal = false
         sangtae = "문을 찾는 중입니다."
         Girok.shared.namgi("munchatgi", ["eodi": e, "lidar": MunChatgi.lidar])
         if jjikgiNow { return }   // 두 번 찍기 — 말 없이 글자만 모음
@@ -201,6 +202,12 @@ final class MunChatgi: NSObject, ObservableObject, ARSessionDelegate {
                 mal("30초 동안 문을 찾지 못했습니다. 사진 읽어 주기로 문 앞을 찍어 보시거나, 긴급통화로 현장영상해설사에게 요청하실 수 있습니다.")   // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 「부르실」 → 「요청하실」
                 Girok.shared.namgi("munchatgi_mot", ["eodi": eodiseo])
                 return
+            }
+            // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 문까지 안내 중에도 30초 동안 카메라가 문을 한 번도 못 보면 한 번 알려 드림(카메라는 위성 안내를 돕도록 그대로 둠)
+            if !munBoim && !ireotdaMal && el > 30 && eodiseo == "munkkaji" && !munkkajiMotMal {
+                munkkajiMotMal = true
+                mal("카메라로는 아직 문을 찾지 못했습니다. 위성으로 알려 드리는 방향과 걸음 수로 가십시오.")
+                Girok.shared.namgi("munchatgi_mot", ["eodi": eodiseo, "lidar": MunChatgi.lidar])
             }
             if el > 90 {
                 kkeugi(malHagi: false)

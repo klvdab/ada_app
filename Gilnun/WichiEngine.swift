@@ -127,8 +127,26 @@ final class WichiEngine: NSObject, ObservableObject, CLLocationManagerDelegate {
                     banghyang: bang, sokdo: max(0, l.speed), ttae: Date(), georeumChu: false))
     }
 
+    /// 2.103.0 (261021-I57, 이사장님 승인 2026-10-21) 위치 오류를 까닭별로 — 잠깐 위성을 놓친 것(0)은 오류로 세지 않고, 위치 허락이 꺼진 것(1)만 오류로 세어 한 번 말씀드림.
+    ///   (10-20 하루 위치 오류 80번이 모두 같은 오류로 적혀, 정말 안내를 못 하게 된 순간을 찾을 수 없던 일)
+    private var heorakMalTtae = Date.distantPast
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        Girok.shared.namgi("wichi_oryu", ["code": (error as NSError).code])
+        let code = (error as NSError).code
+        switch code {
+        case CLError.Code.locationUnknown.rawValue:
+            Girok.shared.namgi("wichi_jamkkan", ["georeumChu": jigeum?.georeumChu ?? false])
+        case CLError.Code.denied.rawValue:
+            Girok.shared.namgi("wichi_oryu", ["code": code, "iyu": CLLocationManager.locationServicesEnabled() ? "heorak" : "wichi_kkeum"])
+            DispatchQueue.main.async {
+                guard Date().timeIntervalSince(self.heorakMalTtae) > 600 else { return }
+                self.heorakMalTtae = Date()
+                SoriEngine.shared.mal(CLLocationManager.locationServicesEnabled()
+                    ? "위치를 잡을 수 없습니다. 아이폰 설정의 길눈에서 위치를 켜 주십시오."
+                    : "위치를 잡을 수 없습니다. 아이폰 설정의 개인정보 보호에서 위치 서비스를 켜 주십시오.", .gyeonggo)
+            }
+        default:
+            Girok.shared.namgi("wichi_oryu", ["code": code, "iyu": "gita"])
+        }
     }
 
     private func naegi(_ w: Wichi) {

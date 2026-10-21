@@ -49,11 +49,17 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
     /// 말하는 중인가(폰 목소리든 선희 목소리든)
     private var malJung: Bool { synth.isSpeaking || msJung }
     private var meomchum = false
+    /// 2.103.0 (261021-I57, 이사장님 승인 2026-10-21) 소리 관리자가 봄 — 다른 앱이 소리 자리를 가져간 중
+    var meomchumJung: Bool { meomchum }
     /// 2.96.0 (261017-I50, 이사장님 KTX에서 겪으심 2026-10-17) 소리 자리를 빼앗긴 때와 지금 말을 시작한 때 — 막힘 풀기에 씀
     private var meomchumTtae = Date.distantPast
     private var malSijakTtae = Date.distantPast
     private var malGilyi = 0
     private var jikimTimer: Timer?
+    /// 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 보이스오버가 줄을 읽는 동안에는 길눈 안내가 기다렸다가 말함(경고는 기다리지 않음).
+    ///   보이스오버 커서가 옮겨 갈 때 그 줄 글자 길이로 읽는 시간을 어림함 — iOS 27에서 두 소리가 한꺼번에 나던 일(10-21)
+    private(set) var voKkaji = Date.distantPast
+    private var voGidarim = false
     /// 화상통화 중 — 길눈 말소리를 내지 않음(통화 소리 보호, 2026-09-11 이사장님 지시: 통화 중에는 화면 글로만)
     var tonghwaJung = false
     /// 2.59.0 폰 전화 중(벨·걸기·통화) — JeonhwaGamsi 가 켜고 끔. 화상통화 때와 같이 말하지 않고 경고는 진동
@@ -127,6 +133,15 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.msKkaeugi() }   // 2.28.0
         NotificationCenter.default.addObserver(self, selector: #selector(kkeunkim(_:)),
                                                name: AVAudioSession.interruptionNotification, object: nil)
+        // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 보이스오버 커서가 옮겨 가면(보이스오버가 그 줄을 읽기 시작함) 길눈 안내를 잠시 기다리게 함
+        NotificationCenter.default.addObserver(forName: UIAccessibility.elementFocusedNotification, object: nil, queue: .main) { [weak self] n in
+            guard let self = self, UIAccessibility.isVoiceOverRunning else { return }
+            var gil = 12
+            if let el = n.userInfo?[UIAccessibility.focusedElementUserInfoKey] as? NSObject {
+                gil = (el.accessibilityLabel ?? "").count + (el.accessibilityValue ?? "").count + (el.accessibilityHint ?? "").count
+            }
+            self.voKkaji = Date().addingTimeInterval(min(7, 0.8 + Double(gil) * 0.075))
+        }
         // 2.96.0 (261017-I50) 5초마다 막힘 살피기 — 끊김이 끝났다는 알림이 오지 않거나, 말이 끝났다는 신호가 오지 않아도 줄이 멈추지 않게
         DispatchQueue.main.async {
             self.jikimTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.makhimPulgi() }
@@ -135,7 +150,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
         NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
             guard let self = self, self.meomchum else { return }
             self.meomchum = false
-            Girok.shared.namgi("sori_kkeunkim", ["dan": "dasi"])
+            SoriGwanri.shared.meomchumKkeut("dasi")   // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21) 멈춤 한 번을 한 줄로
             self.naeboenda()
         }
     }
@@ -211,6 +226,18 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
         guard !meomchum, !malJung, !jul.isEmpty else { return }
         if myeongryeongDeutneunJung && jul.first?.geup != .gyeonggo { return }
         if daehwaJung && jul.first?.geup != .gyeonggo { return }   // 2.30.0 대화 말(네·잠깐만)을 마친 뒤에
+        // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 보이스오버가 읽는 중이면 다 읽을 때까지 기다렸다가(경고는 곧바로)
+        if jul.first?.geup != .gyeonggo, UIAccessibility.isVoiceOverRunning, Date() < voKkaji {
+            if !voGidarim {
+                voGidarim = true
+                let w = max(0.15, voKkaji.timeIntervalSinceNow + 0.15)
+                DispatchQueue.main.asyncAfter(deadline: .now() + w) { [weak self] in
+                    self?.voGidarim = false
+                    self?.naeboenda()
+                }
+            }
+            return
+        }
         hanunMal = jul.first?.t ?? ""
         malSijakHook?()
         let m = jul.removeFirst()
@@ -659,7 +686,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
             do {
                 try AVAudioSession.sharedInstance().setActive(true)
                 meomchum = false
-                Girok.shared.namgi("sori_kkeunkim", ["dan": "seuseuro"])
+                SoriGwanri.shared.meomchumKkeut("seuseuro")   // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21)
                 naeboenda()
             } catch {
                 meomchumTtae = now   // 아직 못 잡으면 8초 뒤 다시
@@ -688,13 +715,15 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
               let ty = AVAudioSession.InterruptionType(rawValue: v) else { return }
         DispatchQueue.main.async {
             if ty == .began {
+                // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21) 이미 멈춘 중에 또 온 알림은 새 멈춤으로 세지 않음 — 한 번 멈춘 것이 두세 번으로 세어지던 일
+                let saeMeomchum = !self.meomchum
                 self.meomchum = true
                 self.meomchumTtae = Date()
-                Girok.shared.namgi("sori_kkeunkim", ["dan": "sijak"])
+                if saeMeomchum { SoriGwanri.shared.meomchumSijakham(SoriGwanri.meomchumIyu(n)) }
                 self.kkeunginMalDollyeonoki()   // 2.96.0
             } else {
                 self.meomchum = false
-                Girok.shared.namgi("sori_kkeunkim", ["dan": "kkeut"])
+                SoriGwanri.shared.meomchumKkeut("kkeut")
                 self.naeboenda()
             }
         }

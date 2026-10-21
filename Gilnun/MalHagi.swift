@@ -55,6 +55,7 @@ final class MalHagi: ObservableObject {
     private var motBeon = 0
     private var motTtae = Date.distantPast
     private var jadongYeolim = 0
+    private var voGidarimHam = false   // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21) 보이스오버를 기다려 한 번 미룬 중
     // 2.49.0 대화 이어 가기(이사장님 승인 2026-10-06) — 대답 뒤 하이 길눈 없이 이어 듣기, 같은 말 세 번이면 부드럽게 끊음
     private var ieoSu = 0
     private var ieoGeumman = false
@@ -177,6 +178,7 @@ final class MalHagi: ObservableObject {
             }
             self.jadongYeolim = 0
             self.dasiHanbeon = false
+            SoriGwanri.shared.danchuNureum()   // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21) 단추를 직접 누르시면 쉬던 저절로 듣기를 풂
             self.ijeonMal = SoriEngine.shared.majimak
             self.myeongryeongYeolgi(sori: true)
         }
@@ -291,7 +293,7 @@ final class MalHagi: ObservableObject {
         SoriEngine.shared.mal(q, .annae)
         let yeolgi = { [weak self] in
             guard let self = self, self.sijakham, self.mureum == .kolHwagin, self.sangtae == .swim, GinGeup.shared.sangtae == .eopseum,
-                  !self.pyeonjipJung, !JeonhwaGamsi.shared.jeonhwaJung, MalDeutgi.heorakItda else { return }
+                  !self.pyeonjipJung, !JeonhwaGamsi.shared.jeonhwaJung, !ChaBureugi.shared.geoneunJung, MalDeutgi.heorakItda else { return }
             self.dasiHanbeon = false
             self.jadongYeolim = 1
             self.myeongryeongYeolgi(sori: true)
@@ -353,6 +355,37 @@ final class MalHagi: ObservableObject {
             return
         }
         if !sori && pyeonjipJung { return }   // 2.60.0 편집 중에는 저절로 이어 듣지 않음
+        // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21) 저절로 여는 마이크(대답 뒤 이어 듣기·콜 물음 뒤)는 소리 관리자에게 먼저 물음 —
+        //   보이스오버가 읽는 중이면 다 읽을 때까지 기다렸다가 열고, 다른 앱이 소리 자리를 가졌거나 거는 중이면 열지 않음.
+        //   마이크가 잇달아 막혀 쉬는 중이면 열지 않음(말로 하기 단추를 누르시면 풀림)
+        if jadongYeolim > 0 {
+            if SoriGwanri.shared.jadongSwim {
+                jadongYeolim = 0
+                Girok.shared.namgi("maik_gidarim", ["iyu": "makhim_swim"])
+                bureumDasi(0.8)
+                return
+            }
+            let mk = SoriGwanri.shared.maikMakim()
+            if mk == .voIlgeum && !voGidarimHam {
+                voGidarimHam = true
+                let w = min(7, SoriGwanri.shared.voNameunCho + 0.3)
+                Girok.shared.namgi("maik_gidarim", ["iyu": mk.rawValue, "cho": w])
+                DispatchQueue.main.asyncAfter(deadline: .now() + w) { [weak self] in
+                    guard let me = self else { return }
+                    if me.sangtae == .swim && me.jadongYeolim > 0 {
+                        me.myeongryeongYeolgi(sori: sori)   // 아직 보이스오버가 읽으면 이번에는 기다리지 않고 엶(한 번만 미룸)
+                    }
+                    me.voGidarimHam = false
+                }
+                return
+            }
+            if mk == .sorijari || mk == .geoneun {
+                jadongYeolim = 0
+                Girok.shared.namgi("maik_gidarim", ["iyu": mk.rawValue, "dan": "an_yeolm"])
+                bureumDasi(0.8)
+                return
+            }
+        }
         if !MalDeutgi.heorakItda {
             MalDeutgi.heorak { [weak self] ok in
                 guard let self = self else { return }
@@ -419,10 +452,22 @@ final class MalHagi: ObservableObject {
                                               "sae": MalDeutgi.shared.saeSseumJung])
         guard sangtae == .deutneun else { return }
         let alts = alts0.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21) 마이크에 소리가 하나도 들어오지 않은 일이 두 번 잇달면 까닭을 한 번 말씀드리고 저절로 듣기를 쉼
+        let soriEopseum = alts.isEmpty && (beopeo == 0 || MalDeutgi.shared.majimakKeugi <= -120)
+        if SoriGwanri.shared.myeongDeureum(soriEopseum: soriEopseum, geulja: !alts.isEmpty) {
+            Girok.shared.namgi("maik_makhim", ["dan": "yeonsok_allim", "ipryeok": SoriGwanri.ipryeokJari()])
+            sangtae = .swim
+            jadongYeolim = 0
+            dasiHanbeon = false
+            MalDeutgi.shared.swigi()
+            malHam(SoriGwanri.makhimMal) { [weak self] in self?.bureumDasi(1.0) }
+            return
+        }
         if alts.isEmpty {
             // 2.30.0 명령 글자가 0 — 마이크 막힘을 따로 남김(beopeo 0이면 마이크에 소리가 안 들어옴, 아니면 알아듣기가 못 적음)
             // 2.66.0 (261013-I20) 들어온 소리 크기(데시벨)·말소리 길이(초)·막힘으로 끝냈는지도 남김
             Girok.shared.namgi("maik_makhim", ["dan": "myeongryeong", "beopeo": beopeo, "dasi": dasiHanbeon,
+                                               "ipryeok": SoriGwanri.ipryeokJari(), "yeonsok": SoriGwanri.shared.makhimYeonsok,
                                                "sae": MalDeutgi.shared.saeSseumJung,
                                                "keugi": MalDeutgi.shared.majimakKeugi, "malcho": MalDeutgi.shared.majimakMalCho,
                                                "makhim": MalDeutgi.shared.majimakMakhim])
@@ -571,8 +616,9 @@ final class MalHagi: ObservableObject {
             guard let self = self else { return }
             // 2.49.0 묻는 말이든 아니든 대답 뒤에는 하이 길눈 없이 10초 이어 들음(딩동으로 알림). 말씀이 없으면 조용히 닫음
             // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 편집 중이거나 전화 중이면 이어 듣지 않음(안드로이드와 같이 이 자리에서 바로 봄)
+            // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 전화를 거는 중(통화 확인 창)이면 이어 듣지 않음
             if GinGeup.shared.sangtae == .eopseum && !self.ieoGeumman && !self.watchMal && self.ieoSu < 20
-                && !self.pyeonjipJung && !JeonhwaGamsi.shared.jeonhwaJung {
+                && !self.pyeonjipJung && !JeonhwaGamsi.shared.jeonhwaJung && !ChaBureugi.shared.geoneunJung {
                 self.ieoSu += 1
                 self.jadongYeolim += 1
                 self.myeongryeongYeolgi(sori: true)
@@ -630,6 +676,8 @@ final class MalHagi: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + dwi) { [weak self] in
             guard let self = self else { return }
             self.bureumYeyak = false
+            // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 전화를 거는 중이면 하이 길눈 귀도 잠시 쉬었다가(통화 확인 창을 읽는 보이스오버 소리를 부름으로 듣지 않게)
+            if ChaBureugi.shared.geoneunJung { self.bureumDasi(5); return }
             guard Seoljeong.shared.haiGilnun, self.sangtae == .swim, !self.bureumDolgo, !self.pyeonjipJung,
                   GinGeup.shared.sangtae == .eopseum, !JeonhwaGamsi.shared.jeonhwaJung, MalDeutgi.heorakItda else {
                 if !Seoljeong.shared.haiGilnun {
@@ -1102,7 +1150,8 @@ final class MalHagi: ObservableObject {
             }
         case .kolHwagin:
             // 2.60.0 (261009-I14, 이사장님 승인) "○○에 전화할까요?"의 대답 — 네일 때만 겁니다
-            if ye && !ani && jjalbeun, let k = kolDaegi {
+            // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 「오케이 알았어 네」처럼 말끝의 네, 「복지콜에 전화해 줘」「통화」처럼 거는 말도 네로 받음(10-21 같은 물음이 되풀이되던 일)
+            if ((ye && !ani && jjalbeun) || (hd == nil && MalHagi.kolHwaginNe(alts))), let k = kolDaegi {
                 mureum = .eopseum
                 kolDaegi = nil
                 kolGeolgiK(k, dap)
@@ -2345,6 +2394,16 @@ final class MalHagi: ObservableObject {
         return z.count <= 10 && (z.hasPrefix("목적지") || z.hasPrefix("가는곳")) && (z.contains("변경") || z.contains("바꿔") || z.contains("바꾸"))
     }
 
+    /// 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 「○○에 전화할까요?」를 여쭌 때만 — 말끝이 네·예·응이거나(아니가 없을 때), 다시 거는 말·「통화」면 네로 받음
+    static func kolHwaginNe(_ alts: [String]) -> Bool {
+        guard let a = alts.first else { return false }
+        let z = MalSajeon.ttuk(a)
+        guard !z.isEmpty, z.count <= 20, !z.contains("아니"), !z.contains("취소"), !z.contains("하지마"), !z.contains("말고") else { return false }
+        if ["네", "예", "응", "네네", "예예", "네요", "예요"].contains(where: { z.hasSuffix($0) }) { return true }
+        if z.contains("통화") { return true }
+        return kolBureumMal([a])
+    }
+
     /// 2.60.0 부르는 말인가 — 전화·불러·걸어·연결·호출·콜 해
     static func kolBureumMal(_ alts: [String]) -> Bool {
         alts.contains { a in
@@ -2362,7 +2421,8 @@ final class MalHagi: ObservableObject {
             return
         }
         var hyeongpyeon = ""
-        if let h = ChaBureugi.shared.choegeun {
+        // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 실제로 통화가 이어졌거나 결과를 아는 기록만 「○시에 전화하셨습니다」로 알림(걸지 못한 시도로 되묻지 않게)
+        if let h = ChaBureugi.shared.choegeun, h.yeongyeol == true || h.gyeolgwa != nil || h.tan != nil {
             let cal = Calendar.current
             let si = JeonggiHochul.sigakMal(cal.component(.hour, from: h.ttae), cal.component(.minute, from: h.ttae))
             hyeongpyeon = "\(si)에 \(h.ireum)에 전화하셨습니다. "

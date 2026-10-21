@@ -119,6 +119,11 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
     static let shared = ChaBureugi()
 
     @Published private(set) var girok: [KolGirokHang] = []
+    /// 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 전화를 거는 동안(통화 확인 창이 떠 있는 동안) — 이 사이에는 길눈이 마이크를 저절로 열지 않음.
+    ///   (10-21 제기동 가는 길: 「네」 뒤 이어 듣기가 곧바로 마이크를 열어 거는 말을 끊고, 통화 확인 창을 읽는 보이스오버 소리를 명령으로 받아 적던 일)
+    private(set) var geoneunKkaji: Date?
+    var geoneunJung: Bool { if let d = geoneunKkaji { return Date() < d }; return false }
+    private var telYeollimId: String?
     /// 끊은 뒤 "배차되었습니까"를 여쭌 기록
     @Published private(set) var mureumId: String?
     private var mureumTtae = Date.distantPast
@@ -211,6 +216,8 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
         daeum = nil
         jeojang()
         Girok.shared.namgi("kol_georeum", ["ireum": k.ireum, "jeonggi": jeonggi])
+        geoneunKkaji = Date().addingTimeInterval(180)   // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 거는 말을 하는 동안부터 — 걸고 나면 그때부터 1분
+        let hid = h.id
         Task {
             let hal = await self.halMal(jeonggi: jeonggi)
             await MainActor.run {
@@ -220,7 +227,16 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
                 self.halMalAllim(hal)
                 guard let u = URL(string: "tel:" + k.jeonhwa) else { return }
                 if let dap = dap { dap(t, false) } else { SoriEngine.shared.mal(t) }
-                SoriEngine.shared.kkeutnamyeon { UIApplication.shared.open(u) }
+                // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 말을 마치면 한 번만 겁니다. 말이 끊겨 끝났다는 신호가 오지 않아도 말 길이만큼 지나면 겁니다(거는 일이 사라지지 않게)
+                let yeolgi = { [weak self] in
+                    guard let self = self, self.telYeollimId != hid else { return }
+                    self.telYeollimId = hid
+                    self.geoneunKkaji = Date().addingTimeInterval(60)
+                    Girok.shared.namgi("kol_tel_yeolgi", ["ireum": k.ireum])
+                    UIApplication.shared.open(u)
+                }
+                SoriEngine.shared.kkeutnamyeon(yeolgi)
+                DispatchQueue.main.asyncAfter(deadline: .now() + min(90, 8 + Double(t.count) * 0.13), execute: yeolgi)   // 말 길이만큼 넉넉히 기다린 뒤
             }
         }
     }
@@ -295,6 +311,7 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
     func callObserver(_ callObserver: CXCallObserver, callChanged call: CXCall) {
         guard call.isOutgoing, let h = girok.last, h.gyeolgwa == nil, Date().timeIntervalSince(h.ttae) < 600 else { return }
         if call.hasConnected { gochigi(h.id) { $0.yeongyeol = true } }
+        if call.hasConnected || call.hasEnded { geoneunKkaji = nil }   // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 통화가 이어지거나 끝나면 거는 중을 풂
         if call.hasEnded {
             gochigi(h.id) { $0.kkeunnam = Date() }
             if UIApplication.shared.applicationState == .active { DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { self.salpigi() } }
