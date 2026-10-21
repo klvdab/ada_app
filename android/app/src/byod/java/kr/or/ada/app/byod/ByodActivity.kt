@@ -208,6 +208,8 @@ class ByodActivity : Activity() {
         mom.addView(kanMandeul("행사 이름 (비워 두면 날짜와 시각)", "haengsa_jemok"))
         mom.addView(kanMandeul("현장영상해설사 이름", "haeseolsa"))
         mom.addView(kanMandeul("현장영상해설사 전화번호 (인터넷 방송에 씀)", "haeseolsa_phone").apply { inputType = InputType.TYPE_CLASS_PHONE })
+        bangsikDanchu = danchu(bangsikMal()) { bangsikBakkugi() }   // 1.7.0 (261021-B15) 공유기 고르기 — 더 보기에서 첫 화면 방송 시작 바로 위로
+        mom.addView(bangsikDanchu)
         bangDanchu = danchu("BYOD 방송 시작", keun = true, norang = true) { bangDanchuNullim() }
         mom.addView(bangDanchu)
 
@@ -241,8 +243,6 @@ class ByodActivity : Activity() {
         deoAn.addView(danchu("접속 도구: 엔에프시 태그와 큐알코드") { startActivity(Intent(this, JeopsokActivity::class.java)) })   // 1.1.0 (261006-B2)
         deoAn.addView(danchu("지난 행사 기록 (녹음과 결과보고)") { haengsaHwamyeon() })   // 1.3.0
         deoAn.addView(danchu("플린트 2 준비하기 (공유기 처음 한 번)") { startActivity(Intent(this, FlintJunbiActivity::class.java)) })   // 1.2.0
-        bangsikDanchu = danchu(bangsikMal()) { bangsikBakkugi() }   // 1.2.0
-        deoAn.addView(bangsikDanchu)
         hamkkeDanchu = danchu(hamkkeMal()) { hamkkeBakkugi() }   // 1.5.0
         deoAn.addView(hamkkeDanchu)
         deoAn.addView(danchu("기기 점검: 소리 장치와 연결 보기") { val t = gigiJeomgeom(this); android.app.AlertDialog.Builder(this).setTitle("기기 점검").setMessage(t).setPositiveButton("닫기", null).setNeutralButton("결과 복사") { _, _ -> try { (getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("기기 점검", t)); malhagi("기기 점검 결과를 복사했습니다.") } catch (_: Exception) { } }.show() })   // 1.1.3 (261007-B5), 1.1.4 결과 복사
@@ -279,15 +279,17 @@ class ByodActivity : Activity() {
         if (yeolgi) gyeorugi(deoAn.getChildAt(0))
     }
 
-    // 1.2.0 방송 방식 — 플린트 2(공유기 안 서버, 기본) 또는 이 기기가 서버(예비)
-    private fun bangsikMal(): String = if (Flint.flintInga(this)) "방송 방식: 플린트 2 공유기. 누르면 이 기기가 서버인 예비 방식으로 바꿉니다"
-        else "방송 방식: 이 기기가 서버(예비). 누르면 플린트 2 공유기 방식으로 바꿉니다"
+    // 1.2.0 방송 방식 — 플린트 2(공유기 안 서버) 또는 이 기기가 서버
+    // 1.7.0 (261021-B15, 이사장님 승인) 「공유기: 아이피타임」과 「공유기: 플린트 2」를 엔터 한 번에 번갈아 고름, 처음값은 아이피타임
+    private fun bangsikMal(): String = if (Flint.flintInga(this)) "공유기: 플린트 2. 누르면 아이피타임으로 바꿉니다"
+        else "공유기: 아이피타임. 누르면 플린트 2로 바꿉니다"
 
     private fun bangsikBakkugi() {
-        if (Bang.kyeojim) { val t = "방송 중에는 방식을 바꾸지 않습니다. 방송을 멈춘 뒤 눌러 주십시오."; bangsikDanchu.announceForAccessibility(t); malhagi(t); return }
+        if (Bang.kyeojim) { val t = "방송 중에는 공유기를 바꾸지 않습니다. 방송을 멈춘 뒤 눌러 주십시오."; bangsikDanchu.announceForAccessibility(t); malhagi(t); return }
         Flint.bangsikBakkugi(this, if (Flint.flintInga(this)) "taebeullit" else "flint")
         bangsikDanchu.text = bangsikMal()
-        val t = if (Flint.flintInga(this)) "플린트 2 공유기 방식으로 바꾸었습니다." else "이 기기가 서버인 예비 방식으로 바꾸었습니다. 이 기기를 랜선으로 공유기에 이으십시오."
+        val t = if (Flint.flintInga(this)) "플린트 2로 바꾸었습니다. 처음 쓰는 플린트 2면 더 보기의 플린트 2 준비하기를 먼저 하십시오."
+            else "아이피타임으로 바꾸었습니다. 이 기기를 허브 랜선으로 아이피타임 공유기에 이으십시오. 듣는 분은 와이파이에 붙은 뒤 듣기 주소 엔에프시 태그나 큐알로 듣습니다."
         bangsikDanchu.announceForAccessibility(t); malhagi(t)
         sangtaeGochigi(true)
     }
@@ -408,7 +410,7 @@ class ByodActivity : Activity() {
         val so = Bang.sojae
         val jm = Bang.jalmot
         val t = if (!k) {
-            "BYOD 방송이 꺼져 있습니다." + (if (Flint.flintInga(this)) " 방송 방식: 플린트 2 공유기." else " 방송 방식: 이 기기가 서버.") + (if (jm.isNotEmpty()) " " + jm else "")
+            "BYOD 방송이 꺼져 있습니다." + " 공유기: " + Flint.gongyugiIreum(this) + "." + (if (jm.isNotEmpty()) " " + jm else "")
         } else {
             (if (Bang.tonghwaJung) "통화 중입니다. 듣는 분께 잠시 기다려 달라는 안내를 보내고 있습니다. 통화가 끝나면 저절로 이어 보냅니다. " else "") +
             "BYOD 방송 중입니다. 듣는 분 " + Bang.deutnunSu + "명. 소리 받는 곳: " + so + "." +
@@ -500,7 +502,7 @@ class ByodActivity : Activity() {
         val l = Haengsa.mokrok(this)
         var cheot: View? = null
         if (l.isEmpty()) {
-            mom.addView(geul("아직 담아 둔 행사가 없습니다. 플린트 2 방식으로 방송을 멈추면 녹음과 결과보고가 여기에 담깁니다.", 20f))
+            mom.addView(geul("아직 담아 둔 행사가 없습니다. 방송을 멈추면 녹음과 결과보고가 여기에 담깁니다.", 20f))
         } else {
             if (l.any { !it.olim }) mom.addView(danchu("다시 듣기에 아직 못 올린 것 지금 올리기") { Haengsa.sijak(this, false); malhagi("다시 듣기에 올리고 있습니다.") })
             val sijak = haengsaJjok * 5
@@ -509,8 +511,9 @@ class ByodActivity : Activity() {
                 val gil = x.gilee.toInt().let { if (it >= 60) "${it / 60}분" else "${it}초" }
                 val an = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
                 an.addView(geul(Haengsa.bogo(this, x.sid), 18f))
-                val f = java.io.File(java.io.File(Haengsa.teo(this), x.sid), "nokeum.mp3")
-                if (f.isFile) an.addView(danchu("녹음 듣기") {
+                // 1.7.0 아이피타임 방식 녹음(뮤 .ul)도 들을 수 있게 — 듣기 때만 웨이브 머리를 붙인 사본을 만들어 틂
+                val f = java.io.File(java.io.File(Haengsa.teo(this), x.sid), "nokeum.mp3").takeIf { it.isFile } ?: Haengsa.deutgiWav(this, x.sid)
+                if (f != null && f.isFile) an.addView(danchu("녹음 듣기") {
                     if (deutgiPlayer != null) { deutgiMeomchum(); malhagi("녹음을 멈추었습니다.") }
                     else try { deutgiPlayer = android.media.MediaPlayer().apply { setDataSource(f.path); prepare(); start(); setOnCompletionListener { deutgiMeomchum() } } } catch (_: Exception) { malhagi("녹음을 틀지 못했습니다.") }
                 })
