@@ -4,6 +4,9 @@
 // 아이폰은 지금 붙은 와이파이 이름을 앱이 알아낼 수 없어, 와이파이 이름은 한 번 넣어 두면 기억합니다.
 // 1.2.0 (261014-BI3, 이사장님 승인 「1」, 방송클) 플린트 2 방식 — 와이파이 태그·큐알 한 장이면 듣기 화면이 저절로 뜸. 듣기 주소 태그·큐알은 예비 방식용으로 펼치기 안에. 와이파이 이름은 방식마다 따로 기억
 // 1.1.6 (261012-BI2, 이사장님 승인 「1」, 방송클) 스티커를 엔에프시 태그로 부름, 듣기 주소 바로잡기와 확인, 엔에프시 태그를 쓴 뒤 다시 읽어 확인, A4 인쇄용 한 장 — 안드로이드 1.1.6과 같음
+// 1.7.0 (261021-BI9, 이사장님 승인) 「예비 방식」을 「아이피타임 방식」으로. 큐알이 커서 카메라에 다 들어오지 않는다 하여 큐알을 작게 —
+//   인쇄하면 한 변 약 5센티미터(300dpi 590점), 화면에서는 한 변 약 4센티미터(250포인트 칸 안). 둘레 흰 여백은 표준대로 4칸.
+//   큐알 그림 저장도 A4 한 장 안에 5센티미터로 넣어 저장. 아이피타임 A4는 가운데 자르는 선(두 큐알이 한 카메라에 함께 잡히지 않게) — 안드로이드 1.7.0과 같음
 import SwiftUI
 import UIKit
 import CoreNFC
@@ -75,58 +78,80 @@ enum Jeopsok {
         }.resume()
     }
 
-    /// 1.1.6 A4 한 장(300dpi, 2480×3508) — 위에 와이파이 큐알, 아래에 듣기 주소 큐알
-    static func a4(wifi: String, ssid: String, juso: String) -> UIImage? {
-        guard let q1 = qrGeurim(wifi), let q2 = qrGeurim(juso) else { return nil }
-        let w: CGFloat = 2480, h: CGFloat = 3508, qk: CGFloat = 1350
+    // 1.7.0 인쇄 크기 — A4(300dpi, 2480×3508)에서 큐알 한 변 590점 = 약 5센티미터
+    static let A4W: CGFloat = 2480, A4H: CGFloat = 3508, QK: CGFloat = 590
+
+    private static func a4Geurigi(_ geurim: (UIGraphicsImageRendererContext, (String, CGFloat, CGFloat, Bool) -> Void) -> Void) -> UIImage {
         let fm = UIGraphicsImageRendererFormat(); fm.scale = 1; fm.opaque = true
-        return UIGraphicsImageRenderer(size: CGSize(width: w, height: h), format: fm).image { c in
-            UIColor.white.setFill(); c.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        return UIGraphicsImageRenderer(size: CGSize(width: A4W, height: A4H), format: fm).image { c in
+            UIColor.white.setFill(); c.fill(CGRect(x: 0, y: 0, width: A4W, height: A4H))
             c.cgContext.interpolationQuality = .none   // 큐알 칸 가장자리가 흐려지지 않게
             let gaunde = NSMutableParagraphStyle(); gaunde.alignment = .center
             func sseugi(_ t: String, _ y: CGFloat, _ k: CGFloat, _ gulgeum: Bool) {
                 let a: [NSAttributedString.Key: Any] = [.font: gulgeum ? UIFont.boldSystemFont(ofSize: k) : UIFont.systemFont(ofSize: k), .foregroundColor: UIColor.black, .paragraphStyle: gaunde]
-                (t as NSString).draw(in: CGRect(x: 0, y: y, width: w, height: k * 1.5), withAttributes: a)
+                (t as NSString).draw(in: CGRect(x: 0, y: y, width: A4W, height: k * 1.5), withAttributes: a)
             }
-            sseugi("1. 와이파이 붙기 (위)", 70, 110, true)
-            q1.draw(in: CGRect(x: (w - qk) / 2, y: 240, width: qk, height: qk))
-            sseugi("와이파이: " + ssid, 1610, 70, false)
-            UIColor.black.setFill(); c.fill(CGRect(x: 200, y: 1752, width: w - 400, height: 4))
-            sseugi("2. 현장영상해설 듣기 (아래)", 1810, 110, true)
-            q2.draw(in: CGRect(x: (w - qk) / 2, y: 1980, width: qk, height: qk))
-            sseugi(juso, 3350, 70, false)
+            geurim(c, sseugi)
         }
     }
 
-    /// 1.2.0 플린트 2 방식 A4 — 와이파이 큐알 하나를 크게(약 17센티미터). 붙으면 듣기 화면이 저절로 뜸
+    private static func jareunSeon(_ c: UIGraphicsImageRendererContext, _ y: CGFloat, _ sseugi: (String, CGFloat, CGFloat, Bool) -> Void) {
+        UIColor.black.setFill()
+        var x: CGFloat = 120
+        while x < A4W - 120 { c.fill(CGRect(x: x, y: y - 2, width: 40, height: 4)); x += 70 }
+        sseugi("자르는 선", y - 90, 50, false)
+    }
+
+    /// 1.1.6 A4 한 장 — 위에 와이파이 큐알, 아래에 듣기 주소 큐알. 1.7.0 큐알을 약 5센티미터로 작게, 가운데 자르는 선(두 장으로 잘라 씀)
+    static func a4(wifi: String, ssid: String, juso: String) -> UIImage? {
+        guard let q1 = qrGeurim(wifi), let q2 = qrGeurim(juso) else { return nil }
+        return a4Geurigi { c, sseugi in
+            sseugi("첫째. 와이파이 붙기", 300, 100, true)
+            sseugi("아이폰 카메라로 비추십시오", 460, 70, false)
+            q1.draw(in: CGRect(x: (A4W - QK) / 2, y: 700, width: QK, height: QK))
+            sseugi("와이파이: " + ssid, 1370, 70, false)
+            jareunSeon(c, 1754, sseugi)
+            sseugi("둘째. 현장영상해설 듣기", 2054, 100, true)
+            sseugi("와이파이에 붙은 뒤 카메라로 비추십시오", 2214, 70, false)
+            q2.draw(in: CGRect(x: (A4W - QK) / 2, y: 2454, width: QK, height: QK))
+            sseugi(juso, 3124, 70, false)
+            sseugi("사단법인 한국시각장애인현장영상해설협회", 3330, 55, false)
+        }
+    }
+
+    /// 1.2.0 플린트 2 방식 A4 — 와이파이 큐알 하나. 1.7.0 약 5센티미터로 작게
     static func a4Flint(wifi: String, ssid: String) -> UIImage? {
         guard let q = qrGeurim(wifi) else { return nil }
-        let w: CGFloat = 2480, h: CGFloat = 3508, qk: CGFloat = 2000
-        let fm = UIGraphicsImageRendererFormat(); fm.scale = 1; fm.opaque = true
-        return UIGraphicsImageRenderer(size: CGSize(width: w, height: h), format: fm).image { c in
-            UIColor.white.setFill(); c.fill(CGRect(x: 0, y: 0, width: w, height: h))
-            c.cgContext.interpolationQuality = .none
-            let gaunde = NSMutableParagraphStyle(); gaunde.alignment = .center
-            func sseugi(_ t: String, _ y: CGFloat, _ k: CGFloat, _ gulgeum: Bool) {
-                let a: [NSAttributedString.Key: Any] = [.font: gulgeum ? UIFont.boldSystemFont(ofSize: k) : UIFont.systemFont(ofSize: k), .foregroundColor: UIColor.black, .paragraphStyle: gaunde]
-                (t as NSString).draw(in: CGRect(x: 0, y: y, width: w, height: k * 1.5), withAttributes: a)
-            }
-            sseugi("현장영상해설 듣기", 180, 120, true)
-            sseugi("카메라로 비추면 와이파이에 붙고 듣기 화면이 뜹니다", 380, 80, false)
-            q.draw(in: CGRect(x: (w - qk) / 2, y: 600, width: qk, height: qk))
-            sseugi("와이파이: " + ssid, 2720, 80, false)
-            sseugi("사단법인 한국시각장애인현장영상해설협회", 3120, 80, false)
+        return a4Geurigi { _, sseugi in
+            sseugi("현장영상해설 듣기", 300, 110, true)
+            sseugi("카메라로 비추면 와이파이에 붙고 듣기 화면이 뜹니다", 470, 70, false)
+            q.draw(in: CGRect(x: (A4W - QK) / 2, y: 720, width: QK, height: QK))
+            sseugi("와이파이: " + ssid, 1390, 70, false)
+            sseugi("사단법인 한국시각장애인현장영상해설협회", 1540, 55, false)
         }
     }
 
-    /// 큐알 그림 — 흰 테두리를 둘러 인쇄해도 잘 읽히게
+    /// 1.7.0 큐알 하나를 A4 한 장 위쪽에 약 5센티미터로(사진 앱에서 쪽에 맞추어 인쇄해도 커지지 않게)
+    static func a4Hana(nae: String, wifi: Bool, ssid: String) -> UIImage? {
+        guard let q = qrGeurim(nae) else { return nil }
+        return a4Geurigi { _, sseugi in
+            sseugi(wifi ? "와이파이 붙기" : "현장영상해설 듣기", 300, 100, true)
+            sseugi(wifi ? "아이폰 카메라로 비추십시오" : "와이파이에 붙은 뒤 카메라로 비추십시오", 460, 70, false)
+            q.draw(in: CGRect(x: (A4W - QK) / 2, y: 700, width: QK, height: QK))
+            sseugi(wifi ? "와이파이: " + ssid : nae, 1370, 70, false)
+            sseugi("사단법인 한국시각장애인현장영상해설협회", 1520, 55, false)
+        }
+    }
+
+    /// 큐알 그림 — 1.7.0 둘레 흰 여백 4칸(표준), 칸 하나 12점
     static func qrGeurim(_ t: String) -> UIImage? {
         let f = CIFilter.qrCodeGenerator()
         f.message = Data(t.utf8)
         f.correctionLevel = "M"
         guard let o = f.outputImage?.transformed(by: CGAffineTransform(scaleX: 12, y: 12)) else { return nil }
         guard let cg = CIContext().createCGImage(o, from: o.extent) else { return nil }
-        let w = o.extent.width, teduri: CGFloat = 48
+        // CIFilter 큐알은 둘레에 1칸 여백이 붙어 나오므로 3칸을 더 둘러 모두 4칸
+        let w = o.extent.width, teduri: CGFloat = 12 * 3
         let fm = UIGraphicsImageRendererFormat()
         fm.scale = 1
         fm.opaque = true
@@ -134,6 +159,7 @@ enum Jeopsok {
         return r.image { c in
             UIColor.white.setFill()
             c.fill(CGRect(x: 0, y: 0, width: w + teduri * 2, height: w + teduri * 2))
+            c.cgContext.interpolationQuality = .none
             UIImage(cgImage: cg).draw(in: CGRect(x: teduri, y: teduri, width: w, height: w))
         }
     }
@@ -248,6 +274,7 @@ struct JeopsokView: View {
     @State private var allim = ""
     @State private var qr: UIImage?
     @State private var qrIreum = ""
+    @State private var qrNae = ""   // 1.7.0 화면에 띄운 큐알 하나의 내용(A4 두 장짜리를 띄웠으면 빈 글)
     @AccessibilityFocusState private var wiChojeom: Bool
     @AccessibilityFocusState private var allimChojeom: Bool
 
@@ -256,7 +283,7 @@ struct JeopsokView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Danchu(geul: "뒤로") { dwiro() }.accessibilityFocused($wiChojeom)
                 Geul(flint ? "플린트 2 방식입니다. 듣는 분은 와이파이 태그 한 번(안드로이드)이나 와이파이 큐알 한 번(아이폰)이면 듣기 화면이 저절로 뜹니다. 듣기 주소 태그는 필요 없습니다."
-                           : "방송 와이파이와 듣기 주소를 확인하고 아래에서 고르십시오. 와이파이 이름은 한 번 넣어 두면 기억합니다.")
+                           : "아이피타임 방식입니다. 듣는 분은 두 번 합니다. 첫째, 와이파이에 붙습니다(안드로이드는 와이파이 태그, 아이폰은 와이파이 큐알). 둘째, 듣기 주소 태그나 듣기 주소 큐알로 듣기 화면을 엽니다(안드로이드와 아이폰 모두). 방송 와이파이 이름은 아이피타임 공유기 와이파이 이름 그대로 넣으십시오. 한 번 넣어 두면 기억합니다.")
                 Kan(ireum: "방송 와이파이 이름", gap: ssidB)
                 Kan(ireum: "와이파이 비밀번호(없으면 비워 두기)", gap: $pw)
                 if !allim.isEmpty {
@@ -271,14 +298,14 @@ struct JeopsokView: View {
                 }
                 Danchu(geul: "엔에프시 태그 쓰기 멈추기") { NfcSseugi.shared.meomchugi() }
                 Geul("큐알코드(아이폰은 카메라로 비추면 와이파이에 붙음)", gulgeum: true).accessibilityAddTraits(.isHeader)
-                Danchu(geul: flint ? "A4 인쇄용 한 장 만들기: 와이파이 큐알" : "A4 인쇄용 한 장 만들기: 위 와이파이, 아래 듣기 주소") {   // 1.1.6, 1.2.0
+                Danchu(geul: flint ? "A4 인쇄용 한 장 만들기: 와이파이 큐알" : "A4 인쇄용 한 장 만들기: 위 와이파이, 아래 듣기 주소, 가운데를 잘라 두 장") {   // 1.1.6, 1.2.0, 1.7.0
                     let s = ssid.trimmingCharacters(in: .whitespaces)
                     if s.isEmpty { mal("방송 와이파이 이름을 먼저 넣어 주십시오."); return }
                     if flint {   // 1.2.0
                         guard let a = Jeopsok.a4Flint(wifi: Jeopsok.wifiQr(ssid: s, pw: pw), ssid: s) else { mal("그림을 만들지 못했습니다."); return }
-                        qr = a; qrIreum = "A4 인쇄용 한 장, 와이파이"
+                        qr = a; qrIreum = "A4 인쇄용 한 장, 와이파이"; qrNae = ""
                         SajinJeojang.shared.jeojang(a) { ok in
-                            mal(ok ? "A4 인쇄용 한 장을 사진 앱에 저장했습니다. 와이파이 큐알 하나입니다. 붙으면 듣기 화면이 저절로 뜹니다." : "저장하지 못했습니다. 아이폰 설정에서 LVD 송출의 사진 추가를 허용해 주십시오.")
+                            mal(ok ? "A4 인쇄용 한 장을 사진 앱에 저장했습니다. 와이파이 큐알 하나이며 한 변 약 5센티미터입니다. 붙으면 듣기 화면이 저절로 뜹니다." : "저장하지 못했습니다. 아이폰 설정에서 LVD 송출의 사진 추가를 허용해 주십시오.")
                         }
                         return
                     }
@@ -286,9 +313,9 @@ struct JeopsokView: View {
                     if j.isEmpty { mal("듣기 주소가 비었습니다."); return }
                     Hyeonjang.stickerGieok(j)
                     guard let a = Jeopsok.a4(wifi: Jeopsok.wifiQr(ssid: s, pw: pw), ssid: s, juso: j) else { mal("그림을 만들지 못했습니다."); return }
-                    qr = a; qrIreum = "A4 인쇄용 한 장, 위 와이파이, 아래 듣기 주소"
+                    qr = a; qrIreum = "A4 인쇄용 한 장, 위 와이파이, 아래 듣기 주소, 가운데 자르는 선"; qrNae = ""
                     SajinJeojang.shared.jeojang(a) { ok in
-                        mal(ok ? "A4 인쇄용 한 장을 사진 앱에 저장했습니다. 위는 와이파이 붙기, 아래는 현장영상해설 듣기 큐알입니다." : "저장하지 못했습니다. 아이폰 설정에서 LVD 송출의 사진 추가를 허용해 주십시오.")
+                        mal(ok ? "A4 인쇄용 한 장을 사진 앱에 저장했습니다. 큐알은 한 변 약 5센티미터입니다. 인쇄한 뒤 가운데 자르는 선을 따라 잘라 위는 와이파이, 아래는 듣기로 쓰십시오." : "저장하지 못했습니다. 아이폰 설정에서 LVD 송출의 사진 추가를 허용해 주십시오.")
                     }
                 }
                 Danchu(geul: "큐알 보기: 와이파이 붙기") {
@@ -297,14 +324,16 @@ struct JeopsokView: View {
                     qrBoyeogi(Jeopsok.wifiQr(ssid: s, pw: pw), "와이파이 붙기")
                 }
                 Danchu(geul: "큐알 그림 저장(인쇄용)") {
-                    guard let q = qr else { mal("먼저 큐알 보기를 눌러 주십시오."); return }
+                    guard let q0 = qr else { mal("먼저 큐알 보기를 눌러 주십시오."); return }
+                    // 1.7.0 큐알 하나는 A4 한 장 안에 약 5센티미터로 넣어 저장
+                    let q = qrNae.isEmpty ? q0 : (Jeopsok.a4Hana(nae: qrNae, wifi: qrIreum == "와이파이 붙기", ssid: ssid.trimmingCharacters(in: .whitespaces)) ?? q0)
                     SajinJeojang.shared.jeojang(q) { ok in
-                        mal(ok ? "사진 앱에 저장했습니다. 그 그림을 인쇄하시면 됩니다." : "저장하지 못했습니다. 아이폰 설정에서 LVD 송출의 사진 추가를 허용해 주십시오.")
+                        mal(ok ? "A4 한 장으로 사진 앱에 저장했습니다. 큐알은 한 변 약 5센티미터입니다. 그 그림을 인쇄하시면 됩니다." : "저장하지 못했습니다. 아이폰 설정에서 LVD 송출의 사진 추가를 허용해 주십시오.")
                     }
                 }
-                // 듣기 주소 태그·큐알 — 예비 방식(이 아이폰이 서버)에서 씀. 플린트 2 방식에서는 펼쳐야 보임
+                // 듣기 주소 태그·큐알 — 아이피타임 방식(이 아이폰이 서버)에서 씀. 플린트 2 방식에서는 펼쳐야 보임
                 if flint {
-                    Danchu(geul: jusoPyeolchim ? "듣기 주소 태그와 큐알 접기" : "듣기 주소 태그와 큐알 펼치기 (예비 방식에서 씀)") { jusoPyeolchim.toggle() }
+                    Danchu(geul: jusoPyeolchim ? "듣기 주소 태그와 큐알 접기" : "듣기 주소 태그와 큐알 펼치기 (아이피타임 방식에서 씀)") { jusoPyeolchim.toggle() }
                 }
                 if !flint || jusoPyeolchim {
                     Kan(ireum: "듣기 주소", gap: $juso)
@@ -323,7 +352,9 @@ struct JeopsokView: View {
                     }
                 }
                 if let q = qr {
+                    // 1.7.0 화면 큐알은 250포인트 칸 안에 작게(아이폰에서 한 변 약 4센티미터), 가운데에
                     Image(uiImage: q).resizable().interpolation(.none).scaledToFit()
+                        .frame(width: 250, height: 250)
                         .frame(maxWidth: .infinity)
                         .accessibilityLabel(qrIreum + " 큐알코드")
                 }
@@ -357,7 +388,7 @@ struct JeopsokView: View {
         mal("듣기 주소 \(ilkgi) 를 확인하고 있습니다.")
         Jeopsok.hwagin(j) { ok in
             mal(ok ? "확인했습니다. 듣기 주소 \(ilkgi) 에서 LVD 송출이 답합니다."
-                   : "듣기 주소 \(ilkgi) 에서 답이 없습니다. 방송을 켰는지, 이 아이폰이 방송 공유기에 붙었는지 보십시오. 방송을 켜지 않았으면 그대로 써도 됩니다.")
+                   : "듣기 주소 \(ilkgi) 에서 답이 없습니다. 방송을 켰는지, 이 아이폰이 아이피타임 공유기에 붙었는지 보십시오. 방송을 켜지 않았으면 그대로 써도 됩니다.")
             f()
         }
     }
@@ -366,6 +397,7 @@ struct JeopsokView: View {
         guard let i = Jeopsok.qrGeurim(nae) else { mal("큐알을 만들지 못했습니다."); return }
         qr = i
         qrIreum = ireum
-        mal("\(ireum) 큐알코드를 화면 아래에 띄웠습니다. 인쇄하려면 큐알 그림 저장을 누르십시오.")
+        qrNae = nae   // 1.7.0 저장할 때 A4 한 장 안에 다시 그림
+        mal("\(ireum) 큐알코드를 화면 아래에 띄웠습니다. 한 변 약 4센티미터입니다. 인쇄하려면 큐알 그림 저장을 누르십시오.")
     }
 }
