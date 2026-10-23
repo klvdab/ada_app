@@ -53,6 +53,7 @@ object Deut {
     fun bakkum(t: String, malhal: Boolean) {
         if (t == sangtae) return
         sangtae = t
+        try { Girok.namgi("deut", mapOf("mal" to t, "jari" to Hyeonjang.jari)) } catch (_: Exception) { }   // 2.4.1 이용 기록
         allyeo()
         if (malhal) mal?.invoke(t)
     }
@@ -119,6 +120,7 @@ class DeutService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        Girok.sijak(applicationContext)   // 2.4.1 이용 기록
         am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         tongjiCheot()
         val f = IntentFilter(SONGCHUL)
