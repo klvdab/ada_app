@@ -86,6 +86,7 @@ class ByodService : Service() {
     override fun onCreate() {
         super.onCreate()
         chaeneol()
+        Girok.sijak(applicationContext)   // 1.8.0
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -148,6 +149,36 @@ class ByodService : Service() {
         Bang.gwanchal.add(gwan)
         inteonetSijak()
         Bang.allyeo()
+        girokSijak("iptime")   // 1.8.0
+    }
+
+    // 1.8.0 (261023-B16) 이용 기록과, 듣는 앱이 이 폰을 찾을 수 있는지 10초마다 스스로 확인(아이피타임 방식)
+    @Volatile private var girokDolgo = false
+    @Volatile private var girokSeq = 0
+    private fun girokSijak(bangsik: String) {
+        Girok.namgi("bang_sijak", mapOf("bangsik" to bangsik, "juso" to Bang.juso, "inteonet_hamkke" to Inteonet.hamkke(this), "jeonhwa" to (Inteonet.jeonhwa(this).length >= 9)))
+        Bang.mundapTtae = 0L
+        girokDolgo = true
+        val nae = ++girokSeq
+        Thread({
+            var cho = 0
+            while (girokDolgo && nae == girokSeq) {
+                if (bangsik == "iptime") {
+                    val ok = try {
+                        val k = java.net.URL(Bang.juso.trimEnd('/') + "/status").openConnection() as java.net.HttpURLConnection
+                        k.connectTimeout = 2000; k.readTimeout = 2000; k.useCaches = false
+                        val r = k.responseCode == 200 && k.inputStream.bufferedReader().readText().contains("\"hyeonjang\":true")
+                        k.disconnect(); r
+                    } catch (_: Exception) { false }
+                    val jeon = System.currentTimeMillis() - Bang.mundapTtae < 25_000
+                    if (ok) Bang.mundapTtae = System.currentTimeMillis()
+                    if (cho == 0 || ok != jeon) Girok.namgi("mundap", mapOf("ok" to ok, "juso" to Bang.juso))
+                }
+                if (cho % 6 == 0 && cho > 0) Girok.namgi("deutneun", mapOf("n" to Bang.deutnunSu))
+                cho++
+                try { Thread.sleep(10_000) } catch (_: InterruptedException) { }
+            }
+        }, "byod-girok").apply { isDaemon = true }.start()
     }
 
     // 1.2.0 플린트 2 방식 — 소리 받기는 그대로, 받은 소리를 공유기로 보냄
@@ -166,6 +197,7 @@ class ByodService : Service() {
         Bang.gwanchal.add(gwan)
         inteonetSijak()
         Bang.allyeo()
+        girokSijak("flint")   // 1.8.0
     }
 
     /** 1.5.0 현장 방송과 함께 인터넷 방송 — 제목은 행사 이름(비면 날짜와 시각), 현장영상해설사 이름을 함께 */
@@ -191,6 +223,7 @@ class ByodService : Service() {
         songchulH.removeCallbacks(songchulAllim)
         try { jikim?.meomchugi() } catch (_: Exception) { }; jikim = null   // 1.6.0
         songchulBonaegi(false)
+        girokDolgo = false; Girok.namgi("bang_kkeut", mapOf("deutneun" to Bang.deutnunSu)); Girok.bonaegi()   // 1.8.0
         Bang.gwanchal.remove(gwan)
         Bang.keu = false
         Bang.kyeojim = false

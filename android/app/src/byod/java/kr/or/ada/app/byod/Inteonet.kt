@@ -55,7 +55,7 @@ object Inteonet {
     private var mang: Network? = null
     private var mangCb: ConnectivityManager.NetworkCallback? = null
 
-    private fun allim(t: String) { if (jul != t) { jul = t; Bang.allyeo() } }
+    private fun allim(t: String) { if (jul != t) { jul = t; Bang.allyeo(); if (t.isNotEmpty()) Girok.namgi("inteonet", mapOf("mal" to t)) } }   // 1.8.0 기록
     private fun mal(s: String) = URLEncoder.encode(s, "UTF-8")
     private fun nanSu(n: Int): String { val g = "abcdefghijklmnopqrstuvwxyz0123456789"; return (1..n).map { g.random() }.joinToString("") }
 

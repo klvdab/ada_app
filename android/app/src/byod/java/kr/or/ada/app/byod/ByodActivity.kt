@@ -96,6 +96,7 @@ class ByodActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Girok.sijak(applicationContext)   // 1.8.0 이용 기록
         title = "LVD 송출"
         window.statusBarColor = Saek.bada
         window.navigationBarColor = Saek.bada
