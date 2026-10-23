@@ -69,6 +69,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
         DispatchQueue.main.async {
             guard t != self.sangtae else { return }
             self.sangtae = t
+            BfbGirok.shared.namgi("deut", ["mal": t, "jari": Hyeonjang.jari])   // 2.4.1 이용 기록
             if malhal { self.mal?(t) }
         }
     }
