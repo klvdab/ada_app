@@ -58,6 +58,12 @@ enum Hyeonjang {
         // 1.7.0 (261021-BI9) 아이피타임 방식 — 공유기 이름을 밝히고, 이 아이폰이 녹음하고 있는지 살핌
         l.append(juso.isEmpty ? Jul(doem: false, mal: "공유기(아이피타임): 붙지 않았습니다. 아이폰을 아이피타임 와이파이에 붙이거나, 어댑터에 랜선을 꽂아 아이피타임 공유기의 랜 구멍과 이으십시오.")
                               : Jul(doem: true, mal: "공유기(아이피타임): 붙었습니다. 듣기 주소 \(juso)"))
+        // 1.8.0 (261023-BI10) 듣는 앱(LVD 방송 2.4.0부터)이 이 아이폰을 찾을 수 있는지 — 방송 중 10초마다 스스로 물어 본 결과
+        if b.kyeojim {
+            l.append(Date().timeIntervalSince(Bang.mundapTtae) < 25
+                     ? Jul(doem: true, mal: "듣는 앱이 찾을 자리: 답합니다. 같은 와이파이의 LVD 방송 앱이 이 아이폰을 저절로 찾습니다.")
+                     : Jul(doem: false, mal: "듣는 앱이 찾을 자리: 답하지 않습니다. 이 아이폰이 아이피타임 공유기에 붙었는지, 듣는 폰이 같은 아이피타임 와이파이에 붙었는지 확인하십시오."))
+        }
         if b.kyeojim {
             let gn = GigiNokeum.shared
             l.append(!gn.sid.isEmpty && gn.sseunBaiteu > 0

@@ -97,7 +97,7 @@ final class InteonetBonaegi {
 
     // MARK: 일꾼 줄기
 
-    private func allim(_ t: String) { Bang.shared.juge { b in if b.inteonet != t { b.inteonet = t } } }
+    private func allim(_ t: String) { Bang.shared.juge { b in if b.inteonet != t { b.inteonet = t; if !t.isEmpty { ByodGirok.shared.namgi("inteonet", ["mal": t]) } } } }   // 1.8.0 기록
 
     private static func mal(_ s: String) -> String { s.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "" }
     private static func nanSu(_ n: Int) -> String { String((0..<n).map { _ in "abcdefghijklmnopqrstuvwxyz0123456789".randomElement()! }) }

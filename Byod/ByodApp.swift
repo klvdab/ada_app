@@ -16,7 +16,7 @@ struct ByodApp: App {
         WindowGroup {
             RootView()
                 .preferredColorScheme(.dark)
-                .onAppear { ByodOllim.shared.sijak() }
+                .onAppear { ByodOllim.shared.sijak(); ByodGirok.shared.sijak() }   // 1.8.0 이용 기록
         }
     }
 }

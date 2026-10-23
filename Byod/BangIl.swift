@@ -69,6 +69,7 @@ final class BangIl {
         b.sigakTtae = Date()
         inteonetSijak()
         soriTtae = Date().timeIntervalSince1970; jikim.sijak()   // 1.6.0
+        girokSijak("iptime")   // 1.8.0
         return "BYOD 방송을 시작했습니다."
     }
 
@@ -91,7 +92,39 @@ final class BangIl {
         b.sigakTtae = Date()
         inteonetSijak()
         soriTtae = Date().timeIntervalSince1970; jikim.sijak()   // 1.6.0
+        girokSijak("flint")   // 1.8.0
         return "BYOD 방송을 시작했습니다. 해설 소리를 플린트 2 공유기로 보냅니다."
+    }
+
+    /// 1.8.0 (261023-BI10) 이용 기록과, 듣는 앱이 이 아이폰을 찾을 수 있는지 10초마다 스스로 확인(아이피타임 방식)
+    private var girokTimer: Timer?
+    private var girokCho = 0
+    private func girokSijak(_ bangsik: String) {
+        let b = Bang.shared
+        ByodGirok.shared.namgi("bang_sijak", ["bangsik": bangsik, "juso": b.juso, "inteonet_hamkke": InteonetBonaegi.hamkke, "jeonhwa": InteonetBonaegi.jeonhwa.count >= 9])
+        Bang.mundapTtae = .distantPast
+        girokCho = 0
+        girokTimer?.invalidate()
+        let t = Timer(timeInterval: 10, repeats: true) { [weak self] _ in self?.girokDolgi(bangsik) }
+        RunLoop.main.add(t, forMode: .common)
+        girokTimer = t
+        girokDolgi(bangsik)
+    }
+    private func girokDolgi(_ bangsik: String) {
+        let b = Bang.shared
+        let cho = girokCho; girokCho += 1
+        if cho % 6 == 0 && cho > 0 { ByodGirok.shared.namgi("deutneun", ["n": b.deutnunSu]) }
+        guard bangsik == "iptime", let u = URL(string: b.juso.hasSuffix("/") ? b.juso + "status" : b.juso + "/status") else { return }
+        var r = URLRequest(url: u, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 2)
+        r.allowsCellularAccess = false
+        let jeon = Date().timeIntervalSince(Bang.mundapTtae) < 25
+        URLSession.shared.dataTask(with: r) { d, res, _ in
+            let ok = (res as? HTTPURLResponse)?.statusCode == 200 && (d.flatMap { String(data: $0, encoding: .utf8) } ?? "").contains("\"hyeonjang\":true")
+            DispatchQueue.main.async {
+                if ok { Bang.mundapTtae = Date() }
+                if cho == 0 || ok != jeon { ByodGirok.shared.namgi("mundap", ["ok": ok, "juso": b.juso]) }
+            }
+        }.resume()
     }
 
     /// 1.5.0 현장 방송과 함께 인터넷 방송 — 제목은 행사 이름(비면 날짜와 시각), 현장영상해설사 이름을 함께
@@ -107,6 +140,8 @@ final class BangIl {
         let b = Bang.shared
         b.keu = false
         jikim.meomchugi()   // 1.6.0
+        girokTimer?.invalidate(); girokTimer = nil   // 1.8.0
+        if b.kyeojim { ByodGirok.shared.namgi("bang_kkeut", ["deutneun": b.deutnunSu]); ByodGirok.shared.bonaegi() }
         InteonetBonaegi.shared.meomchugi()   // 1.5.0
         sori?.meomchugi()
         sori = nil
