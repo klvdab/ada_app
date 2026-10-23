@@ -218,7 +218,8 @@ class DeutService : Service() {
             if (Deut.songchulJung && !iyeopon()) { Deut.deullim = false; Deut.bakkum("이 폰에서 LVD 송출이 방송 중이라 스피커로는 틀지 않습니다. 이어폰을 꽂으시면 들립니다.", false); swigi(2000); continue }
             // 2. 행사장 망 찾기
             val n = Hyeonjang.mang(this)
-            if (n == null) {
+            val jm0 = if (n != null) Hyeonjang.salpigi(this) else null   // 2.4.0 아무 와이파이나 붙어 있어도 방송이 답해야 행사장
+            if (n == null || jm0 == null) {
                 Deut.deullim = false
                 val now = System.currentTimeMillis()
                 if (beoseonaTtae == 0L) beoseonaTtae = now
@@ -234,10 +235,9 @@ class DeutService : Service() {
             // 3. 받아 틀기
             var at: AudioTrack? = null
             try {
-                val jm = Hyeonjang.salpigi(this)
-                if (jm == null) { swigi(2000); continue }
+                val jm = jm0
                 Deut.jemok = jm
-                val k = n.openConnection(URL("http://${Hyeonjang.IP}:${Hyeonjang.WEB}/stream")) as HttpURLConnection
+                val k = n.openConnection(Hyeonjang.stream()) as HttpURLConnection   // 2.4.0 찾아 둔 자리(플린트 2 또는 아이피타임 방식 송출 폰)
                 k.connectTimeout = 4000; k.readTimeout = 8000; k.useCaches = false
                 kon = k
                 val ins: InputStream = k.inputStream
