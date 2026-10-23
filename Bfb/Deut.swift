@@ -145,7 +145,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
             let ses = URLSession(configuration: c, delegate: s, delegateQueue: nil)
             s.session?.invalidateAndCancel()
             s.session = ses
-            guard let u = URL(string: "http://\(Hyeonjang.IP):\(Hyeonjang.WEB)/stream") else { return }
+            guard let u = Hyeonjang.stream else { return }   // 2.4.0 찾아 둔 자리(플린트 2 또는 아이피타임 방식 송출 폰)
             s.namjin = Data()
             s.majimakBatgi = Date()
             let t = ses.dataTask(with: u)
