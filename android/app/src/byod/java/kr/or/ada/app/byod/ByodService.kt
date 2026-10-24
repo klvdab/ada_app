@@ -133,6 +133,7 @@ class ByodService : Service() {
             return
         }
         seobeo = s
+        wifiJabgi()   // 1.8.1 (261024-B16a) 인터넷 없는 공유기 와이파이를 폰이 버리지 않게 붙잡아 둠
         Bang.juso = jusoChatgi()
         Bang.keu = true
         Bang.kyeojim = true
@@ -164,6 +165,23 @@ class ByodService : Service() {
             var cho = 0
             while (girokDolgo && nae == girokSeq) {
                 if (bangsik == "iptime") {
+                    // 1.8.1 (261024-B16a, 이사장님 지시 「고쳐 지금 당장」) 10월 24일 상암 — 송출 폰이 아이피타임에 붙고 2분 뒤 모바일 데이터로 넘어가
+                    //   주소가 192.0.0.4 로 바뀌어 듣는 분 0명. 방송 중 주소가 공유기 주소(192.168…)에서 벗어나면 바로 크게 알리고, 돌아오면 주소를 고침
+                    val jj = jusoChatgi()
+                    val host = jj.removePrefix("http://").substringBefore(":")
+                    if (jj.isNotEmpty() && host.startsWith("192.168.")) {
+                        if (Bang.jalmot.startsWith("공유기에서 떨어졌습니다")) { Bang.jalmot = ""; Bang.allyeo() }
+                        if (jj != Bang.juso) { Bang.juso = jj; Bang.allyeo() }
+                    } else if (!Bang.jalmot.startsWith("공유기에서 떨어졌습니다")) {
+                        Bang.jalmot = "공유기에서 떨어졌습니다. 이 폰이 모바일 데이터로 넘어가 듣는 분이 방송을 찾지 못합니다. 모바일 데이터를 끄고 아이피타임 와이파이에 다시 붙이십시오. 인터넷 없음이라고 물으면 연결 유지를 누르십시오."
+                        Bang.allyeo()
+                        Girok.namgi("gongyugi_tteoreojim", mapOf("juso" to jj))
+                        try {
+                            val v = getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
+                            @Suppress("DEPRECATION")
+                            if (Build.VERSION.SDK_INT >= 26) v.vibrate(android.os.VibrationEffect.createWaveform(longArrayOf(0, 600, 300, 600, 300, 600), -1)) else v.vibrate(longArrayOf(0, 600, 300, 600, 300, 600), -1)
+                        } catch (_: Exception) { }
+                    }
                     val ok = try {
                         val k = java.net.URL(Bang.juso.trimEnd('/') + "/status").openConnection() as java.net.HttpURLConnection
                         k.connectTimeout = 2000; k.readTimeout = 2000; k.useCaches = false
@@ -174,11 +192,32 @@ class ByodService : Service() {
                     if (ok) Bang.mundapTtae = System.currentTimeMillis()
                     if (cho == 0 || ok != jeon) Girok.namgi("mundap", mapOf("ok" to ok, "juso" to Bang.juso))
                 }
-                if (cho % 6 == 0 && cho > 0) Girok.namgi("deutneun", mapOf("n" to Bang.deutnunSu))
+                if (cho % (if (bangsik == "iptime") 12 else 6) == 0 && cho > 0) Girok.namgi("deutneun", mapOf("n" to Bang.deutnunSu))
                 cho++
-                try { Thread.sleep(10_000) } catch (_: InterruptedException) { }
+                try { Thread.sleep(if (bangsik == "iptime") 5_000 else 10_000) } catch (_: InterruptedException) { }
             }
         }, "byod-girok").apply { isDaemon = true }.start()
+    }
+
+    // 1.8.1 (261024-B16a) 인터넷 없는 와이파이 붙잡아 두기 — 안드로이드는 인터넷이 안 되는 와이파이를 끊고 모바일 데이터로 옮겨 가는데,
+    //   이 앱이 「인터넷 없어도 되는 와이파이」를 청해 들고 있으면 그 와이파이를 끊지 않음. 방송을 멈추면 놓음
+    private var wifiCb: android.net.ConnectivityManager.NetworkCallback? = null
+    private fun wifiJabgi() {
+        try {
+            val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+            val req = android.net.NetworkRequest.Builder()
+                .addTransportType(android.net.NetworkCapabilities.TRANSPORT_WIFI)
+                .removeCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+            val cb = object : android.net.ConnectivityManager.NetworkCallback() { }
+            cm.requestNetwork(req, cb)
+            wifiCb = cb
+        } catch (_: Exception) { }
+    }
+    private fun wifiNoki() {
+        val cb = wifiCb ?: return
+        wifiCb = null
+        try { (getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager).unregisterNetworkCallback(cb) } catch (_: Exception) { }
     }
 
     // 1.2.0 플린트 2 방식 — 소리 받기는 그대로, 받은 소리를 공유기로 보냄
@@ -228,6 +267,7 @@ class ByodService : Service() {
         Bang.keu = false
         Bang.kyeojim = false
         Inteonet.meomchugi()   // 1.5.0
+        wifiNoki()   // 1.8.1
         try { sori?.meomchugi() } catch (_: Exception) { }
         try { seobeo?.meomchugi() } catch (_: Exception) { }
         val flintDolatda = bonaegi != null
