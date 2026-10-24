@@ -5,13 +5,14 @@
 //   → (인터넷 방송이 여럿이면 고르기) → TV해설방송 듣기 → 다시 듣기 → 「현장영상해설사 도움 요청」(행사장에서) → (처음 한 번) 저절로 들리게 하기 → 새 판 한 줄
 //   → 더 보기(방송 알림 받기, 인터넷 방송 목록, 그 밖에 들을 거리 TV방송·라디오방송, 저절로 듣기, 와이파이, 말소리, 도움말, 새로고침, 업데이트, 판 정보)
 // 행사장(행사장 와이파이)이면 앱을 열기만 해도 곧바로 들려 드립니다.
+// 2.5.0(빌드 261024-LI7): 듣는 인터넷 방송에 영상이 실려 있으면 상태 한 줄 아래에 「영상으로 보기」(Bogi.swift). 고르기 목록에도 영상이 있는 방송은 영상으로 보기 단추를 함께.
 import SwiftUI
 import UIKit
 import AVFoundation
 
 enum Pan {
-    static let PAN = "2.4.1"   // 2.4.1(261023-LI6) 이용 기록 — 듣기 상태가 바뀔 때마다 협회 서버에 남김(새방클, 이사장님 지시 2026-10-22). 2.4.0(261023-LI5) 아이피타임 방식 BYOD 방송도 저절로 찾아 들음(와이파이 안에서 8080번 문을 연 LVD 송출 폰 찾기, 찾은 자리 기억), 도움말 두 항목(새방클, 이사장님 지시 2026-10-23). 2.3.0(261019-LI4) 다시 듣기 내려받기를 앱 안에서(소리 mp3 두 가지·받아쓰기 글, 와이파이가 아니면 데이터 크기를 먼저 여쭘), 다시 듣기도 화면 잠가도 이어지고 전화 오면 멈춤, BYOD 방송 이름, 도움말 네 항목 더함(방클, 이사장님 결정 2026-10-19). 2.2.0(261018-LI3) LVD 방송 정리 — 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기를 첫 화면에, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 2.1.0(261016-LI2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 인터넷 생방송 듣기로 이름 줄임, 앱 안 누리집의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-LI1) LVD 방송 아이폰 첫 판 — 행사장 와이파이 저절로 붙기, 앱 열면 곧바로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
-    static let BILD = "261023-LI6"
+    static let PAN = "2.5.0"   // 2.5.0(261024-LI7) 대조표 미진한 부분 고치기(새방송클, 이사장님 지시 2026-10-24) — 인터넷 방송 영상으로 보기(늦게 들어와도). 2.4.1(261023-LI6) 이용 기록 — 듣기 상태가 바뀔 때마다 협회 서버에 남김(새방클, 이사장님 지시 2026-10-22). 2.4.0(261023-LI5) 아이피타임 방식 BYOD 방송도 저절로 찾아 들음(와이파이 안에서 8080번 문을 연 LVD 송출 폰 찾기, 찾은 자리 기억), 도움말 두 항목(새방클, 이사장님 지시 2026-10-23). 2.3.0(261019-LI4) 다시 듣기 내려받기를 앱 안에서(소리 mp3 두 가지·받아쓰기 글, 와이파이가 아니면 데이터 크기를 먼저 여쭘), 다시 듣기도 화면 잠가도 이어지고 전화 오면 멈춤, BYOD 방송 이름, 도움말 네 항목 더함(방클, 이사장님 결정 2026-10-19). 2.2.0(261018-LI3) LVD 방송 정리 — 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기를 첫 화면에, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 2.1.0(261016-LI2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 인터넷 생방송 듣기로 이름 줄임, 앱 안 누리집의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-LI1) LVD 방송 아이폰 첫 판 — 행사장 와이파이 저절로 붙기, 앱 열면 곧바로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
+    static let BILD = "261024-LI7"
     static let BAEP = "https://lvd.ada.or.kr/bfblive/"
 }
 
@@ -100,7 +101,7 @@ func allim(_ t: String) {
 
 // MARK: 첫 화면
 
-enum Hwamyeon: Equatable { case cheot, doumal, web(String, String) }
+enum Hwamyeon: Equatable { case cheot, doumal, web(String, String), bogi(String, String) }   // 2.5.0 bogi(방 번호, 제목) — 영상으로 보기
 
 struct CheotHwamyeon: View {
     @ObservedObject private var deut = Deut.shared
@@ -124,6 +125,7 @@ struct CheotHwamyeon: View {
             case .cheot: cheot
             case .doumal: DoumalHwamyeon { hwamyeon = .cheot }
             case .web(let jemok, let juso): WebHwamyeon(jemok: jemok, juso: juso) { hwamyeon = .cheot }
+            case .bogi(let sid, let jemok): BogiHwamyeon(sid: sid, jemok: jemok) { hwamyeon = .cheot }
             }
         }
         .onAppear {
@@ -141,9 +143,16 @@ struct CheotHwamyeon: View {
                 Danchu(deut.kyeojim ? "듣기 멈추기" : "지금 현장영상해설 듣기", keun: true, norang: true) { deutNureum() }
                     .accessibilityFocused($deutCursor)
                 Geul(deut.sangtae, gulgeum: true)
+                // 2.5.0 듣는 인터넷 방송에 영상이 있으면 영상으로 보기
+                if let bb = deut.bogiBang {
+                    Danchu("영상으로 보기" + (bb.jemok.isEmpty ? "" : " — " + bb.jemok)) { hwamyeon = .bogi(bb.id, bb.jemok) }
+                }
                 // 2.2.0 인터넷 방송이 여럿이면 고르기
                 ForEach(deut.gorgi) { b in
                     Danchu(b.ireum) { deut.inteonetGoreum(b) }
+                    if b.yeongsang {   // 2.5.0
+                        Danchu("영상으로 보기 — " + (b.jemok.isEmpty ? "제목 없는 방송" : b.jemok)) { hwamyeon = .bogi(b.id, b.jemok) }
+                    }
                 }
                 Danchu("TV해설방송 듣기") { hwamyeon = .web("TV해설방송 듣기", "https://lvd.ada.or.kr/lvds/haeseol_deutgi.html") }
                 Danchu("다시 듣기") { hwamyeon = .web("다시 듣기", Pan.BAEP + "dasi.html") }

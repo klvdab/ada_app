@@ -47,10 +47,13 @@ final class BfbOllim: ObservableObject {
             if let d = d, (res as? HTTPURLResponse)?.statusCode == 200,
                let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {
                 bateum = true
+                // 2.5.0 (261024-LI7) 협회가 쓰는 방송 와이파이 이름 목록 — 저절로 붙기에 씀
+                if let w = j["bangsong_wifi"] as? [String] { DispatchQueue.main.async { Hyeonjang.wifiMokrokDugi(w) } }
+                // 2.5.0 (261024-LI7, 대조표 듣는 앱 13번) 공개 링크가 없어도 판만 있으면 알림 — 그때는 테스트플라이트 앱(itms-beta://)을 엶
                 if let a = (j["bfb"] as? [String: Any])?["ios"] as? [String: Any],
-                   let pan = a["pan"] as? String, let tf = a["testflight"] as? String,
-                   tf.hasPrefix("https://"), BfbOllim.deoSae(pan, jigeum) {
-                    chat = (pan, tf)
+                   let pan = a["pan"] as? String, BfbOllim.deoSae(pan, jigeum) {
+                    let tf = (a["testflight"] as? String) ?? ""
+                    chat = (pan, tf.hasPrefix("https://") ? tf : "")
                 }
             }
             DispatchQueue.main.async {

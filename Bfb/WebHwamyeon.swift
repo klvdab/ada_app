@@ -47,7 +47,8 @@ struct WebPan: UIViewRepresentable {
         c.mediaTypesRequiringUserActionForPlayback = []
         c.applicationNameForUserAgent = "LVDBangsong/2.3.0"
         // 누리집 화면이 스스로 붙이는 뒤로·첫 화면 단추(누리집 대문으로 감)를 감춤 — 보이스오버에도 안 읽힘
-        let gamchugi = "(function(){var s=document.createElement('style');s.textContent='.dwiro-btn,#btnDwi1,#btnDwi2,#homeBtn{display:none!important}';(document.head||document.documentElement).appendChild(s);})();"
+        // 2.5.0 앱 안에서는 누리집의 「앱으로 더 편하게 듣기」(#btnAp·#apBox)도 감춤 — 이미 앱이므로
+        let gamchugi = "(function(){var s=document.createElement('style');s.textContent='.dwiro-btn,#btnDwi1,#btnDwi2,#homeBtn,#btnAp,#apBox{display:none!important}';(document.head||document.documentElement).appendChild(s);})();"
         c.userContentController.addUserScript(WKUserScript(source: gamchugi, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         let w = WKWebView(frame: .zero, configuration: c)
         w.isOpaque = false

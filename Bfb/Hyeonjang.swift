@@ -27,6 +27,40 @@ enum Hyeonjang {
         set { UserDefaults.standard.set(newValue, forKey: "wifi_deungrok") }
     }
 
+    /// 2.5.0 (261024-LI7, 이사장님 지시 2026-10-23 「직원이 헷갈려 한다」) 방송 와이파이 이름 목록 —
+    /// 「현장영상해설방송」(플린트 2)에 협회 판 정보(pan.json bangsong_wifi)의 이름들(아이피타임 등)을 더함
+    static var wifiMokrok: [String] {
+        let l = (UserDefaults.standard.stringArray(forKey: "bangsong_wifi") ?? []).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty && $0.count <= 32 }
+        var o = [SSID]
+        for x in l where !o.contains(x) { o.append(x) }
+        return o
+    }
+    static func wifiMokrokDugi(_ l: [String]) {
+        let sae = l.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty && $0.count <= 32 }
+        if sae == (UserDefaults.standard.stringArray(forKey: "bangsong_wifi") ?? []) { return }
+        UserDefaults.standard.set(sae, forKey: "bangsong_wifi")
+    }
+
+    /// 2.5.0 행사장에서 방송을 못 찾았을 때 — 방송 와이파이 이름들에 차례로 붙어 봄(아이폰이 「연결하시겠습니까」를 물으면 연결 한 번).
+    /// 하나라도 붙으면 true. 범위 안에 없는 이름은 아이폰이 실패로 돌려줌
+    static func wifiBuchigi(_ kkeut: @escaping (Bool) -> Void) {
+        let l = wifiMokrok
+        func hana(_ i: Int) {
+            if i >= l.count { DispatchQueue.main.async { kkeut(false) }; return }
+            let c = NEHotspotConfiguration(ssid: l[i])
+            c.joinOnce = false
+            NEHotspotConfigurationManager.shared.apply(c) { e in
+                if let e = e as NSError?, !(e.domain == NEHotspotConfigurationErrorDomain && e.code == NEHotspotConfigurationError.alreadyAssociated.rawValue) {
+                    hana(i + 1)
+                } else {
+                    deungrokDoem = true
+                    DispatchQueue.main.async { kkeut(true) }
+                }
+            }
+        }
+        hana(0)
+    }
+
     /// 행사장 와이파이 등록 — 아이폰이 「연결하시겠습니까」를 한 번 묻습니다. 결과 말을 돌려줌
     static func deungrok(_ kkeut: @escaping (String) -> Void) {
         let c = NEHotspotConfiguration(ssid: SSID)
