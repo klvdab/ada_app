@@ -17,6 +17,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- 1.9.0 (261024-B17) 무대 영상 녹화 — 방송 일꾼이 화면을 잠가도 뒤 카메라로 녹화 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- 1.1.2(261007-B4) 새 판 업데이트 — 받은 새 판을 스스로 설치 화면에 넘김 -->
@@ -57,7 +59,7 @@
         <service
             android:name="kr.or.ada.app.byod.ByodService"
             android:exported="false"
-            android:foregroundServiceType="microphone" />
+            android:foregroundServiceType="microphone|camera" />
         <!-- 1.1.2 새 판 업데이트 — 설치 결과와 「새 판으로 바뀜」 알림 -->
         <receiver
             android:name="kr.or.ada.app.byod.OllimReceiver"
