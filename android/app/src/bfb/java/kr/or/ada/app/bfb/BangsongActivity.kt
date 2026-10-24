@@ -281,11 +281,13 @@ class BangsongActivity : Activity() {
         if (::gorgiAn.isInitialized && gk != boyeojunGorgi) {
             boyeojunGorgi = gk
             gorgiAn.removeAllViews()
-            for (b in g) gorgiAn.addView(danchu((if (b.jemok.isEmpty()) "제목 없는 방송" else b.jemok) + (if (b.who.isEmpty()) "" else ", 현장영상해설사 " + b.who) + ", " + maxOf(1, b.cho / 60) + "분째") {
-                Deut.goreun = b.sid
-                allim("고르셨습니다. 곧 들려 드립니다.")
-            })
-            if (b.yeongsang) gorgiAn.addView(danchu("영상으로 보기 — " + (if (b.jemok.isEmpty()) "제목 없는 방송" else b.jemok)) { bogiYeolgi(b) })   // 2.5.0
+            for (b in g) {
+                gorgiAn.addView(danchu((if (b.jemok.isEmpty()) "제목 없는 방송" else b.jemok) + (if (b.who.isEmpty()) "" else ", 현장영상해설사 " + b.who) + ", " + maxOf(1, b.cho / 60) + "분째") {
+                    Deut.goreun = b.sid
+                    allim("고르셨습니다. 곧 들려 드립니다.")
+                })
+                if (b.yeongsang) gorgiAn.addView(danchu("영상으로 보기 — " + (if (b.jemok.isEmpty()) "제목 없는 방송" else b.jemok)) { bogiYeolgi(b) })   // 2.5.0
+            }
         }
     }
 
