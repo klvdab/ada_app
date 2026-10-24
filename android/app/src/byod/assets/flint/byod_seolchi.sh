@@ -2,6 +2,7 @@
 # BYOD 방송 — 플린트 2(GL-MT6000) 준비하기
 # 판 1.2.0 / 빌드 261014-F1 / 2026-10-14 (이사장님 승인 「1」, 방송클)
 # 1.3.0 / 261014-F2 행사 녹음을 배프에 올릴 https 꾸러미(python3-openssl, ca-bundle)를 함께 깖
+# 1.4.0 / 261024-F4 자물쇠 문(8443) 인증서 hj.crt·hj.key 와 피디·해설 화면(pd.html·bang.html), 듣기 화면·대기 음악을 함께 넣음
 # BYOD 앱의 「플린트 2 준비하기」가 이 파일과 byod_flint.py 를 공유기 /tmp 에 올린 뒤 sh /tmp/byod_seolchi.sh 로 돌립니다.
 # 사무실에서 한 번만 하면 됩니다. 공유기 인터넷(WAN) 단자에 사무실 인터넷 선이 꽂혀 있어야 합니다(파이썬과 mp3 꾸러미 받기).
 # 하는 일
@@ -38,6 +39,31 @@ fi
 # 2. 방송 서버
 mkdir -p $TEO
 cp /tmp/byod_flint.py $TEO/byod_flint.py
+# 1.4.0 (261024-F4) 현장 기능 — 자물쇠 문(8443) 인증서, 화면 파일(듣기·피디·해설), 대기 음악과 안내
+#   앱이 올린 것(/tmp/byod_*)이 있으면 그것을, 없으면 나스 현장 해설방송 폴더에서 받음
+[ -s /tmp/byod_hj.crt ] && cp /tmp/byod_hj.crt $TEO/hj.crt
+[ -s /tmp/byod_hj.key ] && cp /tmp/byod_hj.key $TEO/hj.key && chmod 600 $TEO/hj.key
+# 열쇠 파일은 저장소에 두지 않으므로, 없으면 공유기에서 스스로 만듦(OpenWrt px5g 또는 openssl). 못 만들면 자물쇠 문만 쉬고 나머지는 그대로
+if [ ! -s $TEO/hj.key ] || [ ! -s $TEO/hj.crt ]; then
+  if command -v px5g >/dev/null 2>&1; then
+    px5g selfsigned -days 3650 -newkey rsa:2048 -keyout $TEO/hj.key -out $TEO/hj.crt -subj "/CN=LVD/O=KLVDAB" >/dev/null 2>&1
+  elif command -v openssl >/dev/null 2>&1; then
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout $TEO/hj.key -out $TEO/hj.crt -days 3650 -subj "/CN=LVD/O=KLVDAB" >/dev/null 2>&1
+  fi
+  [ -s $TEO/hj.key ] && chmod 600 $TEO/hj.key
+fi
+python3 -c "import ssl" 2>/dev/null || mal "자물쇠 부품이 없어 무대 카메라와 관계자 무전은 쓸 수 없습니다. 듣기는 그대로 됩니다."
+NAS_HJ="https://lvd.ada.or.kr/bfblive/hyeonjang"
+for f in deut.html pd.html bang.html daegi.mp3 ment.mp3; do
+  if [ -s /tmp/byod_$f ]; then
+    cp /tmp/byod_$f $TEO/$f
+  elif wget -q -T 20 -O $TEO/$f.sae "$NAS_HJ/$f" 2>/dev/null && [ -s $TEO/$f.sae ]; then
+    mv $TEO/$f.sae $TEO/$f
+  else
+    rm -f $TEO/$f.sae
+  fi
+done
+[ -f $TEO/pd.html ] && [ -f $TEO/bang.html ] && mal "피디 화면과 해설 화면을 넣었습니다." || mal "피디 화면이나 해설 화면을 받지 못했습니다. 듣기는 그대로 됩니다."
 [ -f $TEO/ttuigi ] || echo ttuim > $TEO/ttuigi
 [ -f $TEO/tonggwa ] || echo an > $TEO/tonggwa
 cat > /etc/init.d/byod <<'INIT'
