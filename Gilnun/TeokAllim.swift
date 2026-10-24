@@ -39,6 +39,11 @@ final class TeokAllim: NSObject, ObservableObject, ARSessionDelegate {
 
     func kyeogi() {
         guard !kyeojim else { return }
+        // 2.104.0 (261024-I58) 긴급통화가 카메라를 쓰는 동안에는 켜지 않음
+        if GinGeup.shared.kameraSseuneunJung {
+            SoriEngine.shared.mal("긴급통화가 카메라를 쓰는 중이라 발 앞 계단·턱 알림을 켜지 않았습니다. 통화를 마치신 뒤 다시 켜 주십시오.")
+            return
+        }
         guard TeokAllim.ganeung else {
             SoriEngine.shared.mal("이 폰에는 거리를 재는 라이다가 없어 발 앞 계단·턱 알림을 쓸 수 없습니다. 프로 모델 아이폰에서 됩니다.")
             return

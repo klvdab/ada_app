@@ -28,6 +28,7 @@ import org.webrtc.MediaConstraints
 import org.webrtc.MediaStream
 import org.webrtc.PeerConnection
 import org.webrtc.PeerConnectionFactory
+import org.webrtc.RTCStatsCollectorCallback
 import org.webrtc.RendererCommon
 import org.webrtc.RtpReceiver
 import org.webrtc.SdpObserver
@@ -524,6 +525,10 @@ object JabongTonghwa {
                     seupikeo()
                     // 통화 중에는 길눈 말소리를 내지 않으므로 톡백으로 한 번만
                     Sori.tokbaek?.invoke("길손님과 이어졌습니다. 말씀하십시오.")
+                    // 자봉 2.30.0 (261024-A26, 이사장님 지시 2026-10-24) 길손님 카메라 영상이 실제로 오는지 살펴 기록하고, 오지 않으면 화면에 알림
+                    val r = room
+                    main.postDelayed({ yeongsangSalpigi("8cho", r) }, 8000)
+                    main.postDelayed({ yeongsangSalpigi("30cho", r) }, 30000)
                 }
             }
             PeerConnection.IceConnectionState.DISCONNECTED -> geulBakkum("연결이 잠시 끊겼습니다. 다시 잇는 중입니다.")
@@ -533,6 +538,34 @@ object JabongTonghwa {
             }
             else -> {}
         }
+    }
+
+    /** 자봉 2.30.0 (261024-A26, 이사장님 지시 2026-10-24) 길손님 영상을 받은 장 수 — 2026-10-24 새벽 말소리만 오고 영상이 오지 않았던 일을 가리려고 */
+    private fun yeongsangSalpigi(ttae: String, r: String) {
+        val p = pc ?: return
+        if (r != room || !tonghwaJung) return
+        val iteum = yeongsang != null
+        val hwa = hwamyeon != null
+        try {
+            p.getStats(RTCStatsCollectorCallback { rep ->
+                val o = mutableMapOf<String, Any?>("ttae" to ttae, "track" to iteum, "hwamyeon" to hwa, "android" to true)
+                var jang = 0L
+                for (st in rep.statsMap.values) {
+                    if (st.type != "inbound-rtp" || st.members["kind"] != "video") continue
+                    st.members["framesReceived"]?.let { o["badeun_jang"] = it.toString(); jang = maxOf(jang, it.toString().toDoubleOrNull()?.toLong() ?: 0L) }
+                    st.members["framesDecoded"]?.let { o["pun_jang"] = it.toString(); jang = maxOf(jang, it.toString().toDoubleOrNull()?.toLong() ?: 0L) }
+                    st.members["bytesReceived"]?.let { o["badeun_baiteu"] = it.toString() }
+                    st.members["frameWidth"]?.let { o["garo"] = it.toString() }
+                }
+                val j = jang
+                main.post {
+                    Girok.namgi("jabong_yeongsang", o)
+                    if (r != room || !tonghwaJung) return@post
+                    if (j == 0L) geulBakkum("길손님과 이어졌습니다. 길손님 카메라 영상은 아직 오지 않았습니다. 말소리는 이어져 있습니다.")
+                    else if (geul.contains("영상은 아직")) geulBakkum("길손님과 이어졌습니다.")
+                }
+            })
+        } catch (x: Throwable) {}
     }
 
     /** 제안·답 알림의 빈 틀 — 필요한 것만 덮어씀 */

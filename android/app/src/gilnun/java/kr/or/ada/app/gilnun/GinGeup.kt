@@ -31,6 +31,7 @@ import org.webrtc.Camera1Enumerator
 import org.webrtc.Camera2Enumerator
 import org.webrtc.CameraEnumerator
 import org.webrtc.CameraVideoCapturer
+import org.webrtc.CapturerObserver
 import org.webrtc.DataChannel
 import org.webrtc.DefaultVideoDecoderFactory
 import org.webrtc.DefaultVideoEncoderFactory
@@ -40,9 +41,11 @@ import org.webrtc.MediaConstraints
 import org.webrtc.MediaStream
 import org.webrtc.PeerConnection
 import org.webrtc.PeerConnectionFactory
+import org.webrtc.RTCStatsCollectorCallback
 import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
 import org.webrtc.SurfaceTextureHelper
+import org.webrtc.VideoFrame
 import org.webrtc.VideoSource
 import org.webrtc.audio.JavaAudioDeviceModule
 import java.lang.ref.WeakReference
@@ -51,6 +54,7 @@ import java.net.URL
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 /** 2.12.0 (261004-I1, 이사장님 승인) 영상 다리(턴) 주소 — 나스 설정 쪽지 /eyec/ice.json 에서 읽음.
  *  다리를 리눅스 서버로 옮기는 날 앱을 새로 받지 않고 쪽지 한 줄로 넘어가게. 못 읽으면 마지막으로 받은 것, 그것도 없으면 나스 다리(3478).
@@ -178,6 +182,18 @@ object GinGeup {
     private var vSrc: VideoSource? = null
     private var aSrc: AudioSource? = null
     private var sorijariBakkum = false
+    /** 2.72.0 (261024-A60, 이사장님 지시 2026-10-24) 카메라 영상이 실제로 나가는지 지킴(아이폰 2.104.0과 같음) —
+     *  2026-10-24 새벽 아이폰 길눈 통화에서 말소리만 이어지고 영상이 가지 않았던 일. 그때까지 카메라가 켜졌는지·찍히는지 아무도 살피지 않았음 */
+    private val kameraJang = AtomicInteger(0)
+    private var kameraJang0 = 0
+    private var kameraChasu = 0
+    private var kameraDwi = true
+    private var kameraJunbiMal = ""
+    private var kameraAllimHam = false
+    /** 통화 화면 글에 붙는 카메라 형편 한 줄 */
+    var kameraSangtae = ""
+        private set
+    private val kameraJikimR = Runnable { kameraJikim() }
 
     /** 3초마다 진도 묻기 — 요청 중일 때만 이어 돎 */
     private val jindoR = object : Runnable {
@@ -613,6 +629,10 @@ object GinGeup {
 
     /** 카메라·통화·소리 자리를 모두 치움 — 화면 줄에서만 부름(WebRTC 의 알림 줄에서 부르면 멈춰 섬) */
     private fun chiugi() {
+        main.removeCallbacks(kameraJikimR)   // 2.72.0
+        kameraSangtae = ""
+        kameraJunbiMal = ""
+        kameraAllimHam = false
         try { capturer?.stopCapture() } catch (e: Exception) {}
         try { capturer?.dispose() } catch (e: Exception) {}
         capturer = null
@@ -718,21 +738,154 @@ object GinGeup {
         Girok.namgi("gingeup_tonghwa_sijak")
     }
 
-    /** 뒤 카메라를 켬 — 가로 1280에 가깝게, 초당 24장(아이폰과 같음). 허락이 없으면 목소리만 */
+    /** 뒤 카메라를 켬 — 가로 1280에 가깝게, 초당 24장(아이폰과 같음). 허락이 없으면 목소리만
+     *  2.72.0 (261024-A60, 이사장님 지시 2026-10-24) 켜졌는지·실제로 찍히는지 살핌 — 0: 뒤 1280, 1: 뒤 640, 2: 앞 640. 못 켜거나 4초 동안 한 장도 안 찍히면 다음 차례로 */
     private fun kameraKyeogi(c: Context, v0: VideoSource) {
+        // 2.72.0 길눈의 다른 카메라 눈(문 찾기·글자 읽기·사람 감지·계단·턱 알림 등)이 카메라를 쥐고 있으면 통화 영상이 막힘 — 통화 전에 모두 멈춤(아이폰과 같음)
+        val kkeun = try { Kamera.juin?.ireum ?: "" } catch (x: Throwable) { "" }
+        try { Kamera.modukkeugi(false) } catch (x: Throwable) {}
+        Girok.namgi("gingeup_kamera", mapOf("dan" to "dareun_meomchum", "kkeun" to kkeun))
+        kameraSijak(c, v0, 0)
+    }
+
+    private fun kameraSijak(c: Context, v0: VideoSource, chasu: Int) {
+        kameraChasu = chasu
+        main.removeCallbacks(kameraJikimR)
+        try { capturer?.stopCapture() } catch (e: Exception) {}
+        try { capturer?.dispose() } catch (e: Exception) {}
+        capturer = null
+        try { stHelper?.dispose() } catch (e: Exception) {}
+        stHelper = null
         if (!heorakItda(Manifest.permission.CAMERA)) {
             Girok.namgi("gingeup_oryu", mapOf("dan" to "kamera_heorak"))
+            Girok.namgi("gingeup_kamera", mapOf("dan" to "heorak_eopseum"))
+            kameraMotham("길눈의 카메라 허락이 꺼져 있어 영상이 가지 않습니다. 말소리만 이어집니다. 통화를 마치신 뒤 폰 설정의 애플리케이션, 길눈, 권한에서 카메라를 허용해 주십시오.")
             return
         }
         val en: CameraEnumerator = if (Camera2Enumerator.isSupported(c)) Camera2Enumerator(c) else Camera1Enumerator(true)
         val names = en.deviceNames
-        val nm = names.firstOrNull { en.isBackFacing(it) } ?: names.firstOrNull() ?: return
-        val cap = en.createCapturer(nm, null) ?: return
-        val h = SurfaceTextureHelper.create("GinGeupKamera", egl?.eglBaseContext)
-        stHelper = h
-        cap.initialize(h, c, v0.capturerObserver)
-        cap.startCapture(1280, 720, 24)
+        val dwi = names.firstOrNull { en.isBackFacing(it) }
+        val ap = names.firstOrNull { en.isFrontFacing(it) }
+        val nm = (if (chasu >= 2) (ap ?: dwi) else (dwi ?: ap)) ?: names.firstOrNull()
+        if (nm == null) {
+            Girok.namgi("gingeup_kamera", mapOf("dan" to "jangchi_eopseum", "su" to names.size))
+            kameraMotham("카메라를 찾지 못해 영상이 가지 않습니다. 말소리만 이어집니다.")
+            return
+        }
+        kameraDwi = en.isBackFacing(nm)
+        val ch = chasu
+        val cap = try {
+            en.createCapturer(nm, object : CameraVideoCapturer.CameraEventsHandler {
+                override fun onCameraError(e: String?) { main.post { Girok.namgi("gingeup_kamera", mapOf("dan" to "oryu", "e" to (e ?: ""), "chasu" to ch)) } }
+                override fun onCameraDisconnected() { main.post { Girok.namgi("gingeup_kamera", mapOf("dan" to "kkeunkim", "chasu" to ch)) } }
+                override fun onCameraFreezed(e: String?) { main.post { Girok.namgi("gingeup_kamera", mapOf("dan" to "meomchum", "e" to (e ?: ""), "chasu" to ch)) } }
+                override fun onCameraOpening(n: String?) {}
+                override fun onFirstFrameAvailable() {}
+                override fun onCameraClosed() {}
+            })
+        } catch (x: Throwable) { null }
+        if (cap == null) {
+            Girok.namgi("gingeup_kamera", mapOf("dan" to "kyeogi_silpae", "chasu" to chasu, "e" to "createCapturer"))
+            daeumKamera(c, v0)
+            return
+        }
+        val bon = v0.capturerObserver
+        val segi = object : CapturerObserver {
+            override fun onCapturerStarted(ok: Boolean) {
+                bon.onCapturerStarted(ok)
+                if (!ok) main.post { Girok.namgi("gingeup_kamera", mapOf("dan" to "kyeogi_silpae", "chasu" to ch, "e" to "started false")) }
+            }
+            override fun onCapturerStopped() { bon.onCapturerStopped() }
+            override fun onFrameCaptured(f: VideoFrame?) {
+                kameraJang.incrementAndGet()
+                bon.onFrameCaptured(f)
+            }
+        }
+        try {
+            val h = SurfaceTextureHelper.create("GinGeupKamera", egl?.eglBaseContext)
+            stHelper = h
+            cap.initialize(h, c, segi)
+            if (chasu == 0) cap.startCapture(1280, 720, 24) else cap.startCapture(640, 480, 24)
+        } catch (x: Throwable) {
+            Girok.namgi("gingeup_kamera", mapOf("dan" to "kyeogi_silpae", "chasu" to chasu, "e" to (x.message ?: "")))
+            try { cap.dispose() } catch (e: Exception) {}
+            daeumKamera(c, v0)
+            return
+        }
         capturer = cap
+        kameraSangtae = "카메라를 켜는 중입니다."
+        Girok.namgi("gingeup_kamera", mapOf("dan" to "kyeojim", "chasu" to chasu, "dwi" to kameraDwi))
+        kameraJang0 = kameraJang.get()
+        main.postDelayed(kameraJikimR, 4000)
+    }
+
+    private fun kameraJikim() {
+        if (pc == null) return
+        val n = kameraJang.get() - kameraJang0
+        if (n > 0) {
+            kameraDoem(n)
+        } else {
+            Girok.namgi("gingeup_kamera", mapOf("dan" to "jang_eopseum", "chasu" to kameraChasu))
+            val c = ctx ?: return
+            val v = vSrc ?: return
+            daeumKamera(c, v)
+        }
+    }
+
+    private fun daeumKamera(c: Context, v0: VideoSource) {
+        if (pc == null) return
+        if (kameraChasu < 2) {
+            kameraSijak(c, v0, kameraChasu + 1)
+        } else {
+            try { capturer?.stopCapture() } catch (e: Exception) {}
+            try { capturer?.dispose() } catch (e: Exception) {}
+            capturer = null
+            kameraMotham("카메라를 켜지 못해 영상이 가지 않습니다. 말소리만 이어집니다. 통화를 마치신 뒤 다시 요청해 주십시오.")
+        }
+    }
+
+    private fun kameraDoem(n: Int) {
+        kameraSangtae = if (kameraDwi) "뒤쪽 카메라 영상이 가고 있습니다." else "뒤쪽 카메라가 켜지지 않아 앞쪽 카메라 영상이 가고 있습니다."
+        Girok.namgi("gingeup_kamera", mapOf("dan" to "jang_doem", "dwi" to kameraDwi, "jang" to n, "chasu" to kameraChasu))
+        val mal = if (kameraDwi) "카메라가 켜졌습니다. 뒤쪽 카메라로 비추고 있습니다." else "뒤쪽 카메라가 켜지지 않아 앞쪽 카메라로 비추고 있습니다."
+        kameraAllimNeoki(mal)
+    }
+
+    private fun kameraMotham(mal: String) {
+        kameraSangtae = mal
+        kameraAllimNeoki(mal)
+    }
+
+    /** 통화 중이면 톡백으로 한 번 알리고 통화 화면 글을 바꿈, 아직 잇는 중이면 연결 알림에 함께 */
+    private fun kameraAllimNeoki(mal: String) {
+        if (sangtae == GinGeupSangtae.TONGHWA) {
+            geulBakkum("통화 중입니다. $kameraSangtae")
+            if (!kameraAllimHam) {
+                kameraAllimHam = true
+                Sori.tokbaek?.invoke(mal)
+            }
+        } else {
+            kameraJunbiMal = mal
+        }
+    }
+
+    /** 통화가 이어진 뒤 실제로 나간 영상 장 수·크기를 기록에 남김(받는 쪽 자봉 앱도 받은 장 수를 남김) */
+    private fun tonggyeNamgi(ttae: String) {
+        val p = pc ?: return
+        val kj = kameraJang.get()
+        try {
+            p.getStats(RTCStatsCollectorCallback { r ->
+                val o = mutableMapOf<String, Any?>("ttae" to ttae, "kamera_jang" to kj)
+                for (st in r.statsMap.values) {
+                    if (st.type != "outbound-rtp" || st.members["kind"] != "video") continue
+                    st.members["framesEncoded"]?.let { o["bonaen_jang"] = it.toString() }
+                    st.members["framesSent"]?.let { o["bonaen_jang2"] = it.toString() }
+                    st.members["bytesSent"]?.let { o["bonaen_baiteu"] = it.toString() }
+                    st.members["frameWidth"]?.let { o["garo"] = it.toString() }
+                }
+                main.post { Girok.namgi("gingeup_yeongsang", o) }
+            })
+        } catch (x: Throwable) {}
     }
 
     private fun offerBonaegi(iceRestart: Boolean) {
@@ -826,11 +979,20 @@ object GinGeup {
 
     private fun iuGeotda() {
         if (sangtae == GinGeupSangtae.TONGHWA) return
-        geul = "통화 중입니다."
+        geul = if (kameraSangtae.isEmpty()) "통화 중입니다." else "통화 중입니다. $kameraSangtae"
         bakkum(GinGeupSangtae.TONGHWA)
         jindongGilge(false)
         // 통화 중에는 길눈 말소리를 내지 않으므로 톡백으로 한 번만
-        Sori.tokbaek?.invoke("연결되었습니다. 말씀하십시오.")
+        // 2.72.0 (261024-A60) 카메라 형편을 연결 알림에 함께(카메라가 아직이면 켜지는 대로 따로 한 번)
+        var yeonMal = "연결되었습니다. 말씀하십시오."
+        if (kameraJunbiMal.isNotEmpty()) {
+            yeonMal = "연결되었습니다. $kameraJunbiMal 말씀하십시오."
+            kameraJunbiMal = ""
+            kameraAllimHam = true
+        }
+        Sori.tokbaek?.invoke(yeonMal)
+        main.postDelayed({ tonggyeNamgi("8cho") }, 8000)
+        main.postDelayed({ tonggyeNamgi("30cho") }, 30000)
         // 이어폰이 없으면 스피커로 — 귀에 대지 않아도 들리게
         seupikeo()
         Girok.namgi("gingeup_yeongyeol")

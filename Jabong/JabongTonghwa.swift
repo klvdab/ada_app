@@ -291,6 +291,32 @@ final class JabongTonghwa: NSObject, ObservableObject, RTCPeerConnectionDelegate
         }
     }
 
+    /// 자봉 2.30.0 (261024-I24, 이사장님 지시 2026-10-24) 길손님 영상을 받은 장 수 — 2026-10-24 새벽 말소리만 오고 영상이 오지 않았던 일을 가리려고
+    private func yeongsangSalpigi(_ ttae: String, _ r: String) {
+        guard let p = pc, r == room, tonghwaJung else { return }
+        let iteum = yeongsang != nil
+        p.statistics { [weak self] rep in
+            var o: [String: Any] = ["ttae": ttae, "track": iteum]
+            var jang = 0
+            for (_, st) in rep.statistics where st.type == "inbound-rtp" {
+                guard (st.values["kind"] as? String) == "video" else { continue }
+                if let v = st.values["framesReceived"] as? NSNumber { o["badeun_jang"] = v; jang = max(jang, v.intValue) }
+                if let v = st.values["framesDecoded"] as? NSNumber { o["pun_jang"] = v; jang = max(jang, v.intValue) }
+                if let v = st.values["bytesReceived"] { o["badeun_baiteu"] = v }
+                if let v = st.values["frameWidth"] { o["garo"] = v }
+            }
+            Girok.shared.namgi("jabong_yeongsang", o)
+            DispatchQueue.main.async {
+                guard let self = self, r == self.room, self.tonghwaJung else { return }
+                if jang == 0 {
+                    self.geul = "길손님과 이어졌습니다. 길손님 카메라 영상은 아직 오지 않았습니다. 말소리는 이어져 있습니다."
+                } else if self.geul.contains("영상은 아직") {
+                    self.geul = "길손님과 이어졌습니다."
+                }
+            }
+        }
+    }
+
     // MARK: RTCPeerConnectionDelegate
 
     func peerConnection(_ peerConnection: RTCPeerConnection, didChange stateChanged: RTCSignalingState) {}
@@ -321,6 +347,10 @@ final class JabongTonghwa: NSObject, ObservableObject, RTCPeerConnectionDelegate
                     self.iEojim = true
                     self.geul = "길손님과 이어졌습니다."
                     UIAccessibility.post(notification: .announcement, argument: "길손님과 이어졌습니다. 말씀하십시오.")
+                    // 자봉 2.30.0 (261024-I24, 이사장님 지시 2026-10-24) 길손님 카메라 영상이 실제로 오는지 살펴 기록하고, 오지 않으면 화면에 알림
+                    let r = self.room
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in self?.yeongsangSalpigi("8cho", r) }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in self?.yeongsangSalpigi("30cho", r) }
                 }
             case .disconnected:
                 self.geul = "연결이 잠시 끊겼습니다. 다시 잇는 중입니다."

@@ -3,12 +3,16 @@
 package kr.or.ada.app.jabong
 
 object JabongPan {
-    const val pan = "2.29.0"
-    const val bild = "261021-A25"
+    const val pan = "2.30.0"
+    const val bild = "261024-A26"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.30.0", "261024-A26", "2026-10-24", listOf(
+            "★긴급통화 받기 — 길손님 카메라 영상이 실제로 오는지 통화 8초·30초에 살펴 기록하고, 오지 않으면 통화 화면에 「길손님 카메라 영상은 아직 오지 않았습니다. 말소리는 이어져 있습니다.」(2026-10-24 이사장님 지시)",
+            "길눈과 함께 쓰는 긴급통화 부품 손질 — 카메라 켜짐 지키기(길눈 2.72.0과 같음)"
+        )),
         Gochim("2.29.0", "261021-A25", "2026-10-21", listOf(
             "★길눈과 함께 쓰는 부품 손질 (대클, 이사장님 승인 2026-10-21 「자봉도 해봐」, 길눈 2.103.0·2.71.0과 함께 쓰는 부품)",
             "점지도 따라 걷기 도착은 여섯 걸음 넘게 걸은 뒤, 문까지 3미터 넘게 남으면 「문 가까이 왔습니다」, 문 생김새를 미리 말씀드림",

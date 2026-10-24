@@ -15,6 +15,19 @@ struct GinGeupView: View {
             .buttonStyle(KeunDanchu())
     }
 
+    /// 2.104.0 (261024-I58, 이사장님 지시 2026-10-24) 카메라 형편 한 줄과, 허락이 꺼져 있으면 설정으로 가는 단추
+    @ViewBuilder private var kameraJul: some View {
+        if !g.kameraSangtae.isEmpty { Text(g.kameraSangtae).font(.title3) }
+        if g.kameraMakhim { kameraSeoljeong }
+    }
+
+    private var kameraSeoljeong: some View {
+        Button("아이폰 설정에서 길눈 카메라 켜기") {
+            if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) }
+        }
+        .buttonStyle(KeunDanchu())
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
@@ -39,15 +52,18 @@ struct GinGeupView: View {
                         .textFieldStyle(.roundedBorder)
                         .font(.title3)
                     if !g.geul.isEmpty && !g.neomgilkka { Text(g.geul).font(.title3) }
+                    if g.kameraMakhim { kameraSeoljeong }   // 2.104.0
                 case .tonghwa:
                     Button("\(g.geul) — 끊기") { g.geumanhagi() }
                         .buttonStyle(KeunDanchu())
                         .accessibilityFocused($chojeom)
+                    kameraJul   // 2.104.0
                     jariDanchu   // 2.94.0
                 default:
                     Button("\(g.geul) — 요청 그만두기") { g.geumanhagi() }
                         .buttonStyle(KeunDanchu())
                         .accessibilityFocused($chojeom)
+                    kameraJul   // 2.104.0
                     jariDanchu   // 2.94.0
                     if g.galrae == .jiin, let s = g.saram, !Jiin.shared.tel(s.id).isEmpty {
                         Button("\(s.name) 님께 전화 걸기") { g.jeonhwa() }

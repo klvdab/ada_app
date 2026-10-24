@@ -59,6 +59,11 @@ final class MunChatgi: NSObject, ObservableObject, ARSessionDelegate {
     /// 켜기 — eodiseo: "hwamyeon" 문 찾기 화면, "malhagi" 말로, "munkkaji" 점지도 문까지, "dochak" 걸어서 도착
     func kyeogi(_ eodiseo: String) {
         guard !kyeojim else { return }
+        // 2.104.0 (261024-I58, 이사장님 지시 2026-10-24) 긴급통화가 카메라를 쓰는 동안에는 문 찾기를 켜지 않음(통화 영상이 막히지 않게)
+        if GinGeup.shared.kameraSseuneunJung {
+            Girok.shared.namgi("munchatgi_mot", ["eodi": eodiseo, "iyu": "tonghwa"])
+            return
+        }
         guard MunChatgi.gigiGaneung else {
             mal("이 폰은 카메라로 문을 알아보는 기능을 지원하지 않습니다.")
             return

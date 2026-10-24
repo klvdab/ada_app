@@ -2,12 +2,16 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.29.0"
-    static let bild = "261021-I23"
+    static let pan = "2.30.0"
+    static let bild = "261024-I24"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.30.0", bild: "261024-I24", nal: "2026-10-24", naeyong: [
+            "★긴급통화 받기 — 길손님 카메라 영상이 실제로 오는지 통화 8초·30초에 살펴 기록하고, 오지 않으면 통화 화면에 「길손님 카메라 영상은 아직 오지 않았습니다. 말소리는 이어져 있습니다.」(2026-10-24 이사장님 지시)",
+            "길눈과 함께 쓰는 긴급통화 부품 손질 — 카메라 켜짐 지키기(길눈 2.104.0과 같음)"
+        ]),
         Gochim(pan: "2.29.0", bild: "261021-I23", nal: "2026-10-21", naeyong: [
             "★길눈과 함께 쓰는 부품 손질 (대클, 이사장님 승인 2026-10-21 「자봉도 해봐」, 길눈 2.103.0·2.71.0과 함께 쓰는 부품)",
             "보이스오버가 화면 줄을 읽는 동안에는 자봉 안내 말이 기다렸다가 말함(위험 경고는 곧바로)",
