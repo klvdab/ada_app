@@ -293,7 +293,16 @@ object JabongDaegi {
         val u = Ulim(room, mok, gal, System.currentTimeMillis(), who)
         kr.or.ada.app.gilnun.IceJuso.gaengsin()   // 2.5.0 받기 전에 영상 다리 주소를 새로
         ulim = u
-        Girok.namgi("jabong_ulim", mapOf("gal" to gal, "android" to true))
+        // 2.32.0 (261024-A28, 이사장님 승인 「4」) 울릴 때 폰이 벨소리·진동·무음 가운데 무엇인지, 벨소리 크기를 함께 남김 — 소리가 안 났다 하시면 까닭을 바로 알게
+        val am = c.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager
+        val soriMode = when (am?.ringerMode) {
+            android.media.AudioManager.RINGER_MODE_SILENT -> "musum"
+            android.media.AudioManager.RINGER_MODE_VIBRATE -> "jindong"
+            android.media.AudioManager.RINGER_MODE_NORMAL -> "beol"
+            else -> ""
+        }
+        val beolKeugi = try { am?.getStreamVolume(android.media.AudioManager.STREAM_RING) ?: -1 } catch (e: Exception) { -1 }
+        Girok.namgi("jabong_ulim", mapOf("gal" to gal, "android" to true, "soriMode" to soriMode, "beolKeugi" to beolKeugi, "baeteori" to JabongDaegiService.baeteoriPulrim(c)))
         JabongUlim.kyeogi(c, gal, who)
         ulimHwamyeon?.invoke()
         byeonhwa?.invoke()
@@ -563,7 +572,18 @@ class JabongDaegiService : Service() {
         if (!JabongDaegi.kyeojim) { stopSelf(); return START_NOT_STICKY }
         main.removeCallbacks(salpim)
         main.post(salpim)
+        // 2.32.0 (261024-A28, 이사장님 승인 「4」) 기다림이 언제 시작했는지와 배터리 제한에서 빠졌는지를 남김, 15분마다 살펴 꺼졌으면 다시 켬
+        Girok.namgi("jb_daegi_sijak", mapOf("baeteori" to baeteoriPulrim(this), "dasi" to (intent?.action == SALPIM)))
+        salpimGeolgi(this)
         return START_STICKY
+    }
+
+    /** 2.32.0 최근 앱 목록에서 자봉을 밀어 닫으셔도 긴급통화 기다림은 이어 감 */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        Girok.namgi("jb_daegi_milrim", mapOf("kyeojim" to JabongDaegi.kyeojim))
+        Girok.jeojang()
+        if (JabongDaegi.kyeojim) kyeogi(applicationContext)
+        super.onTaskRemoved(rootIntent)
     }
 
     /** 화면이 꺼져도 살피기가 잠들지 않게 — 10분짜리 잠금을 살필 때마다 이어 붙임 */
@@ -576,6 +596,9 @@ class JabongDaegiService : Service() {
     }
 
     override fun onDestroy() {
+        // 2.32.0 기다림이 꺼진 때를 남김 — 받기를 끄셨는지(kyeojim false), 폰이 끈 것인지(true) 가릴 수 있게
+        Girok.namgi("jb_daegi_kkeutnam", mapOf("kyeojim" to JabongDaegi.kyeojim, "baeteori" to baeteoriPulrim(this)))
+        Girok.jeojang()
         main.removeCallbacks(salpim)
         try { jamsoe?.takeIf { it.isHeld }?.release() } catch (e: Exception) {}
         jamsoe = null
@@ -583,6 +606,24 @@ class JabongDaegiService : Service() {
     }
 
     companion object {
+        const val SALPIM = "kr.or.ada.jabong.SALPIM"
+
+        /** 배터리 사용 제한에서 빠졌는지(제한 없음이면 true) */
+        fun baeteoriPulrim(c: Context): Boolean = try {
+            (c.getSystemService(Context.POWER_SERVICE) as PowerManager).isIgnoringBatteryOptimizations(c.packageName)
+        } catch (e: Exception) { false }
+
+        /** 2.32.0 15분마다 자봉을 깨워, 긴급통화 받기를 켜 두셨는데 기다림이 꺼져 있으면 다시 켬 */
+        fun salpimGeolgi(c: Context) {
+            try {
+                val am = c.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+                val pi = PendingIntent.getBroadcast(c, 41, Intent(c, JabongBootReceiver::class.java).setAction(SALPIM),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+                am.setInexactRepeating(android.app.AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    android.os.SystemClock.elapsedRealtime() + 15 * 60 * 1000L, android.app.AlarmManager.INTERVAL_FIFTEEN_MINUTES, pi)
+            } catch (e: Exception) { Girok.namgi("jb_salpim_oryu", mapOf("e" to (e.message ?: ""))) }
+        }
+
         fun kyeogi(c: Context) {
             try {
                 val i = Intent(c, JabongDaegiService::class.java)
@@ -596,7 +637,14 @@ class JabongDaegiService : Service() {
 /** 폰을 껐다 켜면 — 긴급통화 받기를 켜 두셨으면 알림 칸의 자봉이 다시 기다림 */
 class JabongBootReceiver : BroadcastReceiver() {
     override fun onReceive(c: Context, i: Intent) {
-        if (i.action != Intent.ACTION_BOOT_COMPLETED && i.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+        if (i.action != Intent.ACTION_BOOT_COMPLETED && i.action != Intent.ACTION_MY_PACKAGE_REPLACED && i.action != JabongDaegiService.SALPIM) return
         JabongBonche.sijak(c)
+        // 2.32.0 (261024-A28) 15분 살핌 — 받기를 켜 두셨으면 기다림을 다시 켬(이미 돌고 있으면 그대로 이어 감)
+        if (i.action == JabongDaegiService.SALPIM && JabongDaegi.kyeojim) {
+            try {
+                val s = Intent(c, JabongDaegiService::class.java).setAction(JabongDaegiService.SALPIM)
+                if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(s) else c.startService(s)
+            } catch (e: Exception) { Girok.namgi("jb_daegi_service", mapOf("ok" to false, "salpim" to (e.message ?: ""))) }
+        }
     }
 }
