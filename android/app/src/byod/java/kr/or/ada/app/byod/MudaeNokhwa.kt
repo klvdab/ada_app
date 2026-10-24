@@ -227,6 +227,7 @@ object MudaeNokhwa {
                         r.start()
                         val now = System.currentTimeMillis()
                         jigeumPail?.let { jogakDeungrok(it, now) }
+                        teoJigeum?.let { daeumJunbi(r, it) }   // 다음 1분 조각을 미리
                         if (sijakTtae == 0L) sijakTtae = now
                         nokhwaJung = true
                         munje = ""
@@ -273,25 +274,30 @@ object MudaeNokhwa {
         return r
     }
 
+    /** 다음 1분 조각 파일을 미리 넘겨 둠(안드로이드 8부터) — 1분이 차면 기록기가 끊김 없이 그 파일로 이어 씀.
+     *  ("1분이 다 되어 감" 알림은 크기에만 있고 길이에는 없으므로, 녹화를 시작하자마자와 새 조각이 시작될 때마다 넘김) */
+    private fun daeumJunbi(r: MediaRecorder, d: File) {
+        if (Build.VERSION.SDK_INT < 26 || daeumPail != null) return
+        val f = File(d, pailIreum(jogakSu() + 1))
+        try {
+            if (f.exists()) f.delete()
+            r.setNextOutputFile(f)
+            daeumPail = f
+        } catch (_: Exception) { daeumPail = null }   // 못 넘기면 1분에 멈춤 → MAX_DURATION_REACHED 에서 다시 켬
+    }
+
     /** 기록기 알림(기록기를 만든 실 = byod-yeongsang 실에서 옴) */
     private fun jeongbo(nae: Int, what: Int) {
         if (nae != sedae || !barang) return
         val r = rec ?: return
         val d = teoJigeum ?: return
-        if (Build.VERSION.SDK_INT >= 26 && what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_APPROACHING) {
-            if (daeumPail != null) return
-            val f = File(d, pailIreum(jogakSu() + 1))
-            try {
-                if (f.exists()) f.delete()
-                r.setNextOutputFile(f)
-                daeumPail = f
-            } catch (_: Exception) { daeumPail = null }   // 못 넘기면 1분에 멈춤 → 아래 MAX_DURATION_REACHED 에서 다시 켬
-        } else if (Build.VERSION.SDK_INT >= 26 && what == MediaRecorder.MEDIA_RECORDER_INFO_NEXT_OUTPUT_FILE_STARTED) {
+        if (Build.VERSION.SDK_INT >= 26 && what == MediaRecorder.MEDIA_RECORDER_INFO_NEXT_OUTPUT_FILE_STARTED) {
             val now = System.currentTimeMillis()
             jogakMaechim(now, true)          // 앞 조각은 이제 다 된 mp4
             val f = daeumPail
             daeumPail = null
             if (f != null) { jigeumPail = f; jogakDeungrok(f, now) }
+            daeumJunbi(r, d)                 // 그다음 조각도 미리 넘겨 둠
         } else if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED) {
             // 다음 조각으로 넘어가지 못하고 1분에 멈춤 — 이 조각을 마무리하고 카메라를 다시 켬
             jeongri(false)
