@@ -599,12 +599,15 @@ object Seoljeong {
     private lateinit var d: SharedPreferences
     fun sijak(ctx: Context) {
         d = ctx.getSharedPreferences("gilnun", Context.MODE_PRIVATE)
+        jabongAp = ctx.packageName == "kr.or.ada.jabong"
         // 2.27.0 보폭을 혼자·동반자로 나누기 전에 재 두신 보폭은 혼자 걸을 때 보폭으로 옮김
         if (!d.contains("bopokHonja") && d.getBoolean("bopokJaem", false)) d.edit().putFloat("bopokHonja", d.getFloat("bopok", 0.65f)).apply()
     }
 
+    /** 자봉 2.31.0 (이사장님 지시 2026-10-24) 자봉 앱은 안내 말소리를 처음부터 꺼 둠 — 소리가 부담스럽다는 시험 참가자 말씀. 길눈은 그대로 켬 */
+    private var jabongAp = false
     var malKyeojim: Boolean
-        get() = d.getBoolean("malKyeojim", true)
+        get() = d.getBoolean("malKyeojim", !jabongAp)
         set(v) { d.edit().putBoolean("malKyeojim", v).apply() }
     /** 2.27.0 길눈이 부르는 내 호칭(아이폰 hoching, 처음은 길손님) */
     var hoching: String

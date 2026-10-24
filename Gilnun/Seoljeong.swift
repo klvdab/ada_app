@@ -85,7 +85,7 @@ final class Seoljeong: ObservableObject {
 
     init() {
         let ud = UserDefaults.standard
-        malKyeojim = (ud.object(forKey: "gn.malKyeojim") as? Bool) ?? true
+        malKyeojim = (ud.object(forKey: "gn.malKyeojim") as? Bool) ?? !Seoljeong.jabongApp   // 자봉 2.31.0 (이사장님 지시 2026-10-24) 자봉은 안내 말소리 처음부터 꺼 둠, 길눈은 그대로 켬
         bbareugiDan = (ud.object(forKey: "gn.bbareugi") as? Int) ?? 2
         moksoriId = ud.string(forKey: "gn.moksori") ?? ""
         let b = ud.double(forKey: "gn.bopok")

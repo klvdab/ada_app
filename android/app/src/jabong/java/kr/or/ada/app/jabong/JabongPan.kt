@@ -3,12 +3,13 @@
 package kr.or.ada.app.jabong
 
 object JabongPan {
-    const val pan = "2.30.0"
-    const val bild = "261024-A26"
+    const val pan = "2.31.0"
+    const val bild = "261024-A27"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.31.0", "261024-A27", "2026-10-24", listOf("★안내 말소리를 처음부터 꺼 둠 — 앱에서 나는 소리가 부담스럽다는 시험 참가자 말씀(이사장님 지시 2026-10-24). 켜시려면 설정의 말소리나 그리는 중 펼치기 안의 안내 말소리", "이미 말소리를 켜거나 끄신 분은 고르신 대로 둠", "도움말 「안내 말소리 끄기」에 처음엔 꺼져 있다는 말 더함")),
         Gochim("2.30.0", "261024-A26", "2026-10-24", listOf(
             "★원인 바로잡음 — 길손님 카메라 화면에 걸어 둔 검은 배경색이 영상 위를 덮어, 영상이 와도 검게만 보이던 것을 뺌",
             "★긴급통화 받기 — 길손님 카메라 영상이 실제로 오는지 통화 8초·30초에 살펴 기록하고, 오지 않으면 통화 화면에 「길손님 카메라 영상은 아직 오지 않았습니다. 말소리는 이어져 있습니다.」(2026-10-24 이사장님 지시)",
