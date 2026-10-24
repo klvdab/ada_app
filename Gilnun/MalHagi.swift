@@ -35,7 +35,7 @@ final class MalHagi: ObservableObject {
     @Published private(set) var dapMal = ""
 
     // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) neomgilkka — 긴급통화 「자원봉사자와 현장영상해설사에게 요청할까요?」
-    private enum Mureum { case eopseum, mokjeok, bangsik, chaYocheong, kol, galrae, hoching, hubo, jeom, eumakBiseut, kolHwagin, neomgilkka }
+    private enum Mureum { case eopseum, mokjeok, bangsik, chaYocheong, kol, galrae, hoching, hubo, jeom, eumakBiseut, kolHwagin, neomgilkka, tanYeok }
     /// 2.60.0 "○○에 전화할까요?"라고 여쭌 콜
     private var kolDaegi: KolBeonho?
     private var mureum: Mureum = .eopseum
@@ -303,6 +303,77 @@ final class MalHagi: ObservableObject {
         } else {
             DispatchQueue.main.asyncAfter(deadline: .now() + min(8, 1.2 + Double(q.count) * 0.09), execute: yeolgi)
         }
+    }
+
+    /// 2.105.0 타신 역을 여쭌 지 2분 안인가
+    var tanYeokMutneunJung: Bool { mureum == .tanYeok && Date().timeIntervalSince(mureumTtae) < 120 }
+
+    /// 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 타신 역을 여쭙고 마이크를 한 번 엶
+    func tanYeokMutgi(_ q: String) {
+        hwaginBiugi()
+        mureum = .tanYeok
+        mureumTtae = Date()
+        SoriEngine.shared.mal(q, .annae)
+        let yeolgi = { [weak self] in
+            guard let self = self, self.sijakham, self.mureum == .tanYeok, self.sangtae == .swim, GinGeup.shared.sangtae == .eopseum,
+                  !self.pyeonjipJung, !JeonhwaGamsi.shared.jeonhwaJung, MalDeutgi.heorakItda else { return }
+            self.dasiHanbeon = false
+            self.jadongYeolim = 1
+            self.myeongryeongYeolgi(sori: true)
+        }
+        if Seoljeong.shared.malKyeojim {
+            SoriEngine.shared.kkeutnamyeon { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: yeolgi) }
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + min(8, 1.2 + Double(q.count) * 0.09), execute: yeolgi)
+        }
+    }
+
+    // MARK: 2.105.0 (261024-I59) 역 말 알아듣기 — z 는 띄어쓰기를 뺀 말
+    private static let hoseonPat = "(?:[0-9]{1,2}|일|이|삼|사|오|육|륙|칠|팔|구)호선"
+    /// 이름에 들어 있으면 역 이름으로 보지 않는 말(묻는 말·가자는 말 등)
+    private static let anDeun = ["어디", "어딘", "어떤", "뭐", "무슨", "가까운", "탔", "가자", "가줘", "끝", "도착", "정거장", "남았", "몇"]
+    private static let anIreum: Set<String> = ["출구", "입구", "정류장", "터미널", "공항", "역", "여기", "거기", "저기", "지하철", "전철", "버스", "차", "택시", "열차", "기차", "집", "사무실", "어디", "뭐", "무슨역", "어느역", "어느", "무슨", "다음", "이번", "몇", "몇시", "지금"]
+
+    private static func gureum(_ z: String, _ pat: String) -> String? {
+        guard let re = try? NSRegularExpression(pattern: pat) else { return nil }
+        let ns = z as NSString
+        guard let m = re.firstMatch(in: z, range: NSRange(location: 0, length: ns.length)), m.range(at: 1).location != NSNotFound else { return nil }
+        let n = ns.substring(with: m.range(at: 1))
+        guard !n.isEmpty, n.count <= 10, !anIreum.contains(n), !anDeun.contains(where: { n.contains($0) }) else { return nil }
+        return n
+    }
+
+    /// 「6호선」「육 호선」 → "6호선"
+    static func hoseonMal(_ z: String) -> String? {
+        guard let re = try? NSRegularExpression(pattern: "([0-9]{1,2}|일|이|삼|사|오|육|륙|칠|팔|구)호선") else { return nil }
+        let ns = z as NSString
+        guard let m = re.firstMatch(in: z, range: NSRange(location: 0, length: ns.length)) else { return nil }
+        let w = ns.substring(with: m.range(at: 1))
+        let su = ["일": "1", "이": "2", "삼": "3", "사": "4", "오": "5", "육": "6", "륙": "6", "칠": "7", "팔": "8", "구": "9"]
+        return (su[w] ?? w) + "호선"
+    }
+
+    /// 「약수역에서 탔어」「6호선 약수에서 탔어」「약수역에서 탈 거야」 → "약수"
+    static func tanYeokMal(_ z: String) -> String? {
+        gureum(z, "^(?:\(hoseonPat))?(.+?)(?:역)?에서(?:\(hoseonPat))?(?:탔|탈거|탈게|탈께|탈래|탑니다|타요|타고|타)")
+    }
+
+    /// 「여기는 삼각지역이야」「지금 약수역」「여기 6호선 용산역이라고」 → "삼각지". 역이나 호선이 없으면 「여기는/여기가」로 시작할 때만
+    static func yeogiMal(_ z: String, jihaAn: Bool = false) -> String? {
+        let kkeut = "(?:이야|야|이라고|라고|이라니까|라니까|입니다|이에요|예요|에요|이다|다|이거든|거든)?$"
+        if z.contains("역") || hoseonMal(z) != nil {
+            if let n = gureum(z, "^(?:지금여기는|지금여기가|여기는|여기가|여기|지금은|지금|이번역은|이번역)(?:\(hoseonPat))?(.+?)역" + kkeut) { return n }
+            // 「6호선 용산역이라고」처럼 호선으로 시작해 알려 주시는 말(가자·가줘 같은 말은 받지 않음)
+            return gureum(z, "^\(hoseonPat)(.+?)역(?:이야|야|이라고|라고|이라니까|라니까|입니다|이에요|예요|에요)$")
+        }
+        guard jihaAn else { return nil }
+        return gureum(z, "^(?:지금여기는|지금여기가|여기는|여기가)(?:\(hoseonPat))?(.+?)" + kkeut)
+    }
+
+    /// 타신 역을 여쭌 뒤의 대답 — 「약수역」「약수」「6호선 약수역이요」
+    static func yeokMalBon(_ z: String) -> String? {
+        if ["아니", "아니요", "아니오", "아냐", "몰라", "모르겠어", "모르겠다", "모르겠습니다", "그만", "취소", "멈춰", "됐어"].contains(where: { z.hasPrefix($0) }) { return nil }
+        return gureum(z, "^(?:\(hoseonPat))?(.+?)(?:역)?(?:이야|야|이요|요|입니다|이에요|예요|에요|에서탔어|에서탔다|에서탔습니다)?$")
     }
 
     /// 2.67.0 열차 안에서 가실 곳을 여쭌 때 — 10분 안에 정하시면 지하철 길을 곧장 역 알림으로
@@ -875,6 +946,29 @@ final class MalHagi: ObservableObject {
             AnnaeEngine.shared.haneunIlMeomchum()
             return
         }
+        // 0-T. 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 「틀렸어」 — 무엇을 하고 있든 「알겠습니다」라고 하고 바로 앞 단계로 되돌림
+        if z.contains("틀렸") && z.count <= 14 {
+            hwaginBiugi()
+            dap("", false)
+            AnnaeEngine.shared.doedolligi()
+            return
+        }
+        // 0-Y. 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 타신 역과 지금 역 — 「약수역에서 탔어」, 「여기는 삼각지역이야」, 타신 역을 여쭌 뒤의 대답.
+        //   길눈이 짐작한 자리보다 이용자의 말씀을 앞에 둠
+        if y != nil, let yeok = MalHagi.tanYeokMal(z) {
+            hwaginBiugi()
+            if let h = MalHagi.hoseonMal(z) { JihacheolEngine.shared.hoseonHint = h }
+            AnnaeEngine.shared.tanYeokDap(yeok, dap)
+            return
+        }
+        // 「여기는 ○○이야」처럼 역 없이 하시는 말은 지하철을 타고 가시거나 타신 역을 여쭌 때만 받음
+        let jihaAn = mureum == .tanYeok || (y?.danggye == .taneunJung && YeojeongEngine.shared.talgeot == .jihacheol)
+        if let yeok = MalHagi.yeogiMal(z, jihaAn: jihaAn) {
+            hwaginBiugi()
+            if let h = MalHagi.hoseonMal(z) { JihacheolEngine.shared.hoseonHint = h }
+            AnnaeEngine.shared.jariBarojapgi(yeok, dap)
+            return
+        }
         // 0-M. 2.94.0 (261017-I48, 이사장님 승인 2026-10-17) 「집에 가자」·「사무실 가자」 — 말로 그린 길이 있으면 손 없이 바로 안내 시작(웹 길눈 malbuteugi.js 1.9에서 옮김)
         if let hit = MalgilEngine.shared.malroChatgi(z) {
             dap("\(hit.2) 말로 그린 길 안내를 시작합니다.", false)
@@ -1199,6 +1293,20 @@ final class MalHagi: ObservableObject {
             }
             b.biseutQ = nil
             if ani && jjalbeun { dap("알겠습니다.", false); return }
+        case .tanYeok:
+            // 2.105.0 (261024-I59) 타신 역을 여쭌 뒤의 대답 — 여정 끝·도착·탈것 바로잡기(「택시야」) 같은 말은 위에서 먼저 받음
+            let talgeotMal = ["택시", "버스", "차", "걸어", "기차", "배"].contains(where: { z.contains($0) })
+            if z.count <= 6 && !talgeotMal && ["아니", "몰라", "모르겠"].contains(where: { z.hasPrefix($0) }) {
+                mureum = .eopseum
+                dap("알겠습니다. 타신 역이 생각나시면 약수역에서 탔어처럼 말씀해 주십시오.", false)
+                return
+            }
+            if y != nil, !talgeotMal, let yeok = MalHagi.yeokMalBon(z) {
+                mureum = .eopseum
+                if let h = MalHagi.hoseonMal(z) { JihacheolEngine.shared.hoseonHint = h }
+                AnnaeEngine.shared.tanYeokDap(yeok, dap, mureumDap: true)
+                return
+            }
         case .mokjeok, .eopseum, .jeom:
             break
         }
@@ -1632,7 +1740,11 @@ final class MalHagi: ObservableObject {
         if s.itda(alts, "tatda") {
             // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 「차에 탔어」「택시 탔어」는 여정에 지하철 길이 있어도 늘 차 안 안내로.
             //   지하철 역 알림은 「지하철 탔어」「열차 탔어」「전철 탔어」라고 하실 때만
-            let jihaMal = z.contains("지하철") || z.contains("열차") || z.contains("전철")
+            // 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 「6호선 탔어」도 지하철로 — 예전에는 호선을 몰라 차 안 안내로 넘어갔음
+            let hoMal = MalHagi.hoseonMal(z)
+            if let h = hoMal { JihacheolEngine.shared.hoseonHint = h }
+            let jihaMal = z.contains("지하철") || z.contains("열차") || z.contains("전철") || hoMal != nil
+                || ["신분당", "경의중앙", "공항철도", "수인분당", "경춘선", "우이신설", "신림선", "김포골드", "서해선"].contains(where: { z.contains($0) })
             let beoseuMal = !jihaMal && z.contains("버스") && !z.contains("고속버스")
             let chaMal = !jihaMal && !beoseuMal && (z.contains("차") || z.contains("택시"))
             if let yy = y {
@@ -2107,9 +2219,20 @@ final class MalHagi: ObservableObject {
             if (tg2.chujeong == .jihacheol && umjigimNa) || yeolchaAn {
                 SoriEngine.shared.mal(apMal + "타고 가시는 중이니 지하철 길을 찾아 곧장 역 알림을 시작합니다.", .jeongbo)
                 // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 이용자가 지하철로 가자고 하셨으니 짐작 안내가 아님(땅 위 구간에서 차로 되돌리지 않음)
-                JihacheolEngine.shared.jungganSijak(j, jadong: false) { ok, mal in
+                JihacheolEngine.shared.jungganSijak(j, jadong: false) { [weak self] ok, mal in
                     GilGil.shared.cheotHwamyeon()
-                    dap(ok ? mal : mal + " 잠시 뒤 다시 지하철로 가자고 말씀해 주십시오.", false)
+                    if !ok {
+                        // 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 역 안내를 못 시작하면 목적지와 지하철을 담아 두고 타신 역을 여쭘
+                        yj.jeonghagi(mk)
+                        yj.talgeotBarojapgi(.jihacheol)
+                        yj.danggyeBakkugi(.taneunJung)
+                        TalgeotGamji.shared.barojapgi(.jihacheol)
+                        self?.mureum = .tanYeok
+                        self?.mureumTtae = Date()
+                        dap((mal == JihacheolEngine.tanYeokMureum ? "" : mal + " ") + "어느 역에서 타셨습니까? 약수역처럼 말씀해 주십시오.", true)
+                        return
+                    }
+                    dap(mal, false)
                 }
                 return
             }
@@ -2134,6 +2257,14 @@ final class MalHagi: ObservableObject {
                         yj.jeonghagi(mk)
                         self.mureum = .bangsik
                         self.mureumTtae = Date()
+                        if k == JihacheolEngine.tanYeokMureum {
+                            // 2.105.0 (261024-I59) 땅속이라 자리를 믿을 수 없으면 타실 역을 여쭘
+                            yj.talgeotBarojapgi(.jihacheol)
+                            self.mureum = .tanYeok
+                            self.mureumTtae = Date()
+                            dap(JihacheolEngine.tanYeokMal, true)
+                            return
+                        }
                         dap(k + " 걸어서, 차로, 버스로 가운데 어떻게 가실까요?", true)
                     }
                 }

@@ -96,10 +96,38 @@ object JihacheolEngine : SensorEventListener {
 
     /** 2.9.0 이미 열차를 타고 가는 중에 시작 — 땅속으로 내려가기 전 땅 위 자리에서 가까운 역을 타는 역으로 */
     /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) jadong: 저절로 짐작해 시작했는가 — 이용자가 지하철이라고 하신 때(false)는 차로 저절로 되돌리지 않음(아이폰과 같음) */
-    fun jungganSijak(mok: Jangso, jadong: Boolean = true, kkeut: (Boolean, String) -> Unit) {
-        val buteo = TalgeotGamji.jisangJari ?: TalgeotGamji.chaSijakJari ?: Wichi.jigeum
+    /** 2.73.0 (261024-A61, 이사장님 지시 2026-10-24, 아이폰 2.105.0과 같음) 타신 역을 짐작할 믿을 만한 자리가 없어 여쭤야 함 — 이 말로 돌려줌 */
+    const val TAN_YEOK_MUREUM = "?tanyeok"
+    val TAN_YEOK_MAL: String
+        get() = (if (TalgeotGamji.jiha) "땅속이라 위성이 닿지 않아 지금 자리를 확실히 알 수 없습니다." else "지금 자리를 확실히 알 수 없어 타실 역을 정하지 못했습니다.") +
+            " 약수역에서 탈 거야처럼 타실 역을 말씀해 주십시오."
+    /** 2.73.0 중간에 지하철 길을 찾는 중 */
+    var chatneunJung = false
+        private set
+
+    /** 2.73.0 (261024-A61, 이사장님 지시 2026-10-24) 「6호선 탔어」처럼 말씀하신 호선 — 타는 역을 고를 때 그 호선 역을 앞에 둠(10분 동안) */
+    private var hoseonHint0: String? = null
+    private var hoseonHintTtae = 0L
+    var hoseonHint: String?
+        get() = if (hoseonHintTtae > 0L && System.currentTimeMillis() - hoseonHintTtae < 600_000L) hoseonHint0 else null
+        set(v) { hoseonHint0 = v; hoseonHintTtae = if (v == null) 0L else System.currentTimeMillis() }
+
+    /** 2.73.0 (261024-A61) jadong — buteoYeok: 이용자가 말씀하신 타신 역(있으면 그 역에서) */
+    fun jungganSijak(mok: Jangso, jadong: Boolean = true, buteoYeok: String? = null, kkeut: (Boolean, String) -> Unit) {
+        // 2.73.0 (261024-A61) 땅속으로 내려가기 전 위성이 확실히 잡은 자리(1시간 안)만 타신 역을 짐작하는 데 씀 — 와이파이 짐작 자리로는 짐작하지 않고 여쭘
+        val now = System.currentTimeMillis()
+        val buteo = listOf(TalgeotGamji.jisangJari, TalgeotGamji.chaSijakJari, Wichi.jigeum)
+            .firstOrNull { it != null && !it.jjimjak && now - it.ttae < 3_600_000L && it.ochae <= 65 }
+        if (buteoYeok == null && buteo == null) {
+            Girok.namgi("jiha_tanyeok_mureum", mapOf("jjimjak" to (Wichi.jigeum?.jjimjak ?: true)))
+            kkeut(false, TAN_YEOK_MUREUM)
+            return
+        }
+        val ho = hoseonHint
+        chatneunJung = true
         val sd = sedae   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 찾는 사이 멈추거나 차로 바로잡으셨으면 버림
-        gilChatgi(mok, buteo) { gg, k ->
+        gilChatgi(mok, buteo, buteoYeok, ho) { gg, k ->
+            chatneunJung = false
             val y = yj.jigeum
             if (sd != sedae || y == null || (y.barojabeum && y.talgeot != Talgeot.JIHACHEOL)) {
                 Girok.namgi("jiha_junggan_beorim")
@@ -110,7 +138,7 @@ object JihacheolEngine : SensorEventListener {
             AnnaeEngine.jihacheolGagi(mok, g, malEopsi = true)
             Girok.namgi("jiha_junggan", mapOf("from" to g.from, "to" to g.to))
             kkeut(true, "${g.from}역에서 타신 것으로 보고 ${g.to}역까지 역을 알려 드립니다.")
-            tatda(jadong)
+            tatda(jadong, buteoYeok == null)
             jungganJadong = jadong   // 2.32.0 (261009-A20) 이용자가 바로잡으신 지하철은 false — 땅 위 구간에서 차로 되돌리지 않음(아이폰과 같음)
         }
     }
@@ -119,55 +147,135 @@ object JihacheolEngine : SensorEventListener {
 
     private class Yeok(val yeok: String, val ireum: String, val lat: Double, val lon: Double)
 
-    /** 지금 자리에서 목적지까지 지하철 길 — (길, 못 찾은 까닭). 결과는 화면 줄에서 */
-    fun gilChatgi(mok: Jangso, buteo: Jari? = null, kkeut: (JihaGil?, String) -> Unit) {
-        val w = buteo ?: Wichi.jigeum
-        if (w == null) { kkeut(null, "아직 위치를 잡는 중입니다. 잠시 뒤 다시 눌러 주십시오."); return }
-        var ya: Yeok? = null
-        var yb: Yeok? = null
-        var on = 0
-        val ieo: () -> Unit = {
-            on += 1
-            if (on == 2) {
-                val fr = ya
-                val to = yb
-                if (fr == null || to == null) kkeut(null, "가까운 역을 받지 못했습니다. 통신이 끊겼을 수 있습니다.")
-                else gilChatgi2(w, mok, fr, to, kkeut)
+    /** 2.73.0 (261024-A61, 이사장님 지시 2026-10-24) 역 이름 바로잡기 — 「약수역」「6호선 약수」를 지하철 길 자료의 이름(약수)으로. 호선을 주시면 그 호선에 있는 역만 */
+    fun yeokIreum(q0: String, hoseon: String? = null, kkeut: (String?) -> Unit) {
+        var q = q0.replace(" ", "")
+        Regex("^[0-9]{1,2}호선").find(q)?.let { q = q.removeRange(it.range) }
+        for (k in listOf("지하철역", "전철역", "역")) if (q.endsWith(k) && q.length > k.length) { q = q.dropLast(k.length); break }
+        if (q.isEmpty()) { kkeut(null); return }
+        Tongsin.json("yeok.php", mapOf("a" to "chatgi", "q" to q)) { o ->
+            val a = o?.optJSONArray("rows")
+            if (a == null || a.length() == 0) { kkeut(null); return@json }
+            val nms = ArrayList<String>()
+            for (i in 0 until a.length()) {
+                val r = a.optJSONObject(i) ?: continue
+                if (hoseon != null && Jeomjido.gul(r, "hoseon") != hoseon) continue
+                if (!r.has("nm") || r.isNull("nm")) continue
+                nms.add(Jeomjido.gul(r, "nm"))
             }
+            // 이름이 같거나 앞이 같은 역만(엉뚱한 역으로 맞추지 않게)
+            kkeut(nms.firstOrNull { it == q } ?: nms.firstOrNull { it.startsWith(q) })
         }
-        gakkaun(w.lat, w.lon) { ya = it; ieo() }
-        gakkaun(mok.lat, mok.lon) { yb = it; ieo() }
     }
 
-    private fun gilChatgi2(w: Jari, mok: Jangso, fr: Yeok, to: Yeok, kkeut: (JihaGil?, String) -> Unit) {
-        if (fr.yeok == to.yeok) {
-            kkeut(null, "타실 역과 내리실 역이 같은 ${fr.yeok}역입니다. 걸어가시는 편이 낫습니다.")
-            return
-        }
-        Tongsin.json("yeok.php", mapOf("a" to "gil", "from" to fr.yeok, "to" to to.yeok)) { o ->
-            if (o == null || !o.optBoolean("ok", false)) {
-                kkeut(null, "${fr.yeok}역에서 ${to.yeok}역까지 가는 길을 찾지 못했습니다.")
-                return@json
-            }
-            val jina = strList(o.optJSONArray("jina"))
-            val gugan = ArrayList<JihaGugan>()
-            val ga = o.optJSONArray("gugan")
-            if (ga != null) for (i in 0 until ga.length()) {
-                val k = ga.optJSONObject(i) ?: continue
-                gugan.add(JihaGugan(Jeomjido.gul(k, "hoseon"), Jeomjido.gul(k, "bangmyeon"), strList(k.optJSONArray("jina"))))
-            }
-            if (jina.isEmpty()) { kkeut(null, "지나는 역을 받지 못했습니다."); return@json }
-            val bun = (Jeomjido.su(o, "bun") ?: (jina.size * 2).toDouble()).toInt()
-            val mal = Jeomjido.gul(o, "mal")
-            // 들어갈 출구(지금 자리에서 가장 가까운 출구), 나갈 출구(목적지에서 가장 가까운 출구)
-            chulgu(w.lat, w.lon) { c ->
-                val ipgu = if (c != null && c.ireum.contains(fr.yeok)) c else Jangso(fr.ireum, "", fr.lat, fr.lon)
-                chulgu(mok.lat, mok.lon) { c2 ->
-                    val naeril = c2?.ireum ?: ""
-                    kkeut(JihaGil(fr.yeok, to.yeok, mal, bun, jina, gugan, ipgu,
-                        if (naeril.contains(to.yeok)) naeril else "", false, -1, false), "")
+    /** 지금 자리에서 목적지까지 지하철 길 — (길, 못 찾은 까닭). 결과는 화면 줄에서
+     *  2.73.0 (261024-A61, 이사장님 지시 2026-10-24, 아이폰 2.105.0과 같음) 가까운 역 하나만 보고 실패하던 것을 바로잡음 — 가까운 역 여럿 가운데 지하철 길 자료에 있는 역을 차례로 대 보고,
+     *  말씀하신 호선이 있으면 그 호선 역을 먼저, 타신 역을 말씀하셨으면(buteoYeok) 그 역에서
+     *  (6호선 땅속에서 엉뚱하게 잡힌 자리 옆의 경춘선 신내역을 골라 「그 역 이름을 자료에서 찾지 못했습니다」로 하루 내내 역 안내를 못 하던 일) */
+    fun gilChatgi(mok: Jangso, buteo: Jari? = null, buteoYeok: String? = null, hoseon: String? = null, kkeut: (JihaGil?, String) -> Unit) {
+        if (buteoYeok != null) {
+            val by = buteoYeok
+            // 그 역의 자리(그 역까지 걷는 안내에 씀) — 못 받으면 0
+            val ieo: (String?) -> Unit = { n ->
+                if (n == null) kkeut(null, "$by${if (by.endsWith("역")) "" else "역"}을 지하철 역 자료에서 찾지 못했습니다.")
+                else Chatgi.jangso(n + "역") { l ->
+                    val f = l?.firstOrNull { it.ireum.contains(n) }
+                    gilChatgi2(null, mok, listOf(Yeok(n, n + "역", f?.lat ?: 0.0, f?.lon ?: 0.0)), buteoYeok, hoseon, kkeut)
                 }
             }
+            yeokIreum(by, hoseon) { n0 ->
+                if (n0 == null && hoseon != null) yeokIreum(by) { n -> ieo(n) } else ieo(n0)
+            }
+            return
+        }
+        val w0 = buteo ?: Wichi.jigeum
+        // 2.73.0 (261024-A61) 와이파이로 짐작한 자리나 자리가 없을 때(땅속)는 타실 역을 정하지 않음 — 여쭘
+        //   땅 위에서 10분 안에 위성이 확실히 잡은 자리가 있으면 그것을 씀(집 안 와이파이 자리로 묻지 않게, 아이폰과 같음)
+        val mm = Wichi.majimakMideum
+        val w = if ((w0 == null || w0.jjimjak) && !TalgeotGamji.jiha && mm != null && System.currentTimeMillis() - mm.ttae < 600_000L) mm else w0
+        if (w == null || w.jjimjak) {
+            Girok.namgi("jiha_tanyeok_mureum", mapOf("gil" to true))
+            kkeut(null, TAN_YEOK_MUREUM)
+            return
+        }
+        gakkaunDeul(w.lat, w.lon) { l ->
+            var fromDeul = l
+            if (hoseon != null) {
+                val ap = fromDeul.filter { it.ireum.contains(hoseon) }
+                fromDeul = ap + fromDeul.filter { !it.ireum.contains(hoseon) }
+            }
+            gilChatgi2(w, mok, fromDeul, null, hoseon, kkeut)
+        }
+    }
+
+    private fun gilChatgi2(w: Jari?, mok: Jangso, fromDeul: List<Yeok>, buteoYeok: String?, hoseon: String?, kkeut: (JihaGil?, String) -> Unit) {
+        gakkaunDeul(mok.lat, mok.lon) { tl ->
+            val toDeul = tl.take(3)
+            if (fromDeul.isEmpty() || toDeul.isEmpty()) { kkeut(null, "가까운 역을 받지 못했습니다. 통신이 끊겼을 수 있습니다."); return@gakkaunDeul }
+            val ssang = ArrayList<Pair<Yeok, Yeok>>()
+            for (f in fromDeul.take(5)) for (t in toDeul) if (f.yeok != t.yeok) ssang.add(f to t)
+            var bon = 0
+            fun machim(o: org.json.JSONObject?, fr: Yeok, to: Yeok) {
+                Girok.namgi("jiha_gil_chatgi", mapOf("from" to fr.yeok, "to" to to.yeok, "ok" to (o != null), "bon" to bon,
+                    "hubo" to fromDeul.take(5).joinToString(",") { it.yeok }, "son" to (buteoYeok != null), "ho" to (hoseon ?: "")))
+                if (o == null) {
+                    if (fromDeul.size == 1 && toDeul.any { it.yeok == fromDeul[0].yeok }) {
+                        kkeut(null, "타실 역과 내리실 역이 같은 ${fromDeul[0].yeok}역입니다. 걸어가시는 편이 낫습니다.")
+                    } else {
+                        kkeut(null, "${fromDeul[0].yeok}역에서 ${toDeul[0].yeok}역까지 가는 길을 찾지 못했습니다.")
+                    }
+                    return
+                }
+                gilMandeulgi(o, if (buteoYeok == null) w else null, mok, fr, to, kkeut)
+            }
+            fun dae(k: Int) {
+                if (k >= ssang.size) { machim(null, fromDeul[0], toDeul[0]); return }
+                val (f, t) = ssang[k]
+                bon += 1
+                Tongsin.json("yeok.php", mapOf("a" to "gil", "from" to f.yeok, "to" to t.yeok)) { o ->
+                    if (o != null && o.optBoolean("ok", false)) machim(o, f, t) else dae(k + 1)
+                }
+            }
+            dae(0)
+        }
+    }
+
+    private fun gilMandeulgi(o: org.json.JSONObject, w: Jari?, mok: Jangso, fr: Yeok, to: Yeok, kkeut: (JihaGil?, String) -> Unit) {
+        val jina = strList(o.optJSONArray("jina"))
+        val gugan = ArrayList<JihaGugan>()
+        val ga = o.optJSONArray("gugan")
+        if (ga != null) for (i in 0 until ga.length()) {
+            val k = ga.optJSONObject(i) ?: continue
+            gugan.add(JihaGugan(Jeomjido.gul(k, "hoseon"), Jeomjido.gul(k, "bangmyeon"), strList(k.optJSONArray("jina"))))
+        }
+        if (jina.isEmpty()) { kkeut(null, "지나는 역을 받지 못했습니다."); return }
+        val bun = (Jeomjido.su(o, "bun") ?: (jina.size * 2).toDouble()).toInt()
+        val mal = Jeomjido.gul(o, "mal")
+        // 들어갈 출구(지금 자리에서 가장 가까운 출구), 나갈 출구(목적지에서 가장 가까운 출구) — 타신 역을 말씀하셨으면 그 역 이름으로
+        val naegi: (Jangso) -> Unit = { ipgu ->
+            chulgu(mok.lat, mok.lon) { c2 ->
+                val naeril = c2?.ireum ?: ""
+                kkeut(JihaGil(fr.yeok, to.yeok, mal, bun, jina, gugan, ipgu,
+                    if (naeril.contains(to.yeok)) naeril else "", false, -1, false), "")
+            }
+        }
+        val gibon = Jangso(fr.ireum, "", fr.lat, fr.lon)
+        if (w == null) { naegi(gibon); return }
+        chulgu(w.lat, w.lon) { c -> naegi(if (c != null && c.ireum.contains(fr.yeok)) c else gibon) }
+    }
+
+    /** 2.73.0 가까운 역 여럿(가까운 차례) */
+    private fun gakkaunDeul(lat: Double, lon: Double, kkeut: (List<Yeok>) -> Unit) {
+        Tongsin.json("yeok.php", mapOf("a" to "gakkaun", "lat" to Chatgi.f6(lat), "lon" to Chatgi.f6(lon))) { o ->
+            val a = o?.optJSONArray("rows")
+            val l = ArrayList<Yeok>()
+            if (a != null) for (i in 0 until a.length()) {
+                val r = a.optJSONObject(i) ?: continue
+                val la = Jeomjido.su(r, "lat") ?: continue
+                val lo = Jeomjido.su(r, "lon") ?: continue
+                l.add(Yeok(Jeomjido.gul(r, "yeok"), Jeomjido.gul(r, "ireum"), la, lo))
+            }
+            kkeut(l)
         }
     }
 
@@ -253,7 +361,7 @@ object JihacheolEngine : SensorEventListener {
             if ((yj.jigeum?.jungganJadong ?: false) != v) yj.jungganJadongNoki(v)
         }
 
-    fun tatda(jadong: Boolean) {
+    fun tatda(jadong: Boolean, tanYeokMal: Boolean = false) {
         jungganJadong = false
         ieoGamTamMoreum = false
         val g0 = gil ?: return
@@ -272,7 +380,9 @@ object JihacheolEngine : SensorEventListener {
         tamTtae = majimak
         val apmal = if (jadong) "열차가 움직이는 것 같습니다. " else ""
         val dwimal = if (jadong) " 지하철이 아니면 택시야라고 말씀해 주십시오." else ""   // 2.31.0 단정하지 않고 바로잡는 말을 함께
-        Sori.mal(apmal + "역 알림을 시작합니다. 내리실 역은 ${g.to}역, ${g.jina.size} 정거장 뒤입니다. 지나는 역마다 알려 드립니다." + dwimal)
+        // 2.73.0 (261024-A61, 아이폰 2.105.0과 같음) 타신 역을 짐작했으면 그 역을 밝히고 바로잡는 말을 알려 드림
+        val tanMal = if (tanYeokMal) "${g.from}역에서 타신 것으로 압니다. 다르면 약수역에서 탔어처럼 말씀해 주십시오. " else ""
+        Sori.mal(apmal + tanMal + "역 알림을 시작합니다. 내리실 역은 ${g.to}역, ${g.jina.size} 정거장 뒤입니다." + (if (g.bun > 0) " 약 ${g.bun}분 걸립니다." else "") + " 지나는 역마다 알려 드립니다." + dwimal)
         Girok.namgi("jiha_tam", mapOf("jadong" to jadong))
         dolligi()
     }
@@ -390,6 +500,33 @@ object JihacheolEngine : SensorEventListener {
             main.removeCallbacks(ticker)
             gasokKkeugi()
         }
+    }
+
+    /** 2.73.0 (261024-A61, 이사장님 지시 2026-10-24, 아이폰 2.105.0과 같음) 「여기는 ○○역이야」 — 가는 길 위의 역이면 그 역으로 맞춤. 맞췄으면 알려 드릴 말, 길 위에 없으면 null */
+    fun yeokMatchugi(ireum0: String): String? {
+        val y = yj.jigeum ?: return null
+        if (y.danggye != Danggye.TANEUN_JUNG) return null
+        val g0 = y.jiha ?: return null
+        if (g0.kkeutnam) return null
+        val n = ireum(ireum0)
+        val idx: Int = if (ireum(g0.from) == n) -1 else {
+            val k = g0.jina.indexOfFirst { ireum(it) == n }
+            if (k < 0) return null
+            k
+        }
+        var g = g0.copy(i = idx)
+        yj.jihaNoki(g)
+        junbi(g)
+        majimak = System.currentTimeMillis()
+        if (!dolgo) dolligi()
+        Girok.namgi("jiha_yeok_matchum", mapOf("yeok" to n, "i" to idx))
+        val nam = g.jina.size - 1 - idx
+        if (nam <= 0) {
+            g = g.copy(kkeutnam = true)
+            yj.jihaNoki(g)
+            return "${n}역으로 맞췄습니다. 내리실 역입니다. 내리십시오."
+        }
+        return "${n}역으로 맞췄습니다. ${g.to}역까지 $nam 정거장 남았습니다." + " 다음은 ${ireum(g.jina[idx + 1])}역입니다."
     }
 
     /** 지금 몇 정거장 남았습니까 */
@@ -627,10 +764,10 @@ class JihacheolGilHwamyeon(private val mok: Jangso) : Hwamyeon("지하철로 가
         chatneunJung = true
         JihacheolEngine.gilChatgi(mok) { g, k ->
             gil = g
-            kkadak = k
+            kkadak = if (k == JihacheolEngine.TAN_YEOK_MUREUM) JihacheolEngine.TAN_YEOK_MAL else k   // 2.73.0 (261024-A61)
             chatneunJung = false
             batam = true
-            if (g == null) Sori.mal(k)   // 찾은 길은 단추 글자로 읽힘 — 못 찾은 까닭만 한 번 말함
+            if (g == null) Sori.mal(kkadak)   // 찾은 길은 단추 글자로 읽힘 — 못 찾은 까닭만 한 번 말함
             if (g != null) JihacheolEngine.daeumYeolchaMal(g) { m -> daeumYeolcha = m ?: ""; yeolchaDan?.text = yeolchaGeul() }   // 2.62.0 그 자리에서 글자만 바꿈(커서가 흔들리지 않게)
             val t = t0 ?: return@gilChatgi
             chojeomHal = true

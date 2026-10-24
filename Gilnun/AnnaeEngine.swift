@@ -301,7 +301,8 @@ final class AnnaeEngine: ObservableObject {
         // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 이용자가 바로잡으신 지하철 — 짐작 안내가 아니므로 jadong: false
         JihacheolEngine.shared.jungganSijak(mok, jadong: false) { [weak self] ok, mal in
             if ok { Girok.shared.namgi("barojapgi_jihacheol", [:]) }
-            else { self?.malHagi(mal + " 남은 거리를 알려 드립니다.") }
+            // 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 역 안내를 못 시작하면 차 안내로 넘어가지 않고 타신 역을 여쭘
+            else { self?.tanYeokMutgi(mal == JihacheolEngine.tanYeokMureum ? "" : mal) }
         }
     }
 
@@ -402,6 +403,163 @@ final class AnnaeEngine: ObservableObject {
         malHagi("여정을 끝냈습니다.")
     }
 
+    // MARK: 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 타신 역 여쭙기·「여기는 ○○역이야」·「틀렸어」
+
+    private var jihaGilEopseumTtae = Date.distantPast
+    private var jihaMutSu = 0
+    private var jihaMutYeojeong: Date?
+
+    /// 타신 역을 여쭙고 마이크를 엶 — 대답은 말로 하기가 tanYeokDap 으로 넘김
+    func tanYeokMutgi(_ apMal: String, chaDo: Bool = false) {
+        jihaGilEopseumTtae = Date()
+        Girok.shared.namgi("tanyeok_mureum", ["ap": String(apMal.prefix(40))])
+        let q = (apMal.isEmpty ? "" : apMal + " ") + "지하철 역 안내를 시작하지 못했습니다. 어느 역에서 타셨습니까? 약수역처럼 말씀해 주십시오." + (chaDo ? " 지하철이 아니면 택시야라고 말씀해 주십시오." : "")
+        MalHagi.shared.tanYeokMutgi(q)
+    }
+
+    /// 타신 역 대답 — 먼저 지하철 역 이름이 맞는지 보고(맞지 않으면 탈것·차례를 바꾸지 않음), 그 역에서 목적지까지 지하철 길을 찾아
+    ///   타고 가시는 중이면 곧장 역 알림, 역 가까이(땅속)면 그 역에서 열차를 기다림, 멀면 그 역까지 걷는 안내
+    func tanYeokDap(_ ireum: String, _ dap: @escaping (String, Bool) -> Void, mureumDap: Bool = false) {
+        guard let y0 = yj.jigeum else { dap("가시는 곳을 먼저 말씀해 주십시오. 어디로 가실까요?", true); return }
+        let mok = Jangso(ireum: y0.mokjeok.ireum, juso: y0.mokjeok.juso, lat: y0.mokjeok.lat, lon: y0.mokjeok.lon)
+        let yn = ireum.hasSuffix("역") ? ireum : ireum + "역"
+        let ho = JihacheolEngine.shared.hoseonHint
+        Task {
+            var n0 = await JihacheolEngine.yeokIreum(ireum, hoseon: ho)
+            if n0 == nil && ho != nil { n0 = await JihacheolEngine.yeokIreum(ireum) }
+            let nn = n0
+            await MainActor.run {
+                guard let n = nn else {
+                    Girok.shared.namgi("tanyeok_dap", ["yeok": ireum, "ok": false, "kkadak": "역 없음"])
+                    if mureumDap {
+                        dap("", false)
+                        MalHagi.shared.tanYeokMutgi("\(yn)을 지하철 역 자료에서 찾지 못했습니다. 역 이름만 다시 말씀해 주십시오.")
+                    } else {
+                        dap("\(yn)을 지하철 역 자료에서 찾지 못했습니다.", false)
+                    }
+                    return
+                }
+                dap("\(n)역에서 가는 지하철 길을 찾습니다.", false)
+                guard let y = self.yj.jigeum else { return }
+                let tagoIt = y.danggye == .taneunJung || (TalgeotGamji.shared.majimakTalgeot.map { Date().timeIntervalSince($0) < 60 } ?? false)
+                if tagoIt {
+                    if y.danggye != .taneunJung { self.yj.danggyeBakkugi(.taneunJung) }
+                    if y.talgeot != .jihacheol || !y.barojabeum { self.yj.talgeotBarojapgi(.jihacheol) }
+                    TalgeotGamji.shared.barojapgi(.jihacheol)
+                    JihacheolEngine.shared.jungganSijak(mok, jadong: false, buteoYeok: n) { [weak self] ok, mal in
+                        if ok { self?.jihaMutSu = 0; Girok.shared.namgi("tanyeok_dap", ["yeok": n, "ok": true]) }
+                        else { self?.tanYeokMutgi(mal == JihacheolEngine.tanYeokMureum ? "" : mal + " 역 이름을 다시 말씀해 주십시오.") }
+                    }
+                    return
+                }
+                Task {
+                    let (gg, k) = await JihacheolEngine.gilChatgi(mok, buteoYeok: n, hoseon: ho)
+                    await MainActor.run {
+                        guard var g = gg else { self.tanYeokMutgi(k + " 역 이름을 다시 말씀해 주십시오."); return }
+                        g.ipgu = Jangso(ireum: g.from + "역", juso: "", lat: g.ipgu.lat, lon: g.ipgu.lon)
+                        // 역 가까이(300미터 안)이거나 땅속이면 그 역에서 열차를 기다리고, 멀면 그 역까지 걷는 안내
+                        var gakkai = TalgeotGamji.shared.jiha || g.ipgu.lat == 0
+                        if !gakkai, let w = WichiEngine.shared.jigeum, !w.jjimjak {
+                            gakkai = WichiEngine.geori(w.lat, w.lon, g.ipgu.lat, g.ipgu.lon) < 300
+                        } else if !gakkai { gakkai = true }
+                        Girok.shared.namgi("tanyeok_dap", ["yeok": n, "ok": true, "gidarim": gakkai])
+                        self.jihaMutSu = 0
+                        if gakkai {
+                            self.jihacheolGagi(mok, g, malEopsi: true)
+                            JihacheolEngine.shared.ipguDochak()
+                        } else {
+                            self.jihacheolGagi(mok, g)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// 「여기는 ○○역이야」 — 지하철 안이면 그 역으로 맞추고, 아니면 그 역 자리를 지금 자리로
+    func jariBarojapgi(_ ireum0: String, _ dap: @escaping (String, Bool) -> Void) {
+        let ireum = ireum0.replacingOccurrences(of: " ", with: "")
+        if let m = JihacheolEngine.shared.yeokMatchugi(ireum) {
+            dap("알겠습니다. " + m, false)
+            return
+        }
+        if let y = yj.jigeum, y.danggye == .taneunJung, yj.talgeot == .jihacheol {
+            // 타고 계신 호선(가는 길의 호선, 말씀하신 호선)에 없는 역이면 길을 버리지 않고 다시 여쭘 — 「6호선 용산역」처럼 없는 역으로 길을 바꾸지 않게
+            var hoDeul = Set((y.jiha?.gugan ?? []).map { $0.hoseon }.filter { !$0.isEmpty })
+            if let h = JihacheolEngine.shared.hoseonHint { hoDeul.insert(h) }
+            let hoSet = hoDeul
+            Task {
+                var itda = hoSet.isEmpty
+                for h in hoSet where !itda { if await JihacheolEngine.yeokIreum(ireum, hoseon: h) != nil { itda = true } }
+                let itdaG = itda
+                await MainActor.run {
+                    let yn = ireum.hasSuffix("역") ? ireum : ireum + "역"
+                    guard itdaG else {
+                        Girok.shared.namgi("jari_barojapgi", ["mal": ireum, "eopseum": hoSet.sorted().joined(separator: ",")])
+                        dap("", false)
+                        MalHagi.shared.tanYeokMutgi("\(yn)은 지금 타신 \(hoSet.sorted().joined(separator: ", "))에 없습니다. 지나신 역이나 다음 역 이름을 말씀해 주십시오.")
+                        return
+                    }
+                    // 가는 길에 없는 역 — 그 역에서 다시 길을 찾음(새 길을 찾은 뒤에 바꿈, 못 찾으면 지금 길을 그대로 둠)
+                    self.tanYeokDap(ireum, dap)
+                }
+            }
+            return
+        }
+        Task {
+            // 역 이름만 받음(엉뚱한 곳으로 자리를 옮기지 않게)
+            var j: Jangso? = nil
+            var n = await JihacheolEngine.yeokIreum(ireum, hoseon: JihacheolEngine.shared.hoseonHint)
+            if n == nil { n = await JihacheolEngine.yeokIreum(ireum) }
+            if let n = n, let l = await Chatgi.jangso(n + "역") {
+                j = l.first(where: { $0.ireum.contains(n) })
+            }
+            let jG = j
+            await MainActor.run {
+                guard let j = jG else { dap("\(ireum)역을 지하철 역 자료에서 찾지 못했습니다. 역 이름을 다시 말씀해 주십시오.", false); return }
+                WichiEngine.shared.sonJariNoki(j.lat, j.lon)
+                Girok.shared.namgi("jari_barojapgi", ["mal": ireum, "ireum": j.ireum, "la": j.lat, "lo": j.lon])
+                dap("알겠습니다. 지금 자리를 \(j.ireum)\(MalHagi.ro(j.ireum)) 맞췄습니다. 위성이 다시 잡히면 위성 자리로 이어 갑니다.", false)
+            }
+        }
+    }
+
+    /// 「틀렸어」 — 무엇을 하고 있든 「알겠습니다」라고 하고 바로 앞 단계로 되돌림
+    func doedolligi() {
+        guard let d = yj.doedolimKkeonaegi() else {
+            Girok.shared.namgi("doedolim", ["eopseum": true])
+            malHagi("알겠습니다. 되돌릴 앞 단계가 없습니다. 무엇이 틀렸는지 말씀해 주십시오.")
+            return
+        }
+        JeomEngine.shared.yeojeongKkeut()
+        JihacheolEngine.shared.meomchugi()
+        GanpanAllim.shared.kkeut()
+        ChaGeodeul.shared.kkeut()
+        yj.doedolligi(d)
+        dasiSijak()
+        guard let y = yj.jigeum else {
+            TalgeotGamji.shared.saeroSijak()
+            malHagi("알겠습니다. 앞 단계로 되돌렸습니다. 지금은 가시는 여정이 없습니다. 어디로 가실까요?")
+            return
+        }
+        // 타고 가는 중으로 되돌린 때만 탈것 알아채기에 알림 — 다른 차례에서 알리면 저절로 「열차가 움직이는 것 같습니다」 같은 안내가 나감
+        if y.danggye == .taneunJung { TalgeotGamji.shared.barojapgi(y.talgeot) } else { TalgeotGamji.shared.saeroSijak() }
+        // 지하철 길이 있으면 역 알림을 이어 감
+        if y.jiha != nil { JihacheolEngine.shared.ieoGagi() }
+        let tn = Annae.talgeotIreum(y.talgeot)
+        var m = "알겠습니다. 앞 단계로 되돌렸습니다. \(y.mokjeok.ireum)까지 "
+        switch y.danggye {
+        case .taneunJung: m += "\(tn)\(Annae.eulReul(tn)) 타고 가시는 중입니다."
+        case .taneunGotKkaji: m += "\(tn)\(Annae.eulReul(tn)) 타는 곳으로 가시는 중입니다."
+        case .namEunGil: m += "걸어서 가시는 중입니다."
+        case .eotteoke: m += "어떻게 가실지 정할 차례입니다."
+        case .dochak: m += "도착하셨습니다."
+        }
+        if y.danggye == .taneunJung, let g = y.jiha, !g.kkeutnam { m += " " + JihacheolEngine.shared.hyeonhwang() }
+        malHagi(m)
+        jigeumBoda()
+    }
+
     /// 지금 어떻게 가고 있습니까
     func hyeonhwang() {
         // 2.10.0 점지도를 따라 걷는 중이면 점지도의 남은 거리
@@ -442,6 +600,30 @@ final class AnnaeEngine: ObservableObject {
 
     func jigeumJari() {
         if yj.jigeum?.danggye == .taneunJung && yj.talgeot == .seonbak { TalgeotJikimi.shared.jigeumBaeJari(); return }   // 2.64.0 배 안이면 바다 위 자리
+        // 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 지하철 안에서는 위성 대신 지나온 역으로 지금 자리를 말씀드림
+        if let y = yj.jigeum, y.danggye == .taneunJung, let g = y.jiha, !g.kkeutnam {
+            malHagi(JihacheolEngine.shared.hyeonhwang() + " 역이 다르면 여기는 삼각지역이야처럼 말씀해 주십시오.")
+            Girok.shared.namgi("jari_mal", ["mal": "지하철 역", "jiha": true])
+            return
+        }
+        if let y = yj.jigeum, y.danggye == .taneunJung, y.jiha == nil, yj.talgeot == .jihacheol {
+            malHagi("지하철 안이라 위성이 닿지 않아 지금 자리를 알 수 없습니다. 타신 역이나 지금 역을 말씀해 주시면 그 역에서부터 알려 드립니다.")
+            Girok.shared.namgi("jari_mal", ["mal": "지하철 길 없음", "jiha": true])
+            return
+        }
+        // 2.105.0 (261024-I59) 와이파이로 짐작한 자리는 지금 자리로 단정하지 않음 — 신내차량기지를 「오차 16미터」로 말씀드린 일
+        if let w = WichiEngine.shared.jigeum, w.jjimjak {
+            let gi = WichiEngine.shared.majimakMideum
+            var m = "위성이 닿지 않는 곳이라 지금 자리를 확실히 알 수 없습니다."
+            if let g = gi, Date().timeIntervalSince(g.ttae) < 3 * 3600 {
+                let bun = Int(Date().timeIntervalSince(g.ttae) / 60)
+                m += " 위성으로 마지막 확인한 것은 \(bun < 1 ? "방금" : "\(bun)분 전")입니다."
+            }
+            m += " 여기는 약수역이야처럼 말씀해 주시면 그 자리로 맞추겠습니다."
+            Girok.shared.namgi("jari_mal", ["mal": "짐작 자리", "oc": Int(w.ochae), "la": w.lat, "lo": w.lon, "jjimjak": true])
+            malHagi(m)
+            return
+        }
         guard let w = WichiEngine.shared.jigeum else {
             // 2.72.0 안드로이드와 같게(이사장님 승인 2026-10-14) — 위치 허락이 없으면 그렇다고 알려 드림
             malHagi(WichiEngine.shared.geojeoldoem ? "위치 허락이 없어 자리를 알 수 없습니다. 폰 설정의 길눈, 위치에서 허용해 주십시오."
@@ -455,7 +637,9 @@ final class AnnaeEngine: ObservableObject {
         let majimak: () -> Void = { [weak self] in
             guard let self = self, !b.han, b.nam <= 0 else { return }
             b.han = true
-            let m = AnnaeEngine.jariMalMandeulgi(b.o, w, b.jr)
+            // 2.105.0 (261024-I59) 1분 넘게 새로 잡히지 않은 자리면 언제 확인한 자리인지 먼저 밝힘
+            let nai = Date().timeIntervalSince(w.ttae)
+            let m = (nai > 60 && !w.sonJari ? "\(max(1, Int(nai / 60)))분 전에 확인한 자리입니다. " : "") + AnnaeEngine.jariMalMandeulgi(b.o, w, b.jr)
             // 2.68.0 무엇을 말씀드렸는지 그대로 남김(10/13 오금역 — 들으신 말을 기록으로 확인할 수 없었음)
             Girok.shared.namgi("jari_mal", ["mal": m, "oc": Int(w.ochae), "la": w.lat, "lo": w.lon])
             self.malHagi(m + (b.n.isEmpty ? "" : " 날씨는 " + b.n + "."))
@@ -734,6 +918,11 @@ final class AnnaeEngine: ObservableObject {
         }
         // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 바로잡으신 탈것과 같은 것을 알아챘으면 그대로(바로잡음을 알아채기에 알릴 때 안내가 겹치지 않게)
         if y.barojabeum && y.talgeot == t && y.danggye == .taneunJung { return }
+        // 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 바로잡아 주신 탈것으로 타고 가시는 동안에는 길눈이 짐작한 다른 탈것으로 안내를 바꾸지 않음
+        if y.barojabeum && y.danggye == .taneunJung && y.talgeot != .georeum && y.talgeot != t {
+            Girok.shared.namgi("barojapgi_jikim", ["jjimjak": t.rawValue, "tal": y.talgeot.rawValue])
+            return
+        }
         // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 기차 지킴 중에는 지하철·차·버스·걸음 짐작으로 안내를 바꾸지 않음(기차 안 안내는 gichaRo 가 함)
         if yj.jikimJung { return }
         // 2.40.0 움직임 감지기로 알아챈 지하철·버스·걸음도 이어 받음
@@ -765,7 +954,10 @@ final class AnnaeEngine: ObservableObject {
             malHagi("지하철을 타신 것 같습니다. 지하철 길을 찾습니다. 지하철이 아니면 바로 아래 탈것 목록에서 바로잡으십시오.")
             JihacheolEngine.shared.jungganSijak(mok) { [weak self] ok, mal in
                 if ok { Girok.shared.namgi("jadong_jihacheol", [:]) }
-                else {
+                else if mal == JihacheolEngine.tanYeokMureum {
+                    // 2.105.0 (261024-I59) 땅속이라 타신 역을 짐작할 수 없으면 차로 넘기지 않고 여쭘
+                    self?.tanYeokMutgi("", chaDo: true)
+                } else {
                     self?.malHagi(mal + " 차 안 안내로 잇습니다.")
                     self?.chaTatda(mal: "", barojabeum: false)   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 짐작이 빗나간 것이니 이용자가 바로잡은 차로 남기지 않음
                 }
@@ -866,7 +1058,7 @@ final class AnnaeEngine: ObservableObject {
     private func wichiBatda(_ w: Wichi) {
         guard let y = yj.jigeum else { namEunGeori = nil; GichaAnnae.shared.kkeut(); ChaGeodeul.shared.kkeut(); return }
         if !(y.danggye == .taneunJung && yj.talgeot == .gicha) { GichaAnnae.shared.kkeut() }   // 2.91.0
-        if !(y.danggye == .taneunJung && yj.talgeot != .gicha && yj.talgeot != .seonbak && y.jiha == nil) { ChaGeodeul.shared.kkeut() }   // 2.92.0
+        if !(y.danggye == .taneunJung && yj.talgeot != .gicha && yj.talgeot != .seonbak && !(y.talgeot == .jihacheol && y.barojabeum) && y.jiha == nil) { ChaGeodeul.shared.kkeut() }   // 2.92.0
         let d = WichiEngine.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
         namEunGeori = d
         yj.dochakBoda(w)   // 2.92.0 목적지 50미터 안 2분이면 도착을 여쭘
@@ -895,6 +1087,21 @@ final class AnnaeEngine: ObservableObject {
             return
         }
         switch y.danggye {
+        case .taneunJung where y.talgeot == .jihacheol && y.barojabeum:
+            // 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 지하철인데 역 안내를 아직 못 시작했으면 차 안내(「멈춰 있습니다」)를 하지 않고, 3분마다 타신 역을 여쭘
+            if jihaMutYeojeong != y.sijak { jihaMutYeojeong = y.sijak; jihaMutSu = 0 }
+            // 내려서 15초 넘게 걸으시면(땅 위) 내리신 것으로 보고 걷는 안내로
+            if !TalgeotGamji.shared.jiha && TalgeotGamji.shared.georeum15cho {
+                Girok.shared.namgi("jiha_gil_eopseum_naerim", [:])
+                naeryeotda(jadong: true)
+                return
+            }
+            // 세 번까지만 여쭘(그 뒤에는 「약수역에서 탔어」라고 하시면 바로 시작)
+            if jihaMutSu < 3 && Date().timeIntervalSince(jihaGilEopseumTtae) > 180 && !MalHagi.shared.tanYeokMutneunJung && !JihacheolEngine.shared.chatneunJung {
+                jihaMutSu += 1
+                jihaGilEopseumTtae = Date()
+                tanYeokMutgi("")
+            }
         case .taneunJung:
             // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 배 안에서는 길 벗어남·사거리·간판 대신 바다 위 지금 자리
             if yj.talgeot == .seonbak { TalgeotJikimi.shared.baeAnnae(w, d, y) } else { chaAnnae(w, d, y) }
@@ -1092,6 +1299,7 @@ final class AnnaeEngine: ObservableObject {
         return "\(gm(d)) 앞에서 \(dolgiMal(a.sign, jigeum: false))." + (s == 0 ? "" : " 그쪽은 \(s)시 방향입니다.")
     }
 
+    private var ttTongsinMot = 0
     private func ttBatgi(_ w: Wichi, _ lat: Double, _ lon: Double, apMal: String) {
         guard !ttBatneun, Date().timeIntervalSince(ttMotTtae) > 20 else { return }
         ttBatneun = true
@@ -1104,8 +1312,14 @@ final class AnnaeEngine: ObservableObject {
                 guard let o = o, (o["ok"] as? Bool) == true,
                       let pts = o["pts"] as? [[Double]], let an = o["an"] as? [[String: Any]], pts.count >= 2 else {
                     self.ttMotTtae = Date()
+                    // 2.105.0 (261024-I59) 통신이 막혀 걷는 길을 잇달아 못 받으면 한 번 말씀드림(10-24 월드컵경기장 앞 20분 동안 21번 말없이 실패)
+                    if o == nil {
+                        self.ttTongsinMot += 1
+                        if self.ttTongsinMot == 3 { self.malHagi("통신이 원활하지 않아 걸을 수 있는 길을 받지 못하고 있습니다. 목적지 방향으로 안내합니다.") }
+                    }
                     return
                 }
+                self.ttTongsinMot = 0
                 self.ttPts = pts.compactMap { $0.count >= 2 ? ($0[0], $0[1]) : nil }
                 self.ttAn = an.compactMap { a in
                     guard let j = a["jeom"] as? [Double], j.count >= 2 else { return nil }

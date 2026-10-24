@@ -159,7 +159,46 @@ final class YeojeongEngine: ObservableObject {
         jigeum = y
     }
 
+    // MARK: 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 「틀렸어」 — 바로 앞 단계로 되돌리기
+    //   목적지·탈것·차례가 바뀌기 바로 전의 여정을 담아 둠. 한 번의 일로 여러 칸이 함께 바뀌면(3초 안) 하나로 봄. 한 시간 안의 열두 단계까지
+    struct Doedolim { let y: Yeojeong?; let ttae: Date }
+    private var doedolim: [Doedolim] = []
+    private var doedolineunJung = false
+
+    private func gieok() {
+        guard !doedolineunJung else { return }
+        if let l = doedolim.last, Date().timeIntervalSince(l.ttae) < 3 { return }
+        doedolim.append(Doedolim(y: jigeum, ttae: Date()))
+        if doedolim.count > 12 { doedolim.removeFirst() }
+    }
+
+    /// 되돌릴 앞 단계를 꺼냄(한 시간이 지난 것은 버림) — 없으면 nil
+    func doedolimKkeonaegi() -> Doedolim? {
+        doedolim.removeAll { Date().timeIntervalSince($0.ttae) > 3600 }
+        return doedolim.popLast()
+    }
+
+    /// 앞 단계로 되돌림 — 되돌린 탈것은 이용자가 바로잡으신 것으로 보아 길눈이 다시 저절로 바꾸지 않게
+    func doedolligi(_ d: Doedolim) {
+        doedolineunJung = true
+        defer { doedolineunJung = false }
+        jinanMureum = false; dochakMureum = false; gakkaiTtae = nil
+        if var y = d.y {
+            y.gaengsin = Date()
+            if y.talgeot != .georeum || y.danggye == .taneunJung { y.barojabeum = true }
+            jigeum = y
+            if y.talgeot == .gicha { sokdoChujeong = .gicha } else if sokdoChujeong == .gicha { gichaTtae = nil; sokdoChujeong = .georeum }
+            jeojang()
+        } else {
+            jigeum = nil
+            try? FileManager.default.removeItem(at: pail)
+        }
+        talgeotMokrokJeopgi()
+        Girok.shared.namgi("doedolim", ["mok": d.y?.mokjeok.ireum ?? "", "d": d.y?.danggye.rawValue ?? "", "tal": d.y?.talgeot.rawValue ?? ""])
+    }
+
     func jeonghagi(_ m: Mokjeok) {
+        gieok()
         // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 기차 안에서 목적지를 바꾸셔도 기차 지킴은 그대로
         let jikimIeum: Talgeot? = jigeum?.danggye == .taneunJung ? jigeum?.jikim : nil
         talgeotSaeroBogi()
@@ -251,6 +290,7 @@ final class YeojeongEngine: ObservableObject {
 
     func danggyeBakkugi(_ d: Danggye) {
         guard var y = jigeum else { return }
+        if y.danggye != d { gieok() }
         y.danggye = d
         // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 내리셨거나 도착하면 기차 지킴을 풂
         if d == .namEunGil || d == .dochak || d == .eotteoke { y.jikim = nil }
@@ -302,6 +342,7 @@ final class YeojeongEngine: ObservableObject {
     /// 탈것 정하기 — barojabeum 이 참이면 이용자가 바로잡은 것(가장 앞섬)
     func talgeotJeonghagi(_ t: Talgeot, barojabeum: Bool) {
         guard var y = jigeum else { return }
+        if y.talgeot != t { gieok() }
         // 2.90.0 (261017-I44, 이사장님 승인 2026-10-17) 이용자가 정하시면 탈것 목록을 접고, 길눈이 스스로 바꾸었으면 펼침(처음 걸어가기·타고 가기는 빼고)
         if barojabeum { talgeotMokrokJeopgi() }
         else if y.talgeot != t && y.danggye != .eotteoke { talgeotMokrokPyeolgi(jadong: true) }
@@ -315,6 +356,7 @@ final class YeojeongEngine: ObservableObject {
     /// 이용자가 탈것을 바로잡음 — 가장 앞섬
     func talgeotBarojapgi(_ t: Talgeot) {
         guard var y = jigeum else { return }
+        gieok()
         y.talgeot = t
         y.barojabeum = true
         talgeotMokrokJeopgi()   // 2.90.0 고르시면 목록을 접음
@@ -328,7 +370,7 @@ final class YeojeongEngine: ObservableObject {
     }
 
     func kkeut() {
-        if jigeum != nil { Girok.shared.namgi("yeojeong_kkeut", [:]) }
+        if jigeum != nil { gieok(); Girok.shared.namgi("yeojeong_kkeut", [:]) }
         talgeotMokrokJeopgi()   // 2.90.0
         jinanMureum = false; dochakMureum = false; gakkaiTtae = nil   // 2.92.0
         DispatchQueue.main.async { BangsongEngine.shared.chaNaerimGojangNorae() }
@@ -343,6 +385,7 @@ final class YeojeongEngine: ObservableObject {
             return
         }
         if y.barojabeum && y.talgeot != t { return }   // 이용자가 다른 탈것으로 바로잡으신 것이 가장 앞섬
+        gieok()
         y.jikim = t
         y.talgeot = t
         y.gaengsin = Date()

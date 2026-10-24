@@ -336,7 +336,8 @@ object AnnaeEngine {
         // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 이용자가 바로잡으신 지하철 — 짐작 안내가 아니므로 jadong = false(아이폰과 같음)
         JihacheolEngine.jungganSijak(y.mokjeok.jangso, false) { ok, mal ->
             if (ok) Girok.namgi("barojapgi_jihacheol")
-            else malHagi("$mal 남은 거리를 알려 드립니다.")
+            // 2.73.0 (261024-A61, 이사장님 지시 2026-10-24, 아이폰 2.105.0과 같음) 역 안내를 못 시작하면 차 안내로 넘어가지 않고 타신 역을 여쭘
+            else tanYeokMutgi(if (mal == JihacheolEngine.TAN_YEOK_MUREUM) "" else mal)
         }
     }
 
@@ -434,6 +435,165 @@ object AnnaeEngine {
         malHagi("여정을 끝냈습니다.")
     }
 
+    // MARK: 2.73.0 (261024-A61, 이사장님 지시 2026-10-24, 아이폰 2.105.0과 같음) 타신 역 여쭙기·「여기는 ○○역이야」·「틀렸어」
+
+    private var jihaGilEopseumTtae = 0L
+    /** 여정마다 타신 역을 여쭌 수(세 번까지) — 여정이 바뀌면(시작 때가 바뀌면) 처음부터 */
+    private var jihaMutSu = 0
+    private var jihaMutYeojeong = 0L
+
+    /** 타신 역을 여쭙고 마이크를 엶 — 대답은 말로 하기가 tanYeokDap 으로 넘김 */
+    fun tanYeokMutgi(apMal: String, chaDo: Boolean = false) {
+        jihaGilEopseumTtae = System.currentTimeMillis()
+        Girok.namgi("tanyeok_mureum", mapOf("ap" to apMal.take(40)))
+        val q = (if (apMal.isEmpty()) "" else "$apMal ") + "지하철 역 안내를 시작하지 못했습니다. 어느 역에서 타셨습니까? 약수역처럼 말씀해 주십시오." + (if (chaDo) " 지하철이 아니면 택시야라고 말씀해 주십시오." else "")
+        MalHagi.tanYeokMutgi(q)
+    }
+
+    /** 타신 역 대답 — 먼저 지하철 역 이름이 맞는지 보고(맞지 않으면 탈것·차례를 바꾸지 않음), 그 역에서 목적지까지 지하철 길을 찾아
+     *  타고 가시는 중이면 곧장 역 알림, 역 가까이(땅속)면 그 역에서 열차를 기다림, 멀면 그 역까지 걷는 안내(아이폰 2.105.0과 같음) */
+    fun tanYeokDap(ireum: String, dap: (String, Boolean) -> Unit, mureumDap: Boolean = false) {
+        val y0 = yj.jigeum ?: run { dap("가시는 곳을 먼저 말씀해 주십시오. 어디로 가실까요?", true); return }
+        val mok = y0.mokjeok.jangso
+        val yn = if (ireum.endsWith("역")) ireum else ireum + "역"
+        val ho = JihacheolEngine.hoseonHint
+        val ieo: (String?) -> Unit = ieo@{ nn ->
+            if (nn == null) {
+                Girok.namgi("tanyeok_dap", mapOf("yeok" to ireum, "ok" to false, "kkadak" to "역 없음"))
+                if (mureumDap) {
+                    dap("", false)
+                    MalHagi.tanYeokMutgi("${yn}을 지하철 역 자료에서 찾지 못했습니다. 역 이름만 다시 말씀해 주십시오.")
+                } else {
+                    dap("${yn}을 지하철 역 자료에서 찾지 못했습니다.", false)
+                }
+                return@ieo
+            }
+            val n: String = nn
+            dap("${n}역에서 가는 지하철 길을 찾습니다.", false)
+            val y = yj.jigeum ?: return@ieo
+            val tagoIt = y.danggye == Danggye.TANEUN_JUNG || (TalgeotGamji.majimakTalgeot > 0 && System.currentTimeMillis() - TalgeotGamji.majimakTalgeot < 60_000)
+            if (tagoIt) {
+                // 차례를 먼저 타고 가는 중으로 — TalgeotGamji.barojapgi 가 탈것 바뀜(talgeotBakkwim)을 곧바로 부르므로 그 전에 차례·탈것을 맞춰 둠
+                if (y.danggye != Danggye.TANEUN_JUNG) yj.danggyeBakkugi(Danggye.TANEUN_JUNG)
+                if (y.talgeot != Talgeot.JIHACHEOL || !y.barojabeum) yj.talgeotBarojapgi(Talgeot.JIHACHEOL)
+                TalgeotGamji.barojapgi(Talgeot.JIHACHEOL)
+                JihacheolEngine.jungganSijak(mok, false, n) { ok, mal ->
+                    if (ok) { jihaMutSu = 0; Girok.namgi("tanyeok_dap", mapOf("yeok" to n, "ok" to true)) }
+                    else tanYeokMutgi(if (mal == JihacheolEngine.TAN_YEOK_MUREUM) "" else "$mal 역 이름을 다시 말씀해 주십시오.")
+                }
+                return@ieo
+            }
+            JihacheolEngine.gilChatgi(mok, null, n, ho) { gg, k ->
+                if (gg == null) { tanYeokMutgi("$k 역 이름을 다시 말씀해 주십시오."); return@gilChatgi }
+                val g = gg.copy(ipgu = Jangso(gg.from + "역", "", gg.ipgu.lat, gg.ipgu.lon))
+                // 역 가까이(300미터 안)이거나 땅속이면 그 역에서 열차를 기다리고, 멀면 그 역까지 걷는 안내
+                val w = Wichi.jigeum
+                val gakkai = TalgeotGamji.jiha || g.ipgu.lat == 0.0 || w == null || w.jjimjak ||
+                    Wichi.geori(w.lat, w.lon, g.ipgu.lat, g.ipgu.lon) < 300
+                Girok.namgi("tanyeok_dap", mapOf("yeok" to n, "ok" to true, "gidarim" to gakkai))
+                jihaMutSu = 0
+                if (gakkai) {
+                    jihacheolGagi(mok, g, malEopsi = true)
+                    JihacheolEngine.ipguDochak()
+                } else {
+                    jihacheolGagi(mok, g)
+                }
+            }
+        }
+        JihacheolEngine.yeokIreum(ireum, ho) { n0 ->
+            if (n0 == null && ho != null) JihacheolEngine.yeokIreum(ireum) { n -> ieo(n) } else ieo(n0)
+        }
+    }
+
+    /** 「여기는 ○○역이야」 — 지하철 안이면 그 역으로 맞추고, 아니면 그 역 자리를 지금 자리로 */
+    fun jariBarojapgi(ireum0: String, dap: (String, Boolean) -> Unit) {
+        val ireum = ireum0.replace(" ", "")
+        val m = JihacheolEngine.yeokMatchugi(ireum)
+        if (m != null) { dap("알겠습니다. $m", false); return }
+        val y = yj.jigeum
+        if (y != null && y.danggye == Danggye.TANEUN_JUNG && yj.talgeot == Talgeot.JIHACHEOL) {
+            // 타고 계신 호선(가는 길의 호선, 말씀하신 호선)에 없는 역이면 길을 버리지 않고 다시 여쭘 — 「6호선 용산역」처럼 없는 역으로 길을 바꾸지 않게
+            val hoDeul = HashSet<String>()
+            y.jiha?.gugan?.forEach { if (it.hoseon.isNotEmpty()) hoDeul.add(it.hoseon) }
+            JihacheolEngine.hoseonHint?.let { hoDeul.add(it) }
+            val hoList = hoDeul.sorted()
+            val kkeut: (Boolean) -> Unit = { itda ->
+                val yn = if (ireum.endsWith("역")) ireum else ireum + "역"
+                if (!itda) {
+                    Girok.namgi("jari_barojapgi", mapOf("mal" to ireum, "eopseum" to hoList.joinToString(",")))
+                    dap("", false)
+                    MalHagi.tanYeokMutgi("${yn}은 지금 타신 ${hoList.joinToString(", ")}에 없습니다. 지나신 역이나 다음 역 이름을 말씀해 주십시오.")
+                } else {
+                    // 가는 길에 없는 역 — 그 역에서 다시 길을 찾음(새 길을 찾은 뒤에 바꿈, 못 찾으면 지금 길을 그대로 둠)
+                    tanYeokDap(ireum, dap)
+                }
+            }
+            if (hoList.isEmpty()) { kkeut(true); return }
+            fun bogi(k: Int) {
+                if (k >= hoList.size) { kkeut(false); return }
+                JihacheolEngine.yeokIreum(ireum, hoList[k]) { n -> if (n != null) kkeut(true) else bogi(k + 1) }
+            }
+            bogi(0)
+            return
+        }
+        // 역 이름만 받음(엉뚱한 곳으로 자리를 옮기지 않게)
+        val motChatgi = { dap("${ireum}역을 지하철 역 자료에서 찾지 못했습니다. 역 이름을 다시 말씀해 주십시오.", false) }
+        val ieo: (String?) -> Unit = { n ->
+            if (n == null) motChatgi()
+            else Chatgi.jangso(n + "역") { l ->
+                val j = l?.firstOrNull { it.ireum.contains(n) }
+                if (j == null) motChatgi()
+                else {
+                    Wichi.sonJariNoki(j.lat, j.lon)
+                    Girok.namgi("jari_barojapgi", mapOf("mal" to ireum, "ireum" to j.ireum, "la" to j.lat, "lo" to j.lon))
+                    dap("알겠습니다. 지금 자리를 ${j.ireum}${Annae.ro(j.ireum)} 맞췄습니다. 위성이 다시 잡히면 위성 자리로 이어 갑니다.", false)
+                }
+            }
+        }
+        JihacheolEngine.yeokIreum(ireum, JihacheolEngine.hoseonHint) { n0 ->
+            if (n0 == null) JihacheolEngine.yeokIreum(ireum) { n -> ieo(n) } else ieo(n0)
+        }
+    }
+
+    /** 「틀렸어」 — 무엇을 하고 있든 「알겠습니다」라고 하고 바로 앞 단계로 되돌림 */
+    fun doedolligi() {
+        val d = yj.doedolimKkeonaegi()
+        if (d == null) {
+            Girok.namgi("doedolim", mapOf("eopseum" to true))
+            malHagi("알겠습니다. 되돌릴 앞 단계가 없습니다. 무엇이 틀렸는지 말씀해 주십시오.")
+            return
+        }
+        jeomKkeut()
+        JihacheolEngine.meomchugi()
+        GanpanAllim.kkeut()
+        ChaGeodeul.kkeut()
+        yj.doedolligi(d)
+        dasiSijak()
+        val y = yj.jigeum
+        if (y == null) {
+            TalgeotGamji.saeroSijak()
+            malHagi("알겠습니다. 앞 단계로 되돌렸습니다. 지금은 가시는 여정이 없습니다. 어디로 가실까요?")
+            return
+        }
+        // 타고 가는 중으로 되돌린 때만 탈것 알아채기에 알림 — 다른 차례에서 알리면 저절로 「열차가 움직이는 것 같습니다」 같은 안내가 나감(아이폰과 같음)
+        if (y.danggye == Danggye.TANEUN_JUNG) TalgeotGamji.barojapgi(y.talgeot) else TalgeotGamji.saeroSijak()
+        // 지하철 길이 있으면 역 알림을 이어 감
+        if (y.jiha != null) JihacheolEngine.ieoGagi()
+        val tn = Annae.talgeotIreum(y.talgeot)
+        var m = "알겠습니다. 앞 단계로 되돌렸습니다. ${y.mokjeok.ireum}까지 "
+        m += when (y.danggye) {
+            Danggye.TANEUN_JUNG -> "$tn${Annae.eulReul(tn)} 타고 가시는 중입니다."
+            Danggye.TANEUN_GOT_KKAJI -> "$tn${Annae.eulReul(tn)} 타는 곳으로 가시는 중입니다."
+            Danggye.NAM_EUN_GIL -> "걸어서 가시는 중입니다."
+            Danggye.EOTTEOKE -> "어떻게 가실지 정할 차례입니다."
+            Danggye.DOCHAK -> "도착하셨습니다."
+        }
+        val g = y.jiha
+        if (y.danggye == Danggye.TANEUN_JUNG && g != null && !g.kkeutnam) m += " " + JihacheolEngine.hyeonhwang()
+        malHagi(m)
+        jigeumBoda()
+    }
+
     /** 지금 어떻게 가고 있습니까 */
     fun hyeonhwang() {
         // 점지도를 따라 걷는 중이면 점지도의 남은 거리
@@ -477,6 +637,34 @@ object AnnaeEngine {
     /** 지금 내 자리 듣기 — 도로명 주소와 가까운 출구·건물, 위성 오차, 날씨 한 마디(아이폰 jigeumJari) */
     fun jigeumJari() {
         if (yj.jigeum?.danggye == Danggye.TANEUN_JUNG && yj.talgeot == Talgeot.SEONBAK) { TalgeotJikimi.jigeumBaeJari(); return }   // 2.36.0 배 안이면 바다 위 자리
+        // 2.73.0 (261024-A61, 이사장님 지시 2026-10-24, 아이폰 2.105.0과 같음) 지하철 안에서는 위성 대신 지나온 역으로 지금 자리를 말씀드림
+        val yy = yj.jigeum
+        val yg = yy?.jiha
+        if (yy != null && yy.danggye == Danggye.TANEUN_JUNG && yg != null && !yg.kkeutnam) {
+            malHagi(JihacheolEngine.hyeonhwang() + " 역이 다르면 여기는 삼각지역이야처럼 말씀해 주십시오.")
+            Girok.namgi("jari_mal", mapOf("mal" to "지하철 역", "jiha" to true))
+            return
+        }
+        if (yy != null && yy.danggye == Danggye.TANEUN_JUNG && yy.jiha == null && yj.talgeot == Talgeot.JIHACHEOL) {
+            malHagi("지하철 안이라 위성이 닿지 않아 지금 자리를 알 수 없습니다. 타신 역이나 지금 역을 말씀해 주시면 그 역에서부터 알려 드립니다.")
+            Girok.namgi("jari_mal", mapOf("mal" to "지하철 길 없음", "jiha" to true))
+            return
+        }
+        // 2.73.0 (261024-A61) 와이파이로 짐작한 자리는 지금 자리로 단정하지 않음 — 신내차량기지를 「오차 16미터」로 말씀드린 일
+        val wj = Wichi.jigeum
+        if (wj != null && wj.jjimjak) {
+            val gi = Wichi.majimakMideum
+            var m = "위성이 닿지 않는 곳이라 지금 자리를 확실히 알 수 없습니다."
+            val now = System.currentTimeMillis()
+            if (gi != null && now - gi.ttae < 3 * 3600 * 1000L) {
+                val bun = ((now - gi.ttae) / 60_000L).toInt()
+                m += " 위성으로 마지막 확인한 것은 ${if (bun < 1) "방금" else "${bun}분 전"}입니다."
+            }
+            m += " 여기는 약수역이야처럼 말씀해 주시면 그 자리로 맞추겠습니다."
+            Girok.namgi("jari_mal", mapOf("mal" to "짐작 자리", "oc" to wj.ochae.toInt(), "la" to wj.lat, "lo" to wj.lon, "jjimjak" to true))
+            malHagi(m)
+            return
+        }
         val w = Wichi.jigeum
         if (w == null) {
             malHagi(if (!Wichi.heorakItda) "위치 허락이 없어 자리를 알 수 없습니다. 폰 설정의 앱, 길눈, 권한에서 위치를 허용해 주십시오."
@@ -493,7 +681,9 @@ object AnnaeEngine {
         val majimak: () -> Unit = {
             if (!han && nam <= 0) {
                 han = true
-                val m = jariMalMandeulgi(o0, w, jr0)
+                // 2.73.0 (261024-A61, 아이폰 2.105.0과 같음) 1분 넘게 새로 잡히지 않은 자리면 언제 확인한 자리인지 먼저 밝힘
+                val nai = System.currentTimeMillis() - w.ttae
+                val m = (if (nai > 60_000L && !w.sonJari) "${maxOf(1L, nai / 60_000L)}분 전에 확인한 자리입니다. " else "") + jariMalMandeulgi(o0, w, jr0)
                 // 2.40.0 무엇을 말씀드렸는지 그대로 남김(10/13 오금역 — 들으신 말을 기록으로 확인할 수 없었음)
                 Girok.namgi("jari_mal", mapOf("mal" to m, "oc" to w.ochae.toInt(), "la" to w.lat, "lo" to w.lon))
                 malHagi(m + (if (nal.isEmpty()) "" else " 날씨는 $nal."))
@@ -780,6 +970,11 @@ object AnnaeEngine {
         }
         // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 바로잡으신 탈것과 같은 것을 알아챘으면 그대로(바로잡음을 알아채기에 알릴 때 안내가 겹치지 않게)
         if (y.barojabeum && y.talgeot == t && y.danggye == Danggye.TANEUN_JUNG) return
+        // 2.73.0 (261024-A61, 이사장님 지시 2026-10-24, 아이폰 2.105.0과 같음) 바로잡아 주신 탈것으로 타고 가시는 동안에는 길눈이 짐작한 다른 탈것으로 안내를 바꾸지 않음
+        if (y.barojabeum && y.danggye == Danggye.TANEUN_JUNG && y.talgeot != Talgeot.GEOREUM && y.talgeot != t) {
+            Girok.namgi("barojapgi_jikim", mapOf("jjimjak" to t.raw, "tal" to y.talgeot.raw))
+            return
+        }
         // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 기차·배 지킴 중에는 짐작으로 안내를 바꾸지 않음(아이폰과 같음)
         if (yj.jikimJung) return
         // 2.9.0 탈것 알아채기가 알아챈 지하철·버스도 이어 받음(아이폰 2.40.0과 같음)
@@ -809,6 +1004,7 @@ object AnnaeEngine {
             malHagi("지하철을 타신 것 같습니다. 지하철 길을 찾습니다. 지하철이 아니면 바로 아래 탈것 목록에서 바로잡으십시오.")
             JihacheolEngine.jungganSijak(y.mokjeok.jangso) { ok, mal ->
                 if (ok) Girok.namgi("jadong_jihacheol")
+                else if (mal == JihacheolEngine.TAN_YEOK_MUREUM) tanYeokMutgi("", chaDo = true)   // 2.73.0 (261024-A61) 땅속이라 타신 역을 짐작할 수 없으면 차로 넘기지 않고 여쭘
                 else { malHagi("$mal 차 안 안내로 잇습니다."); chaTatda("", false) }   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 짐작이 빗나간 것이니 이용자가 바로잡은 차로 남기지 않음(아이폰과 같음)
             }
             return
@@ -912,7 +1108,7 @@ object AnnaeEngine {
         val y = yj.jigeum
         if (y == null) { namEunGeori = null; GichaAnnae.kkeut(); ChaGeodeul.kkeut(); return }
         if (!(y.danggye == Danggye.TANEUN_JUNG && yj.talgeot == Talgeot.GICHA)) GichaAnnae.kkeut()   // 2.61.0
-        if (!(y.danggye == Danggye.TANEUN_JUNG && yj.talgeot != Talgeot.GICHA && yj.talgeot != Talgeot.SEONBAK && y.jiha == null)) ChaGeodeul.kkeut()   // 2.62.0
+        if (!(y.danggye == Danggye.TANEUN_JUNG && yj.talgeot != Talgeot.GICHA && yj.talgeot != Talgeot.SEONBAK && !(y.talgeot == Talgeot.JIHACHEOL && y.barojabeum) && y.jiha == null)) ChaGeodeul.kkeut()   // 2.62.0, 2.73.0 바로잡으신 지하철은 차 거들기 없음
         yj.dochakBoda(w)   // 2.62.0 목적지 50미터 안 2분이면 도착을 여쭘
         val d = Wichi.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
         namEunGeori = d
@@ -938,7 +1134,23 @@ object AnnaeEngine {
         }
         when (y.danggye) {
             // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 배 안에서는 길 벗어남·사거리·간판 대신 바다 위 지금 자리(아이폰과 같음)
-            Danggye.TANEUN_JUNG -> {
+            Danggye.TANEUN_JUNG -> if (y.talgeot == Talgeot.JIHACHEOL && y.barojabeum) {
+                // 2.73.0 (261024-A61, 이사장님 지시 2026-10-24, 아이폰 2.105.0과 같음) 지하철인데 역 안내를 아직 못 시작했으면 차 안내(「멈춰 있습니다」)를 하지 않고, 3분마다 타신 역을 여쭘
+                if (jihaMutYeojeong != y.sijak) { jihaMutYeojeong = y.sijak; jihaMutSu = 0 }
+                // 내려서 15초 넘게 걸으시면(땅 위) 내리신 것으로 보고 걷는 안내로
+                if (!TalgeotGamji.jiha && TalgeotGamji.georeum15cho) {
+                    Girok.namgi("jiha_gil_eopseum_naerim")
+                    naeryeotda(jadong = true)
+                } else {
+                    // 세 번까지만 여쭘(그 뒤에는 「약수역에서 탔어」라고 하시면 바로 시작)
+                    val now = System.currentTimeMillis()
+                    if (jihaMutSu < 3 && now - jihaGilEopseumTtae > 180_000L && !MalHagi.tanYeokMutneunJung && !JihacheolEngine.chatneunJung) {
+                        jihaMutSu += 1
+                        jihaGilEopseumTtae = now
+                        tanYeokMutgi("")
+                    }
+                }
+            } else {
                 if (yj.talgeot == Talgeot.SEONBAK) TalgeotJikimi.baeAnnae(w, d, y) else chaAnnae(w, d, y)
                 // 2.61.0 (261017-A49, 이사장님 승인 2026-10-17) 기차 안에서는 역·터널·도착 예정 안내를 함께(웹 길눈에서 옮김, 아이폰 2.91.0과 같음)
                 if (yj.talgeot == Talgeot.GICHA) GichaAnnae.wichi(w, y) else GichaAnnae.kkeut()
@@ -1135,6 +1347,7 @@ object AnnaeEngine {
         return "${gm(d)} 앞에서 ${dolgiMal(a.sign, false)}." + (if (s == 0) "" else " 그쪽은 ${s}시 방향입니다.")
     }
 
+    private var ttTongsinMot = 0
     private fun ttBatgi(w: Jari, lat: Double, lon: Double, apMal: String) {
         if (ttBatneun || System.currentTimeMillis() - ttMotTtae < 20000) return
         ttBatneun = true
@@ -1142,7 +1355,16 @@ object AnnaeEngine {
         Tongsin.json("gilchatgi.php", mapOf("slat" to f(w.lat), "slon" to f(w.lon), "mlat" to f(lat), "mlon" to f(lon)), 10000) { o ->
             ttBatneun = false
             val pts = o?.optJSONArray("pts"); val an = o?.optJSONArray("an")
-            if (o == null || !o.optBoolean("ok", false) || pts == null || an == null || pts.length() < 2) { ttMotTtae = System.currentTimeMillis(); return@json }
+            if (o == null || !o.optBoolean("ok", false) || pts == null || an == null || pts.length() < 2) {
+                ttMotTtae = System.currentTimeMillis()
+                // 2.73.0 (261024-A61, 아이폰 2.105.0과 같음) 통신이 막혀 걷는 길을 잇달아 못 받으면 한 번 말씀드림(10-24 월드컵경기장 앞 20분 동안 21번 말없이 실패)
+                if (o == null) {
+                    ttTongsinMot += 1
+                    if (ttTongsinMot == 3) malHagi("통신이 원활하지 않아 걸을 수 있는 길을 받지 못하고 있습니다. 목적지 방향으로 안내합니다.")
+                }
+                return@json
+            }
+            ttTongsinMot = 0
             val p = ArrayList<Pair<Double, Double>>()
             for (i in 0 until pts.length()) { val x = pts.optJSONArray(i) ?: continue; if (x.length() >= 2) p.add(Pair(x.optDouble(0), x.optDouble(1))) }
             val l = ArrayList<TtAn>()

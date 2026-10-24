@@ -104,19 +104,80 @@ final class JihacheolEngine {
 
     static func su(_ v: Any?) -> Double? { Chatgi.su(v) }
 
+    /// 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 「6호선 탔어」처럼 말씀하신 호선 — 타는 역을 고를 때 그 호선 역을 앞에 둠(10분 동안)
+    var hoseonHint: String? {
+        get { hoseonHintTtae.map { Date().timeIntervalSince($0) < 600 } == true ? hoseonHint0 : nil }
+        set { hoseonHint0 = newValue; hoseonHintTtae = newValue == nil ? nil : Date() }
+    }
+    private var hoseonHint0: String?
+    private var hoseonHintTtae: Date?
+
+    /// 2.105.0 역 이름 바로잡기 — 「약수역」「6호선 약수」를 지하철 길 자료의 이름(약수)으로. 호선을 주시면 그 호선에 있는 역만
+    static func yeokIreum(_ q0: String, hoseon: String? = nil) async -> String? {
+        var q = q0.replacingOccurrences(of: " ", with: "")
+        if let r = q.range(of: "^[0-9]{1,2}호선", options: .regularExpression) { q.removeSubrange(r) }
+        for k in ["지하철역", "전철역", "역"] where q.hasSuffix(k) && q.count > k.count { q = String(q.dropLast(k.count)); break }
+        guard !q.isEmpty, let o = await Chatgi.json("yeok.php", ["a": "chatgi", "q": q]),
+              let rows = o["rows"] as? [[String: Any]], !rows.isEmpty else { return nil }
+        let ok = rows.filter { r in hoseon == nil || ((r["hoseon"] as? String) ?? "") == hoseon }
+        let nms = ok.compactMap { $0["nm"] as? String }
+        // 이름이 같거나 앞이 같은 역만(엉뚱한 역으로 맞추지 않게)
+        return nms.first(where: { $0 == q }) ?? nms.first(where: { $0.hasPrefix(q) })
+    }
+
     /// 지금 자리에서 목적지까지 지하철 길 — (길, 못 찾은 까닭)
-    static func gilChatgi(_ mok: Jangso, buteo: Wichi? = nil) async -> (JihaGil?, String) {
-        guard let w = buteo ?? WichiEngine.shared.jigeum else { return (nil, "아직 위치를 잡는 중입니다. 잠시 뒤 다시 눌러 주십시오.") }
-        async let a = gakkaun(w.lat, w.lon)
-        async let b = gakkaun(mok.lat, mok.lon)
-        let (ya, yb) = await (a, b)
-        guard let from = ya, let to = yb else { return (nil, "가까운 역을 받지 못했습니다. 통신이 끊겼을 수 있습니다.") }
-        if from.yeok == to.yeok {
-            return (nil, "타실 역과 내리실 역이 같은 \(from.yeok)역입니다. 걸어가시는 편이 낫습니다.")
+    /// 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 가까운 역 하나만 보고 실패하던 것을 바로잡음 — 가까운 역 여럿 가운데 지하철 길 자료에 있는 역을 차례로 대 보고,
+    ///   말씀하신 호선이 있으면 그 호선 역을 먼저, 타신 역을 말씀하셨으면(buteoYeok) 그 역에서
+    ///   (6호선 땅속에서 엉뚱하게 잡힌 자리 옆의 경춘선 신내역을 골라 「그 역 이름을 자료에서 찾지 못했습니다」로 하루 내내 역 안내를 못 하던 일)
+    static func gilChatgi(_ mok: Jangso, buteo: Wichi? = nil, buteoYeok: String? = nil, hoseon: String? = nil) async -> (JihaGil?, String) {
+        var fromDeul: [Yeok] = []
+        if let by = buteoYeok {
+            var n0 = await yeokIreum(by, hoseon: hoseon)
+            if n0 == nil && hoseon != nil { n0 = await yeokIreum(by) }
+            guard let n = n0 else {
+                return (nil, "\(by)\(by.hasSuffix("역") ? "" : "역")을 지하철 역 자료에서 찾지 못했습니다.")
+            }
+            // 그 역의 자리(그 역까지 걷는 안내에 씀) — 못 받으면 0
+            var la = 0.0, lo = 0.0
+            if let l = await Chatgi.jangso(n + "역"), let f = l.first(where: { $0.ireum.contains(n) }) { la = f.lat; lo = f.lon }
+            fromDeul = [Yeok(yeok: n, ireum: n + "역", lat: la, lon: lo)]
+        } else {
+            // 2.105.0 (261024-I59) 자리가 아직 없거나 와이파이로 짐작한 자리면 타실 역을 정하지 않음 — 여쭘
+            // 땅 위에서 10분 안에 위성이 확실히 잡은 자리가 있으면 그것을 씀(집 안 와이파이 자리로 묻지 않게)
+            var w0 = buteo ?? WichiEngine.shared.jigeum
+            if w0 == nil || w0!.jjimjak, !TalgeotGamji.shared.jiha, let m = WichiEngine.shared.majimakMideum, Date().timeIntervalSince(m.ttae) < 600 { w0 = m }
+            guard let w = w0, !w.jjimjak else {
+                Girok.shared.namgi("jiha_tanyeok_mureum", ["gil": true])
+                return (nil, tanYeokMureum)
+            }
+            fromDeul = await gakkaunDeul(w.lat, w.lon)
+            if let h = hoseon {
+                let ap = fromDeul.filter { $0.ireum.contains(h) }
+                fromDeul = ap + fromDeul.filter { !$0.ireum.contains(h) }
+            }
         }
-        guard let o = await Chatgi.json("yeok.php", ["a": "gil", "from": from.yeok, "to": to.yeok]),
-              (o["ok"] as? Bool) == true else {
-            return (nil, "\(from.yeok)역에서 \(to.yeok)역까지 가는 길을 찾지 못했습니다.")
+        let toDeul = Array(await gakkaunDeul(mok.lat, mok.lon).prefix(3))
+        guard !fromDeul.isEmpty, !toDeul.isEmpty else { return (nil, "가까운 역을 받지 못했습니다. 통신이 끊겼을 수 있습니다.") }
+        var o: [String: Any]? = nil
+        var from = fromDeul[0], to = toDeul[0]
+        var bon = 0
+        bakkat: for f in fromDeul.prefix(5) {
+            for t in toDeul {
+                if f.yeok == t.yeok { continue }
+                bon += 1
+                if let r = await Chatgi.json("yeok.php", ["a": "gil", "from": f.yeok, "to": t.yeok]), (r["ok"] as? Bool) == true {
+                    o = r; from = f; to = t
+                    break bakkat
+                }
+            }
+        }
+        Girok.shared.namgi("jiha_gil_chatgi", ["from": from.yeok, "to": to.yeok, "ok": o != nil, "bon": bon, "hubo": fromDeul.prefix(5).map { $0.yeok }.joined(separator: ","),
+                                               "son": buteoYeok != nil, "ho": hoseon ?? ""])
+        guard let o = o else {
+            if fromDeul.count == 1 && toDeul.contains(where: { $0.yeok == fromDeul[0].yeok }) {
+                return (nil, "타실 역과 내리실 역이 같은 \(fromDeul[0].yeok)역입니다. 걸어가시는 편이 낫습니다.")
+            }
+            return (nil, "\(fromDeul[0].yeok)역에서 \(toDeul[0].yeok)역까지 가는 길을 찾지 못했습니다.")
         }
         let jina = (o["jina"] as? [String]) ?? []
         let gugan: [JihaGugan] = ((o["gugan"] as? [[String: Any]]) ?? []).map {
@@ -128,7 +189,7 @@ final class JihacheolEngine {
         let mal = (o["mal"] as? String) ?? ""
         // 들어갈 출구(지금 자리에서 가장 가까운 출구), 나갈 출구(목적지에서 가장 가까운 출구)
         var ipgu = Jangso(ireum: from.ireum, juso: "", lat: from.lat, lon: from.lon)
-        if let c = await chulgu(w.lat, w.lon), c.ireum.contains(from.yeok) { ipgu = c }
+        if buteoYeok == nil, let w = buteo ?? WichiEngine.shared.jigeum, let c = await chulgu(w.lat, w.lon), c.ireum.contains(from.yeok) { ipgu = c }
         let naeril = await chulgu(mok.lat, mok.lon)?.ireum ?? ""
         let g = JihaGil(from: from.yeok, to: to.yeok, mal: mal, bun: bun, jina: jina, gugan: gugan,
                         ipgu: ipgu, naeril: naeril.contains(to.yeok) ? naeril : "",
@@ -142,6 +203,16 @@ final class JihacheolEngine {
     static func gakkaunYeokGeori(_ lat: Double, _ lon: Double) async -> Double? {
         guard let y = await gakkaun(lat, lon) else { return nil }
         return WichiEngine.geori(lat, lon, y.lat, y.lon)
+    }
+
+    /// 2.105.0 가까운 역 여럿(가까운 차례)
+    private static func gakkaunDeul(_ lat: Double, _ lon: Double) async -> [Yeok] {
+        guard let o = await Chatgi.json("yeok.php", ["a": "gakkaun", "lat": String(format: "%.6f", lat), "lon": String(format: "%.6f", lon)]),
+              let rows = o["rows"] as? [[String: Any]] else { return [] }
+        return rows.compactMap { r in
+            guard let la = su(r["lat"]), let lo = su(r["lon"]) else { return nil }
+            return Yeok(yeok: (r["yeok"] as? String) ?? "", ireum: (r["ireum"] as? String) ?? "", lat: la, lon: lo)
+        }
     }
 
     private static func gakkaun(_ lat: Double, _ lon: Double) async -> Yeok? {
@@ -218,7 +289,7 @@ final class JihacheolEngine {
     /// 2.61.0 세대 번호를 올림(탈것을 바로잡으실 때)
     func sedaeOllim() { sedae += 1 }
 
-    func tatda(jadong: Bool) {
+    func tatda(jadong: Bool, tanYeokMal: Bool = false) {
         jungganJadong = false
         ieoGamTamMoreum = false
         guard var g = gil else { return }
@@ -240,7 +311,9 @@ final class JihacheolEngine {
         let apmal = jadong ? "열차가 움직이는 것 같습니다. " : ""
         // 2.60.0 (이사장님 승인) 저절로 시작할 때는 단정하지 않고 바로잡는 말을 함께
         let dwimal = jadong ? " 지하철이 아니면 택시야라고 말씀해 주십시오." : ""
-        SoriEngine.shared.mal(apmal + "역 알림을 시작합니다. 내리실 역은 \(g.to)역, \(g.jina.count) 정거장 뒤입니다. 지나는 역마다 알려 드립니다." + dwimal)
+        // 2.105.0 (261024-I59) 타신 역을 짐작했으면 그 역을 밝히고 바로잡는 말을 알려 드림
+        let tanMal = tanYeokMal ? "\(g.from)역에서 타신 것으로 압니다. 다르면 약수역에서 탔어처럼 말씀해 주십시오. " : ""
+        SoriEngine.shared.mal(apmal + tanMal + "역 알림을 시작합니다. 내리실 역은 \(g.to)역, \(g.jina.count) 정거장 뒤입니다." + (g.bun > 0 ? " 약 \(g.bun)분 걸립니다." : "") + " 지나는 역마다 알려 드립니다." + dwimal)
         Girok.shared.namgi("jiha_tam", ["jadong": jadong])
         dolligi()
     }
@@ -250,12 +323,33 @@ final class JihacheolEngine {
 
     /// 2.40.0 이미 열차를 타고 가는 중에 시작 — 땅속으로 내려가기 전 땅 위 자리에서 가까운 역을 타는 역으로 잡고 바로 역 알림
     /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) jadong: 저절로 짐작해 시작했는가 — 이용자가 지하철이라고 하신 때(false)는 차로 저절로 되돌리지 않음
-    func jungganSijak(_ mok: Jangso, jadong: Bool = true, _ kkeut: @escaping (Bool, String) -> Void) {
-        let buteo = TalgeotGamji.shared.jisangJari ?? TalgeotGamji.shared.chaSijakJari ?? WichiEngine.shared.jigeum
+    /// 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 타신 역을 짐작할 믿을 만한 자리가 없어 여쭤야 함 — 이 말로 돌려줌
+    static let tanYeokMureum = "?tanyeok"
+    /// 2.105.0 중간에 지하철 길을 찾는 중
+    private(set) var chatneunJung = false
+    static var tanYeokMal: String {
+        (TalgeotGamji.shared.jiha ? "땅속이라 위성이 닿지 않아 지금 자리를 확실히 알 수 없습니다." : "지금 자리를 확실히 알 수 없어 타실 역을 정하지 못했습니다.")
+            + " 약수역에서 탈 거야처럼 타실 역을 말씀해 주십시오."
+    }
+
+    func jungganSijak(_ mok: Jangso, jadong: Bool = true, buteoYeok: String? = nil, _ kkeut: @escaping (Bool, String) -> Void) {
+        // 2.105.0 (261024-I59) 땅속으로 내려가기 전 위성이 확실히 잡은 자리(1시간 안)만 타신 역을 짐작하는 데 씀 — 와이파이 짐작 자리로는 짐작하지 않고 여쭘
+        var buteo: Wichi? = nil
+        for c in [TalgeotGamji.shared.jisangJari, TalgeotGamji.shared.chaSijakJari, WichiEngine.shared.jigeum] {
+            if let c = c, !c.jjimjak, Date().timeIntervalSince(c.ttae) < 3600, c.ochae <= 65 { buteo = c; break }
+        }
+        if buteoYeok == nil && buteo == nil {
+            Girok.shared.namgi("jiha_tanyeok_mureum", ["jjimjak": WichiEngine.shared.jigeum?.jjimjak ?? true])
+            kkeut(false, JihacheolEngine.tanYeokMureum)
+            return
+        }
+        let ho = hoseonHint
+        chatneunJung = true
         let sd = sedae   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 찾는 사이 멈추거나 차로 바로잡으셨으면 버림
         Task {
-            let (gg, k) = await JihacheolEngine.gilChatgi(mok, buteo: buteo)
+            let (gg, k) = await JihacheolEngine.gilChatgi(mok, buteo: buteo, buteoYeok: buteoYeok, hoseon: ho)
             await MainActor.run {
+                self.chatneunJung = false
                 guard sd == self.sedae, let y = self.yj.jigeum, !(y.barojabeum && y.talgeot != .jihacheol) else {
                     Girok.shared.namgi("jiha_junggan_beorim", [:])
                     return
@@ -265,7 +359,7 @@ final class JihacheolEngine {
                 AnnaeEngine.shared.jihacheolGagi(mok, g, malEopsi: true)
                 Girok.shared.namgi("jiha_junggan", ["from": g.from, "to": g.to])
                 kkeut(true, "\(g.from)역에서 타신 것으로 보고 \(g.to)역까지 역을 알려 드립니다.")
-                self.tatda(jadong: jadong)
+                self.tatda(jadong: jadong, tanYeokMal: buteoYeok == nil)
                 self.jungganJadong = jadong   // 2.61.0 (261009-I15) 이용자가 바로잡으신 지하철은 false — 땅 위 구간에서 차로 되돌리지 않음
             }
         }
@@ -375,6 +469,29 @@ final class JihacheolEngine {
             ticker = nil
             motion.stopAccelerometerUpdates()
         }
+    }
+
+    /// 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 「여기는 ○○역이야」 — 가는 길 위의 역이면 그 역으로 맞춤. 맞췄으면 알려 드릴 말, 길 위에 없으면 nil
+    func yeokMatchugi(_ ireum: String) -> String? {
+        guard let y = yj.jigeum, y.danggye == .taneunJung, var g = y.jiha, !g.kkeutnam else { return nil }
+        let n = JihacheolEngine.ireum(ireum)
+        let idx: Int
+        if JihacheolEngine.ireum(g.from) == n { idx = -1 }
+        else if let k = g.jina.firstIndex(where: { JihacheolEngine.ireum($0) == n }) { idx = k }
+        else { return nil }
+        g.i = idx
+        yj.jihaNoki(g)
+        junbi(g)
+        majimak = Date()
+        if !dolgo { dolligi() }
+        Girok.shared.namgi("jiha_yeok_matchum", ["yeok": n, "i": idx])
+        let nam = g.jina.count - 1 - idx
+        if nam <= 0 {
+            g.kkeutnam = true
+            yj.jihaNoki(g)
+            return "\(n)역으로 맞췄습니다. 내리실 역입니다. 내리십시오."
+        }
+        return "\(n)역으로 맞췄습니다. \(g.to)역까지 \(nam) 정거장 남았습니다." + (nam > 0 ? " 다음은 \(JihacheolEngine.ireum(g.jina[idx + 1]))역입니다." : "")
     }
 
     /// 지금 몇 정거장 남았습니까

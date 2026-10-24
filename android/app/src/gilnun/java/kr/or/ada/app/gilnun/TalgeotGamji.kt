@@ -72,7 +72,11 @@ object TalgeotGamji : SensorEventListener {
     val wiseongJoeum: Boolean
         get() {
             val t = Wichi.majimakWiseongTtae
-            return t > 0 && System.currentTimeMillis() - t < 15000 && (Wichi.jigeum?.ochae ?: 999.0) <= 30
+            if (t <= 0 || System.currentTimeMillis() - t >= 15000) return false
+            // 2.73.0 (261024-A61, 아이폰 2.105.0과 같음) 와이파이로 짐작한 자리는 위성이 좋다고 보지 않음 — 지하철 안에서 「땅 위로 나왔다」로 잘못 알던 일
+            val j = Wichi.jigeum ?: return false
+            if (j.jjimjakWon) return false
+            return j.ochae <= 30
         }
     private val wiseongEopseum: Boolean
         get() { val t = Wichi.majimakWiseongTtae; return t == 0L || System.currentTimeMillis() - t > 30000 }
@@ -185,6 +189,13 @@ object TalgeotGamji : SensorEventListener {
     //   ② 역 200미터 안에서 탔다는 것만으로는 지하철로 보지 않음 — 위성이 좋지 않을 때만 셈
     //   ③ 땅 위에서 차로 알아챈 뒤에는 터널·가방 속처럼 위성만 끊겨도 지하철로 바꾸지 않음(땅속으로 내려갔을 때만)
     private fun chongPandan(kkadak: String) {
+        // 2.73.0 (261024-A61, 이사장님 지시 2026-10-24, 아이폰 2.105.0과 같음) 이용자가 바로잡아 주신 탈것은 타고 가시는 동안 길눈이 저절로 바꾸지 않음
+        //   (19시 38분 지하철로 바로잡아 주셨는데 2분 뒤 「탈것 20초」로 차로 되돌려 「멈춰 있습니다」를 15분 하던 일)
+        val yb = YeojeongEngine.jigeum
+        if (yb != null && yb.barojabeum && yb.danggye == Danggye.TANEUN_JUNG && yb.talgeot != Talgeot.GEOREUM) {
+            if (chujeong != yb.talgeot) bakkugi(yb.talgeot, kkadak + ", 바로잡으신 탈것 지킴")
+            return
+        }
         // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 콜 차 못 박기는 땅속이라는 것만으로는 풀지 않고, 땅속(위성 없음)에서 탈것이 실제로 20초 넘게 움직일 때(지하철) 풂
         //   (11층 댁에서 승강기로 지하 사무실에 내려가 몇 걸음 걸으신 것만으로 콜 차 못 박기가 풀리던 일, 아이폰과 같음)
         if (jiha && !wiseongJoeum && ChaBureugi.chaGojeong) ChaBureugi.kolPulgi("jiha_talgeot")

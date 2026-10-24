@@ -45,7 +45,14 @@ data class Jari(
     val banghyang: Double,  // 북쪽 기준 도, 모르면 -1
     val sokdo: Double,      // 초속 미터
     val ttae: Long,
-    val georeumChu: Boolean // 위성이 흐려 걸음으로 이어 셈한 자리
+    val georeumChu: Boolean, // 위성이 흐려 걸음으로 이어 셈한 자리
+    /** 2.73.0 (261024-A61, 이사장님 지시 2026-10-24, 아이폰 2.105.0과 같음) 위성이 아니라 와이파이·기지국으로 짐작한 자리(땅속·지하철 안) —
+     *  6호선 땅속에서 폰이 신내차량기지를 「오차 16미터」로 내놓아 하루 내내 엉뚱한 역에서 길을 찾던 일. 짐작 자리는 지금 자리로 단정하지 않음 */
+    val jjimjak: Boolean = false,
+    /** 2.73.0 위성 자리 모양새만 본 것(땅속 여부는 뺌) — 땅 위로 나왔는지·위성이 좋은지 가릴 때 씀 */
+    val jjimjakWon: Boolean = false,
+    /** 2.73.0 이용자가 「여기는 ○○역이야」로 알려 주신 자리 */
+    val sonJari: Boolean = false
 )
 
 object Wichi : SensorEventListener, LocationListener {
@@ -78,6 +85,12 @@ object Wichi : SensorEventListener, LocationListener {
     private var manboNujeok = 0
     private var momManboTtae: Int? = null
     private var iegoGijun = 0
+    /** 2.73.0 (261024-A61) 마지막으로 위성이 확실히 잡아 준 자리(앱을 껐다 켜도 남김) */
+    var majimakMideum: Jari? = null
+        private set
+    /** 2.73.0 이용자가 알려 주신 자리의 때 — 20분 안에는 이와 동떨어진 짐작 자리를 버림 */
+    private var sonJariTtae = 0L
+    private var jjimjakJeon: Boolean? = null
     private val deutneun = ArrayList<(Jari) -> Unit>()
 
     fun deutgi(f: (Jari) -> Unit) { deutneun.add(f) }
@@ -92,6 +105,14 @@ object Wichi : SensorEventListener, LocationListener {
         ctx = c.applicationContext
         if (dolgo) { wiseongDolligi(); return }
         dolgo = true
+        // 2.73.0 (261024-A61) 마지막으로 위성이 확실히 잡은 자리를 되살림
+        try {
+            val ud = c.applicationContext.getSharedPreferences("gilnun", Context.MODE_PRIVATE)
+            if (ud.contains("gn.mideumLat")) {
+                majimakMideum = Jari(java.lang.Double.longBitsToDouble(ud.getLong("gn.mideumLat", 0L)), java.lang.Double.longBitsToDouble(ud.getLong("gn.mideumLon", 0L)),
+                    20.0, -1.0, 0.0, ud.getLong("gn.mideumTtae", 0L), false)
+            }
+        } catch (e: Exception) {}
         lm = c.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
         sm = c.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
         // 2.25.0 회전 벡터가 없는 기기(자이로 없는 탭)는 지자기 회전 벡터, 그것도 없으면 가속도+자력계로 방향을 잡음
@@ -162,17 +183,89 @@ object Wichi : SensorEventListener, LocationListener {
     override fun onLocationChanged(l: Location) {
         if (System.currentTimeMillis() - l.time > 10000) return
         batunSu += 1
-        val heurim = !l.hasAccuracy() || l.accuracy > 25
         val now = System.currentTimeMillis()
         if (l.provider == LocationManager.NETWORK_PROVIDER && majimakWiseong > 0 && now - majimakWiseong < 6000) return
+        // 2.73.0 (261024-A61, 이사장님 지시 2026-10-24, 아이폰 2.105.0과 같음) 위성으로 잡은 자리인가 — 위성 자리는 GPS 가 높이와 함께 줌.
+        //   와이파이·기지국(NETWORK)이거나 높이가 없거나 기압계로 땅속에 계신 것을 알면 짐작한 자리로 봄
+        val ochae0 = if (l.hasAccuracy()) l.accuracy.toDouble() else 99.0
+        //   jjimjakWon 은 자리 모양새만(땅속 여부를 넣으면 땅 위로 나와 위성이 잡혀도 「나왔다」를 알 수 없음)
+        val jjimjakWon = !(l.provider == LocationManager.GPS_PROVIDER && l.hasAltitude() && l.hasAccuracy() && l.accuracy <= 65)
+        val jjimjak = jjimjakWon || TalgeotGamji.jiha
+        if (jjimjakJeon != jjimjak) {
+            jjimjakJeon = jjimjak
+            val va = if (Build.VERSION.SDK_INT >= 26 && l.hasVerticalAccuracy()) l.verticalAccuracyMeters.toInt() else -1
+            Girok.namgi("wichi_jjimjak", mapOf("jj" to jjimjak, "va" to va, "sp" to (l.speed * 10).toInt(), "oc" to ochae0.toInt(),
+                "jiha" to TalgeotGamji.jiha, "la" to l.latitude, "lo" to l.longitude))
+        }
+        val beorim = if (jjimjakWon) (jjimjakBeorimKkadak(l, now) ?: heoJariKkadak(l)) else null
+        if (beorim != null) {
+            Girok.namgi("wichi_beorim", mapOf("kkadak" to beorim, "oc" to ochae0.toInt(), "la" to l.latitude, "lo" to l.longitude))
+            return
+        }
+        val heurim = !l.hasAccuracy() || l.accuracy > 25 || jjimjakWon
         if (!heurim) majimakWiseong = now
+        if (!jjimjakWon && l.hasAccuracy() && l.accuracy <= 30) {
+            sonJariTtae = 0L
+            val m = Jari(l.latitude, l.longitude, l.accuracy.toDouble(), -1.0, 0.0, now, false)
+            majimakMideum = m
+            try {
+                ctx?.getSharedPreferences("gilnun", Context.MODE_PRIVATE)?.edit()
+                    ?.putLong("gn.mideumLat", java.lang.Double.doubleToRawLongBits(m.lat))
+                    ?.putLong("gn.mideumLon", java.lang.Double.doubleToRawLongBits(m.lon))
+                    ?.putLong("gn.mideumTtae", m.ttae)?.apply()
+            } catch (e: Exception) {}
+        }
         val j = jigeum
         if (heurim && j != null && j.georeumChu && now - j.ttae < 10000) return
         if (majimakWiseong == 0L) majimakWiseong = now
         val bang = if (l.hasBearing() && l.speed > 1.5f) l.bearing.toDouble() else hapBang
         iegoGijun = georeumSu
-        naegi(Jari(l.latitude, l.longitude, if (l.hasAccuracy()) l.accuracy.toDouble() else 99.0, bang, l.speed.toDouble(), now, false))
+        naegi(Jari(l.latitude, l.longitude, ochae0, bang, l.speed.toDouble(), now, false, jjimjak = jjimjak, jjimjakWon = jjimjakWon))
     }
+
+    /** 2.73.0 (261024-A61) 짐작 자리를 버릴 까닭 — 알려 주신 자리(20분 안)나 위성이 확실히 잡은 자리(3시간 안)에서 사람이 갈 수 없는 거리로 건너뛰었으면 버림 */
+    private fun jjimjakBeorimKkadak(l: Location, now: Long): String? {
+        val j = jigeum
+        // 알려 주신 자리(20분 안)는 짐작 자리로 덮지 않음 — 위성이 다시 확실히 잡을 때까지 그대로
+        if (sonJariTtae > 0L && now - sonJariTtae < 1_200_000L && j != null && j.sonJari) {
+            return "알려 주신 자리 지킴(${geori(j.lat, j.lon, l.latitude, l.longitude).toInt()}미터)"
+        }
+        val m = majimakMideum
+        if (m != null && now - m.ttae < 3 * 3600 * 1000L) {
+            val d = geori(m.lat, m.lon, l.latitude, l.longitude)
+            if (d > 1500 + 25 * ((now - m.ttae) / 1000.0)) return "위성 자리에서 ${d.toInt()}미터 건너뜀"
+        }
+        return null
+    }
+
+    /** 2.73.0 (261024-A61) 땅속에서 폰이 엉뚱하게 내놓는 것으로 확인된 자리 — 6호선 열차 안에서 신내차량기지(열차들이 밤에 서 있는 곳)가 두 번 나옴.
+     *  위성이 마지막으로 확실히 잡은 자리가 3킬로미터 넘게 떨어져 있으면 버림(정말 그 근처에 계시면 위성이 다시 잡아 줌, 아이폰 2.105.0과 같음) */
+    private val heoJari: List<Triple<String, Double, Double>> = listOf(Triple("6호선 신내차량기지", 37.6128, 127.1034))
+    private fun heoJariKkadak(l: Location): String? {
+        for (h in heoJari) {
+            if (geori(h.second, h.third, l.latitude, l.longitude) >= 400) continue
+            val m = majimakMideum ?: return "${h.first} 자리(위성 자리 없음)"
+            if (geori(m.lat, m.lon, h.second, h.third) > 3000) return "${h.first} 자리"
+        }
+        return null
+    }
+
+    /** 2.73.0 (261024-A61, 이사장님 지시 2026-10-24) 「여기는 ○○역이야」 — 이용자가 알려 주신 자리를 지금 자리로(위성이 다시 확실히 잡을 때까지) */
+    fun sonJariNoki(lat: Double, lon: Double) {
+        val now = System.currentTimeMillis()
+        sonJariTtae = now
+        iegoGijun = georeumSu
+        naegi(Jari(lat, lon, 50.0, hapBang, 0.0, now, false, jjimjak = false, sonJari = true))
+    }
+
+    /** 2.73.0 지금 자리를 믿을 만한가 — 위성이 1분 안에 확실히 잡았거나, 알려 주신 자리이거나, 그 둘에서 걸음으로 이어 셈한 자리 */
+    val jigeumMideum: Boolean
+        get() {
+            val j = jigeum ?: return false
+            if (j.jjimjak) return false
+            if (j.sonJari) return true
+            return majimakWiseong > 0 && System.currentTimeMillis() - majimakWiseong < 60_000
+        }
 
     override fun onProviderEnabled(provider: String) {}
     override fun onProviderDisabled(provider: String) {}
@@ -255,7 +348,7 @@ object Wichi : SensorEventListener, LocationListener {
         val geori = sae * Seoljeong.bopok
         val (la, lo) = olgida(j.lat, j.lon, geori, bang)
         iegoGijun = georeumSu
-        naegi(Jari(la, lo, j.ochae + geori * 0.1, bang, geori, now, true))
+        naegi(Jari(la, lo, j.ochae + geori * 0.1, bang, geori, now, true, jjimjak = j.jjimjak, jjimjakWon = j.jjimjakWon, sonJari = j.sonJari))
     }
 
     // MARK: 셈

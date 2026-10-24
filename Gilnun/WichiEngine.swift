@@ -15,6 +15,13 @@ struct Wichi {
     let sokdo: Double      // 초속 미터
     let ttae: Date
     let georeumChu: Bool   // 위성이 흐려 걸음으로 이어 셈한 자리
+    /// 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 위성이 아니라 와이파이·기지국으로 짐작한 자리(땅속·지하철 안) —
+    ///   6호선 땅속에서 아이폰이 신내차량기지를 「오차 16미터」로 내놓아 하루 내내 엉뚱한 역에서 길을 찾던 일. 짐작 자리는 지금 자리로 단정하지 않음
+    var jjimjak: Bool = false
+    /// 2.105.0 위성 자리 모양새만 본 것(땅속 여부는 뺌) — 땅 위로 나왔는지·위성이 좋은지 가릴 때 씀
+    var jjimjakWon: Bool = false
+    /// 2.105.0 이용자가 「여기는 ○○역이야」로 알려 주신 자리
+    var sonJari: Bool = false
 }
 
 final class WichiEngine: NSObject, ObservableObject, CLLocationManagerDelegate {
@@ -41,11 +48,21 @@ final class WichiEngine: NSObject, ObservableObject, CLLocationManagerDelegate {
     private var manboNujeok = 0
     private var momManboTtae: Int?
     private var iegoGijun = 0         // 마지막으로 자리를 셈한 때의 걸음
+    /// 2.105.0 (261024-I59) 마지막으로 위성이 확실히 잡아 준 자리(앱을 껐다 켜도 남김)
+    private(set) var majimakMideum: Wichi?
+    /// 2.105.0 이용자가 알려 주신 자리와 그 때 — 20분 안에는 이와 동떨어진 짐작 자리를 버림
+    private var sonJariTtae: Date?
+    private var jjimjakJeon: Bool?
     private var sigye: Timer?
     private var dolgo = false
 
     override init() {
         super.init()
+        let ud = UserDefaults.standard
+        if ud.object(forKey: "gn.mideumLat") != nil {
+            majimakMideum = Wichi(lat: ud.double(forKey: "gn.mideumLat"), lon: ud.double(forKey: "gn.mideumLon"), ochae: 20,
+                                  banghyang: -1, sokdo: 0, ttae: Date(timeIntervalSince1970: ud.double(forKey: "gn.mideumTtae")), georeumChu: false)
+        }
         mgr.delegate = self
         mgr.desiredAccuracy = kCLLocationAccuracyBestForNavigation
         mgr.distanceFilter = kCLDistanceFilterNone
@@ -116,15 +133,75 @@ final class WichiEngine: NSObject, ObservableObject, CLLocationManagerDelegate {
         guard let l = locations.last, l.horizontalAccuracy >= 0 else { return }
         if abs(l.timestamp.timeIntervalSinceNow) > 10 { return }
         batunSu += 1
-        let heurim = l.horizontalAccuracy > 25
+        // 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 위성으로 잡은 자리인가 — 위성 자리는 높이(고도 오차)를 함께 줌.
+        //   높이가 없거나 기압계로 땅속에 계신 것을 알면 와이파이·기지국으로 짐작한 자리로 봄
+        //   jjimjakWon 은 자리 모양새만(땅속 여부를 넣으면 땅 위로 나와 위성이 잡혀도 「나왔다」를 알 수 없음)
+        let jjimjakWon = !(l.verticalAccuracy > 0 && l.horizontalAccuracy <= 65)
+        let jjimjak = jjimjakWon || TalgeotGamji.shared.jiha
+        if jjimjakJeon != jjimjak {
+            jjimjakJeon = jjimjak
+            Girok.shared.namgi("wichi_jjimjak", ["jj": jjimjak, "va": Int(l.verticalAccuracy), "sp": Int(l.speed * 10), "oc": Int(l.horizontalAccuracy),
+                                                 "jiha": TalgeotGamji.shared.jiha, "la": l.coordinate.latitude, "lo": l.coordinate.longitude])
+        }
+        if jjimjakWon, let beorim = jjimjakBeorimKkadak(l) ?? heoJariKkadak(l) {
+            Girok.shared.namgi("wichi_beorim", ["kkadak": beorim, "oc": Int(l.horizontalAccuracy), "la": l.coordinate.latitude, "lo": l.coordinate.longitude])
+            return
+        }
+        let heurim = l.horizontalAccuracy > 25 || jjimjakWon
         if !heurim { majimakWiseong = Date() }
+        if !jjimjakWon && l.horizontalAccuracy <= 30 {
+            sonJariTtae = nil
+            let m = Wichi(lat: l.coordinate.latitude, lon: l.coordinate.longitude, ochae: l.horizontalAccuracy, banghyang: -1, sokdo: 0, ttae: Date(), georeumChu: false)
+            majimakMideum = m
+            let ud = UserDefaults.standard
+            ud.set(m.lat, forKey: "gn.mideumLat"); ud.set(m.lon, forKey: "gn.mideumLon"); ud.set(m.ttae.timeIntervalSince1970, forKey: "gn.mideumTtae")
+        }
         // 걸음으로 이어 셈하는 중이면 흐린 위성으로 덮지 않음
         if heurim, let j = jigeum, j.georeumChu, Date().timeIntervalSince(j.ttae) < 10 { return }
         if majimakWiseong == nil { majimakWiseong = Date() }
         let bang = (l.course >= 0 && l.speed > 1.5) ? l.course : nachimban
         iegoGijun = georeumNujeok
         naegi(Wichi(lat: l.coordinate.latitude, lon: l.coordinate.longitude, ochae: l.horizontalAccuracy,
-                    banghyang: bang, sokdo: max(0, l.speed), ttae: Date(), georeumChu: false))
+                    banghyang: bang, sokdo: max(0, l.speed), ttae: Date(), georeumChu: false, jjimjak: jjimjak, jjimjakWon: jjimjakWon))
+    }
+
+    /// 2.105.0 (261024-I59) 짐작 자리를 버릴 까닭 — 알려 주신 자리(20분 안)나 위성이 확실히 잡은 자리(3시간 안)에서 사람이 갈 수 없는 거리로 건너뛰었으면 버림
+    private func jjimjakBeorimKkadak(_ l: CLLocation) -> String? {
+        let now = Date()
+        // 알려 주신 자리(20분 안)는 짐작 자리로 덮지 않음 — 위성이 다시 확실히 잡을 때까지 그대로
+        if let st = sonJariTtae, now.timeIntervalSince(st) < 1200, let j = jigeum, j.sonJari {
+            return "알려 주신 자리 지킴(\(Int(WichiEngine.geori(j.lat, j.lon, l.coordinate.latitude, l.coordinate.longitude)))미터)"
+        }
+        if let m = majimakMideum, now.timeIntervalSince(m.ttae) < 3 * 3600 {
+            let d = WichiEngine.geori(m.lat, m.lon, l.coordinate.latitude, l.coordinate.longitude)
+            if d > 1500 + 25 * now.timeIntervalSince(m.ttae) { return "위성 자리에서 \(Int(d))미터 건너뜀" }
+        }
+        return nil
+    }
+
+    /// 2.105.0 (261024-I59) 땅속에서 아이폰이 엉뚱하게 내놓는 것으로 확인된 자리 — 6호선 열차 안에서 신내차량기지(열차들이 밤에 서 있는 곳)가 두 번 나옴.
+    ///   위성이 마지막으로 확실히 잡은 자리가 3킬로미터 넘게 떨어져 있으면 버림(정말 그 근처에 계시면 위성이 다시 잡아 줌)
+    private static let heoJari: [(String, Double, Double)] = [("6호선 신내차량기지", 37.6128, 127.1034)]
+    private func heoJariKkadak(_ l: CLLocation) -> String? {
+        for h in WichiEngine.heoJari where WichiEngine.geori(h.1, h.2, l.coordinate.latitude, l.coordinate.longitude) < 400 {
+            guard let m = majimakMideum else { return "\(h.0) 자리(위성 자리 없음)" }
+            if WichiEngine.geori(m.lat, m.lon, h.1, h.2) > 3000 { return "\(h.0) 자리" }
+        }
+        return nil
+    }
+
+    /// 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 「여기는 ○○역이야」 — 이용자가 알려 주신 자리를 지금 자리로(위성이 다시 확실히 잡을 때까지)
+    func sonJariNoki(_ lat: Double, _ lon: Double) {
+        sonJariTtae = Date()
+        iegoGijun = georeumNujeok
+        naegi(Wichi(lat: lat, lon: lon, ochae: 50, banghyang: nachimban, sokdo: 0, ttae: Date(), georeumChu: false, jjimjak: false, sonJari: true))
+    }
+
+    /// 2.105.0 지금 자리를 믿을 만한가 — 위성이 15초 안에 확실히 잡았거나, 알려 주신 자리이거나, 그 둘에서 걸음으로 이어 셈한 자리
+    var jigeumMideum: Bool {
+        guard let j = jigeum, !j.jjimjak else { return false }
+        if j.sonJari { return true }
+        return majimakWiseong.map { Date().timeIntervalSince($0) < 60 } ?? false
     }
 
     /// 2.103.0 (261021-I57, 이사장님 승인 2026-10-21) 위치 오류를 까닭별로 — 잠깐 위성을 놓친 것(0)은 오류로 세지 않고, 위치 허락이 꺼진 것(1)만 오류로 세어 한 번 말씀드림.
@@ -195,7 +272,7 @@ final class WichiEngine: NSObject, ObservableObject, CLLocationManagerDelegate {
         let (la, lo) = WichiEngine.olgida(j.lat, j.lon, geori, nachimban)
         iegoGijun = georeumNujeok
         naegi(Wichi(lat: la, lon: lo, ochae: j.ochae + geori * 0.1, banghyang: nachimban,
-                    sokdo: geori, ttae: Date(), georeumChu: true))
+                    sokdo: geori, ttae: Date(), georeumChu: true, jjimjak: j.jjimjak, jjimjakWon: j.jjimjakWon, sonJari: j.sonJari))
     }
 
     // MARK: 셈

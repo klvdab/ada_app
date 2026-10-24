@@ -79,7 +79,9 @@ final class TalgeotGamji: ObservableObject {
     /// 위성이 제대로 잡히는가(최근 15초 안에 오차 30미터 안)
     static var wiseongJoeum: Bool {
         guard let t = WichiEngine.shared.majimakWiseong, Date().timeIntervalSince(t) < 15 else { return false }
-        return (WichiEngine.shared.jigeum?.ochae ?? 999) <= 30
+        // 2.105.0 (261024-I59) 와이파이로 짐작한 자리는 위성이 좋다고 보지 않음 — 지하철 안에서 「땅 위로 나왔다」로 잘못 알던 일
+        guard let j = WichiEngine.shared.jigeum, !j.jjimjakWon else { return false }
+        return j.ochae <= 30
     }
 
     private static var wiseongEopseum: Bool {
@@ -201,6 +203,12 @@ final class TalgeotGamji: ObservableObject {
     }
 
     private func pandan(_ kkadak: String) {
+        // 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 이용자가 바로잡아 주신 탈것은 타고 가시는 동안 길눈이 저절로 바꾸지 않음
+        //   (19시 38분 지하철로 바로잡아 주셨는데 2분 뒤 「탈것 20초」로 차로 되돌려 「멈춰 있습니다」를 15분 하던 일)
+        if let y = YeojeongEngine.shared.jigeum, y.barojabeum, y.danggye == .taneunJung, y.talgeot != .georeum {
+            if chujeong != y.talgeot { bakkugi(y.talgeot, kkadak + ", 바로잡으신 탈것 지킴") }
+            return
+        }
         let t: Talgeot
         // 2.60.0 (261009-I14, 이사장님 승인 2026-10-09 남산 — 약수역 위 댁 앞에서 복지콜을 탔는데 "지하철을 타신 것 같습니다")
         //   ① 콜을 불러 배차된 뒤(3시간 안, 아직 내리지 않음)에는 땅속으로 내려가지 않는 한 차로 못 박음

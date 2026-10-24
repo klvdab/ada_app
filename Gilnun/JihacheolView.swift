@@ -52,7 +52,7 @@ struct JihacheolGilView: View {
             let (g, k) = await JihacheolEngine.gilChatgi(mok)
             await MainActor.run {
                 gil = g
-                kkadak = k
+                kkadak = k == JihacheolEngine.tanYeokMureum ? JihacheolEngine.tanYeokMal : k   // 2.105.0 (261024-I59)
                 chatneunJung = false
                 if let g = g { yeolchaBoda(g, malHagi: false) }
             }

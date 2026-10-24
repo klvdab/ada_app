@@ -176,7 +176,11 @@ object YeojeongMal {
             val m = mokSaengsaeng   // 2.32.0 여정이 없으면 3분 안에 정한 곳만(끝난 여정의 옛 목적지로 가지 않게, 아이폰과 같음)
             // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 「차에 탔어」「택시 탔어」는 여정에 지하철 길이 있어도 늘 차 안 안내로.
             //   지하철 역 알림은 「지하철 탔어」「열차 탔어」「전철 탔어」라고 하실 때만(아이폰과 같음)
-            val jihaMal = z.contains("지하철") || z.contains("열차") || z.contains("전철")
+            // 2.73.0 (261024-A61, 이사장님 지시 2026-10-24, 아이폰 2.105.0과 같음) 「6호선 탔어」도 지하철로 — 예전에는 호선을 몰라 차 안 안내로 넘어갔음
+            val hoMal = MalHagi.hoseonMal(z)
+            if (hoMal != null) JihacheolEngine.hoseonHint = hoMal
+            val jihaMal = z.contains("지하철") || z.contains("열차") || z.contains("전철") || hoMal != null ||
+                listOf("신분당", "경의중앙", "공항철도", "수인분당", "경춘선", "우이신설", "신림선", "김포골드", "서해선").any { z.contains(it) }
             val beoseuMal = !jihaMal && z.contains("버스") && !z.contains("고속버스")
             val chaMal = !jihaMal && !beoseuMal && (z.contains("차") || z.contains("택시"))
             if (y != null) {
@@ -325,7 +329,17 @@ object YeojeongMal {
                     // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 이용자가 지하철로 가자고 하셨으니 짐작 안내가 아님(땅 위 구간에서 차로 되돌리지 않음, 아이폰과 같음)
                     JihacheolEngine.jungganSijak(j, false) { ok, mal ->
                         hwalseong()?.cheotHwamyeonEuro(null)
-                        dap(if (ok) mal else "$mal 잠시 뒤 다시 지하철로 가자고 말씀해 주십시오.", false)
+                        if (!ok) {
+                            // 2.73.0 (261024-A61, 이사장님 지시 2026-10-24, 아이폰 2.105.0과 같음) 역 안내를 못 시작하면 목적지와 지하철을 담아 두고 타신 역을 여쭘
+                            yj.jeonghagi(mk)
+                            yj.talgeotBarojapgi(Talgeot.JIHACHEOL)
+                            yj.danggyeBakkugi(Danggye.TANEUN_JUNG)
+                            TalgeotGamji.barojapgi(Talgeot.JIHACHEOL)
+                            MalHagi.tanYeokNoki()
+                            dap((if (mal == JihacheolEngine.TAN_YEOK_MUREUM) "" else "$mal ") + "어느 역에서 타셨습니까? 약수역처럼 말씀해 주십시오.", true)
+                            return@jungganSijak
+                        }
+                        dap(mal, false)
                     }
                     return
                 }
@@ -346,6 +360,14 @@ object YeojeongMal {
                         hwalseong()?.cheotHwamyeonEuro(null)
                     } else {
                         yj.jeonghagi(mk)
+                        if (k == JihacheolEngine.TAN_YEOK_MUREUM) {
+                            // 2.73.0 (261024-A61, 아이폰 2.105.0과 같음) 땅속이라 자리를 믿을 수 없으면 타실 역을 여쭘
+                            yj.talgeotBarojapgi(Talgeot.JIHACHEOL)
+                            mureum = Mureum.EOPSEUM
+                            MalHagi.tanYeokNoki()
+                            dap(JihacheolEngine.TAN_YEOK_MAL, true)
+                            return@gilChatgi
+                        }
                         yeoJjum(Mureum.BANGSIK)
                         dap("$k 걸어서, 차로, 버스로 가운데 어떻게 가실까요?", true)
                     }

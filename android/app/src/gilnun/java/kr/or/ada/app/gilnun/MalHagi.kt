@@ -140,6 +140,12 @@ object MalHagi {
     /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 「알아보는 중입니다」를 기다리는 명령 차례(대답이 나오면 0) */
     private var araboGidarim = 0
     private val ho: String get() = Seoljeong.ho
+    /** 2.73.0 (261024-A61, 이사장님 지시 2026-10-24, 아이폰 2.105.0과 같음) 타신 역을 여쭌 때(0이면 없음, 아이폰 mureum = .tanYeok) */
+    private var tanYeokTtae = 0L
+        set(v) { field = v; if (v > 0L) ChaBureugi.mureumBiugi() }
+    /** 2.73.0 타신 역을 여쭌 지 2분 안인가 */
+    val tanYeokMutneunJung: Boolean
+        get() = tanYeokTtae > 0L && System.currentTimeMillis() - tanYeokTtae < 120_000L
 
     private fun bakkum(s: MalSangtae) {
         sangtae = s
@@ -230,6 +236,80 @@ object MalHagi {
                 }
             }
         }
+    }
+
+    /** 2.73.0 (261024-A61, 이사장님 지시 2026-10-24, 아이폰 2.105.0과 같음) 타신 역을 여쭙고 마이크를 한 번 엶 */
+    fun tanYeokMutgi(q: String) {
+        main.post {
+            hwaginBiugi()
+            tanYeokTtae = System.currentTimeMillis()
+            val beon = tanYeokTtae
+            malHuHagi(q) {
+                val c = ctx
+                val a = hwalseong?.get()
+                if (c != null && tanYeokTtae == beon && sangtae == MalSangtae.SWIM && GinGeup.sangtae == GinGeupSangtae.EOPSEUM &&
+                    !pyeonjipJung && !JeonhwaGamsi.jeonhwaJung && MalDeutgi.heorakItda(c) &&
+                    a != null && !a.isFinishing && a.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
+                    dasiHanbeon = false
+                    jadongYeolim = 1
+                    yeolgi(true)
+                }
+            }
+        }
+    }
+
+    /** 2.73.0 말로 하기 대답(dap)으로 타신 역을 여쭌 때 — 여쭘만 걸어 둠(마이크는 대답이 엶) */
+    fun tanYeokNoki() {
+        hwaginBiugi()
+        tanYeokTtae = System.currentTimeMillis()
+    }
+
+    // MARK: 2.73.0 (261024-A61) 역 말 알아듣기 — z 는 띄어쓰기를 뺀 말(아이폰 2.105.0과 같은 잣대)
+    private const val HOSEON_PAT = "(?:[0-9]{1,2}|일|이|삼|사|오|육|륙|칠|팔|구)호선"
+    /** 이름에 들어 있으면 역 이름으로 보지 않는 말(묻는 말·가자는 말 등) */
+    private val AN_DEUN = listOf("어디", "어딘", "어떤", "뭐", "무슨", "가까운", "탔", "가자", "가줘", "끝", "도착", "정거장", "남았", "몇")
+    private val AN_IREUM = setOf("출구", "입구", "정류장", "터미널", "공항", "역", "여기", "거기", "저기", "지하철", "전철", "버스", "차", "택시", "열차", "기차", "집", "사무실", "어디", "뭐", "무슨역", "어느역", "어느", "무슨", "다음", "이번", "몇", "몇시", "지금")
+    private val HOSEON_RE = Regex("([0-9]{1,2}|일|이|삼|사|오|육|륙|칠|팔|구)호선")
+    private val TAN_YEOK_RE = Regex("^(?:$HOSEON_PAT)?(.+?)(?:역)?에서(?:$HOSEON_PAT)?(?:탔|탈거|탈게|탈께|탈래|탑니다|타요|타고|타)")
+    private const val YEOGI_KKEUT = "(?:이야|야|이라고|라고|이라니까|라니까|입니다|이에요|예요|에요|이다|다|이거든|거든)?$"
+    private val YEOGI_YEOK_RE = Regex("^(?:지금여기는|지금여기가|여기는|여기가|여기|지금은|지금|이번역은|이번역)(?:$HOSEON_PAT)?(.+?)역$YEOGI_KKEUT")
+    private val YEOGI_HOSEON_RE = Regex("^$HOSEON_PAT(.+?)역(?:이야|야|이라고|라고|이라니까|라니까|입니다|이에요|예요|에요)$")
+    private val YEOGI_RE = Regex("^(?:지금여기는|지금여기가|여기는|여기가)(?:$HOSEON_PAT)?(.+?)$YEOGI_KKEUT")
+    private val YEOK_BON_RE = Regex("^(?:$HOSEON_PAT)?(.+?)(?:역)?(?:이야|야|이요|요|입니다|이에요|예요|에요|에서탔어|에서탔다|에서탔습니다)?$")
+
+    private fun gureum(z: String, re: Regex): String? {
+        val m = re.find(z) ?: return null
+        val n = m.groups[1]?.value ?: return null
+        if (n.isEmpty() || n.length > 10 || AN_IREUM.contains(n) || AN_DEUN.any { n.contains(it) }) return null
+        return n
+    }
+
+    /** 「6호선」「육 호선」 → "6호선" */
+    fun hoseonMal(z: String): String? {
+        val m = HOSEON_RE.find(z) ?: return null
+        val w = m.groupValues[1]
+        val su = mapOf("일" to "1", "이" to "2", "삼" to "3", "사" to "4", "오" to "5", "육" to "6", "륙" to "6", "칠" to "7", "팔" to "8", "구" to "9")
+        return (su[w] ?: w) + "호선"
+    }
+
+    /** 「약수역에서 탔어」「6호선 약수에서 탔어」「약수역에서 탈 거야」 → "약수" */
+    fun tanYeokMal(z: String): String? = gureum(z, TAN_YEOK_RE)
+
+    /** 「여기는 삼각지역이야」「지금 약수역」「여기 6호선 용산역이라고」 → "삼각지". 역이나 호선이 없으면 「여기는/여기가」로 시작할 때만 */
+    fun yeogiMal(z: String, jihaAn: Boolean = false): String? {
+        if (z.contains("역") || hoseonMal(z) != null) {
+            gureum(z, YEOGI_YEOK_RE)?.let { return it }
+            // 「6호선 용산역이라고」처럼 호선으로 시작해 알려 주시는 말(가자·가줘 같은 말은 받지 않음)
+            return gureum(z, YEOGI_HOSEON_RE)
+        }
+        if (!jihaAn) return null
+        return gureum(z, YEOGI_RE)
+    }
+
+    /** 타신 역을 여쭌 뒤의 대답 — 「약수역」「약수」「6호선 약수역이요」 */
+    fun yeokMalBon(z: String): String? {
+        if (listOf("아니", "아니요", "아니오", "아냐", "몰라", "모르겠어", "모르겠다", "모르겠습니다", "그만", "취소", "멈춰", "됐어").any { z.startsWith(it) }) return null
+        return gureum(z, YEOK_BON_RE)
     }
 
     /** 2.48.0 (261015-A36, 이사장님 승인 2026-10-15 「1」) 차 부르기 단추 — 바로 걸지 않고 「○○에 전화할까요?」를 여쭙고 마이크를 엶. 네면 길눈이 겁니다.
@@ -615,6 +695,32 @@ object MalHagi {
             AnnaeEngine.haneunIlMeomchum()   // 2.7.0 묶음 b1 — 여정·따라 걷기·지하철·되짚어 나가기·말로 그린 길·묻던 말·신호기 찾기·카메라 눈·길눈 말을 모두 멈추고 첫 화면으로(말은 한 번)
             return
         }
+        // 0-T. 2.73.0 (261024-A61, 이사장님 지시 2026-10-24, 아이폰 2.105.0과 같음) 「틀렸어」 — 무엇을 하고 있든 「알겠습니다」라고 하고 바로 앞 단계로 되돌림
+        if (z.contains("틀렸") && z.length <= 14) {
+            hwaginBiugi()
+            dap("", false)
+            AnnaeEngine.doedolligi()
+            return
+        }
+        // 0-Y. 2.73.0 (261024-A61, 이사장님 지시 2026-10-24) 타신 역과 지금 역 — 「약수역에서 탔어」, 「여기는 삼각지역이야」, 타신 역을 여쭌 뒤의 대답.
+        //   길눈이 짐작한 자리보다 이용자의 말씀을 앞에 둠
+        val yj0 = YeojeongEngine.jigeum
+        val tanYeok0 = if (yj0 != null) tanYeokMal(z) else null
+        if (tanYeok0 != null) {
+            hwaginBiugi()
+            hoseonMal(z)?.let { JihacheolEngine.hoseonHint = it }
+            AnnaeEngine.tanYeokDap(tanYeok0, dap)
+            return
+        }
+        // 「여기는 ○○이야」처럼 역 없이 하시는 말은 지하철을 타고 가시거나 타신 역을 여쭌 때만 받음(아이폰과 같음)
+        val jihaAn = tanYeokMutneunJung || (yj0?.danggye == Danggye.TANEUN_JUNG && YeojeongEngine.talgeot == Talgeot.JIHACHEOL)
+        val yeogi0 = yeogiMal(z, jihaAn)
+        if (yeogi0 != null) {
+            hwaginBiugi()
+            hoseonMal(z)?.let { JihacheolEngine.hoseonHint = it }
+            AnnaeEngine.jariBarojapgi(yeogi0, dap)
+            return
+        }
         // 0-M. 2.64.0 (261017-A52, 이사장님 승인 2026-10-17) 「집에 가자」·「사무실 가자」 — 말로 그린 길이 있으면 손 없이 바로 안내 시작(웹 길눈 malbuteugi.js 1.9에서 옮김, 아이폰과 같음)
         MalgilEngine.malroChatgi(z)?.let { (mg, ogi, ireum) ->
             dap("$ireum 말로 그린 길 안내를 시작합니다.", false)
@@ -744,6 +850,22 @@ object MalHagi {
                     dap("알겠습니다.", false)
                     return
                 }
+            }
+        }
+        // 1-2-6. 2.73.0 (261024-A61, 아이폰 2.105.0 case .tanYeok 과 같음) 타신 역을 여쭌 뒤의 대답 — 여정 끝·도착·탈것 바로잡기(「택시야」) 같은 말은 위에서 먼저 받음
+        if (tanYeokMutneunJung && majimak == "tanyeok") {
+            val talgeotMal = listOf("택시", "버스", "차", "걸어", "기차", "배").any { z.contains(it) }
+            if (z.length <= 6 && !talgeotMal && listOf("아니", "몰라", "모르겠").any { z.startsWith(it) }) {
+                tanYeokTtae = 0L
+                dap("알겠습니다. 타신 역이 생각나시면 약수역에서 탔어처럼 말씀해 주십시오.", false)
+                return
+            }
+            val yeokBon0 = if (YeojeongEngine.jigeum != null && !talgeotMal) yeokMalBon(z) else null
+            if (yeokBon0 != null) {
+                tanYeokTtae = 0L
+                hoseonMal(z)?.let { JihacheolEngine.hoseonHint = it }
+                AnnaeEngine.tanYeokDap(yeokBon0, dap, true)
+                return
             }
         }
         // 1-3. 2.27.0 호칭을 여쭌 말의 대답(아이폰 case .hoching 과 같음)
@@ -1452,6 +1574,7 @@ object MalHagi {
         huboI = 0
         gingeupMutneun = false
         neomgilDaegiTtae = 0L   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09)
+        tanYeokTtae = 0L   // 2.73.0 (261024-A61)
     }
 
     /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 긴급통화가 가족·지인께 닿지 않아 「자원봉사자와 현장영상해설사에게 요청할까요?」를 여쭘 —
@@ -1721,6 +1844,7 @@ object MalHagi {
         if (mokjeokDaegi != null && now - mokjeokDaegiTtae < 120000) l.add("mokjeok" to mokjeokDaegiTtae)
         if (kolDaegi != null && now - kolDaegiTtae < 120000) l.add("kol" to kolDaegiTtae)
         if (neomgilDaegiTtae > 0L && now - neomgilDaegiTtae < 120000) l.add("neomgil" to neomgilDaegiTtae)   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09)
+        if (tanYeokTtae > 0L && now - tanYeokTtae < 120000) l.add("tanyeok" to tanYeokTtae)   // 2.73.0 (261024-A61) 타신 역을 여쭌 뒤에는 묵은 네·아니오 물음에 대답이 가지 않게
         if (Bangsong.biseutQ != null && now - Bangsong.biseutTtae < 120000) l.add("eumak" to Bangsong.biseutTtae)
         // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 차 부르기의 물음도 함께 견줌 — kol_daeum 다음 수단에 걸까요(10분), kol_meil 복지카드 메일(5분)
         val cd = ChaBureugi.daeumMureumSigak(now)

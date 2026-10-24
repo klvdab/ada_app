@@ -210,7 +210,55 @@ object YeojeongEngine {
     val choegeunTalgeotUmjigim: Boolean
         get() = TalgeotGamji.majimakTalgeot > 0 && System.currentTimeMillis() - TalgeotGamji.majimakTalgeot < 120_000
 
+    // MARK: 2.73.0 (261024-A61, 이사장님 지시 2026-10-24, 아이폰 2.105.0과 같음) 「틀렸어」 — 바로 앞 단계로 되돌리기
+    //   목적지·탈것·차례가 바뀌기 바로 전의 여정을 담아 둠. 한 번의 일로 여러 칸이 함께 바뀌면(3초 안) 하나로 봄. 한 시간 안의 열두 단계까지
+    class Doedolim(val y: Yeojeong?, val ttae: Long)
+    private val doedolim = ArrayList<Doedolim>()
+    private var doedolineunJung = false
+
+    private fun gieok() {
+        if (doedolineunJung) return
+        val now = System.currentTimeMillis()
+        val l = doedolim.lastOrNull()
+        if (l != null && now - l.ttae < 3000) return
+        doedolim.add(Doedolim(jigeum, now))
+        if (doedolim.size > 12) doedolim.removeAt(0)
+    }
+
+    /** 되돌릴 앞 단계를 꺼냄(한 시간이 지난 것은 버림) — 없으면 null */
+    fun doedolimKkeonaegi(): Doedolim? {
+        val now = System.currentTimeMillis()
+        doedolim.removeAll { now - it.ttae > 3_600_000L }
+        return if (doedolim.isEmpty()) null else doedolim.removeAt(doedolim.size - 1)
+    }
+
+    /** 앞 단계로 되돌림 — 되돌린 탈것은 이용자가 바로잡으신 것으로 보아 길눈이 다시 저절로 바꾸지 않게 */
+    fun doedolligi(d: Doedolim) {
+        doedolineunJung = true
+        try {
+            jinanMureum = false; dochakMureum = false; gakkaiTtae = 0L
+            val y0 = d.y
+            if (y0 != null) {
+                val baro = y0.barojabeum || y0.talgeot != Talgeot.GEOREUM || y0.danggye == Danggye.TANEUN_JUNG
+                val y = y0.copy(gaengsin = System.currentTimeMillis(), barojabeum = baro)
+                jigeum = y
+                if (y.talgeot == Talgeot.GICHA) sokdoChujeong = Talgeot.GICHA
+                else if (sokdoChujeong == Talgeot.GICHA) { gichaTtae = 0L; sokdoChujeong = Talgeot.GEOREUM }
+                jeojang()
+            } else {
+                jigeum = null
+                try { pail?.delete() } catch (e: Exception) {}
+                allim()
+            }
+            talgeotMokrokJeopgi()
+            Girok.namgi("doedolim", mapOf("mok" to (d.y?.mokjeok?.ireum ?: ""), "d" to (d.y?.danggye?.raw ?: ""), "tal" to (d.y?.talgeot?.raw ?: "")))
+        } finally {
+            doedolineunJung = false
+        }
+    }
+
     fun jeonghagi(m: Mokjeok) {
+        gieok()
         // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 기차·배 안에서 목적지를 바꾸셔도 지킴은 그대로
         val jikimIeum: Talgeot? = if (jigeum?.danggye == Danggye.TANEUN_JUNG) jigeum?.jikim else null
         talgeotSaeroBogi()
@@ -294,6 +342,7 @@ object YeojeongEngine {
 
     fun danggyeBakkugi(d: Danggye) {
         val y = jigeum ?: return
+        if (y.danggye != d) gieok()   // 2.73.0 (261024-A61)
         // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 내리셨거나 도착하면 지킴을 풂
         val jk = if (d == Danggye.NAM_EUN_GIL || d == Danggye.DOCHAK || d == Danggye.EOTTEOKE) null else y.jikim
         jigeum = y.copy(danggye = d, gaengsin = System.currentTimeMillis(), jikim = jk)
@@ -338,6 +387,7 @@ object YeojeongEngine {
     /** 탈것 정하기 — barojabeum 이 참이면 이용자가 바로잡은 것(가장 앞섬) */
     fun talgeotJeonghagi(t: Talgeot, barojabeum: Boolean) {
         val y = jigeum ?: return
+        if (y.talgeot != t) gieok()   // 2.73.0 (261024-A61)
         // 2.60.0 (261017-A48, 이사장님 승인 2026-10-17) 이용자가 정하시면 탈것 목록을 접고, 길눈이 스스로 바꾸었으면 펼침(처음 걸어가기·타고 가기는 빼고)
         if (barojabeum) talgeotMokrokJeopgi()
         else if (y.talgeot != t && y.danggye != Danggye.EOTTEOKE) talgeotMokrokPyeolgi(true)
@@ -348,6 +398,7 @@ object YeojeongEngine {
     /** 이용자가 탈것을 바로잡음 — 가장 앞섬 */
     fun talgeotBarojapgi(t: Talgeot) {
         val y = jigeum ?: return
+        gieok()   // 2.73.0 (261024-A61)
         // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 「기차입니다」·「배입니다」는 바꾸실 때까지 지킴, 다른 탈것으로 바로잡으시면 풂
         val jk = if (t == Talgeot.GICHA || t == Talgeot.SEONBAK) t else null
         if (t != Talgeot.GICHA && sokdoChujeong == Talgeot.GICHA) { gichaTtae = 0L; sokdoChujeong = Talgeot.GEOREUM }
@@ -358,7 +409,7 @@ object YeojeongEngine {
     }
 
     fun kkeut() {
-        if (jigeum != null) Girok.namgi("yeojeong_kkeut")
+        if (jigeum != null) { gieok(); Girok.namgi("yeojeong_kkeut") }   // 2.73.0 (261024-A61) 여정 끝도 되돌릴 수 있게
         talgeotMokrokJeopgi()   // 2.60.0
         jinanMureum = false; dochakMureum = false; gakkaiTtae = 0L   // 2.62.0
         main.post { chaTamHook?.invoke(false) }
@@ -375,6 +426,7 @@ object YeojeongEngine {
             return
         }
         if (y.barojabeum && y.talgeot != t) return   // 이용자가 다른 탈것으로 바로잡으신 것이 가장 앞섬
+        gieok()   // 2.73.0 (261024-A61)
         jigeum = y.copy(jikim = t, talgeot = t, gaengsin = System.currentTimeMillis())
         jeojang()
         if (t == Talgeot.GICHA) { gichaTtae = System.currentTimeMillis(); sokdoChujeong = Talgeot.GICHA }
