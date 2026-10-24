@@ -41,12 +41,16 @@ final class GeulIlgi: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
     private var chaAnJung = false
     func kyeogiChaAn() {
         guard !kyeojim else { return }
+        // 2.104.0 (261024-I58) 긴급통화가 카메라를 쓰는 동안에는 켜지 않음(통화 영상을 빼앗지 않게, 안드로이드와 같음)
+        if GinGeup.shared.kameraSseuneunJung { SoriEngine.shared.mal("긴급통화 중에는 카메라 눈을 쓸 수 없습니다."); return }
         chaAnJung = true
         kyeogi()
     }
 
     func kyeogi() {
         guard !kyeojim else { return }
+        // 2.104.0 (261024-I58) 긴급통화가 카메라를 쓰는 동안에는 켜지 않음(통화 영상을 빼앗지 않게, 안드로이드와 같음)
+        if GinGeup.shared.kameraSseuneunJung { SoriEngine.shared.mal("긴급통화 중에는 카메라 눈을 쓸 수 없습니다."); return }
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized: sijak()
         case .notDetermined:

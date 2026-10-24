@@ -111,6 +111,14 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
     /// 2.104.0 (261024-I58, 이사장님 지시 2026-10-24) 카메라 영상이 실제로 나가는지 지킴 — 2026-10-24 새벽 신국 님 통화에서 말소리는 이어졌는데 영상이 가지 않았던 일.
     ///   그때까지는 카메라 허락·켜짐·찍힌 장 수를 아무도 살피지 않아, 카메라가 켜지지 못해도 말없이 말소리만 이어졌음.
     private var segi: KameraSegi?
+    /// 2.104.0 ★영상 자리와 영상·소리 트랙을 통화 내내 붙잡아 둠 — 전에는 함수 안 지역 변수로만 두어, 함수가 끝나면 영상 자리가 사라지고
+    ///   카메라가 찍은 장이 받을 곳 없이 버려졌음(카메라는 영상 자리를 약하게만 붙잡음). 말소리는 그대로 가서 「말은 되는데 영상만 안 가는」 일이 됨
+    private var naeVSrc: RTCVideoSource?
+    private var naeVTrack: RTCVideoTrack?
+    private var naeATrack: RTCAudioTrack?
+    /// 화면이 잠겼거나 앱이 뒤에 있어 카메라를 켤 수 없을 때 — 앱이 다시 앞으로 오면 켬
+    private var kameraGidarim = false
+    private var apGwanchal: NSObjectProtocol?
     private var kameraChasu = 0
     private var kameraJikim: Timer?
     private var kameraGwanchalja: [NSObjectProtocol] = []
@@ -146,6 +154,8 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
         room = "j" + String(UUID().uuidString.lowercased().filter { $0.isLetter || $0.isNumber }.prefix(10))
         sijakTtae = Date()
         sangtae = .yocheong
+        // 2.104.0 요청을 기다리는 동안 화면이 잠기면 받으셨을 때 카메라를 켤 수 없음 — 요청할 때부터 화면 잠김을 막음
+        if !UIApplication.shared.isIdleTimerDisabled { UIApplication.shared.isIdleTimerDisabled = true; hwamyeonKyeoduim = true }
         jariSijak()   // 2.94.0
         var mal: String
         if g == .jiin {
@@ -466,6 +476,11 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
         capturer?.stopCapture()
         capturer = nil
         segi = nil
+        naeVSrc = nil
+        naeVTrack = nil
+        naeATrack = nil
+        kameraGidarim = false
+        if let o = apGwanchal { NotificationCenter.default.removeObserver(o); apGwanchal = nil }
         kameraSangtae = ""
         kameraJunbiMal = ""
         kameraAllimHam = false
@@ -520,14 +535,28 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
         }
         pc = p
         let aSrc = f.audioSource(with: RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil))
-        p.add(f.audioTrack(with: aSrc, trackId: "a0"), streamIds: ["s0"])
+        let aTr = f.audioTrack(with: aSrc, trackId: "a0")
+        naeATrack = aTr
+        p.add(aTr, streamIds: ["s0"])
         let vSrc = f.videoSource()
-        p.add(f.videoTrack(with: vSrc, trackId: "v0"), streamIds: ["s0"])
+        let vTr = f.videoTrack(with: vSrc, trackId: "v0")
+        naeVSrc = vSrc
+        naeVTrack = vTr
+        p.add(vTr, streamIds: ["s0"])
         // 2.104.0 (261024-I58, 이사장님 지시 2026-10-24) 카메라를 켜고, 켜졌는지·실제로 찍히는지 살핌(못 켜면 화질을 낮춰 다시, 그래도 안 되면 앞 카메라로)
         segi = KameraSegi(vSrc)
         // 2.104.0 길눈의 다른 카메라 기능(문 찾기·글자 읽기·사람 감지·계단·턱 알림 등)이 카메라를 쥐고 있으면 통화 영상이 막힘 — 통화 전에 모두 멈춤
         GinGeup.kameraGineungMeomchum()
         UIApplication.shared.isIdleTimerDisabled = true; hwamyeonKyeoduim = true   // 위 기능들이 끄면서 화면 잠김을 되돌리므로 다시 막음
+        // 앱이 뒤에 있다가 앞으로 오면, 기다리던 카메라를 켜거나 멈춘 카메라를 다시 살핌
+        if let o = apGwanchal { NotificationCenter.default.removeObserver(o) }
+        apGwanchal = NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self = self, self.pc != nil else { return }
+            if self.kameraGidarim || self.capturer == nil {
+                Girok.shared.namgi("gingeup_kamera", ["dan": "ap_dasi"])
+                self.kameraKyeogi(0)
+            }
+        }
         kameraKyeogi(0)
         sigN = 0
         sigTimer?.invalidate()
@@ -598,12 +627,32 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
 
     /// 0: 뒤 카메라 가로 1280 / 1: 뒤 카메라 가로 640 / 2: 앞 카메라. 켜지 못하거나 4초 동안 한 장도 찍히지 않으면 다음 차례로
     private func kameraKyeogi(_ chasu: Int) {
-        guard pc != nil, let seg = segi else { return }
+        guard pc != nil, segi != nil else { return }
         kameraChasu = chasu
         kameraJikim?.invalidate()
         kameraJikim = nil
         kameraGwanchalHaeje()
-        if let old = capturer { old.stopCapture(); capturer = nil }
+        // 아이폰은 앱이 앞에 있을 때만 카메라를 열어 줌 — 화면이 잠겼거나 다른 앱이 앞에 있으면 기다렸다가 앞으로 오면 켬(다음 차례로 넘기지 않음)
+        if UIApplication.shared.applicationState != .active {
+            kameraGidarim = true
+            if let old = capturer { old.stopCapture(); capturer = nil }
+            Girok.shared.namgi("gingeup_kamera", ["dan": "gidarim", "chasu": chasu])
+            kameraMotham("화면이 잠겨 있어 카메라를 켜지 못했습니다. 화면을 켜고 길눈을 여시면 바로 영상이 갑니다.")
+            kameraAllimHam = false
+            return
+        }
+        kameraGidarim = false
+        // 앞 카메라 세션이 다 멈춘 뒤에 새로 켬(두 세션이 겹치지 않게)
+        if let old = capturer {
+            capturer = nil
+            old.stopCapture { [weak self] in DispatchQueue.main.async { self?.kameraKyeogiSok(chasu) } }
+            return
+        }
+        kameraKyeogiSok(chasu)
+    }
+
+    private func kameraKyeogiSok(_ chasu: Int) {
+        guard pc != nil, let seg = segi, capturer == nil else { return }
         let st = AVCaptureDevice.authorizationStatus(for: .video)
         guard st == .authorized else {
             Girok.shared.namgi("gingeup_kamera", ["dan": "heorak_eopseum", "s": GinGeup.heorakIreum(st)])
@@ -662,6 +711,10 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
 
     private func daeumKamera() {
         guard pc != nil else { return }
+        if UIApplication.shared.applicationState != .active {
+            kameraKyeogi(kameraChasu)   // 앱이 뒤에 있어 못 켠 것 — 차례를 넘기지 않고 기다림
+            return
+        }
         if kameraChasu < 2 {
             kameraKyeogi(kameraChasu + 1)
         } else {
@@ -699,11 +752,22 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
         kameraGwanchalja.append(nc.addObserver(forName: Notification.Name("AVCaptureSessionWasInterruptedNotification"), object: s, queue: .main) { [weak self] n in
             let r = (n.userInfo?["AVCaptureSessionInterruptionReasonKey"] as? NSNumber)?.intValue ?? -1
             Girok.shared.namgi("gingeup_kamera", ["dan": "kkeunkim", "iyu": r])
-            self?.kameraSangtae = "카메라가 잠시 멈췄습니다."
+            guard let self = self else { return }
+            self.kameraJikim?.invalidate()   // 멈춘 동안 차례를 넘기지 않음
+            self.kameraJikim = nil
+            self.kameraSangtae = (r == 1) ? "화면이 잠겨 카메라가 멈췄습니다. 화면을 켜고 길눈을 여시면 다시 영상이 갑니다." : "카메라가 잠시 멈췄습니다."
         })
         kameraGwanchalja.append(nc.addObserver(forName: Notification.Name("AVCaptureSessionInterruptionEndedNotification"), object: s, queue: .main) { [weak self] _ in
             Girok.shared.namgi("gingeup_kamera", ["dan": "kkeunkim_kkeut"])
-            self?.kameraSangtae = "카메라가 다시 켜졌습니다."
+            guard let self = self, let sg = self.segi, self.capturer === cap else { return }
+            self.kameraSangtae = "카메라가 다시 켜졌습니다."
+            // 다시 찍히는지 4초 뒤 살핌 — 그래도 안 찍히면 처음부터 다시 켬
+            let su0 = sg.su
+            self.kameraJikim?.invalidate()
+            self.kameraJikim = Timer.scheduledTimer(withTimeInterval: 4, repeats: false) { [weak self] _ in
+                guard let self = self, self.capturer === cap, let sg2 = self.segi else { return }
+                if sg2.su > su0 { self.kameraSangtae = "카메라 영상이 다시 가고 있습니다." } else { self.kameraKyeogi(0) }
+            }
         })
         kameraGwanchalja.append(nc.addObserver(forName: Notification.Name("AVCaptureSessionRuntimeErrorNotification"), object: s, queue: .main) { n in
             let e = (n.userInfo?["AVCaptureSessionErrorKey"] as? NSError)?.localizedDescription ?? ""

@@ -415,9 +415,9 @@ class JabongActivity : AppCompatActivity() {
             tonghwaGeul = g
             deoh(g)
             if (JabongTonghwa.mok.isNotEmpty()) deoh(geulView("길손님의 목적지 — ${JabongTonghwa.mok}", false))
+            // 자봉 2.30.0 (261024-A26, 이사장님 지시 2026-10-24) SurfaceView 에 배경색을 걸면 그 색이 영상 위를 덮어 영상이 와도 검게만 보임 — 배경색을 걸지 않음
             val v = SurfaceViewRenderer(this).apply {
                 contentDescription = "길손님 카메라 화면"
-                setBackgroundColor(Color.BLACK)
             }
             deoh(v, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
             JabongTonghwa.hwamyeonBuchigi(v)
