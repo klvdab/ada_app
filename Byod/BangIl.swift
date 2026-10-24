@@ -70,6 +70,7 @@ final class BangIl {
         inteonetSijak()
         soriTtae = Date().timeIntervalSince1970; jikim.sijak()   // 1.6.0
         girokSijak("iptime")   // 1.8.0
+        yeongsangSijak()   // 1.9.0 (261024-BI11) 무대 영상 녹화
         return "BYOD 방송을 시작했습니다."
     }
 
@@ -93,6 +94,7 @@ final class BangIl {
         inteonetSijak()
         soriTtae = Date().timeIntervalSince1970; jikim.sijak()   // 1.6.0
         girokSijak("flint")   // 1.8.0
+        yeongsangSijak()   // 1.9.0 (261024-BI11) 무대 영상 녹화
         return "BYOD 방송을 시작했습니다. 해설 소리를 플린트 2 공유기로 보냅니다."
     }
 
@@ -136,8 +138,20 @@ final class BangIl {
         InteonetBonaegi.shared.sijak(jemok: jm, who: who)
     }
 
+    /// 1.9.0 (261024-BI11) 무대 영상 녹화 — 첫 화면에서 켜 두었으면 방송과 함께 뒤 카메라로 녹화(카메라가 안 되어도 방송은 그대로)
+    /// 아이피타임 방식은 이 아이폰 행사 녹음과 같은 폴더, 플린트 2 방식은 이 아이폰이 이름을 지은 폴더에 담음
+    func yeongsangSijak() {
+        guard YeongsangNokhwa.kyeojim, Bang.shared.kyeojim else { return }
+        let ud = UserDefaults.standard
+        YeongsangNokhwa.shared.kyeogi(sid0: Flint.flintInga ? "" : GigiNokeum.shared.sid,
+                                      bangsik: Flint.flintInga ? "flint" : "iptime",
+                                      jemok: (ud.string(forKey: "haengsa_jemok") ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
+                                      haeseolsa: (ud.string(forKey: "haeseolsa") ?? "").trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
     func kkeugi() {
         let b = Bang.shared
+        YeongsangNokhwa.shared.kkeugi()   // 1.9.0 (261024-BI11) 무대 영상 녹화도 함께 멈춤
         b.keu = false
         jikim.meomchugi()   // 1.6.0
         girokTimer?.invalidate(); girokTimer = nil   // 1.8.0

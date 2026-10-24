@@ -70,12 +70,22 @@ enum Hyeonjang {
                      ? Jul(doem: true, mal: "행사 녹음: 이 아이폰이 녹음하고 있습니다. 지금까지 \(gn.sseunBaiteu / 16000 / 60)분. 방송을 멈추면 다시 듣기에 올립니다.")
                      : Jul(doem: false, mal: "행사 녹음: 아직 녹음이 쌓이지 않습니다. 해설 소리가 들어오는지 확인하십시오."))
         }
+        // 1.9.0 (261024-BI11) 노트북판 현장 기능 — 피디 화면 파일과 피디 번호(아이피타임 방식에서 이 아이폰이 서버)
+        l.append(Jaryo.pail("pd.html") != nil
+                 ? Jul(doem: true, mal: "피디 화면: 담아 두었습니다. 방송 중에 첫 화면의 피디 화면 열기로 엽니다. 피디 번호 \(HyeonjangGil.shared.pdKey). 무대 카메라와 관계자 무전은 안드로이드 LVD 송출이나 플린트 2에서만 됩니다.")
+                 : Jul(doem: false, mal: "피디 화면: 아직 담지 못했습니다. 인터넷이 되는 곳에서 더 보기의 새로고침을 누르십시오."))
         // 6. 엔에프시 태그 주소와 지금 주소
         let st = stickerJuso
         if juso.isEmpty { l.append(Jul(doem: false, mal: "엔에프시 태그 주소: 공유기에 붙은 뒤 견줄 수 있습니다.")) }
         else if st.isEmpty { l.append(Jul(doem: false, mal: "엔에프시 태그 주소: 이 아이폰으로 엔에프시 태그나 큐알을 만든 적이 없습니다. 더 보기의 접속 도구에서 만드십시오.")) }
         else if st == juso { l.append(Jul(doem: true, mal: "엔에프시 태그 주소: 지금 주소와 같습니다. 엔에프시 태그와 큐알을 그대로 쓰면 됩니다.")) }
         else { l.append(Jul(doem: false, mal: "엔에프시 태그 주소: 지금 주소와 다릅니다. 엔에프시 태그에는 \(st), 지금은 \(juso) 입니다. 접속 도구에서 엔에프시 태그와 큐알을 새로 만드십시오.")) }
+        }
+        // 1.9.0 (261024-BI11) 무대 영상 녹화
+        if UserDefaults.standard.bool(forKey: YeongsangNokhwa.KI) {
+            let ym = YeongsangNokhwa.shared.sangtaeMal
+            if !b.kyeojim { l.append(Jul(doem: true, mal: "무대 영상: 켜 두셨습니다. BYOD 방송을 시작하면 뒤 카메라로 함께 녹화합니다. 녹화 동안 화면을 켜 두십시오.")) }
+            else { l.append(Jul(doem: ym.hasPrefix("무대 영상: 녹화 중"), mal: ym.isEmpty ? "무대 영상: 카메라를 기다리고 있습니다." : ym)) }
         }
         // 7. 배터리
         let d = UIDevice.current

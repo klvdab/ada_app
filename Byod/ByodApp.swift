@@ -7,6 +7,8 @@
 // 1.3.0 (261014-BI4, 이사장님 승인 「1」, 방송클) 행사 이름·현장영상해설사 칸, 방송을 멈추면 녹음과 결과보고를 받아 배프에 올림, 더 보기에 지난 행사 기록
 // 1.5.0 (261018-BI7, 이사장님 승인 「1」, 방클) LVD 방송 정리 — 첫 화면 차례: 행사 이름·현장영상해설사 이름·전화번호 칸, 현장 방송 시작(인터넷 방송도 함께), 상태 두 줄,
 //   현장 점검, 인터넷 방송만 하기, TV해설방송 하기, 현장영상해설교육 녹화, 새 판, 더 보기(함께 나가는 인터넷 방송 켜고 끄기 더함)
+// 1.9.0 (261024-BI11, 새방송클, 대조표 송출 21·22·23번) 노트북판 현장 기능 — 현장 점검 아래 「피디 화면 열기」(사파리로 이 아이폰의 피디 화면)와
+//   「관계자 붙이기 큐알 보기」(크게), 더 보기에 피디 번호 한 줄, 피디 화면의 긴급 안내도 첫 화면 한 줄로 바뀔 때만 한 번 알림
 import SwiftUI
 import UIKit
 
@@ -93,7 +95,7 @@ struct Kan: View {
 
 // MARK: 화면 고르기
 
-enum Hwamyeon { case cheot, doumal, jeopsok, haengsa, gyoyuk, live, tv }   // 1.4.0 gyoyuk 교육 녹화, 1.5.0 tv TV해설방송 하기
+enum Hwamyeon { case cheot, doumal, jeopsok, haengsa, gyoyuk, live, tv, gwanQr }   // 1.4.0 gyoyuk 교육 녹화, 1.5.0 tv TV해설방송 하기, 1.9.0 gwanQr 관계자 붙이기 큐알
 
 struct RootView: View {
     @State private var hwamyeon = Hwamyeon.cheot
@@ -108,6 +110,7 @@ struct RootView: View {
             case .gyoyuk: GyoyukView(dwiro: { hwamyeon = .cheot })   // 1.4.0
             case .live: GyoyukView(jemok: "인터넷 방송", juso: GyoyukPan.LIVE, dwiro: { hwamyeon = .cheot })   // 1.4.0, 1.5.0 이름
             case .tv: GyoyukView(jemok: "TV해설방송", juso: GyoyukPan.TV, dwiro: { hwamyeon = .cheot })   // 1.5.0
+            case .gwanQr: GwanQrView(dwiro: { hwamyeon = .cheot })   // 1.9.0
             }
         }
     }
@@ -124,6 +127,7 @@ final class SangtaeBogi: ObservableObject {
     private var sojae = ""
     private var jalmot = ""
     private var yocheongSeq = -1
+    private var gingeupSeq = -1   // 1.9.0
     private var cheoeum = true
     private var inteonetJul = ""   // 1.5.0
 
@@ -173,6 +177,16 @@ final class SangtaeBogi: ObservableObject {
                 if Malsori.shared.kyeojim { Malsori.shared.mal(g) } else { allyeo(g) }
             }
         }
+        // 1.9.0 (261024-BI11) 피디 화면의 긴급 안내 — 내거나 끝낼 때만 한 번
+        if b.gingeupSeq != gingeupSeq {
+            let cheotBeon = gingeupSeq < 0
+            gingeupSeq = b.gingeupSeq
+            if !cheotBeon, k {
+                let g = b.gingeup.isEmpty ? "긴급 안내를 끝냈습니다." : "긴급 안내를 냈습니다: " + b.gingeup
+                yocheong = g
+                if Malsori.shared.kyeojim { Malsori.shared.mal(g) } else { allyeo(g) }
+            }
+        }
     }
 }
 
@@ -198,6 +212,11 @@ struct CheotView: View {
     @State private var jeomgeomBoim = false
     @State private var gigiGeul = ""
     @State private var gigiBoim = false
+    @State private var gongyugiGeul = ""      // 1.9.0 공유기 확인 창
+    @State private var gongyugiBoim = false
+    @State private var salpineunJung = false
+    @AppStorage("yeongsang_nokhwa") private var yeongsangOn = false   // 1.9.0 (261024-BI11) 무대 영상 녹화
+    @State private var yeongsangJul = ""
     @AccessibilityFocusState private var bangChojeom: Bool
     @AccessibilityFocusState private var deoChojeom: Bool
     private let tik = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -214,14 +233,22 @@ struct CheotView: View {
                 // 1.3.0 행사 이름과 현장영상해설사(녹음 이름·다시듣기 제목·결과보고에 쓰임, 한 번 넣으면 기억), 1.5.0 두 방식 모두·전화번호(인터넷 방송)
                 Kan(ireum: "행사 이름 (비워 두면 날짜와 시각)", gap: $haengsaJemok)
                 Kan(ireum: "현장영상해설사 이름", gap: $haeseolsa)
-                Kan(ireum: "현장영상해설사 전화번호 (인터넷 방송에 씀)", gap: $haeseolsaPhone, pan: .phonePad)
-                // 1.7.0 (261021-BI9) 공유기 고르기 — 더 보기에서 첫 화면 방송 시작 바로 위로, 엔터 한 번에 번갈아
-                Danchu(geul: flintOn ? "공유기: 플린트 2. 누르면 아이피타임으로 바꿉니다" : "공유기: 아이피타임. 누르면 플린트 2로 바꿉니다") { bangsikBakkugi() }
+                Kan(ireum: "현장영상해설사 전화번호 (인터넷 방송에 꼭 필요합니다)", gap: $haeseolsaPhone, pan: .phonePad)
+                // 1.9.0 (261024-BI11) 공유기는 방송을 시작할 때 앱이 스스로 알아냄 — 고르기 단추는 더 보기로(직접 고를 때만)
                 Danchu(geul: bangDanchuGeul, keun: true, norang: true) { bangNureum() }
                     .accessibilityFocused($bangChojeom)
+                // 1.9.0 (261024-BI11) 무대 영상 녹화 — 켜 두면 BYOD 방송을 시작할 때 뒤 카메라로 무대를 함께 녹화
+                Danchu(geul: yeongsangOn ? "무대 영상 녹화: 켜짐. 누르면 끕니다" : "무대 영상 녹화: 꺼짐. 누르면 켭니다") { yeongsangBakkugi() }
                 Geul(st.geul, gulgeum: true)
+                if !yeongsangJul.isEmpty { Geul(yeongsangJul) }   // 1.9.0 (261024-BI11) 무대 영상 녹화 한 줄
                 if !bang.inteonet.isEmpty { Geul(bang.inteonet) }   // 1.5.0 함께 나가는 인터넷 방송
+                else if !bang.kyeojim && hamkkeOn && haeseolsaPhone.filter({ $0.isNumber }).count < 9 {   // 1.9.0 방송 전에도 분명히(대조표 송출 3번)
+                    Geul("인터넷 방송: 현장영상해설사 전화번호가 비어 있어, 이대로면 BYOD 방송만 나가고 인터넷 방송은 나가지 않습니다. 위 전화번호 칸에 협회 명단의 번호를 넣으십시오.", saek: Saek.norang)
+                }
                 Danchu(geul: "현장 점검") { hyeonjangJeomgeom() }
+                // 1.9.0 (261024-BI11) 노트북판 현장 기능 — 피디 화면과 관계자 붙이기(아이피타임 방식, 방송 중에)
+                Danchu(geul: "피디 화면 열기") { pdHwamyeonYeolgi() }
+                Danchu(geul: "관계자 붙이기 큐알 보기") { gwanQrBogi() }
                 Danchu(geul: "인터넷 방송만 하기 (공유기 없이)") { gagi(.live) }   // 1.4.0 한 폰 한 화면에서, 1.5.0 이름
                 Danchu(geul: "TV해설방송 하기") { gagi(.tv) }   // 1.5.0
                 Danchu(geul: "현장영상해설교육 녹화") { gagi(.gyoyuk) }   // 1.4.0 (261016-BI6) 교육 녹화를 앱 안에서
@@ -243,6 +270,7 @@ struct CheotView: View {
                     if deo { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { deoChojeom = true } }
                 }
                 if deo {
+                    Danchu(geul: (flintOn ? "공유기 직접 고르기: 지금 플린트 2. 누르면 아이피타임으로 바꿉니다" : "공유기 직접 고르기: 지금 아이피타임. 누르면 플린트 2로 바꿉니다") + "(보통은 방송을 시작할 때 앱이 스스로 알아냅니다)") { bangsikBakkugi() }   // 1.9.0
                     Danchu(geul: "접속 도구: 엔에프시 태그와 큐알코드") { gagi(.jeopsok) }
                     Danchu(geul: "지난 행사 기록 (녹음과 결과보고)") { gagi(.haengsa) }   // 1.3.0
                         .accessibilityFocused($deoChojeom)
@@ -253,6 +281,7 @@ struct CheotView: View {
                     Danchu(geul: ollim.seoljeongGeul) { ollim.seoljeongNureum() }
                     Danchu(geul: malsoriOn ? "프로그램 말소리 끄기" : "프로그램 말소리 켜기") { malsoriBakkugi() }
                     Danchu(geul: "도움말") { gagi(.doumal) }
+                    Geul("피디 번호 \(HyeonjangGil.shared.pdKey)", saek: Saek.yeonhan)   // 1.9.0 (261024-BI11) 다른 폰에서 피디 화면을 열 때 씀
                     Geul("LVD 송출 아이폰 \(Bang.PAN)판, 빌드 \(Bang.BILD)", saek: Saek.yeonhan)
                     Geul(damgim, saek: Saek.yeonhan)
                 }
@@ -266,7 +295,7 @@ struct CheotView: View {
         .onAppear {
             HaengsaOlligi.shared.allim = { t in if Malsori.shared.kyeojim { Malsori.shared.mal(t) } else { allyeo(t) } }   // 1.3.0
             st.gochigi(baro: true)
-            if Jaryo.pail("deut.html") == nil { Jaryo.batgi { _ in damgim = Jaryo.damgimMal } }   // 듣는 화면을 한 번도 받지 못했으면 조용히 받아 둠
+            if Jaryo.pail("deut.html") == nil || Jaryo.pail("pd.html") == nil { Jaryo.batgi { _ in damgim = Jaryo.damgimMal } }   // 듣는 화면(1.9.0 피디 화면)을 한 번도 받지 못했으면 조용히 받아 둠
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { bangChojeom = true }
         }
         .onReceive(tik) { _ in
@@ -275,6 +304,10 @@ struct CheotView: View {
             // 1.3.0 배프에 아직 못 올린 행사가 있으면 1분마다 다시 올려 봄
             tikSu += 1
             if tikSu % 60 == 0 && !bang.kyeojim && (HaengsaOlligi.nameum || !GamchumDaegi.mokrok.isEmpty) { HaengsaOlligi.shared.sijak(maegam: false) }   // 1.5.0 감출 인터넷 녹음도
+            // 1.9.0 (261024-BI11) 무대 영상 녹화 — 한 줄은 바뀔 때만 고침(읽어 주지는 않음, 문제는 녹화 쪽이 한 번 알림), 못 올린 영상은 1분마다 다시
+            let yj = YeongsangNokhwa.shared.sangtaeMal
+            if yj != yeongsangJul { yeongsangJul = yj }
+            if tikSu % 60 == 30 && !bang.kyeojim && YeongsangOlligi.nameum { YeongsangOlligi.shared.sijak() }
         }
         .alert("현장 점검", isPresented: $jeomgeomBoim) {
             Button("닫기", role: .cancel) { }
@@ -282,6 +315,13 @@ struct CheotView: View {
             Button("결과 복사") { UIPasteboard.general.string = jeomgeomGeul; malhagi("현장 점검 결과를 복사했습니다.") }
         } message: {
             Text(jeomgeomGeul)
+        }
+        .alert("공유기 확인", isPresented: $gongyugiBoim) {   // 1.9.0
+            Button("닫기", role: .cancel) { }
+            Button("그래도 시작") { sijakhagi() }
+            Button("설정 열기") { if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) } }
+        } message: {
+            Text(gongyugiGeul)
         }
         .alert("기기 점검", isPresented: $gigiBoim) {
             Button("닫기", role: .cancel) { }
@@ -292,6 +332,46 @@ struct CheotView: View {
     }
 
     private func malhagi(_ t: String) { Malsori.shared.mal(t) }
+
+    // 1.9.0 (261024-BI11) 무대 영상 녹화 켜고 끄기 — 켤 때 카메라 허락을 미리 물음. 방송 중이면 바로 시작·멈춤
+    private func yeongsangBakkugi() {
+        yeongsangOn.toggle()
+        if yeongsangOn {
+            YeongsangNokhwa.heorakMutgi { ok in
+                if !ok {
+                    malhagi("카메라 허락이 없어 무대 영상을 녹화할 수 없습니다. 아이폰 설정, LVD 송출, 카메라를 켜 주십시오.")
+                    return
+                }
+                if bang.kyeojim { BangIl.shared.yeongsangSijak(); malhagi("무대 영상 녹화를 시작합니다. 녹화 동안 화면을 켜 두십시오.") }
+                else { malhagi("무대 영상 녹화를 켰습니다. BYOD 방송을 시작하면 뒤 카메라로 함께 녹화합니다. 녹화 동안 화면을 켜 두십시오.") }
+            }
+        } else {
+            if bang.kyeojim { YeongsangNokhwa.shared.kkeugi() }
+            malhagi(bang.kyeojim ? "무대 영상 녹화를 멈추었습니다. BYOD 방송은 그대로 이어집니다." : "무대 영상 녹화를 껐습니다.")
+        }
+    }
+
+    // 1.9.0 (261024-BI11) 피디 화면 — 아이피타임 방식에서 이 아이폰이 방송 서버일 때, 사파리로 http://127.0.0.1:8080/pd?k=피디 번호
+    /// 피디 화면을 열 수 있는가 — 안 되면 까닭 한 줄
+    private func hyeonjangMotham() -> String? {
+        if Flint.flintInga { return "피디 화면과 관계자 붙이기는 아이피타임 방식에서 이 아이폰이 방송 서버일 때 씁니다. 플린트 2 방식에서는 안드로이드 LVD 송출 앱에서 여십시오." }
+        if !bang.kyeojim || !Seobeo.shared.dolgo { return "피디 화면과 관계자 붙이기는 BYOD 방송을 시작한 뒤에 쓸 수 있습니다. 먼저 BYOD 방송 시작을 누르십시오." }
+        return nil
+    }
+
+    private func pdHwamyeonYeolgi() {
+        if let m = hyeonjangMotham() { allyeo(m); malhagi(m); return }
+        guard let u = URL(string: "http://127.0.0.1:\(Bang.PORT)/pd?k=\(HyeonjangGil.shared.pdKey)") else { return }
+        let ap = Jaryo.pail("pd.html") == nil ? "이 아이폰에 피디 화면 파일이 아직 없어 받는 법만 보입니다. 인터넷이 되는 곳에서 더 보기의 새로고침을 누르십시오. " : ""
+        let t = ap + "사파리에서 피디 화면을 엽니다. 피디 번호 \(HyeonjangGil.shared.pdKey). 방송은 그대로 이어집니다. 무대 카메라와 관계자 무전은 아이폰 방송 서버에서는 열리지 않습니다."
+        malhagi(t)
+        UIApplication.shared.open(u)
+    }
+
+    private func gwanQrBogi() {
+        if let m = hyeonjangMotham() { allyeo(m); malhagi(m); return }
+        gagi(.gwanQr)
+    }
 
     private func hyeonjangJeomgeom() {
         let t = Hyeonjang.geul()
@@ -315,8 +395,40 @@ struct CheotView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { st.gochigi(baro: true) }
             return
         }
+        gongyugiSalpigo()
+    }
+
+    // 1.9.0 (261024-BI11, 이사장님 지시 2026-10-23 「직원이 헷갈려 한다, 더 간단하게」)
+    // ① 붙은 공유기를 앱이 스스로 알아냄(플린트 2 방송 서버가 답하면 플린트 2, 아니면 아이피타임)
+    // ② 방송 공유기가 아닌 와이파이(사무실 와이파이 등)에 붙어 있으면 시작 전에 분명히 알리고 묻습니다
+    private func gongyugiSalpigo() {
+        if salpineunJung { return }
+        salpineunJung = true
+        allyeo("붙은 공유기를 살피고 있습니다.")
+        Flint.mutgi("/status") { j in
+            DispatchQueue.main.async {
+                salpineunJung = false
+                let flintDap = j != nil
+                Flint.flintInga = flintDap
+                flintOn = flintDap
+                let juso = Juso.deutgiJuso()
+                let host = juso.replacingOccurrences(of: "http://", with: "").components(separatedBy: ":").first ?? ""
+                var munje: String? = nil
+                if !flintDap {
+                    if juso.isEmpty { munje = "이 아이폰이 어느 공유기에도 붙어 있지 않습니다. 방송 공유기의 와이파이에 붙이거나 랜 어댑터와 랜선으로 공유기에 이으십시오." }
+                    else if host.hasPrefix("192.168.8.") { munje = "플린트 2 공유기로 보이는데 방송 서버가 답하지 않습니다. 처음 쓰는 플린트 2면 안드로이드 LVD 송출 앱의 플린트 2 준비하기를 먼저 하십시오." }
+                    else if !host.hasPrefix("192.168.") { munje = "이 아이폰이 방송 공유기가 아닌 와이파이에 붙어 있는 것 같습니다. 지금 주소는 \(host) 입니다. 아이피타임 방송 공유기에 붙으면 주소가 192.168 로 시작합니다. 이대로 시작하면 듣는 분이 방송을 찾지 못합니다." }
+                }
+                if let m = munje { gongyugiGeul = m; gongyugiBoim = true; malhagi(m); return }
+                sijakhagi()
+            }
+        }
+    }
+
+    private func sijakhagi() {
         BangIl.shared.kyeogi { r in
-            malhagi(r)
+            let itJul = (InteonetBonaegi.hamkke && InteonetBonaegi.jeonhwa.count < 9) ? " 다만 현장영상해설사 전화번호가 비어 있어 인터넷 방송은 나가지 않습니다." : ""
+            malhagi(r + (Bang.shared.kyeojim ? " 공유기: " + Flint.gongyugiIreum + "." + itJul : ""))
             if !Bang.shared.kyeojim { allyeo(r) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { st.gochigi(baro: true) }
         }
@@ -503,5 +615,45 @@ struct HaengsaView: View {
 
     private func yeoldat(_ sid: String) {
         if yeollin.contains(sid) { yeollin.remove(sid) } else { yeollin.insert(sid) }
+    }
+}
+
+// MARK: 1.9.0 (261024-BI11) 관계자 붙이기 큐알 — 진행요원·현장영상해설사·무대 카메라가 폰 카메라로 비추면 붙기 화면(/gwan)이 열림
+
+struct GwanQrView: View {
+    let dwiro: () -> Void
+    @State private var juso = ""
+    @State private var qr: UIImage?
+    @AccessibilityFocusState private var wiChojeom: Bool
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Danchu(geul: "뒤로") { dwiro() }.accessibilityFocused($wiChojeom)
+                Geul("관계자 붙이기 큐알", gulgeum: true)
+                Geul("진행요원, 현장영상해설사, 피디 보조가 이 큐알을 폰 카메라로 비추면 붙기 화면이 열립니다. 역할을 고르고 이름을 적으면 피디 화면의 관계자 목록에 나오고, 피디 화면과 현장영상해설사 화면을 함께 씁니다. " +
+                     "듣는 분 폰과 같은 공유기 와이파이에 붙어 있어야 합니다. 아이폰 방송 서버에는 자물쇠(https) 주소가 없어, 무대 카메라와 관계자 무전은 안드로이드 LVD 송출이나 플린트 2에서만 됩니다.")
+                if let q = qr {
+                    Image(uiImage: q).resizable().interpolation(.none).scaledToFit()
+                        .frame(maxWidth: .infinity)
+                        .accessibilityLabel("관계자 붙이기 큐알코드")
+                } else {
+                    Geul("큐알을 만들지 못했습니다. 이 아이폰이 공유기에 붙었는지 확인하십시오.", saek: Saek.norang)
+                }
+                Geul("붙기 주소", saek: Saek.yeonhan).accessibilityHidden(true)
+                Text(juso).font(.title3.weight(.bold)).foregroundStyle(Saek.norang)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel("붙기 주소 " + juso)
+                Danchu(geul: "뒤로") { dwiro() }
+            }
+            .padding(20)
+        }
+        .accessibilityAction(.escape) { dwiro() }
+        .onAppear {
+            juso = HyeonjangGil.shared.gwanJuso(host: "")
+            qr = Jeopsok.qrGeurim(juso)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { wiChojeom = true }
+        }
     }
 }

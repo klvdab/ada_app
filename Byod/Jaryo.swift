@@ -2,11 +2,13 @@
 // 듣는 분 폰이 여는 화면(deut.html)과 대기 음악(daegi.mp3)·안내말(ment.mp3)은 노트북판·안드로이드판과 똑같은 것을
 // 나스에서 받아 아이폰 안에 담아 둡니다. 현장에 인터넷이 없어도 담아 둔 것으로 방송합니다.
 // 한 번도 받지 못했으면 앱에 든 간단한 듣는 화면을 대신 냅니다.
+// 1.9.0 (빌드 261024-BI11, 새방송클) 노트북판과 같은 피디 화면(pd.html)·해설 화면(bang.html)도 같은 나스 폴더에서 받아 담고,
+//   해설사 화면이 쓰는 행사 자료(jaryo.json)도 조용히 받아 둠(현장에 인터넷이 없어도 담아 둔 것으로)
 import Foundation
 
 enum Jaryo {
     static let NAS = "https://lvd.ada.or.kr/bfblive/hyeonjang/"
-    static let IREUM = ["deut.html", "daegi.mp3", "ment.mp3"]
+    static let IREUM = ["deut.html", "daegi.mp3", "ment.mp3", "pd.html", "bang.html"]   // 1.9.0 피디 화면·해설 화면
 
     static var teo: URL {
         let b = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -23,6 +25,7 @@ enum Jaryo {
 
     /// 나스에서 새로 받아 담음. 끝나면 받은 결과 한 줄을 화면 줄기에서 돌려줌
     static func batgi(_ kkeut: @escaping (String) -> Void) {
+        DispatchQueue.global(qos: .utility).async { _ = jaryoBatgi() }   // 1.9.0 행사 자료 — 결과 한 줄에는 넣지 않음(없는 날도 있음)
         let g = DispatchGroup()
         let jamgeum = NSLock()
         var an: [String] = []
@@ -44,14 +47,37 @@ enum Jaryo {
             }.resume()
         }
         g.notify(queue: .main) {
-            if an.isEmpty { kkeut("듣는 화면과 대기 음악을 나스에서 새로 받았습니다.") }
+            if an.isEmpty { kkeut("듣는 화면, 피디 화면과 대기 음악을 나스에서 새로 받았습니다.") }
             else if ok == 0 { kkeut("인터넷에 닿지 않아 새로 받지 못했습니다. 담아 둔 것으로 방송합니다.") }
             else { kkeut("일부만 새로 받았습니다. 받지 못한 것: " + an.joined(separator: ", ")) }
         }
     }
 
     static var damgimMal: String {
-        pail("deut.html") != nil ? "담아 둔 듣는 화면이 있습니다." : "담아 둔 듣는 화면이 없어 간단한 화면을 씁니다."
+        (pail("deut.html") != nil ? "담아 둔 듣는 화면이 있습니다." : "담아 둔 듣는 화면이 없어 간단한 화면을 씁니다.") +
+            (pail("pd.html") != nil ? " 피디 화면도 담아 두었습니다." : " 피디 화면은 아직 담지 못했습니다. 인터넷이 되는 곳에서 새로고침을 누르십시오.")   // 1.9.0
+    }
+
+    /// 1.9.0 행사 자료(jaryo.json — 대본·식순·메모)를 나스에서 받아 담음. 기다렸다가 결과를 돌려줌(화면 줄기에서 부르지 말 것)
+    static func jaryoBatgi() -> Bool {
+        guard let u = URL(string: HyeonjangGil.JARYO_URL + "?z=\(Int(Date().timeIntervalSince1970))") else { return false }
+        var r = URLRequest(url: u, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 8)
+        r.setValue("Mozilla/5.0 (iPhone) ByodBangsong/" + Bang.PAN, forHTTPHeaderField: "User-Agent")
+        let sem = DispatchSemaphore(value: 0)
+        let jamgeum = NSLock()
+        var ok = false
+        URLSession.shared.dataTask(with: r) { d, res, _ in
+            var doem = false
+            if let d = d, (res as? HTTPURLResponse)?.statusCode == 200,
+               let t = String(data: d, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), t.hasPrefix("{"), t.hasSuffix("}") {
+                doem = (try? Data(t.utf8).write(to: teo.appendingPathComponent("jaryo.json"), options: .atomic)) != nil
+            }
+            jamgeum.lock(); ok = doem; jamgeum.unlock()
+            sem.signal()
+        }.resume()
+        _ = sem.wait(timeout: .now() + 9)
+        jamgeum.lock(); defer { jamgeum.unlock() }
+        return ok
     }
 
     /// 나스에서 한 번도 받지 못했을 때 쓰는 간단한 듣는 화면 — 노트북판 듣는 화면과 같은 소리 방식

@@ -156,12 +156,25 @@ final class GigiNokeum {
         guard (try? fm.moveItem(at: tmp, to: nok)) != nil else { return false }
         gg["gilee"] = Double(hap) / 16000.0
         let euckr = String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CFStringEncodings.EUC_KR.rawValue)))
-        guard let bogo = bogoMandeul(gg).replacingOccurrences(of: "\n", with: "\r\n").data(using: euckr, allowLossyConversion: true),
+        // 1.9.0 (261024-BI11) 피디 화면 현장 기능 기록(HyeonjangGil 이 1분마다 써 둔 것)을 결과보고 뒤에 붙임
+        var bogoGeul = bogoMandeul(gg)
+        if let hb = try? String(contentsOf: d.appendingPathComponent("hyeonjang_bogo.txt"), encoding: .utf8), !hb.isEmpty { bogoGeul += hb }
+        guard let bogo = bogoGeul.replacingOccurrences(of: "\n", with: "\r\n").data(using: euckr, allowLossyConversion: true),
               (try? bogo.write(to: d.appendingPathComponent("bogo.txt"))) != nil,
               let gb = try? JSONSerialization.data(withJSONObject: gg),
               (try? gb.write(to: d.appendingPathComponent("girok.json"), options: .atomic)) != nil else { return false }   // 마지막에 써서, 다 된 것만 목록에 나오게
         try? fm.removeItem(at: d.appendingPathComponent("girok_jinhaeng.json"))
         return true
+    }
+
+    /// 1.9.0 (261024-BI11) 지금까지의 결과보고(방송 중 — 피디 화면 결과보고와 1분마다 저장에 씀). 녹음 중이 아니면 빈 글
+    func jigeumBogo() -> String {
+        q.sync { () -> String in
+            guard var gg = self.g else { return "" }
+            gg["kkeut"] = gg["majimak"] as? Double ?? (gg["sijak"] as? Double ?? 0)
+            gg["gilee"] = Double(self.sseunBaiteu) / 16000.0
+            return GigiNokeum.bogoMandeul(gg)
+        }
     }
 
     /// 방송 중에 아이폰이 꺼져 마감하지 못한 행사를 남은 조각으로 마감(올리기 전에 부름)

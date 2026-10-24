@@ -13,6 +13,10 @@ final class HaengsaOlligi {
     private let q = DispatchQueue(label: "byod.haengsa")
     private var dolgo = false
     var allim: (String) -> Void = { _ in }
+    // 1.9.0 (261024-BI11) 피디 화면 녹음 상태(/nokeum_sangtae)가 올리는 중인지 볼 수 있게 — 올리는 일꾼 줄(q)을 기다리지 않고 읽음
+    private let olliJamgeum = NSLock()
+    private var _olligineun = false
+    var olligineunJung: Bool { olliJamgeum.lock(); defer { olliJamgeum.unlock() }; return _olligineun }
 
     struct Jul: Identifiable { let sid: String; let jemok: String; let haeseolsa: String; let sijak: Date; let gilee: Double; let olim: Bool; var id: String { sid } }
 
@@ -75,7 +79,7 @@ final class HaengsaOlligi {
     }
 
     /// 나스로 4메가씩 나눠 올림
-    private func nasBonaegi(_ sid: String, _ jong: String, _ b: Data) -> Bool {
+    private func nasBonaegi(_ sid: String, _ jong: String, _ b: Data, deo: String = "") -> Bool {   // 1.9.0 deo — pail 의 &nm=이름
         let q0 = "\(HaengsaOlligi.NAS)?k=\(HaengsaOlligi.YEOLSOE)&sid=\(sid)&jong=\(jong)"
         let K = 4 * 1024 * 1024
         var su = 0, i = 0
@@ -84,7 +88,26 @@ final class HaengsaOlligi {
             if !bonae("\(q0)&step=jogak&n=\(su)", j) { return false }
             su += 1; i += K
         } while i < b.count
-        return bonae("\(q0)&step=kkeut&su=\(su)&gil=\(b.count)", Data())
+        return bonae("\(q0)&step=kkeut&su=\(su)&gil=\(b.count)\(deo)", Data())
+    }
+
+    /// 1.9.0 (261024-BI11) 갈래 2·3 해설 녹음(gal2_*.ul 을 이름 차례로 이어 하나로)과 현장 기록 파일(csv 등)도 나스로 — 녹음은 무조건 나스에.
+    /// byod_olligi.php 1.5.0 의 jong=gal2|gal3, jong=pail&nm=이름 이 받음. 하나라도 못 올리면 false(다음에 다시)
+    private func galPailOlligi(_ sid: String, _ d: URL) -> Bool {
+        let names = ((try? FileManager.default.contentsOfDirectory(atPath: d.path)) ?? []).sorted()
+        for g in ["gal2", "gal3"] {
+            var b = Data()
+            for n in names where n.hasPrefix(g + "_") && n.hasSuffix(".ul") {
+                if let x = try? Data(contentsOf: d.appendingPathComponent(n)) { b.append(x) }
+            }
+            if !b.isEmpty && !nasBonaegi(sid, g, b) { return false }
+        }
+        for n in names where n.hasSuffix(".csv") || n == "bogoseo.txt" || n == "sangtae.json" {
+            guard n.range(of: "^[A-Za-z0-9_.\\-]{1,80}$", options: .regularExpression) != nil,
+                  let b = try? Data(contentsOf: d.appendingPathComponent(n)), !b.isEmpty else { continue }
+            if !nasBonaegi(sid, "pail", b, deo: "&nm=" + n) { return false }
+        }
+        return true
     }
 
     /// 방송을 멈춘 뒤(maegam: true), 또는 1분마다 다시 올려 볼 때(false) 부름
@@ -92,7 +115,8 @@ final class HaengsaOlligi {
         q.async {
             guard !self.dolgo else { return }
             self.dolgo = true
-            defer { self.dolgo = false }
+            self.olliJamgeum.lock(); self._olligineun = true; self.olliJamgeum.unlock()   // 1.9.0
+            defer { self.dolgo = false; self.olliJamgeum.lock(); self._olligineun = false; self.olliJamgeum.unlock() }
             self.dolgi(maegam: maegam)
         }
     }
@@ -133,7 +157,7 @@ final class HaengsaOlligi {
             let nokU = fm.fileExists(atPath: mp3.path) ? mp3 : d.appendingPathComponent("nokeum.ul")
             guard let nok = try? Data(contentsOf: nokU), let bogo = try? Data(contentsOf: d.appendingPathComponent("bogo.txt")),
                   let gir = try? Data(contentsOf: d.appendingPathComponent("girok.json")) else { continue }
-            if nasBonaegi(h.sid, nokU.pathExtension == "mp3" ? "mp3" : "ul", nok) && nasBonaegi(h.sid, "bogo", bogo) && nasBonaegi(h.sid, "girok", gir) {
+            if nasBonaegi(h.sid, nokU.pathExtension == "mp3" ? "mp3" : "ul", nok) && nasBonaegi(h.sid, "bogo", bogo) && galPailOlligi(h.sid, d) && nasBonaegi(h.sid, "girok", gir) {
                 try? Data("1".utf8).write(to: d.appendingPathComponent("olim"))
                 if flint { _ = batgi("/haengsa_olim?sid=\(h.sid)") }
                 mal("\(h.jemok) 녹음과 결과보고를 LVD 방송 다시 듣기에 올렸습니다.")
@@ -149,6 +173,8 @@ final class HaengsaOlligi {
             guard olin.contains(where: { g.ttae.timeIntervalSince($0.sijak) > -120 && g.ttae.timeIntervalSince($0.sijak) < $0.gilee + 120 }) else { continue }
             if bonae("\(HaengsaOlligi.NAS)?k=\(HaengsaOlligi.YEOLSOE)&step=gamchum&inteonet=\(g.sid)", Data()) { GamchumDaegi.ppaegi(g.sid) } else { break }
         }
+        // 4. 1.9.0 (261024-BI11) 무대 영상 녹화 — 소리를 다 올린 뒤, 영상은 따로 한 줄기에서(이 줄기를 붙잡지 않음)
+        if YeongsangOlligi.nameum { YeongsangOlligi.shared.sijak() }
     }
 }
 
