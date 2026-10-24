@@ -114,6 +114,11 @@ class FlintJunbiActivity : Activity() {
                 mal("공유기에 들어갔습니다. 방송 서버 파일을 올립니다.")
                 olligi(ses, "byod_flint.py", "/tmp/byod_flint.py")
                 olligi(ses, "byod_seolchi.sh", "/tmp/byod_seolchi.sh")
+                // 1.9.0 (261024-B17) 현장 기능 — 자물쇠 문(8443) 인증서, 화면 파일은 앱에 들어 있을 때만(없으면 공유기가 나스에서 받음)
+                for (a in arrayOf("hj.crt", "hj.key", "deut.html", "pd.html", "bang.html")) {
+                    val itna = try { assets.open("flint/$a").close(); true } catch (_: Exception) { false }
+                    if (itna) olligi(ses, a, "/tmp/byod_$a")
+                }
                 val ch = ses.openChannel("exec") as ChannelExec
                 ch.setCommand("sh /tmp/byod_seolchi.sh 2>&1")
                 val i = ch.inputStream

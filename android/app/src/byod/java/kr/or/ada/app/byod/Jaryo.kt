@@ -11,7 +11,8 @@ import java.net.URL
 
 object Jaryo {
     private const val NAS = "https://lvd.ada.or.kr/bfblive/hyeonjang/"
-    val IREUM = listOf("deut.html", "daegi.mp3", "ment.mp3")
+    // 1.9.0 (261024-B17) 현장 기능 — 피디·해설사·관계자 화면(pd.html)과 해설·무대 카메라 화면(bang.html)도 같은 폴더에서 받아 담음
+    val IREUM = listOf("deut.html", "daegi.mp3", "ment.mp3", "pd.html", "bang.html")
 
     fun teo(ctx: Context): File = File(ctx.filesDir, "byod_jaryo").also { it.mkdirs() }
 
@@ -43,7 +44,7 @@ object Jaryo {
                 an.add(nm)
             }
         }
-        return if (an.isEmpty()) "듣는 화면과 대기 음악을 나스에서 새로 받았습니다."
+        return if (an.isEmpty()) "듣는 화면, 대기 음악, 피디 화면, 해설 화면을 나스에서 새로 받았습니다."
         else if (ok == 0) "인터넷에 닿지 않아 새로 받지 못했습니다. 담아 둔 것으로 방송합니다."
         else "일부만 새로 받았습니다. 받지 못한 것: " + an.joinToString(", ")
     }

@@ -29,6 +29,32 @@ object GigiNokeum {
     private var yocheongBon = 0
     @Volatile var sid = ""                   // 지금 녹음 중인 행사(없으면 빈 글)
     @Volatile var sseunBaiteu = 0L           // 이번 행사에 쓴 바이트(현장 점검용)
+    // 1.9.0 (261024-B17) 현장 기능(HyeonjangSeobeo) — 행사를 마감할 때 결과보고 뒤에 더할 칸(입장 번호·요청·추첨·순간 표시·만족도 등)
+    @Volatile var deohal: (() -> String)? = null
+
+    /** 1.9.0 지금 녹음 중인 행사 폴더(없으면 null) — 현장 기능의 기록(csv)·갈래 2·3 녹음·자동 저장이 같은 폴더에 담김 */
+    @Synchronized fun teoJigeum(): File? = if (sid.isNotEmpty()) teo else null
+
+    /** 1.9.0 지금까지의 결과보고(방송 중에 피디 화면의 결과보고 보기·1분마다 자동 저장) — 행사가 없으면 빈 글 */
+    @Synchronized fun bogoJigeum(): String {
+        val gg = g ?: return ""
+        return try {
+            val x = JSONObject(gg.toString())
+            x.put("kkeut", x.optDouble("majimak", x.optDouble("sijak")))
+            x.put("gilee", sseunBaiteu / BYTE_CHO)
+            bogoMandeul(x)
+        } catch (_: Exception) { "" }
+    }
+
+    /** 1.9.0 순간 표시(/pyosi)를 행사 기록에 — [때(초), 녹음 자리(초), 순서, 이름, 글] */
+    @Synchronized fun pyosi(ms: Long, cho: Long, ss: String, nm: String, t: String) {
+        val gg = g ?: return
+        try {
+            val l = gg.optJSONArray("pyosi") ?: JSONArray().also { gg.put("pyosi", it) }
+            l.put(JSONArray().put(ms / 1000.0).put(cho).put(ss).put(nm).put(t))
+            jeojang()
+        } catch (_: Exception) { }
+    }
 
     private fun kst(ms: Long): Calendar = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")).apply { timeInMillis = ms }
 
@@ -144,11 +170,11 @@ object GigiNokeum {
         jogakDatgi()
         val s = sid
         g = null; teo = null; sid = ""
-        return if (maegamHagi(d, gg)) s else ""
+        return if (maegamHagi(d, gg, true)) s else ""   // 1.9.0 결과보고에 현장 기능 칸을 더함
     }
 
     /** 조각을 이어 녹음 한 덩어리로, 결과보고와 girok.json 을 씀 */
-    private fun maegamHagi(d: File, gg: JSONObject): Boolean {
+    private fun maegamHagi(d: File, gg: JSONObject, deohalNeoki: Boolean = false): Boolean {
         return try {
             gg.put("kkeut", gg.optDouble("majimak", gg.optDouble("sijak")))
             gg.put("sangtae", "kkeut")
@@ -164,7 +190,8 @@ object GigiNokeum {
             }
             tmp.renameTo(File(d, "nokeum.ul"))
             gg.put("gilee", hap / BYTE_CHO)
-            File(d, "bogo.txt").writeBytes(bogoMandeul(gg).replace("\n", "\r\n").toByteArray(charset("EUC-KR")))
+            val deo = if (deohalNeoki) (try { deohal?.invoke() ?: "" } catch (_: Exception) { "" }) else ""   // 1.9.0
+            File(d, "bogo.txt").writeBytes((bogoMandeul(gg) + deo).replace("\n", "\r\n").toByteArray(charset("EUC-KR")))
             File(d, "girok.json").writeText(gg.toString(), Charsets.UTF_8)   // 마지막에 써서, 다 된 것만 목록에 나오게
             File(d, "girok_jinhaeng.json").delete()
             true

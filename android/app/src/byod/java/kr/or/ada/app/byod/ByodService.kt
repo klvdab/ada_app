@@ -73,7 +73,8 @@ class ByodService : Service() {
     private fun jikimSijak() {
         soriTtae = System.currentTimeMillis()
         jikim?.meomchugi()
-        jikim = Jikim(this, { Bang.kyeojim && System.currentTimeMillis() - soriTtae > 6000 }) { m ->
+        // 1.9.0 (261024-B17) 피디 화면에서 해설을 멈춰 두었을 때(/cue?v=0, 대기 음악이 나감)는 소리가 안 들어오는 것이 맞으므로 울리지 않음
+        jikim = Jikim(this, { Bang.kyeojim && Bang.keu && System.currentTimeMillis() - soriTtae > 6000 }) { m ->
             if (m) Bang.jalmot = "해설 소리가 들어오지 않습니다. 마이크와 소리 받는 곳을 살펴 주십시오. 방송은 켜져 있습니다."
             else if (Bang.jalmot.startsWith("해설 소리가 들어오지")) Bang.jalmot = ""
             Bang.allyeo()
@@ -93,7 +94,21 @@ class ByodService : Service() {
         val n = allim("방송을 준비하고 있습니다.")
         try {
             if (Build.VERSION.SDK_INT >= 30) {
-                startForeground(NOTI_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+                // 1.9.0 (261024-B17) 무대 영상 녹화 — 켜 두었고 카메라 허락이 있으면 카메라 종류도 함께(화면을 잠가도 카메라가 이어지게).
+                // 카메라 종류를 붙이지 못하면 마이크만으로 방송을 그대로 켬(녹화만 못 함)
+                val kam = MudaeNokhwa.kyeojim(this) && MudaeNokhwa.heorak(this)
+                if (kam) {
+                    try {
+                        startForeground(NOTI_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA)
+                        MudaeNokhwa.ilkkunMotham = false
+                    } catch (e: Exception) {
+                        MudaeNokhwa.ilkkunMotham = true
+                        startForeground(NOTI_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+                    }
+                } else {
+                    MudaeNokhwa.ilkkunMotham = false
+                    startForeground(NOTI_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+                }
             } else {
                 startForeground(NOTI_ID, n)
             }
@@ -143,6 +158,7 @@ class ByodService : Service() {
             val p = getSharedPreferences("byod", Context.MODE_PRIVATE)
             GigiNokeum.sijak(this, (p.getString("haengsa_jemok", "") ?: "").trim(), (p.getString("haeseolsa", "") ?: "").trim())
         }
+        MudaeNokhwa.sijak(this, "iptime", GigiNokeum.sid)   // 1.9.0 (261024-B17) 무대 영상 녹화 — 켜 두셨을 때만, 이 행사(sid) 이름으로 짝지음
         val so = Sori(this) { b -> soriTtae = System.currentTimeMillis(); s.ppurida(b); GigiNokeum.sseugi(b); Inteonet.neoki(b) }   // 1.5.0 인터넷 방송에도 같은 소리, 1.7.0 녹음
         so.sijak()
         sori = so
@@ -222,6 +238,7 @@ class ByodService : Service() {
 
     // 1.2.0 플린트 2 방식 — 소리 받기는 그대로, 받은 소리를 공유기로 보냄
     private fun flintSijak() {
+        Flint.haengsaJigeum = ""   // 1.9.0 (261024-B17) 무대 영상 녹화 — 이번 방송의 행사 이름은 공유기가 새로 알려 줌
         val b = Flint.Bonaegi(this)
         b.sijak()
         bonaegi = b
@@ -229,6 +246,7 @@ class ByodService : Service() {
         Bang.keu = true
         Bang.kyeojim = true
         Bang.sigakTtae = System.currentTimeMillis()
+        MudaeNokhwa.sijak(this, "flint", "")   // 1.9.0 (261024-B17) 무대 영상 녹화 — 켜 두셨을 때만
         val so = Sori(this) { x -> soriTtae = System.currentTimeMillis(); b.neoki(x); Inteonet.neoki(x) }   // 1.5.0 인터넷 방송에도 같은 소리
         so.sijak()
         sori = so
@@ -262,6 +280,7 @@ class ByodService : Service() {
         songchulH.removeCallbacks(songchulAllim)
         try { jikim?.meomchugi() } catch (_: Exception) { }; jikim = null   // 1.6.0
         songchulBonaegi(false)
+        MudaeNokhwa.kkeugi()   // 1.9.0 (261024-B17) 무대 영상 녹화 — 마지막 조각을 마무리한 뒤 행사 올리기로(5초까지 기다림)
         girokDolgo = false; Girok.namgi("bang_kkeut", mapOf("deutneun" to Bang.deutnunSu)); Girok.bonaegi()   // 1.8.0
         Bang.gwanchal.remove(gwan)
         Bang.keu = false
@@ -276,7 +295,7 @@ class ByodService : Service() {
         if (flintDolatda) Haengsa.sijak(this, true)   // 1.3.0 행사 마감·녹음과 결과보고 받기·배프에 올리기
         if (GigiNokeum.sid.isNotEmpty()) {   // 1.7.0 아이피타임 방식 녹음 마감 — 긴 녹음을 잇는 일이라 화면 줄기를 붙잡지 않게 따로
             val app = applicationContext
-            Thread({ if (GigiNokeum.maegam().isNotEmpty()) { while (Haengsa.dolgo) Thread.sleep(500); Haengsa.sijak(app, false) } }, "byod-maegam").start()
+            Thread({ if (GigiNokeum.maegam().isNotEmpty()) { while (Haengsa.dolgo) Thread.sleep(500); Haengsa.sijak(app, false) }; HyeonjangSeobeo.galOlligiDwi(app) }, "byod-maegam").start()   // 1.9.0 갈래 2·3 녹음도 나스에
         }
         sori = null
         seobeo = null

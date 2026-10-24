@@ -66,6 +66,16 @@ class ByodActivity : Activity() {
     private lateinit var inteonetGeul: TextView   // 1.5.0 함께 나가는 인터넷 방송 한 줄
     private lateinit var hamkkeDanchu: Button    // 1.5.0
     private var boyeojunInteonet = ""
+    // 1.9.0 (261024-B17) 무대 영상 녹화 — 켜고 끄는 단추 하나와 상태 한 줄
+    private lateinit var yeongsangDanchu: Button
+    private lateinit var yeongsangGeul: TextView
+    private var boyeojunYeongsang = "\u0000"
+    private var boyeojunYeongsangMunje = ""
+    // 1.9.0 (261024-B17) 현장 기능 — 긴급 안내 한 줄(바뀔 때만 한 번 알림), 더 보기 안의 피디 번호 한 줄
+    private lateinit var ginGeul: TextView
+    private lateinit var pdGeul: TextView
+    private var boyeojunGin = -1
+    private var boyeojunPd = "\u0000"
 
     private var tts: TextToSpeech? = null
     private var ttsDoem = false
@@ -89,7 +99,8 @@ class ByodActivity : Activity() {
         override fun run() {
             sangtaeGochigi(false)
             // 1.3.0 배프에 아직 못 올린 행사가 있으면 1분마다 다시 올려 봄
-            if (++tikSu % 60 == 0 && !Bang.kyeojim && !Haengsa.dolgo) Thread { if (Haengsa.nameum(this@ByodActivity) || GamchumDaegi.mokrok(this@ByodActivity).isNotEmpty()) Haengsa.sijak(this@ByodActivity, false) }.start()   // 1.5.0 감출 인터넷 녹음도
+            if (++tikSu % 60 == 0 && !Bang.kyeojim && !Haengsa.dolgo) Thread { if (Haengsa.nameum(this@ByodActivity) || GamchumDaegi.mokrok(this@ByodActivity).isNotEmpty() || MudaeNokhwa.nameum(this@ByodActivity)) Haengsa.sijak(this@ByodActivity, false) }.start()   // 1.5.0 감출 인터넷 녹음도, 1.9.0 (261024-B17) 무대 영상 녹화 조각도
+            if (tikSu % 60 == 30 && !Bang.kyeojim) { val app = applicationContext; Thread { if (HyeonjangSeobeo.galNameum(app)) HyeonjangSeobeo.galOlligiDwi(app) }.start() }   // 1.9.0 (261024-B17) 갈래 2·3 녹음도 1분마다 다시 올려 봄
             h.postDelayed(this, 1000)
         }
     }
@@ -113,7 +124,7 @@ class ByodActivity : Activity() {
         }
         cheotHwamyeon()
         // 듣는 화면을 한 번도 받지 못했으면 조용히 받아 둠(인터넷이 될 때)
-        if (Jaryo.pail(this, "deut.html") == null) Thread { Jaryo.batgi(applicationContext) }.start()
+        if (Jaryo.pail(this, "deut.html") == null || Jaryo.pail(this, "pd.html") == null || Jaryo.pail(this, "bang.html") == null) Thread { Jaryo.batgi(applicationContext) }.start()   // 1.9.0 피디·해설 화면도
         // 1.1.2 새 판 알림과 업데이트(이사장님 지시 — 모든 앱에). 방송 중에는 설치하면 방송이 끊기므로 막음
         Ollim.malhagi = { m -> if (malsoriOn && ttsDoem) malhagi(m) else mom.announceForAccessibility(m) }
         Ollim.makgi = { if (Bang.kyeojim) "방송 중에는 업데이트하지 않습니다. 방송을 멈춘 뒤 업데이트를 눌러 주십시오." else null }
@@ -205,13 +216,16 @@ class ByodActivity : Activity() {
     private fun cheotHwamyeon() {
         doumalYeollim = false
         mom.removeAllViews()
+        mom.addView(HyeophoeLogo.meori(this, "LVD 송출"))   // 1.9.0 (261024-B17) 협회 로고(대조표 송출 17번)
         // 1.3.0 행사 이름과 현장영상해설사(녹음 이름·다시듣기 제목·결과보고에 쓰임, 한 번 넣으면 기억), 1.5.0 두 방식 모두·전화번호(인터넷 방송)
         mom.addView(kanMandeul("행사 이름 (비워 두면 날짜와 시각)", "haengsa_jemok"))
         mom.addView(kanMandeul("현장영상해설사 이름", "haeseolsa"))
-        mom.addView(kanMandeul("현장영상해설사 전화번호 (인터넷 방송에 씀)", "haeseolsa_phone").apply { inputType = InputType.TYPE_CLASS_PHONE })
-        bangsikDanchu = danchu(bangsikMal()) { bangsikBakkugi() }   // 1.7.0 (261021-B15) 공유기 고르기 — 더 보기에서 첫 화면 방송 시작 바로 위로
-        mom.addView(bangsikDanchu)
+        mom.addView(kanMandeul("현장영상해설사 전화번호 (인터넷 방송에 꼭 필요합니다)", "haeseolsa_phone").apply { inputType = InputType.TYPE_CLASS_PHONE })
+        // 1.9.0 (261024-B17) 공유기는 방송을 시작할 때 앱이 스스로 알아냄 — 고르기 단추는 더 보기로(직접 고를 때만)
+        bangsikDanchu = danchu(bangsikMal()) { bangsikBakkugi() }
         bangDanchu = danchu("BYOD 방송 시작", keun = true, norang = true) { bangDanchuNullim() }
+        yeongsangDanchu = danchu(yeongsangMal()) { yeongsangBakkugi() }   // 1.9.0 (261024-B17) 무대 영상 녹화 — 방송 시작 바로 위
+        mom.addView(yeongsangDanchu)
         mom.addView(bangDanchu)
 
         sangtae = geul("", 22f, true)
@@ -220,8 +234,14 @@ class ByodActivity : Activity() {
         inteonetGeul = geul("", 20f)   // 1.5.0 — 바뀔 때만 한 번 알림(sangtaeGochigi)
         inteonetGeul.visibility = View.GONE
         mom.addView(inteonetGeul)
+        yeongsangGeul = geul("", 20f)   // 1.9.0 (261024-B17) 무대 영상 녹화 한 줄 — 분 수는 알리지 않고, 문제만 바뀔 때 한 번 알림(sangtaeGochigi)
+        yeongsangGeul.visibility = View.GONE
+        mom.addView(yeongsangGeul)
+        boyeojunYeongsang = "\u0000"
 
         mom.addView(danchu("현장 점검") { hyeonjangJeomgeom() })   // 1.1.5 (261009-B7) 방송 전 살필 것을 단추 하나로
+        mom.addView(danchu("피디 화면 열기") { pdYeolgi() })   // 1.9.0 (261024-B17) 노트북판 피디 화면을 이 기기 브라우저로
+        mom.addView(danchu("관계자 붙이기 큐알 보기") { gwanQrBogi() })   // 1.9.0 진행요원·현장영상해설사·무대 카메라가 찍고 붙음
         mom.addView(danchu("인터넷 방송만 하기 (공유기 없이)") { startActivity(Intent(this, GyoyukActivity::class.java).putExtra("juso", GyoyukActivity.LIVE).putExtra("jemok", "인터넷 방송")) })   // 1.4.0 (261016-B12) 한 폰 한 화면에서, 1.5.0 이름
         mom.addView(danchu("TV해설방송 하기") { startActivity(Intent(this, GyoyukActivity::class.java).putExtra("juso", GyoyukActivity.TV).putExtra("jemok", "TV해설방송")) })   // 1.5.0
         mom.addView(danchu("현장영상해설교육 녹화") { startActivity(Intent(this, GyoyukActivity::class.java)) })   // 1.4.0 (261016-B12) 교육 녹화를 앱 안에서
@@ -236,11 +256,16 @@ class ByodActivity : Activity() {
         yocheongGeul.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         yocheongGeul.visibility = View.GONE
         mom.addView(yocheongGeul)
+        ginGeul = geul("", 20f, true).apply { setTextColor(Saek.norang) }   // 1.9.0 긴급 안내 — 바뀔 때만 한 번 알림
+        ginGeul.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        ginGeul.visibility = View.GONE
+        mom.addView(ginGeul)
 
         deoDanchu = danchu("더 보기") { deoBogi(deoAn.visibility != View.VISIBLE) }
         mom.addView(deoDanchu)
 
         deoAn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+        deoAn.addView(bangsikDanchu)   // 1.9.0 공유기 직접 고르기(보통은 앱이 스스로 알아냄)
         deoAn.addView(danchu("접속 도구: 엔에프시 태그와 큐알코드") { startActivity(Intent(this, JeopsokActivity::class.java)) })   // 1.1.0 (261006-B2)
         deoAn.addView(danchu("지난 행사 기록 (녹음과 결과보고)") { haengsaHwamyeon() })   // 1.3.0
         deoAn.addView(danchu("플린트 2 준비하기 (공유기 처음 한 번)") { startActivity(Intent(this, FlintJunbiActivity::class.java)) })   // 1.2.0
@@ -252,14 +277,70 @@ class ByodActivity : Activity() {
         malsoriDanchu = danchu(if (malsoriOn) "프로그램 말소리 끄기" else "프로그램 말소리 켜기") { malsoriBakkugi() }
         deoAn.addView(malsoriDanchu)
         deoAn.addView(danchu("도움말") { doumalHwamyeon() })
+        pdGeul = geul(pdMal(), 18f).apply { setTextColor(Saek.yeonhan) }   // 1.9.0 피디 번호 한 줄
+        deoAn.addView(pdGeul)
         deoAn.addView(geul("LVD 송출 " + Bang.PAN + "판, 빌드 " + Bang.BILD, 16f).apply { setTextColor(Saek.yeonhan) })
         deoAn.addView(geul(Jaryo.damgimMal(this), 16f).apply { setTextColor(Saek.yeonhan) })
         mom.addView(deoAn)
 
         boyeojunGeul = ""
         boyeojunYocheong = Bang.yocheongSeq
+        boyeojunGin = Bang.ginSeq   // 1.9.0 첫 화면을 다시 그릴 때는 알리지 않고 지금 상태만 보임
+        boyeojunPd = Bang.pdKey
+        if (Bang.ginMal.isNotEmpty() && Bang.kyeojim) { ginGeul.text = "긴급 안내 중: " + Bang.ginMal; ginGeul.visibility = View.VISIBLE }
         sangtaeGochigi(true)
         gyeorugi(bangDanchu)
+    }
+
+    // ───── 1.9.0 (261024-B17) 현장 기능 — 피디 화면 열기, 관계자 붙이기 큐알, 피디 번호 ─────
+    private fun pdMal(): String = if (Bang.pdKey.isNotEmpty()) "피디 번호 " + Bang.pdKey else "피디 번호: 아이피타임 방식으로 BYOD 방송을 시작하면 정해집니다"
+
+    private fun allimMal(t: String) { if (malsoriOn && ttsDoem) malhagi(t) else mom.announceForAccessibility(t) }
+
+    private fun pdYeolgi() {
+        val pk = Bang.pdKey
+        if (!Bang.kyeojim || Flint.flintInga(this) || pk.isEmpty()) {
+            allimMal("피디 화면은 아이피타임 방식으로 BYOD 방송을 하는 동안 이 기기에서 열립니다. 먼저 BYOD 방송 시작을 누르십시오.")
+            return
+        }
+        if (Jaryo.pail(this, "pd.html") == null) {
+            allimMal("피디 화면 파일이 아직 없습니다. 인터넷이 되는 곳에서 더 보기의 새로고침을 눌러 받으십시오.")
+            return
+        }
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://127.0.0.1:" + Bang.PORT + "/pd?k=" + pk)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            allimMal("피디 화면을 브라우저로 엽니다. 피디 번호는 " + pk.toCharArray().joinToString(" ") + " 입니다.")
+        } catch (_: Exception) {
+            allimMal("이 기기에서 웹 브라우저를 찾지 못했습니다. 크롬이나 삼성 인터넷을 설치한 뒤 다시 누르십시오.")
+        }
+    }
+
+    private fun gwanQrBogi() {
+        if (!Bang.kyeojim || Flint.flintInga(this) || Bang.pdKey.isEmpty()) {
+            allimMal("관계자 붙이기 큐알은 아이피타임 방식으로 BYOD 방송을 하는 동안 만들 수 있습니다. 먼저 BYOD 방송 시작을 누르십시오.")
+            return
+        }
+        val j = HyeonjangSeobeo.gwanQrJuso()
+        val bm = try { hjQrGeurim(j, 800) } catch (_: Exception) { null }
+        if (bm == null) { allimMal("큐알을 만들지 못했습니다. 주소는 " + j + " 입니다."); return }
+        val iv = android.widget.ImageView(this).apply {
+            setImageBitmap(bm)
+            adjustViewBounds = true
+            scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            setBackgroundColor(Color.WHITE)
+            contentDescription = "관계자 붙이기 큐알코드"
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+        }
+        val an = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(8)) }
+        an.addView(iv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        an.addView(TextView(this).apply {
+            text = "진행요원, 현장영상해설사, 무대 카메라 폰이 이 큐알을 찍고 역할과 이름을 골라 붙습니다. 폰은 먼저 방송 공유기 와이파이에 붙어 있어야 합니다.\n주소: " + j
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+            setTextIsSelectable(true)
+        })
+        android.app.AlertDialog.Builder(this).setTitle("관계자 붙이기 큐알").setView(ScrollView(this).apply { addView(an) })
+            .setPositiveButton("닫기", null).show()
+        allimMal("관계자 붙이기 큐알을 크게 띄웠습니다. 관계자 폰으로 찍게 하십시오.")
     }
 
     // 1.1.5 (261009-B7) 현장 점검 — 맨 앞 판단 한 줄을 말로 알리고, 확인할 것부터 보여 줌
@@ -282,8 +363,8 @@ class ByodActivity : Activity() {
 
     // 1.2.0 방송 방식 — 플린트 2(공유기 안 서버) 또는 이 기기가 서버
     // 1.7.0 (261021-B15, 이사장님 승인) 「공유기: 아이피타임」과 「공유기: 플린트 2」를 엔터 한 번에 번갈아 고름, 처음값은 아이피타임
-    private fun bangsikMal(): String = if (Flint.flintInga(this)) "공유기: 플린트 2. 누르면 아이피타임으로 바꿉니다"
-        else "공유기: 아이피타임. 누르면 플린트 2로 바꿉니다"
+    private fun bangsikMal(): String = if (Flint.flintInga(this)) "공유기 직접 고르기: 지금 플린트 2. 누르면 아이피타임으로 바꿉니다(보통은 방송을 시작할 때 앱이 스스로 알아냅니다)"
+        else "공유기 직접 고르기: 지금 아이피타임. 누르면 플린트 2로 바꿉니다(보통은 방송을 시작할 때 앱이 스스로 알아냅니다)"
 
     private fun bangsikBakkugi() {
         if (Bang.kyeojim) { val t = "방송 중에는 공유기를 바꾸지 않습니다. 방송을 멈춘 뒤 눌러 주십시오."; bangsikDanchu.announceForAccessibility(t); malhagi(t); return }
@@ -303,6 +384,31 @@ class ByodActivity : Activity() {
         hamkkeDanchu.text = hamkkeMal()
         val t = (if (on) "BYOD 방송을 켜면 인터넷 방송도 함께 나갑니다." else "BYOD 방송만 나갑니다. 인터넷 방송은 함께 나가지 않습니다.") + (if (Bang.kyeojim) " 다음 방송부터 적용됩니다." else "")
         hamkkeDanchu.announceForAccessibility(t); malhagi(t)
+    }
+
+    // 1.9.0 (261024-B17) 무대 영상 녹화 — 켜 두면 BYOD 방송을 시작할 때 뒤 카메라로 무대를 함께 녹화(영상만, 소리는 나스에서 붙임)
+    private fun yeongsangMal() = if (MudaeNokhwa.kyeojim(this)) "무대 영상 녹화: 켜짐. 누르면 끕니다" else "무대 영상 녹화: 꺼짐. 누르면 켭니다"
+    private fun yeongsangBakkugi() {
+        val on = !MudaeNokhwa.kyeojim(this)
+        MudaeNokhwa.kyeojimDugi(this, on)
+        yeongsangDanchu.text = yeongsangMal()
+        val t = if (on) "무대 영상 녹화를 켰습니다. BYOD 방송을 시작하면 이 기기 뒤 카메라로 무대를 함께 녹화합니다. 뒤 카메라가 무대를 향하게 세우고 충전기를 꽂아 두십시오." +
+                (if (Bang.kyeojim) " 지금 방송부터 녹화합니다." else "")
+            else "무대 영상 녹화를 껐습니다. 소리만 녹음합니다." + (if (Bang.kyeojim) " 하던 녹화는 여기까지 담아 두었다가 올립니다." else "")
+        yeongsangDanchu.announceForAccessibility(t); malhagi(t)
+        if (on) {
+            if (!MudaeNokhwa.heorak(this)) requestPermissions(arrayOf(Manifest.permission.CAMERA), 8)
+            else yeongsangJigeumKyeogi()
+        } else if (Bang.kyeojim) Thread { MudaeNokhwa.kkeugi() }.start()
+    }
+
+    /** 방송 중에 켰을 때 — 방송 일꾼에 카메라 종류를 더하고(방송은 그대로) 녹화를 시작 */
+    private fun yeongsangJigeumKyeogi() {
+        if (!Bang.kyeojim || !MudaeNokhwa.kyeojim(this) || !MudaeNokhwa.heorak(this)) return
+        ByodService.kyeogi(this)
+        h.postDelayed({
+            if (Bang.kyeojim && MudaeNokhwa.kyeojim(this)) MudaeNokhwa.sijak(applicationContext, if (Flint.flintInga(this)) "flint" else "iptime", GigiNokeum.sid)
+        }, 800)
     }
 
     private fun malsoriBakkugi() {
@@ -349,15 +455,50 @@ class ByodActivity : Activity() {
             h.postDelayed({ sangtaeGochigi(true) }, 300)
             return
         }
-        if (!heorakDoem()) { sijakGidarim = true; heorakMutgi(); return }
-        sijakhagi()
+        if (!heorakDoem() || (MudaeNokhwa.kyeojim(this) && !MudaeNokhwa.heorak(this))) { sijakGidarim = true; heorakMutgi(); return }   // 1.9.0 무대 영상 녹화를 켜 두셨으면 카메라 허락도
+        gongyugiSalpigo()
+    }
+
+    // 1.9.0 (261024-B17, 이사장님 지시 2026-10-23 「직원이 헷갈려 한다, 더 간단하게」)
+    // 방송을 시작하기 전에 ① 붙은 공유기를 앱이 스스로 알아내고(플린트 2 방송 서버가 답하면 플린트 2, 아니면 아이피타임)
+    // ② 이 기기가 방송 공유기가 아닌 와이파이(사무실 와이파이 등)에 붙어 있으면 분명히 알리고 묻습니다(10월 23일 앞 30분이 이 경우).
+    // ③ 전화번호가 비어 인터넷 방송이 함께 나가지 않으면 시작 전에 한 번 알립니다.
+    private fun gongyugiSalpigo() {
+        bangDanchu.isEnabled = false
+        sangtae.text = "붙은 공유기를 살피고 있습니다."
+        Thread {
+            val flintDap = Flint.mang(this) != null && Flint.mutgi(this, "/status", 1500) != null
+            val juso = ByodService.jusoChatgi()
+            h.post {
+                bangDanchu.isEnabled = true
+                if (doumalYeollim) return@post
+                if (flintDap) { if (!Flint.flintInga(this)) Flint.bangsikBakkugi(this, "flint") }
+                else if (Flint.flintInga(this)) Flint.bangsikBakkugi(this, "taebeullit")
+                bangsikDanchu.text = bangsikMal()
+                val host = juso.removePrefix("http://").substringBefore(":")
+                val munje: String? = when {
+                    flintDap -> null
+                    juso.isEmpty() -> "이 기기가 어느 공유기에도 붙어 있지 않습니다. 방송 공유기의 와이파이에 붙이거나 허브 랜선을 공유기에 이으십시오."
+                    host.startsWith("192.168.8.") -> "플린트 2 공유기로 보이는데 방송 서버가 답하지 않습니다. 처음 쓰는 플린트 2면 더 보기의 플린트 2 준비하기를 먼저 하십시오."
+                    !host.startsWith("192.168.") -> "이 기기가 방송 공유기가 아닌 와이파이에 붙어 있는 것 같습니다. 지금 주소는 " + host + " 입니다. 아이피타임 방송 공유기에 붙으면 주소가 192.168 로 시작합니다. 이대로 시작하면 듣는 분이 방송을 찾지 못합니다."
+                    else -> null
+                }
+                if (munje == null) { sijakhagi(); return@post }
+                malhagi(munje)
+                android.app.AlertDialog.Builder(this).setTitle("공유기 확인").setMessage(munje)
+                    .setPositiveButton("와이파이 설정 열기") { _, _ -> try { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) } catch (_: Exception) { } }
+                    .setNegativeButton("그래도 시작") { _, _ -> sijakhagi() }
+                    .setNeutralButton("닫기", null).show()
+            }
+        }.start()
     }
 
     private fun sijakhagi() {
         sijakGidarim = false
         baeteoriMutgi()
         ByodService.kyeogi(this)
-        malhagi("BYOD 방송을 시작했습니다.")
+        val itJul = if (Inteonet.hamkke(this) && Inteonet.jeonhwa(this).length < 9) " 다만 현장영상해설사 전화번호가 비어 있어 인터넷 방송은 나가지 않습니다." else ""
+        malhagi("BYOD 방송을 시작했습니다. 공유기: " + Flint.gongyugiIreum(this) + "." + itJul)
         h.postDelayed({ sangtaeGochigi(true) }, 600)
     }
 
@@ -373,14 +514,21 @@ class ByodActivity : Activity() {
     private fun heorakMutgi() {
         val l = arrayListOf(Manifest.permission.RECORD_AUDIO)
         if (Build.VERSION.SDK_INT >= 33) l.add(Manifest.permission.POST_NOTIFICATIONS)
+        if (MudaeNokhwa.kyeojim(this) && !MudaeNokhwa.heorak(this)) l.add(Manifest.permission.CAMERA)   // 1.9.0 (261024-B17) 무대 영상 녹화
         requestPermissions(l.toTypedArray(), 7)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 8) {   // 1.9.0 (261024-B17) 무대 영상 녹화를 켤 때 카메라 허락
+            val t = if (MudaeNokhwa.heorak(this)) { yeongsangJigeumKyeogi(); "카메라를 허락하셨습니다. 무대 영상을 녹화할 수 있습니다." }
+                else "카메라 허락이 없으면 무대 영상을 녹화하지 못합니다. 방송과 녹음은 그대로 됩니다. 폰 설정의 애플리케이션, LVD 송출, 권한에서 카메라를 허용해 주십시오."
+            if (malsoriOn && ttsDoem) malhagi(t) else mom.announceForAccessibility(t)
+            return
+        }
         if (requestCode != 7) return
         if (heorakDoem()) {
-            if (sijakGidarim) sijakhagi()
+            if (sijakGidarim) { sijakGidarim = false; gongyugiSalpigo() }
         } else {
             sijakGidarim = false
             val t = "마이크 허락이 없어 방송을 시작하지 못했습니다. 다시 누르고 허용을 고르십시오."
@@ -414,6 +562,7 @@ class ByodActivity : Activity() {
             "BYOD 방송이 꺼져 있습니다." + " 공유기: " + Flint.gongyugiIreum(this) + "." + (if (jm.isNotEmpty()) " " + jm else "")
         } else {
             (if (Bang.tonghwaJung) "통화 중입니다. 듣는 분께 잠시 기다려 달라는 안내를 보내고 있습니다. 통화가 끝나면 저절로 이어 보냅니다. " else "") +
+            (if (!Bang.keu) "피디 화면에서 현장영상해설을 멈추어 두어 듣는 분께 대기 음악이 나갑니다. " else "") +   // 1.9.0 (261024-B17)
             "BYOD 방송 중입니다. 듣는 분 " + Bang.deutnunSu + "명. 소리 받는 곳: " + so + "." +
                 (if (Flint.flintInga(this)) (if (Flint.bonaenda) " 공유기로 보내고 있습니다." else "") else "") + (if (jm.isNotEmpty()) " " + jm else "")
         }
@@ -429,12 +578,27 @@ class ByodActivity : Activity() {
             boyeojunTonghwa = Bang.tonghwaJung
         }
         // 1.5.0 인터넷 방송 한 줄 — 바뀔 때만 한 번
-        val ij = Inteonet.jul
+        // 1.9.0 방송 전에도 전화번호가 비어 있으면 첫 화면에 한 줄로 분명히(대조표 송출 3번)
+        val ij = if (k || Inteonet.jul.isNotEmpty()) Inteonet.jul
+            else if (Inteonet.hamkke(this) && Inteonet.jeonhwa(this).length < 9) "인터넷 방송: 현장영상해설사 전화번호가 비어 있어, 이대로면 BYOD 방송만 나가고 인터넷 방송은 나가지 않습니다. 위 전화번호 칸에 협회 명단의 번호를 넣으십시오."
+            else ""
         if (ij != boyeojunInteonet) {
             boyeojunInteonet = ij
             inteonetGeul.text = ij
             inteonetGeul.visibility = if (ij.isEmpty()) View.GONE else View.VISIBLE
             if (ij.isNotEmpty() && !baro) { if (malsoriOn && ttsDoem) malhagi(ij) else inteonetGeul.announceForAccessibility(ij) }
+        }
+        // 1.9.0 (261024-B17) 무대 영상 녹화 한 줄 — 글은 바뀌면 고치되(분 수) 알리지 않고, 문제는 새로 생길 때 한 번만 알림
+        val yj = MudaeNokhwa.jul(this)
+        if (yj != boyeojunYeongsang) {
+            boyeojunYeongsang = yj
+            yeongsangGeul.text = yj
+            yeongsangGeul.visibility = if (yj.isEmpty()) View.GONE else View.VISIBLE
+        }
+        val ym = MudaeNokhwa.munje
+        if (ym != boyeojunYeongsangMunje) {
+            boyeojunYeongsangMunje = ym
+            if (ym.isNotEmpty() && !baro) { if (malsoriOn && ttsDoem) malhagi("무대 영상: " + ym) else yeongsangGeul.announceForAccessibility("무대 영상: " + ym) }
         }
         // 듣기 주소 — 방송 중에만
         if (k) {
@@ -454,6 +618,23 @@ class ByodActivity : Activity() {
             jusoJemok.visibility = View.GONE
             juso.visibility = View.GONE
         }
+        // 1.9.0 (261024-B17) 피디 번호 한 줄 — 바뀔 때만 고쳐 씀(알리지 않음)
+        if (Bang.pdKey != boyeojunPd) { boyeojunPd = Bang.pdKey; pdGeul.text = pdMal() }
+        // 1.9.0 긴급 안내 — 내보내거나 끝낼 때만 한 번
+        val gs = Bang.ginSeq
+        if (gs != boyeojunGin) {
+            boyeojunGin = gs
+            val gm = Bang.ginMal
+            if (gm.isNotEmpty() && k) {
+                ginGeul.text = "긴급 안내 중: " + gm
+                ginGeul.visibility = View.VISIBLE
+                malhagi("긴급 안내를 내보냈습니다. " + gm)
+            } else if (ginGeul.visibility == View.VISIBLE) {
+                ginGeul.visibility = View.GONE
+                malhagi("긴급 안내를 끝냈습니다.")
+            }
+        }
+        if (!k && ginGeul.visibility == View.VISIBLE) ginGeul.visibility = View.GONE
         // 도움 요청 — 새로 온 것만 한 번
         val seq = Bang.yocheongSeq
         if (seq != boyeojunYocheong) {

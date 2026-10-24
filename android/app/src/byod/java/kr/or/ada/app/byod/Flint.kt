@@ -33,6 +33,7 @@ object Flint {
     @Volatile var ttuigi = ""             // 듣기 화면 저절로 뜨기 방식
     @Volatile var dapTtae = 0L            // 공유기가 마지막으로 답한 때
     @Volatile var bonaenda = false        // 소리를 공유기로 보내고 있는가
+    @Volatile var haengsaJigeum = ""      // 1.9.0 (261024-B17) 무대 영상 녹화 — 공유기가 알려 준 지금 행사(sid), 영상과 행사를 짝짓는 데 씀
 
     private fun pref(ctx: Context) = ctx.getSharedPreferences("byod", Context.MODE_PRIVATE)
 
@@ -154,6 +155,7 @@ object Flint {
                         val j = org.json.JSONObject(t)
                         dapTtae = System.currentTimeMillis()
                         seobeoPan = j.optString("pan"); mp3 = j.optBoolean("mp3"); ttuigi = j.optString("ttuigi")
+                        j.optString("haengsa").let { if (it.isNotEmpty()) haengsaJigeum = it }   // 1.9.0 (261024-B17) 무대 영상 녹화
                         val su = j.optInt("n")
                         if (su != Bang.deutnunSu) { Bang.deutnunSu = su; Bang.allyeo() }
                         val ys = j.optInt("yseq")

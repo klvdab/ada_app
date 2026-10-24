@@ -80,6 +80,16 @@ object Hyeonjang {
             if (Bang.kyeojim) l.add(if (GigiNokeum.sid.isNotEmpty() && GigiNokeum.sseunBaiteu > 0)
                     Jul(true, "행사 녹음: 이 기기가 녹음하고 있습니다. 지금까지 " + (GigiNokeum.sseunBaiteu / 16000 / 60) + "분. 방송을 멈추면 다시 듣기에 올립니다.")
                 else Jul(false, "행사 녹음: 아직 녹음이 쌓이지 않습니다. 해설 소리가 들어오는지 확인하십시오."))
+            // 1.9.0 (261024-B17) 현장 기능 — 피디·해설 화면 파일, 피디 번호, 자물쇠 문(무대 카메라·관계자 무전에 필요)
+            val pdF = Jaryo.pail(ctx, "pd.html") != null && Jaryo.pail(ctx, "bang.html") != null
+            l.add(if (pdF) Jul(true, "피디 화면과 해설 화면: 담아 두었습니다." + (if (Bang.kyeojim && Bang.pdKey.isNotEmpty()) " 피디 번호 " + Bang.pdKey + ". 첫 화면의 피디 화면 열기로 엽니다." else ""))
+                  else Jul(false, "피디 화면과 해설 화면: 아직 받지 못했습니다. 인터넷이 되는 곳에서 더 보기의 새로고침을 누르십시오."))
+            if (Bang.kyeojim) {
+                val tm = HyeonjangSeobeo.tlsMal()
+                val tp = HyeonjangSeobeo.seobeo?.tport ?: 0
+                l.add(if (tp > 0) Jul(true, "자물쇠 문: " + tp + "번이 열렸습니다. 관계자 폰에서 무대 카메라와 관계자 무전을 쓸 수 있습니다. 처음 열 때 안전하지 않다는 경고가 나오면 고급, 계속을 누르십시오.")
+                      else Jul(false, "자물쇠 문: 열지 못했습니다(" + tm + "). 방송은 되지만 관계자 폰의 무대 카메라와 관계자 무전은 쓸 수 없습니다. 방송을 멈췄다가 다시 시작해 보십시오."))
+            }
             // 6. 엔에프시 태그 주소와 지금 주소
             val st = stickerJuso(ctx)
             l.add(when {
@@ -87,6 +97,22 @@ object Hyeonjang {
                 st.isEmpty() -> Jul(false, "엔에프시 태그 주소: 이 태블릿으로 엔에프시 태그나 큐알을 만든 적이 없습니다. 더 보기의 접속 도구에서 만드십시오.")
                 st == juso -> Jul(true, "엔에프시 태그 주소: 지금 주소와 같습니다. 엔에프시 태그와 큐알을 그대로 쓰면 됩니다.")
                 else -> Jul(false, "엔에프시 태그 주소: 지금 주소와 다릅니다. 엔에프시 태그에는 " + st + ", 지금은 " + juso + " 입니다. 접속 도구에서 엔에프시 태그와 큐알을 새로 만드십시오.")
+            })
+        }
+        // 1.9.0 (261024-B17) 무대 영상 녹화 — 켜 두었는지, 카메라 허락, 녹화 중이면 몇 분째인지나 문제
+        run {
+            val on = MudaeNokhwa.kyeojim(ctx)
+            val yj = MudaeNokhwa.jul(ctx)
+            val bin = MudaeNokhwa.teo(ctx).usableSpace / (1024L * 1024 * 1024)
+            l.add(when {
+                !on && yj.isEmpty() -> Jul(true, "무대 영상 녹화: 꺼 두셨습니다. 소리만 녹음합니다. 첫 화면 방송 시작 바로 위 단추로 켭니다.")
+                MudaeNokhwa.munje.isNotEmpty() -> Jul(false, yj)
+                Bang.kyeojim && MudaeNokhwa.nokhwaJung -> Jul(true, yj + ". 저장 공간은 약 " + bin + "기가바이트 남았습니다.")
+                Bang.kyeojim && yj.isNotEmpty() -> Jul(true, yj)
+                !MudaeNokhwa.heorak(ctx) -> Jul(false, "무대 영상 녹화: 켜 두셨지만 카메라 허락이 없습니다. 방송을 시작할 때 묻는 창에서 허용을 고르십시오.")
+                bin < 2 -> Jul(false, "무대 영상 녹화: 켜 두셨지만 저장 공간이 약 " + bin + "기가바이트뿐입니다. 한 시간에 약 1기가바이트를 씁니다. 빈자리를 만들어 주십시오.")
+                Bang.kyeojim -> Jul(false, "무대 영상 녹화: 켜 두셨지만 이번 방송에는 녹화하지 않고 있습니다. 단추를 껐다가 다시 켜 보십시오.")
+                else -> Jul(true, "무대 영상 녹화: 켜 두셨습니다. 방송을 시작하면 뒤 카메라로 무대를 녹화합니다. 저장 공간은 약 " + bin + "기가바이트 남았습니다.")
             })
         }
         // 7. 배터리

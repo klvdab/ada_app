@@ -72,7 +72,7 @@ object Haengsa {
     }
 
     /** 나스로 4메가씩 나눠 올림 */
-    private fun nasBonaegi(n: Network?, sid: String, jong: String, b: ByteArray) {
+    private fun nasBonaegi(n: Network?, sid: String, jong: String, b: ByteArray, deo: String = "") {   // 1.9.0 deo — pail 의 &nm=이름
         val q0 = "$NAS?k=$YEOLSOE&sid=$sid&jong=$jong"
         fun bonae(q: String, mom: ByteArray) {
             val u = URL(q)
@@ -88,7 +88,25 @@ object Haengsa {
         var su = 0
         var i = 0
         while (i < maxOf(1, b.size)) { bonae("$q0&step=jogak&n=$su", b.copyOfRange(i, minOf(b.size, i + K))); su++; i += K }
-        bonae("$q0&step=kkeut&su=$su&gil=${b.size}", ByteArray(0))
+        bonae("$q0&step=kkeut&su=$su&gil=${b.size}$deo", ByteArray(0))
+    }
+
+    /** 1.9.0 (261024-B17) 갈래 2·3 해설 녹음(gal2_*.ul 을 이름 차례로 이어 하나로)과 현장 기록 파일(csv 등)도 나스로 — 녹음은 무조건 나스에.
+     *  아이폰·플린트 2와 같은 길: byod_olligi.php 1.5.0 의 jong=gal2|gal3, jong=pail&nm=이름. 못 올리면 예외(다음에 다시) */
+    private fun galPailOlligi(n: Network?, sid: String, d: File) {
+        val fs = (d.listFiles() ?: emptyArray()).filter { it.isFile }.sortedBy { it.name }
+        for (g in listOf("gal2", "gal3")) {
+            val jogak = fs.filter { it.name.startsWith(g + "_") && it.name.endsWith(".ul") }
+            if (jogak.isEmpty()) continue
+            val bo = java.io.ByteArrayOutputStream()
+            for (j in jogak) bo.write(j.readBytes())
+            if (bo.size() > 0) nasBonaegi(n, sid, g, bo.toByteArray())
+        }
+        for (f in fs) {
+            val nm = f.name
+            if (!(nm.endsWith(".csv") || nm == "bogoseo.txt" || nm == "sangtae.json") || !Regex("^[A-Za-z0-9_.\\-]{1,80}$").matches(nm) || f.length() == 0L) continue
+            nasBonaegi(n, sid, "pail", f.readBytes(), "&nm=" + nm)
+        }
     }
 
     /** 1.7.0 뮤 녹음(nokeum.ul)을 이 기기에서 들을 수 있게 웨이브 머리를 붙인 사본(임시 폴더) — 원본은 그대로 둠 */
@@ -150,9 +168,13 @@ object Haengsa {
         }
         // 2. 아직 올리지 않은 것을 배프에 올리기
         val an = mokrok(ctx).filter { !it.olim }
-        if (an.isEmpty() && GamchumDaegi.mokrok(ctx).isEmpty()) return   // 1.5.0 감출 인터넷 녹음이 있으면 그것도
+        val yeong = an.isNotEmpty() || MudaeNokhwa.nameum(ctx)   // 1.9.0 (261024-B17) 무대 영상 녹화 — 올릴 영상이 있으면 그것도
+        if (an.isEmpty() && GamchumDaegi.mokrok(ctx).isEmpty() && !yeong) return   // 1.5.0 감출 인터넷 녹음이 있으면 그것도
         val n = inteonet(ctx)
-        try { if (an.isNotEmpty()) olligi(ctx, an, n); gamchum(ctx, n) } finally {
+        try {
+            if (an.isNotEmpty()) olligi(ctx, an, n); gamchum(ctx, n)
+            if (yeong) try { yeongsangOlligi(ctx, n) } catch (_: Exception) { }   // 1.9.0 소리 다음에. 영상이 안 되어도 소리 올리기는 막지 않음
+        } finally {
             mangCb?.let { cb -> try { (ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager).unregisterNetworkCallback(cb) } catch (_: Exception) { } }
             mangCb = null
         }
@@ -182,12 +204,89 @@ object Haengsa {
                 val nok = File(d, "nokeum.mp3").takeIf { it.isFile } ?: File(d, "nokeum.ul")
                 nasBonaegi(n, h.sid, if (nok.name.endsWith("mp3")) "mp3" else "ul", nok.readBytes())
                 nasBonaegi(n, h.sid, "bogo", File(d, "bogo.txt").readBytes())
-                nasBonaegi(n, h.sid, "girok", File(d, "girok.json").readBytes())
+                galPailOlligi(n, h.sid, d)   // 1.9.0 갈래 2·3 녹음과 현장 기록 파일
+                nasBonaegi(n, h.sid, "girok", yeongsangSuNeoki(ctx, h, File(d, "girok.json").readBytes()))   // 1.9.0 무대 영상 조각 수를 함께
                 File(d, "olim").writeText("1")
                 if (Flint.mang(ctx) != null) batgi(ctx, "/haengsa_olim?sid=" + h.sid)
                 mal(h.jemok + " 녹음과 결과보고를 LVD 방송 다시 듣기에 올렸습니다.")
             } catch (_: Exception) {
                 mal("LVD 방송 다시 듣기에 아직 올리지 못했습니다. 인터넷이 되면 저절로 다시 올립니다.")
+                break
+            }
+        }
+    }
+
+    // ───── 1.9.0 (261024-B17) 무대 영상 녹화 — 영상 조각 올리기 ─────
+    // 소리(행사 녹음)를 다시 듣기에 올린 행사의 영상 조각(v0001.mp4 …)을 같은 길(byod_olligi.php, 같은 열쇠, 같은 망)로 뒤이어 올림.
+    // 아이폰 LVD 송출(261024-BI11)과 같은 요청이라 나스는 하나로 받음(/home/claude/gochim/byod_olligi_yeongsang_SPEC.txt):
+    //   조각마다: step=yeongsang&n=조각번호&ext=mp4&sijak=조각 시작 밀리초&kkeut=조각 끝 밀리초&gil=바이트 (몸통 = 조각 파일 통째로, 파일에서 흘려 보냄)
+    //   다 올리면: step=yeongsang_girok (몸통 = yeongsang.json) — 나스가 이것을 받으면 소리와 합침
+    //   모든 요청에 sid_ap=이 기기의 녹화 폴더 이름(y년월일시분초)
+    //   올린 조각은 폴더에 olim_v0001.mp4 표를 남겨, 끊겨도 다음에 이어 올림. 다 올리면 폴더에 olim.
+    @Volatile private var yeongsangSilpaeAllim = false
+
+    /** 행사 기록(girok.json)에 짝이 되는 무대 영상 조각 수를 적어 보냄(없으면 그대로) */
+    private fun yeongsangSuNeoki(ctx: Context, h: Jul, b: ByteArray): ByteArray = try {
+        val hs = mokrok(ctx)
+        var su = 0
+        for (d in MudaeNokhwa.mokrok(ctx)) {
+            val y = MudaeNokhwa.girokIlgi(d) ?: continue
+            if (MudaeNokhwa.jjak(y, hs)?.sid == h.sid) su += MudaeNokhwa.dadoenSu(y)
+        }
+        if (su > 0) org.json.JSONObject(String(b, Charsets.UTF_8)).put("yeongsang", su).toString().toByteArray(Charsets.UTF_8) else b
+    } catch (_: Exception) { b }
+
+    /** 나스로 한 번에 올림 — 몸통은 파일(f)에서 흘려 보내거나(큰 영상 조각), 바이트(mom) */
+    private fun nasPost(n: Network?, q: String, f: File?, mom: ByteArray) {
+        val u = URL(q)
+        val c = (n?.openConnection(u) ?: u.openConnection()) as HttpURLConnection
+        c.connectTimeout = 10000; c.readTimeout = 180000; c.requestMethod = "POST"; c.doOutput = true
+        if (f != null) {
+            c.setFixedLengthStreamingMode(f.length())
+            c.outputStream.use { o -> f.inputStream().use { it.copyTo(o, 65536) } }
+        } else {
+            c.setFixedLengthStreamingMode(mom.size)
+            c.outputStream.use { it.write(mom) }
+        }
+        val t = c.inputStream.bufferedReader().readText()
+        c.disconnect()
+        if (!t.contains("\"ok\":true")) throw IllegalStateException(t)
+    }
+
+    private fun yeongsangOlligi(ctx: Context, n: Network?) {
+        val hs = mokrok(ctx)
+        for (d in MudaeNokhwa.mokrok(ctx)) {
+            val y = MudaeNokhwa.girokIlgi(d) ?: continue
+            val e = MudaeNokhwa.jjak(y, hs)
+            val sid = when {
+                e != null && e.olim -> e.sid                                     // 짝 행사의 소리가 올라간 뒤에
+                e == null && MudaeNokhwa.oraedoem(y) -> "byod" + d.name.removePrefix("y")   // 이틀이 지나도 짝이 없으면 영상만이라도(나스가 sijak 으로 맞춤)
+                else -> continue
+            }
+            if (!sid.matches(Regex("byod[0-9]{12}"))) continue
+            val q0 = "$NAS?k=$YEOLSOE&sid=$sid&sid_ap=${d.name}"
+            try {
+                val l = y.optJSONArray("jogak") ?: org.json.JSONArray()
+                var su = 0
+                for (i in 0 until l.length()) {
+                    val j = l.optJSONObject(i) ?: continue
+                    val kkeut = j.optLong("kkeut", 0L)
+                    if (kkeut <= 0L) continue                                    // 기기가 꺼져 끝나지 못한 조각은 재생되지 않아 올리지 않음
+                    val f = File(d, j.optString("pail"))
+                    if (!f.isFile || f.length() <= 0L) continue
+                    su++
+                    val pyo = File(d, "olim_" + f.name)
+                    if (pyo.isFile) continue
+                    nasPost(n, "$q0&step=yeongsang&n=${j.optInt("n", su)}&ext=mp4&sijak=${j.optLong("sijak", 0L)}&kkeut=$kkeut&gil=${f.length()}", f, ByteArray(0))
+                    pyo.writeText("1")
+                }
+                y.put("sid", sid); y.put("su", su)
+                nasPost(n, "$q0&step=yeongsang_girok&su=$su", null, y.toString().toByteArray(Charsets.UTF_8))
+                File(d, "olim").writeText(sid)
+                yeongsangSilpaeAllim = false
+                mal((e?.jemok ?: y.optString("jemok").ifEmpty { "행사" }) + " 무대 영상을 LVD 방송 다시 듣기에 올렸습니다. 소리는 나스에서 붙입니다.")
+            } catch (_: Exception) {
+                if (!yeongsangSilpaeAllim) { yeongsangSilpaeAllim = true; mal("무대 영상을 아직 다 올리지 못했습니다. 인터넷이 되면 저절로 이어 올립니다.") }   // 한 번만 알림
                 break
             }
         }
