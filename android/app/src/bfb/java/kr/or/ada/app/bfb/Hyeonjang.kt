@@ -52,6 +52,19 @@ object Hyeonjang {
     fun deungrokDoem(c: Context) = pref(c).getBoolean("wifi_deungrok", false)
 
     /** 행사장 와이파이를 「저절로 붙을 와이파이」로 등록 — 안드로이드 10 이상. 결과 말을 돌려줌 */
+    /** 2.5.0 (261024-L7) 방송 와이파이 이름 목록 — 「현장영상해설방송」(플린트 2)에 협회 판 정보(pan.json bangsong_wifi)의 이름들(아이피타임 등)을 더함 */
+    fun wifiMokrok(c: Context): List<String> {
+        val l = (pref(c).getString("bangsong_wifi", "") ?: "").split('\n').map { it.trim() }.filter { it.isNotEmpty() && it.length <= 32 }
+        return (listOf(SSID) + l).distinct()
+    }
+    fun wifiMokrokDugi(c: Context, l: List<String>) {
+        val sae = l.map { it.trim() }.filter { it.isNotEmpty() && it.length <= 32 }.distinct().joinToString("\n")
+        val jeon = pref(c).getString("bangsong_wifi", "") ?: ""
+        if (sae == jeon) return
+        pref(c).edit().putString("bangsong_wifi", sae).apply()
+        if (deungrokDoem(c)) try { deungrok(c) } catch (_: Exception) { }   // 이미 등록한 폰은 새 이름도 저절로 더함
+    }
+
     fun deungrok(c: Context): String {
         if (Build.VERSION.SDK_INT < 29) {
             pref(c).edit().putBoolean("wifi_deungrok", true).apply()
@@ -59,12 +72,15 @@ object Hyeonjang {
         }
         return try {
             val wm = c.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-            val s = WifiNetworkSuggestion.Builder()
-                .setSsid(SSID)
-                .setIsAppInteractionRequired(true)   // 붙은 뒤 이 앱에 「도착」을 알려 받기 위함
-                .build()
-            try { wm.removeNetworkSuggestions(listOf(s)) } catch (_: Exception) { }
-            val r = wm.addNetworkSuggestions(listOf(s))
+            // 2.5.0 방송 와이파이 이름 모두(현장영상해설방송 + 아이피타임 등) — 처음 한 번 「허용」을 누르면 어느 공유기든 범위 안에서 저절로 붙음
+            val s = wifiMokrok(c).map { nm ->
+                WifiNetworkSuggestion.Builder()
+                    .setSsid(nm)
+                    .setIsAppInteractionRequired(true)   // 붙은 뒤 이 앱에 「도착」을 알려 받기 위함
+                    .build()
+            }
+            try { wm.removeNetworkSuggestions(s) } catch (_: Exception) { }
+            val r = wm.addNetworkSuggestions(s)
             if (r == WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS || r == WifiManager.STATUS_NETWORK_SUGGESTIONS_ERROR_ADD_DUPLICATE) {
                 pref(c).edit().putBoolean("wifi_deungrok", true).apply()
                 "행사장 와이파이 저절로 붙기를 등록했습니다. 폰 알림 줄에 와이파이 제안을 허용할지 묻는 알림이 오면 허용을 눌러 주십시오."

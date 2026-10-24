@@ -5,6 +5,7 @@
 // 더 보기 안: 방송 알림 받기, 인터넷 방송 목록(누리집), 그 밖에 들을 거리(TV방송·라디오방송), 저절로 듣기 켜고 끄기, 와이파이 저절로 붙기 다시 하기,
 //   프로그램 말소리, 도움말, 새로고침, 업데이트, 판 정보.
 // 행사장에 들어서면(행사장 와이파이에 붙으면) 앱을 열기만 해도 곧바로 들려줍니다. 뒤로 가기로 앱 밖에 나가지 않습니다.
+// 2.5.0(빌드 261024-L7): 듣고 있는 인터넷 방송에 영상이 실려 있으면 상태 한 줄 아래에 「영상으로 보기」(BogiHwamyeon). 고르기 목록에도 영상이 있는 방송은 영상으로 보기 단추를 함께.
 package kr.or.ada.app.bfb
 
 import android.Manifest
@@ -37,8 +38,8 @@ import java.util.Locale
 class BangsongActivity : Activity() {
 
     companion object {
-        const val PAN = "2.4.1"   // 2.4.1(261023-L6) 이용 기록 — 듣기 상태가 바뀔 때마다 협회 서버에 남김(새방클, 이사장님 지시 2026-10-22). 2.4.0(261023-L5) 아이피타임 방식 BYOD 방송도 저절로 찾아 들음(와이파이 안에서 8080번 문을 연 LVD 송출 폰 찾기, 찾은 자리 기억), 도움말 두 항목(새방클, 이사장님 지시 2026-10-23). 2.3.0(261019-L4) 다시 듣기 내려받기를 앱 안에서(소리 mp3 두 가지·받아쓰기 글, 와이파이가 아니면 데이터 크기를 먼저 여쭘), 다시 듣기도 화면 잠가도 이어지고 전화 오면 멈춤, BYOD 방송 이름, 도움말 네 항목 더함(방클, 이사장님 결정 2026-10-19). 2.2.0(261018-L3) LVD 방송 정리 — 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기 첫 화면, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 2.1.0(261016-L2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 「인터넷 생방송 듣기」로 이름 줄임, 앱 안 누리집 화면의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-L1) LVD 방송 첫 판(배프 웹 껍데기 1.2.1의 뒤를 이음) — 배프 웹 껍데기를 속까지 앱으로: 행사장 와이파이 저절로 붙기와 저절로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 같은 폰 LVD 송출과 부딪치지 않기, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
-        const val BILD = "261023-L6"
+        const val PAN = "2.5.0"   // 2.5.0(261024-L7) 대조표 미진한 부분 고치기(새방송클, 이사장님 지시 2026-10-24) — 인터넷 방송 영상으로 보기(늦게 들어와도). 2.4.1(261023-L6) 이용 기록 — 듣기 상태가 바뀔 때마다 협회 서버에 남김(새방클, 이사장님 지시 2026-10-22). 2.4.0(261023-L5) 아이피타임 방식 BYOD 방송도 저절로 찾아 들음(와이파이 안에서 8080번 문을 연 LVD 송출 폰 찾기, 찾은 자리 기억), 도움말 두 항목(새방클, 이사장님 지시 2026-10-23). 2.3.0(261019-L4) 다시 듣기 내려받기를 앱 안에서(소리 mp3 두 가지·받아쓰기 글, 와이파이가 아니면 데이터 크기를 먼저 여쭘), 다시 듣기도 화면 잠가도 이어지고 전화 오면 멈춤, BYOD 방송 이름, 도움말 네 항목 더함(방클, 이사장님 결정 2026-10-19). 2.2.0(261018-L3) LVD 방송 정리 — 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기 첫 화면, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 2.1.0(261016-L2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 「인터넷 생방송 듣기」로 이름 줄임, 앱 안 누리집 화면의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-L1) LVD 방송 첫 판(배프 웹 껍데기 1.2.1의 뒤를 이음) — 배프 웹 껍데기를 속까지 앱으로: 행사장 와이파이 저절로 붙기와 저절로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 같은 폰 LVD 송출과 부딪치지 않기, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
+        const val BILD = "261024-L7"
         const val BAEP = "https://lvd.ada.or.kr/bfblive/"
     }
 
@@ -61,6 +62,8 @@ class BangsongActivity : Activity() {
     private lateinit var gorgiAn: LinearLayout   // 2.2.0 인터넷 방송 고르기
     private lateinit var gitaAn: LinearLayout    // 2.2.0 그 밖에 들을 거리
     private var boyeojunGorgi = ""
+    private lateinit var bogiDanchu: Button      // 2.5.0 영상으로 보기
+    private var boyeojunBogi = ""
     private var malsoriDanchu: Button? = null
     private var jeoljeoloDanchu: Button? = null
 
@@ -194,6 +197,10 @@ class BangsongActivity : Activity() {
         sangtae = geul("", 22f, true)
         sangtae.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_NONE   // 바뀔 때 한 번은 allim 이 맡음
         mom.addView(sangtae)
+        bogiDanchu = danchu("영상으로 보기") { Deut.bogiBang?.let { bogiYeolgi(it) } }   // 2.5.0 — 듣는 방송에 영상이 있을 때만 보임
+        bogiDanchu.visibility = View.GONE
+        boyeojunBogi = ""
+        mom.addView(bogiDanchu)
         gorgiAn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }   // 2.2.0
         mom.addView(gorgiAn)
         boyeojunGorgi = ""
@@ -257,9 +264,20 @@ class BangsongActivity : Activity() {
         deutDanchu.text = if (Deut.kyeojim) "듣기 멈추기" else "지금 현장영상해설 듣기"
         val t = Deut.sangtae
         if (t != boyeojunGeul) { sangtae.text = t; boyeojunGeul = t }
+        // 2.5.0 영상으로 보기 — 듣는 인터넷 방송이 바뀔 때만 고침
+        val bb = Deut.bogiBang
+        val bk = bb?.sid ?: ""
+        if (::bogiDanchu.isInitialized && bk != boyeojunBogi) {
+            boyeojunBogi = bk
+            if (bb == null) bogiDanchu.visibility = View.GONE
+            else {
+                bogiDanchu.text = "영상으로 보기" + (if (bb.jemok.isEmpty()) "" else " — " + bb.jemok)
+                bogiDanchu.visibility = View.VISIBLE
+            }
+        }
         // 2.2.0 인터넷 방송 고르기 — 목록이 바뀔 때만 다시 그림
         val g = Deut.gorgi
-        val gk = g.joinToString(",") { it.sid }
+        val gk = g.joinToString(",") { it.sid + (if (it.yeongsang) "v" else "") }   // 2.5.0 영상 여부가 바뀌어도 다시 그림
         if (::gorgiAn.isInitialized && gk != boyeojunGorgi) {
             boyeojunGorgi = gk
             gorgiAn.removeAllViews()
@@ -267,6 +285,7 @@ class BangsongActivity : Activity() {
                 Deut.goreun = b.sid
                 allim("고르셨습니다. 곧 들려 드립니다.")
             })
+            if (b.yeongsang) gorgiAn.addView(danchu("영상으로 보기 — " + (if (b.jemok.isEmpty()) "제목 없는 방송" else b.jemok)) { bogiYeolgi(b) })   // 2.5.0
         }
     }
 
@@ -353,6 +372,12 @@ class BangsongActivity : Activity() {
         allim("새로고침합니다. 행사장인지 다시 살피고, 새 판이 있는지 살핍니다.")
         Ollim.sijak(this)
         hyeonjangSalpigi(true)
+    }
+
+    /** 2.5.0 영상으로 보기 화면을 엶 — 보는 동안 듣기 일꾼은 소리를 쉼 */
+    private fun bogiYeolgi(b: Deut.InteonetBang) {
+        Deut.bogiJung = true
+        startActivity(Intent(this, BogiHwamyeon::class.java).putExtra("sid", b.sid).putExtra("jemok", b.jemok))
     }
 
     private fun webYeolgi(jemok: String, juso: String) {

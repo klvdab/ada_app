@@ -149,6 +149,8 @@ object Ollim {
                 u.connectTimeout = 10000; u.readTimeout = 15000; u.useCaches = false
                 if (u.responseCode == 200) {
                     val j = JSONObject(u.inputStream.bufferedReader().readText())
+                    // 2.5.0 (261024-L7, 이사장님 지시 2026-10-23 「직원이 헷갈려 한다」) 협회가 쓰는 방송 와이파이 이름 목록 — 저절로 붙기에 씀
+                    j.optJSONArray("bangsong_wifi")?.let { w -> Hyeonjang.wifiMokrokDugi(ac, (0 until w.length()).map { w.optString(it, "") }) }
                     val a = j.optJSONObject(aeBeonho(ac))?.optJSONObject("android")
                     val pan = a?.optString("pan", "") ?: ""
                     val apk = a?.optString("apk", "") ?: ""

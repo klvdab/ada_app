@@ -41,7 +41,8 @@ import java.net.URLDecoder
 class WebHwamyeon : Activity() {
     companion object {
         // 누리집 화면이 스스로 붙이는 뒤로·첫 화면 단추(누리집 대문으로 감)를 감춤 — 낭독기에도 안 읽힘
-        const val GAMCHUGI = "(function(){var s=document.createElement('style');s.textContent='.dwiro-btn,#btnDwi1,#btnDwi2,#homeBtn{display:none!important}';(document.head||document.documentElement).appendChild(s);})();"
+        // 2.5.0 앱 안에서는 누리집의 「앱으로 더 편하게 듣기」(#btnAp·#apBox)도 감춤 — 이미 앱이므로
+        const val GAMCHUGI = "(function(){var s=document.createElement('style');s.textContent='.dwiro-btn,#btnDwi1,#btnDwi2,#homeBtn,#btnAp,#apBox{display:none!important}';(document.head||document.documentElement).appendChild(s);})();"
         // 전화가 오면 누리집의 소리를 멈추고, 끝나면 멈춘 것만 다시 틂
         const val MEOMCHUM = "(function(){window._lvdMeom=[];document.querySelectorAll('audio,video').forEach(function(m){if(!m.paused){m.pause();window._lvdMeom.push(m);}});})();"
         const val ieum = "(function(){(window._lvdMeom||[]).forEach(function(m){try{m.play();}catch(e){}});window._lvdMeom=[];})();"
