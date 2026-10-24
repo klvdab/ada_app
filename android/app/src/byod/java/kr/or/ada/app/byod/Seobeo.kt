@@ -87,10 +87,29 @@ class Seobeo(private val ctx: Context) {
     // 1.9.0 앱에 넣은 자체 인증서(옛 꼴 PKCS12, 3DES)로 8443(안 되면 9443) 문을 엶
     private fun tlsMunYeolgi(): ServerSocket? {
         try {
-            val ks = KeyStore.getInstance("PKCS12")
-            ctx.assets.open(INJEUNG).use { ks.load(it, AMHO.toCharArray()) }
+            // 열쇠 파일은 저장소에 두지 않음 — 앱에 들어 있으면 그것을, 없으면 이 기기 안전 보관함(AndroidKeyStore)에 자체 인증서를 한 번 만들어 씀
             val kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm())
-            kmf.init(ks, AMHO.toCharArray())
+            val apIn = try { ctx.assets.open(INJEUNG) } catch (_: Exception) { null }
+            if (apIn != null) {
+                val ks = KeyStore.getInstance("PKCS12")
+                apIn.use { ks.load(it, AMHO.toCharArray()) }
+                kmf.init(ks, AMHO.toCharArray())
+            } else {
+                val ks = KeyStore.getInstance("AndroidKeyStore")
+                ks.load(null)
+                if (!ks.containsAlias("lvd_hj")) {
+                    val g = java.security.KeyPairGenerator.getInstance(android.security.keystore.KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore")
+                    val na = java.util.Calendar.getInstance().apply { add(java.util.Calendar.YEAR, 10) }.time
+                    g.initialize(android.security.keystore.KeyGenParameterSpec.Builder("lvd_hj", android.security.keystore.KeyProperties.PURPOSE_SIGN)
+                        .setAlgorithmParameterSpec(java.security.spec.ECGenParameterSpec("secp256r1"))
+                        .setDigests(android.security.keystore.KeyProperties.DIGEST_SHA256, android.security.keystore.KeyProperties.DIGEST_SHA384, android.security.keystore.KeyProperties.DIGEST_NONE)
+                        .setCertificateSubject(javax.security.auth.x500.X500Principal("CN=LVD, O=KLVDAB"))
+                        .setCertificateNotAfter(na)
+                        .build())
+                    g.generateKeyPair()
+                }
+                kmf.init(ks, null)
+            }
             val sc = SSLContext.getInstance("TLS")
             sc.init(kmf.keyManagers, null, null)
             val f = sc.serverSocketFactory

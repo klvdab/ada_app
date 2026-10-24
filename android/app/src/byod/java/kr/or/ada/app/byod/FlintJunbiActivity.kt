@@ -115,7 +115,7 @@ class FlintJunbiActivity : Activity() {
                 olligi(ses, "byod_flint.py", "/tmp/byod_flint.py")
                 olligi(ses, "byod_seolchi.sh", "/tmp/byod_seolchi.sh")
                 // 1.9.0 (261024-B17) 현장 기능 — 자물쇠 문(8443) 인증서, 화면 파일은 앱에 들어 있을 때만(없으면 공유기가 나스에서 받음)
-                for (a in arrayOf("hj.crt", "hj.key", "deut.html", "pd.html", "bang.html")) {
+                for (a in arrayOf("deut.html", "pd.html", "bang.html")   /* 열쇠·인증서는 공유기가 스스로 만듦(byod_seolchi.sh) */) {
                     val itna = try { assets.open("flint/$a").close(); true } catch (_: Exception) { false }
                     if (itna) olligi(ses, a, "/tmp/byod_$a")
                 }
