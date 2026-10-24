@@ -50,6 +50,9 @@
         </activity>
         <activity android:name="kr.or.ada.app.bfb.WebHwamyeon" android:exported="false"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" />
+        <!-- 2.5.0 영상으로 보기(인터넷 방송 HLS 를 VideoView 로) -->
+        <activity android:name="kr.or.ada.app.bfb.BogiHwamyeon" android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" />
         <service
             android:name="kr.or.ada.app.bfb.DeutService"
             android:exported="false"
