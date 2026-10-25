@@ -58,6 +58,8 @@ struct SokHwamyeon: ViewModifier {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { UIAccessibility.post(notification: .screenChanged, argument: nil) }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { naeyong = true }
             }
+            // 2.108.0 (261025-I62) 속 화면이 열린 탭을 탭 바에서 다시 고르셔도 이 화면 내용 첫 줄로
+            .tabChojeom { naeyong = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { naeyong = true } }
     }
 }
 

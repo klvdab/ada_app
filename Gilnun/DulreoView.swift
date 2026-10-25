@@ -59,6 +59,8 @@ enum DulreoGabol {
 final class TabGil: ObservableObject {
     static let shared = TabGil()
     @Published var tab = 0
+    /// 2.108.0 (261025-I62) 탭을 고를 때마다 하나씩 늘어남 — 보이는 탭의 맨 위 화면이 이것을 받아 제 첫 줄로 커서를 옮김
+    @Published var chojeomBeon = 0
     private var beon = 0
 
     /// 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 탭 바에서 고르심 — 탭을 바꾸고, 화면이 자리 잡은 뒤 보이스오버 커서를 그 탭 맨 위 첫 줄로.
@@ -74,9 +76,43 @@ final class TabGil: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
             guard let self = self, self.beon == b, self.tab == v else { return }
             UIAccessibility.post(notification: .screenChanged, argument: nil)
-            Girok.shared.namgi("tab_chojeom", ["tab": v])
+            // 2.108.0 (261025-I62, 이사장님 지적 2026-10-25 「탭을 고르면 첫 줄로 가는 것이 빠져 있다」)
+            //   화면이 바뀌었다는 알림만으로는 커서가 탭 바나 제목에 머물렀음 → 보이는 화면이 제 첫 줄을 콕 집어 커서를 받게 함
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                guard self.beon == b, self.tab == v else { return }
+                self.chojeomBeon += 1
+                Girok.shared.namgi("tab_chojeom", ["tab": v, "pan": "2.108"])
+            }
         }
     }
+}
+
+/// 2.108.0 (261025-I62) 이 화면이 몇 번 탭에 들어 있는지 — RootView 가 탭마다 넣어 줌
+private struct TabBeonKey: EnvironmentKey { static let defaultValue = -1 }
+extension EnvironmentValues {
+    var tabBeon: Int {
+        get { self[TabBeonKey.self] }
+        set { self[TabBeonKey.self] = newValue }
+    }
+}
+
+/// 2.108.0 (261025-I62) 탭 바에서 이 탭을 고르셨고 이 화면이 지금 맨 위에 보이면 f 로 제 첫 줄에 커서를 둠
+struct TabChojeomBatgi: ViewModifier {
+    @Environment(\.tabBeon) private var tabBeon
+    @State private var boim = false
+    let f: () -> Void
+    func body(content: Content) -> some View {
+        content
+            .onAppear { boim = true }
+            .onDisappear { boim = false }
+            .onReceive(TabGil.shared.$chojeomBeon.dropFirst()) { _ in
+                if boim && tabBeon >= 0 && TabGil.shared.tab == tabBeon { f() }
+            }
+    }
+}
+
+extension View {
+    func tabChojeom(_ f: @escaping () -> Void) -> some View { modifier(TabChojeomBatgi(f: f)) }
 }
 
 final class DulreoGil: ObservableObject {
@@ -180,6 +216,7 @@ struct DulreoCheot: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .onAppear { chojeom = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }   // 2.12.1 매번 첫 줄로
+        .tabChojeom { chojeom = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { chojeom = true } }   // 2.108.0 탭을 고르면 첫 줄로
     }
 }
 

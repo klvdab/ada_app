@@ -226,6 +226,11 @@ struct GilChatgiView: View {
             meoriChojeom = false   // 2.12.1 탭을 고를 때마다 첫 줄로
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { if !pyeonjip { meoriChojeom = true } }
         }
+        .tabChojeom {   // 2.108.0 탭을 고르면 첫 줄로(편집 중에는 옮기지 않음)
+            guard !pyeonjip else { return }
+            meoriChojeom = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { if !pyeonjip { meoriChojeom = true } }
+        }
         .onChange(of: pyeonjip) { p in
             if p { gut = gutHigi(); MalHagi.shared.pyeonjipSijak() }
             else { gut = nil; MalHagi.shared.pyeonjipKkeut() }

@@ -10,18 +10,23 @@ struct RootView: View {
         //   iOS 27에서 탭을 바꿔도 화면이 새로 열리지 않아(onAppear 가 불리지 않아) 커서가 따라가지 않던 일(10-21)
         TabView(selection: Binding(get: { tabGil.tab }, set: { v in TabGil.shared.goreum(v) })) {
             GilChatgiTab()
+                .environment(\.tabBeon, 0)   // 2.108.0 이 탭의 번호 — 탭을 고르면 보이는 화면이 첫 줄로
                 .tabItem { Label("길 찾기", systemImage: "figure.walk") }
                 .tag(0)
             DulreoTab()
+            .environment(\.tabBeon, 1)   // 2.108.0 이 탭의 번호 — 탭을 고르면 보이는 화면이 첫 줄로
             .tabItem { Label("둘러보기", systemImage: "binoculars") }
             .tag(1)
             BangsongTab()
+            .environment(\.tabBeon, 2)   // 2.108.0 이 탭의 번호 — 탭을 고르면 보이는 화면이 첫 줄로
             .tabItem { Label("음악·방송", systemImage: "music.note") }
             .tag(2)
             NanumTab()
+            .environment(\.tabBeon, 3)   // 2.108.0 이 탭의 번호 — 탭을 고르면 보이는 화면이 첫 줄로
             .tabItem { Label("나눔", systemImage: "person.2") }
             .tag(3)
             NavigationStack { SeoljeongView() }
+                .environment(\.tabBeon, 4)   // 2.108.0 이 탭의 번호 — 탭을 고르면 보이는 화면이 첫 줄로
                 .tabItem { Label("설정", systemImage: "gearshape") }
                 .tag(4)
         }

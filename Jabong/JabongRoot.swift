@@ -22,14 +22,20 @@ struct JabongTab: View {
     @ObservedObject private var t = JabongTonghwa.shared
     @ObservedObject private var tg = JbTabGil.shared   // 2.7.0 그려 주세요에서 그리기 탭으로 보낼 수 있게
     var body: some View {
-        TabView(selection: $tg.tab) {
+        // 2.33.0 (261025-I27, 이사장님 지적 2026-10-25) 탭 바에서 고르시면 그 탭 첫 줄로 — 길눈과 같은 길(TabGil.goreum)을 씀.
+        //   iOS 27에서는 탭을 바꿔도 화면이 새로 열리지 않아(onAppear 가 불리지 않아) 커서가 따라가지 않았음
+        TabView(selection: Binding(get: { tg.tab }, set: { v in tg.tab = v; TabGil.shared.goreum(v) })) {
             NavigationStack { BongsaTab() }
+                .environment(\.tabBeon, 0)
                 .tabItem { Label("그리기", systemImage: "figure.walk") }.tag(0)
             JbNanumTab()   // 2.7.0 나눔 탭은 제 길(NavigationStack)을 가짐
+                .environment(\.tabBeon, 1)
                 .tabItem { Label("나눔", systemImage: "bubble.left.and.bubble.right") }.tag(1)
             NavigationStack { NaeGirokTab() }
+                .environment(\.tabBeon, 2)
                 .tabItem { Label("내 기록", systemImage: "list.bullet.rectangle") }.tag(2)
             NavigationStack { AllimTab() }
+                .environment(\.tabBeon, 3)
                 .tabItem { Label("알림·설정", systemImage: "gearshape") }.tag(3)
         }
         .tint(Saek.nam)
@@ -54,6 +60,7 @@ struct TabCheot<Naeyong: View>: View {
         .navigationTitle(jemok)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { cheot = true } }
+        .tabChojeom { cheot = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { cheot = true } }   // 2.33.0 탭을 고르면 첫 줄로
     }
 }
 
@@ -156,6 +163,7 @@ struct JbNanumCheot: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .onAppear { chojeom = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }
+        .tabChojeom { chojeom = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { chojeom = true } }   // 2.33.0 탭을 고르면 첫 줄로
     }
 }
 

@@ -10,13 +10,17 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.107.0"
-    static let bild = "261025-I61"
+    static let pan = "2.108.0"
+    static let bild = "261025-I62"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.108.0", bild: "261025-I62", nal: "2026-10-25", naeyong: [
+            "★탭 바에서 탭을 고르시면 커서가 그 탭 내용 첫 줄로 가게 바로잡음(이사장님 지적 2026-10-25). 화면이 바뀌었다는 알림만 보내 커서가 탭 바나 제목에 머물던 것을, 보이는 화면이 제 첫 줄을 콕 집어 받게 함",
+            "속 화면이 열린 탭을 다시 고르셔도 그 화면 내용 첫 줄로"
+        ]),
         Gochim(pan: "2.107.0", bild: "261025-I61", nal: "2026-10-25", naeyong: [
             "★TV 전체화면 바로잡음 — 길눈은 세로 화면만 써서 가로 영상이 작은 화면과 같은 크기로 나와 커지지 않았음(이사장님 지적 2026-10-25). 영상을 90도 돌려 폰 화면 긴 쪽 가득 채움, 폰을 눕혀서 보시면 됨",
             "전체화면이 열린 동안 작은 화면은 영상을 내려놓아 영상이 한 곳에만 나옴",

@@ -88,6 +88,7 @@ struct BangsongCheot: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .onAppear { chojeom = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { chojeom = true } }   // 2.12.1 매번 첫 줄로
+        .tabChojeom { chojeom = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { chojeom = true } }   // 2.108.0 탭을 고르면 첫 줄로
     }
 }
 

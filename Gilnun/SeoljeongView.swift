@@ -76,6 +76,7 @@ struct SeoljeongView: View {
         .navigationTitle("설정")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { cheotJul = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { cheotJul = true } }
+        .tabChojeom { cheotJul = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { cheotJul = true } }   // 2.108.0 탭을 고르면 첫 줄로
     }
 }
 
