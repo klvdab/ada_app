@@ -23,12 +23,16 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.74.0"
-    const val bild = "261025-A62"
+    const val pan = "2.75.0"
+    const val bild = "261025-A63"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.75.0", "261025-A63", "2026-10-25", listOf(
+            "★TV 전체화면 바로잡음 — 세로 화면이라 가로 영상이 작은 화면과 같은 크기로 나와 커지지 않았음(이사장님 지적 2026-10-25, 아이폰 2.107.0과 같음). 영상을 90도 돌려 폰 화면 긴 쪽 가득 채움, 폰을 눕혀서 보시면 됨",
+            "도움말 「TV 보기」에 폰을 눕혀 보시라는 말 더함"
+        )),
         Gochim("2.74.0", "261025-A62", "2026-10-25", listOf(
             "★TV 보기 전체화면 — TV 화면 아래 「전체화면으로 보기」, 전체화면에는 「전체화면 닫기」 하나만(뒤로 가기로도 닫힘). 열고 닫아도 소리·방송 끊기지 않음(이사장님 승인 2026-10-25 「그래」, 아이폰 2.106.0과 같음)",
             "도움말 「TV 보기」에 전체화면 더함"

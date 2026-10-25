@@ -444,13 +444,15 @@ class ChaeneolHwamyeon(private val kind: String) : BangsongBada(if (kind == "tv"
         if (jeonche != null) return
         val d = android.app.Dialog(t, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
         val teul = android.widget.FrameLayout(t).apply { setBackgroundColor(android.graphics.Color.BLACK) }
-        val pv = PlayerView(t)
-        pv.useController = false
-        pv.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-        pv.setShutterBackgroundColor(android.graphics.Color.BLACK)
-        pv.setBackgroundColor(android.graphics.Color.BLACK)
-        pv.contentDescription = "TV 전체화면"
-        teul.addView(pv, android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        val pv = android.view.LayoutInflater.from(t).inflate(kr.or.ada.app.R.layout.gn_tv_jeonche, teul, false) as PlayerView
+        // 2.75.0 (261025-A63, 이사장님 지적 2026-10-25) 길눈은 세로 화면만 쓰므로 영상을 90도 돌려 화면 긴 쪽 가득 채움(폰을 눕혀 보시면 됨)
+        //   — 돌리지 않으면 가로 영상이 세로 화면 폭에 맞춰져 작은 화면과 크기가 같았음
+        val dm = t.resources.displayMetrics
+        val gin = maxOf(dm.widthPixels, dm.heightPixels)
+        val jjal = minOf(dm.widthPixels, dm.heightPixels)
+        pv.rotation = 90f
+        pv.contentDescription = "TV 전체화면. 폰을 눕혀서 보십시오"
+        teul.addView(pv, android.widget.FrameLayout.LayoutParams(gin, jjal, android.view.Gravity.CENTER))
         val dat = Button(t).apply {
             text = "전체화면 닫기"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)

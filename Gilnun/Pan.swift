@@ -10,13 +10,18 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.106.0"
-    static let bild = "261025-I60"
+    static let pan = "2.107.0"
+    static let bild = "261025-I61"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.107.0", bild: "261025-I61", nal: "2026-10-25", naeyong: [
+            "★TV 전체화면 바로잡음 — 길눈은 세로 화면만 써서 가로 영상이 작은 화면과 같은 크기로 나와 커지지 않았음(이사장님 지적 2026-10-25). 영상을 90도 돌려 폰 화면 긴 쪽 가득 채움, 폰을 눕혀서 보시면 됨",
+            "전체화면이 열린 동안 작은 화면은 영상을 내려놓아 영상이 한 곳에만 나옴",
+            "도움말 「TV 보기」에 폰을 눕혀 보시라는 말 더함"
+        ]),
         Gochim(pan: "2.106.0", bild: "261025-I60", nal: "2026-10-25", naeyong: [
             "★TV 보기 전체화면 — TV 화면 아래 「전체화면으로 보기」, 전체화면에는 「전체화면 닫기」 하나만. 열고 닫아도 소리·방송 끊기지 않음(이사장님 승인 2026-10-25 「그래」)",
             "도움말 「TV 보기」에 전체화면 더함"

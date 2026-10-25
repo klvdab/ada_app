@@ -320,7 +320,12 @@ struct BsGoreugiView: View {
 final class BideoUIView: UIView {
     override class var layerClass: AnyClass { AVPlayerLayer.self }
     private var pl: AVPlayerLayer? { layer as? AVPlayerLayer }
-    var player: AVPlayer? { didSet { pl?.player = player } }
+    var player: AVPlayer? { didSet { pl?.player = (jeoncheYeollim && !jeoncheYong) ? nil : player } }
+    /// 2.107.0 전체화면 쪽 화면인지 — 전체화면이 열려 있는 동안 작은 화면은 영상을 내려놓아 영상이 전체화면 한 곳에만 나오게 함
+    var jeoncheYong = false
+    static var jeoncheYeollim = false
+    static let jeoncheBakkwim = Notification.Name("gilnun.tv.jeonche")
+    private var jeoncheYeollim: Bool { BideoUIView.jeoncheYeollim }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -328,18 +333,22 @@ final class BideoUIView: UIView {
         pl?.videoGravity = .resizeAspect
         NotificationCenter.default.addObserver(self, selector: #selector(dwiro), name: UIApplication.didEnterBackgroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(apeuro), name: UIApplication.willEnterForegroundNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(jeoncheBakkwim), name: BideoUIView.jeoncheBakkwim, object: nil)
     }
 
     required init?(coder: NSCoder) { nil }
 
     @objc private func dwiro() { pl?.player = nil }
-    @objc private func apeuro() { pl?.player = player }
+    @objc private func apeuro() { pl?.player = (jeoncheYeollim && !jeoncheYong) ? nil : player }
+    @objc private func jeoncheBakkwim() { if !jeoncheYong { pl?.player = jeoncheYeollim ? nil : player } }
 }
 
 struct BideoView: UIViewRepresentable {
     let player: AVPlayer
+    var jeoncheYong = false
     func makeUIView(context: Context) -> BideoUIView {
         let v = BideoUIView(frame: .zero)
+        v.jeoncheYong = jeoncheYong
         v.player = player
         return v
     }
@@ -348,20 +357,37 @@ struct BideoView: UIViewRepresentable {
 }
 
 /// 2.106.0 (261025-I60) TV 전체화면 — 영상만 크게, 맨 아래 「전체화면 닫기」 하나. 같은 플레이어라 소리·방송은 그대로 이어짐
+/// 2.107.0 (261025-I61, 이사장님 지적 2026-10-25 「반응을 전혀 안 한다」) 길눈은 세로 화면만 쓰므로 가로 영상을 세로 화면에 그대로 두면
+/// 작은 화면과 크기가 같아 커지지 않았음 → 영상을 90도 돌려 폰 화면 긴 쪽 가득 채움(폰을 눕혀 보시면 됨), 작은 화면은 그동안 영상을 내려놓음
 struct TVJeoncheView: View {
     let player: AVPlayer
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         ZStack(alignment: .bottom) {
             Color.black.ignoresSafeArea()
-            BideoView(player: player)
-                .ignoresSafeArea()
-                .accessibilityLabel("TV 전체화면")
+            GeometryReader { g in
+                BideoView(player: player, jeoncheYong: true)
+                    .frame(width: g.size.height, height: g.size.width)
+                    .rotationEffect(.degrees(90))
+                    .position(x: g.size.width / 2, y: g.size.height / 2)
+            }
+            .ignoresSafeArea()
+            .accessibilityElement()
+            .accessibilityLabel("TV 전체화면. 폰을 눕혀서 보십시오")
             Button("전체화면 닫기") { dismiss() }
                 .buttonStyle(KeunDanchu())
                 .padding()
         }
-        .onAppear { Girok.shared.namgi("tv_jeonche_yeolgi", [:]) }
+        .onAppear {
+            BideoUIView.jeoncheYeollim = true
+            NotificationCenter.default.post(name: BideoUIView.jeoncheBakkwim, object: nil)
+            Girok.shared.namgi("tv_jeonche_yeolgi", ["pan": "2.107"])
+        }
+        .onDisappear {
+            BideoUIView.jeoncheYeollim = false
+            NotificationCenter.default.post(name: BideoUIView.jeoncheBakkwim, object: nil)
+            Girok.shared.namgi("tv_jeonche_datgi", [:])
+        }
     }
 }
 
