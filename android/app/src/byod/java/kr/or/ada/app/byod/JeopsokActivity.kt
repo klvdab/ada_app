@@ -65,6 +65,10 @@ class JeopsokActivity : Activity() {
         pwCan = kan("와이파이 비밀번호(없으면 비워 두기)", "")
         allim = geul("")
         allim.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        // 1.9.1 (261025-B18, 새방클, 이사장님 승인 2026-10-25) 한 번에 듣기 — LVD 방송 앱(2.6.0부터)이 저절로 열려 이 와이파이에 붙고 곧바로 들림
+        geul("한 번에 듣기: 듣는 분 폰에 LVD 방송 앱이 깔려 있으면, 안드로이드는 엔에프시 태그를 대고 아이폰은 큐알을 비추기만 하면 앱이 열려 이 와이파이에 붙고 곧바로 들립니다. 와이파이만 붙기 태그와 큐알은 아래에 예비로 둡니다.")
+        danchu("엔에프시 태그 쓰기: 한 번에 듣기 (LVD 방송 앱)") { ssidGieok(); hanbeonJuso()?.let { sseugiJunbi(NdefMessage(arrayOf(NdefRecord.createUri(it))), "한 번에 듣기") } }
+        danchu("큐알 보기: 한 번에 듣기 (LVD 방송 앱)") { ssidGieok(); hanbeonJuso()?.let { qrBoyeogi(it, "한번에듣기") } }
         danchu("엔에프시 태그 쓰기: 와이파이 붙기") { ssidGieok(); sseugiJunbi(wifiMessage(), "와이파이 붙기") }
         danchu("엔에프시 태그 쓰기 멈추기") { sseugiMeomchum() }
         danchu("큐알 보기: 와이파이 붙기") { ssidGieok(); qrBoyeogi(wifiQr(), "와이파이붙기") }
@@ -122,6 +126,16 @@ class JeopsokActivity : Activity() {
         val t = s.trim('"')
         if (t.isEmpty() || t.contains("unknown")) "" else t
     } catch (e: Exception) { "" }
+
+    /** 1.9.1 한 번에 듣기 주소 — lvdbangsong://deut?w=와이파이이름&p=비밀번호 (LVD 방송 앱이 받음) */
+    private fun hanbeonJuso(): String? {
+        val ssid = ssidCan.text.toString().trim()
+        if (ssid.isEmpty()) { mal("방송 와이파이 이름을 먼저 넣어 주십시오."); return null }
+        val pw = pwCan.text.toString()
+        val b = android.net.Uri.Builder().scheme("lvdbangsong").authority("deut").appendQueryParameter("w", ssid)
+        if (pw.isNotEmpty()) b.appendQueryParameter("p", pw)
+        return b.build().toString()
+    }
 
     // 와이파이 정보(Wi-Fi Simple Config) — 안드로이드가 엔에프시 태그를 읽으면 「연결할까요」를 띄움
     private fun wifiMessage(): NdefMessage? {
