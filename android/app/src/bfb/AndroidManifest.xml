@@ -48,6 +48,18 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- 2.6.0 한 번에 듣기 — 송출 앱이 만든 큐알(lvdbangsong://deut?w=…)과 엔에프시 태그로 열림 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="lvdbangsong" android:host="deut" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="lvdbangsong" android:host="deut" />
+            </intent-filter>
         </activity>
         <activity android:name="kr.or.ada.app.bfb.WebHwamyeon" android:exported="false"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" />
