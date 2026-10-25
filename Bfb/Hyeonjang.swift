@@ -8,6 +8,7 @@
 //   지금까지는 플린트 2 자리(192.168.8.2:7880)만 찾아 아이피타임 방식 방송을 찾지 못했음(10월 22일 시험, 듣는 분 0명).
 //   이제 ①지금 자리 ②기억한 자리 ③플린트 2 자리 ④지금 붙은 와이파이 안에서 8080번 문을 연 LVD 송출 폰을 차례로 찾음(④는 30초에 한 번).
 import Foundation
+import UIKit
 import NetworkExtension
 import Network
 import Darwin
@@ -59,6 +60,33 @@ enum Hyeonjang {
             }
         }
         hana(0)
+    }
+
+    /// 2.6.0 (261025-LI8, 새방클, 이사장님 승인 2026-10-25 「큐알이나 엔에프시로도 한 번에」) 한 번에 듣기 —
+    /// 송출 앱이 만든 큐알·태그(lvdbangsong://deut?w=와이파이이름&p=비밀번호)로 앱이 열리면, 그 와이파이에 붙고(아이폰이 연결할지 한 번 물음) 곧바로 듣기.
+    /// 인터넷 없는 와이파이도 됨. 붙지 못해도 듣기는 켜 두어, 손으로 붙이면 저절로 들림
+    static func hanbeon(_ u: URL) {
+        guard u.scheme == "lvdbangsong" else { return }
+        let q = URLComponents(url: u, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let w = (q.first(where: { $0.name == "w" })?.value ?? "").trimmingCharacters(in: .whitespaces)
+        let p = q.first(where: { $0.name == "p" })?.value ?? ""
+        BfbGirok.shared.namgi("hanbeon", ["w": w])
+        func deutgi(_ m: String) {
+            DispatchQueue.main.async {
+                UIAccessibility.post(notification: .announcement, argument: m)
+                if !Deut.shared.kyeojim { Deut.shared.kyeogi() }
+            }
+        }
+        guard !w.isEmpty, w.count <= 32 else { deutgi("현장영상해설을 찾아 들려 드립니다."); return }
+        let c = p.isEmpty ? NEHotspotConfiguration(ssid: w) : NEHotspotConfiguration(ssid: w, passphrase: p, isWEP: false)
+        c.joinOnce = false
+        NEHotspotConfigurationManager.shared.apply(c) { e in
+            if let e = e as NSError?, !(e.domain == NEHotspotConfigurationErrorDomain && e.code == NEHotspotConfigurationError.alreadyAssociated.rawValue) {
+                deutgi("\(w) 와이파이에 저절로 붙지 못했습니다. 설정의 와이파이에서 \(w)에 붙여 주십시오. 붙으면 바로 들려 드립니다.")
+            } else {
+                deutgi("\(w) 와이파이에 붙었습니다. 현장영상해설을 찾아 들려 드립니다.")
+            }
+        }
     }
 
     /// 행사장 와이파이 등록 — 아이폰이 「연결하시겠습니까」를 한 번 묻습니다. 결과 말을 돌려줌
