@@ -1,4 +1,4 @@
-# 테스트플라이트 판 상태 살피기 (1.1판, 빌드 260929-2, 이사장님 승인 2026-09-29)
+# 테스트플라이트·앱스토어 판 상태 살피기 (1.2판, 빌드 261025-1, 1.1판 260929-2, 이사장님 승인 2026-09-29)
 # 1.1 애플이 주는 시각의 시간대(-07:00 등)를 그대로 읽어 한국 시각으로 바꿈(1.0은 몇 시간 어긋났음)
 # 로그인 없이 앱스토어 커넥트 열쇠로 애플에 물어, 올린 판들이 시험 가능한지 알려 줍니다.
 # 읽기만 합니다. 아무것도 바꾸거나 지우지 않습니다.
@@ -69,3 +69,37 @@ for ap in apps:
         gihan = " (기한 지남)" if a.get("expired") else ""
         allim("%s %s판 빌드 %s / 올린 때 %s / %s / 안쪽 시험: %s / 바깥 시험: %s%s"
               % (ireum, pan, a.get("version"), kst(a.get("uploadedDate")), cheori, an, ba, gihan))
+
+# 1.2 (261025, 이사장님 물으심 「아이폰은 왜 앱스토어에 못 올라가니」) 앱스토어 정식 판 상태도 함께 — 읽기만 함
+JEONGSIK = {"PREPARE_FOR_SUBMISSION": "심사 내기 전(준비 중)", "WAITING_FOR_REVIEW": "심사 기다림", "IN_REVIEW": "심사 중",
+            "REJECTED": "심사 거절", "METADATA_REJECTED": "설명 자료 거절", "DEVELOPER_REJECTED": "우리가 거둬들임",
+            "PENDING_DEVELOPER_RELEASE": "심사 통과 — 우리가 공개하기를 기다림", "READY_FOR_SALE": "앱스토어에 공개됨",
+            "READY_FOR_DISTRIBUTION": "앱스토어에 공개됨", "ACCEPTED": "심사 통과", "INVALID_BINARY": "판 파일 무효",
+            "WAITING_FOR_EXPORT_COMPLIANCE": "수출 규정 답 기다림", "PROCESSING_FOR_DISTRIBUTION": "공개 준비 중",
+            "UNRESOLVED_ISSUES": "풀지 않은 문제 있음", "REPLACED_WITH_NEW_VERSION": "새 판으로 바뀜"}
+for ap in apps:
+    ireum = ap["attributes"].get("name", "")
+    try:
+        v = bureugi("apps/%s/appStoreVersions" % ap["id"], {"limit": "3", "include": "build"})
+    except Exception as e:
+        allim("%s 앱스토어 정식 판: 묻지 못함 %s" % (ireum, e))
+        continue
+    gyeot = {(x["type"], x["id"]): x.get("attributes", {}) for x in v.get("included", [])}
+    if not v.get("data"):
+        allim("%s 앱스토어 정식 판: 만든 것 없음" % ireum)
+        continue
+    for x in v["data"]:
+        a = x["attributes"]
+        st = a.get("appVersionState") or a.get("appStoreState")
+        bd = (x.get("relationships", {}).get("build", {}).get("data") or {})
+        bil = gyeot.get(("builds", bd.get("id")), {}).get("version", "판 파일 안 붙음")
+        allim("%s 앱스토어 정식 판 %s / %s / 붙은 빌드 %s / 공개 방식 %s / 만든 때 %s"
+              % (ireum, a.get("versionString"), JEONGSIK.get(st, st), bil, a.get("releaseType"), kst(a.get("createdDate"))))
+try:
+    for ap in apps:
+        rs = bureugi("reviewSubmissions", {"filter[app]": ap["id"], "limit": "3"}).get("data", [])
+        for r in rs:
+            ra = r["attributes"]
+            allim("%s 심사 제출 묶음 / %s / 낸 때 %s" % (ap["attributes"].get("name", ""), ra.get("state"), kst(ra.get("submittedDate"))))
+except Exception as e:
+    allim("심사 제출 묶음: 묻지 못함 %s" % e)
