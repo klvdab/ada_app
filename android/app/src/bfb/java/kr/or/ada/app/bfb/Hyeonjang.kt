@@ -213,6 +213,35 @@ object Hyeonjang {
             nm.notify(11, n)
         } catch (_: Exception) { }
     }
+
+    // 2.6.0 (261025-L9, 새방클, 이사장님 승인 2026-10-25 「큐알이나 엔에프시로도 한 번에」) 한 번에 듣기 —
+    //   송출 앱이 만든 엔에프시 태그·큐알(lvdbangsong://deut?w=와이파이이름&p=비밀번호)로 이 앱이 열리면, 그 와이파이에 이 앱이 직접 붙음.
+    //   인터넷 없는 와이파이도 되게 「인터넷 없어도 됨」으로 청함. 폰이 「연결할까요」를 한 번 물음. 듣기를 멈춰도 붙잡기는 앱이 꺼질 때까지 둠
+    @Volatile var hanbeonSsid = ""
+    private var hanbeonCb: ConnectivityManager.NetworkCallback? = null
+    fun hanbeonBuchigi(c: Context, ssid: String, pw: String): String {
+        if (ssid.isEmpty()) return ""
+        if (Build.VERSION.SDK_INT < 29) return "이 폰은 안드로이드 판이 낮아 와이파이에 저절로 붙지 못합니다. 설정의 와이파이에서 " + ssid + "에 붙여 주십시오."
+        return try {
+            val cm = c.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            hanbeonCb?.let { try { cm.unregisterNetworkCallback(it) } catch (_: Exception) { } }
+            hanbeonCb = null
+            val sb = android.net.wifi.WifiNetworkSpecifier.Builder().setSsid(ssid)
+            if (pw.isNotEmpty()) sb.setWpa2Passphrase(pw)
+            val req = android.net.NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .setNetworkSpecifier(sb.build())
+                .build()
+            val cb = object : ConnectivityManager.NetworkCallback() { }
+            cm.requestNetwork(req, cb)
+            hanbeonCb = cb
+            hanbeonSsid = ssid
+            ssid + " 와이파이에 붙습니다. 폰이 연결할지 물으면 연결을 누르십시오. 붙으면 바로 들려 드립니다."
+        } catch (e: Exception) {
+            "와이파이에 저절로 붙지 못했습니다. 설정의 와이파이에서 " + ssid + "에 붙여 주십시오. 붙으면 바로 들려 드립니다."
+        }
+    }
 }
 
 /** 등록한 행사장 와이파이에 붙으면 안드로이드가 알려 줌 — 듣기를 곧바로 켜 보고, 안 되면 알림 한 줄 */

@@ -38,8 +38,8 @@ import java.util.Locale
 class BangsongActivity : Activity() {
 
     companion object {
-        const val PAN = "2.5.1"   // 2.5.1(261025-L8) 인터넷 없는 행사장 와이파이 붙잡기 — 모바일 데이터를 끄지 않아도 BYOD 방송이 이어짐(새방클, 이사장님 승인 2026-10-25). 2.5.0(261024-L7) 대조표 미진한 부분 고치기(새방송클, 이사장님 지시 2026-10-24) — 인터넷 방송 영상으로 보기(늦게 들어와도). 2.4.1(261023-L6) 이용 기록 — 듣기 상태가 바뀔 때마다 협회 서버에 남김(새방클, 이사장님 지시 2026-10-22). 2.4.0(261023-L5) 아이피타임 방식 BYOD 방송도 저절로 찾아 들음(와이파이 안에서 8080번 문을 연 LVD 송출 폰 찾기, 찾은 자리 기억), 도움말 두 항목(새방클, 이사장님 지시 2026-10-23). 2.3.0(261019-L4) 다시 듣기 내려받기를 앱 안에서(소리 mp3 두 가지·받아쓰기 글, 와이파이가 아니면 데이터 크기를 먼저 여쭘), 다시 듣기도 화면 잠가도 이어지고 전화 오면 멈춤, BYOD 방송 이름, 도움말 네 항목 더함(방클, 이사장님 결정 2026-10-19). 2.2.0(261018-L3) LVD 방송 정리 — 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기 첫 화면, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 2.1.0(261016-L2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 「인터넷 생방송 듣기」로 이름 줄임, 앱 안 누리집 화면의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-L1) LVD 방송 첫 판(배프 웹 껍데기 1.2.1의 뒤를 이음) — 배프 웹 껍데기를 속까지 앱으로: 행사장 와이파이 저절로 붙기와 저절로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 같은 폰 LVD 송출과 부딪치지 않기, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
-        const val BILD = "261025-L8"
+        const val PAN = "2.6.0"   // 2.6.0(261025-L9) 한 번에 듣기 — 송출 앱이 만든 엔에프시 태그·큐알로 앱이 열리고 행사장 와이파이에 붙어 곧바로 들림(새방클, 이사장님 승인 2026-10-25). 2.5.1(261025-L8) 인터넷 없는 행사장 와이파이 붙잡기 — 모바일 데이터를 끄지 않아도 BYOD 방송이 이어짐(새방클, 이사장님 승인 2026-10-25). 2.5.0(261024-L7) 대조표 미진한 부분 고치기(새방송클, 이사장님 지시 2026-10-24) — 인터넷 방송 영상으로 보기(늦게 들어와도). 2.4.1(261023-L6) 이용 기록 — 듣기 상태가 바뀔 때마다 협회 서버에 남김(새방클, 이사장님 지시 2026-10-22). 2.4.0(261023-L5) 아이피타임 방식 BYOD 방송도 저절로 찾아 들음(와이파이 안에서 8080번 문을 연 LVD 송출 폰 찾기, 찾은 자리 기억), 도움말 두 항목(새방클, 이사장님 지시 2026-10-23). 2.3.0(261019-L4) 다시 듣기 내려받기를 앱 안에서(소리 mp3 두 가지·받아쓰기 글, 와이파이가 아니면 데이터 크기를 먼저 여쭘), 다시 듣기도 화면 잠가도 이어지고 전화 오면 멈춤, BYOD 방송 이름, 도움말 네 항목 더함(방클, 이사장님 결정 2026-10-19). 2.2.0(261018-L3) LVD 방송 정리 — 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기 첫 화면, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 2.1.0(261016-L2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 「인터넷 생방송 듣기」로 이름 줄임, 앱 안 누리집 화면의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-L1) LVD 방송 첫 판(배프 웹 껍데기 1.2.1의 뒤를 이음) — 배프 웹 껍데기를 속까지 앱으로: 행사장 와이파이 저절로 붙기와 저절로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 같은 폰 LVD 송출과 부딪치지 않기, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
+        const val BILD = "261025-L9"
         const val BAEP = "https://lvd.ada.or.kr/bfblive/"
     }
 
@@ -105,6 +105,7 @@ class BangsongActivity : Activity() {
         Ollim.sijak(this)
         Ollim.intentBoda(this, intent)
         if (intent?.getBooleanExtra("baro_deutgi", false) == true) DeutService.kyeogi(this)
+        hanbeonBoda(intent)   // 2.6.0
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -112,6 +113,24 @@ class BangsongActivity : Activity() {
         setIntent(intent)
         Ollim.intentBoda(this, intent)
         if (intent.getBooleanExtra("baro_deutgi", false)) DeutService.kyeogi(this)
+        hanbeonBoda(intent)   // 2.6.0
+    }
+
+    /** 2.6.0 (261025-L9) 한 번에 듣기 — 엔에프시 태그나 큐알(lvdbangsong://deut?w=…&p=…)로 열리면 그 와이파이에 붙고 곧바로 듣기 */
+    private var hanbeonBon = ""
+    private fun hanbeonBoda(i: Intent?) {
+        val u = i?.data ?: return
+        if (u.scheme != "lvdbangsong") return
+        val k = u.toString()
+        if (k == hanbeonBon && Deut.kyeojim) return   // 화면이 다시 그려질 때 같은 것을 되풀이하지 않음
+        hanbeonBon = k
+        val w = (u.getQueryParameter("w") ?: "").trim()
+        val p = u.getQueryParameter("p") ?: ""
+        val m = Hyeonjang.hanbeonBuchigi(this, w, p)
+        try { Girok.namgi("hanbeon", mapOf("w" to w)) } catch (_: Exception) { }
+        allim(if (m.isNotEmpty()) m else "현장영상해설을 찾아 들려 드립니다.")
+        Deut.sonMeomchum = false
+        if (!Deut.kyeojim) DeutService.kyeogi(this)
     }
 
     override fun onResume() {
