@@ -1108,7 +1108,8 @@ object Geurigi {
             else -> false
         }
         if (dol) { if (p.has("dg")) kj.put("dgMa", p.getDouble("dg")); if (p.has("h")) kj.put("hMa", p.getDouble("h")); kj.put("tMa", now) }
-        val jinan = now - kj.optLong("t0"), gaman = now - kj.optLong("tMa")
+        val jinan = now - kj.optLong("t0")
+        val gaman = now - kj.optLong("tMa")
         if (!((jinan >= 4000 && gaman >= 2500) || jinan >= 12000)) return
         kkeokJaegiKkeut(kj, p)
     }
