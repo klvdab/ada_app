@@ -105,9 +105,14 @@ final class JeomGeurigi: ObservableObject {
                         "9시 방향으로 꺾임", "3시 방향으로 꺾임", "점자블록 끊김", "문", "엘리베이터", "버스 정류장", "지하철 개찰구", "조심할 곳",
                         "에스컬레이터 올라감", "에스컬레이터 내려감", "에스컬레이터 내림", "지하철 탐", "지하철 내림", "버스 탐", "버스 내림",
                         // 2.19.0 (261010-I13, 이사장님 승인 2026-10-10 — 청계천 첫 따라 걷기 뒤) 낙상 주의 구간(어느 쪽인지 시계 방향으로)·길 폭·되돌아가는 곳
-                        "낙상 주의 시작 3시 쪽", "낙상 주의 시작 9시 쪽", "낙상 주의 시작 양쪽", "낙상 주의 끝", "길 폭 좁음", "길 폭 보통", "길 폭 넓음", "되돌아가는 곳"]
+                        "낙상 주의 시작 3시 쪽", "낙상 주의 시작 9시 쪽", "낙상 주의 시작 양쪽", "낙상 주의 끝", "길 폭 좁음", "길 폭 보통", "길 폭 넓음", "되돌아가는 곳",
+                        // 2.34.0 (261025-I28, 이사장님 승인 2026-10-25 — 박재욱 현장영상해설사 물음) 꺾임 하나(각도는 폰이 잼)·굽은 길
+                        "꺾임", "굽은 길 시작", "굽은 길 끝",
+                        // 2.34.0 점자블록 — 길은 가까운 길로 그리고, 점자블록은 있는지 없는지만 남김(이사장님 승인 2026-10-25)
+                        "점자블록 있음", "점자블록 다시 이어짐"]
     /// 자주 쓰는 표시 — 겉에 크게
-    static let JAJU = ["9시 방향으로 꺾임", "3시 방향으로 꺾임", "올라가는 계단 시작", "내려가는 계단 시작", "계단 끝", "횡단보도 건너기 시작", "횡단보도 건너기 끝", "문"]
+    /// 2.34.0 꺾임은 하나로 — 몇 시 방향인지는 폰의 회전 센서가 몸이 돈 만큼 재서 정함
+    static let JAJU = ["꺾임", "굽은 길 시작", "굽은 길 끝", "올라가는 계단 시작", "내려가는 계단 시작", "계단 끝", "횡단보도 건너기 시작", "횡단보도 건너기 끝", "문"]
     struct Jjak { let end: String; let kind: String; let up: String; let ride: Bool }
     static let PAIR: [String: Jjak] = [
         "올라가는 계단 시작": Jjak(end: "계단 끝", kind: "계단", up: "오르막", ride: false),
@@ -120,6 +125,8 @@ final class JeomGeurigi: ObservableObject {
     ]
     /// 말로 남길 때 알아듣는 다른 말 — 웹 BYEOLCHING 을 따름
     static let BYEOLCHING: [String: String] = [
+        "꺾임": "꺾임", "꺾어": "꺾임", "꺾음": "꺾임", "모퉁이": "꺾임", "코너": "꺾임",   // 2.34.0
+        "굽은길": "굽은 길 시작", "굽은길시작": "굽은 길 시작", "곡선": "굽은 길 시작", "굽은길끝": "굽은 길 끝", "굽은길끝남": "굽은 길 끝",
         "우회전": "3시 방향으로 꺾임", "오른쪽": "3시 방향으로 꺾임", "오른편": "3시 방향으로 꺾임", "오른쪽으로": "3시 방향으로 꺾임",
         "좌회전": "9시 방향으로 꺾임", "왼쪽": "9시 방향으로 꺾임", "왼편": "9시 방향으로 꺾임", "왼쪽으로": "9시 방향으로 꺾임",
         // 2.10.1 방향은 시계 방향으로(이사장님 지시) — 「3시」, 「3시 방향」, 「3시 방향으로」 모두 알아들음
@@ -135,7 +142,8 @@ final class JeomGeurigi: ObservableObject {
         "턱": "오름턱", "오르막턱": "오름턱", "올라가는턱": "오름턱", "내리막턱": "내림턱", "내려가는턱": "내림턱",
         "횡단보도": "횡단보도 건너기 시작", "건널목": "횡단보도 건너기 시작", "횡단보도시작": "횡단보도 건너기 시작", "건너기시작": "횡단보도 건너기 시작",
         "횡단보도끝": "횡단보도 건너기 끝", "건널목끝": "횡단보도 건너기 끝", "다건넜어": "횡단보도 건너기 끝", "건너기끝": "횡단보도 건너기 끝",
-        "점자블록": "점자블록 끊김", "블록끊김": "점자블록 끊김", "점자블록끊김": "점자블록 끊김",
+        "점자블록": "점자블록 끊김", "블록끊김": "점자블록 끊김", "점자블록끊김": "점자블록 끊김", "점자블록끊어짐": "점자블록 끊김", "점자블록없음": "점자블록 끊김",
+        "점자블록있음": "점자블록 있음", "점자블록시작": "점자블록 있음", "점자블록이어짐": "점자블록 다시 이어짐", "점자블록다시": "점자블록 다시 이어짐", "점자블록다시이어짐": "점자블록 다시 이어짐",
         "문": "문", "출입문": "문", "입구": "문",
         "엘리베이터": "엘리베이터", "승강기": "엘리베이터",
         "정류장": "버스 정류장", "버스정류장": "버스 정류장",
@@ -213,6 +221,12 @@ final class JeomGeurigi: ObservableObject {
     private var ralt: Double?
     private var majimakMureum = Date.distantPast
     private var majimakKkeokim = Date.distantPast
+    /// 2.34.0 (261025-I28) 「꺾임」을 누른 뒤 몸이 돈 각도를 재는 중 — 표시 번호, 누르기 전 방향, 마지막으로 크게 돈 때
+    private var kkeokJaegi: (idx: Int, dg0: Double?, h0: Double?, t0: Date, dgMa: Double?, hMa: Double?, tMa: Date)?
+    /// 2.34.0 폰이 잰 마지막 꺾임 — 15초 안에 말로 「2시」처럼 말씀하시면 새로 남기지 않고 이것을 고침
+    private var jaenKkeok: (idx: Int, t: Date)?
+    /// 2.34.0 열려 있는 굽은 길
+    private var gubeunOpen: (idx: Int, dg0: Double?, h0: Double?, st: Int, lat: Double?, lon: Double?)?
     private var gilJari: (Double, Double)?
     private var gilIreum = ""
     private var gilMutneunJung = false
@@ -300,6 +314,7 @@ final class JeomGeurigi: ObservableObject {
         stGijun = WichiEngine.shared.georeumSu
         openPair = nil
         nakOpen = nil
+        kkeokJaegi = nil; jaenKkeok = nil; gubeunOpen = nil   // 2.34.0
         rideMode = ""
         gilJari = nil
         gilIreum = ""
@@ -403,6 +418,7 @@ final class JeomGeurigi: ObservableObject {
 
     func jamkkan() {
         guard sangtae == .georeum else { return }
+        jaegiMatgi()   // 2.34.0 멈추면 회전 센서 누계가 새로 시작되므로 재던 것을 먼저 마무리
         TomakNokeum.shared.dakgi()
         sangtae = .meomchum
         meomchumSt0 = WichiEngine.shared.georeumSu
@@ -436,6 +452,7 @@ final class JeomGeurigi: ObservableObject {
     /// 다 걸었습니다
     func kkeut() {
         TomakNokeum.shared.dakgi()
+        jaegiMatgi()   // 2.34.0 재던 꺾임·열린 굽은 길을 먼저 마무리
         guard var g = gil else { return }
         meomchugi()
         if sangtae == .georeum { g.pts.append(jigeumJari()) }
@@ -458,6 +475,7 @@ final class JeomGeurigi: ObservableObject {
         }
         if nakOpen != nil { mal += " 낙상 주의 시작 뒤에 낙상 주의 끝 표시가 없습니다. 길눈은 그 표시부터 열 걸음을 낙상 주의 구간으로 봅니다." }   // 2.19.0
         nakOpen = nil
+        kkeokJaegi = nil; jaenKkeok = nil; gubeunOpen = nil   // 2.34.0
         mal += " 그린 길은 폰에 담아 두었습니다. 바로 아래 방금 그린 길 올리기를 누르시면 협회 점검을 거쳐 길눈에 실립니다."
         openPair = nil
         rideMode = ""
@@ -522,7 +540,8 @@ final class JeomGeurigi: ObservableObject {
         gil?.georeum = p.st
         // 물음은 20초 지나면 거둠
         if let m = mureum, Date().timeIntervalSince(m.ttae) > 20 { mureum = nil }
-        if rideMode.isEmpty && JeomGeurigi.kkeokMutgi { kkeokimBoda() }   // 2.11.0 계단 여쭙기 없앰, 꺾임 여쭙기는 켰을 때만
+        kkeokJaegiBoda(p)   // 2.34.0 꺾임을 누른 뒤 몸이 돈 각도 재기
+        if rideMode.isEmpty && JeomGeurigi.kkeokMutgi && kkeokJaegi == nil { kkeokimBoda() }   // 2.11.0 계단 여쭙기 없앰, 꺾임 여쭙기는 켰을 때만
         if (gil?.pts.count ?? 0) % 15 == 0 { gilBoda() }
         mitBoda()   // 2.20.0
     }
@@ -611,6 +630,53 @@ final class JeomGeurigi: ObservableObject {
         let st = m.st
         var tomakHal = true
         defer { if tomakHal { tomakYeolgi(name, st: st) } }   // 2.10.0 안내 말이 끝나면 짧게 귀를 엶
+
+        // 2.34.0 (261025-I28, 이사장님 승인 2026-10-25 — 박재욱 현장영상해설사 물음) 꺾임은 단추 하나 —
+        //   누르는 순간 자리만 찍고, 몇 시 방향인지는 몸이 다 돈 뒤 폰의 회전 센서(없으면 나침반)로 재서 정함. 위성은 쓰지 않음
+        if name == "꺾임" {
+            tomakHal = false
+            if let kj = kkeokJaegi { kkeokJaegiKkeut(kj, p: p, gangje: true) }
+            let ps = gil?.pts ?? []
+            let ap = ps.count >= 3 ? ps[ps.count - 3] : p   // 누르기 2초쯤 앞 — 누르기 전에 이미 돌기 시작했어도 처음부터 잼
+            m.kind = "꺾임"
+            gil?.marks.append(m)
+            kkeokJaegi = ((gil?.marks.count ?? 1) - 1, ap.dg ?? p.dg, ap.h ?? p.h, Date(), p.dg, p.h, Date())
+            alrigi("꺾임. 그대로 돌아서 걸어 주십시오. 몸이 돈 만큼 재서 몇 시 방향인지 알려 드립니다.")
+            return
+        }
+        // 2.34.0 폰이 잰 꺾임을 곧바로 말로 고치심(「2시」 등) — 새로 남기지 않고 고침
+        if malo, name.hasSuffix("방향으로 꺾임"), let jk = jaenKkeok, Date().timeIntervalSince(jk.t) < 30, jk.idx < (gil?.marks.count ?? 0) {
+            tomakHal = false
+            gil?.marks[jk.idx].name = name
+            gil?.marks[jk.idx].malo = true
+            jaenKkeok = nil
+            Girok.shared.namgi("jb_kkeok_gochim", ["name": name])
+            alrigi("\(name)으로 고쳤습니다.")
+            return
+        }
+        // 2.34.0 굽은 길 — 몇 걸음에 걸쳐 둥글게 돌아가는 길. 시작과 끝 사이에 몸이 돈 각도와 걸음을 폰이 잼
+        if name == "굽은 길 시작" {
+            if gubeunOpen != nil {
+                tomakHal = false
+                alrigi("이미 굽은 길 안입니다. 굽은 길이 끝나 곧장 가게 되는 곳에서 굽은 길 끝을 눌러 주십시오.")
+                return
+            }
+            m.kind = "굽은 길"
+            gil?.marks.append(m)
+            gubeunOpen = ((gil?.marks.count ?? 1) - 1, p.dg, p.h, st, m.lat, m.lon)
+            alrigi("굽은 길 시작을 남겼습니다. 길을 따라 걸으시다가 굽은 길이 끝나 곧장 가게 되는 곳에서 굽은 길 끝을 눌러 주십시오."
+                   + (TomakNokeum.kyeojim ? " 딩동 소리가 나면 굽은 길의 모습이나 손과 지팡이로 알 수 있는 것을 한마디로 말씀해 주십시오." : ""))
+            return
+        }
+        if name == "굽은 길 끝" {
+            tomakHal = false
+            guard let go = gubeunOpen else {
+                alrigi("굽은 길 시작 표시가 없습니다. 굽은 길이 시작되는 곳에서 먼저 굽은 길 시작을 눌러 주십시오.")
+                return
+            }
+            gubeunMatgi(go, p: p, m: m)
+            return
+        }
 
         // 2.19.0 (261010-I13, 이사장님 승인 2026-10-10) 낙상 주의 구간 — 시작(어느 쪽인지)과 끝을 짝지어 그 사이 걸음과 거리를 시작 표시에 적음.
         //   길눈은 이 구간 앞에서 미리 알리고, 구간 안에서는 위험한 쪽으로 반 걸음만 비켜나도 끌 수 없는 경고로 겹으로 살핌
@@ -735,6 +801,101 @@ final class JeomGeurigi: ObservableObject {
     }
 
     /// 2.10.0 표시 안내 말이 끝나면 짧게 귀를 열어 그 자리 모습을 담음(약속 일곱)
+    // MARK: 2.34.0 꺾임 재기·굽은 길 (261025-I28)
+
+    /// 1초마다 — 꺾임을 누른 뒤 몸이 다 돌았는지 살펴, 다 돌았으면 몇 시 방향인지 정함
+    private func kkeokJaegiBoda(_ p: GrJari) {
+        guard var kj = kkeokJaegi else { return }
+        let now = Date()
+        var dol = false   // 마지막으로 크게 돈 때보다 10도 넘게 더 돌았으면 아직 도는 중
+        if let a = p.dg, let b = kj.dgMa { dol = abs(a - b) > 10 }
+        else if let a = p.h, let b = kj.hMa { dol = abs(JeomGeurigi.gakCha(b, a)) > 10 }
+        if dol { kj.dgMa = p.dg; kj.hMa = p.h; kj.tMa = now; kkeokJaegi = kj }
+        let jinan = now.timeIntervalSince(kj.t0), gaman = now.timeIntervalSince(kj.tMa)
+        guard (jinan >= 4 && gaman >= 2.5) || jinan >= 12 else { return }
+        kkeokJaegiKkeut(kj, p: p)
+    }
+
+    /// 꺾임 재기를 마침 — 25도보다 적게 돌았으면 꺾임이 아니므로 지움. gangje 면 말 없이 조용히 마침(멈춤·마침·다음 꺾임)
+    private func kkeokJaegiKkeut(_ kj: (idx: Int, dg0: Double?, h0: Double?, t0: Date, dgMa: Double?, hMa: Double?, tMa: Date), p: GrJari, gangje: Bool = false) {
+        kkeokJaegi = nil
+        guard kj.idx < (gil?.marks.count ?? 0), gil?.marks[kj.idx].name == "꺾임" else { return }
+        var d: Double?
+        if let a = kj.dg0, let b = p.dg { d = b - a }
+        else if let a = kj.h0, let b = p.h { d = JeomGeurigi.gakCha(a, b) }
+        guard let dd = d, abs(dd) >= 25 else {
+            pyosiBbaegi(kj.idx)
+            jeojang()
+            Girok.shared.namgi("jb_kkeok_jaem", ["gak": d.map { Int($0.rounded()) } ?? -999, "jium": true])
+            if !gangje { alrigi("몸이 돈 각도가 작아 꺾임으로 남기지 않았습니다. 길이 꺾였으면 꺾는 자리에서 다시 눌러 주십시오. 천천히 굽은 길이면 굽은 길 시작과 끝을 써 주십시오.") }
+            return
+        }
+        let s = JeomGeurigi.sigye(dd)
+        let ireum = "\(s)시 방향으로 꺾임"
+        gil?.marks[kj.idx].name = ireum
+        gil?.marks[kj.idx].kind = nil
+        jaenKkeok = (kj.idx, Date())
+        majimakKkeokim = Date()
+        jeojang()
+        Girok.shared.namgi("jb_kkeok_jaem", ["gak": Int(dd.rounded()), "si": s, "jairo": kj.dg0 != nil && p.dg != nil])
+        if gangje { return }
+        var mal = "\(ireum)으로 남겼습니다. 틀렸으면 말로 표시를 누르고 몇 시 방향인지 말씀해 주십시오."
+        if TomakNokeum.kyeojim { mal += " 딩동 소리가 나면, 꺾는 곳에서 손이나 지팡이로 알 수 있는 것을 한마디로 말씀해 주십시오. 예를 들면 벽이 끝나는 모서리입니다." }
+        alrigi(mal)
+        if let st = gil?.marks[kj.idx].st { tomakYeolgi(ireum, st: st) }
+    }
+
+    /// 굽은 길을 닫음 — 시작과 끝 사이에 몸이 돈 각도·걸음·거리를 시작 표시에 적음. 20도보다 적게 돌았으면 곧은 길로 보고 지움
+    private func gubeunMatgi(_ go: (idx: Int, dg0: Double?, h0: Double?, st: Int, lat: Double?, lon: Double?), p: GrJari, m m0: GrPyosi?, gangje: Bool = false) {
+        gubeunOpen = nil
+        guard go.idx < (gil?.marks.count ?? 0) else { return }
+        var d: Double?
+        if let a = go.dg0, let b = p.dg { d = b - a }
+        else if let a = go.h0, let b = p.h { d = JeomGeurigi.gakCha(a, b) }
+        let n = max(0, p.st - go.st)
+        guard let dd = d, abs(dd) >= 20 else {
+            pyosiBbaegi(go.idx)
+            jeojang()
+            Girok.shared.namgi("jb_gubeun", ["gak": d.map { Int($0.rounded()) } ?? -999, "jium": true])
+            if !gangje { alrigi("굽은 정도가 작아 곧은 길로 보고 굽은 길 표시를 지웠습니다.") }
+            return
+        }
+        let s = JeomGeurigi.sigye(dd)
+        var e = m0 ?? GrPyosi(t: p.t, st: p.st, name: "굽은 길 끝")
+        if m0 == nil { e.h = p.h; e.lat = p.lat; e.lon = p.lon; e.acc = p.acc }
+        let dist = JeomGeurigi.geori(go.lat, go.lon, e.lat, e.lon)
+        let sijakIreum = "\(s)시 방향으로 굽은 길 시작"
+        gil?.marks[go.idx].name = sijakIreum
+        gil?.marks[go.idx].cnt = n
+        gil?.marks[go.idx].dist = dist
+        e.name = "굽은 길 끝"
+        e.kind = "굽은 길"
+        e.pairOf = sijakIreum
+        gil?.marks.append(e)
+        jeojang()
+        Girok.shared.namgi("jb_gubeun", ["gak": Int(dd.rounded()), "si": s, "georeum": n, "jairo": go.dg0 != nil && p.dg != nil])
+        if !gangje { alrigi("\(n)걸음, 약 \(dist)미터 동안 \(s)시 방향으로 천천히 굽은 길로 적었습니다. 길눈이 굽은 길 앞에서 미리 알려 드립니다.") }
+    }
+
+    /// 멈춤·마침 전에 — 재던 꺾임과 열린 굽은 길을 지금 자리로 마무리
+    private func jaegiMatgi() {
+        guard sangtae == .georeum, kkeokJaegi != nil || gubeunOpen != nil else { return }
+        let p = jigeumJari()
+        if let kj = kkeokJaegi { kkeokJaegiKkeut(kj, p: p, gangje: true) }
+        if let go = gubeunOpen { gubeunMatgi(go, p: p, m: nil, gangje: true) }
+    }
+
+    /// 표시 하나를 빼고, 뒤에 열려 있는 짝들의 번호를 하나씩 당김
+    private func pyosiBbaegi(_ i: Int) {
+        guard i < (gil?.marks.count ?? 0) else { return }
+        gil?.marks.remove(at: i)
+        if var o = openPair, o.idx > i { o.idx -= 1; openPair = o }
+        if var o = nakOpen, o.idx > i { o.idx -= 1; nakOpen = o }
+        if var o = gubeunOpen, o.idx > i { o.idx -= 1; gubeunOpen = o }
+        if var o = kkeokJaegi, o.idx > i { o.idx -= 1; kkeokJaegi = o }
+        if let o = jaenKkeok { jaenKkeok = o.idx > i ? (o.idx - 1, o.t) : (o.idx == i ? nil : o) }
+    }
+
     private func tomakYeolgi(_ name: String, st: Int) {
         guard TomakNokeum.kyeojim, let id = gil?.id else { return }
         let t = chobun

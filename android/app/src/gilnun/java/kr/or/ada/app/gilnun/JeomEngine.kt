@@ -476,6 +476,11 @@ object JeomEngine {
         tagiHan.clear()
         tagiJung = null
         if (tagiGugan.isNotEmpty()) kkeoks = kkeoks.filter { k -> tagiGugan.none { k.i > it.i0 && k.i < it.i1 } }
+        // 2.76.0 (261025-A64) 굽은 길 구간 안에서는 위성 자국으로 꺾임을 따로 말하지 않음 — 굽은 길 안내가 맡음
+        val gubeunGugan = pyo.filter { it.p.ireum.contains("굽은 길 시작") }.mapNotNull { s ->
+            pyo.filter { it.p.ireum == "굽은 길 끝" && it.i >= s.i }.minByOrNull { it.i }?.let { s.i to it.i }
+        }
+        if (gubeunGugan.isNotEmpty()) kkeoks = kkeoks.filter { k -> gubeunGugan.none { k.i >= it.first - 2 && k.i <= it.second + 2 } }
         gilRaw = g0.id + (if (dw) "|r" else "")
         wonGil = g0
         dwit = dw
@@ -1551,6 +1556,8 @@ object JeomEngine {
     // MARK: 표시
 
     private fun ilMal(nm: String): String {
+        // 2.76.0 (261025-A64, 이사장님 승인 2026-10-25, 아이폰 2.109.0과 같음) 자봉의 새 표시 굽은 길
+        if (nm.contains("굽은 길 시작")) return gubeunSi(nm) + "천천히 굽은 길입니다"
         if (nm.contains("꺾임") || nm.contains("끝")) return ""
         if (nm.contains("신호등 없는 횡단보도")) return "신호등 없는 건널목입니다"
         if (nm.contains("횡단보도") || nm.contains("건널목")) return "건널목입니다"
@@ -1558,6 +1565,8 @@ object JeomEngine {
         if (nm.contains("오름턱")) return "올라서는 턱입니다"
         if (nm.contains("내림턱")) return "내려서는 턱입니다"
         if (nm.contains("점자블록 끊김")) return "점자블록이 끊깁니다"
+        if (nm.contains("점자블록 있음")) return "점자블록이 있습니다"
+        if (nm.contains("점자블록 다시 이어짐")) return "점자블록이 다시 이어집니다"
         if (nm.contains("조심할 곳")) return "조심할 곳입니다"
         // 2.35.0 자봉 새 표시 — 길 폭과 되돌아가는 곳
         if (nm == "길 폭 좁음") return "길 폭이 좁아집니다"
@@ -1573,8 +1582,12 @@ object JeomEngine {
 
     private fun gyedanKan(p: Pyo): String {
         val c = p.p.cnt ?: 0
+        if (c > 0 && p.p.ireum.contains("굽은 길 시작")) return " 약 ${c}걸음 이어집니다."   // 2.76.0
         return if (c > 0 && p.p.ireum.contains("계단")) " ${c}칸입니다." else ""
     }
+
+    /** 2.76.0 굽은 길 표시 이름의 방향 — 「3시 방향으로 굽은 길 시작」 → 「3시 방향으로 」, 방향이 없으면 빈 말 */
+    private fun gubeunSi(nm: String): String = Regex("(1[0-2]|[1-9])시").find(nm)?.value?.let { "$it 방향으로 " } ?: ""
 
     private fun yego(p: Pyo, ahead: Double, seoreun: Boolean): String {
         val nm = p.p.ireum
@@ -1599,6 +1612,12 @@ object JeomEngine {
             dolgi(8.0)
             return "지금 ${jjok(nm)} 방향으로 도십시오."
         }
+        // 2.76.0 굽은 길 — 꺾지 않고 길을 따라 조금씩 돎
+        if (nm.contains("굽은 길 시작")) {
+            val c = p.p.cnt ?: 0
+            return "여기서부터 ${gubeunSi(nm)}천천히 굽습니다." + (if (c > 0) " 약 ${c}걸음입니다." else "") + " 길을 따라 조금씩 도십시오."
+        }
+        if (nm == "굽은 길 끝") return "굽은 길이 끝납니다. " + daeumMalGil()
         if (nm.contains("건너기 끝") || nm.contains("횡단보도 끝") || nm.contains("건널목 끝")) {
             if (!geonneolOn) return ""
             geonneolOn = false; geonneolI = -1; S.gidarim = false
@@ -1640,7 +1659,9 @@ object JeomEngine {
         if (nm.contains("계단")) { val c = p.p.cnt ?: 0; return "계단 시작입니다." + (if (c > 0) " ${c}칸입니다." else "") }
         if (nm.contains("오름턱")) return "지금 올라서는 턱입니다."
         if (nm.contains("내림턱")) return "지금 내려서는 턱입니다."
-        if (nm.contains("점자블록 끊김")) return "여기서 점자블록이 끊깁니다."
+        if (nm.contains("점자블록 끊김")) return "여기서 점자블록이 끊깁니다. 지팡이로 길을 확인하며 가십시오."
+        if (nm.contains("점자블록 있음")) return "여기서부터 점자블록이 있습니다. 발밑으로 따라가셔도 됩니다."
+        if (nm.contains("점자블록 다시 이어짐")) return "여기서 점자블록이 다시 이어집니다."
         if (nm.contains("조심할 곳")) return "지금 조심할 곳입니다. 천천히 가십시오."
         if (nm.contains("꺾임")) return "지금 ${jjok(nm)} 방향으로 꺾으십시오."
         val h = p.p.mal ?: ""

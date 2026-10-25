@@ -35,7 +35,7 @@ enum MiriGeotgi {
     }
 
     static func jungyo(_ nm: String) -> Bool {
-        nm.range(of: "꺾임|계단|횡단보도|건널목|오름턱|내림턱|엘리베이터|에스컬레이터|문|입구|개찰구|되돌아가는 곳|낙상", options: .regularExpression) != nil
+        nm.range(of: "꺾임|굽은 길 시작|계단|횡단보도|건널목|오름턱|내림턱|엘리베이터|에스컬레이터|문|입구|개찰구|되돌아가는 곳|낙상", options: .regularExpression) != nil
     }
 
     static func pyoMal(_ p: JeomPyo, _ kilyi: Double?) -> String {
@@ -43,6 +43,12 @@ enum MiriGeotgi {
         let kkori = (kilyi ?? 0) > 1 ? " " + georiMal(kilyi!) + "입니다." : ""
         let cnt = (p.cnt ?? 0) > 0 ? " \(p.cnt!)칸입니다." : ""
         if nm.contains("꺾임") { return "\(jjok(nm)) 방향으로 꺾습니다." }
+        // 2.109.0 (261025-I63) 자봉의 새 표시 굽은 길 — 몇 걸음에 걸쳐 둥글게 돌아가는 길
+        if nm.contains("굽은 길 시작") {
+            let si = nm.range(of: "(1[0-2]|[1-9])시", options: .regularExpression).map { String(nm[$0]) + " 방향으로 " } ?? ""
+            return "\(si)천천히 굽은 길입니다." + ((p.cnt ?? 0) > 0 ? " 약 \(p.cnt!)걸음 이어집니다." : "")
+        }
+        if nm == "굽은 길 끝" { return "굽은 길이 끝납니다." }
         if nm.contains("올라가는 계단") { return "계단을 올라갑니다." + cnt }
         if nm.contains("내려가는 계단") { return "계단을 내려갑니다." + cnt }
         if nm.contains("계단") { return "계단입니다." + cnt }
@@ -55,6 +61,8 @@ enum MiriGeotgi {
         if nm.contains("오름턱") { return "올라서는 턱입니다. 발을 올리십시오." }
         if nm.contains("내림턱") { return "내려서는 턱입니다. 발을 내리십시오." }
         if nm.contains("점자블록 끊김") { return "여기서 점자블록이 끊깁니다." }
+        if nm.contains("점자블록 있음") { return "여기서부터 점자블록이 있습니다." }
+        if nm.contains("점자블록 다시 이어짐") { return "여기서 점자블록이 다시 이어집니다." }
         if nm.contains("조심할 곳") { return "조심하실 곳입니다." + ((p.mal ?? "").isEmpty ? "" : " " + p.mal!) }
         if nm == "길 폭 좁음" { return "여기부터 길 폭이 좁습니다." }
         if nm == "길 폭 보통" { return "여기부터 길 폭이 보통입니다." }

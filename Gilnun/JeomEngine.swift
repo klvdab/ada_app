@@ -414,6 +414,13 @@ final class JeomEngine: ObservableObject {
         if !tagiGugan.isEmpty {
             kkeoks = kkeoks.filter { k in !tagiGugan.contains { k.i > $0.i0 && k.i < $0.i1 } }
         }
+        // 2.109.0 (261025-I63) 굽은 길 구간 안에서는 위성 자국으로 꺾임을 따로 말하지 않음 — 굽은 길 안내가 맡음
+        let gubeunGugan: [(Int, Int)] = pyo.filter { $0.p.ireum.contains("굽은 길 시작") }.compactMap { s in
+            pyo.filter { $0.p.ireum == "굽은 길 끝" && $0.i >= s.i }.min(by: { $0.i < $1.i }).map { (s.i, $0.i) }
+        }
+        if !gubeunGugan.isEmpty {
+            kkeoks = kkeoks.filter { k in !gubeunGugan.contains { k.i >= $0.0 - 2 && k.i <= $0.1 + 2 } }
+        }
         gilRaw = g0.id + (dw ? "|r" : "")
         dwit = dw
         dochakHam = false
@@ -1501,6 +1508,8 @@ final class JeomEngine: ObservableObject {
     // MARK: 표시
 
     private func ilMal(_ nm: String) -> String {
+        // 2.109.0 (261025-I63, 이사장님 승인 2026-10-25) 자봉의 새 표시 굽은 길 — 몇 걸음에 걸쳐 둥글게 돌아가는 길
+        if nm.contains("굽은 길 시작") { return gubeunSi(nm) + "천천히 굽은 길입니다" }
         if nm.contains("꺾임") || nm.contains("끝") { return "" }
         if nm.contains("신호등 없는 횡단보도") { return "신호등 없는 건널목입니다" }
         if nm.contains("횡단보도") || nm.contains("건널목") { return "건널목입니다" }
@@ -1508,6 +1517,8 @@ final class JeomEngine: ObservableObject {
         if nm.contains("오름턱") { return "올라서는 턱입니다" }
         if nm.contains("내림턱") { return "내려서는 턱입니다" }
         if nm.contains("점자블록 끊김") { return "점자블록이 끊깁니다" }
+        if nm.contains("점자블록 있음") { return "점자블록이 있습니다" }
+        if nm.contains("점자블록 다시 이어짐") { return "점자블록이 다시 이어집니다" }
         if nm.contains("조심할 곳") { return "조심할 곳입니다" }
         // 2.63.0 자봉 새 표시 — 길 폭과 되돌아가는 곳
         if nm == "길 폭 좁음" { return "길 폭이 좁아집니다" }
@@ -1515,6 +1526,11 @@ final class JeomEngine: ObservableObject {
         if nm == "길 폭 넓음" { return "길 폭이 넓어집니다" }
         if nm == "되돌아가는 곳" { return "6시 방향으로 돌아서는 곳입니다" }
         return nm + "입니다"
+    }
+
+    /// 2.109.0 굽은 길 표시 이름의 방향 — 「3시 방향으로 굽은 길 시작」 → 「3시 방향으로 」, 방향이 없으면 빈 말
+    private func gubeunSi(_ nm: String) -> String {
+        nm.range(of: "(1[0-2]|[1-9])시", options: .regularExpression).map { String(nm[$0]) + " 방향으로 " } ?? ""
     }
 
     /// 2.53.0 꺾임 표시 이름 → 시계 방향(새 이름 「3시 방향으로 꺾임」과 옛 이름 「오른쪽으로 꺾임」 모두 읽음)
@@ -1533,7 +1549,8 @@ final class JeomEngine: ObservableObject {
         if nm.contains("끝") { return "" }
         let m = ilMal(nm)
         if m.isEmpty { return "" }
-        let cnt = (p.p.cnt ?? 0) > 0 && nm.contains("계단") ? " \(p.p.cnt!)칸입니다." : ""
+        let cnt = (p.p.cnt ?? 0) > 0 && nm.contains("계단") ? " \(p.p.cnt!)칸입니다."
+            : ((p.p.cnt ?? 0) > 0 && nm.contains("굽은 길 시작") ? " 약 \(p.p.cnt!)걸음 이어집니다." : "")   // 2.109.0
         var t = apm + m + "." + cnt
         if let h = p.p.mal, !h.isEmpty, !seoreun { t += " " + h }
         return t
@@ -1546,6 +1563,11 @@ final class JeomEngine: ObservableObject {
             dolgi(8)
             return "지금 \(jjok(nm)) 방향으로 도십시오."
         }
+        // 2.109.0 굽은 길 — 꺾지 않고 길을 따라 조금씩 돎
+        if nm.contains("굽은 길 시작") {
+            return "여기서부터 \(gubeunSi(nm))천천히 굽습니다." + ((p.p.cnt ?? 0) > 0 ? " 약 \(p.p.cnt!)걸음입니다." : "") + " 길을 따라 조금씩 도십시오."
+        }
+        if nm == "굽은 길 끝" { return "굽은 길이 끝납니다. " + daeumMalGil() }
         if nm.contains("건너기 끝") || nm.contains("횡단보도 끝") || nm.contains("건널목 끝") {
             if !geonneolOn { return "" }
             geonneolOn = false; geonneol = nil; S.gidarim = false
@@ -1579,7 +1601,9 @@ final class JeomEngine: ObservableObject {
         if nm.contains("계단") { return "계단 시작입니다." + ((p.p.cnt ?? 0) > 0 ? " \(p.p.cnt!)칸입니다." : "") }
         if nm.contains("오름턱") { return "지금 올라서는 턱입니다." }
         if nm.contains("내림턱") { return "지금 내려서는 턱입니다." }
-        if nm.contains("점자블록 끊김") { return "여기서 점자블록이 끊깁니다." }
+        if nm.contains("점자블록 끊김") { return "여기서 점자블록이 끊깁니다. 지팡이로 길을 확인하며 가십시오." }
+        if nm.contains("점자블록 있음") { return "여기서부터 점자블록이 있습니다. 발밑으로 따라가셔도 됩니다." }
+        if nm.contains("점자블록 다시 이어짐") { return "여기서 점자블록이 다시 이어집니다." }
         if nm.contains("조심할 곳") { return "지금 조심할 곳입니다. 천천히 가십시오." }
         if nm.contains("꺾임") { return "지금 \(jjok(nm)) 방향으로 꺾으십시오." }
         return "지금 \(nm)입니다." + ((p.p.mal ?? "").isEmpty ? "" : " " + (p.p.mal ?? ""))

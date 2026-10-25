@@ -47,9 +47,14 @@ object Geurigi {
         "9시 방향으로 꺾임", "3시 방향으로 꺾임", "점자블록 끊김", "문", "엘리베이터", "버스 정류장", "지하철 개찰구", "조심할 곳",
         "에스컬레이터 올라감", "에스컬레이터 내려감", "에스컬레이터 내림", "지하철 탐", "지하철 내림", "버스 탐", "버스 내림",
         // 2.20.0 (261010-A16, 이사장님 승인 2026-10-10 — 청계천 첫 따라 걷기 뒤) 낙상 주의 구간(어느 쪽인지 시계 방향으로)·길 폭·되돌아가는 곳
-        "낙상 주의 시작 3시 쪽", "낙상 주의 시작 9시 쪽", "낙상 주의 시작 양쪽", "낙상 주의 끝", "길 폭 좁음", "길 폭 보통", "길 폭 넓음", "되돌아가는 곳")
+        "낙상 주의 시작 3시 쪽", "낙상 주의 시작 9시 쪽", "낙상 주의 시작 양쪽", "낙상 주의 끝", "길 폭 좁음", "길 폭 보통", "길 폭 넓음", "되돌아가는 곳",
+        // 2.34.0 (261025-A30, 이사장님 승인 2026-10-25 — 박재욱 현장영상해설사 물음) 꺾임 하나(각도는 폰이 잼)·굽은 길
+        "꺾임", "굽은 길 시작", "굽은 길 끝",
+        // 2.34.0 점자블록 — 길은 가까운 길로 그리고, 점자블록은 있는지 없는지만 남김(이사장님 승인 2026-10-25)
+        "점자블록 있음", "점자블록 다시 이어짐")
     /** 자주 쓰는 표시 — 겉에 크게 */
-    val JAJU = listOf("9시 방향으로 꺾임", "3시 방향으로 꺾임", "올라가는 계단 시작", "내려가는 계단 시작", "계단 끝", "횡단보도 건너기 시작", "횡단보도 건너기 끝", "문")
+    /** 2.34.0 꺾임은 하나로 — 몇 시 방향인지는 폰의 회전 센서가 몸이 돈 만큼 재서 정함 */
+    val JAJU = listOf("꺾임", "굽은 길 시작", "굽은 길 끝", "올라가는 계단 시작", "내려가는 계단 시작", "계단 끝", "횡단보도 건너기 시작", "횡단보도 건너기 끝", "문")
     class Jjak(val end: String, val kind: String, val up: String, val ride: Boolean)
     val PAIR = mapOf(
         "올라가는 계단 시작" to Jjak("계단 끝", "계단", "오르막", false),
@@ -62,6 +67,8 @@ object Geurigi {
     )
     /** 말로 남길 때 알아듣는 다른 말 — 아이폰 BYEOLCHING(웹 BYEOLCHING)과 같음 */
     val BYEOLCHING = mapOf(
+        "꺾임" to "꺾임", "꺾어" to "꺾임", "꺾음" to "꺾임", "모퉁이" to "꺾임", "코너" to "꺾임",   // 2.34.0
+        "굽은길" to "굽은 길 시작", "굽은길시작" to "굽은 길 시작", "곡선" to "굽은 길 시작", "굽은길끝" to "굽은 길 끝", "굽은길끝남" to "굽은 길 끝",
         "우회전" to "3시 방향으로 꺾임", "오른쪽" to "3시 방향으로 꺾임", "오른편" to "3시 방향으로 꺾임", "오른쪽으로" to "3시 방향으로 꺾임",
         "좌회전" to "9시 방향으로 꺾임", "왼쪽" to "9시 방향으로 꺾임", "왼편" to "9시 방향으로 꺾임", "왼쪽으로" to "9시 방향으로 꺾임",
         // 2.10.1 방향은 시계 방향으로(이사장님 지시) — 「3시」, 「3시 방향」, 「3시 방향으로」 모두 알아들음
@@ -77,7 +84,8 @@ object Geurigi {
         "턱" to "오름턱", "오르막턱" to "오름턱", "올라가는턱" to "오름턱", "내리막턱" to "내림턱", "내려가는턱" to "내림턱",
         "횡단보도" to "횡단보도 건너기 시작", "건널목" to "횡단보도 건너기 시작", "횡단보도시작" to "횡단보도 건너기 시작", "건너기시작" to "횡단보도 건너기 시작",
         "횡단보도끝" to "횡단보도 건너기 끝", "건널목끝" to "횡단보도 건너기 끝", "다건넜어" to "횡단보도 건너기 끝", "건너기끝" to "횡단보도 건너기 끝",
-        "점자블록" to "점자블록 끊김", "블록끊김" to "점자블록 끊김", "점자블록끊김" to "점자블록 끊김",
+        "점자블록" to "점자블록 끊김", "블록끊김" to "점자블록 끊김", "점자블록끊김" to "점자블록 끊김", "점자블록끊어짐" to "점자블록 끊김", "점자블록없음" to "점자블록 끊김",
+        "점자블록있음" to "점자블록 있음", "점자블록시작" to "점자블록 있음", "점자블록이어짐" to "점자블록 다시 이어짐", "점자블록다시" to "점자블록 다시 이어짐", "점자블록다시이어짐" to "점자블록 다시 이어짐",
         "문" to "문", "출입문" to "문", "입구" to "문",
         "엘리베이터" to "엘리베이터", "승강기" to "엘리베이터",
         "정류장" to "버스 정류장", "버스정류장" to "버스 정류장",
@@ -135,6 +143,12 @@ object Geurigi {
     private var rideMode = ""
     private var majimakMureum = 0L
     private var majimakKkeokim = 0L
+    /** 2.34.0 (261025-A30) 「꺾임」을 누른 뒤 몸이 돈 각도를 재는 중 — idx, dg0, h0, t0, dgMa, hMa, tMa */
+    private var kkeokJaegi: JSONObject? = null
+    /** 2.34.0 폰이 잰 마지막 꺾임(idx, t) — 30초 안에 말로 「2시」처럼 말씀하시면 새로 남기지 않고 이것을 고침 */
+    private var jaenKkeok: Pair<Int, Long>? = null
+    /** 2.34.0 열려 있는 굽은 길 — idx, dg0, h0, st, lat, lon */
+    private var gubeunOpen: JSONObject? = null
     private var gilJari: Pair<Double, Double>? = null
     private var gilIreum = ""
     private var gilMutneunJung = false
@@ -292,6 +306,7 @@ object Geurigi {
         }
         stGijun = Wichi.georeumSu
         openPair = null; nakOpen = null; rideMode = ""; mureum = null
+        kkeokJaegi = null; jaenKkeok = null; gubeunOpen = null   // 2.34.0
         gilJari = null; gilIreum = ""
         majimakId = null
         var cb = chulbal.trim().take(40)
@@ -421,6 +436,7 @@ object Geurigi {
 
     fun jamkkan() {
         if (sangtae != Sangtae.GEOREUM) return
+        jaegiMatgi()   // 2.34.0 멈추면 회전 센서 누계가 새로 시작되므로 재던 것을 먼저 마무리
         Tomak.dakgi(); tomakDaegi = null
         sangtae = Sangtae.MEOMCHUM
         meomchumSt0 = Wichi.georeumSu
@@ -450,6 +466,8 @@ object Geurigi {
     /** 다 걸었습니다 */
     fun kkeut() {
         Tomak.dakgi(); tomakDaegi = null
+        jaegiMatgi()   // 2.34.0 재던 꺾임·열린 굽은 길을 먼저 마무리
+        tomakDaegi = null
         val g = gil ?: return
         meomchugi()
         if (sangtae == Sangtae.GEOREUM) { pts.put(jigeumJari()); g.put("georeum", georeum) }
@@ -472,6 +490,7 @@ object Geurigi {
         openPair?.let { o -> mal += " ${o.optString("name")}의 짝인 ${PAIR[o.optString("name")]?.end ?: "끝"} 표시가 없습니다. 올리기 전 점검에서 다시 여쭙겠습니다." }
         if (nakOpen != null) mal += " 낙상 주의 시작 뒤에 낙상 주의 끝 표시가 없습니다. 길눈은 그 표시부터 열 걸음을 낙상 주의 구간으로 봅니다."   // 2.20.0
         nakOpen = null
+        kkeokJaegi = null; jaenKkeok = null; gubeunOpen = null   // 2.34.0
         mal += " 그린 길은 폰에 담아 두었습니다. 바로 아래 방금 그린 길 올리기를 누르시면 협회 점검을 거쳐 길눈에 실립니다."
         openPair = null; rideMode = ""
         val sae = JSONArray(); sae.put(g); for (i in 0 until geurinGil.length()) sae.put(geurinGil.get(i))
@@ -534,7 +553,8 @@ object Geurigi {
         // 물음은 20초 지나면 거둠
         mureum?.let { if (System.currentTimeMillis() - it.ttae > 20000) { mureum = null; bakkwim?.invoke() } }
         // 2.11.0 계단 여쭙기 없앰, 꺾임 여쭙기는 켰을 때만
-        if (rideMode.isEmpty() && ctx?.let { kkeokMutgi(it) } == true) kkeokimBoda()
+        kkeokJaegiBoda(p)   // 2.34.0 꺾임을 누른 뒤 몸이 돈 각도 재기
+        if (rideMode.isEmpty() && kkeokJaegi == null && ctx?.let { kkeokMutgi(it) } == true) kkeokimBoda()
         if (pts.length() % 15 == 0) gilBoda()
         mitBoda()   // 2.21.0
     }
@@ -624,6 +644,60 @@ object Geurigi {
         val st = m.optInt("st")
         Tomak.dakgi()                 // 2.10.0 앞 표시의 토막을 듣는 중이면 닫음
         tomakDaegi = name to st       // 안내 말이 끝나면 짧게 귀를 엶(alrigi 가 이어 받음)
+
+        // 2.34.0 (261025-A30, 이사장님 승인 2026-10-25 — 박재욱 현장영상해설사 물음) 꺾임은 단추 하나 —
+        //   누르는 순간 자리만 찍고, 몇 시 방향인지는 몸이 다 돈 뒤 폰의 회전 센서(없으면 나침반)로 재서 정함. 위성은 쓰지 않음
+        if (name == "꺾임") {
+            tomakDaegi = null
+            kkeokJaegi?.let { kkeokJaegiKkeut(it, p, gangje = true) }
+            val ap = if (pts.length() >= 3) pts.getJSONObject(pts.length() - 3) else p   // 누르기 2초쯤 앞 — 이미 돌기 시작했어도 처음부터 잼
+            m.put("kind", "꺾임")
+            marks.put(m); jeojang()
+            kkeokJaegi = JSONObject().apply {
+                put("idx", marks.length() - 1); put("t0", System.currentTimeMillis()); put("tMa", System.currentTimeMillis())
+                (if (ap.has("dg")) ap else p).let { if (it.has("dg")) put("dg0", it.getDouble("dg")) }
+                (if (ap.has("h")) ap else p).let { if (it.has("h")) put("h0", it.getDouble("h")) }
+                if (p.has("dg")) put("dgMa", p.getDouble("dg"))
+                if (p.has("h")) put("hMa", p.getDouble("h"))
+            }
+            alrigi("꺾임. 그대로 돌아서 걸어 주십시오. 몸이 돈 만큼 재서 몇 시 방향인지 알려 드립니다.")
+            return
+        }
+        // 2.34.0 폰이 잰 꺾임을 곧바로 말로 고치심(「2시」 등) — 새로 남기지 않고 고침
+        val jk = jaenKkeok
+        if (malo && name.endsWith("방향으로 꺾임") && jk != null && System.currentTimeMillis() - jk.second < 30000 && jk.first < marks.length()) {
+            tomakDaegi = null
+            marks.optJSONObject(jk.first)?.apply { put("name", name); put("malo", true) }
+            jaenKkeok = null; jeojang()
+            Girok.namgi("jb_kkeok_gochim", mapOf("name" to name))
+            alrigi("${name}으로 고쳤습니다.")
+            return
+        }
+        // 2.34.0 굽은 길 — 몇 걸음에 걸쳐 둥글게 돌아가는 길. 시작과 끝 사이에 몸이 돈 각도와 걸음을 폰이 잼
+        if (name == "굽은 길 시작") {
+            if (gubeunOpen != null) {
+                tomakDaegi = null
+                alrigi("이미 굽은 길 안입니다. 굽은 길이 끝나 곧장 가게 되는 곳에서 굽은 길 끝을 눌러 주십시오."); return
+            }
+            m.put("kind", "굽은 길")
+            marks.put(m); jeojang()
+            gubeunOpen = JSONObject().apply {
+                put("idx", marks.length() - 1); put("st", st)
+                if (p.has("dg")) put("dg0", p.getDouble("dg"))
+                if (p.has("h")) put("h0", p.getDouble("h"))
+                if (m.has("lat")) { put("lat", m.get("lat")); put("lon", m.get("lon")) }
+            }
+            alrigi("굽은 길 시작을 남겼습니다. 길을 따라 걸으시다가 굽은 길이 끝나 곧장 가게 되는 곳에서 굽은 길 끝을 눌러 주십시오."
+                + (if (ctx?.let { Tomak.kyeojim(it) } == true) " 딩동 소리가 나면 굽은 길의 모습이나 손과 지팡이로 알 수 있는 것을 한마디로 말씀해 주십시오." else ""))
+            return
+        }
+        if (name == "굽은 길 끝") {
+            tomakDaegi = null
+            val go = gubeunOpen
+            if (go == null) { alrigi("굽은 길 시작 표시가 없습니다. 굽은 길이 시작되는 곳에서 먼저 굽은 길 시작을 눌러 주십시오."); return }
+            gubeunMatgi(go, p, m)
+            return
+        }
 
         // 2.20.0 (261010-A16, 이사장님 승인 2026-10-10) 낙상 주의 구간 — 시작(어느 쪽인지)과 끝을 짝지어 그 사이 걸음과 거리를 시작 표시에 적음.
         //   길눈은 이 구간 앞에서 미리 알리고, 구간 안에서는 위험한 쪽으로 반 걸음만 비켜나도 끌 수 없는 경고로 겹으로 살핌
@@ -1014,6 +1088,98 @@ object Geurigi {
         tomakDaegi = null
         if (td != null) Sori.mal(t, MalGeup.ANNAE) { tomakYeolgi(td.first, td.second) } else Sori.mal(t, MalGeup.ANNAE)
         bakkwim?.invoke()
+    }
+
+    // MARK: 2.34.0 꺾임 재기·굽은 길 (261025-A30, 아이폰 2.34.0과 같음)
+
+    private fun dolGak(a: JSONObject, p: JSONObject): Double? = when {
+        a.has("dg0") && p.has("dg") -> p.getDouble("dg") - a.getDouble("dg0")
+        a.has("h0") && p.has("h") -> gakCha(a.getDouble("h0"), p.getDouble("h"))
+        else -> null
+    }
+
+    /** 1초마다 — 꺾임을 누른 뒤 몸이 다 돌았는지 살펴, 다 돌았으면 몇 시 방향인지 정함 */
+    private fun kkeokJaegiBoda(p: JSONObject) {
+        val kj = kkeokJaegi ?: return
+        val now = System.currentTimeMillis()
+        val dol = when {   // 마지막으로 크게 돈 때보다 10도 넘게 더 돌았으면 아직 도는 중
+            p.has("dg") && kj.has("dgMa") -> abs(p.getDouble("dg") - kj.getDouble("dgMa")) > 10
+            p.has("h") && kj.has("hMa") -> abs(gakCha(kj.getDouble("hMa"), p.getDouble("h"))) > 10
+            else -> false
+        }
+        if (dol) { if (p.has("dg")) kj.put("dgMa", p.getDouble("dg")); if (p.has("h")) kj.put("hMa", p.getDouble("h")); kj.put("tMa", now) }
+        val jinan = now - kj.optLong("t0"), gaman = now - kj.optLong("tMa")
+        if (!((jinan >= 4000 && gaman >= 2500) || jinan >= 12000)) return
+        kkeokJaegiKkeut(kj, p)
+    }
+
+    /** 꺾임 재기를 마침 — 25도보다 적게 돌았으면 꺾임이 아니므로 지움. gangje 면 말 없이 조용히 마침 */
+    private fun kkeokJaegiKkeut(kj: JSONObject, p: JSONObject, gangje: Boolean = false) {
+        kkeokJaegi = null
+        val i = kj.optInt("idx", -1)
+        if (i < 0 || i >= marks.length() || marks.optJSONObject(i)?.optString("name") != "꺾임") return
+        val d = dolGak(kj, p)
+        if (d == null || abs(d) < 25) {
+            pyosiBbaegi(i); jeojang()
+            Girok.namgi("jb_kkeok_jaem", mapOf("gak" to (d?.roundToInt() ?: -999), "jium" to true))
+            if (!gangje) alrigi("몸이 돈 각도가 작아 꺾임으로 남기지 않았습니다. 길이 꺾였으면 꺾는 자리에서 다시 눌러 주십시오. 천천히 굽은 길이면 굽은 길 시작과 끝을 써 주십시오.")
+            return
+        }
+        val s = sigye(d)
+        val ireum = "${s}시 방향으로 꺾임"
+        marks.optJSONObject(i)?.apply { put("name", ireum); remove("kind") }
+        jaenKkeok = i to System.currentTimeMillis()
+        majimakKkeokim = System.currentTimeMillis()
+        jeojang()
+        Girok.namgi("jb_kkeok_jaem", mapOf("gak" to d.roundToInt(), "si" to s, "jairo" to (kj.has("dg0") && p.has("dg"))))
+        if (gangje) return
+        var mal = "${ireum}으로 남겼습니다. 틀렸으면 말로 표시를 누르고 몇 시 방향인지 말씀해 주십시오."
+        if (ctx?.let { Tomak.kyeojim(it) } == true) mal += " 딩동 소리가 나면, 꺾는 곳에서 손이나 지팡이로 알 수 있는 것을 한마디로 말씀해 주십시오. 예를 들면 벽이 끝나는 모서리입니다."
+        if (i == marks.length() - 1) tomakDaegi = ireum to (marks.optJSONObject(i)?.optInt("st") ?: 0)
+        alrigi(mal)
+    }
+
+    /** 굽은 길을 닫음 — 시작과 끝 사이에 몸이 돈 각도·걸음·거리를 시작 표시에 적음. 20도보다 적게 돌았으면 곧은 길로 보고 지움 */
+    private fun gubeunMatgi(go: JSONObject, p: JSONObject, m0: JSONObject?, gangje: Boolean = false) {
+        gubeunOpen = null
+        val i = go.optInt("idx", -1)
+        if (i < 0 || i >= marks.length()) return
+        val d = dolGak(go, p)
+        val n = maxOf(0, p.optInt("st") - go.optInt("st"))
+        if (d == null || abs(d) < 20) {
+            pyosiBbaegi(i); jeojang()
+            Girok.namgi("jb_gubeun", mapOf("gak" to (d?.roundToInt() ?: -999), "jium" to true))
+            if (!gangje) alrigi("굽은 정도가 작아 곧은 길로 보고 굽은 길 표시를 지웠습니다.")
+            return
+        }
+        val s = sigye(d)
+        val e = m0 ?: JSONObject().apply {
+            put("t", p.optInt("t")); put("st", p.optInt("st"))
+            for (k in listOf("h", "lat", "lon", "acc", "hy", "st2", "dg")) if (p.has(k)) put(k, p.get(k))
+        }
+        val dist = geori(go, e)
+        val sijakIreum = "${s}시 방향으로 굽은 길 시작"
+        marks.optJSONObject(i)?.apply { put("name", sijakIreum); put("cnt", n); put("dist", dist) }
+        e.put("name", "굽은 길 끝"); e.put("kind", "굽은 길"); e.put("pairOf", sijakIreum)
+        marks.put(e); jeojang()
+        Girok.namgi("jb_gubeun", mapOf("gak" to d.roundToInt(), "si" to s, "georeum" to n, "jairo" to (go.has("dg0") && p.has("dg"))))
+        if (!gangje) alrigi("${n}걸음, 약 ${dist}미터 동안 ${s}시 방향으로 천천히 굽은 길로 적었습니다. 길눈이 굽은 길 앞에서 미리 알려 드립니다.")
+    }
+
+    /** 멈춤·마침 전에 — 재던 꺾임과 열린 굽은 길을 지금 자리로 마무리 */
+    private fun jaegiMatgi() {
+        if (sangtae != Sangtae.GEOREUM || (kkeokJaegi == null && gubeunOpen == null)) return
+        val p = jigeumJari()
+        kkeokJaegi?.let { kkeokJaegiKkeut(it, p, gangje = true) }
+        gubeunOpen?.let { gubeunMatgi(it, p, null, gangje = true) }
+    }
+
+    /** 표시 하나를 빼고, 뒤에 열려 있는 짝들의 번호를 하나씩 당김 */
+    private fun pyosiBbaegi(i: Int) {
+        if (i < 0 || i >= marks.length()) return
+        marks.remove(i)
+        for (o in listOfNotNull(openPair, nakOpen, gubeunOpen, kkeokJaegi)) { val k = o.optInt("idx", -1); if (k > i) o.put("idx", k - 1) }
+        jaenKkeok?.let { jaenKkeok = if (it.first > i) (it.first - 1) to it.second else if (it.first == i) null else it }
     }
 
     /** 2.10.0 표시를 남긴 뒤 짧게 담을 차례(표시 이름, 걸음 자리) */

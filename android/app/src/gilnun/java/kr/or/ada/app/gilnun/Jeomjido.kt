@@ -165,6 +165,24 @@ data class JeomGil(
                 out[n].name = marks[ek].ireum
             }
         }
+        // 2.76.0 (261025-A64, 아이폰 2.109.0과 같음) 굽은 길도 짝을 바꿈 — 원래 끝 자리가 시작이 되고, 방향은 거울처럼(3시 ↔ 9시), 걸음 수는 그대로
+        for ((n, m) in marks.withIndex()) {
+            if (!m.ireum.contains("굽은 길") || !m.ireum.contains("시작") || ix[n] < 0 || sseun.contains(n)) continue
+            var e: Int? = null
+            for ((k, q) in marks.withIndex()) {
+                if (k == n || sseun.contains(k) || ix[k] < ix[n] || q.ireum != "굽은 길 끝") continue
+                val ee = e
+                if (ee == null || ix[k] < ix[ee]) e = k
+            }
+            val ek = e ?: continue
+            sseun.add(ek); sseun.add(n)
+            val h = Regex("(1[0-2]|[1-9])시").find(m.ireum)?.value?.dropLast(1)?.toIntOrNull()
+            out[ek].name = if (h != null) "${if (h == 12) 12 else 12 - h}시 방향으로 굽은 길 시작" else "굽은 길 시작"
+            out[ek].cnt = m.cnt
+            out[ek].dist = m.dist
+            out[n].name = "굽은 길 끝"
+            out[n].cnt = null
+        }
         // 짝이 없는 건널목 끝은 거꾸로 걸으면 건너기 시작
         for ((n, m) in marks.withIndex()) {
             if (sseun.contains(n) || !geonneol(m.ireum) || !m.ireum.contains("끝")) continue
@@ -183,6 +201,8 @@ data class JeomGil(
         "11시 방향으로 꺾임" to "1시 방향으로 꺾임",
             "올라가는 계단 시작" to "내려가는 계단 시작", "내려가는 계단 시작" to "올라가는 계단 시작",
             "오름턱" to "내림턱", "내림턱" to "오름턱",
+            // 2.76.0 점자블록 — 거꾸로 걸으면 끊김과 이어짐이 뒤바뀜
+            "점자블록 끊김" to "점자블록 다시 이어짐", "점자블록 다시 이어짐" to "점자블록 끊김", "점자블록 있음" to "점자블록 끊김",
             "낙상 주의 시작 3시 쪽" to "낙상 주의 시작 9시 쪽", "낙상 주의 시작 9시 쪽" to "낙상 주의 시작 3시 쪽",   // 2.35.0 거꾸로 걸으면 위험한 쪽도 거울처럼
             "횡단보도 건너기 시작" to "횡단보도 건너기 끝", "횡단보도 건너기 끝" to "횡단보도 건너기 시작",
             "엘리베이터 올라감" to "엘리베이터 내려감", "엘리베이터 내려감" to "엘리베이터 올라감",

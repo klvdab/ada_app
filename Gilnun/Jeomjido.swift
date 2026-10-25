@@ -158,6 +158,25 @@ struct JeomGil: Codable, Identifiable {
                 out[n].name = marks[ek].ireum
             }
         }
+        // 2.109.0 (261025-I63) 굽은 길도 짝을 바꿈 — 원래 끝 자리가 시작이 되고, 방향은 거울처럼(3시 ↔ 9시), 걸음 수는 그대로
+        func gubeun(_ n: String) -> Bool { n.contains("굽은 길") }
+        for (n, m) in marks.enumerated() where gubeun(m.ireum) && m.ireum.contains("시작") && ix[n] >= 0 && !sseun.contains(n) {
+            var e: Int?
+            for (k, q) in marks.enumerated() where k != n && !sseun.contains(k) && ix[k] >= ix[n] && q.ireum == "굽은 길 끝" {
+                if e == nil || ix[k] < ix[e!] { e = k }
+            }
+            guard let ek = e else { continue }
+            sseun.insert(ek); sseun.insert(n)
+            var dwiIreum = "굽은 길 시작"
+            if let r = m.ireum.range(of: "(1[0-2]|[1-9])시", options: .regularExpression), let h = Int(m.ireum[r].dropLast()) {
+                dwiIreum = "\(h == 12 ? 12 : 12 - h)시 방향으로 굽은 길 시작"
+            }
+            out[ek].name = dwiIreum
+            out[ek].cnt = m.cnt
+            out[ek].dist = m.dist
+            out[n].name = "굽은 길 끝"
+            out[n].cnt = nil
+        }
         // 짝이 없는 건널목 끝은 거꾸로 걸으면 건너기 시작
         for (n, m) in marks.enumerated() where !sseun.contains(n) && geonneol(m.ireum) && m.ireum.contains("끝") {
             out[n].name = m.ireum.replacingOccurrences(of: "끝", with: "시작")
@@ -177,6 +196,8 @@ struct JeomGil: Codable, Identifiable {
         "11시 방향으로 꺾임": "1시 방향으로 꺾임",
         "올라가는 계단 시작": "내려가는 계단 시작", "내려가는 계단 시작": "올라가는 계단 시작",
         "오름턱": "내림턱", "내림턱": "오름턱",
+        // 2.109.0 점자블록 — 거꾸로 걸으면 끊김과 이어짐이 뒤바뀜
+        "점자블록 끊김": "점자블록 다시 이어짐", "점자블록 다시 이어짐": "점자블록 끊김", "점자블록 있음": "점자블록 끊김",
         "낙상 주의 시작 3시 쪽": "낙상 주의 시작 9시 쪽", "낙상 주의 시작 9시 쪽": "낙상 주의 시작 3시 쪽",   // 2.63.0 거꾸로 걸으면 위험한 쪽도 거울처럼
         "횡단보도 건너기 시작": "횡단보도 건너기 끝", "횡단보도 건너기 끝": "횡단보도 건너기 시작",
         "엘리베이터 올라감": "엘리베이터 내려감", "엘리베이터 내려감": "엘리베이터 올라감",
