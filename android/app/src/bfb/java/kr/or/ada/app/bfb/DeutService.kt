@@ -145,6 +145,7 @@ class DeutService : Service() {
                 gaksi = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "lvd:deutgi").apply { setReferenceCounted(false); acquire(8 * 60 * 60 * 1000L) }
             } catch (_: Exception) { }
             focusBatgi()
+            wifiJabgi()   // 2.5.1 (261025-L8) 인터넷 없는 행사장 와이파이를 폰이 버리지 않게 붙잡아 둠
             Deut.bakkum("현장영상해설을 찾고 있습니다.", false)
             il = Thread({ dolligi() }, "lvd-deutgi").also { it.priority = Thread.MAX_PRIORITY; it.start() }
             Deut.allyeo()
@@ -164,6 +165,7 @@ class DeutService : Service() {
         try { unregisterReceiver(kkeugiBaram) } catch (_: Exception) { }
         try { if (Build.VERSION.SDK_INT >= 26) focusReq?.let { am.abandonAudioFocusRequest(it) } else @Suppress("DEPRECATION") am.abandonAudioFocus(focusBaram) } catch (_: Exception) { }
         try { gaksi?.release() } catch (_: Exception) { }
+        wifiNoki()   // 2.5.1
         Deut.bakkum("듣기를 멈추었습니다.", false)
         super.onDestroy()
     }
@@ -289,6 +291,29 @@ class DeutService : Service() {
             }
             if (dolgo) swigi(1000)
         }
+    }
+
+    // 2.5.1 (261025-L8, 새방클, 이사장님 승인 2026-10-25) 인터넷 없는 와이파이 붙잡아 두기 — LVD 송출 1.8.1과 같은 방법.
+    //   안드로이드는 인터넷이 안 되는 와이파이를 끊고 모바일 데이터로 옮겨 가는데, 이 앱이 「인터넷 없어도 되는 와이파이」를 청해 들고 있으면
+    //   그 와이파이를 끊지 않음. 듣기를 멈추면 놓음. 듣는 분이 모바일 데이터를 끄지 않아도 행사장 방송이 이어지게
+    private var wifiCb: android.net.ConnectivityManager.NetworkCallback? = null
+    private fun wifiJabgi() {
+        if (wifiCb != null) return
+        try {
+            val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+            val req = android.net.NetworkRequest.Builder()
+                .addTransportType(android.net.NetworkCapabilities.TRANSPORT_WIFI)
+                .removeCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+            val cb = object : android.net.ConnectivityManager.NetworkCallback() { }
+            cm.requestNetwork(req, cb)
+            wifiCb = cb
+        } catch (_: Exception) { }
+    }
+    private fun wifiNoki() {
+        val cb = wifiCb ?: return
+        wifiCb = null
+        try { (getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager).unregisterNetworkCallback(cb) } catch (_: Exception) { }
     }
 
     private fun swigi(ms: Long) { try { Thread.sleep(ms) } catch (_: InterruptedException) { } }
