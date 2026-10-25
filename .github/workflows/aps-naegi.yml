@@ -1,0 +1,59 @@
+# 앱스토어 내기 (1.0판, 빌드 261025-1, 대클 — 이사장님 지시 2026-10-25 「아이폰 버전 앱스토어 올리는거 확실히 챙겨야한다」)
+# 로그인 없이 앱스토어 커넥트 열쇠(ASC_BUNDLE)로 정식 판을 공개하거나 새 판을 심사에 냅니다. 할 일은 tools/aps_naegi.py 머리말.
+name: aps-naegi
+on:
+  workflow_dispatch:
+    inputs:
+      hal:
+        description: "할 일 (boda = 보기만, gonggae = 통과한 판 공개, saepan = 새 판 심사 내기)"
+        default: "boda"
+      bundle:
+        description: "앱 (kr.or.ada.app = 길눈, kr.or.ada.jabong = 자봉)"
+        default: "kr.or.ada.app"
+      pan:
+        description: "새 정식 판 번호 (saepan 때만)"
+        default: ""
+      bild:
+        description: "붙일 빌드 번호 (saepan 때만)"
+        default: ""
+      sae:
+        description: "새 기능 글 (saepan 때만)"
+        default: ""
+jobs:
+  naegi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 도구 준비
+        run: |
+          python3 -m venv /tmp/py
+          /tmp/py/bin/pip install --quiet pyjwt cryptography
+
+      - name: 열쇠 풀어 놓기
+        env:
+          ASC_BUNDLE: ${{ secrets.ASC_BUNDLE }}
+        run: |
+          umask 077
+          B="$RUNNER_TEMP/bundle.txt"
+          printf '%s\n' "$ASC_BUNDLE" | tr -d '\r' > "$B"
+          KID=$(grep -m1 '^KEY_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          IID=$(grep -m1 '^ISSUER_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          if [ -z "$KID" ] || [ -z "$IID" ]; then echo "ASC_BUNDLE 에 KEY_ID / ISSUER_ID 줄이 있어야 합니다"; rm -f "$B"; exit 1; fi
+          mkdir -p "$HOME/private_keys"
+          sed -n '/BEGIN PRIVATE KEY/,/END PRIVATE KEY/p' "$B" > "$HOME/private_keys/AuthKey_$KID.p8"
+          rm -f "$B"
+          chmod 600 "$HOME/private_keys/AuthKey_$KID.p8"
+          echo "::add-mask::$IID"
+          echo "ASC_KEY_ID=$KID" >> "$GITHUB_ENV"
+          echo "ASC_ISSUER_ID=$IID" >> "$GITHUB_ENV"
+
+      - name: 앱스토어에 말하기
+        env:
+          HAL: ${{ github.event.inputs.hal }}
+          BUNDLE: ${{ github.event.inputs.bundle }}
+          PAN: ${{ github.event.inputs.pan }}
+          BILD: ${{ github.event.inputs.bild }}
+          SAE: ${{ github.event.inputs.sae }}
+        run: /tmp/py/bin/python tools/aps_naegi.py
