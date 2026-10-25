@@ -525,13 +525,16 @@ final class MalHagi: ObservableObject {
         let alts = alts0.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
         // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21) 마이크에 소리가 하나도 들어오지 않은 일이 두 번 잇달면 까닭을 한 번 말씀드리고 저절로 듣기를 쉼
         let soriEopseum = alts.isEmpty && (beopeo == 0 || MalDeutgi.shared.majimakKeugi <= -120)
+        // 2.110.0 (261025-I64, 이사장님 승인 2026-10-25 「1」) 소리가 하나도 안 들어왔으면 마이크를 새로 엶 — 블루투스였으면 폰 마이크로 바꿔서
+        //   (10-25 저녁 블루투스 여덟 번·폰 마이크 두 번 모두 소리 0 — 이미 돌던 마이크를 그대로 다시 써서 한 번도 되살아나지 않던 일)
+        if soriEopseum { MalDeutgi.shared.maikDasiYeolgi(naejang: SoriGwanri.ipryeokJari() == "bluetooth") }
         if SoriGwanri.shared.myeongDeureum(soriEopseum: soriEopseum, geulja: !alts.isEmpty) {
             Girok.shared.namgi("maik_makhim", ["dan": "yeonsok_allim", "ipryeok": SoriGwanri.ipryeokJari()])
             sangtae = .swim
             jadongYeolim = 0
             dasiHanbeon = false
             MalDeutgi.shared.swigi()
-            malHam(SoriGwanri.makhimMal) { [weak self] in self?.bureumDasi(1.0) }
+            malHam(SoriGwanri.makhimMalBogi()) { [weak self] in self?.bureumDasi(1.0) }
             return
         }
         if alts.isEmpty {

@@ -166,6 +166,7 @@ final class AnnaeEngine: ObservableObject {
 
     /// 목적지를 정하고 걸어가기
     func georeoGagi(_ j: Jangso) {
+        if HeorakAllim.shared.annaeMakgi() { return }   // 2.110.0 위치 없이는 시작하지 않음
         saeMokjeokJunbi()
         yj.jeonghagi(Mokjeok(ireum: j.ireum, lat: j.lat, lon: j.lon, juso: j.juso))
         georeoGagi()
@@ -173,6 +174,7 @@ final class AnnaeEngine: ObservableObject {
 
     /// 목적지를 정하고 차에 탐
     func chaTagi(_ j: Jangso) {
+        if HeorakAllim.shared.annaeMakgi() { return }   // 2.110.0 위치 없이는 시작하지 않음
         saeMokjeokJunbi()
         yj.jeonghagi(Mokjeok(ireum: j.ireum, lat: j.lat, lon: j.lon, juso: j.juso))
         chaTatda()
@@ -181,6 +183,7 @@ final class AnnaeEngine: ObservableObject {
     /// 2.90.0 (261017-I44, 이사장님 승인 2026-10-17) 목적지를 정하고 기차·배로 — 목적지 화면의 「기차로 가기」·「배로 가기」
     ///   (부산역을 목적지로 정하고 기차가 없어 차로 가기를 누르셔야 했던 일)
     func talgeotRoGagi(_ j: Jangso, _ t: Talgeot) {
+        if HeorakAllim.shared.annaeMakgi() { return }   // 2.110.0 위치 없이는 시작하지 않음
         saeMokjeokJunbi()
         yj.jeonghagi(Mokjeok(ireum: j.ireum, lat: j.lat, lon: j.lon, juso: j.juso))
         talgeotBarojapgi(t)

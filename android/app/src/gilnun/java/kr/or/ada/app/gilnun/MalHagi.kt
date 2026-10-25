@@ -528,7 +528,10 @@ object MalHagi {
                     bakkum(MalSangtae.SWIM)
                     jadongYeolim = 0
                     dasiHanbeon = false
-                    malHam("마이크에 소리가 들어오지 않습니다. 이어폰이나 블루투스 연결을 살펴 주십시오. 그때까지 저절로 듣지 않습니다. 다시 하시려면 말로 하기 단추를 누르십시오.")
+                    // 2.77.0 (261025-A65, 아이폰 2.110.0과 같음) 막힌 까닭을 실제대로 — 다른 앱이 소리를 쓰는 중이면 그렇다고
+                    val dareun = (hwalseong?.get()?.getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager)?.isMusicActive == true && (Bangsong.jong == BangsongJong.EOPSEUM || Bangsong.meomchum)
+                    malHam(if (dareun) "다른 앱이 소리를 쓰고 있어 마이크에 소리가 들어오지 않습니다. 다른 앱의 소리를 멈추신 뒤 말씀해 주십시오. 그때까지 저절로 듣지 않습니다. 다시 하시려면 말로 하기 단추를 누르십시오."
+                           else "마이크에 소리가 들어오지 않습니다. 이어폰이나 블루투스 연결을 살펴 주십시오. 그때까지 저절로 듣지 않습니다. 다시 하시려면 말로 하기 단추를 누르십시오.")
                     return
                 }
             }

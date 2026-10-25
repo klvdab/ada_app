@@ -4,6 +4,7 @@ import SwiftUI
 struct RootView: View {
     @ObservedObject private var tabGil = TabGil.shared   // 2.7.0 둘러보기에서 고른 곳으로 가면 길 찾기 탭으로
     @ObservedObject private var dongyeong = Dongyeong.shared   // 2.34.0 동영상 받아 틀기
+    @ObservedObject private var heorak = HeorakAllim.shared   // 2.110.0 위치 허락 알림
 
     var body: some View {
         // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 탭 바에서 탭을 고르시면 그 탭의 맨 위 첫 줄로 커서를 보냄 — 같은 탭을 다시 고르셔도.
@@ -36,6 +37,14 @@ struct RootView: View {
         // 2.34.0 다른 앱에서 "공유 → 길눈"으로 넘긴 동영상 — 워치가 있으면 워치로, 없으면 여기서 온 화면으로 틂
         .onOpenURL { u in Dongyeong.shared.batda(u) }
         .fullScreenCover(item: $dongyeong.ponJaesaeng) { g in DongyeongJaesaengView(url: g.url) }
+        // 2.110.0 (261025-I64, 이사장님 승인 2026-10-25) 위치 허락이 모자라면 처음과 나빠졌을 때 한 번 알리고 설정을 바로 여는 단추
+        .alert("위치 허락", isPresented: Binding(get: { heorak.allimGeul != nil }, set: { if !$0 { heorak.allimGeul = nil } })) {
+            Button("설정 열기") { heorak.allimGeul = nil; HeorakAllim.shared.wichiSeoljeongYeolgi() }
+            Button("나중에", role: .cancel) { heorak.allimGeul = nil }
+        } message: {
+            Text(heorak.allimGeul ?? "")
+        }
+        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 4) { HeorakAllim.shared.salpigi() } }
         // 2.52.0 처음 안내는 화면 전체를 덮지 않음 — 길 찾기 첫 화면 안 한 줄로 옮김(이사장님 승인)
     }
 }

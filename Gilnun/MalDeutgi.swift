@@ -385,6 +385,23 @@ final class MalDeutgi: NSObject {
         }
     }
 
+    /// 2.110.0 (261025-I64, 이사장님 승인 2026-10-25 「1」) 블루투스 마이크에서 소리가 오지 않으면 이 앱을 쓰는 동안 폰 마이크를 먼저 씀(소리는 그대로 이어폰으로)
+    static var naejangUseon = false
+
+    /// 2.110.0 소리가 하나도 안 들어온 뒤 — 돌던 마이크를 멈추고 새로 엶. naejang 이면 폰 마이크로 바꿔서
+    func maikDasiYeolgi(naejang: Bool) {
+        if naejang { MalDeutgi.naejangUseon = true }
+        let s = AVAudioSession.sharedInstance()
+        Girok.shared.namgi("maik_saero", ["naejang": naejang, "dareunSori": s.isOtherAudioPlaying,
+                                          "kategori": s.category.rawValue.replacingOccurrences(of: "AVAudioSessionCategory", with: ""),
+                                          "chulryeok": s.currentRoute.outputs.first?.portType.rawValue ?? "", "dolgo": engine.isRunning])
+        guard engine.isRunning else { return }
+        engine.stop()
+        engine.inputNode.removeTap(onBus: 0)
+        let ok = maikYeolgi(bangsik)
+        Girok.shared.namgi("maik_dasi", ["ok": ok, "gwi": "bin_beopeo", "ipryeok": SoriGwanri.ipryeokJari()])
+    }
+
     /// 마이크까지 아주 닫음(넘길 것 없이)
     func meomchugi() {
         yeollyeoya = false
@@ -409,6 +426,10 @@ final class MalDeutgi: NSObject {
         if seokgi { o.remove(.duckOthers); o.insert(.mixWithOthers) }
         try s.setCategory(.playAndRecord, mode: .default, options: o)
         try s.setActive(true)
+        // 2.110.0 블루투스 마이크가 소리를 주지 않았으면 폰 마이크를 고름
+        if MalDeutgi.naejangUseon, let naejang = s.availableInputs?.first(where: { $0.portType == .builtInMic }) {
+            try? s.setPreferredInput(naejang)
+        }
     }
 
     /// 마이크를 엶 — 이미 열려 있으면 그대로 씀

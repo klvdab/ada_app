@@ -287,12 +287,17 @@ final class TalgeotGamji: ObservableObject {
                     if dt > 0 && dh / dt > 0.1 { naeryeoSigan += dt }
                 }
             }
+            // 2.110.0 (261025-I64) 내려가기 전 1분 안의 걸음을 기록에 함께 남김 — 에스컬레이터와 차 안 기압 흔들림을 가려낼 잣대를 찾으려고
+            let apGeoreumJeon = gidoGeoreum.first { $0.0 >= maxTtae.addingTimeInterval(-60) }?.1 ?? maxGeoreum
+            let apGeoreum = maxGeoreum - apGeoreumJeon
             let neurinNaeryeogam = naeryeoNopi >= 3 && naeryeoSigan > 0 && naeryeoNopi / naeryeoSigan < 0.6
             // 2.64.0 (261011-I18, 이사장님 승인 2026-10-11 「1」) 기차가 터널로 들어가며 기압이 내려간 것을 땅속으로 보던 일(KTX 세 번, 걸음 0) —
             //   기차 지킴 중이거나 10분 안에 기차 빠르기였거나, 1분 안에 탈것이 움직였으면 땅속으로 보지 않음
             let taneunJung = YeojeongEngine.shared.choegeunGicha || (majimakTalgeot.map { now.timeIntervalSince($0) < 60 } ?? false)
             let georeoNaeryeogam = (manbo || neurinNaeryeogam) && jigeumUmjigim != "탈것" && !taneunJung
-            if jeonMax - h >= 3.5 && !TalgeotGamji.wiseongJoeum && georeoNaeryeogam {
+            // 2.110.0 위치 허락이 없으면 위성이 늘 「없음」이라 땅속과 땅 위를 가릴 수 없으므로 땅속으로 짐작하지 않음
+            let wichiItda = !WichiEngine.shared.geojeoldoem
+            if jeonMax - h >= 3.5 && !TalgeotGamji.wiseongJoeum && georeoNaeryeogam && wichiItda {
                 if naeryeogaTtae == nil { naeryeogaTtae = now }
                 guard let nt = naeryeogaTtae, now.timeIntervalSince(nt) >= 10 else { return }
                 naeryeogaTtae = nil
@@ -300,7 +305,7 @@ final class TalgeotGamji: ObservableObject {
                 jihaTtae = now
                 jihaMin = h
                 Girok.shared.namgi("jiha_jinip", ["naeryeogam": Int((jeonMax - h) * 10), "georeum": naeryeoGaneunGeoreum,
-                                                  "ppareugi": naeryeoSigan > 0 ? Int(naeryeoNopi / naeryeoSigan * 100) : -1])   // 2.61.0 초속 센티미터
+                                                  "ppareugi": naeryeoSigan > 0 ? Int(naeryeoNopi / naeryeoSigan * 100) : -1, "apGeoreum": apGeoreum])   // 2.61.0 초속 센티미터
                 NotificationCenter.default.post(name: TalgeotGamji.jihaJinipAllim, object: nil)
                 // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 땅속이라는 것만으로는 콜 차 못 박기를 풀지 않음 — 땅속에서 탈것이 움직일 때(pandan) 풂
             } else {

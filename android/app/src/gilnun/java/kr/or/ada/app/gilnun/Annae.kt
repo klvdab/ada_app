@@ -203,6 +203,7 @@ object AnnaeEngine {
 
     /** 목적지를 정하고 걸어가기(위성 안내) */
     fun georeoGagi(j: Jangso) {
+        if (HeorakAllim.annaeMakgi()) return   // 2.77.0 위치 없이는 시작하지 않음
         saeMokjeokJunbi()
         yj.jeonghagi(Mokjeok(j.ireum, j.lat, j.lon, j.juso))
         georeoGagi()
@@ -210,6 +211,7 @@ object AnnaeEngine {
 
     /** 목적지를 정하고 차에 탐 */
     fun chaTagi(j: Jangso) {
+        if (HeorakAllim.annaeMakgi()) return   // 2.77.0 위치 없이는 시작하지 않음
         saeMokjeokJunbi()
         yj.jeonghagi(Mokjeok(j.ireum, j.lat, j.lon, j.juso))
         chaTatda()
@@ -218,6 +220,7 @@ object AnnaeEngine {
     /** 2.60.0 (261017-A48, 이사장님 승인 2026-10-17) 목적지를 정하고 기차·배로 — 목적지 화면의 「기차로 가기」·「배로 가기」
      *  (부산역을 목적지로 정하고 기차가 없어 차로 가기를 누르셔야 했던 일) */
     fun talgeotRoGagi(j: Jangso, t: Talgeot) {
+        if (HeorakAllim.annaeMakgi()) return   // 2.77.0 위치 없이는 시작하지 않음
         saeMokjeokJunbi()
         yj.jeonghagi(Mokjeok(j.ireum, j.lat, j.lon, j.juso))
         talgeotBarojapgi(t)

@@ -66,6 +66,23 @@ final class SoriGwanri {
 
     static let makhimMal = "마이크에 소리가 들어오지 않습니다. 이어폰이나 블루투스 연결을 살펴 주십시오. 그때까지 저절로 듣지 않습니다. 다시 하시려면 말로 하기 단추를 누르십시오."
 
+    /// 2.110.0 (261025-I64, 이사장님 승인 2026-10-25 「1」) 막힌 까닭을 실제대로 — 다른 앱이 소리를 쥠, 허락 꺼짐, 블루투스 무응답
+    /// (10-25 저녁 열 번 모두 소리가 0이었는데 「이어폰을 살펴 주십시오」만 말씀드린 일)
+    static func makhimMalBogi() -> String {
+        let s = AVAudioSession.sharedInstance()
+        let dwi = " 그때까지 저절로 듣지 않습니다. 다시 하시려면 말로 하기 단추를 누르십시오."
+        if !MalDeutgi.heorakItda {
+            return "마이크나 음성 인식 허락이 꺼져 있어 말씀을 들을 수 없습니다. 설정 탭 맨 위의 마이크 허락 단추를 누르시면 아이폰 설정의 길눈 화면이 열립니다."
+        }
+        if SoriEngine.shared.meomchumJung || s.secondaryAudioShouldBeSilencedHint {
+            return "다른 앱이 소리를 쓰고 있어 마이크에 소리가 들어오지 않습니다. 다른 앱의 소리를 멈추신 뒤 말씀해 주십시오." + dwi
+        }
+        if MalDeutgi.naejangUseon {
+            return "블루투스 이어폰 마이크에서 소리가 오지 않아 폰 마이크로 바꿨습니다. 폰에 대고 말씀해 주십시오." + dwi
+        }
+        return makhimMal
+    }
+
     /// 지금 마이크 소리가 들어오는 자리(기록에 남김) — naejang 폰 마이크, ieopon 유선 이어폰, bluetooth, carplay, gita
     static func ipryeokJari() -> String {
         guard let p = AVAudioSession.sharedInstance().currentRoute.inputs.first?.portType else { return "eopseum" }

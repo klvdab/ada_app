@@ -5,6 +5,8 @@ import AVFoundation
 struct SeoljeongView: View {
     @ObservedObject private var g = GinGeup.shared
     @ObservedObject private var gj = GongjiEngine.shared
+    @ObservedObject private var heorak = HeorakAllim.shared   // 2.110.0
+    @ObservedObject private var wichi = WichiEngine.shared    // 2.110.0 허락이 바뀌면 단추 이름도
     @State private var saerogochimMal = ""
     @AccessibilityFocusState private var malChojeom: Bool
     @AccessibilityFocusState private var cheotJul: Bool   // 2.12.1 설정 탭을 고르면 첫 줄로
@@ -15,6 +17,15 @@ struct SeoljeongView: View {
                 NavigationLink { GongjiView() } label: { Text("알림" + (gj.gingeupSae != nil ? " — 읽지 않은 긴급 공지가 있습니다" : "")) }
                     .buttonStyle(KeunDanchu())
                     .accessibilityFocused($cheotJul)
+                // 2.110.0 (261025-I64, 이사장님 승인 2026-10-25) 위치·마이크 허락 — 지금 상태를 이름에 담고, 누르면 아이폰 설정의 길눈 화면이 바로 열림
+                Button("위치 허락 — \(heorak.wichiMal). 누르면 아이폰 설정의 길눈 화면을 엽니다. 위치에서 항상을 골라 주십시오") {
+                    heorak.wichiSeoljeongYeolgi()
+                }
+                .buttonStyle(KeunDanchu())
+                Button("마이크 허락 — \(heorak.maikMal). 누르면 아이폰 설정의 길눈 화면을 엽니다") {
+                    heorak.maikSeoljeongYeolgi()
+                }
+                .buttonStyle(KeunDanchu())
                 // 2.70.0 (이사장님 승인 2026-10-14 「1」) 설정 순서를 한 잣대로 — 자주 손대는 것부터, 시험용은 맨 뒤 펼치기 안에. 안드로이드와 같은 순서·같은 이름
                 NavigationLink { MalSeoljeongView() } label: { Text("말하기 설정 — 켜기와 끄기, 빠르기, 목소리, 얼마나 자세히, 무엇을 말할지") }
                     .buttonStyle(KeunDanchu())

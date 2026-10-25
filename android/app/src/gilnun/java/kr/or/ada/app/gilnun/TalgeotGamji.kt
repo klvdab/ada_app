@@ -311,7 +311,8 @@ object TalgeotGamji : SensorEventListener {
             // 2.36.0 (261011-A1, 이사장님 승인 2026-10-11 「1」) 기차 터널의 기압 내림을 땅속으로 보던 일 — 기차 지킴 중·10분 안에 기차 빠르기·1분 안에 탈것이 움직였으면 아님(아이폰과 같음)
             val taneunJung = YeojeongEngine.choegeunGicha || (majimakTalgeot > 0 && now - majimakTalgeot < 60_000)
             val georeoNaeryeogam = (naeryeoGaneunGeoreum >= 6 || neurinNaeryeogam) && jigeumUmjigim != "탈것" && !taneunJung
-            if (jeonMax - h >= 3.5 && !wiseongJoeum && georeoNaeryeogam) {
+            // 2.77.0 (261025-A65, 이사장님 승인 2026-10-25, 아이폰 2.110.0과 같음) 위치 허락이 없으면 위성이 늘 「없음」이라 땅속과 땅 위를 가릴 수 없으므로 땅속으로 짐작하지 않음
+            if (jeonMax - h >= 3.5 && !wiseongJoeum && georeoNaeryeogam && Wichi.heorakItda) {
                 if (naeryeogaTtae == 0L) naeryeogaTtae = now
                 if (now - naeryeogaTtae < 10000) return
                 naeryeogaTtae = 0L
