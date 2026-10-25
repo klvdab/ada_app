@@ -363,6 +363,7 @@ class EumakHwamyeon : BangsongBada("길 위의 음악") {
 // MARK: 라디오·TV
 
 class ChaeneolHwamyeon(private val kind: String) : BangsongBada(if (kind == "tv") "TV 보기" else "라디오 듣기") {
+    companion object { var jeonche: android.app.Dialog? = null }   // 2.74.0 열린 TV 전체화면
     private var mot = false
     private var batneun = false
     private var sijak = 0
@@ -378,9 +379,14 @@ class ChaeneolHwamyeon(private val kind: String) : BangsongBada(if (kind == "tv"
     override fun geurigi(t: GilnunActivity) {
         val b = Bangsong
         if (b.chaeneolDeul.isEmpty() && !batneun && !mot) batgi()
+        if (jeonche != null && (!nawa || kind != "tv" || b.yeongsangKkeum)) jeonche?.dismiss()   // TV를 그만두거나 영상을 끄면 전체화면도 닫음
         if (nawa) {
             t.geul("지금 — ${b.jemok}" + (if (b.sangtaeMal.isEmpty()) "" else ". " + b.sangtaeMal), true)
-            if (kind == "tv" && !b.yeongsangKkeum) tvHwamyeon(t)
+            if (kind == "tv" && !b.yeongsangKkeum) {
+                tvHwamyeon(t)
+                // 2.74.0 (261025-A62, 이사장님 승인 2026-10-25 「그래」) 전체화면 — 같은 재생기를 크게, 소리·방송은 끊기지 않음
+                danchu(t, "jeonche", "전체화면으로 보기") { jeoncheYeolgi(t) }
+            }
             danchu(t, "meomchum", if (b.meomchum) "다시 틀기" else "멈춤") { b.meomchumTogeul() }
             danchu(t, "geuman", if (kind == "tv") "TV 그만 보기" else "라디오 그만 듣기") { b.geuman() }
             if (kind == "tv" && b.chaeneolNote.isNotEmpty()) t.geul(b.chaeneolNote)
@@ -418,14 +424,58 @@ class ChaeneolHwamyeon(private val kind: String) : BangsongBada(if (kind == "tv"
         pv.isFocusable = true
         pv.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
         pv.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
-            override fun onViewAttachedToWindow(v: View) { pv.player = Bangsong.exo }
+            override fun onViewAttachedToWindow(v: View) { if (jeonche == null) pv.player = Bangsong.exo }
             override fun onViewDetachedFromWindow(v: View) { pv.player = null }
         })
         val nolbi = t.resources.displayMetrics.widthPixels - t.dp(32)
         val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, nolbi * 9 / 16)
         lp.topMargin = t.dp(10)
         bumo.addView(pv, idx, lp)
-        pv.player = p
+        if (jeonche == null) pv.player = p
+        jagunPv = WeakReference(pv)
+    }
+
+    private var jagunPv: WeakReference<PlayerView>? = null
+
+    /** 2.74.0 TV 전체화면 — 영상만 화면 가득, 맨 아래 「전체화면 닫기」 하나. 재생기를 옮겨 붙일 뿐이라 소리·방송은 그대로 */
+    @OptIn(UnstableApi::class)
+    private fun jeoncheYeolgi(t: GilnunActivity) {
+        val p = Bangsong.exo ?: return
+        if (jeonche != null) return
+        val d = android.app.Dialog(t, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        val teul = android.widget.FrameLayout(t).apply { setBackgroundColor(android.graphics.Color.BLACK) }
+        val pv = PlayerView(t)
+        pv.useController = false
+        pv.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+        pv.setShutterBackgroundColor(android.graphics.Color.BLACK)
+        pv.setBackgroundColor(android.graphics.Color.BLACK)
+        pv.contentDescription = "TV 전체화면"
+        teul.addView(pv, android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        val dat = Button(t).apply {
+            text = "전체화면 닫기"
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+            isAllCaps = false
+            minHeight = t.dp(72)
+            setOnClickListener { d.dismiss() }
+        }
+        val blp = android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, android.view.Gravity.BOTTOM)
+        blp.setMargins(t.dp(16), t.dp(16), t.dp(16), t.dp(24))
+        teul.addView(dat, blp)
+        d.setContentView(teul)
+        jeonche = d
+        val jagun = jagunPv?.get()
+        if (jagun != null && jagun.player != null) PlayerView.switchTargetView(p, jagun, pv) else pv.player = p
+        d.setOnDismissListener {
+            jeonche = null
+            val j = jagunPv?.get()
+            val pp = Bangsong.exo
+            if (pp != null && j != null && j.isAttachedToWindow) PlayerView.switchTargetView(pp, pv, j) else pv.player = null
+            Girok.namgi("tv_jeonche_datgi", emptyMap())
+            t.dasiGeurigi()
+        }
+        d.setOnShowListener { dat.requestFocus(); dat.sendAccessibilityEvent(android.view.accessibility.AccessibilityEvent.TYPE_VIEW_FOCUSED) }
+        d.show()
+        Girok.namgi("tv_jeonche_yeolgi", emptyMap())
     }
 
     private fun batgi() {

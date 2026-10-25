@@ -88,6 +88,17 @@ final class WichiEngine: NSObject, ObservableObject, CLLocationManagerDelegate {
         }
     }
 
+    /// 자봉 2.32.0 (261025-I26, 이사장님 승인 2026-10-25) 「프로그램 끝내기」 — 위성·방향·걸음 세기를 모두 멈춤(다시 켤 때 sijak)
+    func meomchugi() {
+        dolgo = false
+        mgr.stopUpdatingLocation()
+        mgr.stopUpdatingHeading()
+        mgr.allowsBackgroundLocationUpdates = false
+        pedo.stopUpdates()   // 걸음은 자정부터 세므로 다시 켜도 이어짐(georeumCheot 그대로)
+        sigye?.invalidate()
+        sigye = nil
+    }
+
     /// "항상 허락"을 청함 — 앱을 쓰는 동안만 허락된 때에만 창이 뜸
     func hangsangHeorakCheong() {
         if mgr.authorizationStatus == .authorizedWhenInUse { mgr.requestAlwaysAuthorization() }

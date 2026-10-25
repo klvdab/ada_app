@@ -10,13 +10,17 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.105.0"
-    static let bild = "261024-I59"
+    static let pan = "2.106.0"
+    static let bild = "261025-I60"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.106.0", bild: "261025-I60", nal: "2026-10-25", naeyong: [
+            "★TV 보기 전체화면 — TV 화면 아래 「전체화면으로 보기」, 전체화면에는 「전체화면 닫기」 하나만. 열고 닫아도 소리·방송 끊기지 않음(이사장님 승인 2026-10-25 「그래」)",
+            "도움말 「TV 보기」에 전체화면 더함"
+        ]),
         Gochim(pan: "2.105.0", bild: "261024-I59", nal: "2026-10-24", naeyong: [
             "★지하철 역 안내가 하루 내내 시작되지 않던 일 바로잡음(이사장님 지시 2026-10-24, 약수와 월드컵경기장을 6호선으로 오가실 때) — 6호선 땅속에서 아이폰이 와이파이로 짐작한 신내차량기지 자리를 그대로 믿고, 그 옆 경춘선 신내역에서 길을 찾다 실패해 차 안 안내(「멈춰 있습니다」)로 넘어갔던 일",
             "위성 자리와 짐작 자리를 가림 — 고도가 없는 자리나 땅속에서 받은 자리는 짐작 자리로 보아 지금 자리로 단정하지 않고, 위성이 확실히 잡은 자리나 알려 주신 자리에서 사람이 갈 수 없는 거리로 건너뛴 짐작 자리는 버림",

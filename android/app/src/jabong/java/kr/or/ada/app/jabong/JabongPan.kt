@@ -3,12 +3,17 @@
 package kr.or.ada.app.jabong
 
 object JabongPan {
-    const val pan = "2.32.0"
-    const val bild = "261024-A28"
+    const val pan = "2.33.0"
+    const val bild = "261025-A29"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.33.0", "261025-A29", "2026-10-25", listOf(
+            "★프로그램 끝내기 — 알림·설정 탭 도움말 아래. 그리던 길을 저장하고 위치·걸음·말소리를 모두 멈춘 뒤 앱을 닫음(이사장님 승인 2026-10-25 「그래」)",
+            "긴급통화 받기를 켜 두셨으면 계속 켜 둘지 한 번 여쭘 — 네는 알림 칸의 자봉이 남아 울림, 아니요는 받기까지 끔",
+            "그리던 중이면 잠깐 멈춤으로 저장, 도움말 「프로그램 끝내기」 더함"
+        )),
         Gochim("2.32.0", "261024-A28", "2026-10-24", listOf(
             "★긴급통화가 폰에 닿지 않던 일 막기(이사장님 승인 2026-10-24 「4」) — 밤 11시에 가족·지인 부름이 신국님 폰에 울리지 않음",
             "15분마다 자봉을 깨워, 긴급통화 받기를 켜 두셨는데 기다림이 꺼져 있으면 다시 켬",

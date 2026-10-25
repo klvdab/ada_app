@@ -127,7 +127,20 @@ object Wichi : SensorEventListener, LocationListener {
         if (c.packageName == "kr.or.ada.app") momKyeogi(c)
         wiseongDolligi()
         val r = object : Runnable { override fun run() { iegoSem(); main.postDelayed(this, 1000) } }
+        iegoR = r
         main.postDelayed(r, 1000)
+    }
+    private var iegoR: Runnable? = null
+
+    /** 자봉 2.33.0 (261025-A29, 이사장님 승인 2026-10-25 「그래」) 「프로그램 끝내기」 — 위성·방향·걸음 센서를 모두 놓음. 다시 sijak 하면 처음처럼 켬(길눈은 부르지 않음) */
+    fun meomchugi() {
+        if (!dolgo) return
+        dolgo = false
+        iegoR?.let { main.removeCallbacks(it) }; iegoR = null
+        try { lm?.removeUpdates(this) } catch (e: Exception) {}
+        try { sm?.unregisterListener(this) } catch (e: Exception) {}
+        georeumDolgo = false
+        Girok.namgi("wichi_meomchum", mapOf("kkeutnaegi" to true))
     }
 
     /** 허락을 받은 뒤 다시 부르면 위성·걸음을 엶 */

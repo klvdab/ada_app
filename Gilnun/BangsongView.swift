@@ -347,10 +347,29 @@ struct BideoView: UIViewRepresentable {
     static func dismantleUIView(_ uiView: BideoUIView, coordinator: ()) { uiView.player = nil }
 }
 
+/// 2.106.0 (261025-I60) TV 전체화면 — 영상만 크게, 맨 아래 「전체화면 닫기」 하나. 같은 플레이어라 소리·방송은 그대로 이어짐
+struct TVJeoncheView: View {
+    let player: AVPlayer
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Color.black.ignoresSafeArea()
+            BideoView(player: player)
+                .ignoresSafeArea()
+                .accessibilityLabel("TV 전체화면")
+            Button("전체화면 닫기") { dismiss() }
+                .buttonStyle(KeunDanchu())
+                .padding()
+        }
+        .onAppear { Girok.shared.namgi("tv_jeonche_yeolgi", [:]) }
+    }
+}
+
 struct ChaeneolView: View {
     let kind: String
     @ObservedObject private var b = BangsongEngine.shared
     @State private var mot = false
+    @State private var jeonche = false   // 2.106.0 전체화면으로 보기
 
     private var nawa: Bool { (kind == "tv" && b.jong == .tv) || (kind == "radio" && b.jong == .radio) }
 
@@ -364,6 +383,8 @@ struct ChaeneolView: View {
                             .frame(maxWidth: .infinity)
                             .aspectRatio(16 / 9, contentMode: .fit)
                             .accessibilityLabel("TV 화면")
+                        // 2.106.0 (261025-I60, 이사장님 승인 2026-10-25 「그래」) 전체화면 — 같은 플레이어를 크게 보여 소리·방송은 끊기지 않음
+                        Button("전체화면으로 보기") { jeonche = true }.buttonStyle(KeunDanchu())
                     }
                     Button(b.meomchum ? "다시 틀기" : "멈춤") { b.meomchumTogeul() }.buttonStyle(KeunDanchu())
                     Button(kind == "tv" ? "TV 그만 보기" : "라디오 그만 듣기") { b.geuman() }.buttonStyle(KeunDanchu())
@@ -396,6 +417,9 @@ struct ChaeneolView: View {
         }
         .sokHwamyeon(kind == "tv" ? "TV 보기" : "라디오 듣기")
         .onAppear { if b.chaeneolDeul.isEmpty { batgi() } }
+        .fullScreenCover(isPresented: $jeonche) { TVJeoncheView(player: b.player) }
+        .onChange(of: b.jong) { j in if j != .tv { jeonche = false } }
+        .onChange(of: b.yeongsangKkeum) { k in if k { jeonche = false } }
     }
 
     private func batgi() {

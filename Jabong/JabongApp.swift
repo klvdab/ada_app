@@ -48,6 +48,43 @@ final class JabongBonche {
         nc.addObserver(forName: UIApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in self?.jeojang() }
     }
 
+    // MARK: 2.32.0 (261025-I26, 이사장님 승인 2026-10-25 「그래」) 프로그램 끝내기
+    /// 끝낸 뒤 다시 앱을 여시면 위치·걸음을 다시 켬
+    private(set) var kkeutnaem = false
+
+    /// 저장하고 위치·걸음·소리를 모두 멈춘 뒤 폰의 첫 화면으로 — 아이폰은 앱 스스로 꺼질 수 없어 첫 화면으로 물러남.
+    /// badgiYuji 가 false 이면 긴급통화 받기까지 끔(true 면 길눈님이 부르실 때 애플 알림이 폰을 깨워 그대로 울림)
+    func kkeutnaegi(badgiYuji: Bool) {
+        Girok.shared.namgi("jabong_kkeutnaegi", ["badgi_yuji": badgiYuji, "badgi_kyeojim": JabongDaegi.shared.kyeojim])
+        JeomGeurigi.shared.jamkkan()   // 그리는 중이면 잠깐 멈춤으로 저장 — 다시 여시면 이어 그리기
+        jeojang()
+        Task {
+            if !badgiYuji, JabongDaegi.shared.kyeojim { await JabongDaegi.shared.swigi(true) }
+            await MainActor.run {
+                SoriEngine.shared.jeonhwaMeomchum()
+                WichiEngine.shared.meomchugi()
+                MomSensor.shared.kkeugi()
+                self.kkeutnaem = true
+                Girok.shared.jeojang()
+                if !self.dasiObserver {
+                    self.dasiObserver = true
+                    NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.dasiKyeogi() }
+                }
+                // 폰의 첫 화면으로 물러남
+                UIControl().sendAction(#selector(URLSessionTask.suspend), to: UIApplication.shared, for: nil)
+            }
+        }
+    }
+    private var dasiObserver = false
+
+    /// 끝낸 뒤 다시 여시면 위치·걸음을 다시 켬
+    private func dasiKyeogi() {
+        guard kkeutnaem else { return }
+        kkeutnaem = false
+        WichiEngine.shared.sijak()
+        Girok.shared.namgi("jabong_dasi_yeolgi", [:])
+    }
+
     func jeojang() {
         Girok.shared.jeojang()
         NotificationCenter.default.post(name: JabongBonche.jeojangHal, object: nil)   // 그리기 등이 제 것을 저장

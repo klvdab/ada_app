@@ -2,12 +2,13 @@
 import Foundation
 
 enum JabongPan {
-    static let pan = "2.31.0"
-    static let bild = "261024-I25"
+    static let pan = "2.32.0"
+    static let bild = "261025-I26"
     static var appBild: String { (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "" }
 
     struct Gochim: Identifiable { let id = UUID(); let pan: String; let bild: String; let nal: String; let naeyong: [String] }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.32.0", bild: "261025-I26", nal: "2026-10-25", naeyong: ["★프로그램 끝내기 — 알림·설정 탭 도움말 아래. 그리던 길을 저장하고 위치·걸음·말소리를 모두 멈춘 뒤 폰 첫 화면으로(이사장님 승인 2026-10-25 「그래」)", "긴급통화 받기를 켜 두셨으면 계속 켜 둘지 한 번 여쭘 — 네는 받기 켜 둠, 아니요는 받기까지 끔", "다시 여시면 위치·걸음 세기 다시 켬", "도움말 「프로그램 끝내기」 더함"]),
         Gochim(pan: "2.31.0", bild: "261024-I25", nal: "2026-10-24", naeyong: ["★안내 말소리를 처음부터 꺼 둠 — 앱에서 나는 소리가 부담스럽다는 시험 참가자 말씀(이사장님 지시 2026-10-24). 켜시려면 설정의 말소리나 그리는 중 펼치기 안의 안내 말소리", "이미 말소리를 켜거나 끄신 분은 고르신 대로 둠", "도움말 「안내 말소리 끄기」에 처음엔 꺼져 있다는 말 더함"]),
         Gochim(pan: "2.30.0", bild: "261024-I24", nal: "2026-10-24", naeyong: [
             "★긴급통화 받기 — 길손님 카메라 영상이 실제로 오는지 통화 8초·30초에 살펴 기록하고, 오지 않으면 통화 화면에 「길손님 카메라 영상은 아직 오지 않았습니다. 말소리는 이어져 있습니다.」(2026-10-24 이사장님 지시)",

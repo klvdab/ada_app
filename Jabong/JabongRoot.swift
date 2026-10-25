@@ -346,6 +346,8 @@ struct AllimTab: View {
     @State private var ijeugiMureum = false
     @State private var taltoeMureum = false   // 2.28.0 회원 탈퇴
     @State private var taltoeJam = ""
+    @State private var kkeutMureum = false   // 2.32.0 프로그램 끝내기
+    @ObservedObject private var daegi = JabongDaegi.shared
     var body: some View {
         TabCheot(jemok: "알림·설정") {
             BowanKan()   // 2.13.0 보완 부탁 — 있을 때만 맨 위에
@@ -363,6 +365,8 @@ struct AllimTab: View {
             }.buttonStyle(KeunDanchu())
             OllimSeoljeongDanchu()   // 2.12.0 업데이트 — 새로고침 바로 아래 한 곳
             NavigationLink { JabongDoumalView() } label: { Text("도움말") }.buttonStyle(KeunDanchu())
+            // 2.32.0 (261025-I26, 이사장님 승인 2026-10-25 「그래」) 프로그램 끝내기 — 긴급통화 받기를 켜 두셨으면 계속 켜 둘지 한 번 여쭘
+            Button("프로그램 끝내기") { kkeutMureum = true }.buttonStyle(KeunDanchu())
             DisclosureGroup("더 보기 펼치기") {
                 VStack(alignment: .leading, spacing: 12) {
                     NavigationLink { JabongPanView() } label: { Text("판 기록 — 자봉 앱 \(JabongPan.pan)") }.buttonStyle(KeunDanchu())
@@ -388,6 +392,15 @@ struct AllimTab: View {
                         SoriEngine.shared.mal(kkadak ?? "회원 탈퇴를 마쳤습니다. 그동안 함께해 주셔서 고맙습니다.")
                     }
                 }
+            }
+            Button("그만두기", role: .cancel) {}
+        }
+        .confirmationDialog(daegi.kyeojim ? "자봉을 끝냅니다. 긴급통화 받기는 계속 켜 둘까요? 켜 두시면 앱을 끝내도 길눈님이 부르실 때 폰이 울립니다." : "자봉을 끝낼까요? 그리던 길은 저장됩니다.", isPresented: $kkeutMureum, titleVisibility: .visible) {
+            if daegi.kyeojim {
+                Button("네, 받기는 켜 두고 끝내기") { JabongBonche.shared.kkeutnaegi(badgiYuji: true) }
+                Button("아니요, 받기까지 끄고 끝내기") { JabongBonche.shared.kkeutnaegi(badgiYuji: false) }
+            } else {
+                Button("끝내기") { JabongBonche.shared.kkeutnaegi(badgiYuji: false) }
             }
             Button("그만두기", role: .cancel) {}
         }
@@ -442,6 +455,7 @@ struct JabongDoumalView: View {
         ("긴급통화 받지 않기", "점지도만 그려 주시고 통화는 원치 않으시면, 긴급통화 받기 화면의 긴급통화 받지 않기(처음이면 긴급통화는 받지 않겠습니다)를 누르십시오. 어떤 요청도 울리지 않고, 폰 알림 주소도 나스에서 지웁니다. 점지도 그리기는 그대로 쓰십니다. 마음이 바뀌시면 같은 화면의 긴급통화 받기 시작을 누르시면 됩니다."),
         ("지금 상태 듣기", "그리기 탭에서 누르시면 자봉 번호, 긴급통화를 받는지, 보폭, 위성이 잘 잡혔는지를 말씀드립니다."),
         ("내 보폭 재기", "그리기 탭에서 엽니다. 정해진 거리를 걸으면 보폭을 셈해 폰이 기억합니다. 한 번 재면 다시 재지 않아도 되고, 원하실 때 다시 잴 수 있습니다."),
+        ("프로그램 끝내기", "알림·설정 탭의 도움말 바로 아래에 프로그램 끝내기 단추가 있습니다. 누르시면 그리던 길을 저장하고 위치, 걸음 세기, 안내 말소리를 모두 멈춘 뒤 폰의 첫 화면으로 돌아갑니다. 아이폰은 앱이 스스로 꺼질 수 없어 첫 화면으로 물러나는 방식이며, 실제로는 꺼진 것과 같습니다. 긴급통화 받기를 켜 두셨으면 계속 켜 둘지 한 번 여쭙습니다. 네를 고르시면 앱을 끝내도 길눈님이 부르실 때 폰이 울리고, 아니요를 고르시면 받기까지 꺼져 다시 함께하기를 누르실 때까지 울리지 않습니다. 다시 여시면 위치와 걸음 세기가 저절로 다시 켜집니다."),
         ("새로고침", "알림·설정 탭에서 누르시면 등록 정보와 그려 주신 길 수를 나스에서 다시 받습니다."),
         ("업데이트 — 새 판 받기", "자봉 앱은 켤 때와 앱으로 돌아올 때 협회 서버에 새 판이 나왔는지 스스로 물어봅니다. 새 판이 있으면 그리기 탭 맨 위에 자봉 새 판이 나왔습니다, 두드리면 테스트플라이트에서 업데이트합니다라는 단추가 뜹니다. 두드리시면 테스트플라이트의 자봉 자리가 열리니 자봉 옆의 업데이트를 두 번 두드리십시오. 아이폰은 앱이 스스로 자기를 설치할 수 없어 이렇게 테스트플라이트를 거칩니다. 새 판이 나오면 테스트플라이트도 알림을 보내 드리고, 테스트플라이트의 자봉 화면에서 자동 업데이트를 켜 두시면 저절로 깔립니다. 알림·설정 탭의 새로고침 바로 아래 업데이트 단추로 언제든 새 판이 있는지 살피실 수 있습니다. 그리던 길과 그린 길, 등록 정보, 보폭은 그대로 남습니다. 점지도를 그리는 중이면 다 그리고 올리신 뒤에 업데이트하시기를 권합니다."),
         ("저절로 저장", "현장에서는 늘 의외의 일이 생기므로 1분마다 저절로 저장합니다. 점지도를 그리는 중에는 1분마다, 표시를 남길 때마다, 앱이 뒤로 갈 때 그리던 길을 저장하고, 앱이 꺼졌다 켜지면 그리던 길을 잠깐 멈춤으로 되살려 이어 그리실 수 있습니다."),
