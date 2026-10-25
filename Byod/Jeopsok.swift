@@ -51,6 +51,16 @@ enum Jeopsok {
             .replacingOccurrences(of: ",", with: "\\,").replacingOccurrences(of: ":", with: "\\:")
     }
 
+    /// 1.9.1 (261025-BI12) 한 번에 듣기 주소 — lvdbangsong://deut?w=와이파이이름&p=비밀번호 (LVD 방송 앱 2.6.0부터 받음)
+    static func hanbeonJuso(ssid: String, pw: String) -> String {
+        var c = URLComponents()
+        c.scheme = "lvdbangsong"; c.host = "deut"
+        var q = [URLQueryItem(name: "w", value: ssid)]
+        if !pw.isEmpty { q.append(URLQueryItem(name: "p", value: pw)) }
+        c.queryItems = q
+        return c.url?.absoluteString ?? ""
+    }
+
     static func wifiQr(ssid: String, pw: String) -> String {
         pw.isEmpty ? "WIFI:T:nopass;S:\(gamssagi(ssid));;" : "WIFI:T:WPA;S:\(gamssagi(ssid));P:\(gamssagi(pw));;"
     }
@@ -290,6 +300,19 @@ struct JeopsokView: View {
                     Text(allim).font(.title3.weight(.bold)).foregroundStyle(Saek.norang)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityFocused($allimChojeom)
+                }
+                // 1.9.1 (261025-BI12, 새방클, 이사장님 승인 2026-10-25) 한 번에 듣기
+                Geul("한 번에 듣기: 듣는 분 폰에 LVD 방송 앱이 깔려 있으면, 안드로이드는 엔에프시 태그를 대고 아이폰은 큐알을 비추기만 하면 앱이 열려 이 와이파이에 붙고 곧바로 들립니다. 와이파이만 붙기 태그와 큐알은 아래에 예비로 둡니다.")
+                Danchu(geul: "엔에프시 태그 쓰기: 한 번에 듣기 (LVD 방송 앱)") {
+                    let s = ssid.trimmingCharacters(in: .whitespaces)
+                    if s.isEmpty { mal("방송 와이파이 이름을 먼저 넣어 주십시오."); return }
+                    guard let m = Jeopsok.jusoMesiji(Jeopsok.hanbeonJuso(ssid: s, pw: pw)) else { mal("태그 내용을 만들지 못했습니다."); return }
+                    NfcSseugi.shared.sijak(m, ireum: "한 번에 듣기")
+                }
+                Danchu(geul: "큐알 보기: 한 번에 듣기 (LVD 방송 앱)") {
+                    let s = ssid.trimmingCharacters(in: .whitespaces)
+                    if s.isEmpty { mal("방송 와이파이 이름을 먼저 넣어 주십시오."); return }
+                    qrBoyeogi(Jeopsok.hanbeonJuso(ssid: s, pw: pw), "한 번에 듣기")
                 }
                 Danchu(geul: "엔에프시 태그 쓰기: 와이파이 붙기") {
                     let s = ssid.trimmingCharacters(in: .whitespaces)
