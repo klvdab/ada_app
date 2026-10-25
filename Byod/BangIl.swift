@@ -4,6 +4,7 @@
 import Foundation
 import AVFoundation
 import UIKit
+import AudioToolbox
 
 final class BangIl {
     static let shared = BangIl()
@@ -105,6 +106,7 @@ final class BangIl {
         let b = Bang.shared
         ByodGirok.shared.namgi("bang_sijak", ["bangsik": bangsik, "juso": b.juso, "inteonet_hamkke": InteonetBonaegi.hamkke, "jeonhwa": InteonetBonaegi.jeonhwa.count >= 9])
         Bang.mundapTtae = .distantPast
+        tteoreojim = false   // 1.9.1
         girokCho = 0
         girokTimer?.invalidate()
         let t = Timer(timeInterval: 10, repeats: true) { [weak self] _ in self?.girokDolgi(bangsik) }
@@ -116,6 +118,7 @@ final class BangIl {
         let b = Bang.shared
         let cho = girokCho; girokCho += 1
         if cho % 6 == 0 && cho > 0 { ByodGirok.shared.namgi("deutneun", ["n": b.deutnunSu]) }
+        if bangsik == "iptime" { gongyugiSalpim() }   // 1.9.1 (261025-BI12) 공유기에서 떨어짐 알림
         guard bangsik == "iptime", let u = URL(string: b.juso.hasSuffix("/") ? b.juso + "status" : b.juso + "/status") else { return }
         var r = URLRequest(url: u, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 2)
         r.allowsCellularAccess = false
@@ -127,6 +130,33 @@ final class BangIl {
                 if cho == 0 || ok != jeon { ByodGirok.shared.namgi("mundap", ["ok": ok, "juso": b.juso]) }
             }
         }.resume()
+    }
+
+    /// 1.9.1 (261025-BI12, 새방클, 이사장님 승인 2026-10-25) 공유기에서 떨어짐 알림 — 안드로이드 1.8.1과 같은 뜻.
+    /// 아이피타임 방식으로 방송하는 동안 10초마다 이 아이폰의 와이파이(또는 유선 랜·핫스팟) 주소를 살펴, 없어지면
+    /// 진동 세 번과 함께 「공유기에서 떨어졌습니다」를 보이스오버로 알리고 기록을 남김. 다시 붙으면 알림을 지우고 듣기 주소를 고침
+    private var tteoreojim = false
+    private func gongyugiSalpim() {
+        let b = Bang.shared
+        guard b.kyeojim else { return }
+        let l = Juso.moduJuso()
+        let ip = l.first(where: { $0.0 == "유선 랜" })?.1 ?? l.first(where: { $0.0 == "와이파이" })?.1 ?? l.first(where: { $0.0 == "개인용 핫스팟" })?.1
+        if let i = ip {
+            let sae = "http://\(i):\(Bang.PORT)/"
+            if tteoreojim {
+                tteoreojim = false
+                if b.jalmot.hasPrefix("공유기에서 떨어졌습니다") { b.jalmot = "" }
+                allyeo("공유기에 다시 붙었습니다. 방송이 이어집니다.")
+                ByodGirok.shared.namgi("gongyugi_dasi", ["juso": sae])
+            }
+            if sae != b.juso { b.juso = sae }
+        } else if !tteoreojim {
+            tteoreojim = true
+            b.jalmot = "공유기에서 떨어졌습니다. 이 아이폰이 와이파이를 떠나 듣는 분이 방송을 찾지 못합니다. 설정의 와이파이에서 행사장 공유기에 다시 붙이십시오. 휴대폰 데이터를 꺼 두면 가장 확실합니다."
+            allyeo(b.jalmot)
+            for k in 0..<3 { DispatchQueue.main.asyncAfter(deadline: .now() + Double(k) * 0.8) { AudioServicesPlaySystemSound(kSystemSoundID_Vibrate) } }
+            ByodGirok.shared.namgi("gongyugi_tteoreojim", ["juso": b.juso])
+        }
     }
 
     /// 1.5.0 현장 방송과 함께 인터넷 방송 — 제목은 행사 이름(비면 날짜와 시각), 현장영상해설사 이름을 함께
