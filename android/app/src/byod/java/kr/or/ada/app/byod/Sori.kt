@@ -52,6 +52,8 @@ class Sori(private val ctx: Context, private val batgi: (ByteArray) -> Unit) {
     fun sijak() {
         if (dolgo) return
         dolgo = true
+        JadongKeugi.on = ctx.getSharedPreferences("byod", Context.MODE_PRIVATE).getBoolean("jadong_keugi", true)   // 1.9.2
+        JadongKeugi.cheoeum()
         am.registerAudioDeviceCallback(gigiBaram, Handler(Looper.getMainLooper()))
         il = Thread({ dolligi() }, "byod-sori").also { it.priority = Thread.MAX_PRIORITY; it.start() }
     }
@@ -110,7 +112,8 @@ class Sori(private val ctx: Context, private val batgi: (ByteArray) -> Unit) {
                         if (n < 0) throw IllegalStateException("마이크 읽기 오류 $n")
                         chaeum += n
                     }
-                    if (chaeum == JOGAK) keugiJaegi(buf)   // 1.1.5 현장 점검용 소리 크기
+                    if (chaeum == JOGAK) keugiJaegi(buf)   // 1.1.5 현장 점검용 소리 크기(들어오는 그대로)
+                    if (chaeum == JOGAK && JadongKeugi.on) JadongKeugi.matchugi(buf, JOGAK)   // 1.9.2 소리 자동 맞춤
                     // 1.3.1 (261015-B11) 현장영상해설사에게 전화가 오면 마이크는 전화에 양보하고, 듣는 분께는 「잠시 기다려 주십시오」를 들려 드림
                     val tonghwa = am.mode == AudioManager.MODE_IN_CALL || am.mode == AudioManager.MODE_IN_COMMUNICATION
                     if (tonghwa != Bang.tonghwaJung) { Bang.tonghwaJung = tonghwa; Gidarim.cheoeum(); Bang.allyeo() }
@@ -232,5 +235,36 @@ object Gidarim {
         }
         if (jari >= gil * 1000) jari = 0
         return out
+    }
+}
+
+// 1.9.2 (261026-B19, 새방클, 이사장님 지시 2026-10-26 「소리가 너무 작아 현장에서 사용이 불가」) 소리 자동 맞춤 —
+//   수신기에서 사운드카드로 들어오는 현장영상해설 소리가 작으면 앱이 키워서 내보냄(듣는 분 모두·행사 녹음·인터넷 방송이 함께 커짐).
+//   0.1초 조각마다 가장 큰 값을 보고, 가장 큰 소리가 꽉 찬 소리의 절반쯤(-6dB) 되게 최대 8배까지 키움.
+//   커질 때는 천천히(약 2초), 줄일 때는 곧바로. 아주 작은 소리(잡음, -40dB 아래)에서는 키우기를 더 올리지 않아 쉿 소리가 커지지 않게 함.
+//   그래도 넘치는 큰 소리는 찢어지지 않게 부드럽게 눌러 줌. 더 보기에서 끌 수 있음(처음값 켜짐)
+object JadongKeugi {
+    @Volatile var on = true
+    @Volatile var baesu = 1.0          // 지금 키우는 배수(현장 점검에 보임)
+    private const val MOKPYO = 16384.0  // 가장 큰 소리 목표(-6dB)
+    private const val CHOEDAE = 8.0
+    private const val JAPEUM = 330      // -40dB 아래는 잡음으로 봄
+    private const val MOK = 28000.0     // 이보다 크면 부드럽게 누름
+    fun cheoeum() { baesu = 1.0 }
+    fun matchugi(b: ShortArray, n: Int) {
+        var m = 0
+        for (i in 0 until n) { val a = if (b[i] < 0) -b[i].toInt() else b[i].toInt(); if (a > m) m = a }
+        if (m >= JAPEUM) {
+            val baram = (MOKPYO / m).coerceIn(1.0, CHOEDAE)
+            baesu = if (baram < baesu) baram else baesu + (baram - baesu) * 0.05
+        }
+        val g = baesu
+        if (g <= 1.001) return
+        for (i in 0 until n) {
+            var x = b[i] * g
+            val ax = Math.abs(x)
+            if (ax > MOK) x = Math.signum(x) * minOf(32767.0, MOK + (ax - MOK) * 0.2)
+            b[i] = x.toInt().toShort()
+        }
     }
 }
