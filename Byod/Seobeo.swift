@@ -19,14 +19,16 @@ final class Seobeo {
 
     static let MAKHIM: TimeInterval = 10      // 이만큼 하나도 못 보내면 끊긴 폰
     static let SSAAM = 16000 * 4               // 폰마다 4초까지 쌓아 둠(바이트)
+    static let SSAAM_OPUS = 32000              // 1.10.0 오푸스는 4초쯤(48kbps) — 넘치면 덩이가 잘리지 않게 그 폰을 끊음(다시 붙음)
 
     private final class Deut {
         let fd: Int32
         let gal: Int                 // 1.9.0 듣는 갈래(1·2·3)
         let ip: String               // 1.9.0 들어온 주소(공유기별 인원)
+        let opus: Bool               // 1.10.0 오푸스(시험)로 듣는 분(갈래 1)
         var nameum = Data()          // 아직 못 보낸 소리
         var jinjeon = Date()         // 마지막으로 조금이라도 보낸 때
-        init(fd: Int32, gal: Int, ip: String) { self.fd = fd; self.gal = gal; self.ip = ip }
+        init(fd: Int32, gal: Int, ip: String, opus: Bool = false) { self.fd = fd; self.gal = gal; self.ip = ip; self.opus = opus }
     }
 
     private let q = DispatchQueue(label: "kr.or.ada.byod.ppuri", qos: .userInteractive)   // 보내는 일꾼 하나
@@ -148,7 +150,7 @@ final class Seobeo {
         q.async { [weak self] in
             guard let self = self else { return }
             self.majimakJogak[gal] = Date()
-            for d in self.deutneun where d.gal == gal {
+            for d in self.deutneun where d.gal == gal && !d.opus {
                 d.nameum.append(b)
                 if d.nameum.count > Seobeo.SSAAM { d.nameum = d.nameum.subdata(in: (d.nameum.endIndex - Seobeo.SSAAM)..<d.nameum.endIndex) }   // 밀리면 오래된 소리를 버림(새 그릇에 옮겨 담아 메모리가 쌓이지 않게)
             }
@@ -156,12 +158,36 @@ final class Seobeo {
         }
     }
 
+    /// 1.10.0 (261026-BI14) 오푸스(시험) 한 덩이를 오푸스로 듣는 분에게만 — 길이 2바이트를 붙여서
+    func ppuridaOpus(_ p: Data) {
+        if !HyeonjangGil.shared.cueKyeojim { return }
+        let b = OpusSori.teul(p)
+        q.async { [weak self] in
+            guard let self = self else { return }
+            self.majimakOpus = Date()
+            var ppaem = false
+            self.deutneun.removeAll { d in
+                guard d.opus else { return false }
+                d.nameum.append(b)
+                if d.nameum.count > Seobeo.SSAAM_OPUS { close(d.fd); ppaem = true; return true }
+                return false
+            }
+            if ppaem { self.suAllim() }
+            self.moduBonaegi()
+        }
+    }
+    private var majimakOpus = Date.distantPast   // q 안에서만
+
     private func salpigi() {
         let now = Date()
         for g in 1...3 where now.timeIntervalSince(majimakJogak[g] ?? .distantPast) > 5 {
             majimakJogak[g] = now
             let gy = MuLaw.goyo(160)
-            for d in deutneun where d.gal == g && d.nameum.isEmpty { d.nameum.append(gy) }   // 끊긴 폰을 가려내려고 조금이라도 보냄
+            for d in deutneun where d.gal == g && !d.opus && d.nameum.isEmpty { d.nameum.append(gy) }   // 끊긴 폰을 가려내려고 조금이라도 보냄
+        }
+        if now.timeIntervalSince(majimakOpus) > 5 {   // 1.10.0 오푸스는 길이 0(살아 있음)
+            majimakOpus = now
+            for d in deutneun where d.opus && d.nameum.isEmpty { d.nameum.append(OpusSori.SALAITTA) }
         }
         moduBonaegi()
         var ppaem = false
@@ -295,6 +321,9 @@ final class Seobeo {
         case "/stream":
             let g = Int(HyeonjangGil.gap(rq.mul, "gal")) ?? 1   // 1.9.0 여러 갈래 해설
             keep = deutgi(c, gal: (2...3).contains(g) ? g : 1, ip: ip)
+        case "/opus":   // 1.10.0 (261026-BI14) 오푸스(시험) 줄기 — 오푸스가 나가고 있을 때만, 아니면 없는 주소(듣는 앱이 지금 방식으로 들음)
+            if !OpusSori.naganda { geulja(c, 404, "text/plain; charset=utf-8", "없는 주소입니다."); return }
+            keep = deutgiOpus(c, ip: ip)
         case "/daegi.mp3", "/ment.mp3":
             if let d = Jaryo.pail(String(gil.dropFirst())) { bonae(c, 200, "audio/mpeg", d) }
             else { geulja(c, 404, "text/plain; charset=utf-8", "없는 소리입니다.") }
@@ -317,6 +346,24 @@ final class Seobeo {
             guard let self = self else { close(c); return }
             guard self.dolgo else { close(c); return }
             self.deutneun.append(Deut(fd: c, gal: gal, ip: ip))
+            self.suAllim()
+        }
+        return true
+    }
+
+    /// 1.10.0 오푸스로 듣는 분 한 사람 — 머리와 길이 0을 보낸 뒤 보내는 일꾼에게 넘김
+    private func deutgiOpus(_ c: Int32, ip: String) -> Bool {
+        var big: Int32 = 32768
+        setsockopt(c, SOL_SOCKET, SO_SNDBUF, &big, socklen_t(MemoryLayout<Int32>.size))
+        let h = "HTTP/1.1 200 OK\r\nContent-Type: application/x-lvd-opus\r\nCache-Control: no-store\r\n" +
+            "Access-Control-Allow-Origin: *\r\nX-Content-Type-Options: nosniff\r\nX-Lvd-Opus: 48000 1\r\nConnection: close\r\n\r\n"
+        guard modu(c, Data(h.utf8)), modu(c, OpusSori.SALAITTA) else { return false }
+        let fl = fcntl(c, F_GETFL, 0)
+        _ = fcntl(c, F_SETFL, fl | O_NONBLOCK)
+        q.async { [weak self] in
+            guard let self = self else { close(c); return }
+            guard self.dolgo else { close(c); return }
+            self.deutneun.append(Deut(fd: c, gal: 1, ip: ip, opus: true))
             self.suAllim()
         }
         return true

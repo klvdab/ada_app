@@ -22,6 +22,12 @@ final class Sori {
     private var keugiJari = 0
     private var dasiDdae = Date.distantPast
     private let tapJamgeum = NSLock()   // 소리 일꾼 줄기와 화면 줄기가 converter·moum 을 함께 만지지 않게
+    // 1.10.0 (261026-BI14) 오푸스(시험) — 켜 두었을 때만. 지금 방식 줄기(converter·moum)는 그대로 두고 따로 48000으로 바꿔 줄임
+    var opusBatgi: ((Data) -> Void)?
+    private var opusEnc: OpusSseugi?
+    private var converter48: AVAudioConverter?
+    private var moum48: [Int16] = []
+    private let fmt48 = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 48000, channels: 1, interleaved: true)!
 
     init(batgi: @escaping (Data) -> Void) { self.batgi = batgi }
 
@@ -31,11 +37,14 @@ final class Sori {
         if dolgo { return }
         dolgo = true
         JadongKeugi.cheoeum()   // 1.9.2
+        tapJamgeum.lock(); opusEnc = (opusBatgi != nil && OpusSori.on) ? OpusSseugi() : nil; tapJamgeum.unlock()   // 1.10.0
+        OpusSori.naganda = opusEnc != nil
         do {
             try sesyeon()
             try engineYeolgi()
         } catch {
             dolgo = false
+            tapJamgeum.lock(); opusEnc = nil; converter48 = nil; tapJamgeum.unlock(); OpusSori.naganda = false   // 1.10.0
             throw error
         }
         let nc = NotificationCenter.default
@@ -60,7 +69,8 @@ final class Sori {
         bomyeon.removeAll()
         if engine.isRunning { engine.stop() }
         engine.inputNode.removeTap(onBus: 0)
-        tapJamgeum.lock(); moum.removeAll(); converter = nil; tapJamgeum.unlock()
+        tapJamgeum.lock(); moum.removeAll(); converter = nil; opusEnc = nil; converter48 = nil; moum48.removeAll(); tapJamgeum.unlock()   // 1.10.0 오푸스도
+        OpusSori.naganda = false
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
@@ -95,6 +105,13 @@ final class Sori {
         }
         cv.downmix = true   // 사운드카드가 두 줄(스테레오)로 줘도 한 줄로 합침
         tapJamgeum.lock(); converter = cv; moum.removeAll(); tapJamgeum.unlock()
+        // 1.10.0 오푸스(시험) — 줄이개가 있을 때만 48000 바꾸개를 만듦(못 만들면 오푸스 없이 지금 방식만)
+        tapJamgeum.lock()
+        if opusEnc != nil, let c48 = AVAudioConverter(from: fmt, to: fmt48) { c48.downmix = true; converter48 = c48 } else { converter48 = nil }
+        moum48.removeAll()
+        let o48 = converter48 != nil
+        tapJamgeum.unlock()
+        OpusSori.naganda = o48   // 48000 바꾸개까지 있어야 /opus 를 엶(없으면 듣는 앱은 지금 방식으로)
         inp.removeTap(onBus: 0)
         inp.installTap(onBus: 0, bufferSize: 4096, format: fmt) { [weak self] buf, _ in self?.tapBatgi(buf) }
         engine.prepare()
@@ -167,19 +184,41 @@ final class Sori {
         t.schedule(deadline: .now(), repeating: 0.1)
         t.setEventHandler { [weak self] in
             guard let s = self, s.dolgo, Bang.shared.keu else { return }
-            s.batgi(Gidarim.jogak(Sori.JOGAK))
+            let mu = Gidarim.jogak(Sori.JOGAK)
+            s.batgi(mu)
+            s.opusGidarim(mu)   // 1.10.0 오푸스로 듣는 분께도 같은 안내
         }
         t.resume()
         gidarimTimer = t
     }
     private func gidarimMeomchum() { gidarimTimer?.cancel(); gidarimTimer = nil }
 
+    /// 1.10.0 통화 중 안내(뮤)를 48000으로 늘려 오푸스로
+    private func opusGidarim(_ mu: Data) {
+        guard let ob = opusBatgi else { return }
+        tapJamgeum.lock()
+        guard let enc = opusEnc else { tapJamgeum.unlock(); return }
+        var p = [Int16](repeating: 0, count: mu.count * 3)
+        var i = 0
+        for v in mu { let x = Sori.DEC[Int(v)]; p[i] = x; p[i + 1] = x; p[i + 2] = x; i += 3 }
+        let dl = enc.neoki(p)
+        tapJamgeum.unlock()
+        for d in dl { ob(d) }
+    }
+    static let DEC: [Int16] = (0..<256).map { i in
+        let u = ~i & 0xFF, s = u & 0x80, e = (u >> 4) & 7, m = u & 0x0F
+        let x = (((m << 3) + 0x84) << e) - 0x84
+        return Int16(s != 0 ? -x : x)
+    }
+
     private func tapBatgi(_ buf: AVAudioPCMBuffer) {
         var jogakdeul: [[Int16]] = []
+        var opusDeul: [Data] = []   // 1.10.0
         tapJamgeum.lock()
         defer {
             tapJamgeum.unlock()
             for jogak in jogakdeul { if Bang.shared.keu { batgi(MuLaw.jurigi(jogak)) } }
+            if Bang.shared.keu, let ob = opusBatgi { for d in opusDeul { ob(d) } }   // 1.10.0
         }
         guard let cv = converter, buf.frameLength > 0 else { return }
         let bi = Sori.RATE / buf.format.sampleRate
@@ -201,6 +240,28 @@ final class Sori {
             moum.removeFirst(Sori.JOGAK)
             keugiJaegi(jogak)   // 들어오는 그대로 잼(현장 점검)
             jogakdeul.append(JadongKeugi.on ? JadongKeugi.matchugi(jogak) : jogak)   // 1.9.2 소리 자동 맞춤
+        }
+        // 1.10.0 (261026-BI14) 오푸스(시험) — 같은 소리를 48000으로 바꿔 0.1초씩, 자동 맞춤은 지금 배수 그대로
+        if let c48 = converter48, let enc = opusEnc {
+            let cap48 = AVAudioFrameCount(Double(buf.frameLength) * 48000 / buf.format.sampleRate + 64)
+            if let o48 = AVAudioPCMBuffer(pcmFormat: fmt48, frameCapacity: cap48) {
+                var juem48 = false
+                var err48: NSError?
+                let st48 = c48.convert(to: o48, error: &err48) { _, inStatus in
+                    if juem48 { inStatus.pointee = .noDataNow; return nil }
+                    juem48 = true
+                    inStatus.pointee = .haveData
+                    return buf
+                }
+                if st48 != .error, let ch48 = o48.int16ChannelData, o48.frameLength > 0 {
+                    moum48.append(contentsOf: UnsafeBufferPointer(start: ch48[0], count: Int(o48.frameLength)))
+                }
+            }
+            while moum48.count >= Sori.JOGAK * 3 {
+                let j48 = Array(moum48[0..<(Sori.JOGAK * 3)])
+                moum48.removeFirst(Sori.JOGAK * 3)
+                opusDeul.append(contentsOf: enc.neoki(JadongKeugi.on ? JadongKeugi.jeogyong(j48) : j48))
+            }
         }
     }
 
@@ -323,6 +384,17 @@ enum JadongKeugi {
     }
     private static var baesu = 1.0
     static func cheoeum() { baesu = 1.0 }
+    /// 1.10.0 (261026-BI14) 지금 배수를 그대로 씌움(오푸스 줄기용, 배수는 바꾸지 않음)
+    static func jeogyong(_ b: [Int16]) -> [Int16] {
+        let g = baesu
+        if g <= 1.001 { return b }
+        return b.map { v -> Int16 in
+            var x = Double(v) * g
+            let ax = abs(x)
+            if ax > 28000 { x = (x < 0 ? -1 : 1) * min(32767, 28000 + (ax - 28000) * 0.2) }
+            return Int16(max(-32768, min(32767, x)))
+        }
+    }
     static func matchugi(_ b: [Int16]) -> [Int16] {
         var m: Int32 = 0
         for v in b { let a = v < 0 ? -Int32(v) : Int32(v); if a > m { m = a } }

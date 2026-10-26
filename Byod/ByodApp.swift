@@ -207,6 +207,7 @@ struct CheotView: View {
     @AppStorage("haeseolsa_phone") private var haeseolsaPhone = ""   // 1.5.0 인터넷 방송에 씀(협회 명단 번호)
     @State private var hamkkeOn = InteonetBonaegi.hamkke   // 1.5.0
     @State private var keugiOn = JadongKeugi.on   // 1.9.2 소리 자동 맞춤
+    @State private var opusOn = OpusSori.on   // 1.10.0 소리 방식 오푸스(시험)
     @State private var tikSu = 0
     @State private var damgim = Jaryo.damgimMal
     @State private var jeomgeomGeul = ""
@@ -278,6 +279,7 @@ struct CheotView: View {
                     Danchu(geul: "BYOD 방송 서버 확인하기") { flintHwagin() }   // 1.2.0
                     Danchu(geul: hamkkeOn ? "BYOD 방송과 함께 인터넷 방송: 켜짐. 누르면 끕니다" : "BYOD 방송과 함께 인터넷 방송: 꺼짐. 누르면 켭니다") { hamkkeBakkugi() }   // 1.5.0
                     Danchu(geul: keugiOn ? "소리 자동 맞춤(작은 해설 소리 키우기): 켜짐. 누르면 끕니다" : "소리 자동 맞춤(작은 해설 소리 키우기): 꺼짐. 누르면 켭니다") { keugiBakkugi() }   // 1.9.2
+                    Danchu(geul: opusOn ? "소리 방식 오푸스(시험): 켜짐. 누르면 끕니다" : "소리 방식 오푸스(시험): 꺼짐. 누르면 켭니다") { opusBakkugi() }   // 1.10.0
                     Danchu(geul: "기기 점검: 소리 장치와 연결 보기") { gigiGeul = Sori.gigiJeomgeom(); gigiBoim = true }
                     Danchu(geul: "새로고침") { saerogochim() }
                     Danchu(geul: ollim.seoljeongGeul) { ollim.seoljeongNureum() }
@@ -491,6 +493,16 @@ struct CheotView: View {
         JadongKeugi.cheoeum()
         keugiOn = on
         let t = on ? "소리 자동 맞춤을 켰습니다. 들어오는 해설 소리가 작으면 앱이 최대 8배까지 키워 내보냅니다." : "소리 자동 맞춤을 껐습니다. 들어오는 소리를 그대로 내보냅니다."
+        allyeo(t); malhagi(t)
+    }
+
+    // 1.10.0 (261026-BI14) 소리 방식 오푸스(시험) 켜고 끄기 — 처음값 꺼짐, 다음 방송부터. 지금 방식(뮤)은 늘 함께 나감
+    private func opusBakkugi() {
+        let on = !opusOn
+        OpusSori.on = on
+        opusOn = on
+        let t = on ? "오푸스(시험)를 켰습니다. 다음 방송부터 지금 방식과 함께 더 맑은 오푸스 소리도 내보냅니다. 엘브이디 방송 2.7.0 이상은 저절로 오푸스로 듣습니다." + (bang.kyeojim ? " 지금 방송은 그대로이니, 방송을 끝내고 다시 시작하십시오." : "")
+                   : "오푸스(시험)를 껐습니다. 다음 방송부터 지금 방식으로만 내보냅니다."
         allyeo(t); malhagi(t)
     }
 

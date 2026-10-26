@@ -55,6 +55,7 @@ final class BangIl {
         GigiNokeum.shared.sijak(jemok: (ud.string(forKey: "haengsa_jemok") ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
                                 haeseolsa: (ud.string(forKey: "haeseolsa") ?? "").trimmingCharacters(in: .whitespacesAndNewlines))
         let so = Sori { [weak self] d in self?.soriTtae = Date().timeIntervalSince1970; Seobeo.shared.ppurida(d); GigiNokeum.shared.sseugi(d); InteonetBonaegi.shared.neoki(d) }   // 1.5.0 인터넷 방송에도 같은 소리, 1.7.0 녹음
+        so.opusBatgi = { p in Seobeo.shared.ppuridaOpus(p) }   // 1.10.0 (261026-BI14) 오푸스(시험) — 켜 두셨을 때만 Sori 가 실제로 만듦
         do {
             try so.sijak()
         } catch {
@@ -80,6 +81,7 @@ final class BangIl {
         let b = Bang.shared
         FlintBonaegi.shared.sijak()
         let so = Sori { [weak self] d in self?.soriTtae = Date().timeIntervalSince1970; FlintBonaegi.shared.neoki(d); InteonetBonaegi.shared.neoki(d) }   // 1.5.0 인터넷 방송에도 같은 소리
+        so.opusBatgi = { p in FlintBonaegi.shared.neokiOpus(p) }   // 1.10.0 오푸스(시험) — 공유기 1.5.0 이상이고 켜 두셨을 때만 실제로 나감
         do {
             try so.sijak()
         } catch {

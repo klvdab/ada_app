@@ -46,6 +46,8 @@ final class FlintBonaegi {
     private var dolgo = false
     private var butum = false            // 공유기가 OK 라고 답했는가
     private var ssain = 0                // 아직 보내지 못하고 쌓인 조각 수
+    private var kkol2 = false            // 1.10.0 (261026-BI14) 공유기가 BYOD2 꼴(종류 1바이트 + 길이 2바이트 + 소리)을 받아들였는가
+    private var ssainOpus = 0            // 1.10.0 쌓인 오푸스 덩이 수
     private var salpimTimer: DispatchSourceTimer?
     private var yseq = -1
     private var gigiIreum = "아이폰"
@@ -80,6 +82,7 @@ final class FlintBonaegi {
         q.async {
             self.dolgo = false
             self.butum = false
+            self.kkol2 = false   // 1.10.0
             self.con?.cancel(); self.con = nil
             self.salpimTimer?.cancel(); self.salpimTimer = nil
             self.jamgeum.lock(); self._bonaenda = false; self.jamgeum.unlock()
@@ -91,7 +94,7 @@ final class FlintBonaegi {
         q.async {
             guard self.dolgo, self.butum, let c = self.con, self.ssain < 50 else { return }
             self.ssain += 1
-            c.send(content: d, completion: .contentProcessed { [weak self] e in
+            c.send(content: self.kkol2 ? FlintBonaegi.teul2(1, d) : d, completion: .contentProcessed { [weak self] e in
                 self?.q.async {
                     guard let s = self else { return }
                     s.ssain -= 1
@@ -101,23 +104,46 @@ final class FlintBonaegi {
         }
     }
 
+    /// 1.10.0 종류 1바이트 + 길이 2바이트를 붙임
+    private static func teul2(_ t: UInt8, _ d: Data) -> Data {
+        var o = Data([t, UInt8((d.count >> 8) & 0xFF), UInt8(d.count & 0xFF)])
+        o.append(d)
+        return o
+    }
+
+    /// 1.10.0 (261026-BI14) 오푸스(시험) 한 덩이 — 공유기가 BYOD2 꼴을 받아들였을 때만(옛 공유기면 버림)
+    func neokiOpus(_ p: Data) {
+        q.async {
+            guard self.dolgo, self.butum, self.kkol2, let c = self.con, self.ssainOpus < 250 else { return }
+            self.ssainOpus += 1
+            c.send(content: FlintBonaegi.teul2(2, p), completion: .contentProcessed { [weak self] _ in
+                self?.q.async { self?.ssainOpus -= 1 }
+            })
+        }
+    }
+
     private func butgi() {
         guard dolgo else { return }
         let c = NWConnection(host: NWEndpoint.Host(Flint.IP), port: NWEndpoint.Port(rawValue: Flint.SORI)!, using: .tcp)
         con = c
         ssain = 0
+        ssainOpus = 0; kkol2 = false   // 1.10.0
+        let opusHal = OpusSori.on   // 1.10.0 켜 두셨으면 머리 끝에 「2」(BYOD2 꼴로 보내겠다) — 옛 공유기는 이 칸을 보지 않음
         c.stateUpdateHandler = { [weak self] st in
             guard let s = self else { return }
             switch st {
             case .ready:
                 // 1.3.0 행사 이름·현장영상해설사·이 아이폰 시각을 함께 보냄(공유기가 행사 녹음과 기록을 남김)
                 func kan(_ k: String) -> String { (UserDefaults.standard.string(forKey: k) ?? "").replacingOccurrences(of: "\t", with: " ").replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces) }
-                let meori = "BYOD - \(s.gigiIreum)\t\(kan("haengsa_jemok"))\t\(kan("haeseolsa"))\t\(Date().timeIntervalSince1970)\n"
+                let meori = "BYOD - \(s.gigiIreum)\t\(kan("haengsa_jemok"))\t\(kan("haeseolsa"))\t\(Date().timeIntervalSince1970)" + (opusHal ? "\t2" : "") + "\n"
                 c.send(content: meori.data(using: .utf8), completion: .contentProcessed { _ in })
                 c.receive(minimumIncompleteLength: 2, maximumLength: 64) { d, _, _, e in
                     s.q.async {
                         let t = d.flatMap { String(data: $0, encoding: .utf8) } ?? ""
-                        if e == nil && t.hasPrefix("OK") {
+                        if e == nil && t.hasPrefix("OK") && (!opusHal || t.contains("\n")) {   // 1.10.0 오푸스를 청했으면 대답 한 줄을 다 받아야(반만 오면 다시 붙음)
+                            // 1.10.0 공유기 1.5.0 부터는 받아들이면 대답 끝에 「 2」(OK 판 피디번호 2)
+                            let jul = (t.split(separator: "\n").first.map(String.init) ?? t).split(separator: " ")
+                            s.kkol2 = opusHal && jul.count >= 3 && jul.last.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) == "2" } == true
                             s.butum = true
                             s.jamgeum.lock(); s._bonaenda = true; s.jamgeum.unlock()
                             Bang.shared.juge { b in if b.jalmot.hasPrefix("공유기") { b.jalmot = "" } }
