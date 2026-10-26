@@ -39,6 +39,7 @@ import java.net.URL
 
 /** 듣기 상태 한곳 — 화면과 일꾼이 함께 봄 */
 object Deut {
+    @Volatile var keugi = 1   // 2.6.1 (261026-L10) 현장영상해설 소리 더 크게 — 1 보통, 2 두 배, 4 네 배(BYOD 방송에 적용)
     @Volatile var kyeojim = false         // 듣기 일꾼이 도는가
     @Volatile var deullim = false         // 지금 소리가 나오는가
     @Volatile var jemok = ""              // 행사 이름
@@ -125,6 +126,7 @@ class DeutService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        Deut.keugi = getSharedPreferences("lvd_bangsong", Context.MODE_PRIVATE).getInt("deo_keuge", 1)   // 2.6.1
         Girok.sijak(applicationContext)   // 2.4.1 이용 기록
         am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         tongjiCheot()
@@ -277,6 +279,13 @@ class DeutService : Service() {
                     val r = ins.read(b)
                     if (r < 0) break
                     for (i in 0 until r) pcm[i] = DEC[b[i].toInt() and 0xFF]
+                    val kg = Deut.keugi
+                    if (kg > 1) for (i in 0 until r) {   // 2.6.1 소리 더 크게 — 넘치는 소리는 부드럽게 눌러 찢어지지 않게
+                        var x = pcm[i] * kg.toDouble()
+                        val ax = Math.abs(x)
+                        if (ax > 28000.0) x = Math.signum(x) * minOf(32767.0, 28000.0 + (ax - 28000.0) * 0.2)
+                        pcm[i] = x.toInt().toShort()
+                    }
                     at.write(pcm, 0, r)
                     if (tonghwaJung()) { jamsi = true; Deut.bakkum("전화 중이라 잠시 멈추었습니다. 통화가 끝나면 저절로 다시 들려 드립니다.", false); break }
                 }
