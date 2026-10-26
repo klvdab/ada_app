@@ -18,7 +18,10 @@ struct SeoljeongView: View {
                     .buttonStyle(KeunDanchu())
                     .accessibilityFocused($cheotJul)
                 // 2.110.0 (261025-I64, 이사장님 승인 2026-10-25) 위치·마이크 허락 — 지금 상태를 이름에 담고, 누르면 아이폰 설정의 길눈 화면이 바로 열림
-                Button("위치 허락 — \(heorak.wichiMal). 누르면 아이폰 설정의 길눈 화면을 엽니다. 위치에서 항상을 골라 주십시오") {
+                // 2.111.0 위치 서비스가 꺼졌을 때는 켜는 차례를 알려 드린다고 이름에 밝힘
+                Button(heorak.wichiSeobiseu
+                       ? "위치 허락 — \(heorak.wichiMal). 누르면 아이폰 설정의 길눈 화면을 엽니다. 위치에서 항상을 골라 주십시오"
+                       : "위치 허락 — \(heorak.wichiMal). 누르면 아이폰 위치 서비스를 켜는 차례를 알려 드립니다") {
                     heorak.wichiSeoljeongYeolgi()
                 }
                 .buttonStyle(KeunDanchu())

@@ -39,8 +39,13 @@ struct RootView: View {
         .fullScreenCover(item: $dongyeong.ponJaesaeng) { g in DongyeongJaesaengView(url: g.url) }
         // 2.110.0 (261025-I64, 이사장님 승인 2026-10-25) 위치 허락이 모자라면 처음과 나빠졌을 때 한 번 알리고 설정을 바로 여는 단추
         .alert("위치 허락", isPresented: Binding(get: { heorak.allimGeul != nil }, set: { if !$0 { heorak.allimGeul = nil } })) {
-            Button("설정 열기") { heorak.allimGeul = nil; HeorakAllim.shared.wichiSeoljeongYeolgi() }
-            Button("나중에", role: .cancel) { heorak.allimGeul = nil }
+            // 2.111.0 아이폰 위치 서비스가 꺼졌을 때는 길눈 화면을 열어도 소용없어 「알겠습니다」 하나만
+            if heorak.allimSeobiseu {
+                Button("알겠습니다", role: .cancel) { heorak.allimGeul = nil }
+            } else {
+                Button("설정 열기") { heorak.allimGeul = nil; HeorakAllim.shared.wichiSeoljeongYeolgi() }
+                Button("나중에", role: .cancel) { heorak.allimGeul = nil }
+            }
         } message: {
             Text(heorak.allimGeul ?? "")
         }

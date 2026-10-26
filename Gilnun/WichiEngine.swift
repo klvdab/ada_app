@@ -104,6 +104,14 @@ final class WichiEngine: NSObject, ObservableObject, CLLocationManagerDelegate {
         if mgr.authorizationStatus == .authorizedWhenInUse { mgr.requestAlwaysAuthorization() }
     }
 
+    /// 2.111.0 (261026-I65, 이사장님 승인 2026-10-26 「1」) 허락 상태를 새로 읽고, 아직 묻지 않았으면 아이폰의 허락 창을 띄움 —
+    ///   아이폰 위치 서비스가 꺼진 채 길눈이 열려 허락 창이 한 번도 뜨지 못하면, 위치 서비스 목록에 길눈이 아예 없던 일(10-26 아침)
+    func heorakSaero() {
+        let s = mgr.authorizationStatus
+        heorakBoda(s)
+        if s == .notDetermined { mgr.requestWhenInUseAuthorization() }
+    }
+
     var geojeoldoem: Bool {
         mgr.authorizationStatus == .denied || mgr.authorizationStatus == .restricted
     }
