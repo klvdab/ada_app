@@ -27,13 +27,18 @@ import android.media.AudioFocusRequest
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
+import android.media.MediaCodec
+import android.media.MediaFormat
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import android.media.MediaPlayer
 import org.json.JSONObject
+import java.io.DataInputStream
 import java.io.InputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -250,6 +255,15 @@ class DeutService : Service() {
                 if (s != null) { inteonetTeulgi(s); continue }
                 swigiGoreum(10_000); continue
             }
+            // 2.7.0 (261026-L11) 오푸스(시험) — 송출이 오푸스도 내보내면 오푸스로, 없으면(없는 주소) 30초 동안은 묻지 않고 아래 지금 방식으로
+            if (System.currentTimeMillis() >= opusSwim) {
+                val dap = opusDeutgi(n, jm0, beoseonaAllim && !cheotYeongyeol)
+                if (dap) {
+                    beoseonaTtae = 0L; beoseonaAllim = false; cheotYeongyeol = false
+                    if (dolgo) swigi(1000)
+                    continue
+                }
+            }
             // 3. 받아 틀기
             var at: AudioTrack? = null
             try {
@@ -300,6 +314,108 @@ class DeutService : Service() {
             }
             if (dolgo) swigi(1000)
         }
+    }
+
+    // 2.7.0 (261026-L11, 새방클, 이사장님 승인 2026-10-26) 오푸스(시험) 듣기 — 길이 2바이트 + 오푸스 덩이(길이 0은 살아 있음).
+    //   소리가 한 번이라도 나왔으면 참(끊기면 다시 오푸스부터 물음), 오푸스가 없거나 열지 못하면 거짓(지금 방식으로 들음)
+    @Volatile private var opusSwim = 0L
+    private fun opusMeori(): MediaFormat {
+        val f = MediaFormat.createAudioFormat("audio/opus", 48000, 1)
+        val h = ByteBuffer.allocate(19).order(ByteOrder.LITTLE_ENDIAN)
+        h.put("OpusHead".toByteArray(Charsets.US_ASCII)); h.put(1.toByte()); h.put(1.toByte())
+        h.putShort(312.toShort()); h.putInt(48000); h.putShort(0.toShort()); h.put(0.toByte())
+        h.flip()
+        f.setByteBuffer("csd-0", h)
+        f.setByteBuffer("csd-1", ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(312L * 1_000_000_000L / 48000L).also { it.flip() })
+        f.setByteBuffer("csd-2", ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(80_000_000L).also { it.flip() })
+        return f
+    }
+    private fun opusDeutgi(n: android.net.Network, jm: String, dasi: Boolean): Boolean {
+        var at: AudioTrack? = null
+        var dc: MediaCodec? = null
+        var nawatda = false
+        try {
+            val k = n.openConnection(Hyeonjang.opus()) as HttpURLConnection
+            k.connectTimeout = 4000; k.readTimeout = 8000; k.useCaches = false
+            kon = k
+            if (k.responseCode != 200 || (k.contentType ?: "").indexOf("x-lvd-opus") < 0) { opusSwim = System.currentTimeMillis() + 30_000; return false }
+            val ins = DataInputStream(java.io.BufferedInputStream(k.inputStream, 4096))
+            val d = try { MediaCodec.createDecoderByType("audio/opus").also { it.configure(opusMeori(), null, null, 0); it.start() } }
+                    catch (e: Exception) { opusSwim = System.currentTimeMillis() + 600_000; return false }
+            dc = d
+            val minBuf = AudioTrack.getMinBufferSize(48000, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
+            val t = AudioTrack.Builder()
+                .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
+                .setAudioFormat(AudioFormat.Builder().setSampleRate(48000).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).setEncoding(AudioFormat.ENCODING_PCM_16BIT).build())
+                .setBufferSizeInBytes(maxOf(minBuf, 48000 * 2 / 2))   // 0.5초 남짓 — 지금 방식과 같게
+                .setTransferMode(AudioTrack.MODE_STREAM)
+                .build()
+            at = t
+            t.play()
+            Deut.jemok = jm
+            val mal = (if (jm.isNotEmpty()) jm + " 행사 " else "") + "현장영상해설에 연결되었습니다. 맑은 소리(오푸스 시험)로 듣습니다."
+            Deut.bakkum(if (dasi) "다시 연결되었습니다. " + mal else mal, true)
+            val buteunTtae = System.currentTimeMillis()
+            Deut.deullim = true
+            tongjiGochigi()
+            val info = MediaCodec.BufferInfo()
+            var pts = 0L
+            var pcm = ShortArray(1920)
+            val dlen = ByteArray(2)
+            var pk = ByteArray(1500)
+            while (dolgo && !jamsi && !Deut.bogiJung && !(Deut.songchulJung && !iyeopon())) {
+                if (!nawatda && System.currentTimeMillis() - buteunTtae > 3000) break   // 3초 넘게 소리가 안 나오면 지금 방식으로
+                ins.readFully(dlen)
+                val len = ((dlen[0].toInt() and 0xFF) shl 8) or (dlen[1].toInt() and 0xFF)
+                if (len == 0) continue
+                if (len > pk.size) pk = ByteArray(len)
+                ins.readFully(pk, 0, len)
+                val ii = d.dequeueInputBuffer(20_000)
+                if (ii >= 0) {
+                    val ib = d.getInputBuffer(ii)
+                    if (ib != null && ib.capacity() >= len) {
+                        ib.clear(); ib.put(pk, 0, len)
+                        d.queueInputBuffer(ii, 0, len, pts, 0)
+                    } else d.queueInputBuffer(ii, 0, 0, pts, 0)
+                    pts += 20_000L
+                }
+                while (true) {
+                    val oi = d.dequeueOutputBuffer(info, 0)
+                    if (oi < 0) break
+                    val ob = d.getOutputBuffer(oi)
+                    if (ob != null && info.size > 0) {
+                        ob.position(info.offset); ob.limit(info.offset + info.size)
+                        val sb = ob.order(ByteOrder.nativeOrder()).asShortBuffer()
+                        val m = sb.remaining()
+                        if (m > pcm.size) pcm = ShortArray(m)
+                        sb.get(pcm, 0, m)
+                        val kg = Deut.keugi
+                        if (kg > 1) for (i in 0 until m) {   // 2.6.1 소리 더 크게와 같게
+                            var x = pcm[i] * kg.toDouble()
+                            val ax = Math.abs(x)
+                            if (ax > 28000.0) x = Math.signum(x) * minOf(32767.0, 28000.0 + (ax - 28000.0) * 0.2)
+                            pcm[i] = x.toInt().toShort()
+                        }
+                        t.write(pcm, 0, m)
+                        nawatda = true   // 소리가 실제로 나온 뒤에야 오푸스로 들은 것으로 봄
+                    }
+                    d.releaseOutputBuffer(oi, false)
+                }
+                if (tonghwaJung()) { jamsi = true; Deut.bakkum("전화 중이라 잠시 멈추었습니다. 통화가 끝나면 저절로 다시 들려 드립니다.", false); break }
+            }
+        } catch (_: Exception) {
+            // 끊김 — 소리가 나왔었으면 다시 오푸스부터, 아니면 아래에서 지금 방식으로
+        } finally {
+            Deut.deullim = false
+            try { kon?.disconnect() } catch (_: Exception) { }
+            kon = null
+            try { at?.stop() } catch (_: Exception) { }
+            try { at?.release() } catch (_: Exception) { }
+            try { dc?.stop() } catch (_: Exception) { }
+            try { dc?.release() } catch (_: Exception) { }
+        }
+        if (!nawatda && opusSwim < System.currentTimeMillis()) opusSwim = System.currentTimeMillis() + 30_000
+        return nawatda
     }
 
     // 2.5.1 (261025-L8, 새방클, 이사장님 승인 2026-10-25) 인터넷 없는 와이파이 붙잡아 두기 — LVD 송출 1.8.1과 같은 방법.

@@ -140,6 +140,7 @@ object Hyeonjang {
 
     /** 2.4.0 지금 자리의 듣기 줄기 주소 */
     fun stream(): URL = URL("$jari/stream")
+    fun opus(): URL = URL("$jari/opus")   // 2.7.0 (261026-L11) 오푸스(시험) — 송출이 켜 두었을 때만 있음
 
     private fun hyeonjangInga(t: String?): String? {
         if (t == null) return null
