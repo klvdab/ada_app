@@ -36,6 +36,11 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
     @Published private(set) var bogiBang: InteonetBang? = nil  // 2.5.0 듣는 인터넷 방송이 영상으로도 볼 수 있으면 그 방송
     private(set) var bogiJung = false                           // 2.5.0 영상으로 보는 중 — 소리(mp3)는 쉼
     var mal: ((String) -> Void)?
+    /// 2.6.1 (261026-LI9) 현장영상해설 소리 더 크게 — 1 보통, 2 두 배, 4 네 배(BYOD 방송에 적용), 기억함
+    static var keugi: Int {
+        get { let k = UserDefaults.standard.integer(forKey: "deo_keuge"); return (k == 2 || k == 4) ? k : 1 }
+        set { UserDefaults.standard.set(newValue, forKey: "deo_keuge") }
+    }
     var sonMeomchum = false      // 손으로 멈춤 — 행사장을 벗어날 때까지 저절로 다시 켜지 않음
     private(set) var jemok = ""
 
@@ -322,7 +327,12 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
             namjin.removeFirst(1600)
             guard let b = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: 1600), let ch = b.floatChannelData?[0] else { continue }
             var i = 0
-            for v in jogak { ch[i] = Deut.DEC[Int(v)]; i += 1 }
+            let kg = Float(Deut.keugi)   // 2.6.1 (261026-LI9) 현장영상해설 소리 더 크게 — 넘치는 소리는 부드럽게 눌러 찢어지지 않게
+            for v in jogak {
+                var x = Deut.DEC[Int(v)] * kg
+                if kg > 1 { let ax = abs(x); if ax > 0.85 { x = (x < 0 ? -1 : 1) * min(1, 0.85 + (ax - 0.85) * 0.2) } }
+                ch[i] = x; i += 1
+            }
             b.frameLength = 1600
             player.scheduleBuffer(b, completionHandler: nil)
         }
