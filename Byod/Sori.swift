@@ -30,6 +30,7 @@ final class Sori {
     func sijak() throws {
         if dolgo { return }
         dolgo = true
+        JadongKeugi.cheoeum()   // 1.9.2
         do {
             try sesyeon()
             try engineYeolgi()
@@ -198,8 +199,8 @@ final class Sori {
         while moum.count >= Sori.JOGAK {
             let jogak = Array(moum[0..<Sori.JOGAK])
             moum.removeFirst(Sori.JOGAK)
-            keugiJaegi(jogak)
-            jogakdeul.append(jogak)
+            keugiJaegi(jogak)   // 들어오는 그대로 잼(현장 점검)
+            jogakdeul.append(JadongKeugi.on ? JadongKeugi.matchugi(jogak) : jogak)   // 1.9.2 소리 자동 맞춤
         }
     }
 
@@ -309,5 +310,33 @@ enum Gidarim {
         }
         if jari >= gil * 1000 { jari = 0 }
         return Data(out)
+    }
+}
+
+/// 1.9.2 (261026-BI13, 새방클, 이사장님 지시 2026-10-26 「소리가 너무 작아 현장에서 사용이 불가」) 소리 자동 맞춤 — 안드로이드 1.9.2와 같음.
+/// 들어오는 현장영상해설 소리가 작으면 가장 큰 소리가 -6dB쯤 되게 최대 8배까지 키움(커질 때 천천히, 줄일 때 곧바로, 잡음은 더 키우지 않음).
+/// 넘치는 큰 소리는 부드럽게 눌러 찢어지지 않게. 더 보기에서 끌 수 있음(처음값 켜짐)
+enum JadongKeugi {
+    static var on: Bool {
+        get { UserDefaults.standard.object(forKey: "jadong_keugi") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "jadong_keugi") }
+    }
+    private static var baesu = 1.0
+    static func cheoeum() { baesu = 1.0 }
+    static func matchugi(_ b: [Int16]) -> [Int16] {
+        var m: Int32 = 0
+        for v in b { let a = v < 0 ? -Int32(v) : Int32(v); if a > m { m = a } }
+        if m >= 330 {
+            let baram = min(8.0, max(1.0, 16384.0 / Double(m)))
+            baesu = baram < baesu ? baram : baesu + (baram - baesu) * 0.05
+        }
+        let g = baesu
+        if g <= 1.001 { return b }
+        return b.map { v -> Int16 in
+            var x = Double(v) * g
+            let ax = abs(x)
+            if ax > 28000 { x = (x < 0 ? -1 : 1) * min(32767, 28000 + (ax - 28000) * 0.2) }
+            return Int16(max(-32768, min(32767, x)))
+        }
     }
 }

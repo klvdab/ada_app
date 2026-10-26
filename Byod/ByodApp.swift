@@ -206,6 +206,7 @@ struct CheotView: View {
     @AppStorage("haeseolsa") private var haeseolsa = ""
     @AppStorage("haeseolsa_phone") private var haeseolsaPhone = ""   // 1.5.0 인터넷 방송에 씀(협회 명단 번호)
     @State private var hamkkeOn = InteonetBonaegi.hamkke   // 1.5.0
+    @State private var keugiOn = JadongKeugi.on   // 1.9.2 소리 자동 맞춤
     @State private var tikSu = 0
     @State private var damgim = Jaryo.damgimMal
     @State private var jeomgeomGeul = ""
@@ -276,6 +277,7 @@ struct CheotView: View {
                         .accessibilityFocused($deoChojeom)
                     Danchu(geul: "BYOD 방송 서버 확인하기") { flintHwagin() }   // 1.2.0
                     Danchu(geul: hamkkeOn ? "BYOD 방송과 함께 인터넷 방송: 켜짐. 누르면 끕니다" : "BYOD 방송과 함께 인터넷 방송: 꺼짐. 누르면 켭니다") { hamkkeBakkugi() }   // 1.5.0
+                    Danchu(geul: keugiOn ? "소리 자동 맞춤(작은 해설 소리 키우기): 켜짐. 누르면 끕니다" : "소리 자동 맞춤(작은 해설 소리 키우기): 꺼짐. 누르면 켭니다") { keugiBakkugi() }   // 1.9.2
                     Danchu(geul: "기기 점검: 소리 장치와 연결 보기") { gigiGeul = Sori.gigiJeomgeom(); gigiBoim = true }
                     Danchu(geul: "새로고침") { saerogochim() }
                     Danchu(geul: ollim.seoljeongGeul) { ollim.seoljeongNureum() }
@@ -479,6 +481,16 @@ struct CheotView: View {
         let ap: String = on ? "BYOD 방송을 켜면 인터넷 방송도 함께 나갑니다." : "BYOD 방송만 나갑니다. 인터넷 방송은 함께 나가지 않습니다."
         let dwi: String = bang.kyeojim ? " 다음 방송부터 적용됩니다." : ""
         let t = ap + dwi
+        allyeo(t); malhagi(t)
+    }
+
+    // 1.9.2 (261026-BI13) 소리 자동 맞춤 켜고 끄기 — 방송 중에도 곧바로 적용
+    private func keugiBakkugi() {
+        let on = !keugiOn
+        JadongKeugi.on = on
+        JadongKeugi.cheoeum()
+        keugiOn = on
+        let t = on ? "소리 자동 맞춤을 켰습니다. 들어오는 해설 소리가 작으면 앱이 최대 8배까지 키워 내보냅니다." : "소리 자동 맞춤을 껐습니다. 들어오는 소리를 그대로 내보냅니다."
         allyeo(t); malhagi(t)
     }
 
