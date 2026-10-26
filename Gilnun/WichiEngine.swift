@@ -22,6 +22,8 @@ struct Wichi {
     var jjimjakWon: Bool = false
     /// 2.105.0 이용자가 「여기는 ○○역이야」로 알려 주신 자리
     var sonJari: Bool = false
+    /// 2.113.0 (261026-I67) 폰이 빠르기로 재 준 진행 방향(도) — 없으면 -1. banghyang 은 느릴 때 나침반으로 채우므로 차 안 돌기 셈에는 이것만 씀
+    var jinhaeng: Double = -1
 }
 
 final class WichiEngine: NSObject, ObservableObject, CLLocationManagerDelegate {
@@ -181,7 +183,8 @@ final class WichiEngine: NSObject, ObservableObject, CLLocationManagerDelegate {
         let bang = (l.course >= 0 && l.speed > 1.5) ? l.course : nachimban
         iegoGijun = georeumNujeok
         naegi(Wichi(lat: l.coordinate.latitude, lon: l.coordinate.longitude, ochae: l.horizontalAccuracy,
-                    banghyang: bang, sokdo: max(0, l.speed), ttae: Date(), georeumChu: false, jjimjak: jjimjak, jjimjakWon: jjimjakWon))
+                    banghyang: bang, sokdo: max(0, l.speed), ttae: Date(), georeumChu: false, jjimjak: jjimjak, jjimjakWon: jjimjakWon,
+                    jinhaeng: (l.course >= 0 && l.speed > 0) ? l.course : -1))
     }
 
     /// 2.105.0 (261024-I59) 짐작 자리를 버릴 까닭 — 알려 주신 자리(20분 안)나 위성이 확실히 잡은 자리(3시간 안)에서 사람이 갈 수 없는 거리로 건너뛰었으면 버림

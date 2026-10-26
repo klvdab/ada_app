@@ -2,7 +2,7 @@
 // 웹 길눈(chatta.html·teoneol.js·mumchum.js)에 있었는데 앱으로 옮기지 못했던 차 안 안내 세 가지를 옮김.
 //   ① 터널 미리 알림(2026-09-14 이사장님 지시) — 15초 뒤에 닿을 자리의 터널을 이름·길이와 함께. 이름이 없으면 고장 이름을 붙임.
 //      터널 안에서 위성이 끊기면 「터널 안이라 위성이 잠시 끊깁니다」 한 번, 나오면 「터널을 지났습니다」.
-//   ② 차가 크게 돌면(빌드 260906-70) 「방금 3시 방향으로 돌았습니다. ○○까지 ○ 남았습니다」, 조금 뒤 「여기는 ○○입니다」.
+//   ② 차가 크게 돌면(빌드 260906-70, 2.113.0 진행 방향으로 셈·한결같을 때만) 「방금 3시 방향으로 돌았습니다. ○○까지 ○ 남았습니다」, 조금 뒤 「여기는 ○○입니다」.
 //   ③ 차가 멈춰 있을 때(2026-09-27 이사장님 지시) — 까닭을 확실히 알 때만 「○○ 정류장에 멈춰 있습니다」·「사거리 앞에 멈춰 있습니다」,
 //      모르면 1·2·3·5·10분…째에 「○분째 멈춰 있습니다」, 20초 넘게 섰다가 움직이면 「다시 움직입니다」.
 // 승용차·택시·콜·버스·고속버스 안에서만 돕니다(기차는 GichaAnnae, 배는 TalgeotJikimi).
@@ -17,7 +17,7 @@ final class ChaGeodeul {
         guard kyeojim else { return }
         kyeojim = false
         tDat = []; tJari = nil; tHan = []; tDeun = nil; tWiseongMal = false; tGose = [:]
-        hFrom = nil; head = nil; hJul = []
+        pFrom = nil; head = nil; hSaem = []; anjeongBang = nil
         mJul = []; mum = false; mBunMal = []
         if let t = tJikimi { t.invalidate(); tJikimi = nil }
     }
@@ -69,6 +69,17 @@ final class ChaGeodeul {
         var m = 1e9
         if pt.count >= 2 { for i in 1..<pt.count { m = min(m, tomakGeori(la, lo, pt[i - 1], pt[i])) } }
         return m
+    }
+    /// 2.113.0 가장 가까운 토막까지의 거리와 그 토막의 방향
+    private func julGeoriBang(_ la: Double, _ lo: Double, _ pt: [(Double, Double)]) -> (Double, Double) {
+        var m = 1e9, bang = 0.0
+        if pt.count >= 2 {
+            for i in 1..<pt.count {
+                let g = tomakGeori(la, lo, pt[i - 1], pt[i])
+                if g < m { m = g; bang = WichiEngine.bangwi(pt[i - 1].0, pt[i - 1].1, pt[i].0, pt[i].1) }
+            }
+        }
+        return (m, bang)
     }
     private func giriMal(_ m: Double) -> String {
         if m >= 1000 { let k = (m / 100).rounded() / 10; return "길이는 약 \(k == k.rounded() ? String(Int(k)) : String(format: "%.1f", k))킬로미터입니다." }
@@ -122,16 +133,27 @@ final class ChaGeodeul {
         else { munteok = max(150, min(700, munteok)) }
         var ap: [(t: Teoneol, de: Double, key: String)] = []
         for r in tDat {
-            let jul = julGeori(w.lat, w.lon, r.pt)
+            let (jul, julBang) = julGeoriBang(w.lat, w.lon, r.pt)
             let a = r.pt[0], b = r.pt[r.pt.count - 1]
             let da = geori(w.lat, w.lon, a.0, a.1), db = geori(w.lat, w.lon, b.0, b.1)
             let mun = da <= db ? a : b, de = min(da, db)
             let key = "\(r.ireum)_\(String(format: "%.4f", mun.0))"
             if jul < 25 {
+                // 2.113.0 (261026-I67) 터널 길과 같은 쪽으로 달릴 때만 터널 안으로 침 — 위나 옆을 가로지를 때는 아님
+                if let h = head, gakCha(h, julBang) > 40 && gakCha(h, julBang + 180) > 40 { continue }
                 if tDeun?.key != key { tDeun = (key, r); tDeunTtae = Date(); tWiseongMal = false }
                 continue
             }
-            if let h = head, gakCha(h, WichiEngine.bangwi(w.lat, w.lon, mun.0, mun.1)) >= 65 { continue }
+            // 2.113.0 (261026-I67, 이사장님 승인 2026-10-26 「1」) 차가 그 터널 길 위를 터널 쪽으로 달릴 때만 미리 알림 —
+            //   터널 입구에서 안쪽으로 향하는 방향과 차의 진행 방향이 40도 안이고, 입구에서 뻗은 터널 줄에서 옆으로 40미터 안일 때.
+            //   (10-26 퇴계로에서 옆길·건물 밑 통로를 「곧 터널」로 일곱 번 알리던 일)
+            guard let h = head else { continue }
+            if gakCha(h, WichiEngine.bangwi(w.lat, w.lon, mun.0, mun.1)) >= 65 { continue }
+            let an = da <= db ? r.pt[1] : r.pt[r.pt.count - 2]
+            let anjjok = WichiEngine.bangwi(mun.0, mun.1, an.0, an.1)
+            if gakCha(h, anjjok) > 40 { continue }
+            let yeop = de * sin(gakCha(WichiEngine.bangwi(w.lat, w.lon, mun.0, mun.1), anjjok) * .pi / 180)
+            if yeop > 40 { continue }
             if de > munteok { continue }
             ap.append((r, de, key))
         }
@@ -191,33 +213,58 @@ final class ChaGeodeul {
 
     // MARK: ② 차가 크게 돌면 — 웹 chatta.html 빌드 260906-70·260910-2
 
-    private var hFrom: (Double, Double)?
+    // 2.113.0 (261026-I67, 이사장님 승인 2026-10-26 「1」) 돈 방향은 폰이 재 주는 차의 진행 방향으로 셈하고(오차 20미터 안 자리만),
+    //   돈 뒤 방향이 3초 가까이 한결같을 때만 「돌기 전」 방향과 견주어 말함. 오락가락하면 말하지 않음.
+    //   (10-26 시내에서 2시 방향으로 꺾었는데 11시 방향이라 하고, 퇴계로에서 14초마다 11·10·2·3·11시로 오락가락하던 일 —
+    //    오차 50미터 자리를 15미터마다 이어 방향을 재고, 흔들림 가운데 더 크게 돈 쪽을 골랐던 탓)
+    private var pFrom: (Double, Double)?
     private var head: Double?
-    private var hJul: [(t: Date, h: Double)] = []
+    private var hSaem: [(t: Date, h: Double)] = []
+    private var anjeongBang: Double?
     private var doraTtae = Date.distantPast
 
+    /// 여러 방향의 평균(북쪽을 건너도 맞게)
+    private func wonPyeong(_ l: [Double]) -> Double {
+        var x = 0.0, y = 0.0
+        for h in l { x += cos(h * .pi / 180); y += sin(h * .pi / 180) }
+        let d = atan2(y, x) * 180 / .pi
+        return d < 0 ? d + 360 : d
+    }
+
     private func doramBoda(_ w: Wichi, _ y: Yeojeong) {
-        guard w.ochae <= 50 else { return }
-        guard let hf = hFrom else { hFrom = (w.lat, w.lon); return }
-        guard geori(hf.0, hf.1, w.lat, w.lon) > 15 else { return }
-        let sae = WichiEngine.bangwi(hf.0, hf.1, w.lat, w.lon)
-        hFrom = (w.lat, w.lon)
-        defer { head = sae }
-        guard let h0 = head else { return }
+        guard w.ochae > 0, w.ochae <= 20, !w.georeumChu, !w.jjimjak else { return }
         let ije = Date()
-        hJul.append((ije, sae))
-        if hJul.count > 60 { hJul.removeFirst(hJul.count - 60) }
-        var deul = (sae - h0 + 540).truncatingRemainder(dividingBy: 360) - 180
-        if let old = hJul.first(where: { let ag = ije.timeIntervalSince($0.t); return ag <= 14 && ag >= 3 })?.h {
-            let d2 = (sae - old + 540).truncatingRemainder(dividingBy: 360) - 180
-            if abs(d2) > abs(deul) { deul = d2 }
+        var bang: Double? = nil
+        var bangsik = "jinhaeng"
+        if w.sokdo > 3 && w.jinhaeng >= 0 {
+            bang = w.jinhaeng           // 폰이 재 주는 진행 방향(빠르기로 잼 — 건물 사이에서도 덜 흔들림)
+            pFrom = (w.lat, w.lon)
+        } else if let pf = pFrom {
+            if geori(pf.0, pf.1, w.lat, w.lon) >= 40 {   // 진행 방향이 없으면 40미터 넘게 움직인 두 자리로
+                bang = WichiEngine.bangwi(pf.0, pf.1, w.lat, w.lon); bangsik = "jari"
+                pFrom = (w.lat, w.lon)
+            }
+        } else {
+            pFrom = (w.lat, w.lon)
         }
-        guard abs(deul) >= 30, ije.timeIntervalSince(doraTtae) > 12, w.sokdo < 0 || w.sokdo > 2 else { return }
+        guard let b = bang else { return }
+        head = b   // 터널 미리 알림도 이 방향을 씀
+        hSaem.append((ije, b))
+        hSaem.removeAll { ije.timeIntervalSince($0.t) > 4 }
+        guard let cheot = hSaem.first, ije.timeIntervalSince(cheot.t) >= 2.5, hSaem.count >= 3 else { return }
+        let pyeong = wonPyeong(hSaem.map { $0.h })
+        guard hSaem.allSatisfy({ gakCha($0.h, pyeong) <= 15 }) else { return }   // 아직 도는 중이거나 흔들림
+        guard let jeon = anjeongBang else { anjeongBang = pyeong; return }
+        let deul = (pyeong - jeon + 540).truncatingRemainder(dividingBy: 360) - 180
+        anjeongBang = pyeong   // 천천히 굽는 길은 따라감
+        guard abs(deul) >= 35, ije.timeIntervalSince(doraTtae) > 10 else { return }
         doraTtae = ije
-        hJul = []
+        hSaem = []
         var sh = Int(((deul.truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(dividingBy: 360) / 30).rounded()) % 12
         if sh == 0 { sh = 12 }
         let d = geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
+        Girok.shared.namgi("cha_doram", ["jeon": Int(jeon), "hu": Int(pyeong), "deul": Int(deul), "si": sh,
+                                         "ochae": Int(w.ochae), "sokdo": Int(w.sokdo * 3.6), "bangsik": bangsik])
         mal("방금 " + (abs(deul) > 120 ? "크게 돌아 " : "") + "\(sh)시 방향으로 돌았습니다. \(y.mokjeok.ireum)까지 \(Annae.geoMal(d)) 남았습니다.")
         let la = w.lat, lo = w.lon
         Task { [weak self] in

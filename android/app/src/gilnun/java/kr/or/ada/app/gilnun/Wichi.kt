@@ -52,7 +52,9 @@ data class Jari(
     /** 2.73.0 위성 자리 모양새만 본 것(땅속 여부는 뺌) — 땅 위로 나왔는지·위성이 좋은지 가릴 때 씀 */
     val jjimjakWon: Boolean = false,
     /** 2.73.0 이용자가 「여기는 ○○역이야」로 알려 주신 자리 */
-    val sonJari: Boolean = false
+    val sonJari: Boolean = false,
+    /** 2.78.0 (261026-A66) 폰이 빠르기로 재 준 진행 방향(도) — 없으면 -1. banghyang 은 느릴 때 나침반으로 채우므로 차 안 돌기 셈에는 이것만 씀 */
+    val jinhaeng: Double = -1.0
 )
 
 object Wichi : SensorEventListener, LocationListener {
@@ -233,7 +235,8 @@ object Wichi : SensorEventListener, LocationListener {
         if (majimakWiseong == 0L) majimakWiseong = now
         val bang = if (l.hasBearing() && l.speed > 1.5f) l.bearing.toDouble() else hapBang
         iegoGijun = georeumSu
-        naegi(Jari(l.latitude, l.longitude, ochae0, bang, l.speed.toDouble(), now, false, jjimjak = jjimjak, jjimjakWon = jjimjakWon))
+        naegi(Jari(l.latitude, l.longitude, ochae0, bang, l.speed.toDouble(), now, false, jjimjak = jjimjak, jjimjakWon = jjimjakWon,
+            jinhaeng = if (l.hasBearing() && l.speed > 0f) l.bearing.toDouble() else -1.0))
     }
 
     /** 2.73.0 (261024-A61) 짐작 자리를 버릴 까닭 — 알려 주신 자리(20분 안)나 위성이 확실히 잡은 자리(3시간 안)에서 사람이 갈 수 없는 거리로 건너뛰었으면 버림 */

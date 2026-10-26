@@ -19,7 +19,7 @@ object ChaGeodeul {
         if (!kyeojim) return
         kyeojim = false
         tDat = emptyList(); tJari = null; tHan.clear(); tDeun = null; tWiseongMal = false; tGose.clear()
-        hFrom = null; head = null; hJul.clear()
+        pFrom = null; head = null; hSaem.clear(); anjeongBang = null
         mJul.clear(); mum = false; mBunMal.clear()
         main.removeCallbacks(tJikimi); tJikimiDolgo = false
     }
@@ -84,6 +84,15 @@ object ChaGeodeul {
         for (i in 1 until pt.size) m = Math.min(m, tomakGeori(la, lo, pt[i - 1], pt[i]))
         return m
     }
+    /** 2.78.0 가장 가까운 토막까지의 거리와 그 토막의 방향 */
+    private fun julGeoriBang(la: Double, lo: Double, pt: List<Pair<Double, Double>>): Pair<Double, Double> {
+        var m = 1e9; var bang = 0.0
+        for (i in 1 until pt.size) {
+            val g = tomakGeori(la, lo, pt[i - 1], pt[i])
+            if (g < m) { m = g; bang = Jeomjido.bangwi(pt[i - 1].first, pt[i - 1].second, pt[i].first, pt[i].second) }
+        }
+        return Pair(m, bang)
+    }
     private fun giriMal(m: Double): String {
         if (m >= 1000) { val k = Math.round(m / 100) / 10.0; return "길이는 약 ${if (k == Math.floor(k)) k.toInt().toString() else String.format(Locale.US, "%.1f", k)}킬로미터입니다." }
         return "길이는 약 ${Math.round(m / 10) * 10}미터입니다."
@@ -125,17 +134,27 @@ object ChaGeodeul {
         data class Ap(val t: Teoneol, val de: Double, val key: String)
         val ap = ArrayList<Ap>()
         for (r in tDat) {
-            val jul = julGeori(w.lat, w.lon, r.pt)
+            val (jul, julBang) = julGeoriBang(w.lat, w.lon, r.pt)
             val a = r.pt[0]; val b = r.pt[r.pt.size - 1]
             val da = geori(w.lat, w.lon, a.first, a.second); val db = geori(w.lat, w.lon, b.first, b.second)
             val mun = if (da <= db) a else b; val de = Math.min(da, db)
             val key = "${r.ireum}_${String.format(Locale.US, "%.4f", mun.first)}"
             if (jul < 25) {
+                // 2.78.0 (261026-A66) 터널 길과 같은 쪽으로 달릴 때만 터널 안으로 침 — 위나 옆을 가로지를 때는 아님
+                val hh = head
+                if (hh != null && gakCha(hh, julBang) > 40 && gakCha(hh, julBang + 180) > 40) continue
                 if (tDeun?.first != key) { tDeun = Pair(key, r); tDeunTtae = System.currentTimeMillis(); tWiseongMal = false }
                 continue
             }
-            val h = head
-            if (h != null && gakCha(h, Jeomjido.bangwi(w.lat, w.lon, mun.first, mun.second)) >= 65) continue
+            // 2.78.0 (261026-A66, 이사장님 승인 2026-10-26 「1」, 아이폰 2.113.0과 같음) 차가 그 터널 길 위를 터널 쪽으로 달릴 때만 미리 알림 —
+            //   터널 입구에서 안쪽으로 향하는 방향과 차의 진행 방향이 40도 안이고, 입구에서 뻗은 터널 줄에서 옆으로 40미터 안일 때
+            val h = head ?: continue
+            if (gakCha(h, Jeomjido.bangwi(w.lat, w.lon, mun.first, mun.second)) >= 65) continue
+            val an = if (da <= db) r.pt[1] else r.pt[r.pt.size - 2]
+            val anjjok = Jeomjido.bangwi(mun.first, mun.second, an.first, an.second)
+            if (gakCha(h, anjjok) > 40) continue
+            val yeop = de * Math.sin(gakCha(Jeomjido.bangwi(w.lat, w.lon, mun.first, mun.second), anjjok) * Math.PI / 180)
+            if (yeop > 40) continue
             if (de > munteok) continue
             ap.add(Ap(r, de, key))
         }
@@ -193,33 +212,59 @@ object ChaGeodeul {
 
     // MARK: ② 차가 크게 돌면 — 웹 chatta.html 빌드 260906-70·260910-2
 
-    private var hFrom: Pair<Double, Double>? = null
+    // 2.78.0 (261026-A66, 이사장님 승인 2026-10-26 「1」, 아이폰 2.113.0과 같음) 돈 방향은 폰이 재 주는 차의 진행 방향으로 셈하고(오차 20미터 안 자리만),
+    //   돈 뒤 방향이 3초 가까이 한결같을 때만 「돌기 전」 방향과 견주어 말함. 오락가락하면 말하지 않음.
+    //   (10-26 시내에서 2시 방향으로 꺾었는데 11시 방향이라 하고 오락가락하던 일 — 오차 50미터 자리를 15미터마다 이어 방향을 재고, 흔들림 가운데 더 크게 돈 쪽을 골랐던 탓)
+    private var pFrom: Pair<Double, Double>? = null
     private var head: Double? = null
-    private val hJul = ArrayList<Pair<Long, Double>>()
+    private val hSaem = ArrayList<Pair<Long, Double>>()
+    private var anjeongBang: Double? = null
     private var doraTtae = 0L
 
+    private fun wonPyeong(l: List<Double>): Double {
+        var x = 0.0; var y = 0.0
+        for (h in l) { x += Math.cos(h * Math.PI / 180); y += Math.sin(h * Math.PI / 180) }
+        val d = Math.atan2(y, x) * 180 / Math.PI
+        return if (d < 0) d + 360 else d
+    }
+
     private fun doramBoda(w: Jari, y: Yeojeong) {
-        if (w.ochae > 50) return
-        val hf = hFrom
-        if (hf == null) { hFrom = Pair(w.lat, w.lon); return }
-        if (geori(hf.first, hf.second, w.lat, w.lon) <= 15) return
-        val sae = Jeomjido.bangwi(hf.first, hf.second, w.lat, w.lon)
-        hFrom = Pair(w.lat, w.lon)
-        val h0 = head
-        head = sae
-        if (h0 == null) return
+        if (w.ochae <= 0 || w.ochae > 20 || w.georeumChu || w.jjimjak) return
         val ije = System.currentTimeMillis()
-        hJul.add(Pair(ije, sae))
-        while (hJul.size > 60) hJul.removeAt(0)
-        var deul = ((sae - h0 + 540) % 360) - 180
-        val old = hJul.firstOrNull { val ag = ije - it.first; ag in 3000..14000 }?.second
-        if (old != null) { val d2 = ((sae - old + 540) % 360) - 180; if (Math.abs(d2) > Math.abs(deul)) deul = d2 }
-        if (Math.abs(deul) < 30 || ije - doraTtae <= 12_000 || (w.sokdo >= 0 && w.sokdo <= 2)) return
+        var bang: Double? = null
+        var bangsik = "jinhaeng"
+        val pf = pFrom
+        if (w.sokdo > 3 && w.jinhaeng >= 0) {
+            bang = w.jinhaeng           // 폰이 재 주는 진행 방향(빠르기로 잼 — 건물 사이에서도 덜 흔들림)
+            pFrom = Pair(w.lat, w.lon)
+        } else if (pf != null) {
+            if (geori(pf.first, pf.second, w.lat, w.lon) >= 40) {   // 진행 방향이 없으면 40미터 넘게 움직인 두 자리로
+                bang = Jeomjido.bangwi(pf.first, pf.second, w.lat, w.lon); bangsik = "jari"
+                pFrom = Pair(w.lat, w.lon)
+            }
+        } else {
+            pFrom = Pair(w.lat, w.lon)
+        }
+        val b = bang ?: return
+        head = b   // 터널 미리 알림도 이 방향을 씀
+        hSaem.add(Pair(ije, b))
+        hSaem.removeAll { ije - it.first > 4000 }
+        val cheot = hSaem.firstOrNull() ?: return
+        if (ije - cheot.first < 2500 || hSaem.size < 3) return
+        val pyeong = wonPyeong(hSaem.map { it.second })
+        if (!hSaem.all { gakCha(it.second, pyeong) <= 15 }) return   // 아직 도는 중이거나 흔들림
+        val jeon = anjeongBang
+        if (jeon == null) { anjeongBang = pyeong; return }
+        val deul = ((pyeong - jeon + 540) % 360) - 180
+        anjeongBang = pyeong   // 천천히 굽는 길은 따라감
+        if (Math.abs(deul) < 35 || ije - doraTtae <= 10_000) return
         doraTtae = ije
-        hJul.clear()
+        hSaem.clear()
         var sh = (Math.round((((deul % 360) + 360) % 360) / 30).toInt()) % 12
         if (sh == 0) sh = 12
         val d = geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
+        Girok.namgi("cha_doram", mapOf("jeon" to jeon.toInt(), "hu" to pyeong.toInt(), "deul" to deul.toInt(), "si" to sh,
+            "ochae" to w.ochae.toInt(), "sokdo" to (w.sokdo * 3.6).toInt(), "bangsik" to bangsik))
         mal("방금 " + (if (Math.abs(deul) > 120) "크게 돌아 " else "") + "${sh}시 방향으로 돌았습니다. ${y.mokjeok.ireum}까지 ${Annae.geoMal(d)} 남았습니다.")
         Tongsin.json("jarimal.php", mapOf("lat" to f6(w.lat), "lon" to f6(w.lon))) { o ->
             val m = o?.optString("mal") ?: ""
