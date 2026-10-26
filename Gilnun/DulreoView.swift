@@ -72,16 +72,37 @@ final class TabGil: ObservableObject {
         let b = beon
         Girok.shared.namgi("tab_goreum", ["tab": v, "gateun": gateun, "vo": UIAccessibility.isVoiceOverRunning])
         guard UIAccessibility.isVoiceOverRunning else { return }
-        // 각 화면이 0.5초에 제 머리 줄로 커서를 두는 것보다 뒤에 — 맨 위 첫 줄이 이김
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+        sido(v, b, 0)
+    }
+
+    /// 2.112.0 (261026-I66, 이사장님 승인 2026-10-26 「1」) 탭 바 이름 — 커서가 아직 탭 바에 남았는지 가림
+    private let tabIreum: Set<String> = ["길 찾기", "둘러보기", "음악·방송", "나눔", "설정"]
+    /// 커서를 옮겨 보는 때(탭을 고른 뒤 초)
+    private let sidoTtae: [Double] = [0.8, 1.5, 2.5]
+
+    /// 2.112.0 (261026-I66, 이사장님 승인 2026-10-26 「1」) 커서를 첫 줄로 옮기고, 보이스오버 커서가 실제로 선 줄을 읽어 기록에 남김.
+    ///   아직 탭 바(탭 이름)에 남아 있으면 0.8·1.5·2.5초에 세 번까지 다시 옮기고, 첫 줄에 서면 멈춤.
+    ///   (2.103~2.110은 옮기라고 시킨 것만 기록해, 실제로는 탭 바에 머문 것을 「된다」고 잘못 보고한 일 — 10-26 이사장님 지적)
+    private func sido(_ v: Int, _ b: Int, _ n: Int) {
+        let kidaryeo = n == 0 ? sidoTtae[0] : max(0.1, sidoTtae[n] - sidoTtae[n - 1] - 0.65)
+        DispatchQueue.main.asyncAfter(deadline: .now() + kidaryeo) { [weak self] in
             guard let self = self, self.beon == b, self.tab == v else { return }
-            UIAccessibility.post(notification: .screenChanged, argument: nil)
-            // 2.108.0 (261025-I62, 이사장님 지적 2026-10-25 「탭을 고르면 첫 줄로 가는 것이 빠져 있다」)
-            //   화면이 바뀌었다는 알림만으로는 커서가 탭 바나 제목에 머물렀음 → 보이는 화면이 제 첫 줄을 콕 집어 커서를 받게 함
+            if n == 0 { UIAccessibility.post(notification: .screenChanged, argument: nil) }
+            // 보이는 화면이 제 첫 줄을 콕 집어 커서를 받게 함(2.108.0)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                 guard self.beon == b, self.tab == v else { return }
                 self.chojeomBeon += 1
-                Girok.shared.namgi("tab_chojeom", ["tab": v, "pan": "2.108"])
+                // 0.5초 뒤 보이스오버 커서가 실제로 선 줄을 읽음
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    guard self.beon == b, self.tab == v else { return }
+                    let el = UIAccessibility.focusedElement(using: .notificationVoiceOver) as? NSObject
+                    let ireum = (el?.accessibilityLabel ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                    let tabBa = ireum.isEmpty || self.tabIreum.contains(ireum)
+                        || (el?.accessibilityTraits.contains(.tabBar) ?? false)
+                    Girok.shared.namgi("tab_chojeom", ["tab": v, "pan": "2.112", "sido": n + 1,
+                                                       "kkeut": String(ireum.prefix(40)), "tabBa": tabBa])
+                    if tabBa && n + 1 < self.sidoTtae.count { self.sido(v, b, n + 1) }
+                }
             }
         }
     }

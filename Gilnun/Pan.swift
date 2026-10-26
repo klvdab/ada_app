@@ -10,13 +10,16 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.111.0"
-    static let bild = "261026-I65"
+    static let pan = "2.112.0"
+    static let bild = "261026-I66"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.112.0", bild: "261026-I66", nal: "2026-10-26", naeyong: [
+            "★탭을 고르면 커서를 그 탭 맨 위 첫 줄로 — 보이스오버 커서가 실제로 선 줄을 읽어 확인하고, 아직 탭 바에 남았으면 0.8·1.5·2.5초에 세 번까지 다시 옮김. 실제로 선 줄을 기록에 남김(이사장님 승인 2026-10-26 「1」)"
+        ]),
         Gochim(pan: "2.111.0", bild: "261026-I65", nal: "2026-10-26", naeyong: [
             "★아이폰 위치 서비스가 꺼져 있으면 위치 허락 단추와 알림 창이 길눈 화면을 열지 않고, 위치 서비스를 켜는 차례(설정, 개인정보 보호 및 보안, 위치 서비스, 맨 위 스위치)를 읽어 드림(이사장님 승인 2026-10-26 「1」, 10-26 아침 항상을 고를 자리가 나오지 않던 일)",
             "위치 서비스를 켜고 길눈으로 돌아오시면 길눈을 껐다 켜지 않아도 그 자리에서 위치를 여쭙는 창이 뜸",
