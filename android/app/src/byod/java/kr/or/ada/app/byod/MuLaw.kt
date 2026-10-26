@@ -27,6 +27,18 @@ object MuLaw {
         return out
     }
 
+    // 1.10.0 뮤를 16비트로 되돌림(오푸스 쪽 「잠시 기다려 주십시오」용)
+    fun pulgi(b: ByteArray): ShortArray {
+        val o = ShortArray(b.size)
+        for (i in b.indices) {
+            val u = (b[i].toInt() and 0xFF).inv() and 0xFF
+            val s = u and 0x80; val e = (u shr 4) and 7; val m = u and 0x0F
+            val x = (((m shl 3) + 0x84) shl e) - 0x84
+            o[i] = (if (s != 0) -x else x).toShort()
+        }
+        return o
+    }
+
     // 소리 없음(뮤 0xFF)
     fun goyo(n: Int): ByteArray = ByteArray(n) { 0xFF.toByte() }
 }

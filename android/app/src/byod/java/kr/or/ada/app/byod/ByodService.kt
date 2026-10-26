@@ -160,6 +160,7 @@ class ByodService : Service() {
         }
         MudaeNokhwa.sijak(this, "iptime", GigiNokeum.sid)   // 1.9.0 (261024-B17) 무대 영상 녹화 — 켜 두셨을 때만, 이 행사(sid) 이름으로 짝지음
         val so = Sori(this) { b -> soriTtae = System.currentTimeMillis(); s.ppurida(b); GigiNokeum.sseugi(b); Inteonet.neoki(b) }   // 1.5.0 인터넷 방송에도 같은 소리, 1.7.0 녹음
+        so.opusBatgi = { p -> s.ppuridaOpus(p) }   // 1.10.0 (261026-B20) 오푸스(시험) — 더 보기에서 켜 두셨을 때만 Sori 가 실제로 만듦
         so.sijak()
         sori = so
         jikimSijak()   // 1.6.0
@@ -248,6 +249,7 @@ class ByodService : Service() {
         Bang.sigakTtae = System.currentTimeMillis()
         MudaeNokhwa.sijak(this, "flint", "")   // 1.9.0 (261024-B17) 무대 영상 녹화 — 켜 두셨을 때만
         val so = Sori(this) { x -> soriTtae = System.currentTimeMillis(); b.neoki(x); Inteonet.neoki(x) }   // 1.5.0 인터넷 방송에도 같은 소리
+        so.opusBatgi = { op -> b.neokiOpus(op) }   // 1.10.0 (261026-B20) 오푸스(시험) — 공유기가 1.5.0 이상이고 켜 두셨을 때만 실제로 나감
         so.sijak()
         sori = so
         jikimSijak()   // 1.6.0

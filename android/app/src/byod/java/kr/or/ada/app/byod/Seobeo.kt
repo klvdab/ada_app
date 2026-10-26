@@ -33,8 +33,8 @@ import javax.net.ssl.SSLServerSocket
 class Seobeo(private val ctx: Context) {
 
     // 1.9.0 gal = 듣는 갈래(1·2·3), mang = 폰이 들어온 주소 묶음(앞 세 마디), nae = 이 기기 안에서 붙은 것(듣는 분 수에 안 셈)
-    private class Deut(val s: Socket, val out: OutputStream, val gal: Int, val mang: String, val nae: Boolean) {
-        val jul = ArrayBlockingQueue<ByteArray>(40)   // 4초까지 쌓아 둠
+    private class Deut(val s: Socket, val out: OutputStream, val gal: Int, val mang: String, val nae: Boolean, val opus: Boolean = false) {
+        val jul = ArrayBlockingQueue<ByteArray>(if (opus) 200 else 40)   // 4초까지 쌓아 둠(오푸스는 20밀리초 덩이라 200)
         @Volatile var jugeum = false
         @Volatile var sseuneunTtae = 0L   // 1.1.5 쓰기를 시작한 때(쓰는 중이 아니면 0)
     }
@@ -160,10 +160,19 @@ class Seobeo(private val ctx: Context) {
         ppuridaGal(1, b)
     }
 
+    // 1.10.0 (261026-B20) 오푸스(시험) 한 덩이를 오푸스로 듣는 분에게만(갈래 1) — 길이 2바이트를 붙여서
+    fun ppuridaOpus(p: ByteArray) {
+        val b = OpusSori.teul(p)
+        for (d in deutneun) {
+            if (d.jugeum || !d.opus) continue
+            if (!d.jul.offer(b)) { d.jul.poll(); d.jul.offer(b) }
+        }
+    }
+
     // 1.9.0 한 갈래의 듣는 분에게만
     fun ppuridaGal(g: Int, b: ByteArray) {
         for (d in deutneun) {
-            if (d.jugeum || d.gal != g) continue
+            if (d.jugeum || d.gal != g || d.opus) continue
             if (!d.jul.offer(b)) { d.jul.poll(); d.jul.offer(b) }
         }
     }
@@ -259,6 +268,12 @@ class Seobeo(private val ctx: Context) {
                     keep = true
                     deutgi(c, out, g, mangMal(ponIp), nae)
                 }
+                "/opus" -> {   // 1.10.0 (261026-B20) 오푸스(시험) 줄기 — 오푸스가 나가고 있을 때만, 아니면 없는 주소(듣는 앱이 지금 방식으로 들음)
+                    if (tls || !OpusSori.naganda) { geulja(out, 404, "text/plain; charset=utf-8", "없는 주소입니다."); return }
+                    val nae = loop && (gap(q, "nae") == "1" || gap(q, "gajja") == "1")
+                    keep = true
+                    deutgiOpus(c, out, mangMal(ponIp), nae)
+                }
                 "/daegi.mp3", "/ment.mp3" -> {
                     val f = Jaryo.pail(ctx, gil.substring(1))
                     if (f != null) pail(out, f, "audio/mpeg") else geulja(out, 404, "text/plain; charset=utf-8", "없는 소리입니다.")
@@ -323,6 +338,39 @@ class Seobeo(private val ctx: Context) {
                 kkeutnaegi(d)
             }
         }, "byod-deut", 256 * 1024)
+        t.isDaemon = true
+        t.start()
+    }
+
+    // 1.10.0 (261026-B20) 오푸스로 듣는 분 한 사람 붙이기 — 길이 2바이트 + 오푸스 덩이가 오는 대로, 5초 넘게 없으면 길이 0(살아 있음)
+    private fun deutgiOpus(c: Socket, out: OutputStream, mang: String, nae: Boolean) {
+        c.soTimeout = 0
+        try { c.sendBufferSize = 32768 } catch (_: Exception) { }
+        try { c.tcpNoDelay = true } catch (_: Exception) { }
+        val h = "HTTP/1.1 200 OK\r\nContent-Type: application/x-lvd-opus\r\nCache-Control: no-store\r\n" +
+            "Access-Control-Allow-Origin: *\r\nX-Content-Type-Options: nosniff\r\nX-Lvd-Opus: 48000 1\r\nConnection: close\r\n\r\n"
+        out.write(h.toByteArray(Charsets.US_ASCII))
+        out.write(OpusSori.SALAITTA)
+        out.flush()
+        val d = Deut(c, out, 1, mang, nae, true)
+        deutneun.add(d)
+        Bang.deutnunSu = su()
+        HyeonjangSeobeo.galDeutnun(1, galSu(1))
+        Bang.allyeo()
+        val t = Thread(null, {
+            try {
+                while (dolgo && !d.jugeum) {
+                    val b = d.jul.poll(5, TimeUnit.SECONDS)
+                    d.sseuneunTtae = System.currentTimeMillis()
+                    out.write(b ?: OpusSori.SALAITTA)
+                    out.flush()
+                    d.sseuneunTtae = 0L
+                }
+            } catch (_: Exception) {
+            } finally {
+                kkeutnaegi(d)
+            }
+        }, "byod-deut-opus", 256 * 1024)
         t.isDaemon = true
         t.start()
     }

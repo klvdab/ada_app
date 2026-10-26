@@ -24,6 +24,8 @@ class Sori(private val ctx: Context, private val batgi: (ByteArray) -> Unit) {
     }
 
     private val am = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    /** 1.10.0 (261026-B20) 오푸스(시험) — 켜 두었고 폰이 되면, 같은 소리를 오푸스 덩이로도 넘김(길이 2바이트 붙이기 전 날 덩이) */
+    @Volatile var opusBatgi: ((ByteArray) -> Unit)? = null
     @Volatile private var dolgo = false
     @Volatile private var dasiGoreugi = false
     private var il: Thread? = null
@@ -85,13 +87,23 @@ class Sori(private val ctx: Context, private val batgi: (ByteArray) -> Unit) {
     @SuppressLint("MissingPermission")
     private fun dolligi() {
         val buf = ShortArray(JOGAK)
+        val buf48 = ShortArray(JOGAK * 3)   // 1.10.0 오푸스일 때 1초에 48000으로 받는 칸
         while (dolgo) {
             var rec: AudioRecord? = null
+            var enc: OpusSseugi? = null   // 1.10.0
             try {
                 dasiGoreugi = false
-                val minBuf = AudioRecord.getMinBufferSize(RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
-                val bufBytes = maxOf(minBuf, JOGAK * 2 * 4)
-                rec = AudioRecord(wonbon(), RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufBytes)
+                // 1.10.0 오푸스(시험)를 켰고 폰이 되면 48000으로 받아, 지금 방식(16000 뮤)은 걸러 내려서 그대로 만듦. 아니면 지금과 똑같이 16000
+                if (opusBatgi != null && OpusSori.on(ctx) && OpusSori.doena()) {
+                    enc = try { OpusSseugi { p -> opusBatgi?.invoke(p) } } catch (e: Exception) { OpusSori.oryu = e.message ?: "오푸스를 열지 못했습니다"; null }
+                }
+                OpusSori.naganda = enc != null
+                val naerim = if (enc != null) Naerim() else null
+                val rate = if (enc != null) OpusSori.RATE else RATE
+                val jogak = if (enc != null) JOGAK * 3 else JOGAK
+                val minBuf = AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+                val bufBytes = maxOf(minBuf, jogak * 2 * 4)
+                rec = AudioRecord(wonbon(), rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufBytes)
                 if (rec.state != AudioRecord.STATE_INITIALIZED) throw IllegalStateException("마이크를 열지 못했습니다")
                 val usb = usbGigi()
                 if (usb != null) rec.preferredDevice = usb
@@ -107,17 +119,30 @@ class Sori(private val ctx: Context, private val batgi: (ByteArray) -> Unit) {
                 Bang.allyeo()
                 while (dolgo && !dasiGoreugi) {
                     var chaeum = 0
-                    while (chaeum < JOGAK && dolgo) {
-                        val n = rec.read(buf, chaeum, JOGAK - chaeum)
+                    val ib = if (enc != null) buf48 else buf   // 1.10.0
+                    while (chaeum < jogak && dolgo) {
+                        val n = rec.read(ib, chaeum, jogak - chaeum)
                         if (n < 0) throw IllegalStateException("마이크 읽기 오류 $n")
                         chaeum += n
                     }
-                    if (chaeum == JOGAK) keugiJaegi(buf)   // 1.1.5 현장 점검용 소리 크기(들어오는 그대로)
-                    if (chaeum == JOGAK && JadongKeugi.on) JadongKeugi.matchugi(buf, JOGAK)   // 1.9.2 소리 자동 맞춤
+                    if (chaeum != jogak) continue
+                    if (naerim != null) naerim.ppaegi(buf48, jogak, buf)   // 1.10.0 지금 방식 줄기는 48000을 걸러 16000으로
+                    keugiJaegi(buf)   // 1.1.5 현장 점검용 소리 크기(들어오는 그대로)
+                    if (JadongKeugi.on) {
+                        JadongKeugi.matchugi(buf, JOGAK)   // 1.9.2 소리 자동 맞춤
+                        if (enc != null) JadongKeugi.jeogyong(buf48, jogak)   // 1.10.0 오푸스 줄기에도 같은 배수
+                    }
                     // 1.3.1 (261015-B11) 현장영상해설사에게 전화가 오면 마이크는 전화에 양보하고, 듣는 분께는 「잠시 기다려 주십시오」를 들려 드림
                     val tonghwa = am.mode == AudioManager.MODE_IN_CALL || am.mode == AudioManager.MODE_IN_COMMUNICATION
                     if (tonghwa != Bang.tonghwaJung) { Bang.tonghwaJung = tonghwa; Gidarim.cheoeum(); Bang.allyeo() }
-                    if (chaeum == JOGAK && Bang.keu) batgi(if (tonghwa) Gidarim.jogak(ctx, JOGAK) else MuLaw.jurigi(buf, JOGAK))
+                    if (Bang.keu) {
+                        val mu = if (tonghwa) Gidarim.jogak(ctx, JOGAK) else MuLaw.jurigi(buf, JOGAK)
+                        batgi(mu)
+                        if (enc != null) {   // 1.10.0 오푸스 — 통화 중이면 같은 「잠시 기다려 주십시오」를 48000으로 늘려 줄임
+                            if (tonghwa) { val p = MuLaw.pulgi(mu); for (i in 0 until jogak) buf48[i] = p[minOf(i / 3, p.size - 1)] }
+                            try { enc.neoki(buf48, jogak) } catch (_: Exception) { }
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 if (dolgo) {
@@ -128,6 +153,8 @@ class Sori(private val ctx: Context, private val batgi: (ByteArray) -> Unit) {
             } finally {
                 try { rec?.stop() } catch (_: Exception) { }
                 try { rec?.release() } catch (_: Exception) { }
+                enc?.kkeugi()   // 1.10.0
+                OpusSori.naganda = false
             }
         }
     }
@@ -251,6 +278,17 @@ object JadongKeugi {
     private const val JAPEUM = 330      // -40dB 아래는 잡음으로 봄
     private const val MOK = 28000.0     // 이보다 크면 부드럽게 누름
     fun cheoeum() { baesu = 1.0 }
+    /** 1.10.0 지금 배수를 바꾸지 않고 그대로 씌움(오푸스 48000 줄기용) */
+    fun jeogyong(b: ShortArray, n: Int) {
+        val g = baesu
+        if (g <= 1.001) return
+        for (i in 0 until n) {
+            var x = b[i] * g
+            val ax = Math.abs(x)
+            if (ax > MOK) x = Math.signum(x) * minOf(32767.0, MOK + (ax - MOK) * 0.2)
+            b[i] = x.toInt().toShort()
+        }
+    }
     fun matchugi(b: ShortArray, n: Int) {
         var m = 0
         for (i in 0 until n) { val a = if (b[i] < 0) -b[i].toInt() else b[i].toInt(); if (a > m) m = a }

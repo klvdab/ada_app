@@ -82,12 +82,22 @@ object Flint {
     /** 해설 소리를 공유기로 보내는 일꾼 — 끊기면 2초마다 다시 붙음 */
     class Bonaegi(private val ctx: Context) {
         private val jul = ArrayBlockingQueue<ByteArray>(50)   // 5초까지 쌓아 둠
+        private val julOpus = ArrayBlockingQueue<ByteArray>(250)   // 1.10.0 (261026-B20) 오푸스(시험) 덩이 — 5초까지
+        @Volatile private var kkol2 = false   // 1.10.0 공유기가 BYOD2 꼴(종류+길이)을 받아들였는가
         @Volatile private var dolgo = false
         private var il: Thread? = null
         private var salpim: Thread? = null
         private var sk: Socket? = null
 
         fun neoki(b: ByteArray) { if (!jul.offer(b)) { jul.poll(); jul.offer(b) } }
+        /** 1.10.0 오푸스 한 덩이 — 공유기가 BYOD2 꼴을 받아들였을 때만 쌓음(옛 공유기면 버림) */
+        fun neokiOpus(p: ByteArray) { if (!kkol2) return; if (!julOpus.offer(p)) { julOpus.poll(); julOpus.offer(p) } }
+        private fun teul2(t: Int, b: ByteArray): ByteArray {
+            val o = ByteArray(b.size + 3)
+            o[0] = t.toByte(); o[1] = ((b.size shr 8) and 0xFF).toByte(); o[2] = (b.size and 0xFF).toByte()
+            System.arraycopy(b, 0, o, 3, b.size)
+            return o
+        }
 
         fun sijak() {
             dolgo = true
@@ -116,24 +126,40 @@ object Flint {
                     // 1.3.0 행사 이름·현장영상해설사·이 기기 시각을 함께 보냄(공유기는 현장에서 시계를 맞출 길이 없음)
                     val p = ctx.getSharedPreferences("byod", Context.MODE_PRIVATE)
                     fun kan(k: String) = (p.getString(k, "") ?: "").replace("\t", " ").replace("\n", " ").trim()
+                    // 1.10.0 (261026-B20) 오푸스(시험)를 켜 두셨고 이 폰이 만들 수 있으면 끝에 「2」(BYOD2 꼴로 보내겠다) — 옛 공유기는 이 칸을 보지 않음
+                    val opusHal = OpusSori.on(ctx) && OpusSori.doena()
                     o.write(("BYOD " + yeolsoe(ctx).ifEmpty { "-" } + " " + ireum + "\t" + kan("haengsa_jemok") + "\t" + kan("haeseolsa") + "\t" +
-                        (System.currentTimeMillis() / 1000.0) + "\n").toByteArray(Charsets.UTF_8)); o.flush()
+                        (System.currentTimeMillis() / 1000.0) + (if (opusHal) "\t2" else "") + "\n").toByteArray(Charsets.UTF_8)); o.flush()
                     val dap = StringBuilder()
                     while (true) { val ch = i.read(); if (ch < 0 || ch == '\n'.code) break; dap.append(ch.toChar()) }
                     if (!dap.startsWith("OK")) throw IllegalStateException("열쇠")
-                    jul.clear()
+                    // 공유기 1.5.0 부터는 받아들이면 대답 끝에 「 2」를 붙임(OK 판 피디번호 2)
+                    val k2 = opusHal && dap.trim().split(" ").filter { it.isNotEmpty() }.let { it.size >= 3 && it.last() == "2" }
+                    jul.clear(); julOpus.clear()
+                    kkol2 = k2
                     bonaenda = true
                     if (Bang.jalmot.startsWith("공유기")) Bang.jalmot = ""
                     allyeotda = ""
                     Bang.allyeo()
-                    while (dolgo) {
-                        val b = jul.poll(2, TimeUnit.SECONDS) ?: continue
-                        o.write(b)
-                        o.flush()
+                    if (!k2) {
+                        while (dolgo) {
+                            val b = jul.poll(2, TimeUnit.SECONDS) ?: continue
+                            o.write(b)
+                            o.flush()
+                        }
+                    } else {
+                        while (dolgo) {   // 1.10.0 BYOD2 꼴 — 오푸스 덩이를 먼저 다 보내고, 뮤 조각은 20밀리초까지 기다려 봄
+                            var op = julOpus.poll()
+                            while (op != null) { o.write(teul2(2, op)); op = julOpus.poll() }
+                            val b = jul.poll(20, TimeUnit.MILLISECONDS)
+                            if (b != null) o.write(teul2(1, b))
+                            o.flush()
+                        }
                     }
                 } catch (_: InterruptedException) {
                 } catch (e: Exception) {
                     bonaenda = false
+                    kkol2 = false
                     val m = if (mang(ctx) == null) "공유기: 플린트 2 와이파이(" + SSID + ")나 랜선에 붙지 않았습니다. 이 기기를 공유기에 붙이십시오."
                             else if (e.message == "열쇠") "공유기: 방송 서버가 이 기기를 받지 않습니다. 더 보기의 플린트 2 준비하기를 다시 하십시오."
                             else "공유기: 방송 서버에 닿지 않습니다. 공유기 전원을 확인하고, 처음 쓰는 공유기면 더 보기의 플린트 2 준비하기를 하십시오."

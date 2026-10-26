@@ -66,6 +66,7 @@ class ByodActivity : Activity() {
     private lateinit var inteonetGeul: TextView   // 1.5.0 함께 나가는 인터넷 방송 한 줄
     private lateinit var hamkkeDanchu: Button    // 1.5.0
     private lateinit var keugiDanchu: Button     // 1.9.2 소리 자동 맞춤
+    private lateinit var opusDanchu: Button      // 1.10.0 소리 방식 오푸스(시험)
     private var boyeojunInteonet = ""
     // 1.9.0 (261024-B17) 무대 영상 녹화 — 켜고 끄는 단추 하나와 상태 한 줄
     private lateinit var yeongsangDanchu: Button
@@ -274,6 +275,8 @@ class ByodActivity : Activity() {
         deoAn.addView(hamkkeDanchu)
         keugiDanchu = danchu(keugiMal()) { keugiBakkugi() }   // 1.9.2
         deoAn.addView(keugiDanchu)
+        opusDanchu = danchu(opusMal()) { opusBakkugi() }   // 1.10.0 (261026-B20)
+        deoAn.addView(opusDanchu)
         deoAn.addView(danchu("기기 점검: 소리 장치와 연결 보기") { val t = gigiJeomgeom(this); android.app.AlertDialog.Builder(this).setTitle("기기 점검").setMessage(t).setPositiveButton("닫기", null).setNeutralButton("결과 복사") { _, _ -> try { (getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("기기 점검", t)); malhagi("기기 점검 결과를 복사했습니다.") } catch (_: Exception) { } }.show() })   // 1.1.3 (261007-B5), 1.1.4 결과 복사
         deoAn.addView(danchu("새로고침") { saerogochim() })
         deoAn.addView(danchu(Ollim.seoljeongMal(this)) { Ollim.seoljeongNureum(this) })   // 1.1.2 업데이트 — 새로고침 바로 아래 한 곳
@@ -390,6 +393,19 @@ class ByodActivity : Activity() {
         keugiDanchu.text = keugiMal()
         val t = if (on) "소리 자동 맞춤을 켰습니다. 들어오는 해설 소리가 작으면 앱이 최대 8배까지 키워 내보냅니다." else "소리 자동 맞춤을 껐습니다. 들어오는 소리를 그대로 내보냅니다."
         keugiDanchu.announceForAccessibility(t); malhagi(t)
+    }
+
+    // 1.10.0 (261026-B20) 소리 방식 오푸스(시험) 켜고 끄기 — 처음값 꺼짐, 다음 방송부터 적용. 지금 방식(뮤)은 늘 함께 나감
+    private fun opusMal() = if (OpusSori.on(this)) "소리 방식 오푸스(시험): 켜짐. 누르면 끕니다" else "소리 방식 오푸스(시험): 꺼짐. 누르면 켭니다"
+    private fun opusBakkugi() {
+        val on = !OpusSori.on(this)
+        OpusSori.dugi(this, on)
+        opusDanchu.text = opusMal()
+        val t = if (!on) "오푸스(시험)를 껐습니다. 다음 방송부터 지금 방식으로만 내보냅니다."
+            else if (!OpusSori.doena()) "오푸스(시험)를 켰지만, 이 기기는 안드로이드 10보다 낮아 오푸스를 만들 수 없습니다. 지금 방식으로만 나갑니다."
+            else "오푸스(시험)를 켰습니다. 다음 방송부터 지금 방식과 함께 더 맑은 오푸스 소리도 내보냅니다. 엘브이디 방송 2.7.0 이상은 저절로 오푸스로 듣습니다." +
+                (if (Bang.kyeojim) " 지금 방송은 그대로이니, 방송을 끝내고 다시 시작하십시오." else "")
+        opusDanchu.announceForAccessibility(t); malhagi(t)
     }
 
     private fun hamkkeBakkugi() {
