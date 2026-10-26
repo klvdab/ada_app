@@ -26,8 +26,8 @@ try:
 except Exception:          # python3-openssl 이 없는 공유기 — 자물쇠 문 없이 돎
     ssl = None
 
-PAN = "1.4.0"   # 261024-F4 노트북판 현장 기능 전부·여러 갈래 해설·만족도·구역별 인원·자동 저장·자물쇠 문 8443·갈래 녹음과 기록도 나스로(새방송클). 261015-F3 상태에 행사 이름·현장영상해설사, 듣기 화면에 LVD 방송 앱 받기, 행사 기본 이름 「현장영상해설 방송」
-BILD = "261024-F4"
+PAN = "1.5.0"   # 261026-F5 오푸스(시험) — 방송 앱이 BYOD2 꼴로 오푸스도 보내면 /opus 로 나눠 줌(뮤 /stream 은 그대로). 261024-F4 노트북판 현장 기능 전부·여러 갈래 해설·만족도·구역별 인원·자동 저장·자물쇠 문 8443·갈래 녹음과 기록도 나스로(새방송클). 261015-F3 상태에 행사 이름·현장영상해설사, 듣기 화면에 LVD 방송 앱 받기, 행사 기본 이름 「현장영상해설 방송」
+BILD = "261026-F5"
 
 SEOBEO_IP = os.environ.get("BYOD_IP", "192.168.8.2")      # 듣기 화면 주소(공유기에 덧붙인 주소)
 WEB_PORT = int(os.environ.get("BYOD_WEB_PORT", "7880"))    # 80번은 방화벽이 이리로 돌려줌
@@ -85,6 +85,7 @@ class Bang:
         self.deut = []                              # 저지연 듣는 분(갈래마다 d.gal)
         self.deut_mp3 = []                          # 잠가도 이어지는 듣는 분(갈래 1)
         self.bonaem = None                          # 지금 소리를 보내는 앱(쓰는 쪽)
+        self.opus_ttae = 0.0                        # 1.5.0 오푸스(시험) 덩이가 마지막으로 들어온 때
         self.bonaem_ireum = ""
         self.bonaem_ip = ""                         # 1.4.0 방송 기기 주소 — 이 기기는 노트북판의 「노트북 자신」처럼 다룸
         self.majimak_sori = 0.0                     # 소리가 마지막으로 들어온 때
@@ -129,7 +130,14 @@ class Bang:
 
     def ppurida(self, b, gal=1):
         for d in self.deut:
-            if d.gal == gal:
+            if d.gal == gal and not d.opus:
+                d.neoki(b)
+
+    def ppurida_opus(self, p):
+        """1.5.0 오푸스(시험) 한 덩이 — 길이 2바이트를 붙여 오푸스로 듣는 분에게만"""
+        b = bytes([(len(p) >> 8) & 0xFF, len(p) & 0xFF]) + p
+        for d in self.deut:
+            if d.opus:
                 d.neoki(b)
 
     def ppurida_mp3(self, b):
@@ -160,12 +168,13 @@ def sangtae_bin():
 
 class Deut:
     """듣는 분 한 사람 — 쌓아 둘 줄과 보내는 일꾼"""
-    def __init__(self, w, ip, gal=1, nae=False):
+    def __init__(self, w, ip, gal=1, nae=False, opus=False):
         self.w = w
         self.ip = ip
         self.gal = gal
         self.nae = nae
-        self.q = asyncio.Queue(DEUT_JUL)
+        self.opus = opus                  # 1.5.0 오푸스(시험)로 듣는 분(갈래 1)
+        self.q = asyncio.Queue(200 if opus else DEUT_JUL)   # 오푸스는 20밀리초 덩이라 4초면 200
         self.jugeum = False
         self.sseuneun = 0.0
 
@@ -194,7 +203,8 @@ async def sori_batgi(r, w):
         meori = await asyncio.wait_for(r.readline(), 10)
         mjul = meori.decode("utf-8", "replace").rstrip("\r\n")
         jul = mjul.split(" ", 2)
-        # BYOD <열쇠> <이름>[\t행사 이름\t현장영상해설사\t기기 시각(초)]  — 1.2.0 앱은 이름까지만 보냄
+        # BYOD <열쇠> <이름>[\t행사 이름\t현장영상해설사\t기기 시각(초)[\t2]]  — 1.2.0 앱은 이름까지만 보냄
+        # 1.5.0 끝에 「2」가 붙으면 BYOD2 꼴: 종류 1바이트(1 뮤, 2 오푸스) + 길이 2바이트 + 소리. 대답 끝에 「 2」를 붙여 받아들였음을 알림
         if len(jul) < 2 or jul[0] != "BYOD" or (B.yeolsoe and jul[1] != B.yeolsoe):
             w.write(b"NO\n"); await w.drain(); w.close(); return
         kan = (jul[2] if len(jul) > 2 else "").split("\t")
@@ -209,7 +219,9 @@ async def sori_batgi(r, w):
                     sangtae_nal_bogi()       # 1.4.0 시계를 처음 알게 됨 — 이어 받은 상황이 지난 행사 것이면 따로 두고 새로
             except Exception:
                 pass
+        kkol2 = len(kan) > 4 and kan[4].strip() == "2"
         haengsa_butum(ireum, jemok, haeseolsa)
+        opus_kkeunki()                   # 1.5.0 방송 기기가 바뀌면 오푸스로 듣던 분은 다시 붙어 맞는 쪽으로 듣게
         # 새로 붙은 쪽이 넘겨받음(해설 교대)
         if B.bonaem is not None:
             try:
@@ -221,8 +233,8 @@ async def sori_batgi(r, w):
         B.bonaem_ip = str(peer[0])
         B.jeongji1 = False               # 1.4.0 방송 기기가 새로 붙으면 피디의 방송중지를 풂
         B.tonggwa.add(peer[0])          # 방송 폰은 「인터넷 되느냐」에 늘 「됨」으로 답해 와이파이를 붙들게
-        w.write(("OK " + PAN + " " + B.pdkey + "\n").encode()); await w.drain()   # 1.4.0 피디 번호를 덧붙임(옛 앱은 OK 만 봄)
-        while True:
+        w.write(("OK " + PAN + " " + B.pdkey + (" 2" if kkol2 else "") + "\n").encode()); await w.drain()   # 1.4.0 피디 번호를 덧붙임(옛 앱은 OK 만 봄)
+        while not kkol2:
             b = await asyncio.wait_for(r.read(4096), 30)
             if not b:
                 break
@@ -231,10 +243,29 @@ async def sori_batgi(r, w):
             if B.jeongji1:
                 continue                 # 피디가 방송중지 — 듣는 분께는 소리 없음(대기 음악)
             gal_naegi(1, b)
+        while kkol2:                     # 1.5.0 BYOD2 꼴
+            m = await asyncio.wait_for(r.readexactly(3), 30)
+            if m[0] not in (1, 2):
+                break                    # 꼴이 어긋남 — 끊고 앱이 다시 붙게
+            n = (m[1] << 8) | m[2]
+            b = await asyncio.wait_for(r.readexactly(n), 30) if n > 0 else b""
+            if m[0] == 1 and b:
+                B.majimak_sori = time.time()
+                B.majimak_butum = B.majimak_sori
+                if B.jeongji1:
+                    continue
+                gal_naegi(1, b)
+            elif m[0] == 2 and b:
+                if B.bonaem is not w:
+                    break
+                B.opus_ttae = time.time()
+                if not B.jeongji1:
+                    B.ppurida_opus(b)
     except Exception:
         pass
     finally:
         if B.bonaem is w:
+            opus_kkeunki()
             B.bonaem = None
             B.bonaem_ireum = ""
             B.majimak_butum = time.time()
@@ -244,6 +275,13 @@ async def sori_batgi(r, w):
             w.close()
         except Exception:
             pass
+
+
+def opus_kkeunki():
+    """1.5.0 오푸스로 듣는 분을 모두 끊음 — 다시 붙으면 오푸스가 없을 때 뮤(/stream)로 들음"""
+    B.opus_ttae = 0.0
+    for d in [x for x in B.deut if x.opus]:
+        kkeutnaegi(d)
 
 
 def gal_naegi(g, b):
@@ -1744,6 +1782,12 @@ async def web(r, w, tls=False):
         elif uri == "/stream":
             gyesok = True
             await deut_butigi(w, ip, False, gal, loop and gap(q, "nae") == "1")
+        elif uri == "/opus":             # 1.5.0 오푸스(시험) — 방송 앱이 오푸스를 보내고 있을 때만, 아니면 없는 주소(듣는 앱이 /stream 으로 들음)
+            if B.bonaem is None or time.time() - B.opus_ttae > 3:
+                geulja(w, 404, "text/plain; charset=utf-8", "없는 주소입니다.")
+            else:
+                gyesok = True
+                await opus_butigi(w, ip, loop and gap(q, "nae") == "1")
         elif uri == "/stream.mp3":
             if not B.mp3_iss or gal != 1:
                 geulja(w, 404, "text/plain; charset=utf-8", "mp3 길이 없습니다.")
@@ -2048,6 +2092,38 @@ async def deut_butigi(w, ip, mp3, gal=1, nae=False):
                 b = b"" if mp3 else bytes([0xFF]) * 160
             if not b:
                 continue
+            d.sseuneun = time.time()
+            w.write(b)
+            await w.drain()
+            d.sseuneun = 0.0
+    except Exception:
+        pass
+    finally:
+        kkeutnaegi(d)
+
+
+async def opus_butigi(w, ip, nae=False):
+    """1.5.0 오푸스로 듣는 분 한 사람 — 길이 2바이트 + 덩이가 오는 대로, 5초 넘게 없으면 길이 0(살아 있음)"""
+    try:
+        import socket
+        sk = w.get_extra_info("socket")
+        sk.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 32768)
+        sk.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    except Exception:
+        pass
+    meori_bonae(w, 200, "OK", "application/x-lvd-opus", -1, "X-Content-Type-Options: nosniff\r\nX-Lvd-Opus: 48000 1\r\n")
+    w.write(b"\x00\x00")
+    d = Deut(w, ip, 1, nae, True)
+    B.deut.append(d)
+    if B.tonggwa_ttae == "deutgi":
+        B.tonggwa.add(ip)
+    try:
+        await w.drain()
+        while not d.jugeum:
+            try:
+                b = await asyncio.wait_for(d.q.get(), 5)
+            except asyncio.TimeoutError:
+                b = b"\x00\x00"
             d.sseuneun = time.time()
             w.write(b)
             await w.drain()
