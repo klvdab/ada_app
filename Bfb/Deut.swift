@@ -9,6 +9,7 @@
 // 2.0.0 그대로: 화면을 잠가도 들림(뒤에서 소리, 잠금 화면 멈춤·재생), 전화가 오면 멈췄다가 끝나면 다시, 행사장을 벗어나면 한 번만 알림
 import Foundation
 import AVFoundation
+import AudioToolbox
 import MediaPlayer
 import UIKit
 
@@ -60,6 +61,22 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
     private var dasiTimer: Timer?
     private var namjin = Data()
     private var gameun = false   // 엔진을 붙였는가
+    // 2.7.0 (261026-LI10, 새방클, 이사장님 승인 2026-10-26) 오푸스(시험) — 송출이 /opus 를 내보내면 그것으로(48000), 없으면 지금 방식(/stream)
+    private let playerOpus = AVAudioPlayerNode()
+    private let fmt48 = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 48000, channels: 1, interleaved: false)!
+    private var opusJung = false            // 지금 붙은 줄기가 오푸스인가(화면 줄기에서 정한 뒤 받는 줄기가 읽음)
+    private var opusSwim = Date.distantPast // 이때까지는 오푸스를 묻지 않음(없었거나 못 풀었을 때)
+    private var opusMal = ""                // 오푸스가 안 되면 지금 방식으로 붙으며 알릴 말
+    private var opusDc: AVAudioConverter?   // 받는 줄기에서만
+    private var opusHeotdoem = 0            // 받는 줄기에서만 — 풀지 못한 덩이가 이어진 수
+    private var opusPullim = false          // 소리가 한 번이라도 풀려 나왔는가
+    private var opusDapTtae: Date?          // 오푸스 대답(200)을 받은 때
+    private weak var opusTask: URLSessionDataTask?   // 오푸스로 연 줄기(넘어간 뒤 늦게 온 것은 버림)
+    private static func opusKkol() -> AVAudioFormat? {
+        var d = AudioStreamBasicDescription(mSampleRate: 48000, mFormatID: kAudioFormatOpus, mFormatFlags: 0, mBytesPerPacket: 0,
+                                            mFramesPerPacket: 960, mBytesPerFrame: 0, mChannelsPerFrame: 1, mBitsPerChannel: 0, mReserved: 0)
+        return AVAudioFormat(streamDescription: &d)
+    }
     private var salpinTtae = Date.distantPast
 
     private static let DEC: [Float] = (0..<256).map { i in
@@ -103,10 +120,13 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
         if !gameun {
             engine.attach(player)
             engine.connect(player, to: engine.mainMixerNode, format: fmt)
+            engine.attach(playerOpus)   // 2.7.0
+            engine.connect(playerOpus, to: engine.mainMixerNode, format: fmt48)
             gameun = true
         }
         try? engine.start()
         player.play()
+        playerOpus.play()   // 2.7.0
         jamgeumHwamyeon()
         bakkum("현장영상해설을 찾고 있습니다.", malhal: false)
         butgi()
@@ -126,6 +146,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
         gorgi = []
         bogiBang = nil   // 2.5.0
         player.stop()
+        playerOpus.stop()   // 2.7.0
         engine.stop()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
@@ -169,13 +190,31 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
             let ses = URLSession(configuration: c, delegate: s, delegateQueue: nil)
             s.session?.invalidateAndCancel()
             s.session = ses
+            let m = (jm.isEmpty ? "" : jm + " 행사 ") + "현장영상해설에 연결되었습니다."
+            // 2.7.0 오푸스(시험)를 먼저 물어봄 — 알림은 대답이 온 뒤에(오푸스면 오푸스라고, 없으면 지금 방식으로 붙으며)
+            if Date() >= s.opusSwim, let uo = Hyeonjang.opus {
+                s.opusMal = s.beoseona && !s.cheot ? "다시 연결되었습니다. " + m : m
+                s.opusJung = true
+                s.namjin = Data()
+                s.majimakBatgi = Date()
+                let t = ses.dataTask(with: uo)
+                s.task = t
+                s.opusTask = t
+                s.opusPullim = false
+                s.opusDapTtae = nil
+                t.resume()
+                s.beoseona = false
+                s.cheot = false
+                s.jamgeumHwamyeon()
+                return
+            }
             guard let u = Hyeonjang.stream else { return }   // 2.4.0 찾아 둔 자리(플린트 2 또는 아이피타임 방식 송출 폰)
+            s.opusJung = false   // 2.7.0
             s.namjin = Data()
             s.majimakBatgi = Date()
             let t = ses.dataTask(with: u)
             s.task = t
             t.resume()
-            let m = (jm.isEmpty ? "" : jm + " 행사 ") + "현장영상해설에 연결되었습니다."
             s.bakkum(s.beoseona && !s.cheot ? "다시 연결되었습니다. " + m : m, malhal: true)
             s.beoseona = false
             s.cheot = false
@@ -308,6 +347,12 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
         guard kyeojim, !jamsi else { return }
         switch gil {
         case .hyeonjang:
+            // 2.7.0 오푸스 대답은 왔는데 3초 넘게 소리가 하나도 안 풀리면 지금 방식으로
+            if opusJung, !opusPullim, let t = opusDapTtae, Date().timeIntervalSince(t) > 3 {
+                opusSwim = Date().addingTimeInterval(30)
+                opusDaesin()
+                return
+            }
             if task == nil || Date().timeIntervalSince(majimakBatgi) > 6 {
                 task?.cancel(); task = nil
                 butgi()
@@ -317,10 +362,96 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
         }
     }
 
+    // 2.7.0 오푸스를 물었을 때의 대답 — 오푸스면 풀개를 만들고 알림, 아니면 30초(풀개를 못 만들면 10분) 동안 묻지 않고 지금 방식으로
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse,
+                    completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+        guard opusJung else { completionHandler(.allow); return }
+        let r = response as? HTTPURLResponse
+        let ok = r?.statusCode == 200 && (r?.value(forHTTPHeaderField: "Content-Type") ?? "").contains("x-lvd-opus")
+        var dc: AVAudioConverter? = nil
+        if ok, let of = Deut.opusKkol() { dc = AVAudioConverter(from: of, to: fmt48) }
+        if let dc = dc {
+            opusDc = dc
+            opusHeotdoem = 0
+            opusPullim = false
+            opusDapTtae = Date()
+            completionHandler(.allow)
+            DispatchQueue.main.async { self.bakkum(self.opusMal + " 맑은 소리(오푸스 시험)로 듣습니다.", malhal: true) }
+            return
+        }
+        opusSwim = Date().addingTimeInterval(ok ? 600 : 30)
+        completionHandler(.cancel)
+        DispatchQueue.main.async { self.opusDaesin() }
+    }
+
+    /// 2.7.0 오푸스가 안 될 때 — 지금 방식(/stream)으로 곧바로 붙음(화면 줄기)
+    private func opusDaesin() {
+        guard kyeojim, !jamsi, gil == .hyeonjang, opusJung, let ses = session, let u = Hyeonjang.stream else { return }
+        opusJung = false
+        task?.cancel()
+        namjin = Data()
+        majimakBatgi = Date()
+        let t = ses.dataTask(with: u)
+        task = t
+        t.resume()
+        bakkum(opusMal, malhal: true)
+    }
+
+    /// 2.7.0 오푸스 줄기 — 길이 2바이트 + 덩이(길이 0은 살아 있음)를 풀어 48000으로 틂(받는 줄기)
+    private func opusBatgi(_ data: Data) {
+        namjin.append(data)
+        while namjin.count >= 2 {
+            let h = [UInt8](namjin.prefix(2))
+            let len = Int(h[0]) << 8 | Int(h[1])
+            if len == 0 { namjin.removeFirst(2); continue }
+            if namjin.count < 2 + len { break }
+            let pk = Data(namjin.dropFirst(2).prefix(len))
+            namjin.removeFirst(2 + len)
+            guard let dc = opusDc, let of = Deut.opusKkol() else { continue }
+            let cb = AVAudioCompressedBuffer(format: of, packetCapacity: 1, maximumPacketSize: len)
+            pk.withUnsafeBytes { (p: UnsafeRawBufferPointer) in if let b = p.baseAddress { cb.data.copyMemory(from: b, byteCount: len) } }
+            cb.byteLength = UInt32(len)
+            cb.packetCount = 1
+            cb.packetDescriptions?[0] = AudioStreamPacketDescription(mStartOffset: 0, mVariableFramesInPacket: 0, mDataByteSize: UInt32(len))
+            guard let out = AVAudioPCMBuffer(pcmFormat: fmt48, frameCapacity: 5760) else { continue }
+            var juem = false
+            var err: NSError?
+            let st = dc.convert(to: out, error: &err) { _, s in
+                if juem { s.pointee = .noDataNow; return nil }
+                juem = true
+                s.pointee = .haveData
+                return cb
+            }
+            if st == .error || out.frameLength == 0 {
+                opusHeotdoem += 1
+                if opusHeotdoem == 100 {   // 2초 넘게 하나도 못 풂 — 이 폰은 10분 동안 지금 방식으로
+                    opusSwim = Date().addingTimeInterval(600)
+                    DispatchQueue.main.async { self.opusDaesin() }
+                }
+                continue
+            }
+            opusHeotdoem = 0
+            opusPullim = true
+            if let ch = out.floatChannelData?[0] {
+                let kg = Float(Deut.keugi)   // 2.6.1 소리 더 크게와 같게
+                if kg > 1 {
+                    for i in 0..<Int(out.frameLength) {
+                        var x = ch[i] * kg
+                        let ax = abs(x); if ax > 0.85 { x = (x < 0 ? -1 : 1) * min(1, 0.85 + (ax - 0.85) * 0.2) }
+                        ch[i] = x
+                    }
+                }
+            }
+            playerOpus.scheduleBuffer(out, completionHandler: nil)
+        }
+    }
+
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         guard kyeojim, !jamsi, gil == .hyeonjang else { return }
+        if !opusJung, let ot = opusTask, ot === dataTask { return }   // 2.7.0 지금 방식으로 넘어간 뒤 옛 오푸스 줄기에서 늦게 온 것
         majimakBatgi = Date()
         eopseumTtae = nil
+        if opusJung { opusBatgi(data); return }   // 2.7.0
         namjin.append(data)
         while namjin.count >= 1600 {
             let jogak = namjin.prefix(1600)
@@ -359,6 +490,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
                 try? AVAudioSession.sharedInstance().setActive(true)
                 try? s.engine.start()
                 s.player.play()
+                s.playerOpus.play()   // 2.7.0
                 s.bakkum("다시 들려 드립니다.", malhal: true)
                 if case .inteonet(let sid) = s.gil { if !s.bogiJung { s.avpTeulgi(sid) } }   // 생방송이라 다시 붙어 지금 것부터(영상으로 보는 중이면 그대로 쉼)
                 else { s.butgi() }
@@ -371,7 +503,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
         guard kyeojim, !jamsi else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             guard let s = self, s.kyeojim else { return }
-            if !s.engine.isRunning { try? s.engine.start(); s.player.play() }
+            if !s.engine.isRunning { try? s.engine.start(); s.player.play(); s.playerOpus.play() }   // 2.7.0 오푸스도
             if case .inteonet = s.gil, !s.bogiJung, let p = s.avp, p.timeControlStatus != .playing { p.play() }
         }
     }

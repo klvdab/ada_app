@@ -22,6 +22,7 @@ enum Hyeonjang {
     static var jari = "http://\(IP):\(WEB)"
     private static var chatgiTtae = Date.distantPast
     static var stream: URL? { URL(string: jari + "/stream") }
+    static var opus: URL? { URL(string: jari + "/opus") }   // 2.7.0 (261026-LI10) 오푸스(시험) — 송출이 켜 두었을 때만 있음
 
     static var deungrokDoem: Bool {
         get { UserDefaults.standard.bool(forKey: "wifi_deungrok") }
