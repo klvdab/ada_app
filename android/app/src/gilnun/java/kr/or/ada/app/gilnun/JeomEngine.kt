@@ -136,6 +136,9 @@ object JeomEngine {
     private class Kkeok(val i: Int, val d: Double, val lat: Double, val lon: Double)
     private var kkeoks: List<Kkeok> = emptyList()
     private val kkeokHan = HashSet<String>()
+    /** 2.79.0 (261026-A67) B·C급 점지도의 고칠 곳(점 번호) — 다가가면 한 번 조심하시라 알림 */
+    private var gochilI: List<Int> = emptyList()
+    private val gochilHan = HashSet<Int>()
     private var gilRaw = ""
     private var wonGil: JeomGil? = null      // 되돌아가기 때 다시 받지 않고 쓰는 원래 길(통신이 끊긴 곳에서도 되돌아가게)
     private var sijakT = 0L
@@ -471,6 +474,9 @@ object JeomEngine {
         }
         kkeoks = kkeokChatgi(p)
         kkeokHan.clear()
+        // 2.79.0 고칠 곳 — 그린 이 걸음 자리(st)에 가장 가까운 점
+        gochilHan.clear()
+        gochilI = g0.gochilSt.mapNotNull { st -> p.indices.filter { p[it].st != null }.minByOrNull { Math.abs(p[it].st!! - st) } }
         // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 탈것 구간을 찾고, 그 안의 꺾임은 걸음 안내에서 뺌
         tagiGugan = tagiChatgi()
         tagiHan.clear()
@@ -506,7 +512,13 @@ object JeomEngine {
         hwakinDoen(g0.id) { hwakin ->
             if (sd != sedae || gil == null) return@hwakinDoen
             var t = if (ieumIdx > 0) "" else "길눈은 보조 안내입니다. 단독보행을 하실 때는 반드시 흰지팡이를 짚고, 주변 소리를 먼저 확인하십시오."   // 2.18.0 흰지팡이 강조
-            if (!hwakin) t += " 이 점지도는 아직 확인 중인 길입니다. 조심해서 걸으십시오."
+            // 2.79.0 (261026-A67, 이사장님 승인 2026-10-26 「1」, 아이폰 2.114.0과 같음) 점지도 등급을 끌 수 없는 말로 알림
+            when (g0.deunggeup) {
+                "A" -> t += " 이 점지도는 A급입니다. 협회 점검을 통과한 길입니다."
+                "B" -> t += " 이 점지도는 B급입니다. 고칠 곳이 ${gochilI.size}곳 있어, 그 자리에 다가가면 미리 알려 드립니다. 그 자리에서는 더 조심하십시오."
+                "C" -> t += " 이 점지도는 C급입니다. 아직 그리는 중인 길이라 참고만 하시고, 주변을 더 살피며 걸으십시오."
+                else -> if (!hwakin) t += " 이 점지도는 아직 확인 중인 길입니다. 조심해서 걸으십시오."
+            }
             if (t.isNotEmpty()) mal(t.trim(), MalGeup.GYEONGGO)
             var m = if (ieum.isEmpty()) "" else "이어진 길 ${ieum.size}구간 가운데 ${ieumIdx + 1}번째 구간입니다. "
             m += (if (dw) "되돌아가기를 시작합니다. " else "따라 걷기를 시작합니다. ") + "모두 ${Jeomjido.bannol(nu.lastOrNull() ?: 0.0).toInt()}미터입니다."
@@ -799,6 +811,7 @@ object JeomEngine {
         if (rest >= 20) juwiMalhagi(la, lo)
         geollimSalpigi(la, lo)
         kkeokBoda(la, lo)
+        gochilBoda()   // 2.79.0
         // 길에서 크게 벗어남 — 말은 확신음 쪽이 맡고, 여기서는 걸린 자리로 남김
         if (bestD > max(12.0, ac * 1.5)) {
             offSu += 1
@@ -1406,6 +1419,19 @@ object JeomEngine {
             gyeol.add(res[n2]); n2 += 1
         }
         return gyeol
+    }
+
+    /** 2.79.0 고칠 곳 15미터 앞에서 한 번 — 끌 수 없는 말 */
+    private fun gochilBoda() {
+        if (gochilI.isEmpty() || idx >= nu.size) return
+        for (i in gochilI) {
+            if (i >= nu.size || gochilHan.contains(i) || i < idx - 1) continue
+            if (nu[i] - nu[idx] <= 15) {
+                gochilHan.add(i)
+                mal("곧 이 점지도의 고칠 곳입니다. 아직 확인이 덜 된 자리이니 더 조심하십시오.", MalGeup.GYEONGGO)
+                break
+            }
+        }
     }
 
     private fun kkeokBoda(la: Double, lo: Double) {

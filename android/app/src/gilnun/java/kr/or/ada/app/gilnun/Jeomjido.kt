@@ -67,7 +67,10 @@ data class JeomGil(
     val nae: Boolean = false,       // 2.7.0 나만의 점지도(폰 안)
     val matgim: Boolean = false,    // 2.7.0 잠금말을 걸어 협회 서버에 맡겨 둠
     val ollim: Boolean = false,     // 2.7.0 모두가 쓰도록 점지도에 올림
-    val stride: Double? = null      // 2.35.0 그린 이의 보폭(미터) — 그린 이 걸음 × 그린 이 보폭 ÷ 내 보폭으로 걸음 수를 말씀드림
+    val stride: Double? = null,     // 2.35.0 그린 이의 보폭(미터) — 그린 이 걸음 × 그린 이 보폭 ÷ 내 보폭으로 걸음 수를 말씀드림
+    /** 2.79.0 (261026-A67, 이사장님 승인 2026-10-26 「1」, 아이폰 2.114.0과 같음) 점지도 등급 A·B·C와 고칠 곳(그린 이 걸음 자리) — 협회 점검이 매김 */
+    val deunggeup: String = "",
+    val gochilSt: List<Int> = emptyList()
 ) {
     /** 2.7.0 아이폰 JSONEncoder(JeomGil Codable)와 같은 꼴 — 맡기기(잠가 보냄)와 폰 안 담기에 씀. 없는 값은 넣지 않음 */
     fun json(): JSONObject {
@@ -273,7 +276,9 @@ data class JeomGil(
                 Jeomjido.gul(o, "id"), Jeomjido.gul(o, "title"), Jeomjido.gul(o, "from"), Jeomjido.gul(o, "to"),
                 Jeomjido.gul(o, "who"), Jeomjido.gul(o, "made"), Jeomjido.su(o, "dist") ?: 0.0, pts, marks,
                 o.optBoolean("nae", false), o.optBoolean("matgim", false), o.optBoolean("ollim", false),
-                Jeomjido.su(o, "stride")?.takeIf { it > 0.3 && it < 1.2 }
+                Jeomjido.su(o, "stride")?.takeIf { it > 0.3 && it < 1.2 },
+                Jeomjido.gul(o, "deunggeup"),
+                o.optJSONArray("gochil_st")?.let { a -> (0 until a.length()).map { a.optInt(it) } } ?: emptyList()
             )
         }
     }
@@ -289,7 +294,8 @@ data class JeomMok(
     val dist: Double,
     val near: Double,
     val pyo: Int,
-    val slat: Double, val slon: Double, val elat: Double, val elon: Double
+    val slat: Double, val slon: Double, val elat: Double, val elon: Double,
+    val deunggeup: String = ""   // 2.79.0 점지도 등급
 ) {
     /** 화면 제목에 쓰는 이름 */
     val ireum: String get() = if (title.isEmpty()) "${from}에서 ${to}까지" else title
@@ -300,6 +306,7 @@ data class JeomMok(
             var m = ireum
             m += ", ${Jeomjido.geoMal(dist)}"
             if (near >= 0) m += if (near < 15) ", 지금 이 길 위" else ", 여기서 ${Jeomjido.geoMal(near)}"
+            if (deunggeup.isNotEmpty()) m += ", ${deunggeup}급"   // 2.79.0
             if (pyo > 0) m += ", 표시 ${pyo}개"
             if (who.isNotEmpty()) m += ", 그린 분 $who"
             return m
@@ -367,7 +374,8 @@ object Jeomjido {
                 out.add(JeomMok(
                     id, gul(r, "title"), gul(r, "from"), gul(r, "to"), gul(r, "who"),
                     su(r, "dist") ?: 0.0, su(r, "near") ?: -1.0, (su(r, "marks") ?: 0.0).toInt(),
-                    su(r, "slat") ?: 0.0, su(r, "slon") ?: 0.0, su(r, "elat") ?: 0.0, su(r, "elon") ?: 0.0
+                    su(r, "slat") ?: 0.0, su(r, "slon") ?: 0.0, su(r, "elat") ?: 0.0, su(r, "elon") ?: 0.0,
+                    gul(r, "deunggeup")
                 ))
             }
             kkeut(out)

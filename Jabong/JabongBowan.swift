@@ -24,6 +24,8 @@ struct BwGil: Decodable, Identifiable {
     var nal: Int?
     var gihan: String?
     var heum: [BwHeum]
+    var deunggeup: String?   // 2.35.0 (261026-I29, 이사장님 승인 「2」) 협회가 매긴 점지도 등급 A·B·C
+    var dgMal: String { (deunggeup ?? "").isEmpty ? "" : ", \(deunggeup!)급" }
     var ireum: String { !title.isEmpty ? title : ((from.isEmpty && to.isEmpty) ? "이름 없는 길" : "\(from) → \(to)") }
 }
 
@@ -124,7 +126,7 @@ struct BowanKan: View {
                 Text("보완 부탁 \(b.namun.count)건 — \(JbBowan.butak)").font(.title3.bold()).foregroundColor(JbBowan.saek("빨강"))
                 Mokrok5(b.namun) { g in
                     NavigationLink { BowanGilView(gil: g) } label: {
-                        Text("\(g.ireum) — \(g.dangye ?? "보완 대기")" + (g.gihan.map { ", 기한 " + JbBowan.nalMal($0) } ?? ""))
+                        Text("\(g.ireum) — \(g.dangye ?? "보완 대기")" + g.dgMal + (g.gihan.map { ", 기한 " + JbBowan.nalMal($0) } ?? ""))
                     }.buttonStyle(KeunDanchu())
                 }
             }
@@ -156,6 +158,9 @@ struct BowanGilView: View {
                 NavigationLink { JbDonghwaView(beonho: pn) } label: {
                     Text("도움 되는 동영상 — \(JbMadang.shared.pyeon(pn)?.ireum ?? "\(pn)편")")
                 }.buttonStyle(KeunDanchu())
+                if let dg = gil.deunggeup, !dg.isEmpty {   // 2.35.0 등급과 보완하면 어떻게 되는지
+                    Text("지금 \(dg)급 점지도입니다. " + (dg == "C" ? "아직 그리는 중인 길로 길눈님께 알려 드립니다. 고칠 곳을 보완하면 등급이 오릅니다." : dg == "B" ? "고칠 곳만 보완하면 A급이 됩니다." : "협회 점검 기준을 넘은 길입니다.")).font(.title3)
+                }
                 Text(gil.mal ?? JbBowan.butak).font(.title3.bold())
                 Text("보완 부탁 날 " + JbBowan.nalMal(gil.ttae) + (gil.nal.map { ", \($0)일 지남" } ?? "")).font(.body)
                 ForEach(Array(gil.heum.enumerated()), id: \.offset) { _, h in HeumJul(saek: h.saek, mal: h.mal) }

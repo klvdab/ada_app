@@ -52,6 +52,7 @@ struct GrPyosi: Codable {
     var pairOf: String?
     var malo: Bool?      // 말로 남긴 표시
     var mureum: Bool?    // 폰이 여쭙고 네 하셔서 남긴 표시
+    var jadong: Bool?    // 2.35.0 폰이 몸이 돈 것을 알아채 저절로 남긴 표시(꺾임·굽은 길)
 }
 
 struct GrGil: Codable, Identifiable {
@@ -207,6 +208,17 @@ final class JeomGeurigi: ObservableObject {
         get { UserDefaults.standard.bool(forKey: "jb.kkeokMutgi") }
         set { UserDefaults.standard.set(newValue, forKey: "jb.kkeokMutgi") }
     }
+    /// 2.35.0 (261026-I29, 이사장님 승인 2026-10-26 「1」) 꺾임·굽은 길 저절로 남기기 — 처음값 켬
+    static var kkeokJadong: Bool {
+        get { UserDefaults.standard.object(forKey: "jb.kkeokJadong") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "jb.kkeokJadong") }
+    }
+    /// 2.35.0 저절로 남긴 마지막 때 — 30초 동안 「방금 저절로 남긴 표시 빼기」 단추를 보임
+    @Published private(set) var jadongMa: Date?
+    private var jadongMaSt: [Int] = []
+    /// 2.35.0 몸이 돌기 시작한 구간 — 점 번호, 그때 돈 각도 누계, 걸음
+    private var dolGugan: (i0: Int, dg0: Double, st0: Int)?
+    private var gojeongSu = 0
     private(set) var gil: GrGil?
 
     private var stGijun = 0          // 걸음 센서 기준(앱이 켜진 뒤 센 걸음)
@@ -541,7 +553,11 @@ final class JeomGeurigi: ObservableObject {
         // 물음은 20초 지나면 거둠
         if let m = mureum, Date().timeIntervalSince(m.ttae) > 20 { mureum = nil }
         kkeokJaegiBoda(p)   // 2.34.0 꺾임을 누른 뒤 몸이 돈 각도 재기
-        if rideMode.isEmpty && JeomGeurigi.kkeokMutgi && kkeokJaegi == nil { kkeokimBoda() }   // 2.11.0 계단 여쭙기 없앰, 꺾임 여쭙기는 켰을 때만
+        // 2.35.0 꺾임·굽은 길 저절로 남기기(처음값 켬). 끄면 예전처럼 꺾임 여쭙기를 켰을 때만 여쭘
+        if rideMode.isEmpty && kkeokJaegi == nil && gubeunOpen == nil {
+            if JeomGeurigi.kkeokJadong { jadongBoda() }
+            else if JeomGeurigi.kkeokMutgi { kkeokimBoda() }   // 2.11.0 계단 여쭙기 없앰, 꺾임 여쭙기는 켰을 때만
+        } else { dolGugan = nil; gojeongSu = 0 }
         if (gil?.pts.count ?? 0) % 15 == 0 { gilBoda() }
         mitBoda()   // 2.20.0
     }
@@ -879,10 +895,96 @@ final class JeomGeurigi: ObservableObject {
 
     /// 멈춤·마침 전에 — 재던 꺾임과 열린 굽은 길을 지금 자리로 마무리
     private func jaegiMatgi() {
+        dolGugan = nil; gojeongSu = 0   // 2.35.0 멈추면 돌던 구간도 새로
         guard sangtae == .georeum, kkeokJaegi != nil || gubeunOpen != nil else { return }
         let p = jigeumJari()
         if let kj = kkeokJaegi { kkeokJaegiKkeut(kj, p: p, gangje: true) }
         if let go = gubeunOpen { gubeunMatgi(go, p: p, m: nil, gangje: true) }
+    }
+
+    // MARK: 2.35.0 꺾임·굽은 길 저절로 남기기 (261026-I29, 이사장님 승인 2026-10-26 「1」)
+    //   10-26 남산 길 4,965걸음에 꺾임·굽은 길 표시가 23곳 빠져 C급이 된 일 — 봉사자가 단추를 누르지 않아도 폰이 몸이 돈 것을 알아채 남김.
+    //   몸이 3초에 9도 넘게 돌기 시작하면 구간을 열고, 3초 넘게 곧게 가면 닫음. 모두 35도 넘게 돌았으면
+    //   12걸음 안에 다 돌았으면 꺾임, 더 길게 돌았으면 굽은 길(시작·끝)로 남김. 손으로 남긴 꺾임·굽은 길이 그 구간에 있으면 남기지 않음.
+    //   위성은 쓰지 않고 폰의 회전 센서(몸이 돈 각도 누계)만 씀
+
+    /// 1초마다 — 몸이 돈 구간을 찾아 다 돌면 표시를 남김
+    private func jadongBoda() {
+        guard let ps = gil?.pts, ps.count >= 6, let dNow = ps[ps.count - 1].dg else { return }
+        let n = ps.count
+        guard let d4 = ps[n - 4].dg else { return }
+        let ppareum = abs(dNow - d4)          // 3초 동안 돈 각도
+        guard let dg = dolGugan else {
+            if ppareum >= 9 { dolGugan = (n - 4, d4, ps[n - 4].st); gojeongSu = 0 }
+            return
+        }
+        if ppareum < 6 { gojeongSu += 1 } else { gojeongSu = 0 }
+        if gojeongSu < 3 && n - 1 - dg.i0 < 120 { return }   // 3초 넘게 곧게 가야 다 돈 것(2분 넘게 돌면 끊어 봄)
+        dolGugan = nil; gojeongSu = 0
+        let iKkeut = max(dg.i0 + 1, n - 4)
+        guard iKkeut < n, let dEnd = ps[iKkeut].dg else { return }
+        let total = dEnd - dg.dg0
+        guard abs(total) >= 35 else { return }
+        let st0 = dg.st0, st1 = ps[iKkeut].st
+        guard openPair == nil, rideMode.isEmpty else { return }   // 계단·건널목·탈것 안에서는 남기지 않음
+        let marks = gil?.marks ?? []
+        if marks.contains(where: { m in m.st >= st0 - 5 && m.st <= st1 + 5
+            && (m.name.contains("꺾임") || m.name.contains("굽은 길") || m.kind == "꺾임" || m.kind == "굽은 길") }) { return }
+        let s = JeomGeurigi.sigye(total)
+        let georeumSu = max(0, st1 - st0)
+        var mal: String
+        if georeumSu <= 12 {
+            let p = ps[(dg.i0 + iKkeut) / 2]
+            var m = GrPyosi(t: p.t, st: p.st, name: "\(s)시 방향으로 꺾임")
+            m.h = p.h; m.lat = p.lat; m.lon = p.lon; m.acc = p.acc; m.jadong = true
+            pyosiNeoki(m)
+            jadongMaSt = [m.st]
+            majimakKkeokim = Date()
+            mal = "\(s)시 방향 꺾임을 저절로 남겼습니다."
+        } else {
+            let a = ps[dg.i0], b = ps[iKkeut]
+            let dist = JeomGeurigi.geori(a.lat, a.lon, b.lat, b.lon)
+            let sijakIreum = "\(s)시 방향으로 굽은 길 시작"
+            var m0 = GrPyosi(t: a.t, st: a.st, name: sijakIreum)
+            m0.h = a.h; m0.lat = a.lat; m0.lon = a.lon; m0.acc = a.acc
+            m0.kind = "굽은 길"; m0.cnt = georeumSu; m0.dist = dist; m0.jadong = true
+            var m1 = GrPyosi(t: b.t, st: b.st, name: "굽은 길 끝")
+            m1.h = b.h; m1.lat = b.lat; m1.lon = b.lon; m1.acc = b.acc
+            m1.kind = "굽은 길"; m1.pairOf = sijakIreum; m1.jadong = true
+            pyosiNeoki(m0); pyosiNeoki(m1)
+            jadongMaSt = [m0.st, m1.st]
+            mal = "\(georeumSu)걸음 동안 \(s)시 방향으로 굽은 길을 저절로 남겼습니다."
+        }
+        jadongMa = Date()
+        jeojang()
+        Jindong.hagi(total > 0 ? "right" : "left")
+        Girok.shared.namgi("jb_jadong", ["gak": Int(total.rounded()), "si": s, "georeum": georeumSu, "jong": georeumSu <= 12 ? "kkeok" : "gubeun"])
+        alrigi(mal + " 틀렸으면 방금 저절로 남긴 표시 빼기를 누르십시오.")
+    }
+
+    /// 2.35.0 표시를 걸음 차례에 맞는 자리에 끼워 넣고, 뒤에 열려 있는 짝들의 번호를 하나씩 밂
+    private func pyosiNeoki(_ m: GrPyosi) {
+        guard gil != nil else { return }
+        let i = gil!.marks.firstIndex(where: { $0.st > m.st }) ?? gil!.marks.count
+        gil!.marks.insert(m, at: i)
+        if var o = openPair, o.idx >= i { o.idx += 1; openPair = o }
+        if var o = nakOpen, o.idx >= i { o.idx += 1; nakOpen = o }
+        if var o = gubeunOpen, o.idx >= i { o.idx += 1; gubeunOpen = o }
+        if var o = kkeokJaegi, o.idx >= i { o.idx += 1; kkeokJaegi = o }
+        if let o = jaenKkeok, o.idx >= i { jaenKkeok = (o.idx + 1, o.t) }
+    }
+
+    /// 2.35.0 방금 저절로 남긴 표시 빼기
+    func jadongBbaegi() {
+        guard jadongMa != nil, !jadongMaSt.isEmpty else { alrigi("뺄 표시가 없습니다."); return }
+        var ppaen = 0
+        for st in jadongMaSt {
+            if let i = gil?.marks.lastIndex(where: { $0.jadong == true && $0.st == st }) { pyosiBbaegi(i); ppaen += 1 }
+        }
+        jadongMa = nil; jadongMaSt = []
+        jeojang()
+        Girok.shared.namgi("jb_jadong_bbaegi", ["su": ppaen])
+        alrigi(ppaen > 0 ? "방금 저절로 남긴 표시를 뺐습니다." : "뺄 표시가 없습니다.")
     }
 
     /// 표시 하나를 빼고, 뒤에 열려 있는 짝들의 번호를 하나씩 당김
@@ -1099,15 +1201,18 @@ final class JeomGeurigi: ObservableObject {
             let cheot = JbMadang.shared.cheotGilMachim()
             if cheot { Baksu.chigi(keuge: true); Jindong.hagi("arrive") }
             let cheotMal = cheot ? "첫 점지도를 그리셨습니다! 축하드립니다. " : ""
+            // 2.35.0 (261026-I29, 이사장님 승인 2026-10-26 「1」) 협회가 매긴 점지도 등급(A·B·C)을 알려 드림
+            let dg = Nas.gul(r["deunggeup"])
+            let dgMal = dg.isEmpty ? "" : "\(dg)급 점지도로 실렸습니다. " + (dg == "B" ? "고칠 곳만 보완하면 A급이 됩니다. " : dg == "C" ? "아직 그리는 중인 길로 길눈님께 알려 드립니다. 보완하면 등급이 오릅니다. " : "")
             let bm = (r["bowanMachim"] as? Int) ?? 0   // 2.13.0 같은 출발지·도착지 보완 부탁이 있었으면 보완 완료
             if bm > 0 { bowanGeumanduggi(); Task { await JbBowan.shared.bulleo(gangje: true) } }   // 2.21.0 보완 완료면 보완하기도 마침
             if bowanPilyo {   // 2.18.0 받기는 했지만 손볼 곳이 있음 — 보완 목록에도 올라가 누구든 이어서 보완
                 Task { await JbBowan.shared.bulleo(gangje: true) }
                 Girok.shared.namgi("jb_olim_bowan", ["id": id, "seobeo": geurinGil[i].seobeoId ?? ""])
-                alrigi(cheotMal + "올렸습니다. 고맙습니다. 다만 협회 점검에서 손볼 곳이 나와 보완 목록에도 올렸습니다. 그린 분이나 다른 봉사자 누구든 이어서 보완할 수 있습니다. " + mals.joined(separator: " "))
+                alrigi(cheotMal + dgMal + "올렸습니다. 고맙습니다. 다만 협회 점검에서 손볼 곳이 나와 보완 목록에도 올렸습니다. 그린 분이나 다른 봉사자 누구든 이어서 보완할 수 있습니다. " + mals.joined(separator: " "))
                 return
             }
-            alrigi(cheotMal + "올렸습니다. 협회 점검을 통과해 길눈에 실렸습니다. 고맙습니다." + (bm > 0 ? " 보완 부탁 \(bm)건이 보완 완료되었습니다." : "") + (mals.isEmpty ? "" : " 다음에 손보시면 좋을 곳도 알려 드립니다. " + mals.joined(separator: " ")))
+            alrigi(cheotMal + dgMal + "올렸습니다. 협회 점검을 통과해 길눈에 실렸습니다. 고맙습니다." + (bm > 0 ? " 보완 부탁 \(bm)건이 보완 완료되었습니다." : "") + (mals.isEmpty ? "" : " 다음에 손보시면 좋을 곳도 알려 드립니다. " + mals.joined(separator: " ")))
         } else {
             geurinGil[i].heum = mals
             geurinGil[i].heumSaek = saeks
@@ -1219,6 +1324,7 @@ struct GeurigiView: View {
     @State private var chulbal = ""       // 2.11.0 출발지·도착지 이름 직접 넣기
     @State private var dochak = ""
     @State private var kkeokMutgi = JeomGeurigi.kkeokMutgi   // 2.11.0 꺾임 여쭙기(기본 끔)
+    @State private var kkeokJadong = JeomGeurigi.kkeokJadong   // 2.35.0 꺾임·굽은 길 저절로 남기기(기본 켬)
     @State private var mitAllim = JbMitgeurim.allimKyeojim   // 2.20.0 밑그림 꺾는 곳 미리 알림(처음값 켬)
     @State private var jidoBoim = JbMitgeurim.jidoKyeojim    // 2.20.0 지도 보이기
     @Environment(\.accessibilityVoiceOverEnabled) private var boiseu
@@ -1310,6 +1416,10 @@ struct GeurigiView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .accessibilityHidden(true)
         }
+        // 2.35.0 저절로 남긴 뒤 30초 동안 — 틀렸으면 바로 뺌
+        if let t = g.jadongMa, Date().timeIntervalSince(t) < 30 {
+            Button("방금 저절로 남긴 표시 빼기") { g.jadongBbaegi() }.buttonStyle(KeunDanchu())
+        }
         ForEach(JeomGeurigi.JAJU, id: \.self) { n in
             Button(n) { g.pyosi(n) }.buttonStyle(KeunDanchu())
         }
@@ -1327,7 +1437,9 @@ struct GeurigiView: View {
                 // 2.11.0 안내 말소리 끄기 — 끄면 화면 글자로만(설정의 말소리와 같은 스위치)
                 // 261019 이사장님 승인 「1」 — 실제로 없는 「진동」 말을 뺌
                 Toggle("안내 말소리 — 끄면 화면 글자로만", isOn: $s.malKyeojim).font(.title3)
-                Toggle("꺾임 여쭙기 — 방향이 크게 바뀌면 폰이 먼저 여쭘", isOn: $kkeokMutgi)
+                Toggle("꺾임·굽은 길 저절로 남기기 — 몸이 돈 것을 폰이 알아채 남김", isOn: $kkeokJadong)   // 2.35.0
+                    .font(.title3).onChange(of: kkeokJadong) { v in JeomGeurigi.kkeokJadong = v }
+                Toggle("꺾임 여쭙기 — 저절로 남기기를 껐을 때, 방향이 크게 바뀌면 폰이 먼저 여쭘", isOn: $kkeokMutgi)
                     .font(.title3).onChange(of: kkeokMutgi) { v in JeomGeurigi.kkeokMutgi = v }
                 Toggle("AI 밑그림 꺾는 곳 미리 알림 — 15미터 앞에서 한 번", isOn: $mitAllim)   // 2.20.0
                     .font(.title3).onChange(of: mitAllim) { v in JbMitgeurim.allimKyeojim = v }

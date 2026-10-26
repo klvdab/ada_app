@@ -82,6 +82,10 @@ struct DulleJong: Identifiable, Hashable {
         DulleJong(id: "jeongryu", ireum: "버스정류장 — 가까운 정류장과 정류장 번호", natmal: "", geot: true),
         DulleJong(id: "eungeup", ireum: "응급실 — 가까운 응급의료기관", natmal: "", geot: true),
         DulleJong(id: "daepiso", ireum: "대피소 — 지진·민방위·무더위·한파", natmal: "", geot: true),
+        // 2.114.0 (261026-I68, 이사장님 승인 2026-10-26 「1」 공공데이터 적용)
+        DulleJong(id: "aed", ireum: "자동심장충격기 — 가까운 곳", natmal: "", geot: true),
+        DulleJong(id: "bisangbel", ireum: "안전비상벨 — 가까운 곳", natmal: "", geot: false),
+        DulleJong(id: "elbe", ireum: "지하철 엘리베이터·출입구 리프트 — 서울", natmal: "", geot: false),
         DulleJong(id: "eunhaeng", ireum: "은행", natmal: "", geot: false),
         DulleJong(id: "mart", ireum: "대형마트", natmal: "", geot: false),
         DulleJong(id: "juchajang", ireum: "주차장", natmal: "", geot: false),
@@ -101,7 +105,8 @@ struct DulleJong: Identifiable, Hashable {
                                        ("커피", "cafe"), ("화장실", ""), ("응급실", "eungeup"), ("은행", "eunhaeng"),
                                        ("마트", "mart"), ("주차장", "juchajang"), ("주유소", "juyuso"), ("숙박", "sukbak"),
                                        ("모텔", "sukbak"), ("호텔", "sukbak"), ("식당", "sikdang"), ("밥집", "sikdang"),
-                                       ("정류장", "jeongryu")]
+                                       ("정류장", "jeongryu"), ("심장충격기", "aed"), ("제세동기", "aed"), ("비상벨", "bisangbel"),
+                                       ("엘리베이터", "elbe"), ("리프트", "elbe")]
         for (m, id) in pyo where z.contains(m) {
             if id.isEmpty { return modu.first { $0.natmal == "공중화장실" } }
             if id == "sikdang" { return DulleJong(id: "sikdang", ireum: "식당", natmal: "", geot: true) }

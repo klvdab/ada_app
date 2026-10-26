@@ -117,6 +117,15 @@ object Geurigi {
     /** 2.11.0 방금 마친 길(올리기 단추를 안내 바로 아래에) */
     var majimakId: String? = null; private set
     /** 2.11.0 꺾임 여쭙기 — 봉사자 요청으로 기본 끔 */
+    /** 2.35.0 (261026-A31, 이사장님 승인 2026-10-26 「1」) 꺾임·굽은 길 저절로 남기기 — 처음값 켬 */
+    fun kkeokJadong(c: Context): Boolean = c.getSharedPreferences("jabong", Context.MODE_PRIVATE).getBoolean("jb.kkeokJadong", true)
+    fun kkeokJadongKyeogi(c: Context, v: Boolean) { c.getSharedPreferences("jabong", Context.MODE_PRIVATE).edit().putBoolean("jb.kkeokJadong", v).apply() }
+    /** 2.35.0 저절로 남긴 마지막 때 — 30초 동안 「방금 저절로 남긴 표시 빼기」 단추를 보임 */
+    var jadongMa = 0L; private set
+    private var jadongMaSt: List<Int> = emptyList()
+    /** 2.35.0 몸이 돌기 시작한 구간 — 점 번호, 그때 돈 각도 누계, 걸음 */
+    private var dolGugan: Triple<Int, Double, Int>? = null
+    private var gojeongSu = 0
     fun kkeokMutgi(c: Context): Boolean = c.getSharedPreferences("jabong", Context.MODE_PRIVATE).getBoolean("jb.kkeokMutgi", false)
     fun kkeokMutgiKyeogi(c: Context, v: Boolean) { c.getSharedPreferences("jabong", Context.MODE_PRIVATE).edit().putBoolean("jb.kkeokMutgi", v).apply() }
     /** 화면을 다시 그릴 곳 */
@@ -554,7 +563,11 @@ object Geurigi {
         mureum?.let { if (System.currentTimeMillis() - it.ttae > 20000) { mureum = null; bakkwim?.invoke() } }
         // 2.11.0 계단 여쭙기 없앰, 꺾임 여쭙기는 켰을 때만
         kkeokJaegiBoda(p)   // 2.34.0 꺾임을 누른 뒤 몸이 돈 각도 재기
-        if (rideMode.isEmpty() && kkeokJaegi == null && ctx?.let { kkeokMutgi(it) } == true) kkeokimBoda()
+        // 2.35.0 꺾임·굽은 길 저절로 남기기(처음값 켬). 끄면 예전처럼 꺾임 여쭙기를 켰을 때만 여쭘
+        if (rideMode.isEmpty() && kkeokJaegi == null && gubeunOpen == null) {
+            if (ctx?.let { kkeokJadong(it) } != false) jadongBoda()
+            else if (ctx?.let { kkeokMutgi(it) } == true) kkeokimBoda()
+        } else { dolGugan = null; gojeongSu = 0 }
         if (pts.length() % 15 == 0) gilBoda()
         mitBoda()   // 2.21.0
     }
@@ -1015,15 +1028,18 @@ object Geurigi {
             val cheot = JbMadang.cheotGilMachim()
             if (cheot) { Baksu.chigi(true); kr.or.ada.app.gilnun.Jindong.hagi("arrive") }
             val cheotMal = if (cheot) "첫 점지도를 그리셨습니다! 축하드립니다. " else ""
+            // 2.35.0 (261026-A31, 이사장님 승인 2026-10-26 「1」) 협회가 매긴 점지도 등급(A·B·C)을 알려 드림
+            val dg = r.optString("deunggeup", "")
+            val dgMal = if (dg.isEmpty()) "" else "${dg}급 점지도로 실렸습니다. " + when (dg) { "B" -> "고칠 곳만 보완하면 A급이 됩니다. "; "C" -> "아직 그리는 중인 길로 길눈님께 알려 드립니다. 보완하면 등급이 오릅니다. "; else -> "" }
             val bm = r.optInt("bowanMachim", 0)   // 2.13.0 같은 출발지·도착지 보완 부탁이 있었으면 보완 완료
             if (bm > 0) { bowanGeumanduggi(); ctx?.let { c -> JbBowan.bulleo(c, true) { bakkwim?.invoke() } } }   // 2.22.0 보완 완료면 보완하기도 마침
             if (bowanPilyo) {   // 2.19.0 받기는 했지만 손볼 곳이 있음 — 보완 목록에도 올라가 누구든 이어서 보완
                 ctx?.let { c -> JbBowan.bulleo(c, true) { bakkwim?.invoke() } }
                 Girok.namgi("jb_olim_bowan", mapOf("id" to id, "seobeo" to r.optString("id")))
-                alrigi(cheotMal + "올렸습니다. 고맙습니다. 다만 협회 점검에서 손볼 곳이 나와 보완 목록에도 올렸습니다. 그린 분이나 다른 봉사자 누구든 이어서 보완할 수 있습니다. $malMok")
+                alrigi(cheotMal + dgMal + "올렸습니다. 고맙습니다. 다만 협회 점검에서 손볼 곳이 나와 보완 목록에도 올렸습니다. 그린 분이나 다른 봉사자 누구든 이어서 보완할 수 있습니다. $malMok")
                 return
             }
-            alrigi(cheotMal + "올렸습니다. 협회 점검을 통과해 길눈에 실렸습니다. 고맙습니다." + (if (bm > 0) " 보완 부탁 ${bm}건이 보완 완료되었습니다." else "") + if (mals.length() > 0) " 다음에 손보시면 좋을 곳도 알려 드립니다. $malMok" else "")
+            alrigi(cheotMal + dgMal + "올렸습니다. 협회 점검을 통과해 길눈에 실렸습니다. 고맙습니다." + (if (bm > 0) " 보완 부탁 ${bm}건이 보완 완료되었습니다." else "") + if (mals.length() > 0) " 다음에 손보시면 좋을 곳도 알려 드립니다. $malMok" else "")
         } else {
             o.put("heum", mals); o.put("heumSaek", saeks); mokJeojang()
             ctx?.let { c -> JbBowan.bulleo(c, true) { bakkwim?.invoke() } }   // 2.13.0 보완 부탁 목록을 새로
@@ -1169,10 +1185,108 @@ object Geurigi {
 
     /** 멈춤·마침 전에 — 재던 꺾임과 열린 굽은 길을 지금 자리로 마무리 */
     private fun jaegiMatgi() {
+        dolGugan = null; gojeongSu = 0   // 2.35.0 멈추면 돌던 구간도 새로
         if (sangtae != Sangtae.GEOREUM || (kkeokJaegi == null && gubeunOpen == null)) return
         val p = jigeumJari()
         kkeokJaegi?.let { kkeokJaegiKkeut(it, p, gangje = true) }
         gubeunOpen?.let { gubeunMatgi(it, p, null, gangje = true) }
+    }
+
+    // MARK: 2.35.0 꺾임·굽은 길 저절로 남기기 (261026-A31, 이사장님 승인 2026-10-26 「1」, 아이폰 자봉 2.35.0과 같음)
+    //   몸이 3초에 9도 넘게 돌기 시작하면 구간을 열고, 3초 넘게 곧게 가면 닫음. 모두 35도 넘게 돌았으면
+    //   12걸음 안에 다 돌았으면 꺾임, 더 길게 돌았으면 굽은 길(시작·끝)로 남김. 손으로 남긴 꺾임·굽은 길이 그 구간에 있으면 남기지 않음. 위성은 쓰지 않음
+
+    private fun ptDg(i: Int): Double? = pts.optJSONObject(i)?.let { if (it.has("dg")) it.getDouble("dg") else null }
+
+    private fun jadongBoda() {
+        val n = pts.length()
+        if (n < 6) return
+        val dNow = ptDg(n - 1) ?: return
+        val d4 = ptDg(n - 4) ?: return
+        val ppareum = abs(dNow - d4)
+        val dg = dolGugan
+        if (dg == null) {
+            if (ppareum >= 9) { dolGugan = Triple(n - 4, d4, pts.getJSONObject(n - 4).optInt("st")); gojeongSu = 0 }
+            return
+        }
+        if (ppareum < 6) gojeongSu++ else gojeongSu = 0
+        if (gojeongSu < 3 && n - 1 - dg.first < 120) return
+        dolGugan = null; gojeongSu = 0
+        val iKkeut = maxOf(dg.first + 1, n - 4)
+        if (iKkeut >= n) return
+        val dEnd = ptDg(iKkeut) ?: return
+        val total = dEnd - dg.second
+        if (abs(total) < 35) return
+        val st0 = dg.third
+        val pk = pts.getJSONObject(iKkeut)
+        val st1 = pk.optInt("st")
+        if (openPair != null || rideMode.isNotEmpty()) return
+        for (i in 0 until marks.length()) {
+            val m = marks.optJSONObject(i) ?: continue
+            val st = m.optInt("st"); val nm = m.optString("name"); val kd = m.optString("kind")
+            if (st >= st0 - 5 && st <= st1 + 5 && (nm.contains("꺾임") || nm.contains("굽은 길") || kd == "꺾임" || kd == "굽은 길")) return
+        }
+        val s = sigye(total)
+        val georeumSu = maxOf(0, st1 - st0)
+        fun pyo(p: JSONObject, name: String) = JSONObject().apply {
+            put("t", p.optInt("t")); put("st", p.optInt("st")); put("name", name)
+            for (k in listOf("h", "lat", "lon", "acc", "hy", "st2", "dg")) if (p.has(k)) put(k, p.get(k))
+            put("jadong", true)
+        }
+        val mal: String
+        if (georeumSu <= 12) {
+            val m = pyo(pts.getJSONObject((dg.first + iKkeut) / 2), "${s}시 방향으로 꺾임")
+            pyosiNeoki(m)
+            jadongMaSt = listOf(m.optInt("st"))
+            majimakKkeokim = System.currentTimeMillis()
+            mal = "${s}시 방향 꺾임을 저절로 남겼습니다."
+        } else {
+            val a = pts.getJSONObject(dg.first)
+            val sijakIreum = "${s}시 방향으로 굽은 길 시작"
+            val m0 = pyo(a, sijakIreum).apply { put("kind", "굽은 길"); put("cnt", georeumSu) }
+            val m1 = pyo(pk, "굽은 길 끝").apply { put("kind", "굽은 길"); put("pairOf", sijakIreum) }
+            m0.put("dist", geori(m0, m1))
+            pyosiNeoki(m0); pyosiNeoki(m1)
+            jadongMaSt = listOf(m0.optInt("st"), m1.optInt("st"))
+            mal = "${georeumSu}걸음 동안 ${s}시 방향으로 굽은 길을 저절로 남겼습니다."
+        }
+        jadongMa = System.currentTimeMillis()
+        jeojang()
+        Jindong.hagi(if (total > 0) "right" else "left")
+        Girok.namgi("jb_jadong", mapOf("gak" to total.roundToInt(), "si" to s, "georeum" to georeumSu, "jong" to if (georeumSu <= 12) "kkeok" else "gubeun"))
+        alrigi("$mal 틀렸으면 방금 저절로 남긴 표시 빼기를 누르십시오.")
+        bakkwim?.invoke()
+    }
+
+    /** 2.35.0 표시를 걸음 차례에 맞는 자리에 끼워 넣고, 뒤에 열려 있는 짝들의 번호를 하나씩 밂 */
+    private fun pyosiNeoki(m: JSONObject) {
+        val st = m.optInt("st")
+        var i = marks.length()
+        for (k in 0 until marks.length()) { if ((marks.optJSONObject(k)?.optInt("st") ?: 0) > st) { i = k; break } }
+        val sae = JSONArray()
+        for (k in 0 until marks.length()) { if (k == i) sae.put(m); sae.put(marks.get(k)) }
+        if (i == marks.length()) sae.put(m)
+        marks = sae
+        gil?.put("marks", marks)
+        for (o in listOfNotNull(openPair, nakOpen, gubeunOpen, kkeokJaegi)) { val k = o.optInt("idx", -1); if (k >= i) o.put("idx", k + 1) }
+        jaenKkeok?.let { if (it.first >= i) jaenKkeok = (it.first + 1) to it.second }
+    }
+
+    /** 2.35.0 방금 저절로 남긴 표시 빼기 */
+    fun jadongBbaegi() {
+        if (jadongMa == 0L || jadongMaSt.isEmpty()) { alrigi("뺄 표시가 없습니다."); return }
+        var ppaen = 0
+        for (st in jadongMaSt) {
+            for (i in marks.length() - 1 downTo 0) {
+                val m = marks.optJSONObject(i) ?: continue
+                if (m.optBoolean("jadong") && m.optInt("st") == st) { pyosiBbaegi(i); ppaen++; break }
+            }
+        }
+        jadongMa = 0L; jadongMaSt = emptyList()
+        jeojang()
+        Girok.namgi("jb_jadong_bbaegi", mapOf("su" to ppaen))
+        alrigi(if (ppaen > 0) "방금 저절로 남긴 표시를 뺐습니다." else "뺄 표시가 없습니다.")
+        bakkwim?.invoke()
     }
 
     /** 표시 하나를 빼고, 뒤에 열려 있는 짝들의 번호를 하나씩 당김 */

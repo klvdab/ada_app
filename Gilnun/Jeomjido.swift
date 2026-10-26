@@ -52,6 +52,9 @@ struct JeomGil: Codable, Identifiable {
     var nae: Bool = false
     var matgim: Bool = false
     var ollim: Bool = false
+    /// 2.114.0 (261026-I68, 이사장님 승인 2026-10-26 「1」) 점지도 등급 A·B·C와 고칠 곳(그린 이 걸음 자리) — 협회 점검이 매김
+    var deunggeup: String? = nil
+    var gochilSt: [Int]? = nil
     var stride: Double? = nil   // 2.63.0 그린 이의 보폭(미터) — 그린 이 걸음 × 그린 이 보폭 ÷ 내 보폭으로 걸음 수를 말씀드림
 
     static func batgi(_ o: [String: Any]) -> JeomGil? {
@@ -97,6 +100,8 @@ struct JeomGil: Codable, Identifiable {
                        who: Nas.gul(o["who"]), made: Nas.gul(o["made"]), dist: Chatgi.su(o["dist"]) ?? 0,
                        pts: pts, marks: marks2)
         if let sb = Chatgi.su(o["stride"]), sb > 0.3, sb < 1.2 { gg.stride = sb }
+        let dg = Nas.gul(o["deunggeup"]); if !dg.isEmpty { gg.deunggeup = dg }   // 2.114.0
+        gg.gochilSt = ((o["gochil_st"] as? [Any]) ?? []).compactMap { Chatgi.su($0).map { Int($0) } }
         return gg
     }
 
@@ -219,11 +224,13 @@ struct JeomMok: Identifiable, Hashable {
     let near: Double
     let pyo: Int
     let slat: Double, slon: Double, elat: Double, elon: Double
+    var deunggeup: String = ""   // 2.114.0 점지도 등급
 
     var julMal: String {
         var m = title.isEmpty ? "\(from)에서 \(to)까지" : title
         m += ", \(Annae.geoMal(dist))"
         if near >= 0 { m += near < 15 ? ", 지금 이 길 위" : ", 여기서 \(Annae.geoMal(near))" }
+        if !deunggeup.isEmpty { m += ", \(deunggeup)급" }   // 2.114.0
         if pyo > 0 { m += ", 표시 \(pyo)개" }
         if !who.isEmpty { m += ", 그린 분 \(who)" }
         return m
@@ -258,7 +265,8 @@ enum Jeomjido {
                            who: Nas.gul(r["who"]), dist: Chatgi.su(r["dist"]) ?? 0, near: Chatgi.su(r["near"]) ?? -1,
                            pyo: Int(Chatgi.su(r["marks"]) ?? 0),
                            slat: Chatgi.su(r["slat"]) ?? 0, slon: Chatgi.su(r["slon"]) ?? 0,
-                           elat: Chatgi.su(r["elat"]) ?? 0, elon: Chatgi.su(r["elon"]) ?? 0)
+                           elat: Chatgi.su(r["elat"]) ?? 0, elon: Chatgi.su(r["elon"]) ?? 0,
+                           deunggeup: Nas.gul(r["deunggeup"]))
         }
     }
 

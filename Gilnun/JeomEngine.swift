@@ -102,6 +102,9 @@ final class JeomEngine: ObservableObject {
     private var dolgot: [Double] = []
     private struct Kkeok { let i: Int; let d: Double; let lat: Double; let lon: Double }
     private var kkeoks: [Kkeok] = []
+    /// 2.114.0 (261026-I68) B·C급 점지도의 고칠 곳(점 번호) — 다가가면 한 번 조심하시라 알림
+    private var gochilI: [Int] = []
+    private var gochilHan: Set<Int> = []
     private var kkeokHan = Set<String>()
     private var gilRaw = ""
     private var sijakT = Date()
@@ -407,6 +410,11 @@ final class JeomEngine: ObservableObject {
         }
         kkeoks = JeomEngine.kkeokChatgi(p)
         kkeokHan = []
+        // 2.114.0 고칠 곳 — 그린 이 걸음 자리(st)에 가장 가까운 점
+        gochilHan = []
+        gochilI = (g0.gochilSt ?? []).compactMap { st in
+            p.indices.filter { p[$0].st != nil }.min(by: { abs(p[$0].st! - Double(st)) < abs(p[$1].st! - Double(st)) })
+        }
         // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 탈것 구간을 찾고, 그 안의 꺾임은 걸음 안내에서 뺌
         tagiGugan = tagiChatgi()
         tagiHan = []
@@ -451,7 +459,13 @@ final class JeomEngine: ObservableObject {
             await MainActor.run {
                 guard sd == self.sedae, self.gil != nil else { return }
                 var t = self.ieumIdx > 0 ? "" : "길눈은 보조 안내입니다. 단독보행을 하실 때는 반드시 흰지팡이를 짚고, 주변 소리를 먼저 확인하십시오."   // 2.50.0 흰지팡이 강조
-                if !hwakin { t += " 이 점지도는 아직 확인 중인 길입니다. 조심해서 걸으십시오." }
+                // 2.114.0 (261026-I68, 이사장님 승인 2026-10-26 「1」) 점지도 등급을 끌 수 없는 말로 알림
+                switch g0.deunggeup ?? "" {
+                case "A": t += " 이 점지도는 A급입니다. 협회 점검을 통과한 길입니다."
+                case "B": t += " 이 점지도는 B급입니다. 고칠 곳이 \(self.gochilI.count)곳 있어, 그 자리에 다가가면 미리 알려 드립니다. 그 자리에서는 더 조심하십시오."
+                case "C": t += " 이 점지도는 C급입니다. 아직 그리는 중인 길이라 참고만 하시고, 주변을 더 살피며 걸으십시오."
+                default: if !hwakin { t += " 이 점지도는 아직 확인 중인 길입니다. 조심해서 걸으십시오." }
+                }
                 if !t.isEmpty { self.mal(t, .gyeonggo) }
                 let s = Seoljeong.shared
                 var m = self.ieum.isEmpty ? "" : "이어진 길 \(self.ieum.count)구간 가운데 \(self.ieumIdx + 1)번째 구간입니다. "
@@ -743,6 +757,7 @@ final class JeomEngine: ObservableObject {
         if rest >= 20 { juwiMalhagi(la, lo) }
         geollimSalpigi(la, lo)
         kkeokBoda(la, lo)
+        gochilBoda()   // 2.114.0
         // 길에서 크게 벗어남 — 말은 확신음 쪽이 맡고, 여기서는 걸린 자리로 남김
         if bestD > max(12, ac * 1.5) {
             offSu += 1
@@ -1316,6 +1331,19 @@ final class JeomEngine: ObservableObject {
             gyeol.append(res[n2]); n2 += 1
         }
         return gyeol
+    }
+
+    /// 2.114.0 고칠 곳 15미터 앞에서 한 번 — 끌 수 없는 말
+    private func gochilBoda() {
+        guard !gochilI.isEmpty, idx < nu.count else { return }
+        for i in gochilI where i < nu.count && !gochilHan.contains(i) && i >= idx - 1 {
+            let mi = nu[i] - nu[idx]
+            if mi <= 15 {
+                gochilHan.insert(i)
+                mal("곧 이 점지도의 고칠 곳입니다. 아직 확인이 덜 된 자리이니 더 조심하십시오.", .gyeonggo)
+                break
+            }
+        }
     }
 
     private func kkeokBoda(_ la: Double, _ lo: Double) {

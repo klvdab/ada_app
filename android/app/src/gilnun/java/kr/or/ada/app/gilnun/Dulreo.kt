@@ -113,6 +113,10 @@ data class DrDulleJong(
             DrDulleJong("jeongryu", "버스정류장 — 가까운 정류장과 정류장 번호", "", true),
             DrDulleJong("eungeup", "응급실 — 가까운 응급의료기관", "", true),
             DrDulleJong("daepiso", "대피소 — 지진·민방위·무더위·한파", "", true),
+            // 2.79.0 (261026-A67, 이사장님 승인 2026-10-26 「1」 공공데이터 적용, 아이폰 2.114.0과 같음)
+            DrDulleJong("aed", "자동심장충격기 — 가까운 곳", "", true),
+            DrDulleJong("bisangbel", "안전비상벨 — 가까운 곳", "", false),
+            DrDulleJong("elbe", "지하철 엘리베이터·출입구 리프트 — 서울", "", false),
             DrDulleJong("eunhaeng", "은행", "", false),
             DrDulleJong("mart", "대형마트", "", false),
             DrDulleJong("juchajang", "주차장", "", false),
@@ -135,7 +139,8 @@ data class DrDulleJong(
                 "커피" to "cafe", "화장실" to "", "응급실" to "eungeup", "은행" to "eunhaeng",
                 "마트" to "mart", "주차장" to "juchajang", "주유소" to "juyuso", "숙박" to "sukbak",
                 "모텔" to "sukbak", "호텔" to "sukbak", "식당" to "sikdang", "밥집" to "sikdang",
-                "정류장" to "jeongryu"
+                "정류장" to "jeongryu", "심장충격기" to "aed", "제세동기" to "aed", "비상벨" to "bisangbel",
+                "엘리베이터" to "elbe", "리프트" to "elbe"
             )
             for ((m, id) in pyo) {
                 if (!z.contains(m)) continue
