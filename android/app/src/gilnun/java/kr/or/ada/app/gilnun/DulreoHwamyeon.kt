@@ -540,7 +540,8 @@ object DulreoMal {
             return true
         }
         // 2.7.0 둘러보기 — 고장 이야기, 마실, 사진 읽어 주기, 안면인식, 축제, 둘레 찾기
-        if (gojangMal && !(z.contains("노래") || z.contains("음악"))) {
+        // 2.83.0 (261027-A71, 이사장님 승인 2026-10-27 「1」) 「축제 알려 줘」는 고장 이야기가 아니라 아래 축제로(나스 말사전 고장 이야기에 축제가 들어 있음)
+        if (gojangMal && !(z.contains("노래") || z.contains("음악") || z.contains("축제"))) {
             Dulreo.gojang { r ->
                 if (r == null || r.first.isEmpty()) dap("이 고장 이야기를 받지 못했습니다. 통신과 위치를 확인해 주십시오.", false)
                 else dap(r.first, false)

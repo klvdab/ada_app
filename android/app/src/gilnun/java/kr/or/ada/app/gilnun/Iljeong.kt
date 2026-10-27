@@ -825,12 +825,21 @@ object Iljeong {
         val c = ctx ?: return false
         val now = System.currentTimeMillis()
         if (mureum != null && now - mureumTtae > 120_000L) mureum = null
-        val iljeongMal = z.contains("일정") || z.contains("약속") || z.contains("스케줄") || z.contains("캘린더") || z.contains("달력")
-        val neoki = IljeongMal.NEOKI.any { z.contains(it) }
+        val zl0 = z.lowercase()
+        val iljeongMal0 = IljeongMal.ILJEONG_MAL.any { z.contains(it) }
+        // 2.83.0 (261027-A71) 「리마인드해 줘」, 「쓰레기 버리라고 알려 줘」는 넣기
+        val allyeo = IljeongMal.allyeoNeoki(z)
+        val neoki = IljeongMal.NEOKI.any { z.contains(it) } || allyeo
         val bakkugi = IljeongMal.BAKKUGI.any { z.contains(it) }
         val jiugi = IljeongMal.JIUGI.any { z.contains(it) }
-        val ilgiMal = IljeongMal.ILGI.any { z.contains(it) }
+        val ilgiMal = IljeongMal.ILGI.any { z.contains(it) } && !allyeo
         val kanMal = listOf("제목", "장소", "내용", "메모").any { z.contains(it) }
+        // 2.83.0 표·택시 예약과 알람은 일정이 아님(10-27 공개 자료 시험: 알람 115문장, 표·택시 35문장을 일정이 가로챔)
+        val tageot = IljeongMal.TAGEOT.any { zl0.contains(it) } && !iljeongMal0
+        // 2.83.0 회의·미팅·예약·계획 같은 말은 묻기·넣기·바꾸기·지우기 말과 함께일 때 일정으로(「오늘 오후 한 시 회의 지워」, 「주말에 무슨 예약 있어」)
+        val iljeongMal = !tageot && (iljeongMal0 || allyeo || ((IljeongMal.ILJEONG_MAL2.any { z.contains(it) } ||
+            (IljeongMal.ILJEONG_MAL3.any { z.contains(it) } && (neoki || bakkugi || jiugi || !IljeongMal.gonggongMal(z)))) && (ilgiMal || neoki || bakkugi || jiugi || kanMal) &&
+            IljeongMal.DARUN.none { z.contains(it) }))
         // 2.82.0 묻는 중이라도 새로 시키시면 새 말씀부터(10-27 「오늘 일정 알려줘」를 몇 시냐는 물음의 대답으로 받아 새로 넣기만 되풀이함)
         mureum?.let { m ->
             if (geumanMal(z)) { mureum = null; dap("알겠습니다. 그만두었습니다.", false); return true }
@@ -842,6 +851,7 @@ object Iljeong {
         val zl = z.lowercase()
         // 아침 브리핑
         if (z.contains("브리핑")) return beuripingMal(c, z, dap)
+        if (tageot) return false
         val p = IljeongMal.pulgi(t, now, Jeulgyeo.mokrok.take(30).map { it.ireum })
         val nalSi = p.nal != null || p.si != null || p.banbok.isNotEmpty() || p.haruJongil || p.jusu == 3
         val darun = IljeongMal.DARUN.any { z.contains(it) }
@@ -873,7 +883,9 @@ object Iljeong {
                 return true
             }
         }
-        if (neoki && !bakkugi && !jiugi && (iljeongMal || nalSi)) {
+        // 2.83.0 「만들어」만으로는 날짜가 있어도 일정으로 보지 않음(「오전 8시에 커피 만들어」)
+        val mandeulMan = z.contains("만들어") && IljeongMal.NEOKI.filter { it != "만들어" }.none { z.contains(it) } && !allyeo
+        if (neoki && !bakkugi && !jiugi && (iljeongMal || (nalSi && !mandeulMan))) {
             if (!heorakBoda(c, dap)) return true
             neokiSijak(p, dap)
             return true
@@ -893,7 +905,7 @@ object Iljeong {
             return true
         }
         // 듣기
-        if (z.contains("다음일정") || z.contains("다음약속")) {
+        if (z.contains("다음일정") || z.contains("다음약속") || (iljeongMal && listOf("다음회의", "다음미팅", "다음이벤트", "다음예약", "다음모임", "다음행사").any { z.contains(it) })) {
             if (!heorakBoda(c, dap)) return true
             val h = ilgi(c, now, now + 30 * HARU).firstOrNull { it.sijak > now || it.haruJongil && haru(it.sijak) > haru(now) }
             if (h == null) { dap("앞으로 30일 안에 잡힌 일정이 없습니다.", false); return true }
@@ -908,8 +920,22 @@ object Iljeong {
             val h = mokHang(c, mokB)
             if (h != null) { majimakNeoki(h); dap(jasehiMal(h), false); return true }
         }
-        val nalMuneun = p.nal != null && !iljeongMal && (z.contains("뭐있") || z.contains("약속있") || z.contains("뭐해")) && z.length <= 16
-        if ((iljeongMal && !neoki && !bakkugi && !jiugi && (ilgiMal || z.length <= 12)) || nalMuneun) {
+        // 2.83.0 「결혼식 언제야」, 「치과 예약 몇 시야」 — 제목으로 찾아 날짜와 시각을 알려 드림
+        if ((z.contains("언제") || z.contains("몇시")) && !neoki && !bakkugi && !jiugi && heorak(c)) {
+            val nmal = p.jemokMal.filter { it !in IljeongMal.DONGSA && it.length >= 2 }
+            if (nmal.isNotEmpty()) {
+                val l = ilgi(c, now - 3_600_000L, now + 90 * HARU).filter { h -> nmal.any { w -> IljeongMal.ttuk(h.jemok + h.jangso).contains(w) } }
+                if (l.isNotEmpty()) {
+                    majimakNeoki(l[0])
+                    dap(if (l.size == 1) "${julMal(l[0], true)}입니다." else "맞는 일정이 ${l.size}개 있습니다. " + l.take(5).joinToString(". ") { julMal(it, true) } + ".", false)
+                    return true
+                }
+                if (iljeongMal0) { dap("앞으로 90일 안에 ${nmal.joinToString(" ")}${IljeongMal.eun(nmal.last())} 일정에 없습니다.", false); return true }
+            }
+        }
+        val nalMuneun = p.nal != null && !iljeongMal && listOf("뭐있", "약속있", "뭐해", "무슨일", "일있", "뭐하").any { z.contains(it) } && z.length <= 16 &&
+            listOf("뉴스", "소식", "날씨", "방송", "라디오").none { z.contains(it) }
+        if ((iljeongMal && !neoki && !bakkugi && !jiugi && (ilgiMal || (iljeongMal0 && z.length <= 12))) || nalMuneun) {
             if (!heorakBoda(c, dap)) return true
             val m = beomwiDeutgi(c, p, now)
             val yeoreo = majimakMok.size >= 2 && now - mokTtae < 5_000L
@@ -958,6 +984,9 @@ object Iljeong {
     /** 넣기 — 모자란 것을 여쭙고, 다 되면 한 번 읽어 드리고 여쭘. malman 이면 「일정으로 넣을까요?」 */
     private fun neokiSijak(p: IljeongPul, dap: (String, Boolean) -> Unit, malman: Boolean = false) {
         val now = System.currentTimeMillis()
+        // 2.83.0 넣을 때 「토요일 오후 10시로 잡아 줘」의 「로」는 바꿀 시각이 아니라 넣을 시각
+        if (p.si == null && p.sigakRo != null) { p.si = p.sigakRo!!.first; p.bun = p.sigakRo!!.second }
+        if (p.nal == null && p.nalRo != null) p.nal = p.nalRo
         var nal = p.nal
         if (nal == null && p.jusu == 3) {
             val w = Calendar.getInstance().apply { timeInMillis = now }.get(Calendar.DAY_OF_WEEK)

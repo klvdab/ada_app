@@ -1043,7 +1043,23 @@ object MalHagi {
             return
         }
 
-        if (meonjeoMyeongryeong(z, dap)) return
+        if (meonjeoMyeongryeong(z, t, dap)) return
+        // 2.83.0 (261027-A71, 이사장님 승인 2026-10-27 「1」, 아이폰 2.118.0과 같음) 뉴스·라디오를 청하시는 말은 「찾아 줘」가 붙어도 곳 찾기로 새지 않게 먼저 봄
+        //   (「SBS 방송국 가자」, 「YTN 가 줘」처럼 가자는 말은 길 안내로 — 앞에서 보지 않음)
+        if (!NyuseuMal.gajaMal(z) && (NyuseuMal.mutneunInga(z) || NyuseuMal.radioMal(z)) && BangsongMal.myeongryeong(alts, alts.firstOrNull() ?: t, z, dap)) return
+        // 2.83.0 (261027-A71, 이사장님 승인 2026-10-27 「1」, 아이폰 2.118.0과 같음) 「택시 불러 줘」, 「공항 가는 택시 예약해 줘」 —
+        //   곳 찾기나 탈것 고르기로 새지 않게, 일반 택시는 아직 없다고 말씀드리고 이 지역에서 전화로 부를 수 있는 콜을 알려 드림
+        if (doeMal(z, dap)) return   // 2.83.0 「되짚어 나가자」가 곳 찾기로 새지 않게
+        if (EopneunGineung.taeksiBureum(z)) {
+            val o = NnKol.jaryo
+            if (o == null) NnKol.batgi {}
+            val l = KolJiyeok.mok(o)
+            Girok.namgi("malhagi_taeksi", mapOf("mal" to (alts.firstOrNull() ?: "").take(60)))
+            if (l.isEmpty()) dap("일반 택시를 부르거나 예약하는 기능은 아직 길눈에 없습니다. " + KolJiyeok.mal(o), false)
+            else dap("일반 택시를 부르거나 예약하는 기능은 아직 길눈에 없습니다. 이 지역에서 전화로 부를 수 있는 콜은 " +
+                l.take(4).joinToString(", ") { it.ireum } + "입니다. 전화하시려면 ${l.first().ireum}에 전화해 줘처럼 말씀해 주십시오.", false)
+            return
+        }
 
         // 6. 가실 곳 말을 떼어 보고, 가자는 말이 없으면 명령부터 살핌
         val (q0, gagiMal, roTtem) = s.mokjeokMal(t)
@@ -1056,6 +1072,16 @@ object MalHagi {
         if (gagiMal && YeojeongMal.talgeotChatgi(z) == null && (qz0.isEmpty() || geunyangMal(qz0))) {
             dap("가실 곳의 이름을 말씀해 주십시오.", true)
             return
+        }
+        // 6-1. 2.83.0 (261027-A71, 이사장님 승인 2026-10-27 「1」, 아이폰 2.118.0과 같음) 길눈에 없는 기능(메일·전등·목록·요리법·주식 등)은
+        //   곳 이름으로 찾지 않고 정직하게 말씀드림 — 되는 기능을 모두 살핀 뒤 맨 끝에서만 봄
+        if (!gagiMal) {
+            val ep = EopneunGineung.dap(z)
+            if (ep != null) {
+                Girok.namgi("malhagi_eopneun", mapOf("k" to (EopneunGineung.galrae(z) ?: ""), "mal" to (alts.firstOrNull() ?: "").take(60)))
+                dap(ep, false)
+                return
+            }
         }
 
         // 7. 가실 곳 — 이름 끝의 로(종로·을지로)는 되살려 한 번 더 찾아봄
@@ -1075,7 +1101,7 @@ object MalHagi {
     }
 
     /** 가실 곳보다 먼저 볼 명령 — "신호기 찾아 줘"가 가실 곳(신호기)으로 새지 않게. 하면 참 */
-    private fun meonjeoMyeongryeong(z: String, dap: (String, Boolean) -> Unit): Boolean {
+    private fun meonjeoMyeongryeong(z: String, t: String, dap: (String, Boolean) -> Unit): Boolean {
         // 음향신호기 — "신호기 울려 줘", "신호 알려 줘", "신호기 어디", "신호기 찾아 줘"(아이폰 2.6.0)
         if (z.contains("신호기") || z.contains("신호알려") || z.contains("신호안내") || z.contains("신호등")) {
             val a = hwalseong?.get()
@@ -1108,8 +1134,31 @@ object MalHagi {
             return gingeupJikjeop("해설", "", dap)
         }
         // 날씨 — "날씨 어때", "오늘 날씨"(아이폰 2.13.0, 웹 길눈과 같은 자료)
-        if (z.contains("날씨") || z.contains("미세먼지")) {
-            Nalssi.mal { n -> dap(if (n.isEmpty()) "날씨를 받아 오지 못했습니다. 통신과 위치를 확인해 주십시오." else "날씨는 $n.", false) }
+        // 2.83.0 (261027-A71, 이사장님 승인 2026-10-27 「1」, 아이폰 2.118.0과 같음) 웹 길눈의 날씨 묻기를 앱으로 — 내일·요일·이번 주·주말, 도시,
+        //   비·우산·눈·기온·옷·바람·자외선·습도·미세먼지를 물으신 것부터(10-27 공개 자료 시험: 날씨 855문장 가운데 371개만 알아들음)
+        if (z.contains("날씨") || z.contains("미세먼지") || NalssiMal.mutneunInga(t)) {
+            Nalssi.mureum(t) { n -> dap(n.ifEmpty { "날씨를 받아 오지 못했습니다. 통신과 위치를 확인해 주십시오." }, false) }
+            return true
+        }
+        return false
+    }
+
+    /** 2.7.0 묶음 b2 되짚어 나가기 — "길 기억해 줘"(들어갈 때), "되짚어 나가자"(나올 때). 하면 참
+     *  2.83.0 (261027-A71, 이사장님 승인 2026-10-27 「1」, 아이폰 2.118.0과 같음) 따로 떼어 앞에서도 봄 —
+     *  「되짚어 나가자」가 가자는 말로 곳 찾기에, 「길 기억해 줘」가 즐겨찾기 담기(기억해 줘)로 새던 일 */
+    private fun doeMal(z: String, dap: (String, Boolean) -> Unit): Boolean {
+        if (z.contains("되짚") || z.contains("왔던길로나가") || z.contains("들어온길로나가")) {
+            val d = DoeEngine
+            val c = ctx
+            if (d.sangtae == DoeEngine.Sangtae.ANNAE) { dap("", false); d.jigeumMal() }
+            else if ((d.gieokItda || d.sangtae == DoeEngine.Sangtae.GIEOK) && c != null) { dap("", false); d.doejipgi(c) }
+            else dap("기억해 둔 길이 없습니다. 들어가실 때 길 기억해 줘라고 말씀해 주십시오.", false)
+            return true
+        }
+        if (z.contains("길기억") || z.contains("길을기억") || z.contains("길좀기억")) {
+            if (z.contains("그만") || z.contains("멈춰") || z.contains("꺼")) { dap("", false); DoeEngine.gieokGeuman(); return true }
+            dap("", false)
+            ctx?.let { DoeEngine.gieokSijak(it) }
             return true
         }
         return false
@@ -1118,6 +1167,7 @@ object MalHagi {
     /** 명령 — 하면 참 */
     private fun myeongryeong(alts: List<String>, z: String, dap: (String, Boolean) -> Unit): Boolean {
         val s = MalSajeon
+        if (doeMal(z, dap)) return true   // 2.83.0 즐겨찾기 담기(「기억해 줘」)보다 먼저
         if (YeojeongMal.myeongryeong(alts, z, dap)) return true   // 2.7.0 묶음 b1 — 내렸어·탔어·얼마나 걸려·지금 가는 길·즐겨찾기·탈것만 말씀하심·어떻게 가실지의 대답
         // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 배리어프리방송국은 따로 앱으로 키우기로 함(이사장님 결정) — 모르는 척하지 않고 그렇다고 말씀드림(아이폰 MalHagi 2.13.0과 같은 말)
         if (z.contains("배프") || z.contains("배리어프리")) {
@@ -1146,7 +1196,8 @@ object MalHagi {
             dap("지금 가시는 길이 없습니다. $ho, 어디로 가실까요?", true)
             return true
         }
-        if (s.itda(alts, "eodi")) {
+        // 2.83.0 (261027-A71, 이사장님 승인 2026-10-27 「1」) 「화장실 어디야」는 내 자리가 아니라 둘레 찾기로
+        if (s.itda(alts, "eodi") && DrDulleJong.malEseo(z) == null) {
             dap("", false)
             AnnaeEngine.jigeumJari()   // 2.7.0 묶음 b1 — 아이폰과 같은 지금 내 자리 듣기
             return true
@@ -1166,7 +1217,7 @@ object MalHagi {
             }, false)
             return true
         }
-        if (s.itda(alts, "bareuge")) {
+        if (s.itda(alts, "bareuge") && !NyuseuMal.mutneunInga(z)) {   // 2.83.0 「선거 소식 업데이트」, 「소식 빠르게 전해 줘」는 뉴스로
             val d = min(Seoljeong.bbareugiIreum.size - 1, Seoljeong.bbareugiDan + 1)
             Seoljeong.bbareugiDan = d
             dap("${Seoljeong.bbareugiIreum[d]} 말씀드립니다.", false)
@@ -1188,28 +1239,14 @@ object MalHagi {
             dap("길눈 말소리를 켰습니다.", false)
             return true
         }
-        if (s.itda(alts, "saerogochim")) {
+        if (s.itda(alts, "saerogochim") && !NyuseuMal.mutneunInga(z)) {   // 2.83.0 「선거 소식 업데이트」, 「소식 빠르게 전해 줘」는 뉴스로
             MalSajeon.bureogi()
             SinhogiEngine.saerogochim()
             Wichi.wiseongDolligi()
             dap("새로고침을 마쳤습니다. 나스에서 새 자료를 받습니다.", false)
             return true
         }
-        // 2.7.0 묶음 b2 되짚어 나가기 — "길 기억해 줘"(들어갈 때), "되짚어 나가자"(나올 때)
-        if (z.contains("되짚") || z.contains("왔던길로나가") || z.contains("들어온길로나가")) {
-            val d = DoeEngine
-            val c = ctx
-            if (d.sangtae == DoeEngine.Sangtae.ANNAE) { dap("", false); d.jigeumMal() }
-            else if ((d.gieokItda || d.sangtae == DoeEngine.Sangtae.GIEOK) && c != null) { dap("", false); d.doejipgi(c) }
-            else dap("기억해 둔 길이 없습니다. 들어가실 때 길 기억해 줘라고 말씀해 주십시오.", false)
-            return true
-        }
-        if (z.contains("길기억") || z.contains("길을기억") || z.contains("길좀기억")) {
-            if (z.contains("그만") || z.contains("멈춰") || z.contains("꺼")) { dap("", false); DoeEngine.gieokGeuman(); return true }
-            dap("", false)
-            ctx?.let { DoeEngine.gieokSijak(it) }
-            return true
-        }
+        if (doeMal(z, dap)) return true
         // 2.7.0 묶음 b2 말로 그린 길, 음성유도기와 승강기
         if (z.contains("말로그린")) {
             dap("말로 그린 길을 엽니다.", false)
@@ -1231,6 +1268,14 @@ object MalHagi {
         // 2.7.0 카메라 눈(묶음 b3) — 아이폰 MalHagi 2.22.0·2.18.0·2.16.0·2.15.0·2.13.0 과 같은 말
         val ha = hwalseong?.get()
         if (z.contains("불켜") || z.contains("불꺼") || z.contains("빛알") || z.contains("빛찾") || z.contains("밝은쪽") || z.contains("창문어느")) {
+            // 2.83.0 (261027-A71, 이사장님 승인 2026-10-27 「1」) 「불 꺼 줘」처럼 시키는 말은 집안 전등 다루기(아직 없음)로 정직하게,
+            //   「불 켜져 있어」처럼 묻는 말만 카메라 빛 알아보기로
+            val ep = if (EopneunGineung.galrae(z) == "집안 전등 켜고 끄기") EopneunGineung.dap(z) else null
+            if (ep != null) {
+                Girok.namgi("malhagi_eopneun", mapOf("k" to "jeondeung", "mal" to (alts.firstOrNull() ?: "").take(60)))
+                dap(ep, false)
+                return true
+            }
             dap("빛 알아보기를 엽니다.", false)
             ha?.let { KameraNun.dulreoYeolgi(it, BitAlgiHwamyeon()) }
             return true
@@ -2409,6 +2454,24 @@ object Nalssi {
             mal { t -> if (t.isNotEmpty()) Sori.mal("날씨는 $t.", MalGeup.JEONGBO) }
         }
         gidari(0)
+    }
+
+    /** 2.83.0 날씨를 말로 묻기 — 물으신 날·곳·것에 맞춰 대답(NalssiMal). 자리를 못 잡으면 서울로 알려 드림 */
+    fun mureum(t: String, kkeut: (String) -> Unit) {
+        val g = NalssiMal.got(t)
+        val w = Wichi.jigeum
+        val la = g?.second ?: w?.lat ?: 37.5665
+        val lo = g?.third ?: w?.lon ?: 126.978
+        val seoul = g == null && w == null
+        il.execute {
+            val f = batgi(NalssiMal.juso(la, lo))
+            val m = if (NalssiMal.nalDwi(t, System.currentTimeMillis()) == 0) batgi(NalssiMal.meonjiJuso(la, lo)) else null
+            val d = if (f == null) "" else try { NalssiMal.dap(t, f, m, System.currentTimeMillis(), g?.first ?: "") } catch (e: Exception) { "" }
+            main.post {
+                Girok.namgi("nalssi_mureum", mapOf("got" to (g != null), "ok" to d.isNotEmpty()))
+                kkeut(if (d.isNotEmpty() && seoul) "지금 자리를 잡지 못해 서울 날씨로 알려 드립니다. $d" else d)
+            }
+        }
     }
 
     /** 날씨 한 줄 — 받지 못하면 빈 글(결과는 화면 줄에서) */

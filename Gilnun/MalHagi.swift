@@ -1395,6 +1395,24 @@ final class MalHagi: ObservableObject {
             return
         }
 
+        // 6-0. 2.118.0 (261027-I72, 이사장님 승인 2026-10-27 「1」, 안드로이드 2.83.0과 같음) 뉴스·라디오를 청하시는 말은 「찾아 줘」가 붙어도 곳 찾기로 새지 않게 먼저 봄
+        //   (「SBS 방송국 가자」, 「YTN 가 줘」처럼 가자는 말은 길 안내로 — 앞에서 보지 않음)
+        if !NyuseuMal.gajaMal(z) && (NyuseuMal.mutneunInga(z) || NyuseuMal.radioMal(z)) && bangsongMyeongryeong(alts, alts.first ?? t, z, dap) { return }
+        // 2.118.0 (261027-I72, 이사장님 승인 2026-10-27 「1」, 안드로이드 2.83.0과 같음) 「택시 불러 줘」, 「공항 가는 택시 예약해 줘」 —
+        //   곳 찾기나 탈것 고르기로 새지 않게, 일반 택시는 아직 없다고 말씀드리고 이 지역에서 전화로 부를 수 있는 콜을 알려 드림
+        if doeMal(z, dap) { return }   // 2.118.0 「되짚어 나가자」가 곳 찾기로 새지 않게
+        if EopneunGineung.taeksiBureum(z) {
+            let l = sajeon.kolDeul()
+            Girok.shared.namgi("malhagi_taeksi", ["mal": String((alts.first ?? "").prefix(60))])
+            if l.isEmpty {
+                dap("일반 택시를 부르거나 예약하는 기능은 아직 길눈에 없습니다. " + sajeon.kolJiyeokMal(), false)
+            } else {
+                dap("일반 택시를 부르거나 예약하는 기능은 아직 길눈에 없습니다. 이 지역에서 전화로 부를 수 있는 콜은 " +
+                    l.prefix(4).map { $0.ireum }.joined(separator: ", ") + "입니다. 전화하시려면 \(l[0].ireum)에 전화해 줘처럼 말씀해 주십시오.", false)
+            }
+            return
+        }
+
         // 6. 목적지 말을 떼어 보고, 가자는 말이 없으면 명령부터 살핌
         let (q0, gagiMal, roTtem) = sajeon.mokjeokMal(t)
         let tg = talgeotChatgi(alts)
@@ -1410,6 +1428,13 @@ final class MalHagi: ObservableObject {
             mureum = .mokjeok
             mureumTtae = Date()
             dap("가실 곳의 이름을 말씀해 주십시오.", true)
+            return
+        }
+        // 6-1. 2.118.0 (261027-I72, 이사장님 승인 2026-10-27 「1」, 안드로이드 2.83.0과 같음) 길눈에 없는 기능(메일·전등·목록·요리법·주식 등)은
+        //   곳 이름으로 찾지 않고 정직하게 말씀드림 — 되는 기능을 모두 살핀 뒤 맨 끝에서만 봄
+        if !gagiMal, let ep = EopneunGineung.dap(z) {
+            Girok.shared.namgi("malhagi_eopneun", ["k": EopneunGineung.galrae(z) ?? "", "mal": String((alts.first ?? "").prefix(60))])
+            dap(ep, false)
             return
         }
 
@@ -1558,8 +1583,29 @@ final class MalHagi: ObservableObject {
     }
 
     /// 명령 — 하면 참
+    /// 2.13.0 되짚어 나가기 — "길 기억해 줘"(들어갈 때), "되짚어 나가자"(나올 때). 하면 참
+    /// 2.118.0 (261027-I72, 이사장님 승인 2026-10-27 「1」, 안드로이드 2.83.0과 같음) 따로 떼어 앞에서도 봄 —
+    ///   「되짚어 나가자」가 가자는 말로 곳 찾기에, 「길 기억해 줘」가 즐겨찾기 담기(기억해 줘)로 새던 일
+    private func doeMal(_ z: String, _ dap: @escaping (String, Bool) -> Void) -> Bool {
+        if z.contains("되짚") || z.contains("왔던길로나가") || z.contains("들어온길로나가") {
+            let d = DoeEngine.shared
+            if d.sangtae == .annae { dap("", false); d.jigeumMal() }
+            else if d.gieokItda || d.sangtae == .gieok { dap("", false); d.doejipgi() }
+            else { dap("기억해 둔 길이 없습니다. 들어가실 때 길 기억해 줘라고 말씀해 주십시오.", false) }
+            return true
+        }
+        if z.contains("길기억") || z.contains("길을기억") || z.contains("길좀기억") {
+            if z.contains("그만") || z.contains("멈춰") || z.contains("꺼") { dap("", false); DoeEngine.shared.gieokGeuman(); return true }
+            dap("", false)
+            DoeEngine.shared.gieokSijak()
+            return true
+        }
+        return false
+    }
+
     private func myeongryeong(_ alts: [String], _ z: String, _ tg: Talgeot?, _ dap: @escaping (String, Bool) -> Void) -> Bool {
         let s = sajeon
+        if doeMal(z, dap) { return true }   // 2.118.0 즐겨찾기 담기(「기억해 줘」)보다 먼저
         let y = YeojeongEngine.shared.jigeum
         // 2.6.0 음향신호기 — "신호기 울려 줘", "신호 알려 줘", "신호기 어디", "신호기 찾아 줘"
         if z.contains("신호기") || z.contains("신호알려") || z.contains("신호안내") || z.contains("신호등") {
@@ -1591,29 +1637,26 @@ final class MalHagi: ObservableObject {
             return true
         }
         // 2.13.0 날씨 — "날씨 어때", "오늘 날씨"(웹 길눈과 같은 자료)
-        if z.contains("날씨") || z.contains("미세먼지") {
+        // 2.118.0 (261027-I72, 이사장님 승인 2026-10-27 「1」, 안드로이드 2.83.0과 같음) 웹 길눈의 날씨 묻기를 앱으로 — 내일·요일·이번 주·주말, 도시,
+        //   비·우산·눈·기온·옷·바람·자외선·습도·미세먼지를 물으신 것부터(10-27 공개 자료 시험: 날씨 855문장 가운데 371개만 알아들음)
+        let wt = alts.first ?? z
+        if z.contains("날씨") || z.contains("미세먼지") || NalssiMal.mutneunInga(wt) {
             Task {
-                let n = await Nalssi.shared.mal()
-                DispatchQueue.main.async { dap(n.isEmpty ? "날씨를 받아 오지 못했습니다. 통신과 위치를 확인해 주십시오." : "날씨는 " + n + ".", false) }
+                let n = await Nalssi.shared.mureum(wt)
+                DispatchQueue.main.async { dap(n.isEmpty ? "날씨를 받아 오지 못했습니다. 통신과 위치를 확인해 주십시오." : n, false) }
             }
             return true
         }
-        // 2.13.0 되짚어 나가기 — "길 기억해 줘"(들어갈 때), "되짚어 나가자"(나올 때)
-        if z.contains("되짚") || z.contains("왔던길로나가") || z.contains("들어온길로나가") {
-            let d = DoeEngine.shared
-            if d.sangtae == .annae { dap("", false); d.jigeumMal() }
-            else if d.gieokItda || d.sangtae == .gieok { dap("", false); d.doejipgi() }
-            else { dap("기억해 둔 길이 없습니다. 들어가실 때 길 기억해 줘라고 말씀해 주십시오.", false) }
-            return true
-        }
-        if z.contains("길기억") || z.contains("길을기억") || z.contains("길좀기억") {
-            if z.contains("그만") || z.contains("멈춰") || z.contains("꺼") { dap("", false); DoeEngine.shared.gieokGeuman(); return true }
-            dap("", false)
-            DoeEngine.shared.gieokSijak()
-            return true
-        }
+        if doeMal(z, dap) { return true }
         // 2.22.0 빛 알아보기(카메라 눈) — "불 켜져 있어", "빛 알려 줘", "밝은 쪽 찾아 줘"
         if z.contains("불켜") || z.contains("불꺼") || z.contains("빛알") || z.contains("빛찾") || z.contains("밝은쪽") || z.contains("창문어느") {
+            // 2.118.0 (261027-I72, 이사장님 승인 2026-10-27 「1」) 「불 꺼 줘」처럼 시키는 말은 집안 전등 다루기(아직 없음)로 정직하게,
+            //   「불 켜져 있어」처럼 묻는 말만 카메라 빛 알아보기로
+            if EopneunGineung.galrae(z) == "집안 전등 켜고 끄기", let ep = EopneunGineung.dap(z) {
+                Girok.shared.namgi("malhagi_eopneun", ["k": "jeondeung", "mal": String((alts.first ?? "").prefix(60))])
+                dap(ep, false)
+                return true
+            }
             dap("빛 알아보기를 엽니다.", false)
             TabGil.shared.tab = 1
             DulreoGil.shared.path = NavigationPath()
@@ -1828,7 +1871,8 @@ final class MalHagi: ObservableObject {
             }
             return true
         }
-        if s.itda(alts, "eodi") {
+        // 2.118.0 (261027-I72, 이사장님 승인 2026-10-27 「1」) 「화장실 어디야」는 내 자리가 아니라 둘레 찾기로
+        if s.itda(alts, "eodi") && DulleJong.malEseo(z) == nil {
             dap("", false)
             AnnaeEngine.shared.jigeumJari()
             return true
@@ -1845,7 +1889,7 @@ final class MalHagi: ObservableObject {
                 : (v == 2 ? "차 안 안내를 보통으로 합니다." : "차 안 안내를 자세히 합니다. 꺾는 곳마다 미리 말씀드립니다."), false)
             return true
         }
-        if s.itda(alts, "bareuge") {
+        if s.itda(alts, "bareuge") && !NyuseuMal.mutneunInga(z) {   // 2.118.0 「선거 소식 업데이트」, 「소식 빠르게 전해 줘」는 뉴스로
             let d = min(Seoljeong.bbareugiIreum.count - 1, Seoljeong.shared.bbareugiDan + 1)
             Seoljeong.shared.bbareugiDan = d
             dap("\(Seoljeong.bbareugiIreum[d]) 말씀드립니다.", false)
@@ -1885,7 +1929,7 @@ final class MalHagi: ObservableObject {
             dap("지금은 \(ho)\(MalHagi.irago(ho)) 부릅니다. 뭐라고 불러 드릴까요?", true)
             return true
         }
-        if s.itda(alts, "saerogochim") {
+        if s.itda(alts, "saerogochim") && !NyuseuMal.mutneunInga(z) {   // 2.118.0 「선거 소식 업데이트」, 「소식 빠르게 전해 줘」는 뉴스로
             Tongsin.shared.gamchumBiugi()
             s.bureogi()
             dap("새로고침을 마쳤습니다. 나스에서 새 자료를 받습니다.", false)
@@ -1921,7 +1965,7 @@ final class MalHagi: ObservableObject {
             return true
         }
         // 2.7.0 둘러보기 — 고장 이야기, 마실, 사진 읽어 주기, 안면인식, 축제, 둘레 찾기
-        if s.itda(alts, "gojang") && !(z.contains("노래") || z.contains("음악")) {   // 2.12.7 고장 노래는 음악으로
+        if s.itda(alts, "gojang") && !(z.contains("노래") || z.contains("음악") || z.contains("축제")) {   // 2.118.0 「축제 알려 줘」는 아래 축제로   // 2.12.7 고장 노래는 음악으로
             Task {
                 let r = await Dulreo.gojang()
                 DispatchQueue.main.async {
@@ -2041,9 +2085,10 @@ final class MalHagi: ObservableObject {
         // 2.12.7 방송사 이름만 말씀하셔도(MBC 틀어 줘, 엠비시) 라디오로 — 음악 찾기로 새지 않게
         let pj = BangsongEngine.bangsongPyojun(z)
         let bangsongsaMal = ["kbs", "mbc", "ebs", "obs", "tbs", "bbs", "arirang", "표준fm", "fm4u", "4u", "해피fm", "쿨fm", "클래식fm", "사랑의소리", "한민족"].contains { pj.contains($0) }
-        let radio = z.contains("라디오") || zl.contains("fm") || z.contains("에프엠") || bangsongsaMal
+        // 2.118.0 (261027-I72, 이사장님 승인 2026-10-27 「1」) 방송국·주파수·SBS·CBS·국악방송도 라디오로, 세상 일·선거 소식 같은 말도 뉴스로(NyuseuMal)
+        let radio = z.contains("라디오") || zl.contains("fm") || z.contains("에프엠") || bangsongsaMal || NyuseuMal.radioMal(z)
         let tv = zl.contains("tv") || z.contains("티비") || z.contains("티브이") || z.contains("텔레비전") || z.contains("듣는방송")
-        let nyuseu = s.itda(alts, "nyuseu") || s.itda(alts, "jangae") || z.contains("뉴스") || z.contains("세상이야기") || z.contains("속보") || z.contains("기사읽") || z.contains("기사들려")
+        let nyuseu = s.itda(alts, "nyuseu") || s.itda(alts, "jangae") || z.contains("뉴스") || z.contains("세상이야기") || z.contains("속보") || z.contains("기사읽") || z.contains("기사들려") || NyuseuMal.mutneunInga(z)
         let eumak = s.itda(alts, "eumak") || z.contains("노래") || z.contains("음악") || z.contains("틀어")
         // 2.12.7 지나는 고장 노래 — "고장 노래 틀어 줘", "지나는 고장 노래 꺼"(이사장님 승인 1)
         if z.contains("고장노래") || z.contains("고장음악") || (z.contains("지나는고장") && (z.contains("노래") || z.contains("음악"))) {
@@ -2057,6 +2102,8 @@ final class MalHagi: ObservableObject {
             return true
         }
         if kkeugi {
+            // 2.118.0 (261027-I72, 이사장님 승인 2026-10-27 「1」) 아무것도 틀고 있지 않을 때 「음악 꺼」, 「라디오 꺼」가 곳 찾기로 새던 일 — 그렇다고 말씀드림
+            if !b.itda && (radio || tv || nyuseu || eumak || z.contains("방송")) && z.count <= 12 { dap("지금 틀고 있는 것이 없습니다.", false); return true }
             guard b.itda, radio || tv || nyuseu || eumak || z.contains("방송") else { return false }
             dap("", false)
             b.geuman()
@@ -2071,6 +2118,7 @@ final class MalHagi: ObservableObject {
             else if z.contains("국제") || z.contains("세계") { g = "gukje" }
             else if z.contains("사회") { g = "sahoe" }
             else if z.contains("스포츠") || z.contains("연예") { g = "spo" }
+            else if let ng = NyuseuMal.galrae(z) { g = ng }
             let nm = BangsongEngine.garae.first { $0.0 == g }?.1 ?? "두루 소식"
             Task {
                 let ls = await b.gisaBatgi(g)
@@ -2860,4 +2908,108 @@ final class MalHagi: ObservableObject {
     static func i(_ w: String) -> String { batchim(w).0 ? "이" : "가" }
     static func ro(_ w: String) -> String { let b = batchim(w); return b.0 && !b.1 ? "으로" : "로" }
     static func irago(_ w: String) -> String { batchim(w).0 ? "이라고" : "라고" }
+}
+
+
+// MARK: 길눈에 없는 기능을 청하시면 정직하게 — 아이폰 2.118.0(빌드 261027-I72, 대클, 이사장님 승인 2026-10-27 「1」 공개 자료로 넓히기)
+// 공개 자료(아마존 MASSIVE 한국어) 시험에서 메일·전등·목록·요리법·주식 같은 말 약 4천 문장이 곳 이름으로 잘못 찾아졌음.
+// 곳 찾기로 넘기지 않고 「아직 길눈에 없는 기능」이라고 바로 말씀드리고, 쓸 수 있는 다른 길이 있으면 함께 알려 드림. 안드로이드 EopneunGineung.kt와 같은 셈, 같은 말.
+enum EopneunGineung {
+    private struct Galrae { let ireum: String; let itda: [String]; let anida: [String]; let deotmal: String }
+    private static let MOK: [Galrae] = [
+        Galrae(ireum: "메일 읽기와 보내기", itda: ["메일", "이메일"], anida: [], deotmal: ""),
+        Galrae(ireum: "알람", itda: ["알람", "모닝콜", "깨워줘", "깨워줄", "깨워주"], anida: ["듣기예약", "라디오"], deotmal: "정한 시각에 알려 드리려면 일정으로 넣어 주십시오. 내일 아침 7시 기상 일정 넣어 줘처럼 말씀하시면 그 시각 전에 알려 드립니다."),
+        Galrae(ireum: "연락처 찾기", itda: ["연락처", "전화번호부", "주소록", "전화번호", "번호알려", "번호뭐"], anida: ["콜", "택시", "센터", "협회", "역", "병원", "가게", "식당", "112", "119"], deotmal: ""),
+        Galrae(ireum: "집안 전등 켜고 끄기", itda: ["불켜줘", "불꺼줘", "불좀켜", "불좀꺼", "불켜", "불꺼", "전등", "조명", "전구", "라이트"], anida: ["있어", "켜져", "켜졌", "꺼져", "꺼졌", "어디", "찾아", "알려", "밝은쪽", "카메라"], deotmal: "불이 켜져 있는지는 불 켜져 있어라고 물으시면 카메라로 알려 드립니다."),
+        Galrae(ireum: "집안 기기 다루기", itda: ["청소기", "로봇청소", "세탁기", "건조기", "에어컨", "보일러", "커피머신", "커피메이커", "커피만들", "커피내려", "커피끓", "스마트플러그", "콘센트", "가습기", "공기청정기", "제습기", "선풍기", "히터"], anida: [], deotmal: ""),
+        Galrae(ireum: "목록 만들기", itda: ["목록", "리스트", "장보기", "쇼핑목록", "할일목록"], anida: ["즐겨찾기", "점지도", "예약", "일정", "노래", "곡", "뉴스", "명단", "콜", "재생목록", "식당", "가게", "맛집", "근처"], deotmal: ""),
+        Galrae(ireum: "요리법 안내", itda: ["레시피", "요리법", "조리법", "만드는법", "만드는방법", "굽는법", "끓이는법", "요리하는"], anida: [], deotmal: ""),
+        Galrae(ireum: "환율과 주식", itda: ["환율", "주가", "주식", "코스피", "코스닥", "나스닥", "달러", "엔화", "유로", "비트코인", "증시"], anida: [], deotmal: ""),
+        Galrae(ireum: "계산", itda: ["더하기", "빼기", "곱하기", "나누기", "제곱", "루트", "계산해", "퍼센트는", "몇퍼센트야"], anida: ["비올확률", "습도"], deotmal: ""),
+        Galrae(ireum: "게임", itda: ["게임", "퀴즈", "끝말잇기", "스무고개"], anida: [], deotmal: ""),
+        Galrae(ireum: "팟캐스트와 오디오북", itda: ["팟캐스트", "팟빵", "오디오북", "책읽어", "소설읽어", "책들려"], anida: [], deotmal: "책은 협회의 AI점자도서관 앱에서 들으실 수 있습니다."),
+        Galrae(ireum: "SNS 글 올리기", itda: ["트윗", "트위터", "페이스북", "인스타", "카톡보내", "카카오톡보내", "게시해", "포스팅"], anida: [], deotmal: ""),
+        Galrae(ireum: "음식 주문", itda: ["배달", "주문해", "주문할", "주문하고", "배민", "요기요", "포장주문"], anida: ["콜", "택시"], deotmal: ""),
+        Galrae(ireum: "영화 상영 안내", itda: ["상영", "영화예매", "영화표", "개봉작", "개봉영화", "개봉한", "개봉하는", "개봉했"], anida: [], deotmal: ""),
+        Galrae(ireum: "표 예매", itda: ["예매", "기차표", "항공권", "비행기표", "버스표", "표예약", "표좀예약", "승차권", "좌석예약", "기차예약", "버스예약", "비행기예약", "ktx예약", "srt예약", "열차예약", "항공편"], anida: [], deotmal: "기차나 버스로 가는 길 안내는 됩니다. 부산 가자처럼 가실 곳을 말씀해 주십시오."),
+        Galrae(ireum: "도로 교통 상황 안내", itda: ["교통상황", "교통정보", "교통혼잡", "교통체증", "교통상태", "교통문제", "도로상황", "교통어때", "교통은어때", "교통이어때", "교통얼마나", "교통이얼마나", "교통안좋", "교통이안좋", "교통괜찮", "교통은괜찮", "차막혀", "차가막혀", "길막혀", "길이막혀", "정체", "통근길", "통근로"], anida: ["교통약자", "콜"], deotmal: ""),
+        Galrae(ireum: "폰 소리 크기 조절", itda: ["볼륨", "음량", "소리크게", "소리작게", "소리줄여", "소리키워", "소리높여", "소리낮춰", "음소거", "무음"], anida: ["말소리", "목소리"], deotmal: "폰 옆의 음량 단추로 조절해 주십시오. 길눈 말소리만 끄시려면 말소리 꺼라고 말씀하십시오."),
+    ]
+
+    private static func chatgi(_ z: String) -> Galrae? {
+        let zl = z.lowercased()
+        return MOK.first { g in g.itda.contains { zl.contains($0) } && !g.anida.contains { zl.contains($0) } }
+    }
+
+    /** 길눈에 없는 기능을 청하는 말이면 그 대답, 아니면 nil — z 는 띄어쓰기를 뺀 말 */
+    static func dap(_ z: String) -> String? {
+        guard let g = chatgi(z) else { return nil }
+        var josa = "는"
+        if let v = g.ireum.unicodeScalars.last?.value, v >= 0xAC00, v <= 0xD7A3, (v - 0xAC00) % 28 != 0 { josa = "은" }
+        return "죄송합니다. \(g.ireum)\(josa) 아직 길눈에 없는 기능입니다." + (g.deotmal.isEmpty ? "" : " " + g.deotmal) +
+            " 이 말씀은 기록해 두었다가 다음에 넣을 때 참고하겠습니다."
+    }
+
+    /** 택시를 불러 달라는 말인가 — 「공항 가는 택시 불러 줘」, 「택시 예약해 줘」, 「택시 잡아야 해」. 콜 이름(복지콜·장애인콜·나비콜)은 원래 콜 처리로 */
+    static func taeksiBureum(_ z: String) -> Bool {
+        guard z.contains("택시") || z.contains("우버") else { return false }
+        if ["취소", "콜", "교통약자", "장애인", "바우처", "왔", "탔", "기다려", "기사", "타는곳", "승강장", "정류장", "필요없", "필요는없", "했어", "했다", "했는데"].contains(where: { z.contains($0) }) { return false }
+        return ["불러", "부를", "부르", "잡아", "잡을", "예약", "필요", "찾아", "준비", "호출", "보내줘", "오게", "와줘", "부탁"].contains(where: { z.contains($0) })
+    }
+
+    /** 이용 기록에 남길 갈래 이름 */
+    static func galrae(_ z: String) -> String? { chatgi(z)?.ireum }
+}
+
+
+// MARK: 뉴스·라디오 말 넓히기 — 아이폰 2.118.0(빌드 261027-I72, 대클, 이사장님 승인 2026-10-27 「1」 공개 자료로 넓히기)
+// 「요즘 세상에 무슨 일 있어」, 「선거 소식 업데이트 해 줘」, 「라디오 찾아 줘」, 「SBS 틀어 줘」 같은 말이 곳 찾기나 새로고침으로 잘못 갔음.
+// 안드로이드 NyuseuMal.kt와 같은 셈.
+enum NyuseuMal {
+    private static let SESANG = ["세상", "세계", "요즘", "요새", "오늘", "최근", "국내", "해외", "나라", "전세계", "지금", "이번주", "어제"]
+    private static let ILEO = ["무슨일", "어떤일", "무슨소식", "별일", "어떻게돌아가", "일어나고", "일어난", "벌어지", "벌어진", "돌아가고", "무슨일들"]
+    private static let SINHO = ["헤드라인", "리포트", "이슈", "화제", "실검", "실시간검색", "최신소식", "최근소식", "새소식", "논란", "속보", "특보", "뉴스", "소식"]
+    private static let DEOT = ["업데이트", "최신", "최근", "결과", "어떻게됐", "요약", "논란", "화제", "소식"]
+    // 뉴스가 아닌 말(길눈에 없는 기능·음악·셈) — 「검정치마」의 정치, 「더하기 사는」의 기사, 「청소기 사용」의 기사에 걸리지 않게
+    private static let ANIM = ["트위터", "트윗", "페이스북", "인스타", "유튜브", "카톡", "메일", "환율", "주가", "주식", "코인",
+        "더하기", "빼기", "곱하기", "나누기", "청소기", "음악", "노래", "앨범", "곡",
+        "날씨", "미세먼지", "신호기", "현장영상해설"]   // 날씨·신호기·현장영상해설은 두 앱 모두 그 처리로
+    private static let GAL: [(String, [String])] = [
+        ("jeongchi", ["선거", "총선", "대선", "대통령", "국회", "정당", "여론조사", "정치", "정부", "장관", "의회", "외교", "시의회"]),
+        ("spo", ["리그", "야구", "축구", "농구", "배구", "골프", "올림픽", "월드컵", "스포츠", "선수", "점수", "연예", "시상식", "경기결과"]),
+        ("gyeongje", ["경제", "물가", "금리", "부동산", "수출", "기업"]),
+        ("gukje", ["세계", "국제", "해외", "미국", "중국", "일본", "유럽", "동남아"]),
+        ("sahoe", ["사회", "사건", "사고", "시위", "화재", "지진", "코로나", "재난"])
+    ]
+
+    private static func mat(_ p: String, _ z: String) -> Bool { z.range(of: p, options: .regularExpression) != nil }
+
+    /** 뉴스를 청하시는 말인가 — z 는 띄어쓰기를 뺀 말 */
+    static func mutneunInga(_ z0: String) -> Bool {
+        let z = z0.replacingOccurrences(of: "영화제", with: "").replacingOccurrences(of: "축제", with: "")
+        if !z.contains("뉴스") && ANIM.contains(where: { z.contains($0) }) { return false }
+        if mat("기사(읽|들|보여|알려|있|를|목록|제목|요약|$)", z) &&
+            !(z.contains("택시기사") || z.contains("기사님") || z.contains("운전기사") || z.contains("버스기사")) { return true }
+        if SINHO.contains(where: { z.contains($0) }) { return true }
+        // 「오후 두 시 네 시 사이에 무슨 일 있어」는 일정, 「동네에 무슨 일 있어」는 고장 이야기 쪽이라 뉴스로 잡지 않음
+        if ILEO.contains(where: { z.contains($0) }) && !["오전", "오후", "사이에", "동네", "지역", "근처", "여기", "이곳"].contains(where: { z.contains($0) }) &&
+            (SESANG.contains(where: { z.contains($0) }) || mat("[가-힣]{2,}(에서|에)(는)?(무슨|어떤)일", z)) { return true }
+        let g = GAL.contains(where: { $0.1.contains(where: { z.contains($0) }) }) || (z.contains("경기") && !z.contains("경기도"))
+        return g && DEOT.contains(where: { z.contains($0) })
+    }
+
+    /** 뉴스 갈래(정치·스포츠·경제·국제·사회) — 모르면 nil */
+    static func galrae(_ z: String) -> String? {
+        if let g = GAL.first(where: { $0.1.contains(where: { z.contains($0) }) }) { return g.0 }
+        return z.contains("경기") && !z.contains("경기도") ? "spo" : nil
+    }
+
+    /** 가자는 말(「SBS 방송국 가자」, 「YTN 가 줘」) — 이런 말은 뉴스·라디오로 먼저 잡지 않고 길 안내로 */
+    static func gajaMal(_ z: String) -> Bool { mat("가(자|줘|주|고싶|려|볼래)|갈래|데려", z) }
+
+    /** 라디오를 청하시는 말(방송국·주파수·SBS·CBS·국악방송 …) */
+    static func radioMal(_ z: String) -> Bool {
+        let zl = z.lowercased()
+        return ["라디오", "방송국", "주파수", "sbs", "에스비에스", "cbs", "씨비에스", "tbn", "티비엔", "국악방송", "경인방송", "ytn", "와이티엔"].contains(where: { zl.contains($0) })
+    }
 }

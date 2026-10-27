@@ -43,16 +43,19 @@ object IljeongMal {
         // 2.82.0 (261027-A70) 더 알아듣는 말
         "일정의", "일정이야", "그거", "아까", "수정", "수정해", "수정해줘", "편집", "편집해", "편집해줘", "검색", "검색해", "검색해줘",
         "조회", "조회해", "조회해줘", "찾아", "찾아줘", "확인", "확인해", "확인해줘", "보여", "보여줘", "예약해", "예약해줘",
-        "만들어", "만들어줘", "알려줄래", "있는지", "없어", "어때", "어떻게돼", "자세히"
+        "만들어", "만들어줘", "알려줄래", "있는지", "없어", "어때", "어떻게돼", "자세히",
+        // 2.83.0 (261027-A71)
+        "리마인드", "리마인드해", "리마인드해줘", "리마인더", "리마인더로", "설정", "설정해", "설정해줘", "세팅", "세팅해", "세팅해줘",
+        "알림", "알림을", "알림해줘", "알림맞춰줘", "되면", "하라고", "라고", "나에게", "나한테", "내", "나를", "위해", "관련해서", "에게"
     )
 
     // 2.82.0 (261027-A70, 이사장님 승인 2026-10-27 「순서대로 모두 고쳐」) 시키는 말 갈래 — 아이폰 IljeongMal 과 같음
-    val NEOKI = listOf("넣어", "넣자", "넣고", "추가", "잡아", "등록", "적어", "기록해", "저장해", "만들어", "예약해")
+    val NEOKI = listOf("넣어", "넣자", "넣고", "추가", "잡아", "등록", "적어", "기록해", "저장해", "만들어", "예약해", "설정해", "설정해줘", "세팅해", "상기시켜", "표시해")
     val BAKKUGI = listOf("바꿔", "바꾸", "옮겨", "옮기", "변경", "미뤄", "당겨", "고쳐", "고치", "수정", "편집")
     val JIUGI = listOf("지워", "지우", "삭제", "취소", "빼줘", "빼라", "없애")
-    val ILGI = listOf("알려", "뭐", "있어", "있나", "있니", "있냐", "있는지", "읽어", "들려", "말해", "확인", "검색", "조회", "찾아", "보여", "몇개", "어때", "어떻게돼", "자세히")
+    val ILGI = listOf("알려", "뭐", "있어", "있나", "있니", "있냐", "있는지", "읽어", "들려", "말해", "확인", "검색", "조회", "찾아", "보여", "몇개", "어때", "어떻게돼", "자세히", "있지", "있을까", "있었", "언제", "몇시", "누구랑", "무슨일", "어디서")
     /** 일정과 다른 일을 시키는 말 — 이런 말이 있으면 「오후 2시 복지콜」처럼 움직임 말 없는 일정으로 보지 않음 */
-    val DARUN = listOf("불러", "호출", "틀어", "꺼", "켜", "깨워", "가자", "가줘", "가고", "안내", "길", "전화", "문자", "보내", "들어", "재생", "멈춰", "그만")
+    val DARUN = listOf("불러", "호출", "틀어", "꺼", "켜", "깨워", "가자", "가줘", "가고", "안내", "길", "전화", "문자", "보내", "들어", "재생", "멈춰", "그만", "몇시야", "몇시인지", "몇시지")
 
     /** 읽어 드리는 목록의 번호 말 */
     val SEOSU = listOf("첫째", "둘째", "셋째", "넷째", "다섯째", "여섯째", "일곱째", "여덟째", "아홉째", "열째", "열한째", "열두째", "열셋째", "열넷째", "열다섯째")
@@ -209,8 +212,33 @@ object IljeongMal {
     fun sutjaRo(t0: String): String {
         var t = U_SI.replace(t0) { m -> m.groupValues[1] + (if (m.groupValues[1].isNotEmpty() && !m.groupValues[1].isBlank()) " " else "") + U_SU[m.groupValues[2]] + "시" }
         t = H_BUN.replace(t) { m -> val b = hanjaSu(m.groupValues[2]); if (b != null) "${m.groupValues[1]}시 ${b}분" else m.value }
+        // 2.83.0 (261027-A71) 우리말 날짜 — 「시월 사일」, 「십이월 이십육일」, 「유월」
+        t = H_WOL.replace(t) { m -> val w = when (val x = m.groupValues[2]) { "시" -> 10; "유" -> 6; else -> hanjaSu(x) }; if (w != null && w in 1..12) "${m.groupValues[1]}${w}월" else m.value }
+        t = H_IL_WOL.replace(t) { m -> val d = hanjaSu(m.groupValues[2]); if (d != null && d in 1..31) "${m.groupValues[1]}${d}일" else m.value }
+        t = H_IL.replace(t) { m -> val d = hanjaSu(m.groupValues[2]); if (d != null && d in 2..31) "${m.groupValues[1]}${d}일" else m.value }
         return t
     }
+    private val H_WOL = Regex("(^|\\s)(십일|십이|시|유|십|일|이|삼|사|오|육|칠|팔|구)\\s*월(?!요)")
+    /** 「10월 사일」 — 달 바로 뒤의 날 */
+    private val H_IL_WOL = Regex("(\\d{1,2}월\\s*)([이삼]?십[일이삼사오육칠팔구]?|[일이삼사오육칠팔구])\\s*일(?!요)")
+    /** 「사일」처럼 띄우지 않은 날만(「이 일 끝나고」는 그대로) */
+    private val H_IL = Regex("(^|\\s)([이삼]?십[일이삼사오육칠팔구]?|[이삼사오육칠팔구])일(?=$|\\s|에|은|는|까지|부터|날|로|엔)")
+
+    // 2.83.0 (261027-A71, 이사장님 승인 2026-10-27 「1」 공개 자료로 넓히기) 일정을 뜻하는 말 — 「일정」 갈래 다섯 말에 더해,
+    //   이 말들은 묻기·넣기·바꾸기·지우기 말이 함께 있을 때만 일정으로 봄(「회의실 가자」를 일정으로 읽지 않게)
+    val ILJEONG_MAL = listOf("일정", "약속", "스케줄", "스케쥴", "캘린더", "달력")
+    val ILJEONG_MAL2 = listOf("회의", "미팅", "리마인더", "리마인드", "모임", "할일")
+    /** 이 말들은 넣기·바꾸기·지우기 말과 함께이거나, 묻는 말이면 동네 행사를 찾는 말이 아닐 때만 일정으로(「부산에서 있을 행사 보여 줘」는 일정이 아님) */
+    private val JOSA_HOLLO = setOf("에", "에서", "을", "를", "은", "는", "이", "가", "도", "로", "으로", "부터", "까지", "의", "와", "과", "하고", "생성", "생성해", "생성해줘", "새", "새로운")
+    val ILJEONG_MAL3 = listOf("이벤트", "예약", "계획", "생일", "기념일", "행사")
+    fun gonggongMal(z: String): Boolean = listOf("지역", "도시", "근처", "주변", "열리는", "열릴", "찾아", "에서있", "축제", "공연", "전시", "에서무슨", "에서어떤", "위치에서", "행사들", "이벤트들").any { z.contains(it) }
+    /** 일정이 아닌 다른 기능의 말 — 표·택시 예약, 알람 */
+    val TAGEOT = listOf("택시", "표예약", "표좀", "표를", "표끊", "기차표", "버스표", "항공권", "기차", "버스", "티켓", "ktx", "케이티엑스", "비행기", "좌석", "알람", "모닝콜", "깨워",
+        "목록", "리스트", "이메일", "메일", "뉴스", "소식", "날씨")
+    /** 「쓰레기 버리라고 알려 줘」 — 무엇을 하라고 알려 달라는 말 */
+    fun allyeoNeoki(z: String): Boolean =
+        listOf("리마인드", "리마인더", "잊지않게", "기억하게", "기억시켜", "알림맞춰", "알림설정", "알림해", "상기시켜").any { z.contains(it) } ||
+            (z.contains("알려") && listOf("하라고", "라고", "되면", "할때", "할시간").any { z.contains(it) })
 
     /** 말 다듬기 — 띄어 쓴 한 말을 붙이고, 숫자 앞을 띄움 */
     fun dadeum(t0: String): String {
@@ -228,6 +256,7 @@ object IljeongMal {
         return sb.toString().trim().replace(Regex("\\s+"), " ")
     }
 
+    private val SANGDAE = Regex("(\\d{1,3}|한|두|세|네|다섯|여섯|열|[이삼사오]?십[일이삼사오육칠팔구]?)\\s*(시간|분)\\s*(반)?\\s*(?:후|뒤|있다가)")
     private val SIGAK = Regex("^(\\d{1,2})시(반|(\\d{1,2})분)?$")
     private val BUN = Regex("^(\\d{1,2})분$")
     private val WOL_IL = Regex("^(\\d{1,2})월(\\d{1,2})일$")
@@ -237,7 +266,17 @@ object IljeongMal {
 
     fun pulgi(t0: String, now: Long, jeulgyeo: List<String> = emptyList()): IljeongPul {
         val p = IljeongPul()
-        val mal = dadeum(t0).split(" ").filter { it.isNotEmpty() }
+        // 2.83.0 상대 시각 — 「한 시간 후에」, 「30분 뒤에」, 「두 시간 반 있다가」는 지금부터 셈하고 말에서 뺌
+        var bon = dadeum(t0)
+        var sangdae: Long? = null
+        SANGDAE.find(bon)?.let { m ->
+            val n = m.groupValues[1].toIntOrNull() ?: U_SU[m.groupValues[1]] ?: hanjaSu(m.groupValues[1])
+            if (n != null) {
+                sangdae = (if (m.groupValues[2] == "시간") n * 3_600_000L else n * 60_000L) + (if (m.groupValues[3].isNotEmpty()) 1_800_000L else 0L)
+                bon = (bon.substring(0, m.range.first) + " " + bon.substring(m.range.last + 1).replaceFirst(Regex("^에\\s"), " ")).trim()
+            }
+        }
+        val mal = bon.split(" ").filter { it.isNotEmpty() }
         val nameun = ArrayList<String>()
         var ampm = ""          // 바로 앞에서 들은 오전·오후
         var jeonche = ""       // 말 전체의 오전·오후
@@ -246,6 +285,7 @@ object IljeongMal {
         var juMal = 0          // 바로 앞 낱말이 이번주(1)·다음주(2)
         var wolDaegi: Int? = null
         val sigakDeul = ArrayList<Triple<Int, Int, Boolean>>()   // (시, 분, 로)
+
         var jangsoMoeum = false   // 「장소는 협회 사무실」 — 다른 말이 나올 때까지 곳 이름으로 모음
         var i = 0
         while (i < mal.size) {
@@ -334,6 +374,9 @@ object IljeongMal {
             val im = IL.find(z)
             if (im != null) { ilWol(now, wolDaegi, im.groupValues[1].toInt())?.let { nalNeoki(p, it, ro) }; wolDaegi = null; continue }
             if (z0 in DONGSA || z in DONGSA) continue
+            // 2.83.0 홀로 떨어진 토씨(「6시 에」), 「생성해」, 「다음 토요일」의 다음
+            if (z0 in JOSA_HOLLO) continue
+            if (z0 == "다음" && i < mal.size && YOIL_RE.find(josaBbaegi(ttuk(mal[i])).first) != null) continue
             if (z0.endsWith("에서") && z0.length > 2) {
                 val g = z0.dropLast(2)
                 if (p.jangso.isEmpty()) p.jangso = g
@@ -346,6 +389,13 @@ object IljeongMal {
                 continue
             }
             nameun.add(w)
+        }
+        sangdae?.let { d ->
+            if (sigakDeul.none { !it.third }) {
+                val cc = Calendar.getInstance().apply { timeInMillis = now + d }
+                p.nal = haru(now + d, 0); p.ampmMal = true
+                sigakDeul.add(0, Triple(cc.get(Calendar.HOUR_OF_DAY), cc.get(Calendar.MINUTE), false))
+            }
         }
         // 시각 — 바꿀 시각(「3시로」)과 찾는·넣는 시각
         val bo = sigakDeul.filter { !it.third }
@@ -362,6 +412,11 @@ object IljeongMal {
         if (jm.isNotEmpty()) {
             val k = jm.last()
             if (k.length >= 2 && (k.endsWith("을") || k.endsWith("를"))) jm[jm.size - 1] = k.dropLast(1)
+        }
+        // 2.83.0 「쓰레기 버리라고」 → 「쓰레기 버리기」, 「가게 가라고」 → 「가게 가기」
+        if (jm.isNotEmpty()) {
+            val k = jm.last()
+            for (e in listOf("하라고", "라고")) if (k.length > e.length && k.endsWith(e)) { jm[jm.size - 1] = k.dropLast(e.length) + (if (e == "하라고") "하기" else "기"); break }
         }
         p.jemok = jm.joinToString(" ")
         p.jemokMal = jm.map { ttuk(josaBbaegi(ttuk(it)).first) }.filter { it.length >= 1 }

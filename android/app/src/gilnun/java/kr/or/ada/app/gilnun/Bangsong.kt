@@ -1747,9 +1747,10 @@ object BangsongMal {
         // 2.12.7 방송사 이름만 말씀하셔도(MBC 틀어 줘, 엠비시) 라디오로 — 음악 찾기로 새지 않게
         val pj = b.bangsongPyojun(z)
         val bangsongsaMal = listOf("kbs", "mbc", "ebs", "obs", "tbs", "bbs", "arirang", "표준fm", "fm4u", "4u", "해피fm", "쿨fm", "클래식fm", "사랑의소리", "한민족").any { pj.contains(it) }
-        val radio = z.contains("라디오") || zl.contains("fm") || z.contains("에프엠") || bangsongsaMal
+        // 2.83.0 (261027-A71, 이사장님 승인 2026-10-27 「1」) 방송국·주파수·SBS·CBS·국악방송도 라디오로, 세상 일·선거 소식 같은 말도 뉴스로(NyuseuMal)
+        val radio = z.contains("라디오") || zl.contains("fm") || z.contains("에프엠") || bangsongsaMal || NyuseuMal.radioMal(z)
         val tv = zl.contains("tv") || z.contains("티비") || z.contains("티브이") || z.contains("텔레비전") || z.contains("듣는방송")
-        val nyuseu = s.itda(alts, "nyuseu") || s.itda(alts, "jangae") || z.contains("뉴스") || z.contains("세상이야기") || z.contains("속보") || z.contains("기사읽") || z.contains("기사들려")
+        val nyuseu = s.itda(alts, "nyuseu") || s.itda(alts, "jangae") || z.contains("뉴스") || z.contains("세상이야기") || z.contains("속보") || z.contains("기사읽") || z.contains("기사들려") || NyuseuMal.mutneunInga(z)
         val eumak = s.itda(alts, "eumak") || z.contains("노래") || z.contains("음악") || z.contains("틀어")
         // 2.12.7 지나는 고장 노래 — "고장 노래 틀어 줘", "지나는 고장 노래 꺼"
         if (z.contains("고장노래") || z.contains("고장음악") || (z.contains("지나는고장") && (z.contains("노래") || z.contains("음악")))) {
@@ -1763,6 +1764,8 @@ object BangsongMal {
             return true
         }
         if (kkeugi) {
+            // 2.83.0 (261027-A71, 이사장님 승인 2026-10-27 「1」) 아무것도 틀고 있지 않을 때 「음악 꺼」, 「라디오 꺼」가 곳 찾기로 새던 일 — 그렇다고 말씀드림
+            if (!b.itda && (radio || tv || nyuseu || eumak || z.contains("방송")) && z.length <= 12) { dap("지금 틀고 있는 것이 없습니다.", false); return true }
             if (!b.itda || !(radio || tv || nyuseu || eumak || z.contains("방송"))) return false
             dap("", false)
             b.geuman()
@@ -1777,7 +1780,7 @@ object BangsongMal {
                 z.contains("국제") || z.contains("세계") -> "gukje"
                 z.contains("사회") -> "sahoe"
                 z.contains("스포츠") || z.contains("연예") -> "spo"
-                else -> "all"
+                else -> NyuseuMal.galrae(z) ?: "all"
             }
             val nm = b.garae.firstOrNull { it.first == g }?.second ?: "두루 소식"
             b.gisaBatgi(g) { ls ->

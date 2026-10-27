@@ -52,15 +52,18 @@ enum IljeongMal {
         // 2.117.0 (261027-I71) 더 알아듣는 말
         "일정의", "일정이야", "그거", "아까", "수정", "수정해", "수정해줘", "편집", "편집해", "편집해줘", "검색", "검색해", "검색해줘",
         "조회", "조회해", "조회해줘", "찾아", "찾아줘", "확인", "확인해", "확인해줘", "보여", "보여줘", "예약해", "예약해줘",
-        "만들어", "만들어줘", "알려줄래", "있는지", "없어", "어때", "어떻게돼", "자세히"
+        "만들어", "만들어줘", "알려줄래", "있는지", "없어", "어때", "어떻게돼", "자세히",
+        // 2.118.0 (261027-I72)
+        "리마인드", "리마인드해", "리마인드해줘", "리마인더", "리마인더로", "설정", "설정해", "설정해줘", "세팅", "세팅해", "세팅해줘",
+        "알림", "알림을", "알림해줘", "알림맞춰줘", "되면", "하라고", "라고", "나에게", "나한테", "내", "나를", "위해", "관련해서", "에게"
     ]
     // 2.117.0 (261027-I71, 이사장님 승인 2026-10-27 「순서대로 모두 고쳐」) 시키는 말 갈래 — 안드로이드 IljeongMal 과 같음
-    static let NEOKI = ["넣어", "넣자", "넣고", "추가", "잡아", "등록", "적어", "기록해", "저장해", "만들어", "예약해"]
+    static let NEOKI = ["넣어", "넣자", "넣고", "추가", "잡아", "등록", "적어", "기록해", "저장해", "만들어", "예약해", "설정해", "설정해줘", "세팅해", "상기시켜", "표시해"]
     static let BAKKUGI = ["바꿔", "바꾸", "옮겨", "옮기", "변경", "미뤄", "당겨", "고쳐", "고치", "수정", "편집"]
     static let JIUGI = ["지워", "지우", "삭제", "취소", "빼줘", "빼라", "없애"]
-    static let ILGI = ["알려", "뭐", "있어", "있나", "있니", "있냐", "있는지", "읽어", "들려", "말해", "확인", "검색", "조회", "찾아", "보여", "몇개", "어때", "어떻게돼", "자세히"]
+    static let ILGI = ["알려", "뭐", "있어", "있나", "있니", "있냐", "있는지", "읽어", "들려", "말해", "확인", "검색", "조회", "찾아", "보여", "몇개", "어때", "어떻게돼", "자세히", "있지", "있을까", "있었", "언제", "몇시", "누구랑", "무슨일", "어디서"]
     /** 일정과 다른 일을 시키는 말 — 이런 말이 있으면 「오후 2시 복지콜」처럼 움직임 말 없는 일정으로 보지 않음 */
-    static let DARUN = ["불러", "호출", "틀어", "꺼", "켜", "깨워", "가자", "가줘", "가고", "안내", "길", "전화", "문자", "보내", "들어", "재생", "멈춰", "그만"]
+    static let DARUN = ["불러", "호출", "틀어", "꺼", "켜", "깨워", "가자", "가줘", "가고", "안내", "길", "전화", "문자", "보내", "들어", "재생", "멈춰", "그만", "몇시야", "몇시인지", "몇시지"]
     /** 읽어 드리는 목록의 번호 말 */
     static let SEOSU = ["첫째", "둘째", "셋째", "넷째", "다섯째", "여섯째", "일곱째", "여덟째", "아홉째", "열째", "열한째", "열두째", "열셋째", "열넷째", "열다섯째"]
     static let GOT_KKEUT = ["극장", "병원", "의원", "치과", "한의원", "센터", "회관", "공원", "사무실", "학교", "구청", "시청", "주민센터",
@@ -164,7 +167,39 @@ enum IljeongMal {
             guard let b = hanjaSu(g[2]) else { return nil }
             return "\(g[1])시 \(b)분"
         }
+        // 2.118.0 (261027-I72) 우리말 날짜 — 「시월 사일」, 「십이월 이십육일」, 「유월」
+        t = bakkuGi("(^|\\s)(십일|십이|시|유|십|일|이|삼|사|오|육|칠|팔|구)\\s*월(?!요)", t) { g in
+            let w: Int? = g[2] == "시" ? 10 : (g[2] == "유" ? 6 : hanjaSu(g[2]))
+            guard let x = w, (1...12).contains(x) else { return nil }
+            return g[1] + "\(x)월"
+        }
+        t = bakkuGi("(\\d{1,2}월\\s*)([이삼]?십[일이삼사오육칠팔구]?|[일이삼사오육칠팔구])\\s*일(?!요)", t) { g in
+            guard let d = hanjaSu(g[2]), (1...31).contains(d) else { return nil }
+            return g[1] + "\(d)일"
+        }
+        t = bakkuGi("(^|\\s)([이삼]?십[일이삼사오육칠팔구]?|[이삼사오육칠팔구])일(?=$|\\s|에|은|는|까지|부터|날|로|엔)", t) { g in
+            guard let d = hanjaSu(g[2]), (2...31).contains(d) else { return nil }
+            return g[1] + "\(d)일"
+        }
         return t
+    }
+
+    // 2.118.0 (261027-I72, 이사장님 승인 2026-10-27 「1」 공개 자료로 넓히기) 일정을 뜻하는 말 — 안드로이드 IljeongMal 과 같음
+    static let ILJEONG_MAL = ["일정", "약속", "스케줄", "스케쥴", "캘린더", "달력"]
+    static let ILJEONG_MAL2 = ["회의", "미팅", "리마인더", "리마인드", "모임", "할일"]
+    /// 이 말들은 넣기·바꾸기·지우기 말과 함께이거나, 묻는 말이면 동네 행사를 찾는 말이 아닐 때만 일정으로
+    static let ILJEONG_MAL3 = ["이벤트", "예약", "계획", "생일", "기념일", "행사"]
+    static let JOSA_HOLLO: Set<String> = ["에", "에서", "을", "를", "은", "는", "이", "가", "도", "로", "으로", "부터", "까지", "의", "와", "과", "하고", "생성", "생성해", "생성해줘", "새", "새로운"]
+    static func gonggongMal(_ z: String) -> Bool {
+        ["지역", "도시", "근처", "주변", "열리는", "열릴", "찾아", "에서있", "축제", "공연", "전시", "에서무슨", "에서어떤", "위치에서", "행사들", "이벤트들"].contains { z.contains($0) }
+    }
+    /// 일정이 아닌 다른 기능의 말 — 표·택시 예약, 알람, 목록, 메일, 뉴스, 날씨
+    static let TAGEOT = ["택시", "표예약", "표좀", "표를", "표끊", "기차표", "버스표", "항공권", "기차", "버스", "티켓", "ktx", "케이티엑스", "비행기", "좌석", "알람", "모닝콜", "깨워",
+                         "목록", "리스트", "이메일", "메일", "뉴스", "소식", "날씨"]
+    /// 「쓰레기 버리라고 알려 줘」 — 무엇을 하라고 알려 달라는 말
+    static func allyeoNeoki(_ z: String) -> Bool {
+        ["리마인드", "리마인더", "잊지않게", "기억하게", "기억시켜", "알림맞춰", "알림설정", "알림해", "상기시켜"].contains { z.contains($0) } ||
+            (z.contains("알려") && ["하라고", "라고", "되면", "할때", "할시간"].contains { z.contains($0) })
     }
 
     /// 말 다듬기 — 띄어 쓴 한 말을 붙이고, 숫자 앞을 띄움
@@ -194,7 +229,22 @@ enum IljeongMal {
 
     static func pulgi(_ t0: String, _ now: Date, _ jeulgyeo: [String] = []) -> IljeongPul {
         let p = IljeongPul()
-        let mal = dadeum(t0).split(separator: " ").map(String.init).filter { !$0.isEmpty }
+        // 2.118.0 상대 시각 — 「한 시간 후에」, 「30분 뒤에」, 「두 시간 반 있다가」는 지금부터 셈하고 말에서 뺌
+        var bon = dadeum(t0)
+        var sangdae: Double? = nil
+        if let r = try? NSRegularExpression(pattern: "(\\d{1,3}|한|두|세|네|다섯|여섯|열|[이삼사오]?십[일이삼사오육칠팔구]?)\\s*(시간|분)\\s*(반)?\\s*(?:후|뒤|있다가)"),
+           let m = r.firstMatch(in: bon, range: NSRange(location: 0, length: (bon as NSString).length)) {
+            let ns = bon as NSString
+            let g1 = ns.substring(with: m.range(at: 1)), g2 = ns.substring(with: m.range(at: 2))
+            let ban = m.range(at: 3).location != NSNotFound
+            if let n = Int(g1) ?? U_SU[g1] ?? hanjaSu(g1) {
+                sangdae = (g2 == "시간" ? Double(n) * 3600 : Double(n) * 60) + (ban ? 1800 : 0)
+                var dwi = ns.substring(from: m.range.location + m.range.length)
+                if dwi.hasPrefix("에 ") { dwi = String(dwi.dropFirst(1)) } else if dwi == "에" { dwi = "" }
+                bon = (ns.substring(to: m.range.location) + " " + dwi).trimmingCharacters(in: .whitespaces)
+            }
+        }
+        let mal = bon.split(separator: " ").map(String.init).filter { !$0.isEmpty }
         var nameun: [String] = []
         var ampm = ""
         var jeonche = ""
@@ -301,6 +351,9 @@ enum IljeongMal {
                 continue
             }
             if DONGSA.contains(z0) || DONGSA.contains(z) { continue }
+            // 2.118.0 홀로 떨어진 토씨(「6시 에」), 「생성해」, 「다음 토요일」의 다음
+            if JOSA_HOLLO.contains(z0) { continue }
+            if z0 == "다음" && i < mal.count && maj("^(이번주|다음주|매주)?([일월화수목금토])요일$", josaBbaegi(ttuk(mal[i])).0) != nil { continue }
             if z0.hasSuffix("에서") && z0.count > 2 {
                 let g = String(z0.dropLast(2))
                 if p.jangso.isEmpty { p.jangso = g }
@@ -314,6 +367,13 @@ enum IljeongMal {
             }
             nameun.append(w)
         }
+        if let d = sangdae, !sigakDeul.contains(where: { !$0.2 }) {
+            let tt = now.addingTimeInterval(d)
+            p.nal = haru(tt, 0)
+            p.ampmMal = true
+            let c = Calendar.current
+            sigakDeul.insert((c.component(.hour, from: tt), c.component(.minute, from: tt), false), at: 0)
+        }
         let bo = sigakDeul.filter { !$0.2 }
         let roS = sigakDeul.last(where: { $0.2 })
         if let b0 = bo.first { p.si = b0.0; p.bun = b0.1 }
@@ -326,6 +386,13 @@ enum IljeongMal {
         if let r = roS { p.sigakRo = (r.0, r.1) }
         var jm = nameun.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         if let k = jm.last, k.count >= 2, (k.hasSuffix("을") || k.hasSuffix("를")) { jm[jm.count - 1] = String(k.dropLast()) }
+        // 2.118.0 「쓰레기 버리라고」 → 「쓰레기 버리기」, 「가게 가라고」 → 「가게 가기」
+        if let k = jm.last {
+            for e in ["하라고", "라고"] where k.count > e.count && k.hasSuffix(e) {
+                jm[jm.count - 1] = String(k.dropLast(e.count)) + (e == "하라고" ? "하기" : "기")
+                break
+            }
+        }
         p.jemok = jm.joined(separator: " ")
         p.jemokMal = jm.map { ttuk(josaBbaegi(ttuk($0)).0) }.filter { !$0.isEmpty }
         if p.jangso.isEmpty {
@@ -1200,12 +1267,22 @@ final class Iljeong: ObservableObject {
     func malCheori(_ alts: [String], _ z: String, _ t: String, _ dap: @escaping (String, Bool) -> Void) -> Bool {
         let now = Date()
         if mureum != nil && now.timeIntervalSince(mureumTtae) > 120 { mureum = nil }
-        let iljeongMal = z.contains("일정") || z.contains("약속") || z.contains("스케줄") || z.contains("캘린더") || z.contains("달력")
-        let neoki = IljeongMal.NEOKI.contains { z.contains($0) }
+        let zl0 = z.lowercased()
+        let iljeongMal0 = IljeongMal.ILJEONG_MAL.contains { z.contains($0) }
+        // 2.118.0 (261027-I72) 「리마인드해 줘」, 「쓰레기 버리라고 알려 줘」는 넣기
+        let allyeo = IljeongMal.allyeoNeoki(z)
+        let neoki = IljeongMal.NEOKI.contains { z.contains($0) } || allyeo
         let bakkugi = IljeongMal.BAKKUGI.contains { z.contains($0) }
         let jiugi = IljeongMal.JIUGI.contains { z.contains($0) }
-        let ilgiMal = IljeongMal.ILGI.contains { z.contains($0) }
+        let ilgiMal = IljeongMal.ILGI.contains { z.contains($0) } && !allyeo
         let kanMal = ["제목", "장소", "내용", "메모"].contains { z.contains($0) }
+        // 2.118.0 표·택시 예약과 알람은 일정이 아님(10-27 공개 자료 시험: 알람 115문장, 표·택시 35문장을 일정이 가로챔)
+        let tageot = IljeongMal.TAGEOT.contains { zl0.contains($0) } && !iljeongMal0
+        // 2.118.0 회의·미팅·예약·계획 같은 말은 묻기·넣기·바꾸기·지우기 말과 함께일 때 일정으로(「오늘 오후 한 시 회의 지워」, 「주말에 무슨 예약 있어」)
+        let mal2 = IljeongMal.ILJEONG_MAL2.contains { z.contains($0) }
+        let mal3 = IljeongMal.ILJEONG_MAL3.contains { z.contains($0) } && (neoki || bakkugi || jiugi || !IljeongMal.gonggongMal(z))
+        let haneunMal = ilgiMal || neoki || bakkugi || jiugi || kanMal
+        let iljeongMal = !tageot && (iljeongMal0 || allyeo || ((mal2 || mal3) && haneunMal && !IljeongMal.DARUN.contains { z.contains($0) }))
         // 2.117.0 묻는 중이라도 새로 시키시면 새 말씀부터(10-27 「오늘 일정 알려줘」를 몇 시냐는 물음의 대답으로 받아 새로 넣기만 되풀이함)
         if let m = mureum {
             if geumanMal(z) { mureum = nil; dap("알겠습니다. 그만두었습니다.", false); return true }
@@ -1218,6 +1295,7 @@ final class Iljeong: ObservableObject {
         }
         let zl = z.lowercased()
         if z.contains("브리핑") { return beuripingMal(z, dap) }
+        if tageot { return false }
         let p = IljeongMal.pulgi(t, now, Jeulgyeo.shared.mokrok.prefix(30).map { $0.ireum })
         let nalSi = p.nal != nil || p.si != nil || !p.banbok.isEmpty || p.haruJongil || p.jusu == 3
         let darun = IljeongMal.DARUN.contains { z.contains($0) }
@@ -1247,7 +1325,9 @@ final class Iljeong: ObservableObject {
                 return true
             }
         }
-        if neoki && !bakkugi && !jiugi && (iljeongMal || nalSi) {
+        // 2.118.0 「만들어」만으로는 날짜가 있어도 일정으로 보지 않음(「오전 8시에 커피 만들어」)
+        let mandeulMan = z.contains("만들어") && !IljeongMal.NEOKI.filter({ $0 != "만들어" }).contains { z.contains($0) } && !allyeo
+        if neoki && !bakkugi && !jiugi && (iljeongMal || (nalSi && !mandeulMan)) {
             guard heorakBoda(dap) else { return true }
             neokiSijak(p, dap)
             return true
@@ -1266,7 +1346,7 @@ final class Iljeong: ObservableObject {
             neokiSijak(p, dap, malman: true)
             return true
         }
-        if z.contains("다음일정") || z.contains("다음약속") {
+        if z.contains("다음일정") || z.contains("다음약속") || (iljeongMal && ["다음회의", "다음미팅", "다음이벤트", "다음예약", "다음모임", "다음행사"].contains { z.contains($0) }) {
             guard heorakBoda(dap) else { return true }
             let oneul = Calendar.current.startOfDay(for: now)
             guard let h = ilgi(now, now.addingTimeInterval(30 * 86400)).first(where: { $0.haruJongil ? $0.sijak > oneul : $0.sijak > now }) else {
@@ -1285,8 +1365,25 @@ final class Iljeong: ObservableObject {
             dap(jasehiMal(h), false)
             return true
         }
-        let nalMuneun = p.nal != nil && !iljeongMal && (z.contains("뭐있") || z.contains("약속있") || z.contains("뭐해")) && z.count <= 16
-        if (iljeongMal && !neoki && !bakkugi && !jiugi && (ilgiMal || z.count <= 12)) || nalMuneun {
+        // 2.118.0 「결혼식 언제야」, 「치과 예약 몇 시야」 — 제목으로 찾아 날짜와 시각을 알려 드림
+        if (z.contains("언제") || z.contains("몇시")) && !neoki && !bakkugi && !jiugi && heorak {
+            let nmal = p.jemokMal.filter { !IljeongMal.DONGSA.contains($0) && $0.count >= 2 }
+            if !nmal.isEmpty {
+                let l = ilgi(now.addingTimeInterval(-3600), now.addingTimeInterval(90 * 86400)).filter { h in nmal.contains { IljeongMal.ttuk(h.jemok + h.jangso).contains($0) } }
+                if let h0 = l.first {
+                    majimakNeoki(h0)
+                    dap(l.count == 1 ? "\(julMal(h0, nal: true))입니다." : "맞는 일정이 \(l.count)개 있습니다. " + l.prefix(5).map { julMal($0, nal: true) }.joined(separator: ". ") + ".", false)
+                    return true
+                }
+                if iljeongMal0 {
+                    dap("앞으로 90일 안에 \(nmal.joined(separator: " "))\(IljeongMal.eun(nmal.last!)) 일정에 없습니다.", false)
+                    return true
+                }
+            }
+        }
+        let nalMuneun = p.nal != nil && !iljeongMal && ["뭐있", "약속있", "뭐해", "무슨일", "일있", "뭐하"].contains(where: { z.contains($0) }) && z.count <= 16 &&
+            !["뉴스", "소식", "날씨", "방송", "라디오"].contains(where: { z.contains($0) })
+        if (iljeongMal && !neoki && !bakkugi && !jiugi && (ilgiMal || (iljeongMal0 && z.count <= 12))) || nalMuneun {
             guard heorakBoda(dap) else { return true }
             let m = beomwiDeutgi(p, now)
             let yeoreo = majimakMok.count >= 2 && Date().timeIntervalSince(mokTtae) < 5
@@ -1338,6 +1435,9 @@ final class Iljeong: ObservableObject {
     /// 넣기 — 모자란 것을 여쭙고, 다 되면 한 번 읽어 드리고 여쭘. malman 이면 「일정으로 넣을까요?」
     private func neokiSijak(_ p: IljeongPul, _ dap: @escaping (String, Bool) -> Void, malman: Bool = false) {
         let now = Date()
+        // 2.118.0 넣을 때 「토요일 오후 10시로 잡아 줘」의 「로」는 바꿀 시각이 아니라 넣을 시각
+        if p.si == nil, let r = p.sigakRo { p.si = r.0; p.bun = r.1 }
+        if p.nal == nil, let n = p.nalRo { p.nal = n }
         var nal = p.nal
         if nal == nil && p.jusu == 3 {
             let w = Calendar.current.component(.weekday, from: now)
