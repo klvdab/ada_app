@@ -205,6 +205,12 @@ object Kamera {
         juin?.let { if (it.kyeojim) it.kkeugi(malHagi) }
     }
 
+    /** 2.84.0 (261027-A72, 이사장님 승인 2026-10-27 「1」, 아이폰 2.119.0과 같음) 켜져 있는 카메라 눈 — 다른 일을 시키시면 끌 것들(발 앞 계단·턱 알림은 안전 경고, 안면인식은 따로 열어 쓰므로 뺌) */
+    fun dareunIlKkeulBupum(): KameraNunBupum? {
+        val l = bupumDeul.toList() + listOfNotNull(juin)
+        return l.firstOrNull { it.kyeojim && it !== TeokAllim && it !== AnmyeonEngine }
+    }
+
     /** 다른 카메라 눈을 모두 끔(카메라는 한 곳만) */
     fun hanGotman(b: KameraNunBupum) {
         for (x in bupumDeul.toList()) if (x !== b && x.kyeojim) x.kkeugi(false)

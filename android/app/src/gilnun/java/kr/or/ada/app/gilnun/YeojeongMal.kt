@@ -202,7 +202,15 @@ object YeojeongMal {
             }
             return true
         }
-        if (s.itda(alts, "sigan")) {
+        // 2.84.0 (261027-A72, 이사장님 승인 2026-10-27 「1」, 아이폰 2.119.0과 같음) 「얼마나 걸릴까」, 「시간이 얼마나」도. 「○○까지」가 있으면 가실 곳을 정하지 않으셨어도 그곳을 찾아 답함
+        if (s.itda(alts, "sigan") || MalHagi.siganMal(z)) {
+            val t = alts.firstOrNull() ?: ""
+            val q = MalHagi.kkajiGot(t)
+            if (q != null) {
+                val yi = y?.let { MalSajeon.ttuk(it.mokjeok.ireum) }
+                val qz = MalSajeon.ttuk(q)
+                if (yi == null || !(yi.contains(qz) || qz.contains(yi))) { MalHagi.kkajiSiganDap(q, t, dap); return true }
+            }
             if (y == null) dap("아직 가시는 곳이 없습니다. ${Seoljeong.ho}, 어디로 가실까요?", true)
             else geollineunDap(dap)   // 2.62.0
             return true

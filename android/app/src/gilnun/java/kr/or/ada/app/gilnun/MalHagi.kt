@@ -703,7 +703,25 @@ object MalHagi {
     // MARK: 알아듣고 하기
 
     /** 알아들은 말들로 할 일을 하고, 대답(dap)을 꼭 한 번 부름 — (할 말, 묻는 말인가) */
+    /** 2.84.0 (261027-A72, 이사장님 승인 2026-10-27 「1」, 아이폰 2.119.0과 같음) 카메라 눈은 그 일 하나에만 — 카메라 눈이 켜져 있을 때 다른 일을 시키시면(알아들은 말일 때만) 카메라 눈을 끄고
+     *  대답 앞에 「지폐와 색깔 알아보기를 껐습니다」 한 마디만 붙임. 카메라 눈을 여는 말·다시 말해·말 빠르게 같은 말, 못 알아들은 말, 말벗과 나눈 이야기로는 끄지 않음 */
+    private var motAlHam = false
     fun cheori(alts0: List<String>, dap: (String, Boolean) -> Unit) {
+        motAlHam = false
+        val t0 = MalSajeon.ttuk(alts0.firstOrNull() ?: "")
+        if (KameraNunIl.kyeojinIreum() == null || t0.isEmpty() || KameraNunIl.jagiMal(t0)) { cheoriSok(alts0, dap); return }
+        var hanBeon = false
+        cheoriSok(alts0) { m, b ->
+            if (!hanBeon) {
+                hanBeon = true
+                val k = if (!motAlHam) KameraNunIl.kkeugi() else null
+                if (k != null) { dap(if (m.isEmpty()) k else "$k $m", b); return@cheoriSok }
+            }
+            dap(m, b)
+        }
+    }
+
+    private fun cheoriSok(alts0: List<String>, dap: (String, Boolean) -> Unit) {
         val alts = alts0.map { beonhoSutja(it.trim()) }.filter { it.isNotEmpty() }
         val t = alts.firstOrNull()
         if (t == null) { dap("말씀이 들리지 않았습니다.", false); return }
@@ -1192,7 +1210,7 @@ object MalHagi {
             dap("처음부터 하겠습니다. $ho, 어디로 가실까요?", true)
             return true
         }
-        if (s.itda(alts, "sigan") || s.itda(alts, "jigeum_gil") || s.itda(alts, "charye")) {
+        if (s.itda(alts, "sigan") || siganMal(z) || s.itda(alts, "jigeum_gil") || s.itda(alts, "charye")) {
             dap("지금 가시는 길이 없습니다. $ho, 어디로 가실까요?", true)
             return true
         }
@@ -1308,7 +1326,8 @@ object MalHagi {
         }
         // 2.7.0 둘러보기(묶음 b4) — 지폐와 색깔, 바코드, 이게 뭐야, 가리키는 거 읽어 줘, 고장 이야기, 마실 가자, 사진 읽어 줘, 안면인식, 축제, 근처 약국·화장실 들
         //   (아이폰 MalHagi 2.21.0·2.20.0·2.23.0·2.17.0·2.7.0 과 같은 말·같은 차례 — 빛·사람·글자·문·QR 다음)
-        if (DulreoMal.myeongryeong(z, s.itda(alts, "gojang"), s.itda(alts, "masil"), s.itda(alts, "sajin"), dap)) return true
+        // 2.84.0 (261027-A72, 이사장님 승인 2026-10-27 「1」, 아이폰 2.119.0과 같음) 「길눈이 찍어서 알려 줘」, 「내 앞에 있는 거 사진 찍어 줘」도 사진 읽어 주기로(띄어쓰기가 달라도)
+        if (DulreoMal.myeongryeong(z, s.itda(alts, "gojang"), s.itda(alts, "masil"), s.itda(alts, "sajin") || sajinMal(z), dap)) return true
         // 2.7.0 음악·방송(묶음 b5) — 다음 곡, 이전 곡, 무슨 곡, 이어서 틀어, 고장 노래, 라디오·TV(방송사 이름만으로도), 뉴스, 음악 꺼
         if (BangsongMal.myeongryeong(alts, alts.firstOrNull() ?: "", z, dap)) return true
         // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 아직 앱에 넣지 못한 기능 — 모르는 척하지 않고, 기록해 두었다가 그 기능을 넣을 때 말로도 되게(아이폰 aJik 과 같은 사전 키, 같은 말)
@@ -1752,9 +1771,59 @@ object MalHagi {
         if (Jiin.mokrok.isEmpty()) Jiin.bureogi { ieo() } else ieo()
     }
 
+    /** 2.84.0 (261027-A72, 이사장님 승인 2026-10-27 「1」, 아이폰 2.119.0과 같음) 사진 읽어 주기로 받을 말 — 「찍어서 알려」, 「찍어 줘」, 「사진 찍어」, 「찍어서 읽어」(띄어쓰기를 뺀 말로 봄) */
+    fun sajinMal(z: String): Boolean {
+        if (z.contains("사진찍")) return true
+        if (!z.contains("찍어")) return false
+        return z.contains("찍어서알려") || z.contains("찍어서읽어") || z.contains("찍어서설명") || z.endsWith("찍어줘") || z.endsWith("찍어줄래") || z.contains("앞에있는거찍")
+    }
+
+    /** 2.84.0 (261027-A72, 이사장님 승인 2026-10-27 「1」, 아이폰 2.119.0과 같음) 걸리는 시간 물음 — 「얼마나 걸릴까」, 「얼마나 걸립니까」, 「시간이 얼마나」, 「몇 분 걸려」 */
+    fun siganMal(z: String): Boolean =
+        z.contains("얼마나걸") || z.contains("시간이얼마") || z.contains("시간얼마") || z.contains("몇분걸") || z.contains("몇시간걸")
+
+    /** 2.84.0 (261027-A72, 이사장님 승인 2026-10-27 「1」, 아이폰 2.119.0과 같음) 「여기서 서울역까지 시간이 얼마나 걸릴까」 → 서울역. 떠나는 곳(여기서·지금·○○에서)은 뺌 */
+    fun kkajiGot(t: String): String? {
+        val i = t.indexOf("까지")
+        if (i < 0) return null
+        val ap = t.substring(0, i).split(',', '.').lastOrNull() ?: ""
+        val bbae = setOf("여기서", "여기에서", "지금", "현재", "이곳에서", "내", "자리에서", "지금은", "길눈아", "길눈", "헤이", "하이", "어디", "언제", "몇", "시")
+        val ws = ap.split(" ").filter { it.isNotBlank() && it !in bbae && !it.endsWith("에서") && !it.endsWith("서부터") }
+        val q = ws.joinToString(" ").trim()
+        return if (MalSajeon.ttuk(q).length >= 2) q else null
+    }
+
+    /** 2.84.0 (261027-A72, 이사장님 승인 2026-10-27 「1」, 아이폰 2.119.0과 같음) 그곳을 찾아 차로 걸리는 시간과 걸어서 걸리는 시간을 알리고, 안내할지 여쭘(묻기만 하셨을 때는 시작하지 않음) */
+    fun kkajiSiganDap(q: String, t: String, dap: (String, Boolean) -> Unit) {
+        val w = Wichi.jigeum
+        Chatgi.jangso(q) { r ->
+            val h = r?.firstOrNull()
+            if (h == null) { main.post { motChatgiDap(t, q, true, dap) }; return@jangso }
+            val mutgi = { ap: String -> main.post { mokjeokMutgi(h, null, ap, dap) }; Unit }
+            if (w == null) { mutgi("아직 위치를 잡는 중이라 ${h.ireum}까지 걸리는 시간을 셈하지 못했습니다. "); return@jangso }
+            val f = { v: Double -> String.format(java.util.Locale.US, "%.6f", v) }
+            Tongsin.json("sigan.php", mapOf("la1" to f(w.lat), "lo1" to f(w.lon), "la2" to f(h.lat), "lo2" to f(h.lon))) { o ->
+                if (o != null && o.optBoolean("ok", false) && o.has("sec") && o.has("meter")) {
+                    val mt = o.optDouble("meter")
+                    mutgi("여기서 ${h.ireum}까지 차로 ${Annae.geoMal(mt)}, 지금 길 상황으로 약 ${bunMal(o.optDouble("sec") / 60)} 걸립니다. 걸으시면 약 ${bunMal(mt / 67)}입니다. ")
+                } else {
+                    val d = Wichi.geori(w.lat, w.lon, h.lat, h.lon)
+                    mutgi("여기서 ${h.ireum}까지 곧은 거리로 ${Annae.geoMal(d)}입니다. 걸으시면 약 ${bunMal(d * 1.3 / 67)} 걸립니다. 차로 걸리는 시간은 지금 받지 못했습니다. ")
+                }
+            }
+        }
+    }
+
+    /** 2.84.0 (261027-A72, 이사장님 승인 2026-10-27 「1」, 아이폰 2.119.0과 같음) 분을 우리말로 — 12분, 1시간 5분 */
+    fun bunMal(b0: Double): String {
+        val bun = Math.max(1, Math.round(b0).toInt())
+        return if (bun < 60) "${bun}분" else if (bun % 60 == 0) "${bun / 60}시간" else "${bun / 60}시간 ${bun % 60}분"
+    }
+
     /** 찾는 곳을 못 찾았을 때의 대답 */
     private fun motChatgiDap(t: String, q: String, gagiMal: Boolean, dap: (String, Boolean) -> Unit) {
         Girok.namgi("mal_motaradeureum", mapOf("mal" to t.take(60)))   // 모르는 말은 기록해 두었다가 사전을 키움(아이폰과 같음)
+        motAlHam = true   // 2.84.0 못 알아들은 말로는 카메라 눈을 끄지 않음
         // 2.31.0 (이사장님 승인) 곳 이름 같은 말("남산 산책로 B코스")을 못 찾으면 말벗으로 넘기지 않고 앞 낱말(남산)로 다시 찾아 여쭘(아이폰과 같음)
         // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 가자고 하셨어도 늘 다시 찾음(말벗으로 넘기는 것만 가자는 말이 없을 때).
         //   다만 묻는 말(어때·알려 줘·어떻게·얼마·가격·예약·몇 시)이면 다시 찾지 않음(아이폰과 같음)
@@ -2025,7 +2094,7 @@ object MalHagi {
     private fun kkajiTo(w: String) = if (w.endsWith("까지")) "" else "까지"
 
     /** 말로 하는 도움말 — 안드로이드 길눈에서 되는 말만. 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 복지콜에 전화해 줘, 콜 번호 알려 줘, 택시야, 콜 취소를 더함 */
-    const val DOUMAL_MAL = "이렇게 말씀하시면 됩니다. 지금 어디야. 약수역 가자. 가까운 점지도 찾아 줘. 점지도를 따라 걸을 때는 다음에 무엇, 다음 갈림길, 어디쯤이야, 그만 걷기, 도착하면 되돌아가자. 신호기 울려 줘. 신호 알려 줘. 신호기 찾아 줘. 도와줘, 또는 가족 이름과 화상통화. 날씨 어때. 몇 시야. 말 빠르게, 말 느리게. 말소리 꺼. 다시 말해. 그만. 하던 일 멈춰. 걸어서 가자, 차로 가자, 지하철로 가자, 버스로 가자. 차에 탔어, 내렸어. 복지콜에 전화해 줘, 콜 번호 알려 줘, 택시야, 콜 취소. 자세히 안내해, 간단히 안내해, 보통으로 안내해. 얼마나 걸려, 지금 가는 길. 여정 끝, 도착했어. 목적지 바꿔. 즐겨찾기 목록, 즐겨찾기에 담아 줘. 점지도로, 위성으로. 점지도를 따라 걸을 때는 여기 문제 있어, 여기 걸렸어, 길목, 정류장, 다른 문. 길 기억해 줘. 되짚어 나가자. 말로 그린 길. 음성유도기 어디 있어. QR 찾아 줘. 글자 읽어 줘. 사람 있어. 빛 알려 줘. 바코드 읽어 줘. 무슨 색이야. 얼마짜리야. 이게 뭐야. 가리키는 거 읽어 줘. 근처 약국. 축제 알려 줘. 고장 이야기. 마실 가자. 사진 읽어 줘. 안면인식. 음악 틀어 줘. 트롯 틀어 줘, 또는 가수나 곡 이름. 다음 곡, 이전 곡. 무슨 곡이야. 이어서 틀어. 고장 노래 틀어 줘. 라디오 틀어 줘. KBS 1라디오 틀어 줘. TV 틀어 줘. 뉴스 들려줘. 장애 소식, 속보, 경제 뉴스. 기분이 꿀꿀해. 음악 꺼, 라디오 꺼. 목소리 바꿔. 호칭 바꿔. 현장영상해설 받고 싶어. 새로고침."
+    const val DOUMAL_MAL = "이렇게 말씀하시면 됩니다. 지금 어디야. 약수역 가자. 가까운 점지도 찾아 줘. 점지도를 따라 걸을 때는 다음에 무엇, 다음 갈림길, 어디쯤이야, 그만 걷기, 도착하면 되돌아가자. 신호기 울려 줘. 신호 알려 줘. 신호기 찾아 줘. 도와줘, 또는 가족 이름과 화상통화. 날씨 어때. 몇 시야. 말 빠르게, 말 느리게. 말소리 꺼. 다시 말해. 그만. 하던 일 멈춰. 걸어서 가자, 차로 가자, 지하철로 가자, 버스로 가자. 차에 탔어, 내렸어. 복지콜에 전화해 줘, 콜 번호 알려 줘, 택시야, 콜 취소. 자세히 안내해, 간단히 안내해, 보통으로 안내해. 얼마나 걸려, 서울역까지 얼마나 걸려, 지금 가는 길. 여정 끝, 도착했어. 목적지 바꿔. 즐겨찾기 목록, 즐겨찾기에 담아 줘. 점지도로, 위성으로. 점지도를 따라 걸을 때는 여기 문제 있어, 여기 걸렸어, 길목, 정류장, 다른 문. 길 기억해 줘. 되짚어 나가자. 말로 그린 길. 음성유도기 어디 있어. QR 찾아 줘. 글자 읽어 줘. 사람 있어. 빛 알려 줘. 바코드 읽어 줘. 무슨 색이야. 얼마짜리야. 이게 뭐야. 가리키는 거 읽어 줘. 근처 약국. 축제 알려 줘. 고장 이야기. 마실 가자. 사진 읽어 줘, 사진 찍어 줘. 안면인식. 음악 틀어 줘. 트롯 틀어 줘, 또는 가수나 곡 이름. 다음 곡, 이전 곡. 무슨 곡이야. 이어서 틀어. 고장 노래 틀어 줘. 라디오 틀어 줘. KBS 1라디오 틀어 줘. TV 틀어 줘. 뉴스 들려줘. 장애 소식, 속보, 경제 뉴스. 기분이 꿀꿀해. 음악 꺼, 라디오 꺼. 목소리 바꿔. 호칭 바꿔. 현장영상해설 받고 싶어. 새로고침."
 }
 
 // MARK: 받아쓰기 — 안드로이드 자체 SpeechRecognizer(아이폰 MalDeutgi)
@@ -2288,7 +2357,7 @@ object MalSajeon {
         "dasiteul" to listOf("이어서 틀어", "다시 틀어", "계속 틀어", "이어 틀어"),
         "gojang" to listOf("고장 이야기", "고장 소개"),
         "masil" to listOf("마실 가자", "마실 가", "마실 열어"),
-        "sajin" to listOf("사진 읽어", "사진 설명", "사진 찍어 읽어"),
+        "sajin" to listOf("사진 읽어", "사진 설명", "사진 찍어 읽어", "사진 찍어", "찍어서 알려", "찍어서 읽어"),   // 2.84.0 (261027-A72)
         "jangae" to listOf("장애 소식", "복지 소식")
     )
 

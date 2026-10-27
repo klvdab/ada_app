@@ -958,7 +958,28 @@ final class MalHagi: ObservableObject {
     // MARK: 알아듣고 하기
 
     /// 알아들은 말들로 할 일을 하고, 대답(dap)을 꼭 한 번 부름 — (할 말, 묻는 말인가)
+    /// 2.119.0 (261027-I73, 이사장님 승인 2026-10-27 「1」) 카메라 눈은 그 일 하나에만 — 카메라 눈이 켜져 있을 때 다른 일을 시키시면(알아들은 말일 때만) 카메라 눈을 끄고
+    ///   대답 앞에 「지폐와 색깔 알아보기를 껐습니다」 한 마디만 붙임. 카메라 눈을 여는 말·다시 말해·말 빠르게 같은 말은 그대로 둠.
+    ///   못 알아들은 말이나 말벗과 나눈 이야기로는 끄지 않음(10-27 서울역 길 안내를 하는 동안에도 색깔을 계속 말하던 일)
+    private var motAlHam = false
     func cheori(_ alts0: [String], _ dap: @escaping (String, Bool) -> Void) {
+        motAlHam = false
+        let t0 = alts0.first.map { MalSajeon.ttuk($0) } ?? ""
+        guard KameraNunIl.kyeojinIreum() != nil, !t0.isEmpty, !KameraNunIl.jagiMal(t0) else { cheoriSok(alts0, dap); return }
+        var hanBeon = false
+        cheoriSok(alts0) { [weak self] m, b in
+            if !hanBeon {
+                hanBeon = true
+                if self?.motAlHam != true, let k = KameraNunIl.kkeugi() {
+                    dap(m.isEmpty ? k : k + " " + m, b)
+                    return
+                }
+            }
+            dap(m, b)
+        }
+    }
+
+    private func cheoriSok(_ alts0: [String], _ dap: @escaping (String, Bool) -> Void) {
         let alts = alts0.map { MalHagi.beonhoSutja($0.trimmingCharacters(in: .whitespacesAndNewlines)) }.filter { !$0.isEmpty }
         guard let t = alts.first else { dap("말씀이 들리지 않았습니다.", false); return }
         Girok.shared.namgi("malhagi", ["mal": String(t.prefix(60))])
@@ -1850,7 +1871,13 @@ final class MalHagi: ObservableObject {
             }
             return true
         }
-        if s.itda(alts, "sigan") {
+        // 2.119.0 (261027-I73, 이사장님 승인 2026-10-27 「1」) 「얼마나 걸릴까」, 「시간이 얼마나」도 걸리는 시간 물음으로. 「○○까지」가 있으면 가실 곳을 정하지 않으셨어도 그곳을 찾아 답함
+        if s.itda(alts, "sigan") || MalHagi.siganMal(z) {
+            let t = alts.first ?? ""
+            if let q = MalHagi.kkajiGot(t), y == nil || !(MalSajeon.ttuk(y!.mokjeok.ireum).contains(MalSajeon.ttuk(q)) || MalSajeon.ttuk(q).contains(MalSajeon.ttuk(y!.mokjeok.ireum))) {
+                kkajiSiganDap(q, t, dap)
+                return true
+            }
             if y == nil {
                 mureum = .mokjeok
                 mureumTtae = Date()
@@ -1976,7 +2003,8 @@ final class MalHagi: ObservableObject {
             return true
         }
         if s.itda(alts, "masil") { dulreoYeolgi(.masil, "마실을 엽니다. 떠나실 고장을 고르십시오.", dap); return true }
-        if s.itda(alts, "sajin") { dulreoYeolgi(.sajin, "사진 읽어 주기를 엽니다. 사진 찍어 읽어 주기 단추를 두드리십시오.", dap); return true }
+        // 2.119.0 (261027-I73, 이사장님 승인 2026-10-27 「1」) 「길눈이 찍어서 알려 줘」, 「내 앞에 있는 거 사진 찍어 줘」도 사진 읽어 주기로(띄어쓰기가 달라도)
+        if s.itda(alts, "sajin") || MalHagi.sajinMal(z) { dulreoYeolgi(.sajin, "사진 읽어 주기를 엽니다. 사진 찍어 읽어 주기 단추를 두드리십시오.", dap); return true }
         if z.contains("안면") || z.contains("얼굴인식") || z.contains("누가있") || z.contains("사람있") {
             dulreoYeolgi(.anmyeon, "안면인식을 엽니다.", dap)
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { AnmyeonEngine.shared.kyeogi() }
@@ -2755,7 +2783,7 @@ final class MalHagi: ObservableObject {
     }
 
     // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 안드로이드 도움말과 같은 차례로 채움(아이폰이 알아듣는 말만)
-    static let doumalMal = "이렇게 말씀하시면 됩니다. 지금 어디야. 집으로 가자처럼 가실 곳. 가까운 점지도 찾아 줘. 점지도를 따라 걸을 때는 다음에 무엇, 다음 갈림길, 어디쯤이야, 그만 걷기, 도착하면 되돌아가자. 신호기 울려 줘. 신호 알려 줘. 신호기 찾아 줘. 주변에 신호기 있어. 도와줘, 긴급통화, 해설사 요청해 줘, 또는 가족 이름과 화상통화. 날씨 어때. 몇 시야. 말 빠르게, 말 느리게. 말소리 꺼, 말소리 켜. 다시 말해. 그만. 하던 일 멈춰. 여정 끝. 새로고침. 걸어서 가자, 차로 가자, 지하철로 가자, 버스로 가자. 차에 탔어, 내렸어. 복지콜에 전화해 줘, 콜 번호 알려 줘, 택시야, 콜 취소. 자세히 안내해, 간단히 안내해, 보통으로 안내해. 얼마나 걸려, 지금 가는 길. 도착했어. 목적지 바꿔. 즐겨찾기 목록, 즐겨찾기에 담아 줘. 점지도로, 위성으로. 점지도를 따라 걸을 때는 여기 문제 있어, 여기 걸렸어, 길목, 정류장, 다른 문. 길 기억해 줘. 되짚어 나가자. 말로 그린 길. 음성유도기 어디 있어. QR 찾아 줘. 문 찾아 줘. 글자 읽어 줘. 사람 있어. 빛 알려 줘. 바코드 읽어 줘. 무슨 색이야. 얼마짜리야. 이게 뭐야. 가리키는 거 읽어 줘. 근처 약국. 축제 알려 줘. 고장 이야기. 마실 가자. 사진 읽어 줘. 안면인식. 음악 틀어 줘. 트롯 틀어 줘, 또는 가수나 곡 이름. 다음 곡, 이전 곡. 무슨 곡이야. 이어서 틀어. 고장 노래 틀어 줘. 라디오 틀어 줘. KBS 1라디오 틀어 줘. TV 틀어 줘. 뉴스 들려줘. 장애 소식, 속보, 경제 뉴스. 기분이 꿀꿀해. 날씨에 맞게 틀어 줘. 음악 꺼, 라디오 꺼. 목소리 바꿔. 호칭 바꿔. 현장영상해설 받고 싶어. 도움말."
+    static let doumalMal = "이렇게 말씀하시면 됩니다. 지금 어디야. 집으로 가자처럼 가실 곳. 가까운 점지도 찾아 줘. 점지도를 따라 걸을 때는 다음에 무엇, 다음 갈림길, 어디쯤이야, 그만 걷기, 도착하면 되돌아가자. 신호기 울려 줘. 신호 알려 줘. 신호기 찾아 줘. 주변에 신호기 있어. 도와줘, 긴급통화, 해설사 요청해 줘, 또는 가족 이름과 화상통화. 날씨 어때. 몇 시야. 말 빠르게, 말 느리게. 말소리 꺼, 말소리 켜. 다시 말해. 그만. 하던 일 멈춰. 여정 끝. 새로고침. 걸어서 가자, 차로 가자, 지하철로 가자, 버스로 가자. 차에 탔어, 내렸어. 복지콜에 전화해 줘, 콜 번호 알려 줘, 택시야, 콜 취소. 자세히 안내해, 간단히 안내해, 보통으로 안내해. 얼마나 걸려, 서울역까지 얼마나 걸려, 지금 가는 길. 도착했어. 목적지 바꿔. 즐겨찾기 목록, 즐겨찾기에 담아 줘. 점지도로, 위성으로. 점지도를 따라 걸을 때는 여기 문제 있어, 여기 걸렸어, 길목, 정류장, 다른 문. 길 기억해 줘. 되짚어 나가자. 말로 그린 길. 음성유도기 어디 있어. QR 찾아 줘. 문 찾아 줘. 글자 읽어 줘. 사람 있어. 빛 알려 줘. 바코드 읽어 줘. 무슨 색이야. 얼마짜리야. 이게 뭐야. 가리키는 거 읽어 줘. 근처 약국. 축제 알려 줘. 고장 이야기. 마실 가자. 사진 읽어 줘, 사진 찍어 줘. 안면인식. 음악 틀어 줘. 트롯 틀어 줘, 또는 가수나 곡 이름. 다음 곡, 이전 곡. 무슨 곡이야. 이어서 틀어. 고장 노래 틀어 줘. 라디오 틀어 줘. KBS 1라디오 틀어 줘. TV 틀어 줘. 뉴스 들려줘. 장애 소식, 속보, 경제 뉴스. 기분이 꿀꿀해. 날씨에 맞게 틀어 줘. 음악 꺼, 라디오 꺼. 목소리 바꿔. 호칭 바꿔. 현장영상해설 받고 싶어. 도움말."
 
     /// 2.29.0 인공지능이 풀어 본 때(거듭 묻지 않으려고)
     private var aiTtae = Date.distantPast
@@ -2854,8 +2882,71 @@ final class MalHagi: ObservableObject {
         }
     }
 
+    /// 2.119.0 (261027-I73, 이사장님 승인 2026-10-27 「1」) 사진 읽어 주기로 받을 말 — 「찍어서 알려」, 「찍어 줘」, 「사진 찍어」, 「찍어서 읽어」(띄어쓰기를 뺀 말로 봄)
+    static func sajinMal(_ z: String) -> Bool {
+        if z.contains("사진찍") { return true }
+        guard z.contains("찍어") else { return false }
+        return z.contains("찍어서알려") || z.contains("찍어서읽어") || z.contains("찍어서설명") || z.hasSuffix("찍어줘") || z.hasSuffix("찍어줄래") || z.contains("앞에있는거찍")
+    }
+
+    /// 2.119.0 (261027-I73, 이사장님 승인 2026-10-27 「1」) 걸리는 시간 물음 — 「얼마나 걸릴까」, 「얼마나 걸립니까」, 「시간이 얼마나」, 「몇 분 걸려」
+    static func siganMal(_ z: String) -> Bool {
+        z.contains("얼마나걸") || z.contains("시간이얼마") || z.contains("시간얼마") || z.contains("몇분걸") || z.contains("몇시간걸")
+    }
+
+    /// 2.119.0 (261027-I73, 이사장님 승인 2026-10-27 「1」) 「여기서 서울역까지 시간이 얼마나 걸릴까」 → 서울역. 떠나는 곳(여기서·지금·○○에서)은 뺌
+    static func kkajiGot(_ t: String) -> String? {
+        guard let r = t.range(of: "까지") else { return nil }
+        // 「차에 탔어, 집까지」처럼 앞말이 있으면 쉼표 뒤만
+        let ap = String(t[t.startIndex..<r.lowerBound]).split(whereSeparator: { ",.".contains($0) }).last.map(String.init) ?? ""
+        let bbae: Set<String> = ["여기서", "여기에서", "지금", "현재", "이곳에서", "내", "자리에서", "지금은", "길눈아", "길눈", "헤이", "하이", "어디", "언제", "몇", "시"]
+        let ws = ap.split(separator: " ").map(String.init).filter { !bbae.contains($0) && !$0.hasSuffix("에서") && !$0.hasSuffix("서부터") }
+        let q = ws.joined(separator: " ").trimmingCharacters(in: .whitespaces)
+        return MalSajeon.ttuk(q).count >= 2 ? q : nil
+    }
+
+    /// 2.119.0 (261027-I73, 이사장님 승인 2026-10-27 「1」) 그곳을 찾아 차로 걸리는 시간과 걸어서 걸리는 시간을 알리고, 안내할지 여쭘(묻기만 하셨을 때는 시작하지 않음)
+    private func kkajiSiganDap(_ q: String, _ t: String, _ dap: @escaping (String, Bool) -> Void) {
+        let wj = WichiEngine.shared.jigeum
+        Task {
+            let (q2, r) = await MalHagi.jangsoChatgi(q, nil)
+            guard let r = r, let h = r.first else {
+                await MainActor.run { self.motChatgiDap(t, q2, false, dap) }
+                return
+            }
+            var ap = ""
+            if let w = wj {
+                let qq = ["la1": String(format: "%.6f", w.lat), "lo1": String(format: "%.6f", w.lon),
+                          "la2": String(format: "%.6f", h.lat), "lo2": String(format: "%.6f", h.lon)]
+                let o = await Chatgi.json("sigan.php", qq)
+                if let o = o, (o["ok"] as? Bool) == true, let sec = Chatgi.su(o["sec"]), let mt = Chatgi.su(o["meter"]) {
+                    ap = "여기서 \(h.ireum)까지 차로 \(Annae.geoMal(mt)), 지금 길 상황으로 약 \(MalHagi.bunMal(sec / 60)) 걸립니다. 걸으시면 약 \(MalHagi.bunMal(mt / 67))입니다. "
+                } else {
+                    let d = WichiEngine.geori(w.lat, w.lon, h.lat, h.lon)
+                    ap = "여기서 \(h.ireum)까지 곧은 거리로 \(Annae.geoMal(d))입니다. 걸으시면 약 \(MalHagi.bunMal(d * 1.3 / 67)) 걸립니다. 차로 걸리는 시간은 지금 받지 못했습니다. "
+                }
+            } else {
+                ap = "아직 위치를 잡는 중이라 걸리는 시간을 셈하지 못했습니다. "
+            }
+            let ap2 = ap
+            await MainActor.run {
+                self.hubo = [h]
+                self.huboI = 0
+                self.huboTalgeot = nil
+                self.huboAnnae({ m, b in dap(ap2 + (m.hasPrefix("네, ") ? String(m.dropFirst(3)) : m), b) }, hwagin: true)
+            }
+        }
+    }
+
+    /// 2.119.0 (261027-I73, 이사장님 승인 2026-10-27 「1」) 분을 우리말로 — 12분, 1시간 5분
+    static func bunMal(_ b0: Double) -> String {
+        let bun = max(1, Int(b0.rounded()))
+        return bun < 60 ? "\(bun)분" : (bun % 60 == 0 ? "\(bun / 60)시간" : "\(bun / 60)시간 \(bun % 60)분")
+    }
+
     private func motAradeureum(_ t: String) {
         Girok.shared.namgi("mal_motaradeureum", ["mal": String(t.prefix(60))])
+        motAlHam = true   // 2.119.0 못 알아들은 말로는 카메라 눈을 끄지 않음
     }
 
     /// 모르면 먼저 사과하고, 거듭 모르면 기록해 두었다고 알림

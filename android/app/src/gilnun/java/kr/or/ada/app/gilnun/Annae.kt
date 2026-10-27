@@ -170,6 +170,7 @@ object AnnaeEngine {
 
     /** 새 목적지를 정하기 전에 하던 안내를 조용히 모두 끔 — 걷던 점지도, 지하철 안내(이사장님 승인 1) */
     fun saeMokjeokJunbi() {
+        KameraNunIl.kkeugi()?.let { Sori.mal(it, MalGeup.JEONGBO) }   // 2.84.0 (261027-A72, 이사장님 승인 2026-10-27 「1」, 아이폰 2.119.0과 같음) 길 안내를 시작하면 카메라 눈은 끔(화면 단추로 시작하실 때도)
         MunIkkeulgi.meomchugi()   // 2.38.0 문까지 이끌기도 멈춤
         jeomKkeut()
         JihacheolEngine.meomchugi()
