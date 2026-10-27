@@ -985,6 +985,8 @@ final class MalHagi: ObservableObject {
             dap("알겠습니다. 콜을 취소하신 것으로 남겼습니다.", false)
             return
         }
+        // 0-1a. 2.115.0 (261027-I69, 이사장님 승인 2026-10-27) 듣기 예약 — 「매일 7시에 MBC 표준FM 틀어 줘」, 「30분 뒤에 라디오 꺼 줘」, 「듣기 예약 알려 줘」
+        if DeutgiYeyak.shared.malCheori(z, dap) { return }
         // 0-1. 2.58.0 차 부르기 — 배차 대답, 다음 수단, 복지카드 메일, 성적표, 이용 조건, 정기 호출(이사장님 승인 2026-10-09)
         if ChaBureugi.shared.malCheori(alts, z, dap) { return }
         // 1. 여정 끝내기

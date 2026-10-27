@@ -98,6 +98,8 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
     private var naebuMeomchum = Set<String>()   // gyeonggo, deutgi, tonghwa
     private var malJung = false
     private var jigeumChaeneol: Chaeneol?
+    /// 2.115.0 (261027-I69) 듣기 예약이 지금 나오는 채널을 알게
+    var jigeumChaeneolId: String? { jigeumChaeneol?.id }
     private var nuguna: [NugunaGok] = []
     private var nugunaJul: [NugunaGok] = []
     private var nugunaI = -1

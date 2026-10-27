@@ -158,6 +158,7 @@ class BangsongCheot : BangsongBada("음악·방송") {
             t.chojeomJul(e)
         }
         danchu(t, "radio", "라디오 듣기") { t.yeolgi(ChaeneolHwamyeon("radio")) }
+        danchu(t, "yeyak", "듣기 예약 — 정한 시각에 라디오 틀기") { t.yeolgi(DeutgiYeyakHwamyeon()) }   // 2.80.0 (261027-A68, 이사장님 승인 2026-10-27)
         danchu(t, "tv", "TV 보기") { t.yeolgi(ChaeneolHwamyeon("tv")) }
         danchu(t, "sesang", "지금 세상 이야기") { t.yeolgi(SesangHwamyeon()) }
         danchu(t, "dongyeong", "동영상 틀기") { t.yeolgi(DongyeongHwamyeon()) }   // 2.34.0

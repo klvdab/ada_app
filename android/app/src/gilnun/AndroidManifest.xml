@@ -112,6 +112,16 @@
             </intent-filter>
         </receiver>
 
+        <!-- 2.80.0 듣기 예약 — 정한 시각에 라디오 틀기, 폰을 다시 켰을 때·새 판으로 바뀌었을 때 다음 알람을 다시 걺 -->
+        <receiver
+            android:name="kr.or.ada.app.gilnun.DeutgiReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <!-- 2.7.0 b3 발 앞 계단·턱 알림(관리자 시험) — 구글 AR 은 있으면 씀(없어도 앱은 깔림). camera.ar uses-feature 는 넣지 않음 -->
         <meta-data android:name="com.google.ar.core" android:value="optional" />
     </application>

@@ -308,6 +308,8 @@ object Bangsong {
     private var malSijakTtae = 0L
     private var malKkeutR: Runnable? = null
     private var jigeumChaeneol: Chaeneol? = null
+    /** 2.80.0 (261027-A68) 듣기 예약이 지금 나오는 채널을 알게 */
+    val jigeumChaeneolId: String? get() = jigeumChaeneol?.id
     private var nuguna: List<NugunaGok> = emptyList()
     private var nugunaJul: List<NugunaGok> = emptyList()
     private var nugunaI = -1

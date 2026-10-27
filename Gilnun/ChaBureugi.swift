@@ -721,6 +721,12 @@ final class JeonggiHochul: NSObject, ObservableObject, UNUserNotificationCenterD
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         // 정기 호출만 앱이 켜져 있어도 띄움 — 다른 알림은 지금까지처럼(띄우지 않음)
         let id = notification.request.identifier
+        // 2.115.0 (261027-I69) 듣기 예약 — 앱이 켜져 있으면 띄우지 않고 바로 틂
+        if id.hasPrefix("deutgi-") {
+            completionHandler([])
+            DispatchQueue.main.async { DeutgiYeyak.shared.allimOm(notification) }
+            return
+        }
         if id.hasPrefix("jeonggi-") {
             completionHandler([.banner, .list, .sound])
             SoriEngine.shared.mal("\(sudanIreum) 부를 시간입니다. 알림을 두드리시거나 차 부르기에서 정기 호출로 거시면 됩니다.", .annae)
@@ -733,6 +739,11 @@ final class JeonggiHochul: NSObject, ObservableObject, UNUserNotificationCenterD
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         if response.notification.request.identifier.hasPrefix("jeonggi-") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { self.geolgi() }
+        }
+        // 2.115.0 (261027-I69) 듣기 예약 알림을 누르시면 그 방송을 틂
+        if response.notification.request.identifier.hasPrefix("deutgi-") {
+            let n = response.notification
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { DeutgiYeyak.shared.allimNureum(n) }
         }
         completionHandler()
     }

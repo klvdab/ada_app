@@ -31,6 +31,7 @@ final class Bonche {
         GojangEngine.shared.sijak()  // 2.7.0 탈것으로 지나는 고장 이야기(설정에서 끔)
         JeonhwaGamsi.shared.sijak()     // 2.59.0 전화가 오거나 걸면 길눈의 모든 소리를 멈춤(이사장님 지시)
         BangsongEngine.shared.sijak()   // 2.8.0 음악·방송 — 멈춤 지킴이, 긴급통화 중 멈춤
+        DeutgiYeyak.shared.sijak()      // 2.115.0 듣기 예약 — 정한 시각에 라디오 틀기·끄기(이사장님 승인 2026-10-27)
         GongjiEngine.shared.sijak()     // 2.9.0 알림 — 15분마다, 긴급 공지는 첫 화면 맨 위
         Heundeul.shared.sijak()         // 2.9.0 흔들면(설정에서 켬)
         JihacheolEngine.shared.ieoGagi()   // 지하철 타고 가던 중이면 역 알림을 이어 감
