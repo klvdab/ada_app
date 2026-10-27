@@ -49,7 +49,8 @@ class IljeongHang(
     val jangso: String,
     val gilnunGeot: Boolean,  // 길눈이 넣은 일정
     val banbok: Boolean,      // 되풀이 일정의 한 회
-    val wonSijak: Long        // 달력이 준 그대로의 시작(되풀이 한 회를 고칠 때 씀)
+    val wonSijak: Long,       // 달력이 준 그대로의 시작(되풀이 한 회를 고칠 때 씀)
+    val naeyong: String = ""  // 2.82.0 적어 둔 내용(설명 칸에서 길눈 표시를 뺀 것)
 ) {
     val ki: String get() = "$id|$sijak"
 }
@@ -65,6 +66,12 @@ sealed class IljeongMureum {
     class Bakkugi(val h: IljeongHang, val sijak: Long, val kkeut: Long) : IljeongMureum()
     class Jiugi(val h: IljeongHang, val modu: Boolean) : IljeongMureum()
     class Annae(val jangso: String) : IljeongMureum()
+    // 2.82.0 (261027-A70, 이사장님 승인 2026-10-27 「순서대로 모두 고쳐」)
+    class Jemok(val p: IljeongPul) : IljeongMureum()                                          // 무슨 일정인가요
+    class GoreugiG(val hubo: List<IljeongHang>, val g: IljeongMal.GochimPul) : IljeongMureum() // 칸 고칠 일정 고르기
+    class Gap(val h: IljeongHang, val kan: String, val hal: String) : IljeongMureum()           // 새 제목·장소·내용을 여쭘
+    class Gochim(val h: IljeongHang, val kan: String, val hal: String, val gap: String) : IljeongMureum()   // 고칠까요
+    class Mueot(val h: IljeongHang) : IljeongMureum()                                          // 무엇을 바꿀까요
 }
 
 /** 떠날 시각 하나 */
@@ -211,8 +218,9 @@ object Iljeong {
                     var e = cu.getLong(3)
                     if (jongil) { s = utcHaru(s); e = utcHaru(e) }
                     if (e <= a || s >= b) continue
+                    val sm = cu.getString(6) ?: ""
                     l.add(IljeongHang(cu.getLong(0), (cu.getString(1) ?: "").ifBlank { "제목 없는 일정" }, s, e, jongil,
-                        (cu.getString(5) ?: "").trim(), (cu.getString(6) ?: "").contains(PYOSI), !cu.getString(7).isNullOrEmpty(), won))
+                        (cu.getString(5) ?: "").trim(), sm.contains(PYOSI), !cu.getString(7).isNullOrEmpty(), won, sm.replace(PYOSI, "").trim()))
                 }
             }
         } catch (e: Exception) {
@@ -250,7 +258,12 @@ object Iljeong {
         val yeoreonal = b - a > HARU + 3_600_000L
         if (l.isEmpty()) return "$ireum${IljeongMal.eun(ireum)} 잡힌 일정이 없습니다."
         val bo = l.take(15)
-        var m = "$ireum 일정은 ${l.size}개입니다. " + bo.joinToString(". ") { julMal(it, yeoreonal) } + "."
+        // 2.82.0 읽어 드린 목록에 첫째·둘째 번호를 붙이고 기억함 — 「둘째 일정 제목 바꿔 줘」
+        majimakMok = bo
+        mokTtae = System.currentTimeMillis()
+        if (bo.size == 1) majimakNeoki(bo[0])
+        var m = "$ireum 일정은 ${l.size}개입니다. " +
+            (if (bo.size == 1) julMal(bo[0], yeoreonal) else bo.mapIndexed { i, h -> "${IljeongMal.SEOSU[i]}, ${julMal(h, yeoreonal)}" }.joinToString(". ")) + "."
         if (l.size > bo.size) m += " 그 밖에 ${l.size - bo.size}개가 더 있습니다. 일정 화면의 다가오는 일정 목록에서 보실 수 있습니다."
         return m
     }
@@ -763,63 +776,151 @@ object Iljeong {
 
     val mureumItda: Boolean get() = mureum != null && System.currentTimeMillis() - mureumTtae < 120_000L
 
-    private val NEOKI = listOf("넣어", "추가", "잡아", "등록", "적어", "기록해", "저장해")
-    private val BAKKUGI = listOf("바꿔", "옮겨", "변경", "미뤄", "당겨", "고쳐")
-    private val JIUGI = listOf("지워", "삭제", "취소", "빼줘", "없애")
-    private val ILGI = listOf("알려", "뭐", "있어", "있나", "있니", "읽어", "들려", "말해", "확인")
     private val NAMEUN_MAL = listOf("라디오", "방송", "에프엠", "fm", "정기호출", "정기콜", "복지콜", "나비콜", "콜택시", "듣기예약", "끄기예약")
+
+    // 2.82.0 (261027-A70, 이사장님 승인 2026-10-27 「순서대로 모두 고쳐」) 바로 앞에 말한 일정과 읽어 드린 목록 — 「그 일정」, 「둘째 일정」
+    private var majimakId = -1L
+    private var majimakSijak = 0L
+    private var majimakTtae = 0L
+    private var majimakMok: List<IljeongHang> = emptyList()
+    private var mokTtae = 0L
+    /** 한 번만 드리는 도움말(길눈을 켤 때마다 한 번) */
+    private val hintHan = HashSet<String>()
+
+    private fun majimakNeoki(h: IljeongHang) { majimakId = h.id; majimakSijak = h.sijak; majimakTtae = System.currentTimeMillis() }
+
+    /** 바로 앞에 말한 일정(30분 안) — 달력에서 다시 읽어 지금 모습으로 */
+    private fun majimak(c: Context): IljeongHang? {
+        if (majimakId < 0 || System.currentTimeMillis() - majimakTtae > 30 * 60_000L) return null
+        val l = ilgi(c, haru(majimakSijak, -1), haru(majimakSijak, 2))
+        return l.firstOrNull { it.id == majimakId && it.sijak == majimakSijak } ?: l.firstOrNull { it.id == majimakId }
+    }
+
+    /** 읽어 드린 목록의 몇째(30분 안) */
+    private fun mokHang(c: Context, b: Int): IljeongHang? {
+        if (System.currentTimeMillis() - mokTtae > 30 * 60_000L) return null
+        val h = majimakMok.getOrNull(b - 1) ?: return null
+        val l = ilgi(c, haru(h.sijak, -1), haru(h.sijak, 2))
+        return l.firstOrNull { it.ki == h.ki } ?: l.firstOrNull { it.id == h.id }
+    }
+
+    private fun hint(k: String, m: String): String = if (hintHan.add(k)) " $m" else ""
+
+    /** 「네」 — 「네 넣어 줘」, 「응 바꿔」도(「네 시」는 아님) */
+    private fun yeMal(alts: List<String>, z: String): Boolean =
+        MalHagi.hwaginDap(alts) == HwaginDap.YE ||
+            (z.length <= 8 && !z.contains("시") && listOf("네", "예", "응", "그래", "좋아", "맞아").any { z.startsWith(it) } &&
+                (IljeongMal.NEOKI + IljeongMal.BAKKUGI + IljeongMal.JIUGI + listOf("해", "줘", "요")).any { z.contains(it) })
+
+    /** 묻던 것을 그만두는 말 */
+    private fun geumanMal(z: String): Boolean = z.length <= 8 && listOf("그만", "됐어", "됐다", "안해", "안할래", "필요없어", "취소", "나중에").any { z.contains(it) }
+
+    /** 일정 말로 하기 도움 */
+    fun doumMal(): String = "일정에서는 이렇게 말씀하실 수 있습니다. 오늘 일정 알려 줘. 내일 오후 2시 병원 넣어 줘. 첫째 일정 제목 복지콜로 바꿔 줘. " +
+        "그 일정 내용 추가해 줘, 휠체어 탑승. 그 일정 내용 읽어 줘. 2시 일정 3시로 바꿔 줘. 둘째 일정 장소 국립극장으로 바꿔 줘. 둘째 일정 지워 줘. 방금 지운 일정 되살려 줘. " +
+        "일정을 읽어 드릴 때 붙인 첫째, 둘째 번호로 고르실 수 있습니다."
 
     /** 일정 말이면 하고 참 — MalHagi.cheori 가 듣기 예약보다 앞에서 부름 */
     fun malCheori(alts: List<String>, z: String, t: String, dap: (String, Boolean) -> Unit): Boolean {
         val c = ctx ?: return false
         val now = System.currentTimeMillis()
         if (mureum != null && now - mureumTtae > 120_000L) mureum = null
-        mureum?.let { if (dapCheori(c, it, alts, z, t, dap)) return true }
-        val zl = z.lowercase()
-        if (NAMEUN_MAL.any { zl.contains(it) }) return false
         val iljeongMal = z.contains("일정") || z.contains("약속") || z.contains("스케줄") || z.contains("캘린더") || z.contains("달력")
+        val neoki = IljeongMal.NEOKI.any { z.contains(it) }
+        val bakkugi = IljeongMal.BAKKUGI.any { z.contains(it) }
+        val jiugi = IljeongMal.JIUGI.any { z.contains(it) }
+        val ilgiMal = IljeongMal.ILGI.any { z.contains(it) }
+        val kanMal = listOf("제목", "장소", "내용", "메모").any { z.contains(it) }
+        // 2.82.0 묻는 중이라도 새로 시키시면 새 말씀부터(10-27 「오늘 일정 알려줘」를 몇 시냐는 물음의 대답으로 받아 새로 넣기만 되풀이함)
+        mureum?.let { m ->
+            if (geumanMal(z)) { mureum = null; dap("알겠습니다. 그만두었습니다.", false); return true }
+            val mutneunJung = m is IljeongMureum.Jemok || m is IljeongMureum.Sigak
+            val saeMal = iljeongMal && (ilgiMal || neoki || bakkugi || jiugi || kanMal) && m !is IljeongMureum.Gap && !(mutneunJung && neoki && !ilgiMal)
+            if (saeMal && !yeMal(alts, z)) mureum = null
+            else if (dapCheori(c, m, alts, z, t, dap)) return true
+        }
+        val zl = z.lowercase()
         // 아침 브리핑
         if (z.contains("브리핑")) return beuripingMal(c, z, dap)
+        val p = IljeongMal.pulgi(t, now, Jeulgyeo.mokrok.take(30).map { it.ireum })
+        val nalSi = p.nal != null || p.si != null || p.banbok.isNotEmpty() || p.haruJongil || p.jusu == 3
+        val darun = IljeongMal.DARUN.any { z.contains(it) }
+        // 「오늘 오후 2시 복지콜」 — 움직임 말 없이 날·시각과 이름만 말씀하시면 일정으로 넣을지 여쭘
+        val umjigimEopseum = !neoki && !bakkugi && !jiugi && !ilgiMal && !darun && !kanMal
+        val malmanIljeong = umjigimEopseum && p.si != null && (p.nal != null || z.contains("오전") || z.contains("오후")) && p.jemok.isNotBlank() && z.length <= 30
+        if (NAMEUN_MAL.any { zl.contains(it) } && !iljeongMal && !malmanIljeong) return false
+        // 일정 도움말
+        if (iljeongMal && listOf("도움말", "뭐라고", "어떻게말", "어떻게해", "사용법", "쓰는법", "할수있").any { z.contains(it) }) {
+            dap(doumMal(), false)
+            return true
+        }
         // 되살리기
         if ((z.contains("되살려") || z.contains("살려") || z.contains("복구") || z.contains("되돌려")) && (iljeongMal || z.contains("지운"))) {
             if (!heorakBoda(c, dap)) return true
             dap(doesalligi(c), false)
             return true
         }
-        val neoki = NEOKI.any { z.contains(it) }
-        val bakkugi = BAKKUGI.any { z.contains(it) }
-        val jiugi = JIUGI.any { z.contains(it) }
-        val p = IljeongMal.pulgi(t, now, Jeulgyeo.mokrok.take(30).map { it.ireum })
-        val nalSi = p.nal != null || p.si != null || p.banbok.isNotEmpty() || p.haruJongil || p.jusu == 3
+        // 2.82.0 제목·장소·내용 고치기 — 「2시 일정 제목 복지콜로 바꿔 줘」, 「그 일정 내용 추가해 줘」, 「첫째 일정 내용 읽어 줘」
+        val mokB = IljeongMal.mokBeonho(t)
+        val geu = IljeongMal.geuMal(t)
+        if (kanMal || z.contains("이름")) {
+            val g = IljeongMal.gochimPulgi(t, now)
+            val mokSal = mokB != null && now - mokTtae < 30 * 60_000L
+            val geuSal = (geu && now - majimakTtae < 30 * 60_000L) || (g?.dae?.isBlank() == true && now - majimakTtae < 3 * 60_000L)
+            if (g != null && (iljeongMal || mokSal || geuSal)) {
+                if (!heorakBoda(c, dap)) return true
+                gochimSijak(c, g, dap)
+                return true
+            }
+        }
         if (neoki && !bakkugi && !jiugi && (iljeongMal || nalSi)) {
             if (!heorakBoda(c, dap)) return true
             neokiSijak(p, dap)
             return true
         }
-        if (bakkugi && !jiugi && (iljeongMal || nalSi)) {
+        if (bakkugi && !jiugi && (iljeongMal || nalSi || mokB != null || geu)) {
             if (!heorak(c)) { if (!iljeongMal) return false; heorakBoda(c, dap); return true }
-            return chatgoHagi(c, p, "bakkugi", false, iljeongMal, dap)
+            return chatgoHagi(c, p, t, "bakkugi", false, iljeongMal, dap)
         }
-        if (jiugi && (iljeongMal || nalSi)) {
+        if (jiugi && (iljeongMal || nalSi || mokB != null || geu)) {
             if (!heorak(c)) { if (!iljeongMal) return false; heorakBoda(c, dap); return true }
             val modu = z.contains("모두") || z.contains("전부") || z.contains("되풀이") || z.contains("매주")
-            return chatgoHagi(c, p, "jiugi", modu, iljeongMal, dap)
+            return chatgoHagi(c, p, t, "jiugi", modu, iljeongMal, dap)
+        }
+        if (malmanIljeong) {
+            if (!heorakBoda(c, dap)) return true
+            neokiSijak(p, dap, malman = true)
+            return true
         }
         // 듣기
         if (z.contains("다음일정") || z.contains("다음약속")) {
             if (!heorakBoda(c, dap)) return true
             val h = ilgi(c, now, now + 30 * HARU).firstOrNull { it.sijak > now || it.haruJongil && haru(it.sijak) > haru(now) }
             if (h == null) { dap("앞으로 30일 안에 잡힌 일정이 없습니다.", false); return true }
+            majimakNeoki(h)
             val dd = ddeonaMok.firstOrNull { it.ki == h.ki }
-            dap("다음 일정은 ${julMal(h, true)}입니다." + (if (dd != null) " 어림잡아 ${sigakMal(dd.ddeona)}에 떠나시면 됩니다." else ""), false)
+            dap("다음 일정은 ${julMal(h, true)}입니다." + (if (dd != null) " 어림잡아 ${sigakMal(dd.ddeona)}에 떠나시면 됩니다." else "") +
+                hint("ilgi1", "고치시려면 그 일정 제목 바꿔 줘, 그 일정 내용 추가해 줘처럼 말씀하시면 됩니다."), false)
             return true
         }
-        val ilgiMal = ILGI.any { z.contains(it) }
+        // 「둘째 일정 알려 줘」 — 그 일정 자세히
+        if (iljeongMal && mokB != null && now - mokTtae < 30 * 60_000L && !neoki && !bakkugi && !jiugi) {
+            val h = mokHang(c, mokB)
+            if (h != null) { majimakNeoki(h); dap(jasehiMal(h), false); return true }
+        }
         val nalMuneun = p.nal != null && !iljeongMal && (z.contains("뭐있") || z.contains("약속있") || z.contains("뭐해")) && z.length <= 16
         if ((iljeongMal && !neoki && !bakkugi && !jiugi && (ilgiMal || z.length <= 12)) || nalMuneun) {
             if (!heorakBoda(c, dap)) return true
-            dap(beomwiDeutgi(c, p, now), false)
+            val m = beomwiDeutgi(c, p, now)
+            val yeoreo = majimakMok.size >= 2 && now - mokTtae < 5_000L
+            dap(m + (if (yeoreo) hint("ilgi", "고치시려면 첫째 일정 제목 바꿔 줘, 둘째 일정 내용 추가해 줘처럼 번호로 말씀하시면 됩니다.") else ""), false)
             Girok.namgi("iljeong_deutgi", mapOf("jusu" to p.jusu, "nal" to (p.nal != null)))
+            return true
+        }
+        // 2.82.0 일정 말인데 알아듣지 못하면 말없이 넘기지 않고 하실 수 있는 말을 알려 드림
+        if (iljeongMal && !darun) {
+            Girok.namgi("iljeong_mot", mapOf("gil" to z.length))
+            dap("일정 말씀을 다 알아듣지 못했습니다. " + doumMal(), false)
             return true
         }
         return false
@@ -854,8 +955,8 @@ object Iljeong {
         return false
     }
 
-    /** 넣기 — 모자란 것을 여쭙고, 다 되면 한 번 읽어 드리고 여쭘 */
-    private fun neokiSijak(p: IljeongPul, dap: (String, Boolean) -> Unit) {
+    /** 넣기 — 모자란 것을 여쭙고, 다 되면 한 번 읽어 드리고 여쭘. malman 이면 「일정으로 넣을까요?」 */
+    private fun neokiSijak(p: IljeongPul, dap: (String, Boolean) -> Unit, malman: Boolean = false) {
         val now = System.currentTimeMillis()
         var nal = p.nal
         if (nal == null && p.jusu == 3) {
@@ -878,11 +979,18 @@ object Iljeong {
             dap("어느 날로 할까요? 내일, 금요일, 11월 3일처럼 말씀해 주십시오.", true)
             return
         }
-        val s = if (p.haruJongil) SaeIljeong(p.jemok.ifBlank { "일정" }, p.jangso, nal, nal + HARU, true, p.banbok, p.yoil)
+        p.nal = nal
+        // 2.82.0 제목이 없으면 꼭 여쭘 — 이름 없는 「일정」은 넣지 않음(10-27 이름 없는 일정 두 개가 들어감)
+        if (p.jemok.isBlank()) {
+            mutgi(IljeongMureum.Jemok(p))
+            dap("무슨 일정인가요? 병원, 회의, 복지콜처럼 제목을 말씀해 주십시오.", true)
+            return
+        }
+        val s = if (p.haruJongil) SaeIljeong(p.jemok, p.jangso, nal, nal + HARU, true, p.banbok, p.yoil)
         else {
             val st = nal + p.si!! * 3_600_000L + p.bun * 60_000L
             val kk = p.kkeutSi?.let { nal + it * 3_600_000L + p.kkeutBun * 60_000L }?.takeIf { it > st } ?: (st + 3_600_000L)
-            SaeIljeong(p.jemok.ifBlank { "일정" }, p.jangso, st, kk, false, p.banbok, p.yoil)
+            SaeIljeong(p.jemok, p.jangso, st, kk, false, p.banbok, p.yoil)
         }
         banbokMatchum(s)
         if (!s.haruJongil && s.banbok.isEmpty() && s.sijak < now) {
@@ -890,7 +998,7 @@ object Iljeong {
             return
         }
         mutgi(IljeongMureum.Neoki(s))
-        dap(hwaginMal(s) + " 넣을까요?", true)
+        dap(hwaginMal(s) + if (malman) " 일정으로 넣을까요?" else " 넣을까요?", true)
     }
 
     fun banbokMal(s: SaeIljeong): String = when (s.banbok) {
@@ -920,9 +1028,11 @@ object Iljeong {
     private fun neokiHagi(c: Context, s: SaeIljeong, dap: (String, Boolean) -> Unit) {
         val id = neoki(c, s)
         if (id == null) { dap("달력에 넣지 못했습니다. 폰에 달력 앱이 있는지, 구글 계정이 들어 있는지 확인해 주십시오.", false); return }
+        majimakId = id; majimakSijak = s.sijak; majimakTtae = System.currentTimeMillis()
         var m = "넣었습니다."
         if (!s.haruJongil) m += " 한 시간 전과 30분 전에 폰 달력이 알려 드립니다."
         if (s.jangso.isNotBlank() && ddeonaKyeojim) m += " 떠나실 시각도 어림해 미리 알려 드립니다."
+        m += hint("neoki", "적어 둘 내용이 있으시면 그 일정 내용 추가해 줘, 장소는 그 일정 장소 바꿔 줘라고 말씀하시면 됩니다.")
         dap(m, false)
         if (s.jangso.isNotBlank() && ddeonaKyeojim) {
             jangsoChatgi(s.jangso) { jr ->
@@ -932,11 +1042,13 @@ object Iljeong {
     }
 
     /** 고치기·지우기 — 맞는 일정을 찾아 하나면 여쭙고, 여럿이면 번호를 여쭘. 못 찾으면 일정이라는 말이 있을 때만 대답 */
-    private fun chatgoHagi(c: Context, p: IljeongPul, hal: String, modu: Boolean, iljeongMal: Boolean, dap: (String, Boolean) -> Unit): Boolean {
-        val hubo = chatgi(c, p)
+    private fun chatgoHagi(c: Context, p: IljeongPul, t: String, hal: String, modu: Boolean, iljeongMal: Boolean, dap: (String, Boolean) -> Unit): Boolean {
+        mokEopseum(t)?.let { dap(it, false); return true }
+        val hubo = chatgi(c, p, t)
         if (hubo.isEmpty()) {
             if (!iljeongMal) return false
-            dap("말씀하신 일정을 찾지 못했습니다. 일정 이름과 날짜를 함께 말씀해 주십시오. 예를 들면 내일 회의 3시로 바꿔 줘, 금요일 점심 약속 지워 줘라고 하시면 됩니다.", false)
+            dap("말씀하신 일정을 찾지 못했습니다. 일정 이름이나 날짜, 시각을 함께 말씀해 주십시오. 예를 들면 내일 회의 3시로 바꿔 줘, 금요일 점심 약속 지워 줘라고 하시면 됩니다." +
+                (if (majimakMok.isEmpty()) " 먼저 오늘 일정 알려 줘라고 하시면 번호를 붙여 읽어 드립니다. 그 번호로 고르셔도 됩니다." else ""), false)
             return true
         }
         if (hubo.size > 1) {
@@ -945,12 +1057,16 @@ object Iljeong {
             dap("맞는 일정이 ${hubo.size}개 있습니다. " + l.mapIndexed { i, h -> "${i + 1}번, ${julMal(h, true)}" }.joinToString(". ") + ". 몇 번입니까?", true)
             return true
         }
+        majimakNeoki(hubo[0])
         if (hal == "bakkugi") bakkugiHwagin(hubo[0], p, dap) else jiugiHwagin(hubo[0], modu, dap)
         return true
     }
 
-    /** 말에 맞는 일정 — 날이 있으면 그날, 없으면 앞으로 30일. 제목 낱말이 가장 많이 맞는 것들 */
-    private fun chatgi(c: Context, p: IljeongPul): List<IljeongHang> {
+    /** 말에 맞는 일정 — 「둘째 일정」·「그 일정」이면 그것, 아니면 날이 있으면 그날, 없으면 앞으로 30일. 제목 낱말이 가장 많이 맞는 것들 */
+    private fun chatgi(c: Context, p: IljeongPul, t: String): List<IljeongHang> {
+        IljeongMal.mokBeonho(t)?.let { b -> mokHang(c, b)?.let { return listOf(it) } }
+        val nmal = p.jemokMal.filter { it.length >= 1 && it !in IljeongMal.DONGSA }
+        if (IljeongMal.geuMal(t) || (p.nal == null && p.si == null && nmal.isEmpty())) majimak(c)?.let { return listOf(it) }
         val now = System.currentTimeMillis()
         val l = if (p.nal != null) ilgi(c, p.nal!!, p.nal!! + HARU) else ilgi(c, now - 2 * 3_600_000L, now + 30 * HARU)
         val siMat = l.filter { h ->
@@ -959,7 +1075,6 @@ object Iljeong {
             val cc = Calendar.getInstance().apply { timeInMillis = h.sijak }
             cc.get(Calendar.HOUR_OF_DAY) == si && (p.bun == 0 || cc.get(Calendar.MINUTE) == p.bun)
         }
-        val nmal = p.jemokMal.filter { it.length >= 1 && it !in IljeongMal.DONGSA }
         if (nmal.isEmpty()) return if (p.nal != null || p.si != null) siMat else emptyList()
         val jeom = siMat.map { h -> h to nmal.count { w -> IljeongMal.ttuk(h.jemok + h.jangso).contains(w) } }.filter { it.second > 0 }
         val choego = jeom.maxOfOrNull { it.second } ?: return emptyList()
@@ -968,47 +1083,162 @@ object Iljeong {
 
     private fun bakkugiHwagin(h: IljeongHang, p: IljeongPul, dap: (String, Boolean) -> Unit) {
         if (!h.gilnunGeot) {
-            dap("${julMal(h, true)}${IljeongMal.eun(h.jemok)} 다른 곳에서 넣은 일정이라 길눈에서는 고치지 않습니다. 폰의 달력 앱에서 고쳐 주십시오.", false)
+            dap("${julMal(h, true)}${IljeongMal.eun(julMal(h, true))} 다른 곳에서 넣은 일정이라 길눈에서는 고치지 않습니다. 폰의 달력 앱에서 고쳐 주십시오.", false)
             return
         }
         val nalRo = p.nalRo
         val siRo = p.sigakRo
         if (nalRo == null && siRo == null) {
-            dap("몇 시로, 또는 어느 날로 바꿀지 함께 말씀해 주십시오. 예를 들면 내일 회의 3시로 바꿔 줘, 금요일 회의 월요일로 옮겨 줘라고 하시면 됩니다.", false)
+            // 2.82.0 무엇을 바꿀지 여쭘
+            mutgi(IljeongMureum.Mueot(h))
+            dap("${julMal(h, true)}. 무엇을 바꿀까요? 시각, 날짜, 제목, 장소, 내용 가운데 말씀해 주십시오. 3시로, 금요일로처럼 바로 말씀하셔도 됩니다.", true)
             return
         }
         val gil = h.kkeut - h.sijak
         val geunal = nalRo ?: haru(h.sijak)
         val st = if (h.haruJongil) geunal else {
             val cc = Calendar.getInstance().apply { timeInMillis = h.sijak }
-            geunal + (siRo?.first ?: cc.get(Calendar.HOUR_OF_DAY)) * 3_600_000L + (siRo?.second ?: cc.get(Calendar.MINUTE)) * 60_000L
+            var si = siRo?.first ?: cc.get(Calendar.HOUR_OF_DAY)
+            // 2.82.0 오전·오후를 말하지 않으시면 본래 일정이 오후일 때 오후로(10-27 시험: 오후 6시 일정을 「7시로」 하니 오전 7시로 옮김)
+            if (siRo != null && !p.ampmMal && si in 1..11 && cc.get(Calendar.HOUR_OF_DAY) >= 12) si += 12
+            geunal + si * 3_600_000L + (siRo?.second ?: cc.get(Calendar.MINUTE)) * 60_000L
+        }
+        if (!h.haruJongil && !h.banbok && st < System.currentTimeMillis()) {
+            dap("${nalIreum(st)} ${sigakMal(st)}는 이미 지난 시각입니다. 다시 말씀해 주십시오.", false)
+            return
         }
         mutgi(IljeongMureum.Bakkugi(h, st, st + gil))
         val saeMal = if (h.haruJongil) nalIreum(st) + " 하루 종일" else nalIreum(st) + " " + sigakMal(st)
-        dap("${julMal(h, true)}${IljeongMal.eul(h.jemok)} ${saeMal}${IljeongMal.ro(saeMal)} 바꿀까요?" +
+        dap("${julMal(h, true)}${IljeongMal.eul(julMal(h, true))} ${saeMal}${IljeongMal.ro(saeMal)} 바꿀까요?" +
             (if (h.banbok) " 되풀이 일정이라 이번 한 번만 바꿉니다." else ""), true)
     }
 
     private fun jiugiHwagin(h: IljeongHang, modu: Boolean, dap: (String, Boolean) -> Unit) {
         if (!h.gilnunGeot) {
-            dap("${julMal(h, true)}${IljeongMal.eun(h.jemok)} 다른 곳에서 넣은 일정이라 길눈에서는 지우지 않습니다. 폰의 달력 앱에서 지워 주십시오.", false)
+            dap("${julMal(h, true)}${IljeongMal.eun(julMal(h, true))} 다른 곳에서 넣은 일정이라 길눈에서는 지우지 않습니다. 폰의 달력 앱에서 지워 주십시오.", false)
             return
         }
         mutgi(IljeongMureum.Jiugi(h, modu))
-        dap("${julMal(h, true)}${IljeongMal.eul(h.jemok)} 지울까요?" +
+        dap("${julMal(h, true)}${IljeongMal.eul(julMal(h, true))} 지울까요?" +
             (if (h.banbok && !modu) " 되풀이 일정이라 이번 한 번만 지웁니다. 모두 지우시려면 모두 지워 줘라고 말씀해 주십시오." else if (h.banbok) " 되풀이 일정을 모두 지웁니다." else ""), true)
+    }
+
+    // MARK: 제목·장소·내용 고치기 (2.82.0)
+
+    private fun kanIreum(kan: String) = when (kan) { "jemok" -> "제목"; "jangso" -> "장소"; else -> "내용" }
+
+    /** 그 일정 자세히 — 날·시각·제목·장소·적어 둔 내용 */
+    fun jasehiMal(h: IljeongHang): String {
+        val sb = StringBuilder(julMal(h, true)).append(".")
+        if (h.banbok) sb.append(" 되풀이 일정입니다.")
+        sb.append(if (h.naeyong.isNotBlank()) " 적어 둔 내용은 ${h.naeyong.replace("\n", ". ")}." else " 적어 둔 내용은 없습니다.")
+        if (!h.gilnunGeot) sb.append(" 다른 곳에서 넣은 일정이라 길눈에서는 읽기만 합니다.")
+        return sb.toString()
+    }
+
+    /** 2.82.0 「셋째 일정」인데 읽어 드린 목록이 그보다 짧으면 그 까닭 */
+    private fun mokEopseum(t: String): String? {
+        val b = IljeongMal.mokBeonho(t) ?: return null
+        if (System.currentTimeMillis() - mokTtae > 30 * 60_000L || majimakMok.isEmpty()) return "번호로 고르시려면 먼저 오늘 일정 알려 줘처럼 일정을 들어 주십시오. 읽어 드릴 때 첫째, 둘째 번호를 붙입니다."
+        if (b > majimakMok.size) return "방금 읽어 드린 일정은 ${majimakMok.size}개뿐입니다." + (if (majimakMok.size == 1) " 그 일정이라고 말씀해 주십시오." else " 첫째부터 ${IljeongMal.SEOSU[majimakMok.size - 1]}까지 가운데 말씀해 주십시오.")
+        return null
+    }
+
+    /** 고칠 일정을 찾아 여쭘 */
+    private fun gochimSijak(c: Context, g: IljeongMal.GochimPul, dap: (String, Boolean) -> Unit) {
+        mokEopseum(g.dae)?.let { dap(it, false); return }
+        val now = System.currentTimeMillis()
+        val dae = g.dae
+        val p = IljeongMal.pulgi(dae, now, Jeulgyeo.mokrok.take(30).map { it.ireum })
+        val nmal = p.jemokMal.filter { it !in IljeongMal.DONGSA && it.length >= 1 }
+        val hubo: List<IljeongHang> = when {
+            IljeongMal.mokBeonho(dae) != null -> listOfNotNull(mokHang(c, IljeongMal.mokBeonho(dae)!!))
+            IljeongMal.geuMal(dae) || (p.nal == null && p.si == null && nmal.isEmpty()) -> listOfNotNull(majimak(c))
+            else -> chatgi(c, p, dae)
+        }
+        if (hubo.isEmpty()) {
+            dap("어느 일정의 ${kanIreum(g.kan)}인지 알아듣지 못했습니다. 오늘 2시 일정 제목 바꿔 줘, 첫째 일정 내용 읽어 줘처럼 날짜나 시각, 번호를 함께 말씀해 주십시오." +
+                (if (majimakMok.isEmpty()) " 먼저 오늘 일정 알려 줘라고 하시면 번호를 붙여 읽어 드립니다." else ""), false)
+            return
+        }
+        if (hubo.size > 1) {
+            val l = hubo.take(5)
+            mutgi(IljeongMureum.GoreugiG(l, g))
+            dap("맞는 일정이 ${hubo.size}개 있습니다. " + l.mapIndexed { i, h -> "${i + 1}번, ${julMal(h, true)}" }.joinToString(". ") + ". 몇 번입니까?", true)
+            return
+        }
+        gochimHwagin(hubo[0], g.kan, g.hal, g.gap, dap)
+    }
+
+    /** 칸 하나를 고칠지 여쭘 — 값이 없으면 값부터 여쭘 */
+    private fun gochimHwagin(h: IljeongHang, kan: String, hal: String, gap: String, dap: (String, Boolean) -> Unit) {
+        majimakNeoki(h)
+        if (hal == "ilgi") { dap(jasehiMal(h), false); return }
+        if (!h.gilnunGeot) {
+            dap("${julMal(h, true)}${IljeongMal.eun(julMal(h, true))} 다른 곳에서 넣은 일정이라 길눈에서는 고치지 않습니다. 폰의 달력 앱에서 고쳐 주십시오.", false)
+            return
+        }
+        val ireum = kanIreum(kan)
+        if (hal == "jiugi") {
+            val iteum = when (kan) { "jangso" -> h.jangso.isNotBlank(); "naeyong" -> h.naeyong.isNotBlank(); else -> true }
+            if (!iteum) { dap("${julMal(h, true)}에는 지울 ${ireum}${IljeongMal.eun(ireum)} 없습니다.", false); return }
+            if (kan == "jemok") { dap("제목은 지울 수 없습니다. 새 제목으로 바꾸시려면 제목 바꿔 줘라고 말씀해 주십시오.", false); return }
+            mutgi(IljeongMureum.Gochim(h, kan, hal, ""))
+            dap("${julMal(h, true)}의 ${ireum}${IljeongMal.eul(ireum)} 지울까요?", true)
+            return
+        }
+        if (gap.isBlank()) {
+            mutgi(IljeongMureum.Gap(h, kan, hal))
+            dap("${julMal(h, true)}. " + when (kan) {
+                "jemok" -> "새 제목을 말씀해 주십시오."
+                "jangso" -> "새 장소를 말씀해 주십시오."
+                else -> "적어 둘 내용을 말씀해 주십시오." + (if (h.naeyong.isNotBlank()) " 지금 적힌 내용은 ${h.naeyong.replace("\n", ". ")}입니다." else "")
+            }, true)
+            return
+        }
+        mutgi(IljeongMureum.Gochim(h, kan, hal, gap))
+        val dwi = if (h.banbok) " 되풀이 일정이라 모든 회가 바뀝니다." else ""
+        dap(when {
+            kan == "naeyong" && h.naeyong.isNotBlank() -> "${julMal(h, true)}의 내용에 「$gap」${IljeongMal.eul(gap)} 더할까요?"
+            kan == "naeyong" -> "${julMal(h, true)}의 내용으로 「$gap」${IljeongMal.eul(gap)} 적을까요?"
+            else -> "${julMal(h, true)}의 ${ireum}${IljeongMal.eul(ireum)} 「$gap」${IljeongMal.ro(gap)} 바꿀까요?"
+        } + dwi, true)
+    }
+
+    /** 칸 고치기 — 되풀이 일정은 모든 회 */
+    fun kanBakkugi(c: Context, h: IljeongHang, kan: String, hal: String, gap: String): Boolean {
+        if (!heorak(c) || !h.gilnunGeot) return false
+        return try {
+            val v = ContentValues()
+            when (kan) {
+                "jemok" -> v.put(CalendarContract.Events.TITLE, gap)
+                "jangso" -> v.put(CalendarContract.Events.EVENT_LOCATION, if (hal == "jiugi") "" else gap)
+                else -> {
+                    val jeon = h.naeyong
+                    val sae = if (hal == "jiugi") "" else if (jeon.isBlank()) gap else "$jeon\n$gap"
+                    v.put(CalendarContract.Events.DESCRIPTION, if (sae.isBlank()) PYOSI else "$PYOSI\n$sae")
+                }
+            }
+            val ok = c.contentResolver.update(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, h.id), v, null, null) > 0
+            Girok.namgi("iljeong_kan", mapOf("kan" to kan, "hal" to hal, "ok" to ok, "banbok" to h.banbok))
+            if (kan == "jangso") ddeonaGyesan(c, true)
+            ok
+        } catch (e: Exception) {
+            Girok.namgi("iljeong_oryu", mapOf("dan" to "kan", "e" to (e.message ?: "").take(80)))
+            false
+        }
     }
 
     /** 여쭌 것의 대답 — 받았으면 참 */
     private fun dapCheori(c: Context, m: IljeongMureum, alts: List<String>, z: String, t: String, dap: (String, Boolean) -> Unit): Boolean {
         val hd = MalHagi.hwaginDap(alts)
-        val ye = hd == HwaginDap.YE
+        val ye = yeMal(alts, z)
         val ani = hd == HwaginDap.ANI
         val now = System.currentTimeMillis()
         when (m) {
             is IljeongMureum.Neoki -> {
                 if (ye) { mureum = null; neokiHagi(c, m.s, dap); return true }
-                if (ani) { mureum = null; dap("넣지 않았습니다.", false); return true }
+                if (ani && z.length <= 10) { mureum = null; dap("넣지 않았습니다.", false); return true }
                 // 「아니 3시로」처럼 바로잡으시면 고쳐서 다시 여쭘
                 val p2 = IljeongMal.pulgi(t, now)
                 val si = p2.sigakRo ?: p2.si?.let { it to p2.bun }
@@ -1016,23 +1246,45 @@ object Iljeong {
                     val s = m.s
                     val gil = s.kkeut - s.sijak
                     val nal = p2.nalRo ?: p2.nal ?: haru(s.sijak)
-                    if (si != null) { s.haruJongil = false; s.sijak = nal + si.first * 3_600_000L + si.second * 60_000L; s.kkeut = s.sijak + (if (gil >= HARU) 3_600_000L else gil) }
+                    if (si != null) {
+                        // 2.82.0 오전·오후를 말하지 않으시면 여쭌 일정이 오후일 때 오후로
+                        val jeonSi = Calendar.getInstance().apply { timeInMillis = s.sijak }.get(Calendar.HOUR_OF_DAY)
+                        val h2 = if (!p2.ampmMal && si.first in 1..11 && jeonSi >= 12 && !s.haruJongil) si.first + 12 else si.first
+                        s.haruJongil = false; s.sijak = nal + h2 * 3_600_000L + si.second * 60_000L; s.kkeut = s.sijak + (if (gil >= HARU) 3_600_000L else gil)
+                    }
                     else { s.sijak = nal + (s.sijak - haru(s.sijak)); s.kkeut = s.sijak + gil }
                     mutgi(IljeongMureum.Neoki(s))
                     dap(hwaginMal(s) + " 넣을까요?", true)
                     return true
                 }
+                if (ani) { mureum = null; dap("넣지 않았습니다.", false); return true }
                 mureum = null
                 return false
             }
             is IljeongMureum.Sigak -> {
                 if (ani && z.length <= 10) { mureum = null; dap("넣지 않았습니다.", false); return true }
                 val p2 = IljeongMal.pulgi(t, now)
-                if (p2.si == null && !p2.haruJongil && p2.nal == null) { mureum = null; return false }
+                if (p2.si == null && !p2.haruJongil && p2.nal == null) {
+                    // 2.82.0 시각을 못 알아들으면 놓지 않고 다시 여쭘(짧은 말일 때)
+                    if (z.length <= 12) { mutgi(m); dap("몇 시인지 알아듣지 못했습니다. 오후 2시, 아침 9시 반처럼 말씀해 주십시오. 그만두시려면 그만이라고 말씀해 주십시오.", true); return true }
+                    mureum = null; return false
+                }
                 val p = m.p
                 if (p2.si != null) { p.si = p2.si; p.bun = p2.bun; p.kkeutSi = p2.kkeutSi; p.kkeutBun = p2.kkeutBun }
                 if (p2.haruJongil) p.haruJongil = true
                 if (p2.nal != null) p.nal = p2.nal
+                if (p.jemok.isBlank() && p2.jemok.isNotBlank()) { p.jemok = p2.jemok; if (p.jangso.isBlank()) p.jangso = p2.jangso }
+                mureum = null
+                neokiSijak(p, dap)
+                return true
+            }
+            is IljeongMureum.Jemok -> {
+                if (ani && z.length <= 6) { mureum = null; dap("넣지 않았습니다.", false); return true }
+                val jm = IljeongMal.jemokDap(IljeongMal.pulgi(t, now).jemok.ifBlank { t })
+                if (jm.isBlank() || jm.length > 40) { mutgi(m); dap("제목을 알아듣지 못했습니다. 병원, 회의처럼 짧게 말씀해 주십시오.", true); return true }
+                val p = m.p
+                p.jemok = jm
+                if (p.jangso.isBlank()) p.jangso = IljeongMal.pulgi(jm, now, Jeulgyeo.mokrok.take(30).map { it.ireum }).jangso
                 mureum = null
                 neokiSijak(p, dap)
                 return true
@@ -1047,8 +1299,59 @@ object Iljeong {
                 }
                 mureum = null
                 val h = m.hubo[b - 1]
+                majimakNeoki(h)
                 if (m.hal == "bakkugi") bakkugiHwagin(h, m.p, dap) else jiugiHwagin(h, m.modu, dap)
                 return true
+            }
+            is IljeongMureum.GoreugiG -> {
+                if (ani && z.length <= 10) { mureum = null; dap("알겠습니다. 그대로 둡니다.", false); return true }
+                val b = IljeongMal.beonho(t)
+                if (b == null || b < 1 || b > m.hubo.size) {
+                    if (z.length <= 8) { mutgi(m); dap("1번부터 ${m.hubo.size}번 가운데 몇 번인지 말씀해 주십시오.", true); return true }
+                    mureum = null
+                    return false
+                }
+                mureum = null
+                gochimHwagin(m.hubo[b - 1], m.g.kan, m.g.hal, m.g.gap, dap)
+                return true
+            }
+            is IljeongMureum.Gap -> {
+                if (ani && z.length <= 6) { mureum = null; dap("바꾸지 않았습니다.", false); return true }
+                val gap = if (m.kan == "naeyong") t.trim().trimEnd('.') else IljeongMal.jemokDap(t)
+                if (gap.isBlank()) { mureum = null; return false }
+                mureum = null
+                gochimHwagin(m.h, m.kan, m.hal, gap, dap)
+                return true
+            }
+            is IljeongMureum.Gochim -> {
+                if (ye) {
+                    mureum = null
+                    val ok = kanBakkugi(c, m.h, m.kan, m.hal, m.gap)
+                    dap(if (ok) (if (m.hal == "jiugi") "지웠습니다." else if (m.kan == "naeyong") "적었습니다." else "바꿨습니다.") +
+                        hint("gochim", "적어 둔 내용은 그 일정 내용 읽어 줘라고 하시면 읽어 드립니다.")
+                        else "고치지 못했습니다. 폰의 달력 앱에서 고쳐 주십시오.", false)
+                    return true
+                }
+                if (ani && z.length <= 10) { mureum = null; dap("바꾸지 않았습니다.", false); return true }
+                mureum = null
+                return false
+            }
+            is IljeongMureum.Mueot -> {
+                val h = m.h
+                if (ani && z.length <= 6) { mureum = null; dap("바꾸지 않았습니다.", false); return true }
+                val g = IljeongMal.gochimPulgi(t, now)
+                if (g != null) { mureum = null; gochimHwagin(h, g.kan, if (g.hal == "ilgi" && g.kan != "naeyong") "bakkugi" else g.hal, g.gap, dap); return true }
+                val kan = when { z.contains("제목") || z.contains("이름") -> "jemok"; z.contains("장소") -> "jangso"; z.contains("내용") || z.contains("메모") -> "naeyong"; else -> "" }
+                if (kan.isNotEmpty()) { mureum = null; gochimHwagin(h, kan, if (kan == "naeyong") "deohagi" else "bakkugi", "", dap); return true }
+                val p2 = IljeongMal.pulgi(t, now)
+                if (p2.sigakRo == null && p2.si != null) p2.sigakRo = p2.si!! to p2.bun
+                if (p2.nalRo == null && p2.nal != null) p2.nalRo = p2.nal
+                if (p2.sigakRo != null || p2.nalRo != null) { mureum = null; bakkugiHwagin(h, p2, dap); return true }
+                if (z.contains("시간") || z.contains("시각")) { mutgi(m); dap("몇 시로 바꿀까요?", true); return true }
+                if (z.contains("날짜") || z.contains("날")) { mutgi(m); dap("어느 날로 바꿀까요? 내일, 금요일처럼 말씀해 주십시오.", true); return true }
+                if (z.length <= 8) { mutgi(m); dap("시각, 날짜, 제목, 장소, 내용 가운데 무엇을 바꿀지 말씀해 주십시오.", true); return true }
+                mureum = null
+                return false
             }
             is IljeongMureum.Bakkugi -> {
                 if (ye) {
@@ -1071,7 +1374,7 @@ object Iljeong {
                 return false
             }
             is IljeongMureum.Annae -> {
-                if (ye) {
+                if (MalHagi.hwaginDap(alts) == HwaginDap.YE) {
                     mureum = null
                     Girok.namgi("iljeong_annae")
                     MalHagi.cheori(listOf("${m.jangso} 가자"), dap)
@@ -1297,6 +1600,8 @@ class IljeongHangHwamyeon(private val h: IljeongHang) : Hwamyeon("일정 하나"
         val kkeut = if (h.haruJongil) "" else " 끝나는 시각 " + y.sigakMal(h.kkeut) + "."
         t.chojeomJul(t.geul(y.julMal(h, true) + "." + kkeut + (if (h.banbok) " 되풀이 일정입니다." else ""), true))
         t.geul(if (h.gilnunGeot) "길눈에서 넣은 일정입니다." else "다른 곳에서 넣은 일정이라 길눈에서는 읽기만 합니다. 고치거나 지우시려면 폰의 달력 앱을 써 주십시오.")
+        // 2.82.0 말로 적어 둔 내용
+        t.geul(if (h.naeyong.isNotBlank()) "적어 둔 내용 — " + h.naeyong.replace("\n", ". ") else "적어 둔 내용 없음. 말로 하기에서 그 일정 내용 추가해 줘라고 하시면 적어 둡니다.")
         if (h.jangso.isNotBlank()) {
             t.danchu("${h.jangso} — 가는 길 고르기 화면 열기") {
                 Sori.mal("${h.jangso}${IljeongMal.eul(h.jangso)} 찾습니다.")

@@ -1246,6 +1246,25 @@ object AnnaeEngine {
     private val ttGuganAp = HashSet<Int>()
     private var jariGirokT = 0L
 
+    /**
+     * 2.82.0 (261027-A70, 이사장님 승인 2026-10-27 「순서대로 모두 고쳐」, 아이폰 2.117.0과 같음) 「횡단보도 어디야」, 「왜 횡단보도 말 안 해」, 「계단 있어」의 대답.
+     * 점지도를 따라 걸으면 점지도 표시로, 걷는 길(지도 회사 자료)로 걸으면 그 자료로 — 자료에 없으면 없다고 있는 그대로 말씀드림
+     */
+    fun guganDap(gal: String): String {
+        if (JeomEngine.georeoJung) JeomEngine.apPyoMal(gal).takeIf { it.isNotEmpty() }?.let { return it }
+        if (ttPts.isEmpty()) return "지금은 길 안내 중이 아니라 $gal 자료가 없습니다. 길 안내를 시작하시면 자료에 있는 ${gal}을 미리 알려 드립니다."
+        val w = Wichi.jigeum
+        var choe: Pair<Double, TtGugan>? = null
+        for ((i, g) in ttGugan.withIndex()) {
+            if (g.jong != gal || i in ttGuganAp) continue
+            val d = if (w != null) Wichi.geori(w.lat, w.lon, g.lat, g.lon) else 0.0
+            if (choe == null || d < choe.first) choe = d to g
+        }
+        Girok.namgi("gugan_mureum", mapOf("gal" to gal, "itda" to (choe != null)))
+        if (choe != null) return "걷는 길 자료에서 다음 ${gal}은 ${gm(choe.first)} 앞입니다. 길이 ${gm(choe.second.geori)}입니다. 지도 회사 자료라 작은 ${gal}은 빠져 있을 수 있습니다."
+        return "지금 걷는 길 자료에는 남은 ${gal}이 없습니다. 점지도가 없는 길이라 지도 회사 자료만 쓰는데, 이 자료에는 작은 건널목이나 건물 사이 계단이 빠져 있을 수 있습니다. 차 소리와 발밑을 직접 살펴 주십시오."
+    }
+
     /** 서버가 아는 건널목·계단·다리·지하도를 열다섯 미터쯤 앞에서 미리, 닿으면 한 번 더. 건널목이면 음향신호기를 저절로 살핌 */
     private fun guganAllim(w: Jari): String? {
         for ((i, g) in ttGugan.withIndex()) {

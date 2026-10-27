@@ -2100,6 +2100,22 @@ final class JeomEngine: ObservableObject {
         return nu[to] - nu[from]
     }
 
+    /// 2.117.0 (261027-I71) 「횡단보도 어디야」 — 앞으로 남은 점지도 표시 가운데 그 갈래(건널목·계단)의 첫 것까지
+    func apPyoMal(_ gal: String) -> String {
+        guard georeoJung, !nu.isEmpty else { return "" }
+        let jin = nu[min(idx, nu.count - 1)]
+        let ki = gal == "건널목" ? ["횡단보도", "건널목"] : ["계단"]
+        for q in pyo where q.i >= idx && !q.near {
+            let nm = q.p.ireum
+            guard ki.contains(where: { nm.contains($0) }), !nm.contains("끝") else { continue }
+            let d = max(0, nu[min(q.i, nu.count - 1)] - jin)
+            Girok.shared.namgi("gugan_mureum", ["gal": gal, "itda": true, "jeom": true])
+            return "이 점지도에서 다음 \(gal)은 \(georeum(d)) 앞입니다. 닿기 전에 미리 알려 드립니다."
+        }
+        Girok.shared.namgi("gugan_mureum", ["gal": gal, "itda": false, "jeom": true])
+        return "이 점지도에는 앞으로 남은 \(gal) 표시가 없습니다."
+    }
+
     private func bocokSu(_ m: Double) -> Int { max(1, Int((m / bocok).rounded())) }
 
     /// 미터 → "스무 걸음", 아흔아홉 걸음이 넘으면 "약 80미터"

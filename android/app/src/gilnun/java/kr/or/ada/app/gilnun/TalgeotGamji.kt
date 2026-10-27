@@ -342,11 +342,20 @@ object TalgeotGamji : SensorEventListener {
         Girok.namgi("jiha_sumyeong", mapOf("bun" to ((now - jihaTtae) / 60_000L).toInt()))
     }
 
+    /** 2.82.0 땅속에서 위성이 다시 잡히기 시작한 때 */
+    private var wiseongDoraom = 0L
+
     /** 땅 위로 나왔는가 — 3.5미터 넘게 올라오고 걷거나, 위성이 다시 잡혀야 함 */
     private fun jihaHwagin() {
         if (!jiha) return
         val h = gido.lastOrNull()?.second ?: jihaMin
-        if (wiseongJoeum || (h - jihaMin >= 3.5 && jigeumUmjigim == "걸음")) {
+        // 2.82.0 (261027-A70, 이사장님 승인 2026-10-27 「순서대로 모두 고쳐」, 아이폰 2.117.0과 같음) 위성은 20초를 이어서 잡히고, 들어간 지 30초가 지나야 나온 것으로 봄
+        //   (10-27 아이폰: 지하 1층 사무실에 들어서자 8초 만에 땅 위로 나왔다고 봄). 걸어 올라오신 것은 그대로 바로
+        val now = System.currentTimeMillis()
+        if (wiseongJoeum) { if (wiseongDoraom == 0L) wiseongDoraom = now } else wiseongDoraom = 0L
+        val wiseongNaom = wiseongDoraom > 0L && now - wiseongDoraom >= 20_000L && (jihaTtae == 0L || now - jihaTtae >= 30_000L)
+        if (wiseongNaom || (h - jihaMin >= 3.5 && jigeumUmjigim == "걸음")) {
+            wiseongDoraom = 0L
             jiha = false
             jisangJari = Wichi.jigeum
             gido.clear()   // 2.30.0 나온 뒤 묵은 높이로 곧바로 다시 들어감을 막음(1초 간격 들락날락)

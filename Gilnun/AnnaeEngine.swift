@@ -1225,6 +1225,28 @@ final class AnnaeEngine: ObservableObject {
         return nil
     }
 
+    /// 2.117.0 (261027-I71, 이사장님 승인 2026-10-27 「순서대로 모두 고쳐」) 「횡단보도 어디야」, 「왜 횡단보도 말 안 해」, 「계단 있어」의 대답.
+    ///   점지도를 따라 걸으면 점지도 표시로, 걷는 길(지도 회사 자료)로 걸으면 그 자료로 — 자료에 없으면 없다고 있는 그대로 말씀드림
+    ///   (10-27 사랑방칼국수 가는 길: 지도 회사 자료에 건널목이 없어 알리지 못했고, 물으셔도 알아듣지 못함)
+    func guganDap(_ gal: String) -> String {
+        let josa = "은"   // 건널목·계단 모두 받침이 있음
+        if JeomEngine.shared.georeoJung { let m = JeomEngine.shared.apPyoMal(gal); if !m.isEmpty { return m } }
+        guard !ttPts.isEmpty else {
+            return "지금은 길 안내 중이 아니라 \(gal) 자료가 없습니다. 길 안내를 시작하시면 자료에 있는 \(gal)을 미리 알려 드립니다."
+        }
+        let w = WichiEngine.shared.jigeum
+        var choe: (Double, TtGugan)? = nil
+        for (i, g) in ttGugan.enumerated() where g.jong == gal && !ttGuganAp.contains(i) {
+            let d = w.map { WichiEngine.geori($0.lat, $0.lon, g.lat, g.lon) } ?? 0
+            if choe == nil || d < choe!.0 { choe = (d, g) }
+        }
+        Girok.shared.namgi("gugan_mureum", ["gal": gal, "itda": choe != nil])
+        if let c = choe {
+            return "걷는 길 자료에서 다음 \(gal)\(josa) \(gm(c.0)) 앞입니다. 길이 \(gm(c.1.geori))입니다. 지도 회사 자료라 작은 \(gal)\(josa) 빠져 있을 수 있습니다."
+        }
+        return "지금 걷는 길 자료에는 남은 \(gal)이 없습니다. 점지도가 없는 길이라 지도 회사 자료만 쓰는데, 이 자료에는 작은 건널목이나 건물 사이 계단이 빠져 있을 수 있습니다. 차 소리와 발밑을 직접 살펴 주십시오."
+    }
+
     /// 걷는 동안 10초마다 자리·방향을 기록(관리자 폰만) — 방향이 어긋난 까닭을 나중에 찾기 위해
     private func jariGirok(_ w: Wichi, _ lat: Double, _ lon: Double) {
         guard TeokAllim.boim, Date().timeIntervalSince(jariGirokT) >= 10 else { return }

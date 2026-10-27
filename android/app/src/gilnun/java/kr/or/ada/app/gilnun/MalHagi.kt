@@ -763,6 +763,8 @@ object MalHagi {
         // 2.29.0 차 부르기 — 배차되었습니까의 대답, 다음 수단에 걸까요, 복지카드 메일, 콜 성적표, 이용 조건, 정기 호출(아이폰 2.58.0과 같은 자리)
         // 2.80.0 (261027-A68, 이사장님 승인 2026-10-27) 듣기 예약 — 「매일 7시에 MBC 표준FM 틀어 줘」, 「30분 뒤에 라디오 꺼 줘」, 「듣기 예약 알려 줘」
         // 2.81.0 (261027-A69, 이사장님 승인 2026-10-27) 일정 — 「오늘 일정 알려 줘」, 「내일 오후 2시 국립극장 회의 넣어 줘」, 「내일 회의 3시로 바꿔 줘」, 「아침 브리핑 7시로 해 줘」
+        // 2.82.0 (261027-A70, 이사장님 승인 2026-10-27 「순서대로 모두 고쳐」, 아이폰 2.117.0과 같음) 「횡단보도 어디야」, 「왜 횡단보도 말 안 해」, 「계단 있어」 — 걷는 길 자료로 바로 답함
+        guganMuneun(z)?.let { gal -> hwaginBiugi(); dap(AnnaeEngine.guganDap(gal), false); return }
         if (Iljeong.malCheori(alts, z, t, dap)) return
         if (DeutgiYeyak.malCheori(z, dap)) return
         if (ChaBureugi.malCheori(alts, z, dap)) return
@@ -1849,6 +1851,15 @@ object MalHagi {
     }
 
     /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 콜을 취소했다는 말 — "콜 취소", "콜 취소했어", "택시 취소", "복지콜 취소했어" */
+    /** 2.82.0 건널목·계단을 묻는 말이면 그 갈래("건널목"·"계단") */
+    fun guganMuneun(z: String): String? {
+        // 일정을 묻는 중이거나 일정·길 고르기 말이면 받지 않음(「내일 계단 청소 일정 있어」, 「계단 없는 길로 안내해 줘」)
+        if (Iljeong.mureumItda || listOf("일정", "약속", "스케줄", "캘린더", "달력", "가자", "안내", "길로").any { z.contains(it) }) return null
+        val gal = when { z.contains("횡단보도") || z.contains("건널목") -> "건널목"; z.contains("계단") -> "계단"; else -> return null }
+        val mut = listOf("어디", "있", "몇", "말", "얘기", "애기", "알려", "왜", "안해", "언제", "나와", "남았", "멀어", "가까", "없").any { z.contains(it) }
+        return if ((mut || z.length <= 6) && z.length <= 30) gal else null
+    }
+
     fun kolChwisoMal(z: String) = (z.contains("콜") || z.contains("택시")) && z.contains("취소") && z.length <= 12
 
     /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 묻는 말인가 — 곳 이름으로 다시 찾지 않음 */

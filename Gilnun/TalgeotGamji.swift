@@ -329,12 +329,21 @@ final class TalgeotGamji: ObservableObject {
         Girok.shared.namgi("jiha_sumyeong", ["bun": Int(now.timeIntervalSince(jt) / 60)])
     }
 
+    /// 2.117.0 땅속에서 위성이 다시 잡히기 시작한 때
+    private var wiseongDoraom: Date?
+
     /// 땅 위로 나왔는가 — 열차 안의 바람 압력으로 잘못 알지 않게, 3.5미터 넘게 올라오고 걷거나 위성이 다시 잡혀야 함
     private func jihaHwagin() {
         guard jiha else { return }
         let h = gido.last?.1 ?? jihaMin
         let ollaom = h - jihaMin >= 3.5
-        if TalgeotGamji.wiseongJoeum || (ollaom && jigeumUmjigim == "걸음") {
+        // 2.117.0 (261027-I71, 이사장님 승인 2026-10-27 「순서대로 모두 고쳐」) 위성은 20초를 이어서 잡히고, 들어간 지 30초가 지나야 나온 것으로 봄
+        //   (10-27 지하 1층 사무실에 들어서자 8초 만에 땅 위로 나왔다고 봄 — 계단 둘레에서 위성이 잠깐 남아 있었음). 걸어 올라오신 것은 그대로 바로
+        let now = Date()
+        if TalgeotGamji.wiseongJoeum { if wiseongDoraom == nil { wiseongDoraom = now } } else { wiseongDoraom = nil }
+        let wiseongNaom = (wiseongDoraom.map { now.timeIntervalSince($0) >= 20 } ?? false) && (jihaTtae.map { now.timeIntervalSince($0) >= 30 } ?? true)
+        if wiseongNaom || (ollaom && jigeumUmjigim == "걸음") {
+            wiseongDoraom = nil
             jiha = false
             jisangJari = WichiEngine.shared.jigeum
             gido.removeAll()   // 2.59.0 나온 뒤 묵은 높이로 곧바로 다시 들어감을 막음(1초 간격 들락날락)

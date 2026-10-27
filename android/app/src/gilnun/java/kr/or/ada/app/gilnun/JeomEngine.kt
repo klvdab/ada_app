@@ -2245,6 +2245,23 @@ object JeomEngine {
 
     private fun bocokSu(m: Double): Int = max(1, Jeomjido.bannol(m / bocok).toInt())
 
+    /** 2.82.0 (261027-A70) 「횡단보도 어디야」 — 앞으로 남은 점지도 표시 가운데 그 갈래(건널목·계단)의 첫 것까지 */
+    fun apPyoMal(gal: String): String {
+        if (!georeoJung || nu.isEmpty()) return ""
+        val jin = nu[minOf(idx, nu.size - 1)]
+        val ki = if (gal == "건널목") listOf("횡단보도", "건널목") else listOf("계단")
+        for (q in pyo) {
+            if (q.i < idx || q.near) continue
+            val nm = q.p.ireum
+            if (ki.none { nm.contains(it) } || nm.contains("끝")) continue
+            val d = maxOf(0.0, nu[minOf(q.i, nu.size - 1)] - jin)
+            Girok.namgi("gugan_mureum", mapOf("gal" to gal, "itda" to true, "jeom" to true))
+            return "이 점지도에서 다음 ${gal}은 ${georeum(d)} 앞입니다. 닿기 전에 미리 알려 드립니다."
+        }
+        Girok.namgi("gugan_mureum", mapOf("gal" to gal, "itda" to false, "jeom" to true))
+        return "이 점지도에는 앞으로 남은 $gal 표시가 없습니다."
+    }
+
     /** 미터 → "스무 걸음", 아흔아홉 걸음이 넘으면 "약 80미터" */
     private fun georeum(m: Double): String {
         // 2.18.0 보폭을 재기 전에는 걸음 수 대신 미터로(틀린 걸음 수보다 안전, 이사장님 승인)
