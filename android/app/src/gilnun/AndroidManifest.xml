@@ -21,6 +21,9 @@
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- 2.81.0(261027-A69) 일정 — 폰 달력(구글 캘린더)을 말로 듣고 넣고 고치기(이사장님 승인 2026-10-27). 일정 내용은 폰 밖으로 보내지 않음 -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
     <application>
@@ -115,6 +118,16 @@
         <!-- 2.80.0 듣기 예약 — 정한 시각에 라디오 틀기, 폰을 다시 켰을 때·새 판으로 바뀌었을 때 다음 알람을 다시 걺 -->
         <receiver
             android:name="kr.or.ada.app.gilnun.DeutgiReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 2.81.0 일정 — 아침 브리핑·떠날 시각 알람, 폰을 다시 켰을 때·새 판으로 바뀌었을 때 다음 알람을 다시 걺 -->
+        <receiver
+            android:name="kr.or.ada.app.gilnun.IljeongReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

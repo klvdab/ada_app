@@ -29,6 +29,9 @@ struct SeoljeongView: View {
                     heorak.maikSeoljeongYeolgi()
                 }
                 .buttonStyle(KeunDanchu())
+                // 2.116.0 (261027-I70, 이사장님 승인 2026-10-27 「위치를 음악방송이 아니라 설정탭에」, 안드로이드 2.81.0과 같음) 일정 — 폰 캘린더를 말로 듣고 넣고 고치기
+                NavigationLink { IljeongView() } label: { Text("일정 — 일정 듣기와 넣기, 아침 브리핑, 떠날 시각 알림") }
+                    .buttonStyle(KeunDanchu())
                 // 2.70.0 (이사장님 승인 2026-10-14 「1」) 설정 순서를 한 잣대로 — 자주 손대는 것부터, 시험용은 맨 뒤 펼치기 안에. 안드로이드와 같은 순서·같은 이름
                 NavigationLink { MalSeoljeongView() } label: { Text("말하기 설정 — 켜기와 끄기, 빠르기, 목소리, 얼마나 자세히, 무엇을 말할지") }
                     .buttonStyle(KeunDanchu())

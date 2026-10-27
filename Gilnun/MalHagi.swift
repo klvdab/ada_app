@@ -414,6 +414,31 @@ final class MalHagi: ObservableObject {
         hubo = []
         huboI = 0
         huboHwagin = false
+        Iljeong.shared.mureumBiugi()      // 2.116.0 일정의 물음도 거둠
+    }
+
+    /// 2.116.0 (261027-I70, 이사장님 승인 2026-10-27) 일정이 여쭙고(떠날 시각 — 길 안내를 시작할까요) 마이크를 한 번 엶. 일정의 물음은 남기고 다른 물음만 비움
+    func iljeongMutgi(_ q: String) {
+        mureum = .eopseum
+        ChaBureugi.shared.mureumBiugi()
+        kolDaegi = nil
+        hubo = []
+        huboI = 0
+        huboHwagin = false
+        let beon = Iljeong.shared.mureumBeon
+        SoriEngine.shared.mal(q, .annae)
+        let yeolgi = { [weak self] in
+            guard let self = self, self.sijakham, Iljeong.shared.mureumBeon == beon, Iljeong.shared.mureumItda, self.sangtae == .swim,
+                  GinGeup.shared.sangtae == .eopseum, !self.pyeonjipJung, !JeonhwaGamsi.shared.jeonhwaJung, MalDeutgi.heorakItda else { return }
+            self.dasiHanbeon = false
+            self.jadongYeolim = 1
+            self.myeongryeongYeolgi(sori: true)
+        }
+        if Seoljeong.shared.malKyeojim {
+            SoriEngine.shared.kkeutnamyeon { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: yeolgi) }
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + min(8, 1.2 + Double(q.count) * 0.09), execute: yeolgi)
+        }
     }
 
     private func myeongryeongYeolgi(sori: Bool) {
@@ -986,6 +1011,8 @@ final class MalHagi: ObservableObject {
             return
         }
         // 0-1a. 2.115.0 (261027-I69, 이사장님 승인 2026-10-27) 듣기 예약 — 「매일 7시에 MBC 표준FM 틀어 줘」, 「30분 뒤에 라디오 꺼 줘」, 「듣기 예약 알려 줘」
+        // 0-1i. 2.116.0 (261027-I70, 이사장님 승인 2026-10-27) 일정 — 「오늘 일정 알려 줘」, 「내일 오후 2시 국립극장 회의 넣어 줘」, 「내일 회의 3시로 바꿔 줘」, 「아침 브리핑 7시로 해 줘」
+        if Iljeong.shared.malCheori(alts, z, t, dap) { return }
         if DeutgiYeyak.shared.malCheori(z, dap) { return }
         // 0-1. 2.58.0 차 부르기 — 배차 대답, 다음 수단, 복지카드 메일, 성적표, 이용 조건, 정기 호출(이사장님 승인 2026-10-09)
         if ChaBureugi.shared.malCheori(alts, z, dap) { return }

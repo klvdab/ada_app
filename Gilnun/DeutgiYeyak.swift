@@ -157,6 +157,8 @@ final class DeutgiYeyak: ObservableObject {
 
     /// 틀기 — jadong: 지킴이가 저절로, 아니면 알림을 누르셔서
     func teulgi(_ h: DeutgiYeyakHang, t: Date, jadong: Bool) {
+        // 2.116.0 (261027-I70) 아침 브리핑을 읽는 중이면 기다림 — 브리핑을 마친 뒤 브리핑이 이 예약을 이어서 틂(말 위에 라디오가 겹치지 않게)
+        if jadong && Iljeong.shared.beuripingJung { return }
         let k = h.id + "|" + DeutgiYeyak.ymdHm(t)
         let beolsseo = han.contains(k)
         if !beolsseo {

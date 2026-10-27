@@ -361,6 +361,28 @@ object MalHagi {
         YeojeongMal.mureumBiugi()
         Bangsong.biseutQ = null
         ChaBureugi.mureumBiugi()   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 차 부르기의 물음(다음 수단·복지카드 메일)도 거둠(아이폰과 같음)
+        Iljeong.mureumBiugi()      // 2.81.0 일정의 물음도 거둠
+    }
+
+    /** 2.81.0 (261027-A69, 이사장님 승인 2026-10-27) 일정이 여쭙고(떠날 시각 — 길 안내를 시작할까요) 마이크를 한 번 엶. 일정의 물음은 남겨 두고 다른 물음만 비움 */
+    fun iljeongMutgi(q: String) {
+        main.post {
+            mureumChoGihwa()
+            YeojeongMal.mureumBiugi()
+            ChaBureugi.mureumBiugi()
+            val beon = Iljeong.mureumBeon
+            malHuHagi(q) {
+                val c = ctx
+                val a = hwalseong?.get()
+                if (c != null && Iljeong.mureumBeon == beon && Iljeong.mureumItda && sangtae == MalSangtae.SWIM && GinGeup.sangtae == GinGeupSangtae.EOPSEUM &&
+                    !pyeonjipJung && !JeonhwaGamsi.jeonhwaJung && MalDeutgi.heorakItda(c) &&
+                    a != null && !a.isFinishing && a.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
+                    dasiHanbeon = false
+                    jadongYeolim = 1
+                    yeolgi(true)
+                }
+            }
+        }
     }
 
     // MARK: 부르기
@@ -740,6 +762,8 @@ object MalHagi {
         }
         // 2.29.0 차 부르기 — 배차되었습니까의 대답, 다음 수단에 걸까요, 복지카드 메일, 콜 성적표, 이용 조건, 정기 호출(아이폰 2.58.0과 같은 자리)
         // 2.80.0 (261027-A68, 이사장님 승인 2026-10-27) 듣기 예약 — 「매일 7시에 MBC 표준FM 틀어 줘」, 「30분 뒤에 라디오 꺼 줘」, 「듣기 예약 알려 줘」
+        // 2.81.0 (261027-A69, 이사장님 승인 2026-10-27) 일정 — 「오늘 일정 알려 줘」, 「내일 오후 2시 국립극장 회의 넣어 줘」, 「내일 회의 3시로 바꿔 줘」, 「아침 브리핑 7시로 해 줘」
+        if (Iljeong.malCheori(alts, z, t, dap)) return
         if (DeutgiYeyak.malCheori(z, dap)) return
         if (ChaBureugi.malCheori(alts, z, dap)) return
         // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 네·아니오는 말 전체가 대답일 때만(응급실·예술의전당을 네로 듣지 않게), 그리고

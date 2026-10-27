@@ -250,6 +250,8 @@ object DeutgiYeyak {
     private fun ymdHm(t: Long): String = SimpleDateFormat("yyyyMMddHHmm", Locale.US).format(Date(t))
 
     fun teulgi(c: Context, h: DeutgiYeyakHang, t: Long) {
+        // 2.81.0 (261027-A69) 아침 브리핑을 읽는 중이면 기다림 — 브리핑을 마친 뒤 브리핑이 이 예약을 이어서 틂(말 위에 라디오가 겹치지 않게)
+        if (Iljeong.beuripingJung) return
         val k = h.id + "|" + ymdHm(t)
         if (han.contains(k)) return
         han.add(k)

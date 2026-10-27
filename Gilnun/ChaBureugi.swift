@@ -727,6 +727,12 @@ final class JeonggiHochul: NSObject, ObservableObject, UNUserNotificationCenterD
             DispatchQueue.main.async { DeutgiYeyak.shared.allimOm(notification) }
             return
         }
+        // 2.116.0 (261027-I70) 일정 — 앱이 켜져 있으면 띄우지 않고 바로 읽거나 여쭘
+        if id.hasPrefix("iljeong-") {
+            completionHandler([])
+            DispatchQueue.main.async { Iljeong.shared.allimOm(notification) }
+            return
+        }
         if id.hasPrefix("jeonggi-") {
             completionHandler([.banner, .list, .sound])
             SoriEngine.shared.mal("\(sudanIreum) 부를 시간입니다. 알림을 두드리시거나 차 부르기에서 정기 호출로 거시면 됩니다.", .annae)
@@ -744,6 +750,11 @@ final class JeonggiHochul: NSObject, ObservableObject, UNUserNotificationCenterD
         if response.notification.request.identifier.hasPrefix("deutgi-") {
             let n = response.notification
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { DeutgiYeyak.shared.allimNureum(n) }
+        }
+        // 2.116.0 (261027-I70) 일정 알림을 누르시면 아침 브리핑을 읽거나 길 안내를 여쭘
+        if response.notification.request.identifier.hasPrefix("iljeong-") {
+            let n = response.notification
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { Iljeong.shared.allimNureum(n) }
         }
         completionHandler()
     }
