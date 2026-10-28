@@ -1,4 +1,4 @@
-# 앱스토어 내기 (1.1판, 빌드 261028-1 — 공개 방식 MANUAL(10-20 결정: 통과해도 공개 날은 이사장님이), 거절된 판·해결 안 된 심사 묶음을 이어 씀. 1.0판 빌드 261025-1, 대클 — 이사장님 지시 2026-10-25 「아이폰 버전 앱스토어 올리는거 확실히 챙겨야한다」)
+# 앱스토어 내기 (1.2판, 빌드 261028-2 — 새 판을 낼 때 tools/appstore_sajin 의 앱스토어 사진으로 갈아 끼움(심사 거절 2.3.10). 1.1판: 공개 방식 MANUAL(10-20 결정: 통과해도 공개 날은 이사장님이), 거절된 판·해결 안 된 심사 묶음을 이어 씀. 1.0판 빌드 261025-1, 대클 — 이사장님 지시 2026-10-25 「아이폰 버전 앱스토어 올리는거 확실히 챙겨야한다」)
 # 앱스토어 커넥트 열쇠로 애플에 직접 말해, 사람 손(로그인) 없이 아래 일을 합니다.
 #   gonggae : 심사를 통과하고 「우리가 공개하기를 기다림」에 있는 정식 판을 앱스토어에 공개
 #   saepan  : 새 정식 판(판 번호·빌드 번호)을 만들어 빌드를 붙이고, 새 기능 글을 넣어 심사에 냄
@@ -41,6 +41,66 @@ def mal(bang, gil, q=None, mom=None):
     except urllib.error.HTTPError as e:
         allim("애플이 거절함 %s %s: %s" % (bang, gil, e.read().decode()[:600]))
         sys.exit(1)
+
+
+def sajin_bakkugi(vid):
+    """1.2 (261028, 이사장님 승인 「1」, 심사 거절 2.3.10) 앱스토어 사진을 tools/appstore_sajin/<앱> 의 새 사진으로 바꿈.
+    판의 언어마다 아이폰 사진 묶음을 찾아, 묶음에 든 사진 크기와 같은 크기의 새 사진(이름 차례대로)으로 갈아 끼움. 맞는 크기가 없는 묶음은 그대로 둠"""
+    import hashlib, glob, struct
+    gal = "gilnun" if BUNDLE == "kr.or.ada.app" else ("jabong" if BUNDLE == "kr.or.ada.jabong" else "")
+    pul = os.path.join(os.path.dirname(os.path.abspath(__file__)), "appstore_sajin", gal)
+    if not gal or not os.path.isdir(pul):
+        allim("바꿀 앱스토어 사진이 없어 사진은 그대로 둠")
+        return
+    kugi = {}
+    for f in sorted(glob.glob(os.path.join(pul, "*.png"))):
+        with open(f, "rb") as fh:
+            h = fh.read(24)
+        w, ht = struct.unpack(">II", h[16:24])
+        kugi.setdefault((w, ht), []).append(f)
+    for lo in mal("GET", "appStoreVersions/%s/appStoreVersionLocalizations" % vid).get("data", []):
+        for st in mal("GET", "appStoreVersionLocalizations/%s/appScreenshotSets" % lo["id"]).get("data", []):
+            dt = st["attributes"].get("screenshotDisplayType", "")
+            if not dt.startswith("APP_IPHONE"):
+                continue
+            yet = mal("GET", "appScreenshotSets/%s/appScreenshots" % st["id"]).get("data", [])
+            sae = []
+            for y in yet:
+                ia = (y["attributes"].get("imageAsset") or {})
+                if (ia.get("width"), ia.get("height")) in kugi:
+                    sae = kugi[(ia.get("width"), ia.get("height"))]
+                    break
+            if not sae:
+                allim("%s 사진 묶음 %s: 맞는 크기의 새 사진이 없어 그대로 둠" % (lo["attributes"].get("locale"), dt))
+                continue
+            for y in yet:
+                mal("DELETE", "appScreenshots/%s" % y["id"])
+            for f in sae:
+                b = open(f, "rb").read()
+                r = mal("POST", "appScreenshots", mom={"data": {"type": "appScreenshots",
+                        "attributes": {"fileName": os.path.basename(f), "fileSize": len(b)},
+                        "relationships": {"appScreenshotSet": {"data": {"type": "appScreenshotSets", "id": st["id"]}}}}})["data"]
+                for op in r["attributes"]["uploadOperations"]:
+                    hd = {x["name"]: x["value"] for x in (op.get("requestHeaders") or [])}
+                    rq = urllib.request.Request(op["url"], data=b[op["offset"]:op["offset"] + op["length"]], method=op["method"], headers=hd)
+                    urllib.request.urlopen(rq, timeout=120).read()
+                mal("PATCH", "appScreenshots/%s" % r["id"], mom={"data": {"type": "appScreenshots", "id": r["id"],
+                    "attributes": {"uploaded": True, "sourceFileChecksum": hashlib.md5(b).hexdigest()}}})
+            allim("%s 사진 묶음 %s: 옛 사진 %d장을 새 사진 %d장으로 바꿈" % (lo["attributes"].get("locale"), dt, len(yet), len(sae)))
+    # 애플이 사진을 다 받아 처리할 때까지 기다림(최대 5분)
+    for _ in range(30):
+        mot = 0
+        for lo in mal("GET", "appStoreVersions/%s/appStoreVersionLocalizations" % vid).get("data", []):
+            for st in mal("GET", "appStoreVersionLocalizations/%s/appScreenshotSets" % lo["id"]).get("data", []):
+                for y in mal("GET", "appScreenshotSets/%s/appScreenshots" % st["id"]).get("data", []):
+                    sd = ((y["attributes"].get("assetDeliveryState") or {}).get("state"))
+                    if sd not in ("COMPLETE", None):
+                        mot += 1
+        if mot == 0:
+            allim("새 사진 처리 끝")
+            return
+        time.sleep(10)
+    allim("사진 처리가 5분 안에 끝나지 않음 — 그대로 이어 감")
 
 
 ap = mal("GET", "apps", {"filter[bundleId]": BUNDLE}).get("data", [])
@@ -107,6 +167,7 @@ if HAL == "saepan":
                       "attributes": {"platform": "IOS", "versionString": PAN, "releaseType": "MANUAL"},
                       "relationships": {"app": {"data": {"type": "apps", "id": ap["id"]}}}}})["data"]["id"]
     mal("PATCH", "appStoreVersions/%s/relationships/build" % vid, mom={"data": {"type": "builds", "id": b["id"]}})
+    sajin_bakkugi(vid)   # 1.2 앱스토어 사진 갈아 끼우기
     for lo in mal("GET", "appStoreVersions/%s/appStoreVersionLocalizations" % vid).get("data", []):
         mal("PATCH", "appStoreVersionLocalizations/%s" % lo["id"],
             mom={"data": {"type": "appStoreVersionLocalizations", "id": lo["id"], "attributes": {"whatsNew": SAE}}})
