@@ -352,7 +352,7 @@ class ByodActivity : Activity() {
         val an = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(8)) }
         an.addView(iv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         an.addView(TextView(this).apply {
-            text = "1. 노트북을 방송 공유기 와이파이(" + Flint.gongyugiIreum(this@ByodActivity) + ")에 붙입니다. 그동안 노트북은 인터넷이 되지 않습니다.\n" +
+            text = "1. 노트북을 방송 공유기(" + Flint.gongyugiIreum(this@ByodActivity) + ")에 무선(와이파이)이나 유선(랜선)으로 붙입니다. 무선이면 그동안 노트북에서 인터넷이 되지 않고, 유선이면 노트북 와이파이로 인터넷을 그대로 씁니다. 랜선은 공유기 뒷면의 따로 떨어진 인터넷 구멍을 피해 나란히 붙은 구멍에 꽂습니다.\n" +
                 "2. 노트북 카메라 앱으로 이 큐알을 비추거나, 크롬 주소 칸에 아래 주소를 칩니다.\n" +
                 "3. 피디 화면이 열리면 참석과 추첨에서 명단을 넣고, 행사장 대형 화면 열기를 눌러 그 창을 빔 쪽으로 옮깁니다.\n" +
                 "방송은 이 기기가 맡으므로 노트북이 꺼져도 방송은 이어집니다.\n주소: " + j
