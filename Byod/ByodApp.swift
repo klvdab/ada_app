@@ -95,7 +95,7 @@ struct Kan: View {
 
 // MARK: 화면 고르기
 
-enum Hwamyeon { case cheot, doumal, jeopsok, haengsa, gyoyuk, live, tv, gwanQr }   // 1.4.0 gyoyuk 교육 녹화, 1.5.0 tv TV해설방송 하기, 1.9.0 gwanQr 관계자 붙이기 큐알
+enum Hwamyeon { case cheot, doumal, jeopsok, haengsa, gyoyuk, live, tv, gwanQr, pdQr }   // 1.11.0 pdQr 노트북에서 피디 화면 열기   // 1.4.0 gyoyuk 교육 녹화, 1.5.0 tv TV해설방송 하기, 1.9.0 gwanQr 관계자 붙이기 큐알
 
 struct RootView: View {
     @State private var hwamyeon = Hwamyeon.cheot
@@ -111,6 +111,7 @@ struct RootView: View {
             case .live: GyoyukView(jemok: "인터넷 방송", juso: GyoyukPan.LIVE, dwiro: { hwamyeon = .cheot })   // 1.4.0, 1.5.0 이름
             case .tv: GyoyukView(jemok: "TV해설방송", juso: GyoyukPan.TV, dwiro: { hwamyeon = .cheot })   // 1.5.0
             case .gwanQr: GwanQrView(dwiro: { hwamyeon = .cheot })   // 1.9.0
+            case .pdQr: PdQrView(dwiro: { hwamyeon = .cheot })   // 1.11.0
             }
         }
     }
@@ -250,6 +251,7 @@ struct CheotView: View {
                 Danchu(geul: "현장 점검") { hyeonjangJeomgeom() }
                 // 1.9.0 (261024-BI11) 노트북판 현장 기능 — 피디 화면과 관계자 붙이기(아이피타임 방식, 방송 중에)
                 Danchu(geul: "피디 화면 열기") { pdHwamyeonYeolgi() }
+                Danchu(geul: "노트북에서 피디 화면 열기 큐알") { pdQrBogi() }   // 1.11.0 (261028-BI15) 대형 화면을 띄울 노트북이 같은 공유기에서 피디 화면을 엶
                 Danchu(geul: "관계자 붙이기 큐알 보기") { gwanQrBogi() }
                 Danchu(geul: "인터넷 방송만 하기 (공유기 없이)") { gagi(.live) }   // 1.4.0 한 폰 한 화면에서, 1.5.0 이름
                 Danchu(geul: "TV해설방송 하기") { gagi(.tv) }   // 1.5.0
@@ -370,6 +372,12 @@ struct CheotView: View {
         let t = ap + "사파리에서 피디 화면을 엽니다. 피디 번호 \(HyeonjangGil.shared.pdKey). 방송은 그대로 이어집니다. 무대 카메라와 관계자 무전은 아이폰 방송 서버에서는 열리지 않습니다."
         malhagi(t)
         UIApplication.shared.open(u)
+    }
+
+    /// 1.11.0 노트북에서 피디 화면 열기 큐알 — 플린트 2 방식도 됨(공유기에 피디 번호를 물음)
+    private func pdQrBogi() {
+        if !bang.kyeojim || (!Flint.flintInga && !Seobeo.shared.dolgo) { let m = "노트북에서 피디 화면 열기는 BYOD 방송을 하는 동안 쓸 수 있습니다. 먼저 BYOD 방송 시작을 누르십시오."; allyeo(m); malhagi(m); return }
+        gagi(.pdQr)
     }
 
     private func gwanQrBogi() {
@@ -639,6 +647,68 @@ struct HaengsaView: View {
 
     private func yeoldat(_ sid: String) {
         if yeollin.contains(sid) { yeollin.remove(sid) } else { yeollin.insert(sid) }
+    }
+}
+
+// MARK: 1.11.0 (261028-BI15, 새방클, 이사장님 승인 2026-10-28) 노트북에서 피디 화면 열기 큐알 — 아이피타임 방식은 이 아이폰 주소, 플린트 2는 공유기 주소
+
+struct PdQrView: View {
+    let dwiro: () -> Void
+    @State private var juso = ""
+    @State private var pk = ""
+    @State private var mal = "주소를 만들고 있습니다."
+    @State private var qr: UIImage?
+    @AccessibilityFocusState private var wiChojeom: Bool
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Danchu(geul: "뒤로") { dwiro() }.accessibilityFocused($wiChojeom)
+                Geul("노트북에서 피디 화면 열기", gulgeum: true)
+                Geul("1. 노트북을 방송 공유기 와이파이(\(Flint.gongyugiIreum))에 붙입니다. 그동안 노트북은 인터넷이 되지 않습니다.\n2. 노트북 카메라 앱으로 이 큐알을 비추거나, 크롬 주소 칸에 아래 주소를 칩니다.\n3. 피디 화면이 열리면 참석과 추첨에서 명단을 넣고, 행사장 대형 화면 열기를 눌러 그 창을 빔 쪽으로 옮깁니다.\n방송은 이 아이폰이 맡으므로 노트북이 꺼져도 방송은 이어집니다.")
+                if let q = qr {
+                    Image(uiImage: q).resizable().interpolation(.none).scaledToFit()
+                        .frame(maxWidth: .infinity)
+                        .accessibilityLabel("노트북에서 피디 화면 열기 큐알코드")
+                } else {
+                    Geul(mal, saek: Saek.norang)
+                }
+                Geul("주소", saek: Saek.yeonhan).accessibilityHidden(true)
+                Text(juso).font(.title3.weight(.bold)).foregroundStyle(Saek.norang)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel("주소 " + juso)
+                if !pk.isEmpty { Geul("피디 번호 " + pk.map { String($0) }.joined(separator: " "), saek: Saek.yeonhan) }
+                Danchu(geul: "뒤로") { dwiro() }
+            }
+            .padding(20)
+        }
+        .accessibilityAction(.escape) { dwiro() }
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { wiChojeom = true }
+            if !Flint.flintInga {
+                let h = Juso.deutgiJuso().replacingOccurrences(of: "http://", with: "").replacingOccurrences(of: "/", with: "")
+                pk = HyeonjangGil.shared.pdKey
+                juso = "http://" + (h.isEmpty ? "192.168.0.2:\(Bang.PORT)" : h) + "/pd?k=" + pk
+                qr = Jeopsok.qrGeurim(juso)
+                UIAccessibility.post(notification: .announcement, argument: "큐알을 띄웠습니다. 할 일과 주소가 큐알 위아래에 있습니다.")
+                return
+            }
+            guard let u = URL(string: "http://\(Flint.IP):\(Flint.WEB)/beonho") else { return }
+            var r = URLRequest(url: u); r.timeoutInterval = 4; r.cachePolicy = .reloadIgnoringLocalCacheData
+            URLSession.shared.dataTask(with: r) { d, res, _ in
+                let k = ((res as? HTTPURLResponse)?.statusCode == 200 ? d.map { String(decoding: $0, as: UTF8.self) } : nil)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                DispatchQueue.main.async {
+                    if k.count == 4, k.allSatisfy({ $0.isASCII && $0.isNumber }) {
+                        pk = k; juso = "http://\(Flint.IP)/pd?k=" + k; qr = Jeopsok.qrGeurim(juso)
+                        UIAccessibility.post(notification: .announcement, argument: "큐알을 띄웠습니다. 할 일과 주소가 큐알 위아래에 있습니다.")
+                    } else {
+                        mal = "플린트 2 공유기에서 피디 번호를 받지 못했습니다. 방송 공유기에 붙어 소리를 보내는 중인지 확인하고 뒤로 갔다가 다시 누르십시오."
+                        UIAccessibility.post(notification: .announcement, argument: mal)
+                    }
+                }
+            }.resume()
+        }
     }
 }
 

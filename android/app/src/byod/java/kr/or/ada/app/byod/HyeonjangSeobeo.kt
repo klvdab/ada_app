@@ -283,6 +283,8 @@ object HyeonjangSeobeo {
     }
     /** 관계자 붙이기 큐알 주소(첫 화면의 큐알 보기) */
     fun gwanQrJuso(): String = "http://" + ponJuso() + ":" + Bang.PORT + "/gwan?gk=" + gwanKeyGet()
+    /** 1.11.0 (261028-B21) 노트북에서 피디 화면 열기 큐알 주소 — 아이피타임 방식에서 이 기기가 방송 서버일 때 */
+    fun pdQrJuso(): String = "http://" + ponJuso() + ":" + Bang.PORT + "/pd?k=" + Bang.pdKey
     private fun gwanKeyGet(): String = synchronized(garak) { if (gwanKey.isEmpty()) gwanKey = nanseu(8); gwanKey }
     private fun galOn(g: Int) = now() - galTtae[g] < 4000
 

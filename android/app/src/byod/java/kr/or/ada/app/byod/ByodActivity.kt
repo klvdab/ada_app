@@ -243,6 +243,7 @@ class ByodActivity : Activity() {
 
         mom.addView(danchu("현장 점검") { hyeonjangJeomgeom() })   // 1.1.5 (261009-B7) 방송 전 살필 것을 단추 하나로
         mom.addView(danchu("피디 화면 열기") { pdYeolgi() })   // 1.9.0 (261024-B17) 노트북판 피디 화면을 이 기기 브라우저로
+        mom.addView(danchu("노트북에서 피디 화면 열기 큐알") { pdQrBogi() })   // 1.11.0 (261028-B21) 대형 화면을 띄울 노트북이 같은 공유기에서 피디 화면을 엶
         mom.addView(danchu("관계자 붙이기 큐알 보기") { gwanQrBogi() })   // 1.9.0 진행요원·현장영상해설사·무대 카메라가 찍고 붙음
         mom.addView(danchu("인터넷 방송만 하기 (공유기 없이)") { startActivity(Intent(this, GyoyukActivity::class.java).putExtra("juso", GyoyukActivity.LIVE).putExtra("jemok", "인터넷 방송")) })   // 1.4.0 (261016-B12) 한 폰 한 화면에서, 1.5.0 이름
         mom.addView(danchu("TV해설방송 하기") { startActivity(Intent(this, GyoyukActivity::class.java).putExtra("juso", GyoyukActivity.TV).putExtra("jemok", "TV해설방송")) })   // 1.5.0
@@ -319,6 +320,48 @@ class ByodActivity : Activity() {
         } catch (_: Exception) {
             allimMal("이 기기에서 웹 브라우저를 찾지 못했습니다. 크롬이나 삼성 인터넷을 설치한 뒤 다시 누르십시오.")
         }
+    }
+
+    /** 1.11.0 (261028-B21, 새방클, 이사장님 승인 2026-10-28) 노트북에서 피디 화면 열기 큐알 — 아이피타임 방식은 이 기기 주소, 플린트 2는 공유기 주소(피디 번호를 공유기에 물음) */
+    private fun pdQrBogi() {
+        if (!Bang.kyeojim) { allimMal("노트북에서 피디 화면 열기는 BYOD 방송을 하는 동안 쓸 수 있습니다. 먼저 BYOD 방송 시작을 누르십시오."); return }
+        if (!Flint.flintInga(this)) {
+            if (Bang.pdKey.isEmpty()) { allimMal("피디 번호가 아직 정해지지 않았습니다. 잠시 뒤 다시 누르십시오."); return }
+            pdQrChang(HyeonjangSeobeo.pdQrJuso(), Bang.pdKey); return
+        }
+        allimMal("플린트 2 공유기에 피디 번호를 묻고 있습니다.")
+        Thread {
+            val k = (Flint.mutgi(this, "/beonho") ?: "").trim()
+            runOnUiThread {
+                if (k.length != 4 || !k.all { it in '0'..'9' }) allimMal("플린트 2 공유기에서 피디 번호를 받지 못했습니다. 방송 공유기에 붙어 소리를 보내는 중인지 확인하고 다시 누르십시오.")
+                else pdQrChang("http://" + Flint.IP + "/pd?k=" + k, k)
+            }
+        }.start()
+    }
+
+    private fun pdQrChang(j: String, pk: String) {
+        val bm = try { hjQrGeurim(j, 800) } catch (_: Exception) { null }
+        if (bm == null) { allimMal("큐알을 만들지 못했습니다. 주소는 " + j + " 입니다."); return }
+        val iv = android.widget.ImageView(this).apply {
+            setImageBitmap(bm); adjustViewBounds = true
+            scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            setBackgroundColor(Color.WHITE)
+            contentDescription = "노트북에서 피디 화면 열기 큐알코드"
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+        }
+        val an = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(8)) }
+        an.addView(iv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        an.addView(TextView(this).apply {
+            text = "1. 노트북을 방송 공유기 와이파이(" + Flint.gongyugiIreum(this@ByodActivity) + ")에 붙입니다. 그동안 노트북은 인터넷이 되지 않습니다.\n" +
+                "2. 노트북 카메라 앱으로 이 큐알을 비추거나, 크롬 주소 칸에 아래 주소를 칩니다.\n" +
+                "3. 피디 화면이 열리면 참석과 추첨에서 명단을 넣고, 행사장 대형 화면 열기를 눌러 그 창을 빔 쪽으로 옮깁니다.\n" +
+                "방송은 이 기기가 맡으므로 노트북이 꺼져도 방송은 이어집니다.\n주소: " + j
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+            setTextIsSelectable(true)
+        })
+        android.app.AlertDialog.Builder(this).setTitle("노트북에서 피디 화면 열기").setView(ScrollView(this).apply { addView(an) })
+            .setPositiveButton("닫기", null).show()
+        allimMal("노트북에서 피디 화면 열기 큐알을 띄웠습니다. 할 일과 주소가 큐알 아래에 있습니다. 피디 번호는 " + pk.toCharArray().joinToString(" ") + " 입니다.")
     }
 
     private fun gwanQrBogi() {
