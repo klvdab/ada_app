@@ -26,8 +26,8 @@ try:
 except Exception:          # python3-openssl 이 없는 공유기 — 자물쇠 문 없이 돎
     ssl = None
 
-PAN = "1.5.0"   # 261026-F5 오푸스(시험) — 방송 앱이 BYOD2 꼴로 오푸스도 보내면 /opus 로 나눠 줌(뮤 /stream 은 그대로). 261024-F4 노트북판 현장 기능 전부·여러 갈래 해설·만족도·구역별 인원·자동 저장·자물쇠 문 8443·갈래 녹음과 기록도 나스로(새방송클). 261015-F3 상태에 행사 이름·현장영상해설사, 듣기 화면에 LVD 방송 앱 받기, 행사 기본 이름 「현장영상해설 방송」
-BILD = "261026-F5"
+PAN = "1.6.0"   # 261028-F6 이름 추첨 — 명단 넣기(/myeongdan), 명단에서 이름 추첨(/chucheom?beom=myeongdan), 번호 추첨·호명 때 명단의 이름도 함께, 상태에 당첨 이름(dnm·dnmok)(새방클, 이사장님 승인 2026-10-28 「1」). 261026-F5 오푸스(시험) — 방송 앱이 BYOD2 꼴로 오푸스도 보내면 /opus 로 나눠 줌(뮤 /stream 은 그대로). 261024-F4 노트북판 현장 기능 전부·여러 갈래 해설·만족도·구역별 인원·자동 저장·자물쇠 문 8443·갈래 녹음과 기록도 나스로(새방송클). 261015-F3 상태에 행사 이름·현장영상해설사, 듣기 화면에 LVD 방송 앱 받기, 행사 기본 이름 「현장영상해설 방송」
+BILD = "261028-F6"
 
 SEOBEO_IP = os.environ.get("BYOD_IP", "192.168.8.2")      # 듣기 화면 주소(공유기에 덧붙인 주소)
 WEB_PORT = int(os.environ.get("BYOD_WEB_PORT", "7880"))    # 80번은 방화벽이 이리로 돌려줌
@@ -151,6 +151,7 @@ def sangtae_bin():
         "nal": "", "pdkey": "",
         "bh": {}, "bhg": {},                       # 입장 번호 -> [처음, 마지막], 구역
         "dang": [], "dangcheom": "", "dangsik": "", "dangseq": 0, "danggirok": [],
+        "myeong": [], "dangnm": "", "dangmyeong": [],   # 1.6.0 이름 추첨 — 명단 [번호, 이름], 지금 당첨 이름, 당첨된 명단 열쇠(번호|이름)
         "yc": [], "ycseq": 0, "ycgeuje": {},       # 요청 [번호, 시각글, 입장 번호, 종류, 처리, 때]
         "mal": [], "malseq": 0,                    # 해설사끼리 글
         "gwan": {}, "gwankey": "",                 # 관계자 열쇠 -> [역할, 이름, 처음, 마지막]
@@ -694,7 +695,7 @@ def bogo_mandeul(g):
     L.append("4. 행운권 추첨")
     if S["danggirok"]:
         for t, n, mal in S["danggirok"]:
-            L.append("  %s %s번 %s" % (hms(t), n, mal))
+            L.append("  %s %s %s" % (hms(t), (n + "번") if n else "번호 없음", mal))
     else:
         L.append("추첨 없음")
     L.append("")
@@ -755,7 +756,10 @@ def bogo_mandeul(g):
             cho = 0
         L.append("갈래 %s 녹음: gal%s_nokeum.ul, 길이 %s (공유기에 남음)" % (k, k, gilee_mal(cho)))
     L.append("")
-    L.append("참고: 이 보고서는 입장 번호만 모았으며 이름과 전화번호 같은 개인정보는 모으지 않았습니다.")
+    if S["dangmyeong"]:   # 1.6.0 이름 추첨을 했으면
+        L.append("참고: 행운권 이름 추첨 당첨자의 이름이 들어 있습니다. 그 밖에는 입장 번호만 모았으며 전화번호 같은 개인정보는 모으지 않았습니다.")
+    else:
+        L.append("참고: 이 보고서는 입장 번호만 모았으며 이름과 전화번호 같은 개인정보는 모으지 않았습니다.")
     L.append("LVD 송출 공유기 서버 " + g.get("pan", PAN) + "판")
     return "\n".join(L) + "\n"
 
@@ -1091,7 +1095,7 @@ def jg_damgi():
     try:
         S = B.S
         bak = {}
-        for k in ("bh", "bhg", "dang", "dangcheom", "dangsik", "danggirok", "yc", "ycgeuje", "mal", "gwan", "mj", "kam",
+        for k in ("bh", "bhg", "dang", "dangcheom", "dangsik", "danggirok", "myeong", "dangnm", "dangmyeong", "yc", "ycgeuje", "mal", "gwan", "mj", "kam",
                   "choeda", "choedaT", "sunseoI", "sunseoT", "gin", "galnm", "mjk"):
             bak[k] = copy.deepcopy(S[k])
         B.jg_damgi = bak
@@ -1310,6 +1314,7 @@ def sangtae(heoga=False, gal=1):
         "mp3": B.mp3_iss, "ttuigi": B.ttuigi, "tonggwa": B.tonggwa_ttae, "yseq": B.yseq,
         "nas": B.nas_mal,
         "dang": S["dangcheom"], "dseq": S["dangseq"], "dsik": S["dangsik"], "dmok": dang_json(),
+        "dnm": S["dangnm"], "dnmok": [k.split("|", 1)[1] for k in S["dangmyeong"]], "myeongsu": len(S["myeong"]),   # 1.6.0 이름 추첨
         "gin": S["gin"], "gseq": S["ginseq"], "saepan": "",
         "gal": gal_mok(),
         "mj": S["mjk"]["q"] if S["mjk"]["on"] else "", "mjseq": S["mjk"]["seq"],
@@ -1696,8 +1701,8 @@ async def web(r, w, tls=False):
                     B.boot_bh.add(n)
                     csv_jul("chulseok", ts(now) + "," + n + ",처음 연결")
                 js(w, {"ok": True, "n": n})
-        elif uri in ("/chulseok", "/chucheom", "/dangcheom"):
-            beonho_cheori(w, uri, q, heoga)
+        elif uri in ("/chulseok", "/chucheom", "/dangcheom", "/myeongdan"):
+            beonho_cheori(w, uri, q, heoga, body)
         elif uri == "/jiyeon":
             i = gap(q, "i")
             try:
@@ -1844,13 +1849,72 @@ async def web(r, w, tls=False):
                 pass
 
 
-def beonho_cheori(w, uri, q, heoga):
+def myeong_ilkgi(t):
+    """1.6.0 명단 글 — 한 줄에 한 사람. 「번호, 이름」 또는 「이름」(쉼표·탭·빈칸 하나로 나눔), 첫 줄 머리(번호/이름)는 건넘"""
+    l = []
+    for jul in t.replace("\r", "\n").split("\n"):
+        jul = jul.strip().strip("\ufeff").strip()
+        if not jul:
+            continue
+        m = re.match(r"^0*(\d{1,4})\s*번?\s*[,\t ]\s*(.+)$", jul)
+        if m:
+            n, nm = m.group(1).lstrip("0") or "0", m.group(2)
+        elif re.match(r"^\d{1,4}$", jul):
+            continue
+        else:
+            n, nm = "", jul
+        nm = re.sub(r"\s+", " ", nm.replace("|", " ").strip().strip(",").strip())[:30]
+        if not nm or nm in ("이름", "성명") or (not l and nm in ("번호", "번호,이름")):
+            continue
+        l.append([n, nm])
+        if len(l) >= 3000:
+            break
+    return l
+
+
+def myeong_ireum(n):
+    """1.6.0 번호로 명단의 이름 찾기(없으면 빈 글)"""
+    for x in B.S["myeong"]:
+        if x[0] == n:
+            return x[1]
+    return ""
+
+
+def myeong_dang(n):
+    """1.6.0 번호 추첨·직접 호명 때 — 명단에 그 번호가 있으면 이름도 함께 당첨으로"""
+    S = B.S
+    nm = myeong_ireum(n)
+    S["dangnm"] = nm
+    if nm and (n + "|" + nm) not in S["dangmyeong"]:
+        S["dangmyeong"].append(n + "|" + nm)
+    return nm
+
+
+def beonho_cheori(w, uri, q, heoga, body=b""):
     """노트북판 BeonhoCheori — 참석과 추첨(입장 번호는 /beonho 에서)"""
     S = B.S
     if not heoga:
         js(w, {"ok": False}, 403)
         return
     now = jigeum()
+    if uri == "/myeongdan":   # 1.6.0 명단 넣기(POST 글)·지우기(?jiugi=1)·보기
+        if gap(q, "jiugi") == "1":
+            S["myeong"] = []
+        elif body:
+            try:
+                S["myeong"] = myeong_ilkgi(body.decode("utf-8", "replace"))
+            except Exception:
+                js(w, {"ok": False, "mal": "명단을 읽지 못했습니다"})
+                return
+        if body or gap(q, "jiugi") == "1":
+            try:
+                sangtae_jeojang()
+            except Exception:
+                pass
+        nam = sum(1 for x in S["myeong"] if (x[0] + "|" + x[1]) not in S["dangmyeong"])
+        js(w, {"ok": True, "su": len(S["myeong"]), "nameun": nam, "mok": [{"n": x[0], "nm": x[1]} for x in S["myeong"]],
+               "dang": [k.split("|", 1)[1] for k in S["dangmyeong"]]})
+        return
     if uri == "/chulseok":
         mok = []
         jg = 0
@@ -1868,6 +1932,29 @@ def beonho_cheori(w, uri, q, heoga):
         except Exception:
             kkeut = 0
         ppae = gap(q, "ppae") != "0"
+        if beom == "myeongdan":   # 1.6.0 이름 추첨 — 명단에서 아직 당첨되지 않은 한 사람
+            mp = [x for x in S["myeong"] if (x[0] + "|" + x[1]) not in S["dangmyeong"] and not (x[0] and x[0] in S["dang"])]
+            if not S["myeong"]:
+                js(w, {"ok": False, "mal": "명단이 없습니다. 명단을 먼저 넣어 주십시오"})
+                return
+            if not mp:
+                js(w, {"ok": False, "mal": "명단의 모든 분이 이미 당첨되었습니다"})
+                return
+            x = mp[int.from_bytes(os.urandom(4), "little") % len(mp)]
+            S["dangnm"] = x[1]
+            S["dangmyeong"].append(x[0] + "|" + x[1])
+            S["dangcheom"] = x[0]
+            if x[0] and x[0] not in S["dang"]:
+                S["dang"].append(x[0])
+            S["dangsik"] = "i"
+            S["dangseq"] += 1
+            mal = "이름 추첨 당첨(명단 %d명 중) %s" % (len(mp), x[1])
+            if not jg_now():
+                S["danggirok"].append([now, x[0], mal])
+            csv_jul("chulseok", ts(now) + "," + (x[0] or "-") + "," + mal.replace(",", " "))
+            v = S["bh"].get(x[0]) if x[0] else None
+            js(w, {"ok": True, "n": x[0], "nm": x[1], "mo": len(mp), "seq": S["dangseq"], "deunna": v is not None and now - v[1] < 75})
+            return
         if beom == "modu":
             pool = [str(i) for i in range(1, min(kkeut, 9999) + 1)]
         else:
@@ -1879,14 +1966,15 @@ def beonho_cheori(w, uri, q, heoga):
             return
         ppob = pool[int.from_bytes(os.urandom(4), "little") % len(pool)]
         S["dangcheom"] = ppob
+        nm = myeong_dang(ppob)   # 1.6.0
         S["dangsik"] = "r"
         S["dang"].append(ppob)
         S["dangseq"] += 1
-        mal = "추첨 당첨(" + (("1~%d번" % kkeut) if beom == "modu" else "지금 듣는 번호") + " %d개 중)" % len(pool)
+        mal = "추첨 당첨(" + (("1~%d번" % kkeut) if beom == "modu" else "지금 듣는 번호") + " %d개 중)" % len(pool) + ((" " + nm) if nm else "")
         if not jg_now():
             S["danggirok"].append([now, ppob, mal])
-        csv_jul("chulseok", ts(now) + "," + ppob + "," + mal)
-        js(w, {"ok": True, "n": ppob, "mo": len(pool), "seq": S["dangseq"]})
+        csv_jul("chulseok", ts(now) + "," + ppob + "," + mal.replace(",", " "))
+        js(w, {"ok": True, "n": ppob, "nm": nm, "mo": len(pool), "seq": S["dangseq"]})
     elif uri == "/dangcheom":
         n = gap(q, "n")
         if not susja(n):
@@ -1898,13 +1986,14 @@ def beonho_cheori(w, uri, q, heoga):
             return
         S["dang"].append(n)
         S["dangcheom"] = n
+        nm = myeong_dang(n)   # 1.6.0
         S["dangsik"] = "m"
         S["dangseq"] += 1
         if not jg_now():
-            S["danggirok"].append([now, n, "직접 호명 당첨"])
-        csv_jul("chulseok", ts(now) + "," + n + ",직접 호명 당첨")
+            S["danggirok"].append([now, n, "직접 호명 당첨" + ((" " + nm) if nm else "")])
+        csv_jul("chulseok", ts(now) + "," + n + ",직접 호명 당첨" + ((" " + nm.replace(",", " ")) if nm else ""))
         v = S["bh"].get(n)
-        js(w, {"ok": True, "n": n, "seq": S["dangseq"], "deunna": v is not None and now - v[1] < 75})
+        js(w, {"ok": True, "n": n, "nm": nm, "seq": S["dangseq"], "deunna": v is not None and now - v[1] < 75})
 
 
 def ds(v):

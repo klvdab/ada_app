@@ -155,6 +155,10 @@ object HyeonjangSeobeo {
     private var dangSeq = 0
     private var dangSik = ""
     private val dangGirok = ArrayList<String>()                // 결과보고용 당첨 줄
+    // 1.11.0 (261028-B21, 새방클, 이사장님 승인 2026-10-28 「1」) 이름 추첨 — 명단 [번호, 이름], 지금 당첨 이름, 당첨된 명단 열쇠(번호|이름)
+    private val myeong = ArrayList<Array<String>>()
+    private var dangNm = ""
+    private val dangMyeong = ArrayList<String>()
     private var sunseoI = 0
     private var sunseoT = 0L
     private class DeutJul(val ttae: Long, val kkeun: Int, val n: String)
@@ -229,6 +233,7 @@ object HyeonjangSeobeo {
     private fun bium() {
         synchronized(garak) {
             bhMok.clear(); bhGuyeok.clear(); dangMok.clear(); dangcheom = ""; dangSeq = 0; dangSik = ""; dangGirok.clear()
+            myeong.clear(); dangNm = ""; dangMyeong.clear()   // 1.11.0
             sunseoI = 0; sunseoT = 0L; deutMok.clear(); ycMok.clear(); ycSeq = 0; ycGeuje.clear(); malMok.clear(); malSeq = 0
             kamMok.clear(); deutChoeda = 0; deutChoedaT = 0L; gwanKey = ""; gwanMok.clear(); mjMok.clear(); mjSeq = 0
             ginGirok.clear(); pyosiMok.clear(); Bang.ginMal = ""
@@ -361,7 +366,7 @@ object HyeonjangSeobeo {
             "/jadong" -> return Dap.json("{\"mal\":\"" + jsn2(jadongMal) + "\",\"teo\":\"" + jsn2(haengsaTeo()?.path ?: "") + "\"}")
             "/bogoseo", "/bogoseo.txt" -> return bogoCheori(gil, heoga)
             "/jaryo", "/jaryo_badgi", "/sunseo" -> return haeseol(gil, q)
-            "/beonho", "/chulseok", "/chucheom", "/dangcheom" -> return beonho(gil, q, heoga)
+            "/beonho", "/chulseok", "/chucheom", "/dangcheom", "/myeongdan" -> return beonho(gil, q, heoga, m.body)
             "/jiyeon" -> {
                 val id = gap(q, "i")
                 val ms = gap(q, "d").toDoubleOrNull()
@@ -443,7 +448,9 @@ object HyeonjangSeobeo {
         }
         synchronized(garak) {
             sb.append(", \"dang\":\"").append(dangcheom).append("\", \"dseq\":").append(dangSeq).append(", \"dsik\":\"").append(dangSik)
-                .append("\", \"dmok\":[").append(dangJson()).append("], \"gin\":\"").append(jsn(Bang.ginMal)).append("\", \"gseq\":").append(Bang.ginSeq)
+                .append("\", \"dmok\":[").append(dangJson()).append("], \"dnm\":\"").append(jsn2(dangNm)).append("\", \"dnmok\":[")
+                .append(dangMyeong.joinToString(",") { "\"" + jsn2(it.substringAfter('|')) + "\"" }).append("], \"myeongsu\":").append(myeong.size)   // 1.11.0 이름 추첨
+                .append(", \"gin\":\"").append(jsn(Bang.ginMal)).append("\", \"gseq\":").append(Bang.ginSeq)
                 .append(", \"saepan\":\"\"")
             // 가. 여러 갈래
             sb.append(",\"gal\":[")
@@ -478,7 +485,35 @@ object HyeonjangSeobeo {
     }
 
     // ───── 입장 번호·참석·추첨(노트북판 BeonhoCheori) + 다. 구역별 ─────
-    private fun beonho(gil: String, q: String, heoga: Boolean): Dap {
+    /** 1.11.0 명단 글 — 한 줄에 한 사람. 「번호, 이름」 또는 「이름」(쉼표·탭·빈칸 하나로 나눔), 머리 줄(번호/이름)은 건넘 */
+    private val MYEONG_JUL = Regex("^0*(\\d{1,4})\\s*번?\\s*[,\\t ]\\s*(.+)$")
+    private fun myeongIlkgi(t: String): ArrayList<Array<String>> {
+        val l = ArrayList<Array<String>>()
+        for (j0 in t.replace("\r", "\n").split("\n")) {
+            val j = j0.trim().trim('\uFEFF').trim()
+            if (j.isEmpty()) continue
+            val m = MYEONG_JUL.find(j)
+            var n: String; var nm: String
+            if (m != null) { n = m.groupValues[1].trimStart('0').ifEmpty { "0" }; nm = m.groupValues[2] }
+            else if (j.length <= 4 && j.all { it in '0'..'9' }) continue
+            else { n = ""; nm = j }
+            nm = jar(nm.replace("|", " ").trim().trim(',').trim().replace(Regex("\\s+"), " "), 30)
+            if (nm.isEmpty() || nm == "이름" || nm == "성명" || (l.isEmpty() && (nm == "번호" || nm == "번호,이름"))) continue
+            l.add(arrayOf(n, nm))
+            if (l.size >= 3000) break
+        }
+        return l
+    }
+
+    /** 1.11.0 번호 추첨·직접 호명 때 — 명단에 그 번호가 있으면 이름도 함께 당첨으로(garak 안에서 부름) */
+    private fun myeongDang(n: String): String {
+        val nm = myeong.firstOrNull { it[0] == n }?.get(1) ?: ""
+        dangNm = nm
+        if (nm.isNotEmpty() && !dangMyeong.contains("$n|$nm")) dangMyeong.add("$n|$nm")
+        return nm
+    }
+
+    private fun beonho(gil: String, q: String, heoga: Boolean, body: ByteArray = ByteArray(0)): Dap {
         val t = now()
         if (gil == "/beonho") {
             var n = gap(q, "n")
@@ -517,6 +552,47 @@ object HyeonjangSeobeo {
             for ((g, a) in gy) { if (gs.isNotEmpty()) gs.append(','); gs.append("{\"g\":\"").append(jsn2(g)).append("\",\"jigeum\":").append(a[0]).append(",\"modu\":").append(a[1]).append('}') }
             return Dap.json("{\"ok\":true,\"modu\":$modu,\"jigeum\":$jigeum,\"dang\":[$dang],\"mok\":[$sb],\"guyeok\":[$gs]}")
         }
+        if (gil == "/myeongdan") {   // 1.11.0 명단 넣기(POST 글)·지우기(?jiugi=1)·보기
+            val jiugi = gap(q, "jiugi") == "1"
+            val sb = StringBuilder(); var su = 0; var nam = 0; val dg = StringBuilder()
+            synchronized(garak) {
+                if (jiugi) myeong.clear()
+                else if (body.isNotEmpty()) { myeong.clear(); myeong.addAll(myeongIlkgi(String(body, Charsets.UTF_8))) }
+                su = myeong.size
+                for (x in myeong) {
+                    if (!dangMyeong.contains(x[0] + "|" + x[1])) nam++
+                    if (sb.isNotEmpty()) sb.append(',')
+                    sb.append("{\"n\":\"").append(x[0]).append("\",\"nm\":\"").append(jsn2(x[1])).append("\"}")
+                }
+                for (k in dangMyeong) { if (dg.isNotEmpty()) dg.append(','); dg.append('"').append(jsn2(k.substringAfter('|'))).append('"') }
+            }
+            if (jiugi || body.isNotEmpty()) try { jadongJeojang() } catch (_: Exception) { }
+            return Dap.json("{\"ok\":true,\"su\":$su,\"nameun\":$nam,\"mok\":[$sb],\"dang\":[$dg]}")
+        }
+        if (gil == "/chucheom" && gap(q, "beom") == "myeongdan") {   // 1.11.0 이름 추첨 — 명단에서 아직 당첨되지 않은 한 사람
+            var x: Array<String>? = null; var mo = 0; var seq = 0; var eopda = false; var deunna = false
+            synchronized(garak) {
+                if (myeong.isEmpty()) eopda = true
+                else {
+                    val mp = myeong.filter { !dangMyeong.contains(it[0] + "|" + it[1]) && !(it[0].isNotEmpty() && dangMok.contains(it[0])) }
+                    mo = mp.size
+                    if (mp.isNotEmpty()) {
+                        val y = mp[((rnd.nextInt().toLong() and 0xFFFFFFFFL) % mp.size).toInt()]
+                        x = y
+                        dangNm = y[1]; dangMyeong.add(y[0] + "|" + y[1]); dangcheom = y[0]
+                        if (y[0].isNotEmpty() && !dangMok.contains(y[0])) dangMok.add(y[0])
+                        dangSik = "i"; dangSeq++; seq = dangSeq
+                        dangGirok.add(pyo("HH:mm:ss", t) + " " + (if (y[0].isEmpty()) "번호 없음" else y[0] + "번") + " 이름 추첨 당첨(명단 " + mp.size + "명 중) " + y[1])
+                        val v = if (y[0].isEmpty()) null else bhMok[y[0]]
+                        deunna = v != null && t - v[1] < 75_000
+                    }
+                }
+            }
+            if (eopda) return Dap.json("{\"ok\":false,\"mal\":\"명단이 없습니다. 명단을 먼저 넣어 주십시오\"}")
+            val y = x ?: return Dap.json("{\"ok\":false,\"mal\":\"명단의 모든 분이 이미 당첨되었습니다\"}")
+            dotgi("chulseok_" + nal() + ".csv", ts(t) + "," + (if (y[0].isEmpty()) "-" else y[0]) + ",이름 추첨 당첨(명단 " + mo + "명 중) " + y[1].replace(",", " ") + "\r\n")
+            return Dap.json("{\"ok\":true,\"n\":\"" + y[0] + "\",\"nm\":\"" + jsn2(y[1]) + "\",\"mo\":" + mo + ",\"seq\":" + seq + ",\"deunna\":" + deunna + "}")
+        }
         if (gil == "/chucheom") {
             val beom = gap(q, "beom")
             val kkeut = gap(q, "kkeut").toIntOrNull() ?: 0
@@ -524,6 +600,7 @@ object HyeonjangSeobeo {
             val pool = ArrayList<String>()
             var ppob = ""
             var seq = 0
+            var pnm = ""   // 1.11.0
             synchronized(garak) {
                 if (beom == "modu") { var i = 1; while (i <= kkeut && i <= 9999) { pool.add(i.toString()); i++ } }
                 else for ((k, v) in bhMok) if (t - v[1] < 75_000) pool.add(k)
@@ -531,12 +608,13 @@ object HyeonjangSeobeo {
                 if (pool.isNotEmpty()) {
                     val idx = ((rnd.nextInt().toLong() and 0xFFFFFFFFL) % pool.size).toInt()
                     ppob = pool[idx]; dangcheom = ppob; dangSik = "r"; dangMok.add(ppob); dangSeq++; seq = dangSeq
-                    dangGirok.add(pyo("HH:mm:ss", t) + " " + ppob + "번 추첨 당첨(" + (if (beom == "modu") "1~" + kkeut + "번" else "지금 듣는 번호") + " " + pool.size + "개 중)")
+                    pnm = myeongDang(ppob)   // 1.11.0
+                    dangGirok.add(pyo("HH:mm:ss", t) + " " + ppob + "번 추첨 당첨(" + (if (beom == "modu") "1~" + kkeut + "번" else "지금 듣는 번호") + " " + pool.size + "개 중)" + (if (pnm.isEmpty()) "" else " " + pnm))   // 1.11.0 명단의 이름도
                 }
             }
             if (ppob.isEmpty()) return Dap.json("{\"ok\":false,\"mal\":\"뽑을 번호가 없습니다\"}")
             dotgi("chulseok_" + nal() + ".csv", ts(t) + "," + ppob + ",추첨 당첨(" + (if (beom == "modu") "1~" + kkeut + "번" else "지금 듣는 번호") + " " + pool.size + "개 중)\r\n")
-            return Dap.json("{\"ok\":true,\"n\":\"$ppob\",\"mo\":" + pool.size + ",\"seq\":$seq}")
+            return Dap.json("{\"ok\":true,\"n\":\"$ppob\",\"nm\":\"" + jsn2(pnm) + "\",\"mo\":" + pool.size + ",\"seq\":$seq}")
         }
         if (gil == "/dangcheom") {
             var n = gap(q, "n")
@@ -545,16 +623,17 @@ object HyeonjangSeobeo {
             var itda = false
             var seq = 0
             var deunna = false
+            var hnm = ""   // 1.11.0
             synchronized(garak) {
                 if (dangMok.contains(n)) itda = true
-                else { dangMok.add(n); dangcheom = n; dangSik = "m"; dangSeq++; dangGirok.add(pyo("HH:mm:ss", t) + " " + n + "번 직접 호명 당첨") }
+                else { dangMok.add(n); dangcheom = n; hnm = myeongDang(n); dangSik = "m"; dangSeq++; dangGirok.add(pyo("HH:mm:ss", t) + " " + n + "번 직접 호명 당첨" + (if (hnm.isEmpty()) "" else " " + hnm)) }
                 seq = dangSeq
                 val v = bhMok[n]
                 deunna = v != null && t - v[1] < 75_000
             }
             if (itda) return Dap.json("{\"ok\":false,\"mal\":\"" + n + "번은 이미 당첨된 번호입니다\"}")
             dotgi("chulseok_" + nal() + ".csv", ts(t) + "," + n + ",직접 호명 당첨\r\n")
-            return Dap.json("{\"ok\":true,\"n\":\"$n\",\"seq\":$seq,\"deunna\":$deunna}")
+            return Dap.json("{\"ok\":true,\"n\":\"$n\",\"nm\":\"" + jsn2(hnm) + "\",\"seq\":$seq,\"deunna\":$deunna}")
         }
         return Dap.json("{\"ok\":false}", 404)
     }
@@ -1007,7 +1086,8 @@ object HyeonjangSeobeo {
             else for (v in gwanMok.values) L.add("  " + gwanIreum(v[0]) + " " + v[1] + " (" + pyo("HH:mm", v[2].toLongOrNull() ?: 0L) + "부터)")
         }
         L.add("")
-        L.add("참고: 이 보고서는 입장 번호만 모았으며 이름과 전화번호 같은 개인정보는 모으지 않았습니다.")
+        L.add(if (synchronized(garak) { dangMyeong.isNotEmpty() }) "참고: 행운권 이름 추첨 당첨자의 이름이 들어 있습니다. 그 밖에는 입장 번호만 모았으며 전화번호 같은 개인정보는 모으지 않았습니다."
+              else "참고: 이 보고서는 입장 번호만 모았으며 이름과 전화번호 같은 개인정보는 모으지 않았습니다.")
         return L.joinToString("\n") + "\n"
     }
 
@@ -1058,6 +1138,9 @@ object HyeonjangSeobeo {
             for (y in ycMok) sb.append("Y|").append(y[0]).append('|').append(y[1]).append('|').append(y[2]).append('|').append(y[3]).append('|').append(y[4]).append('|').append(y[5]).append('\n')
             for (d in dangMok) sb.append("D|").append(d).append('\n')
             for (d in dangGirok) sb.append("L|").append(ppae(d)).append('\n')
+            for (x in myeong) sb.append("R|").append(x[0]).append('|').append(ppae(x[1])).append('\n')   // 1.11.0 이름 추첨
+            for (k in dangMyeong) sb.append("X|").append(ppae(k.substringBefore('|'))).append('|').append(ppae(k.substringAfter('|'))).append('\n')
+            sb.append("H|").append(ppae(dangNm)).append('\n')
             for ((k, v) in gwanMok) sb.append("G|").append(k).append('|').append(v[0]).append('|').append(ppae(v[1])).append('|').append(v[2]).append('|').append(v[3]).append('\n')
             sb.append("K|").append(gwanKey).append('\n')
             sb.append("S|").append(dangSeq).append('|').append(dangcheom).append('|').append(dangSik).append('\n')
@@ -1083,7 +1166,7 @@ object HyeonjangSeobeo {
         if (now() - saved > IEUM_HANDO) return   // 3시간 넘게 지난 것은 다른 행사로 봄
         var n = 0
         synchronized(garak) {
-            if (bhMok.isNotEmpty() || ycMok.isNotEmpty() || dangMok.isNotEmpty() || manjokSeq > 0) return
+            if (bhMok.isNotEmpty() || ycMok.isNotEmpty() || dangMok.isNotEmpty() || manjokSeq > 0 || myeong.isNotEmpty()) return
             for (l in L) {
                 val f = l.split('|')
                 if (f.size < 2) continue
@@ -1094,6 +1177,9 @@ object HyeonjangSeobeo {
                         "Y" -> if (f.size >= 7) ycMok.add(arrayOf(f[1], f[2], f[3], f[4], f[5], f[6]))
                         "D" -> dangMok.add(f[1])
                         "L" -> dangGirok.add(f[1])
+                        "R" -> if (f.size >= 3) myeong.add(arrayOf(f[1], f[2]))   // 1.11.0
+                        "X" -> if (f.size >= 3) dangMyeong.add(f[1] + "|" + f[2])
+                        "H" -> dangNm = f[1]
                         "G" -> if (f.size >= 6) gwanMok[f[1]] = arrayOf(f[2], f[3], f[4], f[5])
                         "K" -> gwanKey = f[1]
                         "S" -> if (f.size >= 4) { dangSeq = f[1].toInt(); dangcheom = f[2]; dangSik = f[3] }
@@ -1149,7 +1235,8 @@ object HyeonjangSeobeo {
         val ycGeuje: Map<String, Long>, val kamMok: Map<String, Kamera>, val gwanMok: Map<String, Array<String>>, val mjMok: List<Mj>,
         val bhMok: Map<String, LongArray>, val bhGuyeok: Map<String, String>, val deutChoeda: Int, val deutChoedaT: Long, val ginMal: String,
         val ginGirok: List<String>, val pyosiMok: List<String>, val galIreum: Array<String>,
-        val manjokQ: String, val manjokSeq: Int, val manjokMuleum: Map<Int, String>, val manjokDap: Map<String, Manjok>)
+        val manjokQ: String, val manjokSeq: Int, val manjokMuleum: Map<Int, String>, val manjokDap: Map<String, Manjok>,
+        val myeong: List<Array<String>> = emptyList(), val dangNm: String = "", val dangMyeong: List<String> = emptyList())   // 1.11.0
 
     private fun jgDamgi(): Boolean = try {
         synchronized(garak) {
@@ -1158,7 +1245,8 @@ object HyeonjangSeobeo {
                 kamMok.mapValues { it.value.bok() }, gwanMok.mapValues { it.value.copyOf() }, ArrayList(mjMok),
                 bhMok.mapValues { it.value.copyOf() }, HashMap(bhGuyeok), deutChoeda, deutChoedaT, Bang.ginMal,
                 ArrayList(ginGirok), ArrayList(pyosiMok), galIreum.copyOf(),
-                manjokQ, manjokSeq, LinkedHashMap(manjokMuleum), LinkedHashMap(manjokDap))
+                manjokQ, manjokSeq, LinkedHashMap(manjokMuleum), LinkedHashMap(manjokDap),
+                myeong.map { it.copyOf() }, dangNm, ArrayList(dangMyeong))
         }
         true
     } catch (_: Exception) { false }
@@ -1170,6 +1258,7 @@ object HyeonjangSeobeo {
                 dangMok.clear(); dangMok.addAll(b.dangMok); dangcheom = b.dangcheom; dangSik = b.dangSik
                 // 점검 중에 늘어난 당첨 순번은 그대로 둠(듣는 화면이 같은 순번을 다시 보지 않게 — 노트북판도 dangSeq 를 되돌리지 않음)
                 dangGirok.clear(); dangGirok.addAll(b.dangGirok)
+                myeong.clear(); myeong.addAll(b.myeong); dangNm = b.dangNm; dangMyeong.clear(); dangMyeong.addAll(b.dangMyeong)   // 1.11.0
                 sunseoI = b.sunseoI; sunseoT = b.sunseoT
                 ycMok.clear(); ycMok.addAll(b.ycMok)
                 malMok.clear(); malMok.addAll(b.malMok)

@@ -157,6 +157,10 @@ final class HyeonjangGil {
         var dangSik = ""
         var dangSeq = 0
         var dangGirok: [Girok] = []
+        // 1.11.0 (261028-BI15, 새방클, 이사장님 승인 2026-10-28 「1」) 이름 추첨 — 명단 [번호, 이름], 지금 당첨 이름, 당첨된 명단 열쇠(번호|이름)
+        var myeong: [[String]] = []
+        var dangNm = ""
+        var dangMyeong: [String] = []
         var sunseoI = 0
         var sunseoT: Date? = nil
         var deutMok: [String: Deutnun] = [:]
@@ -245,7 +249,7 @@ final class HyeonjangGil {
         jam.lock()
         if s.nal != nal { s = Sang(); s.nal = nal; jg = nil; jadongIeo = "" }
         s.cue = true
-        let bium = s.bhMok.isEmpty && s.ycMok.isEmpty && s.dangMok.isEmpty
+        let bium = s.bhMok.isEmpty && s.ycMok.isEmpty && s.dangMok.isEmpty && s.myeong.isEmpty
         dolgo = true
         jam.unlock()
         mideumBulleo()
@@ -328,9 +332,11 @@ final class HyeonjangGil {
         case "/beonho":
             if rq.loop && HyeonjangGil.gap(q, "n").isEmpty { return HjDap.geul(pdKey, 200, type: "text/plain") }
             return beonho(q)
-        case "/chulseok", "/chucheom", "/dangcheom":
+        case "/chulseok", "/chucheom", "/dangcheom", "/myeongdan":
             if !heoga { return j("{\"ok\":false}", 403) }
             if g == "/chulseok" { return chulseok() }
+            if g == "/myeongdan" { return myeongdan(q, rq.method == "POST" ? rq.mom : Data()) }   // 1.11.0
+            if g == "/chucheom" && HyeonjangGil.gap(q, "beom") == "myeongdan" { return ireumChucheom() }   // 1.11.0
             if g == "/chucheom" { return chucheom(q) }
             return dangcheom(q)
         case "/deutnun": return deutnun(q)
@@ -400,7 +406,7 @@ final class HyeonjangGil {
         var galL: [String] = []
         for i in 1...3 { galL.append("{\"n\":\(i),\"nm\":\"\(hjJsn(s.galIreum[i] ?? ""))\",\"on\":\(gon[i - 1]),\"su\":\(galSu[i] ?? 0)}") }
         let t = "{\"hyeonjang\":true,\"byod\":true,\"keu\":\(keu),\"mic\":\(mic),\"n\":\(n),\"pan\":\"LVD 송출 아이폰 \(Bang.PAN)\",\"bild\":\"\(Bang.BILD)\",\"nas\":\"\(hjJsn(s.nasMal))\"" + extra +
-            ",\"dang\":\"\(s.dangcheom)\",\"dseq\":\(s.dangSeq),\"dsik\":\"\(s.dangSik)\",\"dmok\":[\(dangJson())],\"gin\":\"\(hjJsn(s.ginMal))\",\"gseq\":\(s.ginSeq),\"saepan\":\"\"" +
+            ",\"dang\":\"\(s.dangcheom)\",\"dseq\":\(s.dangSeq),\"dsik\":\"\(s.dangSik)\",\"dmok\":[\(dangJson())],\"dnm\":\"\(hjJsn(s.dangNm))\",\"dnmok\":[\(dnmokJson())],\"myeongsu\":\(s.myeong.count),\"gin\":\"\(hjJsn(s.ginMal))\",\"gseq\":\(s.ginSeq),\"saepan\":\"\"" +
             ",\"gal\":[\(galL.joined(separator: ","))],\"mj\":\"\(hjJsn(s.manjokQ))\",\"mjseq\":\(s.manjokSeq)}"
         jam.unlock()
         return j(t)
@@ -408,6 +414,8 @@ final class HyeonjangGil {
 
     /// jam 안에서
     private func dangJson() -> String { s.dangMok.map { "\"\($0)\"" }.joined(separator: ",") }
+    /// 1.11.0 jam 안에서 — 당첨된 이름들
+    private func dnmokJson() -> String { s.dangMyeong.map { "\"" + hjJsn(HyeonjangGil.myeongIreum($0)) + "\"" }.joined(separator: ",") }
 
     private func cue(_ q: String, _ heoga: Bool) -> HjDap {
         if !heoga { return j("{\"ok\":false,\"msg\":\"해설사 번호가 맞지 않습니다.\"}", 403) }
@@ -529,6 +537,79 @@ final class HyeonjangGil {
         return j("{\"ok\":true,\"modu\":\(modu),\"jigeum\":\(jigeum),\"dang\":[\(dj)],\"guyeok\":[\(gj)],\"mok\":[\(l.joined(separator: ","))]}")
     }
 
+    /// 1.11.0 명단 열쇠(번호|이름)에서 이름
+    static func myeongIreum(_ k: String) -> String {
+        guard let i = k.firstIndex(of: "|") else { return k }
+        return String(k[k.index(after: i)...])
+    }
+
+    /// 1.11.0 명단 글 — 한 줄에 한 사람. 「번호, 이름」 또는 「이름」(쉼표·탭·빈칸 하나로 나눔), 머리 줄(번호/이름)은 건넘
+    static func myeongIlkgi(_ t: String) -> [[String]] {
+        var l: [[String]] = []
+        let re = try? NSRegularExpression(pattern: "^0*(\\d{1,4})\\s*번?\\s*[,\\t ]\\s*(.+)$")
+        let ttui = CharacterSet.whitespaces.union(CharacterSet(charactersIn: "\u{FEFF}"))
+        for j0 in t.replacingOccurrences(of: "\r", with: "\n").components(separatedBy: "\n") {
+            let j = j0.trimmingCharacters(in: ttui)
+            if j.isEmpty { continue }
+            var n = "", nm = j
+            let r = NSRange(j.startIndex..., in: j)
+            if let m = re?.firstMatch(in: j, range: r), let a = Range(m.range(at: 1), in: j), let b = Range(m.range(at: 2), in: j) {
+                n = hjApgi(String(j[a])); nm = String(j[b])
+            } else if j.count <= 4 && j.allSatisfy({ $0.isASCII && $0.isNumber }) { continue }
+            nm = nm.replacingOccurrences(of: "|", with: " ").trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: ",")))
+            nm = nm.components(separatedBy: .whitespaces).filter { !$0.isEmpty }.joined(separator: " ")
+            if nm.count > 30 { nm = String(nm.prefix(30)) }
+            if nm.isEmpty || nm == "이름" || nm == "성명" || (l.isEmpty && (nm == "번호" || nm == "번호,이름")) { continue }
+            l.append([n, nm])
+            if l.count >= 3000 { break }
+        }
+        return l
+    }
+
+    /// 1.11.0 명단 넣기(POST 글)·지우기(?jiugi=1)·보기
+    private func myeongdan(_ q: String, _ mom: Data) -> HjDap {
+        let jiugi = HyeonjangGil.gap(q, "jiugi") == "1"
+        let sae: [[String]]? = jiugi ? [] : (mom.isEmpty ? nil : HyeonjangGil.myeongIlkgi(String(decoding: mom, as: UTF8.self)))
+        jam.lock()
+        if let x = sae { s.myeong = x }
+        let dset = Set(s.dangMyeong)
+        let mok = s.myeong.map { "{\"n\":\"\($0[0])\",\"nm\":\"\(hjJsn($0[1]))\"}" }.joined(separator: ",")
+        let nam = s.myeong.filter { !dset.contains($0[0] + "|" + $0[1]) }.count
+        let su = s.myeong.count
+        let dg = dnmokJson()
+        jam.unlock()
+        if sae != nil { fq.async { [weak self] in self?.jeojang() } }
+        return j("{\"ok\":true,\"su\":\(su),\"nameun\":\(nam),\"mok\":[\(mok)],\"dang\":[\(dg)]}")
+    }
+
+    /// 1.11.0 jam 안에서 — 번호 추첨·직접 호명 때 명단에 그 번호가 있으면 이름도 함께 당첨으로
+    private func myeongDang(_ n: String) -> String {
+        let nm = s.myeong.first(where: { $0[0] == n })?[1] ?? ""
+        s.dangNm = nm
+        if !nm.isEmpty && !s.dangMyeong.contains(n + "|" + nm) { s.dangMyeong.append(n + "|" + nm) }
+        return nm
+    }
+
+    /// 1.11.0 이름 추첨 — 명단에서 아직 당첨되지 않은 한 사람
+    private func ireumChucheom() -> HjDap {
+        let now = Date()
+        jam.lock()
+        if s.myeong.isEmpty { jam.unlock(); return j("{\"ok\":false,\"mal\":\"명단이 없습니다. 명단을 먼저 넣어 주십시오\"}") }
+        let dset = Set(s.dangMyeong), dm = Set(s.dangMok)
+        let mp = s.myeong.filter { !dset.contains($0[0] + "|" + $0[1]) && !(!$0[0].isEmpty && dm.contains($0[0])) }
+        guard let y = mp.randomElement() else { jam.unlock(); return j("{\"ok\":false,\"mal\":\"명단의 모든 분이 이미 당첨되었습니다\"}") }
+        s.dangNm = y[1]; s.dangMyeong.append(y[0] + "|" + y[1]); s.dangcheom = y[0]
+        if !y[0].isEmpty && !s.dangMok.contains(y[0]) { s.dangMok.append(y[0]) }
+        s.dangSik = "i"; s.dangSeq += 1
+        let mal = "이름 추첨 당첨(명단 \(mp.count)명 중) " + y[1]
+        s.dangGirok.append(Girok(ttae: now, n: y[0], mal: mal))
+        let seq = s.dangSeq
+        let deunna = y[0].isEmpty ? false : (s.bhMok[y[0]].map { now.timeIntervalSince($0.maji) < 75 } ?? false)
+        jam.unlock()
+        girok("chulseok", hjModu.string(from: now) + "," + (y[0].isEmpty ? "-" : y[0]) + "," + mal.replacingOccurrences(of: ",", with: " "))
+        return j("{\"ok\":true,\"n\":\"\(y[0])\",\"nm\":\"\(hjJsn(y[1]))\",\"mo\":\(mp.count),\"seq\":\(seq),\"deunna\":\(deunna)}")
+    }
+
     private func chucheom(_ q: String) -> HjDap {
         let beom = HyeonjangGil.gap(q, "beom")
         let kkeut = Int(HyeonjangGil.gap(q, "kkeut")) ?? 0
@@ -543,17 +624,19 @@ final class HyeonjangGil {
         }
         if ppae { let d = Set(s.dangMok); pool.removeAll { d.contains($0) } }
         var ppob = ""
+        var pnm = ""   // 1.11.0
         let mal = "추첨 당첨(" + (beom == "modu" ? "1번부터 \(kkeut)번" : "지금 듣는 번호") + " \(pool.count)개 중)"
         if !pool.isEmpty {
             ppob = pool[Int.random(in: 0..<pool.count)]   // 아이폰의 안전한 난수
             s.dangcheom = ppob; s.dangSik = "r"; s.dangMok.append(ppob); s.dangSeq += 1
-            s.dangGirok.append(Girok(ttae: now, n: ppob, mal: mal))
+            pnm = myeongDang(ppob)   // 1.11.0
+            s.dangGirok.append(Girok(ttae: now, n: ppob, mal: mal + (pnm.isEmpty ? "" : " " + pnm)))
         }
         let seq = s.dangSeq
         jam.unlock()
         if ppob.isEmpty { return j("{\"ok\":false,\"mal\":\"뽑을 번호가 없습니다\"}") }
         girok("chulseok", hjModu.string(from: now) + "," + ppob + "," + mal)
-        return j("{\"ok\":true,\"n\":\"\(ppob)\",\"mo\":\(pool.count),\"seq\":\(seq)}")
+        return j("{\"ok\":true,\"n\":\"\(ppob)\",\"nm\":\"\(hjJsn(pnm))\",\"mo\":\(pool.count),\"seq\":\(seq)}")
     }
 
     private func dangcheom(_ q: String) -> HjDap {
@@ -564,12 +647,13 @@ final class HyeonjangGil {
         jam.lock()
         if s.dangMok.contains(n) { jam.unlock(); return j("{\"ok\":false,\"mal\":\"\(n)번은 이미 당첨된 번호입니다\"}") }
         s.dangMok.append(n); s.dangcheom = n; s.dangSik = "m"; s.dangSeq += 1
-        s.dangGirok.append(Girok(ttae: now, n: n, mal: "직접 호명 당첨"))
+        let hnm = myeongDang(n)   // 1.11.0
+        s.dangGirok.append(Girok(ttae: now, n: n, mal: "직접 호명 당첨" + (hnm.isEmpty ? "" : " " + hnm)))
         let seq = s.dangSeq
         let deunna = s.bhMok[n].map { now.timeIntervalSince($0.maji) < 75 } ?? false
         jam.unlock()
         girok("chulseok", hjModu.string(from: now) + "," + n + ",직접 호명 당첨")
-        return j("{\"ok\":true,\"n\":\"\(n)\",\"seq\":\(seq),\"deunna\":\(deunna)}")
+        return j("{\"ok\":true,\"n\":\"\(n)\",\"nm\":\"\(hjJsn(hnm))\",\"seq\":\(seq),\"deunna\":\(deunna)}")
     }
 
     // MARK: 행사 자료와 순서
@@ -1122,7 +1206,7 @@ final class HyeonjangGil {
         }
         L.append("")
         L.append("3. 행운권 추첨")
-        if x.dangGirok.isEmpty { L.append("추첨 없음") } else { for d in x.dangGirok { L.append("  " + hjSi.string(from: d.ttae) + " " + d.n + "번 " + d.mal) } }
+        if x.dangGirok.isEmpty { L.append("추첨 없음") } else { for d in x.dangGirok { L.append("  " + hjSi.string(from: d.ttae) + " " + (d.n.isEmpty ? "번호 없음" : d.n + "번") + " " + d.mal) } }
         L.append("")
         L.append("4. 식순과 중요한 순간 표시")
         var sunseo: [String] = []
@@ -1169,7 +1253,8 @@ final class HyeonjangGil {
             L.append("붙은 관계자: " + su.keys.sorted().map { $0 + " \(su[$0] ?? 0)명" }.joined(separator: ", "))
         }
         L.append("")
-        L.append("참고: 이 보고서는 듣는 분의 입장 번호만 모았으며 이름과 전화번호 같은 개인정보는 모으지 않았습니다.")
+        L.append(x.dangMyeong.isEmpty ? "참고: 이 보고서는 듣는 분의 입장 번호만 모았으며 이름과 전화번호 같은 개인정보는 모으지 않았습니다."
+                 : "참고: 행운권 이름 추첨 당첨자의 이름이 들어 있습니다. 그 밖에는 듣는 분의 입장 번호만 모았으며 전화번호 같은 개인정보는 모으지 않았습니다.")
         L.append("LVD 송출 아이폰 \(Bang.PAN)판 현장 기능(노트북판 현장 해설방송 3.3판과 같은 길)")
         return L
     }
@@ -1272,6 +1357,9 @@ final class HyeonjangGil {
         for (k, v) in x.gwanMok { b += "G|\(k)|\(v.r)|\(hjKan(v.nm))|\(c(v.cheo))|\(c(v.maji))\n" }
         b += "K|\(x.gwanKey)\n"
         b += "S|\(x.dangSeq)|\(x.dangcheom)|\(x.dangSik)\n"
+        for m in x.myeong { b += "R|\(m[0])|\(hjKan(m[1]))\n" }   // 1.11.0 이름 추첨
+        for k in x.dangMyeong { b += "N|\(k.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false).first ?? "")|\(hjKan(HyeonjangGil.myeongIreum(k)))\n" }
+        b += "M|\(hjKan(x.dangNm))\n"
         b += "C|\(x.deutChoeda)|\(c(x.deutChoedaT))\n"
         b += "Q|\(x.ycSeq)\n"
         b += "O|\(x.sunseoI)|\(c(x.sunseoT))\n"
@@ -1324,6 +1412,9 @@ final class HyeonjangGil {
                 if let a = hjCho(f[4]), let b = hjCho(f[5]) { s.gwanMok[f[1]] = Gwan(r: f[2], nm: f[3], cheo: a, maji: b) }
             case "K": s.gwanKey = f[1]
             case "S" where f.count >= 4: s.dangSeq = Int(f[1]) ?? 0; s.dangcheom = f[2]; s.dangSik = f[3]
+            case "R" where f.count >= 3: s.myeong.append([f[1], f[2]])   // 1.11.0
+            case "N" where f.count >= 3: s.dangMyeong.append(f[1] + "|" + f[2])
+            case "M": s.dangNm = f[1]
             case "C" where f.count >= 3: s.deutChoeda = Int(f[1]) ?? 0; s.deutChoedaT = hjCho(f[2])
             case "Q": s.ycSeq = Int(f[1]) ?? 0
             case "O" where f.count >= 3: s.sunseoI = Int(f[1]) ?? 0; s.sunseoT = hjCho(f[2])

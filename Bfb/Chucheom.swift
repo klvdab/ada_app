@@ -1,3 +1,4 @@
+// 2.8.0 덧붙임(빌드 261028-LI11, 새방클, 이사장님 승인 2026-10-28 「1」) 이름 추첨 — 당첨자 이름을 듣는 분 모두에게 한 번, 내가 당첨이면 이름도 함께.
 // LVD 방송 아이폰(듣는 앱) — 입장 번호와 행운권 추첨 당첨 알림 (2.8.0판, 빌드 261028-LI11, 새방클, 이사장님 승인 2026-10-28 「1」)
 // 안드로이드 LVD 방송 2.8.0(Chucheom.kt)과 같은 일. 노트북판 현장 해설방송 듣기 화면(deut.html)이 하던 일을 앱에도 넣음.
 // 1. 입장 번호: 첫 화면 「내 입장 번호」에 넣거나, 큐알·태그(lvdbangsong://deut?…&n=12&g=가)로 받음. 폰에 기억.
@@ -50,12 +51,13 @@ enum Chucheom {
     private static var bonTtae = Date.distantPast
     private static var mutneunJung = false
 
-    /// 듣기가 행사장에 붙어 있는 동안 1초마다 부름 — 때가 된 일만 함
+    private static var bonJari = ""
+    /// 듣기가 행사장에 붙어 있는 동안 1초마다 부름 — 때가 된 일만 함.
+    /// 2.8.0 덧붙임 이름 추첨 — 입장 번호가 없어도 당첨 보기는 하고, 당첨자 이름(dnm)이 오면 듣는 분 모두에게 한 번 알림
     static func salpigi() {
         let n = beonho
-        guard !n.isEmpty else { return }
         let now = Date()
-        if now.timeIntervalSince(bonaenTtae) >= 30 {
+        if !n.isEmpty && now.timeIntervalSince(bonaenTtae) >= 30 {
             bonaenTtae = now
             let g = guyeok
             var gil = "/beonho?n=\(n)"
@@ -73,18 +75,23 @@ enum Chucheom {
                 guard let d = d, let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] else { return }
                 let seq = (j["dseq"] as? Int) ?? Int("\(j["dseq"] ?? 0)") ?? 0
                 let dang = (j["dang"] as? String) ?? ""
-                guard seq > 0, !dang.isEmpty else { return }
-                let ki = jari + "#" + String(seq)
+                let dnm = (j["dnm"] as? String) ?? ""
+                guard seq > 0, !(dang.isEmpty && dnm.isEmpty) else { return }
+                let ki = jari + "#" + String(seq) + "#" + dang + "#" + dnm
+                let cheot = bonJari != jari   // 이 행사장에서 처음 본 상태 — 지난 추첨은 알리지 않음
+                bonJari = jari
                 if D.string(forKey: "dang_bon") == ki { return }
                 D.set(ki, forKey: "dang_bon")
-                if dang == beonho { allimHagi(dang) }
+                let nae = beonho
+                if !nae.isEmpty && dang == nae { allimHagi(dang, dnm) }
+                else if !cheot && !dnm.isEmpty { Deut.shared.dangcheomMal("행운권 추첨 당첨: " + dnm + " 님입니다.") }
             }
         }
     }
 
-    private static func allimHagi(_ n: String) {
+    private static func allimHagi(_ n: String, _ nm: String = "") {
         let g = guyeok
-        let mal = "축하합니다. " + (g.isEmpty ? "" : g + " 구역 ") + n + "번, 당첨되셨습니다. 진행요원이 찾아갑니다."
+        let mal = "축하합니다. " + (nm.isEmpty ? "" : nm + " 님, ") + (g.isEmpty ? "" : g + " 구역 ") + n + "번, 당첨되셨습니다. 진행요원이 찾아갑니다."
         BfbGirok.shared.namgi("dangcheom", ["ok": "1"])
         for k in 0..<3 {   // 길게 세 번
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(k) * 0.7) { AudioServicesPlayAlertSound(SystemSoundID(kSystemSoundID_Vibrate)) }

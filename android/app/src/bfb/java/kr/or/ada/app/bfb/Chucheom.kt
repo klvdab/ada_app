@@ -1,3 +1,4 @@
+// 2.8.0 덧붙임(빌드 261028-L12, 새방클, 이사장님 승인 2026-10-28 「1」) 이름 추첨 — 당첨자 이름을 듣는 분 모두에게 한 번, 내가 당첨이면 이름도 함께.
 // LVD 방송(듣는 앱) — 입장 번호와 행운권 추첨 당첨 알림 (2.8.0판, 빌드 261028-L12, 새방클, 이사장님 승인 2026-10-28 「1」)
 // 노트북판 현장 해설방송(9월 27일)의 듣기 화면(deut.html)이 하던 일을 앱에도 넣음 — 지금까지는 큐알로 여는 폰 인터넷 듣기 화면에서만 됐음.
 // 1. 입장 번호: 이용자가 첫 화면 「내 입장 번호」에 넣거나, 큐알·태그(lvdbangsong://deut?…&n=12&g=가)로 받음. 폰에 기억.
@@ -74,7 +75,8 @@ object Chucheom {
     @Volatile private var bonaenTtae = 0L
     @Volatile private var bonTtae = 0L
 
-    /** 듣기 일꾼이 행사장 듣는 동안 자주 부름 — 때가 된 일만 함(번호 알리기 30초, 당첨 보기 3초). 느린 일이라 듣기 줄기와 다른 일꾼에서 부를 것 */
+    /** 듣기 일꾼이 행사장 듣는 동안 자주 부름 — 때가 된 일만 함(번호 알리기 30초, 당첨 보기 3초). 느린 일이라 듣기 줄기와 다른 일꾼에서 부를 것.
+     *  2.8.0 덧붙임 이름 추첨 — 입장 번호가 없어도 당첨 보기는 하고, 당첨자 이름(dnm)이 오면 듣는 분 모두에게 한 번 알림 */
     fun salpigi(c: Context) {
         val now = System.currentTimeMillis()
         val n = beonho(c)
@@ -86,22 +88,26 @@ object Chucheom {
         }
         if (now - bonTtae < BOGI_GANGYEOK) return
         bonTtae = now
-        if (n.isEmpty()) return
         val t = Hyeonjang.mutgi(c, "/status", 2500) ?: return
         val j = try { JSONObject(t) } catch (_: Exception) { return }
         val seq = j.optInt("dseq", 0)
         val dang = j.optString("dang", "")
-        if (seq <= 0 || dang.isEmpty()) return
-        val ki = Hyeonjang.jari + "#" + seq
+        val dnm = j.optString("dnm", "")   // 이름 추첨 — 당첨자 이름(명단에 있을 때)
+        if (seq <= 0 || (dang.isEmpty() && dnm.isEmpty())) return
+        val ki = Hyeonjang.jari + "#" + seq + "#" + dang + "#" + dnm
+        val cheot = bonJari != Hyeonjang.jari   // 이 행사장에서 처음 본 상태 — 지난 추첨은 알리지 않음
+        bonJari = Hyeonjang.jari
         if (pref(c).getString("dang_bon", "") == ki) return
         pref(c).edit().putString("dang_bon", ki).apply()
-        if (dang == n) allim(c, n)
+        if (n.isNotEmpty() && dang == n) allim(c, n, dnm)
+        else if (!cheot && dnm.isNotEmpty()) Deut.bakkum("행운권 추첨 당첨: " + dnm + " 님입니다.", true)   // 이름 추첨 — 듣는 분 모두에게 한 번
     }
+    @Volatile private var bonJari = ""
 
     /** 당첨 — 진동, 알림 줄(소리), 첫 화면 말 한 번 */
-    private fun allim(c: Context, n: String) {
+    private fun allim(c: Context, n: String, nm: String = "") {
         val g = guyeok(c)
-        val mal = "축하합니다. " + (if (g.isEmpty()) "" else "$g 구역 ") + n + "번, 당첨되셨습니다. 진행요원이 찾아갑니다."
+        val mal = "축하합니다. " + (if (nm.isEmpty()) "" else "$nm 님, ") + (if (g.isEmpty()) "" else "$g 구역 ") + n + "번, 당첨되셨습니다. 진행요원이 찾아갑니다."
         try { Girok.namgi("dangcheom", mapOf("ok" to "1")) } catch (_: Exception) { }
         jindong(c)
         try {
