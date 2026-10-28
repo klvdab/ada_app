@@ -25,7 +25,9 @@ enum Chucheom {
         return x.isEmpty ? "0" : x
     }
 
-    static func dugi(_ n: String, _ g: String = "") {
+    static func dugi(_ n: String, _ g: String = "", son: Bool = true) {
+        // 자동 입장 번호 덧붙임 — 손으로(또는 번호 카드 큐알로) 넣은 번호는 그날은 자동 번호로 바꾸지 않음(지운 것도 그대로)
+        D.set(son, forKey: "ipjang_son"); D.set(oneul, forKey: "ipjang_nal")
         D.set(n, forKey: "ipjang_beonho")
         D.set(n.isEmpty ? "" : String(g.trimmingCharacters(in: .whitespaces).prefix(10)), forKey: "ipjang_guyeok")
         bonaenTtae = .distantPast
@@ -35,7 +37,7 @@ enum Chucheom {
 
     static var danchuMal: String {
         let n = beonho, g = guyeok
-        if n.isEmpty { return "내 입장 번호: 없음. 행운권 추첨이 있으면 누르고 번호를 넣습니다" }
+        if n.isEmpty { return "내 입장 번호: 없음. 행사장에서 들으시면 저절로 매겨집니다" }
         return "내 입장 번호: " + (g.isEmpty ? "" : g + " 구역 ") + n + "번. 누르면 바꿉니다"
     }
 
@@ -52,9 +54,36 @@ enum Chucheom {
     private static var mutneunJung = false
 
     private static var bonJari = ""
+    private static var jadongTtae = Date.distantPast
+    private static var jadongJung = false
+    private static var oneul: String { let f = DateFormatter(); f.dateFormat = "yyyyMMdd"; f.locale = Locale(identifier: "ko_KR"); return f.string(from: Date()) }
+
+    /// 자동 입장 번호(2.8.0 덧붙임, 이사장님 승인 2026-10-28 「모두 승인」) — 시각장애인은 종이 번호를 읽을 수 없으므로 방송이 번호를 매겨 줌.
+    /// 이 행사장(자리)에서 오늘 처음이면 /beonho_batgi 로 번호를 받아 기억하고 한 번 말함. 손으로 넣은 번호가 오늘 것이면 그대로 씀
+    private static func jadongBeonho() {
+        let ki = Hyeonjang.jari + "|" + oneul
+        if D.string(forKey: "ipjang_ki") == ki { return }
+        if D.bool(forKey: "ipjang_son") && D.string(forKey: "ipjang_nal") == oneul { D.set(ki, forKey: "ipjang_ki"); return }
+        guard !jadongJung, Date().timeIntervalSince(jadongTtae) >= 60 else { return }
+        jadongTtae = Date(); jadongJung = true
+        Hyeonjang.mutgi("/beonho_batgi?i=" + jid, ttae: 2.5) { d in
+            DispatchQueue.main.async {
+                jadongJung = false
+                guard let d = d, let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any], j["ok"] as? Bool == true,
+                      let n = dadeum((j["n"] as? String) ?? ""), !n.isEmpty else { return }
+                D.set(n, forKey: "ipjang_beonho"); D.set("", forKey: "ipjang_guyeok"); D.set(false, forKey: "ipjang_son")
+                D.set(oneul, forKey: "ipjang_nal"); D.set(ki, forKey: "ipjang_ki")
+                bonaenTtae = Date()
+                BfbGirok.shared.namgi("ipjang", ["jadong": "1"])
+                NotificationCenter.default.post(name: .init("lvdBeonhoBakkwim"), object: nil)
+                Deut.shared.dangcheomMal("이 행사의 입장 번호는 " + n + "번입니다. 행운권 추첨에 당첨되시면 폰이 울리고 알려 드립니다.")
+            }
+        }
+    }
     /// 듣기가 행사장에 붙어 있는 동안 1초마다 부름 — 때가 된 일만 함.
     /// 2.8.0 덧붙임 이름 추첨 — 입장 번호가 없어도 당첨 보기는 하고, 당첨자 이름(dnm)이 오면 듣는 분 모두에게 한 번 알림
     static func salpigi() {
+        jadongBeonho()
         let n = beonho
         let now = Date()
         if !n.isEmpty && now.timeIntervalSince(bonaenTtae) >= 30 {

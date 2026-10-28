@@ -151,6 +151,7 @@ def sangtae_bin():
         "nal": "", "pdkey": "",
         "bh": {}, "bhg": {},                       # 입장 번호 -> [처음, 마지막], 구역
         "dang": [], "dangcheom": "", "dangsik": "", "dangseq": 0, "danggirok": [],
+        "jabeon": {}, "jabeonda": 0,                # 1.6.0 자동 입장 번호 — 폰 이름표 -> 번호, 마지막으로 매긴 번호
         "myeong": [], "dangnm": "", "dangmyeong": [],   # 1.6.0 이름 추첨 — 명단 [번호, 이름], 지금 당첨 이름, 당첨된 명단 열쇠(번호|이름)
         "yc": [], "ycseq": 0, "ycgeuje": {},       # 요청 [번호, 시각글, 입장 번호, 종류, 처리, 때]
         "mal": [], "malseq": 0,                    # 해설사끼리 글
@@ -1095,7 +1096,7 @@ def jg_damgi():
     try:
         S = B.S
         bak = {}
-        for k in ("bh", "bhg", "dang", "dangcheom", "dangsik", "danggirok", "myeong", "dangnm", "dangmyeong", "yc", "ycgeuje", "mal", "gwan", "mj", "kam",
+        for k in ("bh", "bhg", "dang", "dangcheom", "dangsik", "danggirok", "myeong", "dangnm", "dangmyeong", "jabeon", "jabeonda", "yc", "ycgeuje", "mal", "gwan", "mj", "kam",
                   "choeda", "choedaT", "sunseoI", "sunseoT", "gin", "galnm", "mjk"):
             bak[k] = copy.deepcopy(S[k])
         B.jg_damgi = bak
@@ -1206,6 +1207,8 @@ def sangtae_nal_bogi():
             sae["bh"][n] = [now, now]
             if n in S["bhg"]:
                 sae["bhg"][n] = S["bhg"][n]
+    sae["jabeon"] = {i: n for i, n in (S.get("jabeon") or {}).items() if n in sae["bh"]}   # 1.6.0 켜진 뒤 받은 자동 번호는 남김
+    sae["jabeonda"] = max([int(n) for n in sae["jabeon"].values()] or [0])
     sae["nal"] = ymd()
     B.S = sae
     B.bulleoom = False
@@ -1684,6 +1687,38 @@ async def web(r, w, tls=False):
                 S["sunseoI"] = int(i)
                 S["sunseoT"] = jigeum()
             js(w, {"i": S["sunseoI"], "jinan": int(jigeum() - S["sunseoT"]) if S["sunseoT"] else -1})
+        elif uri == "/beonho_batgi":   # 1.6.0 자동 입장 번호 — 처음 들어온 폰에 차례 번호를 매겨 주고 기억(같은 폰은 같은 번호)
+            i = gap(q, "i")
+            if not re.match(r"^[A-Za-z0-9_-]{8,64}$", i):
+                js(w, {"ok": False}, 400)
+            else:
+                n = S["jabeon"].get(i, "")
+                sae = not n
+                if sae and len(S["jabeon"]) < 5000:
+                    sseum = set(S["jabeon"].values())
+                    k = int(S["jabeonda"] or 0)
+                    while True:
+                        k += 1
+                        if k > 9999:
+                            k = 0
+                            break
+                        if str(k) not in S["bh"] and str(k) not in sseum:
+                            break
+                    if k:
+                        n = str(k)
+                        S["jabeonda"] = k
+                        S["jabeon"][i] = n
+                if not n:
+                    js(w, {"ok": False, "mal": "번호를 더 매길 수 없습니다"})
+                else:
+                    now = jigeum()
+                    if n in S["bh"]:
+                        S["bh"][n][1] = now
+                    else:
+                        S["bh"][n] = [now, now]
+                        B.boot_bh.add(n)
+                        csv_jul("chulseok", ts(now) + "," + n + ",자동 번호로 처음 연결")
+                    js(w, {"ok": True, "n": n, "sae": sae})
         elif uri == "/beonho":
             n = gap(q, "n")
             if not susja(n):

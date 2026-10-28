@@ -48,8 +48,10 @@ object Chucheom {
     }
 
     /** 번호를 기억함 — 빈 글이면 지움. 바뀌면 다음 차례에 곧바로 서버에 알리게 함 */
-    fun dugi(c: Context, n: String, g: String = "") {
-        pref(c).edit().putString("ipjang_beonho", n).putString("ipjang_guyeok", if (n.isEmpty()) "" else g.trim().take(10)).apply()
+    fun dugi(c: Context, n: String, g: String = "", son: Boolean = true) {
+        // 자동 입장 번호 덧붙임 — 손으로(또는 번호 카드 큐알로) 넣은 번호는 그날은 자동 번호로 바꾸지 않음(지운 것도 그대로)
+        pref(c).edit().putString("ipjang_beonho", n).putString("ipjang_guyeok", if (n.isEmpty()) "" else g.trim().take(10))
+            .putBoolean("ipjang_son", son).putString("ipjang_nal", oneul()).apply()
         bonaenTtae = 0L
         try { Girok.namgi("ipjang", mapOf("issum" to (n.isNotEmpty()).toString())) } catch (_: Exception) { }   // 번호 자체는 남기지 않음
     }
@@ -57,7 +59,7 @@ object Chucheom {
     /** 첫 화면 단추 글 */
     fun danchuMal(c: Context): String {
         val n = beonho(c); val g = guyeok(c)
-        return if (n.isEmpty()) "내 입장 번호: 없음. 행운권 추첨이 있으면 누르고 번호를 넣습니다"
+        return if (n.isEmpty()) "내 입장 번호: 없음. 행사장에서 들으시면 저절로 매겨집니다"
         else "내 입장 번호: " + (if (g.isEmpty()) "" else "$g 구역 ") + n + "번. 누르면 바꿉니다"
     }
 
@@ -74,11 +76,35 @@ object Chucheom {
 
     @Volatile private var bonaenTtae = 0L
     @Volatile private var bonTtae = 0L
+    @Volatile private var jadongTtae = 0L
+    private fun oneul(): String = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.KOREA).format(java.util.Date())
+
+    /** 자동 입장 번호(2.8.0 덧붙임, 이사장님 승인 2026-10-28 「모두 승인」) — 시각장애인은 종이 번호를 읽을 수 없으므로 방송이 번호를 매겨 줌.
+     *  이 행사장(자리)에서 오늘 처음이면 /beonho_batgi 로 번호를 받아 기억하고 한 번 말함. 손으로 넣은 번호가 오늘 것이면 그대로 씀.
+     *  옛 판 방송 기기라 길이 없으면 1분 뒤 다시 물음 */
+    private fun jadongBeonho(c: Context, now: Long) {
+        val ki = Hyeonjang.jari + "|" + oneul()
+        val p = pref(c)
+        if (p.getString("ipjang_ki", "") == ki) return
+        if (p.getBoolean("ipjang_son", false) && p.getString("ipjang_nal", "") == oneul()) { p.edit().putString("ipjang_ki", ki).apply(); return }
+        if (now - jadongTtae < 60_000L) return
+        jadongTtae = now
+        val t = Hyeonjang.mutgi(c, "/beonho_batgi?i=" + jid(c), 2500) ?: return
+        val j = try { JSONObject(t) } catch (_: Exception) { return }
+        val n = dadeum(j.optString("n", "")) ?: return
+        if (!j.optBoolean("ok") || n.isEmpty()) return
+        p.edit().putString("ipjang_beonho", n).putString("ipjang_guyeok", "").putBoolean("ipjang_son", false)
+            .putString("ipjang_nal", oneul()).putString("ipjang_ki", ki).apply()
+        bonaenTtae = now
+        try { Girok.namgi("ipjang", mapOf("jadong" to "1")) } catch (_: Exception) { }
+        Deut.bakkum("이 행사의 입장 번호는 " + n + "번입니다. 행운권 추첨에 당첨되시면 폰이 울리고 알려 드립니다.", true)
+    }
 
     /** 듣기 일꾼이 행사장 듣는 동안 자주 부름 — 때가 된 일만 함(번호 알리기 30초, 당첨 보기 3초). 느린 일이라 듣기 줄기와 다른 일꾼에서 부를 것.
      *  2.8.0 덧붙임 이름 추첨 — 입장 번호가 없어도 당첨 보기는 하고, 당첨자 이름(dnm)이 오면 듣는 분 모두에게 한 번 알림 */
     fun salpigi(c: Context) {
         val now = System.currentTimeMillis()
+        jadongBeonho(c, now)
         val n = beonho(c)
         if (n.isNotEmpty() && now - bonaenTtae >= BONAEGI_GANGYEOK) {
             bonaenTtae = now

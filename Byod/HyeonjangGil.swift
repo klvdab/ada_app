@@ -161,6 +161,9 @@ final class HyeonjangGil {
         var myeong: [[String]] = []
         var dangNm = ""
         var dangMyeong: [String] = []
+        // 1.11.0 자동 입장 번호 — 폰 이름표 -> 번호, 마지막으로 매긴 번호
+        var jabeon: [String: String] = [:]
+        var jabeonDa = 0
         var sunseoI = 0
         var sunseoT: Date? = nil
         var deutMok: [String: Deutnun] = [:]
@@ -329,6 +332,7 @@ final class HyeonjangGil {
         case "/batgi":
             if !heoga { return HjDap.geul("없는 주소입니다.", 404) }
             return batgi(q)
+        case "/beonho_batgi": return beonhoBatgi(q)   // 1.11.0 자동 입장 번호
         case "/beonho":
             if rq.loop && HyeonjangGil.gap(q, "n").isEmpty { return HjDap.geul(pdKey, 200, type: "text/plain") }
             return beonho(q)
@@ -509,6 +513,27 @@ final class HyeonjangGil {
         jam.unlock()
         if sae { girok("chulseok", hjModu.string(from: now) + "," + n + ",처음 연결") }
         return j("{\"ok\":true,\"n\":\"\(n)\"}")
+    }
+
+    /// 1.11.0 자동 입장 번호 — 처음 들어온 폰에 차례 번호를 매겨 주고 기억(같은 폰은 같은 번호)
+    private func beonhoBatgi(_ q: String) -> HjDap {
+        let i = HyeonjangGil.gap(q, "i")
+        guard (8...64).contains(i.count), i.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") }) else { return j("{\"ok\":false}", 400) }
+        let now = Date()
+        jam.lock()
+        var n = s.jabeon[i] ?? ""
+        var sae = false, cheo = false
+        if n.isEmpty && s.jabeon.count < 5000 {
+            let sseum = Set(s.jabeon.values)
+            var k = s.jabeonDa
+            while true { k += 1; if k > 9999 { k = 0; break }; if s.bhMok[String(k)] == nil && !sseum.contains(String(k)) { break } }
+            if k > 0 { n = String(k); s.jabeonDa = k; s.jabeon[i] = n; sae = true }
+        }
+        if !n.isEmpty { if s.bhMok[n] != nil { s.bhMok[n]?.maji = now } else { s.bhMok[n] = Bh(cheo: now, maji: now); cheo = true } }
+        jam.unlock()
+        if n.isEmpty { return j("{\"ok\":false,\"mal\":\"번호를 더 매길 수 없습니다\"}") }
+        if cheo { girok("chulseok", hjModu.string(from: now) + "," + n + ",자동 번호로 처음 연결") }
+        return j("{\"ok\":true,\"n\":\"\(n)\",\"sae\":\(sae)}")
     }
 
     private func chulseok() -> HjDap {
@@ -1360,6 +1385,8 @@ final class HyeonjangGil {
         for m in x.myeong { b += "R|\(m[0])|\(hjKan(m[1]))\n" }   // 1.11.0 이름 추첨
         for k in x.dangMyeong { b += "N|\(k.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false).first ?? "")|\(hjKan(HyeonjangGil.myeongIreum(k)))\n" }
         b += "M|\(hjKan(x.dangNm))\n"
+        for (k, v) in x.jabeon { b += "T|\(hjKan(k))|\(v)\n" }   // 1.11.0 자동 입장 번호
+        b += "E|\(x.jabeonDa)\n"
         b += "C|\(x.deutChoeda)|\(c(x.deutChoedaT))\n"
         b += "Q|\(x.ycSeq)\n"
         b += "O|\(x.sunseoI)|\(c(x.sunseoT))\n"
@@ -1415,6 +1442,8 @@ final class HyeonjangGil {
             case "R" where f.count >= 3: s.myeong.append([f[1], f[2]])   // 1.11.0
             case "N" where f.count >= 3: s.dangMyeong.append(f[1] + "|" + f[2])
             case "M": s.dangNm = f[1]
+            case "T" where f.count >= 3: s.jabeon[f[1]] = f[2]   // 1.11.0
+            case "E": s.jabeonDa = Int(f[1]) ?? 0
             case "C" where f.count >= 3: s.deutChoeda = Int(f[1]) ?? 0; s.deutChoedaT = hjCho(f[2])
             case "Q": s.ycSeq = Int(f[1]) ?? 0
             case "O" where f.count >= 3: s.sunseoI = Int(f[1]) ?? 0; s.sunseoT = hjCho(f[2])

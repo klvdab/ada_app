@@ -324,6 +324,7 @@ class BangsongActivity : Activity() {
         deutDanchu.text = if (Deut.kyeojim) "듣기 멈추기" else "지금 현장영상해설 듣기"
         val t = Deut.sangtae
         if (t != boyeojunGeul) { sangtae.text = t; boyeojunGeul = t }
+        if (::beonhoDanchu.isInitialized) { val bm = Chucheom.danchuMal(this); if (beonhoDanchu.text.toString() != bm) beonhoDanchu.text = bm }   // 자동 입장 번호가 매겨지면 단추 글도
         // 2.5.0 영상으로 보기 — 듣는 인터넷 방송이 바뀔 때만 고침
         val bb = Deut.bogiBang
         val bk = bb?.sid ?: ""

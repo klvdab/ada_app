@@ -159,6 +159,9 @@ object HyeonjangSeobeo {
     private val myeong = ArrayList<Array<String>>()
     private var dangNm = ""
     private val dangMyeong = ArrayList<String>()
+    // 1.11.0 자동 입장 번호 — 폰 이름표 -> 번호, 마지막으로 매긴 번호
+    private val jabeon = LinkedHashMap<String, String>()
+    private var jabeonDa = 0
     private var sunseoI = 0
     private var sunseoT = 0L
     private class DeutJul(val ttae: Long, val kkeun: Int, val n: String)
@@ -233,7 +236,7 @@ object HyeonjangSeobeo {
     private fun bium() {
         synchronized(garak) {
             bhMok.clear(); bhGuyeok.clear(); dangMok.clear(); dangcheom = ""; dangSeq = 0; dangSik = ""; dangGirok.clear()
-            myeong.clear(); dangNm = ""; dangMyeong.clear()   // 1.11.0
+            myeong.clear(); dangNm = ""; dangMyeong.clear(); jabeon.clear(); jabeonDa = 0   // 1.11.0
             sunseoI = 0; sunseoT = 0L; deutMok.clear(); ycMok.clear(); ycSeq = 0; ycGeuje.clear(); malMok.clear(); malSeq = 0
             kamMok.clear(); deutChoeda = 0; deutChoedaT = 0L; gwanKey = ""; gwanMok.clear(); mjMok.clear(); mjSeq = 0
             ginGirok.clear(); pyosiMok.clear(); Bang.ginMal = ""
@@ -368,7 +371,7 @@ object HyeonjangSeobeo {
             "/jadong" -> return Dap.json("{\"mal\":\"" + jsn2(jadongMal) + "\",\"teo\":\"" + jsn2(haengsaTeo()?.path ?: "") + "\"}")
             "/bogoseo", "/bogoseo.txt" -> return bogoCheori(gil, heoga)
             "/jaryo", "/jaryo_badgi", "/sunseo" -> return haeseol(gil, q)
-            "/beonho", "/chulseok", "/chucheom", "/dangcheom", "/myeongdan" -> return beonho(gil, q, heoga, m.body)
+            "/beonho", "/chulseok", "/chucheom", "/dangcheom", "/myeongdan", "/beonho_batgi" -> return beonho(gil, q, heoga, m.body)
             "/jiyeon" -> {
                 val id = gap(q, "i")
                 val ms = gap(q, "d").toDoubleOrNull()
@@ -517,6 +520,24 @@ object HyeonjangSeobeo {
 
     private fun beonho(gil: String, q: String, heoga: Boolean, body: ByteArray = ByteArray(0)): Dap {
         val t = now()
+        if (gil == "/beonho_batgi") {   // 1.11.0 자동 입장 번호 — 처음 들어온 폰에 차례 번호를 매겨 주고 기억(같은 폰은 같은 번호)
+            val i = gap(q, "i")
+            if (!Regex("^[A-Za-z0-9_-]{8,64}$").matches(i)) return Dap.json("{\"ok\":false}", 400)
+            var n = ""; var sae = false; var cheo = false
+            synchronized(garak) {
+                n = jabeon[i] ?: ""
+                if (n.isEmpty() && jabeon.size < 5000) {
+                    val sseum = HashSet(jabeon.values)
+                    var k = jabeonDa
+                    while (true) { k++; if (k > 9999) { k = 0; break }; if (!bhMok.containsKey(k.toString()) && !sseum.contains(k.toString())) break }
+                    if (k > 0) { n = k.toString(); jabeonDa = k; jabeon[i] = n; sae = true }
+                }
+                if (n.isNotEmpty()) { val v = bhMok[n]; if (v != null) v[1] = t else { bhMok[n] = longArrayOf(t, t); cheo = true } }
+            }
+            if (n.isEmpty()) return Dap.json("{\"ok\":false,\"mal\":\"번호를 더 매길 수 없습니다\"}")
+            if (cheo) dotgi("chulseok_" + nal() + ".csv", ts(t) + "," + n + ",자동 번호로 처음 연결\r\n")
+            return Dap.json("{\"ok\":true,\"n\":\"$n\",\"sae\":$sae}")
+        }
         if (gil == "/beonho") {
             var n = gap(q, "n")
             if (!susja(n)) return Dap.json("{\"ok\":false}", 400)
@@ -1143,6 +1164,8 @@ object HyeonjangSeobeo {
             for (x in myeong) sb.append("R|").append(x[0]).append('|').append(ppae(x[1])).append('\n')   // 1.11.0 이름 추첨
             for (k in dangMyeong) sb.append("X|").append(ppae(k.substringBefore('|'))).append('|').append(ppae(k.substringAfter('|'))).append('\n')
             sb.append("H|").append(ppae(dangNm)).append('\n')
+            for ((k, v) in jabeon) sb.append("J|").append(ppae(k)).append('|').append(v).append('\n')   // 1.11.0 자동 입장 번호
+            sb.append("E|").append(jabeonDa).append('\n')
             for ((k, v) in gwanMok) sb.append("G|").append(k).append('|').append(v[0]).append('|').append(ppae(v[1])).append('|').append(v[2]).append('|').append(v[3]).append('\n')
             sb.append("K|").append(gwanKey).append('\n')
             sb.append("S|").append(dangSeq).append('|').append(dangcheom).append('|').append(dangSik).append('\n')
@@ -1182,6 +1205,8 @@ object HyeonjangSeobeo {
                         "R" -> if (f.size >= 3) myeong.add(arrayOf(f[1], f[2]))   // 1.11.0
                         "X" -> if (f.size >= 3) dangMyeong.add(f[1] + "|" + f[2])
                         "H" -> dangNm = f[1]
+                        "J" -> if (f.size >= 3) jabeon[f[1]] = f[2]   // 1.11.0
+                        "E" -> jabeonDa = f[1].toInt()
                         "G" -> if (f.size >= 6) gwanMok[f[1]] = arrayOf(f[2], f[3], f[4], f[5])
                         "K" -> gwanKey = f[1]
                         "S" -> if (f.size >= 4) { dangSeq = f[1].toInt(); dangcheom = f[2]; dangSik = f[3] }
@@ -1238,7 +1263,8 @@ object HyeonjangSeobeo {
         val bhMok: Map<String, LongArray>, val bhGuyeok: Map<String, String>, val deutChoeda: Int, val deutChoedaT: Long, val ginMal: String,
         val ginGirok: List<String>, val pyosiMok: List<String>, val galIreum: Array<String>,
         val manjokQ: String, val manjokSeq: Int, val manjokMuleum: Map<Int, String>, val manjokDap: Map<String, Manjok>,
-        val myeong: List<Array<String>> = emptyList(), val dangNm: String = "", val dangMyeong: List<String> = emptyList())   // 1.11.0
+        val myeong: List<Array<String>> = emptyList(), val dangNm: String = "", val dangMyeong: List<String> = emptyList(),   // 1.11.0
+        val jabeon: Map<String, String> = emptyMap(), val jabeonDa: Int = 0)
 
     private fun jgDamgi(): Boolean = try {
         synchronized(garak) {
@@ -1248,7 +1274,7 @@ object HyeonjangSeobeo {
                 bhMok.mapValues { it.value.copyOf() }, HashMap(bhGuyeok), deutChoeda, deutChoedaT, Bang.ginMal,
                 ArrayList(ginGirok), ArrayList(pyosiMok), galIreum.copyOf(),
                 manjokQ, manjokSeq, LinkedHashMap(manjokMuleum), LinkedHashMap(manjokDap),
-                myeong.map { it.copyOf() }, dangNm, ArrayList(dangMyeong))
+                myeong.map { it.copyOf() }, dangNm, ArrayList(dangMyeong), LinkedHashMap(jabeon), jabeonDa)
         }
         true
     } catch (_: Exception) { false }
@@ -1261,6 +1287,7 @@ object HyeonjangSeobeo {
                 // 점검 중에 늘어난 당첨 순번은 그대로 둠(듣는 화면이 같은 순번을 다시 보지 않게 — 노트북판도 dangSeq 를 되돌리지 않음)
                 dangGirok.clear(); dangGirok.addAll(b.dangGirok)
                 myeong.clear(); myeong.addAll(b.myeong); dangNm = b.dangNm; dangMyeong.clear(); dangMyeong.addAll(b.dangMyeong)   // 1.11.0
+                jabeon.clear(); jabeon.putAll(b.jabeon); jabeonDa = b.jabeonDa
                 sunseoI = b.sunseoI; sunseoT = b.sunseoT
                 ycMok.clear(); ycMok.addAll(b.ycMok)
                 malMok.clear(); malMok.addAll(b.malMok)
