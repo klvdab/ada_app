@@ -97,6 +97,7 @@ final class Bang: ObservableObject {
 
     func nagagi(malHagi: Bool = true) {
         sigye?.invalidate(); sigye = nil
+        BuKan.shared.datgi()   // 0.2.0 함께하기 칸 닫음(화상에 들어가 있었으면 나감)
         UIApplication.shared.isIdleTimerDisabled = false
         if deureoom { Girok.shared.namgi("sueop_nagam", ["bang": beonho, "jang": s.jang]) }
         if deureoom && malHagi { chatMal = "수업에서 나왔습니다. 같은 방 번호로 언제든 다시 들어오실 수 있습니다." }

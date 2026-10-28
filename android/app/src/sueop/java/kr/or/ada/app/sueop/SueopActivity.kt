@@ -54,8 +54,8 @@ import java.util.concurrent.Executors
 class SueopActivity : Activity() {
 
     companion object {
-        const val PAN = "0.1.1"   // 0.1.1(261021-S2) 도움말 「번호가 틀리면」을 실제 알림 말과 맞춤(새방클, 이사장님 승인 2026-10-21 「1」). 0.1.0(261020-S1) LVD 수업 안드로이드 첫 판 — 웹 수업 보기 0.2판의 기능 모두와 바뀐 일만 알림·그림 크게 보기·글자 크기·지난번 방·도움말·새 판 알림·이용 기록(방클, 이사장님 승인 2026-10-20 「단독으로 가자」)
-        const val BILD = "261021-S2"
+        const val PAN = "0.2.0"   // 0.2.0(261028-S3) 수업 화면 안에 「함께하기 칸」 — 웹과 같은 질문 손들기·예상문제 풀이·검정 시험·화상 수업(방클, 이사장님 승인 2026-10-28 「1」).  0.1.1(261021-S2) 도움말 「번호가 틀리면」을 실제 알림 말과 맞춤(새방클, 이사장님 승인 2026-10-21 「1」). 0.1.0(261020-S1) LVD 수업 안드로이드 첫 판 — 웹 수업 보기 0.2판의 기능 모두와 바뀐 일만 알림·그림 크게 보기·글자 크기·지난번 방·도움말·새 판 알림·이용 기록(방클, 이사장님 승인 2026-10-20 「단독으로 가자」)
+        const val BILD = "261028-S3"
         const val API = "https://lvd.ada.or.kr/sueop/sueop.php"
         const val BAN = "https://lvd.ada.or.kr/sueop/bang/"
     }
@@ -139,6 +139,7 @@ class SueopActivity : Activity() {
     private var keugeDialog: Dialog? = null
     private var keugeView: KeugeImage? = null
     private var keugeJul: TextView? = null
+    private val buKan by lazy { BuKan(this) }   // 0.2.0 함께하기 칸(손들기·풀이·시험·화상) — 하나만 만들어 살려 둠
 
     private val tik = object : Runnable {
         override fun run() { if (sallim) { bogi(); h.postDelayed(this, 1500) } }
@@ -200,10 +201,17 @@ class SueopActivity : Activity() {
         try { tts?.shutdown() } catch (_: Exception) { }
         Ollim.byeonhwa = null; Ollim.malhagi = null
         Girok.jeojang()
+        buKan.kkeutnaegi()
         super.onDestroy()
     }
 
     override fun onStop() { Girok.jeojang(); super.onStop() }
+
+    @Deprecated("Deprecated in Java")
+    override fun onRequestPermissionsResult(code: Int, perms: Array<out String>, res: IntArray) {
+        super.onRequestPermissionsResult(code, perms, res)
+        buKan.heolakGyeolgwa(code)   // 0.2.0 화상 수업 카메라·마이크 허락
+    }
 
     // ───── 꾸밈 ─────
     private fun dp(v: Int): Int = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics).toInt()
@@ -351,6 +359,7 @@ class SueopActivity : Activity() {
         h.removeCallbacks(tik)
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         keugeDialog?.dismiss(); keugeDialog = null
+        buKan.datgi()   // 0.2.0 함께하기 칸 닫음(화상에 들어가 있었으면 나감)
         if (deureoom) Girok.namgi("sueop_nagam", mapOf("bang" to beonho, "jang" to s.jang))
         val doem = deureoom
         deureoom = false
@@ -536,6 +545,7 @@ class SueopActivity : Activity() {
         mom.addView(kkeunkimJul)
         allimJul = geul("", 21f, true, Saek.norang)
         mom.addView(allimJul)
+        buKan.yeolgi(beonho); buKan.buchigi(mom)   // 0.2.0 함께하기 칸 — 웹 수업 보기처럼 맨 위쪽에
         geurimView = GariImage(this).apply {
             adjustViewBounds = true
             scaleType = ImageView.ScaleType.FIT_CENTER

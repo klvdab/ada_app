@@ -9,8 +9,8 @@ import UIKit
 import AVFoundation
 
 enum Pan {
-    static let PAN = "0.1.1"   // 0.1.1(261021-SI2) 도움말 「번호가 틀리면」을 실제 알림 말과 맞춤(새방클, 이사장님 승인 2026-10-21 「1」). 0.1.0(261020-SI1) LVD 수업 아이폰 첫 판 — 웹 수업 보기 0.2판의 기능 모두와 바뀐 일만 알림·그림 크게 보기·글자 크기·지난번 방·도움말·새 판 알림·이용 기록(방클, 이사장님 승인 2026-10-20 「단독으로 가자」)
-    static let BILD = "261021-SI2"
+    static let PAN = "0.2.0"   // 0.2.0(261028-SI3) 수업 화면 안에 「함께하기 칸」 — 웹과 같은 질문 손들기·예상문제 풀이·검정 시험·화상 수업(방클, 이사장님 승인 2026-10-28 「1」).  0.1.1(261021-SI2) 도움말 「번호가 틀리면」을 실제 알림 말과 맞춤(새방클, 이사장님 승인 2026-10-21 「1」). 0.1.0(261020-SI1) LVD 수업 아이폰 첫 판 — 웹 수업 보기 0.2판의 기능 모두와 바뀐 일만 알림·그림 크게 보기·글자 크기·지난번 방·도움말·새 판 알림·이용 기록(방클, 이사장님 승인 2026-10-20 「단독으로 가자」)
+    static let BILD = "261028-SI3"
 }
 
 @main
@@ -182,6 +182,7 @@ struct CheotHwamyeon: View {
 struct SueopHwamyeon: View {
     let doumalYeolgi: () -> Void
     @ObservedObject private var bang = Bang.shared
+    @ObservedObject private var bu = BuKan.shared   // 0.2.0 함께하기 칸 높이
     @State private var nagalkka = false
     @State private var keuge = false
     @State private var geulKeugi: Double = UserDefaults.standard.object(forKey: "geul_keugi") as? Double ?? 22
@@ -203,6 +204,10 @@ struct SueopHwamyeon: View {
                 if bang.kkeunkim {
                     Geul("수업 화면과 잠시 끊겼습니다. 저절로 다시 잇습니다.", gulgeum: true, saek: Saek.norang)
                 }
+                // 0.2.0 함께하기 칸(질문 손들기·예상문제 풀이·검정 시험·화상 수업) — 웹 수업 보기처럼 맨 위쪽에
+                BuKanView()
+                    .frame(height: bu.nopi)
+                    .onAppear { BuKan.shared.yeolgi(bang.beonho) }
                 if s.kkeut != 0 {
                     Geul("수업을 마쳤습니다. 수고하셨습니다.", gulgeum: true, saek: Saek.norang)
                 } else if s.jang <= 0 {
