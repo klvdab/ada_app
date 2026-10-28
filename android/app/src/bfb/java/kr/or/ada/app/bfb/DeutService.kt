@@ -1,3 +1,4 @@
+// 2.8.0(빌드 261028-L12, 새방클, 이사장님 승인 2026-10-28 「1」): 행사장에서 듣는 동안 입장 번호 알리기·행운권 당첨 보기(Chucheom)를 따로 도는 일꾼으로.
 // LVD 방송(듣는 앱) — 지금 현장영상해설 듣기 일꾼 (2.2.0판, 빌드 261018-L3, 방클, 이사장님 승인 「1」 — LVD 방송 정리안)
 // 2.5.0(빌드 261024-L7): 듣고 있는 인터넷 방송에 영상이 실려 있으면(중계 /moklok·/sangtae 의 hls·yeongsang) Deut.bogiBang 에 두어
 //   첫 화면에 「영상으로 보기」를 띄움. 영상을 보는 동안(Deut.bogiJung)은 소리를 쉬어 겹치지 않게 하고, 나오면 같은 방송을 이어 들려 드림.
@@ -56,6 +57,7 @@ object Deut {
     @Volatile var goreun = ""                                // 2.2.0 화면에서 고른 방 번호
     @Volatile var bogiBang: InteonetBang? = null             // 2.5.0 지금 듣는 인터넷 방송이 영상으로도 볼 수 있으면 그 방송
     @Volatile var bogiJung = false                           // 2.5.0 영상으로 보는 중 — 듣기 일꾼은 소리를 쉼
+    @Volatile var hyeonjangJung = false                      // 2.8.0 (261028-L12) 지금 행사장(BYOD 방송)에 붙어 있는가 — 추첨 일꾼이 봄
     const val JUNGYE = "https://lvd.ada.or.kr:2053"
     val gwanchal = mutableListOf<() -> Unit>()
     var mal: ((String) -> Unit)? = null   // 한 번만 알릴 말(화면이 있으면 화면이, 없으면 알림 줄이)
@@ -91,6 +93,7 @@ class DeutService : Service() {
     @Volatile private var dasiCheong = false     // 통화 때문에 소리 자리를 아주 잃음 — 통화가 끝나면 곧바로 다시 청함
     private var jamsiCho = 0                      // 통화가 끝난 뒤 소리 자리를 기다린 초
     private var il: Thread? = null
+    private var chucheomIl: Thread? = null   // 2.8.0 (261028-L12) 입장 번호 알리기·당첨 보기 — 듣기 줄기를 막지 않게 따로
     private var kon: HttpURLConnection? = null
     private var gaksi: PowerManager.WakeLock? = null
     private lateinit var am: AudioManager
@@ -155,6 +158,7 @@ class DeutService : Service() {
             wifiJabgi()   // 2.5.1 (261025-L8) 인터넷 없는 행사장 와이파이를 폰이 버리지 않게 붙잡아 둠
             Deut.bakkum("현장영상해설을 찾고 있습니다.", false)
             il = Thread({ dolligi() }, "lvd-deutgi").also { it.priority = Thread.MAX_PRIORITY; it.start() }
+            chucheomIl = Thread({ while (dolgo) { if (Deut.hyeonjangJung) try { Chucheom.salpigi(applicationContext) } catch (_: Exception) { }; try { Thread.sleep(1000) } catch (_: InterruptedException) { break } } }, "lvd-chucheom").also { it.start() }   // 2.8.0
             Deut.allyeo()
         }
         return START_STICKY
@@ -168,6 +172,8 @@ class DeutService : Service() {
         Deut.bogiBang = null   // 2.5.0
         try { kon?.disconnect() } catch (_: Exception) { }
         il?.interrupt()
+        chucheomIl?.interrupt()   // 2.8.0
+        Deut.hyeonjangJung = false
         try { unregisterReceiver(songchulBaram) } catch (_: Exception) { }
         try { unregisterReceiver(kkeugiBaram) } catch (_: Exception) { }
         try { if (Build.VERSION.SDK_INT >= 26) focusReq?.let { am.abandonAudioFocusRequest(it) } else @Suppress("DEPRECATION") am.abandonAudioFocus(focusBaram) } catch (_: Exception) { }
@@ -244,6 +250,7 @@ class DeutService : Service() {
             val jm0 = if (n != null) Hyeonjang.salpigi(this) else null   // 2.4.0 아무 와이파이나 붙어 있어도 방송이 답해야 행사장
             if (n == null || jm0 == null) {
                 Deut.deullim = false
+                Deut.hyeonjangJung = false   // 2.8.0
                 val now = System.currentTimeMillis()
                 if (beoseonaTtae == 0L) beoseonaTtae = now
                 if (!beoseonaAllim && !cheotYeongyeol && now - beoseonaTtae > 8000) {
@@ -255,6 +262,7 @@ class DeutService : Service() {
                 if (s != null) { inteonetTeulgi(s); continue }
                 swigiGoreum(10_000); continue
             }
+            Deut.hyeonjangJung = true   // 2.8.0 행사장 — 추첨 일꾼이 입장 번호를 알리고 당첨을 봄
             // 2.7.0 (261026-L11) 오푸스(시험) — 송출이 오푸스도 내보내면 오푸스로, 없으면(없는 주소) 30초 동안은 묻지 않고 아래 지금 방식으로
             if (System.currentTimeMillis() >= opusSwim) {
                 val dap = opusDeutgi(n, jm0, beoseonaAllim && !cheotYeongyeol)

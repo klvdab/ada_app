@@ -1,3 +1,4 @@
+// 2.8.0(빌드 261028-LI11, 새방클, 이사장님 승인 2026-10-28 「1」): 행사장에서 듣는 동안 1초마다 Chucheom.salpigi(입장 번호 알리기·당첨 보기).
 // LVD 방송 아이폰(듣는 앱) — 지금 현장영상해설 듣기 (2.2.0판, 빌드 261018-LI3, 방클, 이사장님 승인 「1」 — LVD 방송 정리안)
 // 2.2.0: 단추 하나로 — 행사장(행사장 와이파이)이면 현장 방송을, 아니면 인터넷 방송을 저절로 골라 앱 안에서 틉니다.
 //   현장 방송: 192.168.8.2:7880/stream (뮤 8비트 1초에 16000, 늦음이 가장 적음) — 행사장 와이파이로만
@@ -59,6 +60,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
     private var beoseona = false
     private var cheot = true
     private var dasiTimer: Timer?
+    private var chucheomTimer: Timer?   // 2.8.0 (261028-LI11) 입장 번호 알리기·당첨 보기 — 행사장에서 듣는 동안만
     private var namjin = Data()
     private var gameun = false   // 엔진을 붙였는가
     // 2.7.0 (261026-LI10, 새방클, 이사장님 승인 2026-10-26) 오푸스(시험) — 송출이 /opus 를 내보내면 그것으로(48000), 없으면 지금 방식(/stream)
@@ -132,13 +134,19 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
         butgi()
         dasiTimer?.invalidate()
         dasiTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.salpigi() }
+        chucheomTimer?.invalidate()   // 2.8.0
+        chucheomTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in if let s = self, s.gil == .hyeonjang { Chucheom.salpigi() } }
     }
+
+    /// 2.8.0 행운권 당첨 — 상태 줄에 두고 한 번 말함
+    func dangcheomMal(_ t: String) { bakkum(t, malhal: true) }
 
     func kkeugi(son: Bool) {
         guard kyeojim else { return }
         if son { sonMeomchum = true }
         kyeojim = false
         dasiTimer?.invalidate(); dasiTimer = nil
+        chucheomTimer?.invalidate(); chucheomTimer = nil   // 2.8.0
         task?.cancel(); task = nil
         session?.invalidateAndCancel(); session = nil
         avpKkeugi()

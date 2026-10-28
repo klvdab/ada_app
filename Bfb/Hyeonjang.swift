@@ -72,6 +72,8 @@ enum Hyeonjang {
         let w = (q.first(where: { $0.name == "w" })?.value ?? "").trimmingCharacters(in: .whitespaces)
         let p = q.first(where: { $0.name == "p" })?.value ?? ""
         BfbGirok.shared.namgi("hanbeon", ["w": w])
+        // 2.8.0 (261028-LI11) 번호 카드 큐알·태그에 입장 번호(n)와 구역(g)이 실려 오면 그 번호로 정함
+        if let bn = Chucheom.dadeum(q.first(where: { $0.name == "n" })?.value ?? ""), !bn.isEmpty { Chucheom.dugi(bn, q.first(where: { $0.name == "g" })?.value ?? "") }
         func deutgi(_ m: String) {
             DispatchQueue.main.async {
                 UIAccessibility.post(notification: .announcement, argument: m)

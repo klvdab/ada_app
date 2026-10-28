@@ -1,3 +1,4 @@
+// 2.8.0(빌드 261028-L12): 도움 요청 아래 「내 입장 번호」(넣기·지우기). 번호 카드 큐알·태그의 n·g 도 받음.
 // LVD 방송(듣는 앱) — 첫 화면 (2.2.0판, 빌드 261018-L3, 방클, 이사장님 승인 「1」 — LVD 방송 정리안)
 // 이사장님 뜻: 듣는 분께는 들을 것만. 방송 방식·공유기 같은 말은 어디에도 보이지 않게.
 // 첫 화면 차례(2.2.0): 협회 로고와 이름 → 「지금 현장영상해설 듣기」(큰 단추, 커서, 행사장이면 현장 방송·아니면 인터넷 방송) → 상태 한 줄(바뀔 때만 알림)
@@ -38,8 +39,8 @@ import java.util.Locale
 class BangsongActivity : Activity() {
 
     companion object {
-        const val PAN = "2.7.0"   // 2.7.0(261026-L11) 오푸스(시험) — 송출이 오푸스도 내보내면 저절로 오푸스로 듣고, 없으면 지금 방식(새방클, 이사장님 승인 2026-10-26). 2.6.1(261026-L10) 현장영상해설 소리 더 크게(보통·두 배·네 배, 새방클, 이사장님 지시 2026-10-26). 2.6.0(261025-L9) 한 번에 듣기 — 송출 앱이 만든 엔에프시 태그·큐알로 앱이 열리고 행사장 와이파이에 붙어 곧바로 들림(새방클, 이사장님 승인 2026-10-25). 2.5.1(261025-L8) 인터넷 없는 행사장 와이파이 붙잡기 — 모바일 데이터를 끄지 않아도 BYOD 방송이 이어짐(새방클, 이사장님 승인 2026-10-25). 2.5.0(261024-L7) 대조표 미진한 부분 고치기(새방송클, 이사장님 지시 2026-10-24) — 인터넷 방송 영상으로 보기(늦게 들어와도). 2.4.1(261023-L6) 이용 기록 — 듣기 상태가 바뀔 때마다 협회 서버에 남김(새방클, 이사장님 지시 2026-10-22). 2.4.0(261023-L5) 아이피타임 방식 BYOD 방송도 저절로 찾아 들음(와이파이 안에서 8080번 문을 연 LVD 송출 폰 찾기, 찾은 자리 기억), 도움말 두 항목(새방클, 이사장님 지시 2026-10-23). 2.3.0(261019-L4) 다시 듣기 내려받기를 앱 안에서(소리 mp3 두 가지·받아쓰기 글, 와이파이가 아니면 데이터 크기를 먼저 여쭘), 다시 듣기도 화면 잠가도 이어지고 전화 오면 멈춤, BYOD 방송 이름, 도움말 네 항목 더함(방클, 이사장님 결정 2026-10-19). 2.2.0(261018-L3) LVD 방송 정리 — 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기 첫 화면, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 2.1.0(261016-L2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 「인터넷 생방송 듣기」로 이름 줄임, 앱 안 누리집 화면의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-L1) LVD 방송 첫 판(배프 웹 껍데기 1.2.1의 뒤를 이음) — 배프 웹 껍데기를 속까지 앱으로: 행사장 와이파이 저절로 붙기와 저절로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 같은 폰 LVD 송출과 부딪치지 않기, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
-        const val BILD = "261026-L11"
+        const val PAN = "2.8.0"   // 2.8.0(261028-L12) 입장 번호와 행운권 추첨 — 첫 화면 「내 입장 번호」, 행사장에서 듣는 동안 번호를 알리고 당첨되면 진동·알림·말로(새방클, 이사장님 승인 2026-10-28 「1」). 2.7.0(261026-L11) 오푸스(시험) — 송출이 오푸스도 내보내면 저절로 오푸스로 듣고, 없으면 지금 방식(새방클, 이사장님 승인 2026-10-26). 2.6.1(261026-L10) 현장영상해설 소리 더 크게(보통·두 배·네 배, 새방클, 이사장님 지시 2026-10-26). 2.6.0(261025-L9) 한 번에 듣기 — 송출 앱이 만든 엔에프시 태그·큐알로 앱이 열리고 행사장 와이파이에 붙어 곧바로 들림(새방클, 이사장님 승인 2026-10-25). 2.5.1(261025-L8) 인터넷 없는 행사장 와이파이 붙잡기 — 모바일 데이터를 끄지 않아도 BYOD 방송이 이어짐(새방클, 이사장님 승인 2026-10-25). 2.5.0(261024-L7) 대조표 미진한 부분 고치기(새방송클, 이사장님 지시 2026-10-24) — 인터넷 방송 영상으로 보기(늦게 들어와도). 2.4.1(261023-L6) 이용 기록 — 듣기 상태가 바뀔 때마다 협회 서버에 남김(새방클, 이사장님 지시 2026-10-22). 2.4.0(261023-L5) 아이피타임 방식 BYOD 방송도 저절로 찾아 들음(와이파이 안에서 8080번 문을 연 LVD 송출 폰 찾기, 찾은 자리 기억), 도움말 두 항목(새방클, 이사장님 지시 2026-10-23). 2.3.0(261019-L4) 다시 듣기 내려받기를 앱 안에서(소리 mp3 두 가지·받아쓰기 글, 와이파이가 아니면 데이터 크기를 먼저 여쭘), 다시 듣기도 화면 잠가도 이어지고 전화 오면 멈춤, BYOD 방송 이름, 도움말 네 항목 더함(방클, 이사장님 결정 2026-10-19). 2.2.0(261018-L3) LVD 방송 정리 — 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기 첫 화면, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 2.1.0(261016-L2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 「인터넷 생방송 듣기」로 이름 줄임, 앱 안 누리집 화면의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-L1) LVD 방송 첫 판(배프 웹 껍데기 1.2.1의 뒤를 이음) — 배프 웹 껍데기를 속까지 앱으로: 행사장 와이파이 저절로 붙기와 저절로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 같은 폰 LVD 송출과 부딪치지 않기, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
+        const val BILD = "261028-L12"
         const val BAEP = "https://lvd.ada.or.kr/bfblive/"
     }
 
@@ -67,6 +68,8 @@ class BangsongActivity : Activity() {
     private var boyeojunBogi = ""
     private var malsoriDanchu: Button? = null
     private var jeoljeoloDanchu: Button? = null
+    private lateinit var beonhoDanchu: Button      // 2.8.0 내 입장 번호
+    private lateinit var beonhoAn: LinearLayout
 
     private var tts: TextToSpeech? = null
     private var ttsDoem = false
@@ -139,6 +142,8 @@ class BangsongActivity : Activity() {
         hanbeonBon = k
         val w = (u.getQueryParameter("w") ?: "").trim()
         val p = u.getQueryParameter("p") ?: ""
+        // 2.8.0 번호 카드 큐알·태그에 입장 번호(n)와 구역(g)이 실려 오면 그 번호로 정함
+        Chucheom.dadeum(u.getQueryParameter("n") ?: "")?.let { bn -> if (bn.isNotEmpty()) { Chucheom.dugi(this, bn, u.getQueryParameter("g") ?: ""); if (::beonhoDanchu.isInitialized) beonhoDanchu.text = Chucheom.danchuMal(this) } }
         val m = Hyeonjang.hanbeonBuchigi(this, w, p)
         try { Girok.namgi("hanbeon", mapOf("w" to w)) } catch (_: Exception) { }
         allim(if (m.isNotEmpty()) m else "현장영상해설을 찾아 들려 드립니다.")
@@ -245,6 +250,27 @@ class BangsongActivity : Activity() {
         yocheongAn.addView(danchu("소리가 끊겨요") { yocheongBonaegi("kkeunkim") })
         yocheongAn.addView(danchu("궁금한 것이 있어요") { yocheongBonaegi("gungeum") })
         mom.addView(yocheongAn)
+
+        // 2.8.0 (261028-L12, 새방클, 이사장님 승인 2026-10-28 「1」) 입장 번호와 행운권 추첨 — 행사장에서 듣는 동안 번호를 알리고, 당첨되면 진동·알림·말로
+        beonhoDanchu = danchu(Chucheom.danchuMal(this)) { beonhoPyeolchigi() }
+        mom.addView(beonhoDanchu)
+        beonhoAn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+        val beonhoCan = EditText(this).apply {
+            hint = "입장 번호 (숫자만, 넣고 엔터)"
+            setHintTextColor(Saek.yeonhan)
+            setTextColor(Saek.geul)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+            inputType = InputType.TYPE_CLASS_NUMBER
+            imeOptions = EditorInfo.IME_ACTION_DONE
+            filters = arrayOf(android.text.InputFilter.LengthFilter(4))
+            contentDescription = "입장 번호. 번호 카드나 안내받은 번호를 숫자로 넣고 엔터"
+            tag = "beonhoCan"
+        }
+        beonhoCan.setOnEditorActionListener { v, _, _ -> beonhoDugi(v.text.toString()); true }
+        beonhoAn.addView(beonhoCan)
+        beonhoAn.addView(danchu("이 번호로 정하기") { beonhoDugi(beonhoCan.text.toString()) })
+        beonhoAn.addView(danchu("입장 번호 지우기") { beonhoDugi("") })
+        mom.addView(beonhoAn)
 
         Ollim.julMal(this)?.let { m -> mom.addView(danchu(m) { Ollim.olligi(this) }) }   // 새 판이 있을 때만
 
@@ -363,6 +389,29 @@ class BangsongActivity : Activity() {
                 allim(if (ok) "알렸습니다. 현장영상해설사가 곧 찾아갑니다." else "현장영상해설사에게 알리지 못했습니다. 도움 요청은 행사장 안에서만 됩니다. 잠시 뒤 다시 눌러 주십시오.")
             }
         }.start()
+    }
+
+    // ───── 2.8.0 입장 번호 ─────
+    private fun beonhoPyeolchigi() {
+        val yeolgi = beonhoAn.visibility != View.VISIBLE
+        beonhoAn.visibility = if (yeolgi) View.VISIBLE else View.GONE
+        if (yeolgi) {
+            val can = beonhoAn.findViewWithTag<EditText>("beonhoCan")
+            can?.setText(Chucheom.beonho(this))
+            can?.let { gyeorugi(it) }
+        }
+    }
+
+    private fun beonhoDugi(t: String) {
+        val n = Chucheom.dadeum(t)
+        if (n == null) { allim("입장 번호는 숫자 네 자리 안으로 넣어 주십시오."); return }
+        Chucheom.dugi(this, n)
+        beonhoDanchu.text = Chucheom.danchuMal(this)
+        beonhoAn.visibility = View.GONE
+        allim(if (n.isEmpty()) "입장 번호를 지웠습니다." else "입장 번호를 " + n + "번으로 정했습니다. 행사장에서 듣는 동안 추첨에 당첨되시면 진동과 함께 알려 드립니다.")
+        gyeorugi(beonhoDanchu)
+        if (Build.VERSION.SDK_INT >= 33 && n.isNotEmpty() && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 3)
     }
 
     // ───── 처음 한 번 허락 — 알림·위치(도착 알아채기)·와이파이 저절로 붙기 ─────
@@ -486,6 +535,7 @@ class BangsongActivity : Activity() {
             doumalYeollim -> cheotHwamyeon()
             ::deoAn.isInitialized && deoAn.visibility == View.VISIBLE -> { deoBogi(false); gyeorugi(deoDanchu) }
             ::yocheongAn.isInitialized && yocheongAn.visibility == View.VISIBLE -> { yocheongAn.visibility = View.GONE; gyeorugi(deutDanchu) }
+            ::beonhoAn.isInitialized && beonhoAn.visibility == View.VISIBLE -> { beonhoAn.visibility = View.GONE; gyeorugi(beonhoDanchu) }   // 2.8.0
             else -> mom.announceForAccessibility("첫 화면입니다. 앱을 닫아도 듣기는 이어집니다.")
         }
     }

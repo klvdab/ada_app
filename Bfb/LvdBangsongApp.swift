@@ -11,8 +11,8 @@ import UIKit
 import AVFoundation
 
 enum Pan {
-    static let PAN = "2.7.0"   // 2.7.0(261026-LI10) 오푸스(시험) — 송출이 오푸스도 내보내면 저절로 오푸스로 듣고, 없으면 지금 방식(새방클, 이사장님 승인 2026-10-26). 2.6.1(261026-LI9) 현장영상해설 소리 더 크게(보통·두 배·네 배, 새방클, 이사장님 지시 2026-10-26). 2.6.0(261025-LI8) 한 번에 듣기 — 송출 앱이 만든 큐알·엔에프시 태그로 앱이 열리고 행사장 와이파이에 붙어 곧바로 들림(새방클, 이사장님 승인 2026-10-25). 2.5.0(261024-LI7) 대조표 미진한 부분 고치기(새방송클, 이사장님 지시 2026-10-24) — 인터넷 방송 영상으로 보기(늦게 들어와도). 2.4.1(261023-LI6) 이용 기록 — 듣기 상태가 바뀔 때마다 협회 서버에 남김(새방클, 이사장님 지시 2026-10-22). 2.4.0(261023-LI5) 아이피타임 방식 BYOD 방송도 저절로 찾아 들음(와이파이 안에서 8080번 문을 연 LVD 송출 폰 찾기, 찾은 자리 기억), 도움말 두 항목(새방클, 이사장님 지시 2026-10-23). 2.3.0(261019-LI4) 다시 듣기 내려받기를 앱 안에서(소리 mp3 두 가지·받아쓰기 글, 와이파이가 아니면 데이터 크기를 먼저 여쭘), 다시 듣기도 화면 잠가도 이어지고 전화 오면 멈춤, BYOD 방송 이름, 도움말 네 항목 더함(방클, 이사장님 결정 2026-10-19). 2.2.0(261018-LI3) LVD 방송 정리 — 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기를 첫 화면에, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 2.1.0(261016-LI2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 인터넷 생방송 듣기로 이름 줄임, 앱 안 누리집의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-LI1) LVD 방송 아이폰 첫 판 — 행사장 와이파이 저절로 붙기, 앱 열면 곧바로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
-    static let BILD = "261026-LI10"
+    static let PAN = "2.8.0"   // 2.8.0(261028-LI11) 입장 번호와 행운권 추첨 — 첫 화면 「내 입장 번호」, 행사장에서 듣는 동안 번호를 알리고 당첨되면 진동·소리·말로(새방클, 이사장님 승인 2026-10-28 「1」). 2.7.0(261026-LI10) 오푸스(시험) — 송출이 오푸스도 내보내면 저절로 오푸스로 듣고, 없으면 지금 방식(새방클, 이사장님 승인 2026-10-26). 2.6.1(261026-LI9) 현장영상해설 소리 더 크게(보통·두 배·네 배, 새방클, 이사장님 지시 2026-10-26). 2.6.0(261025-LI8) 한 번에 듣기 — 송출 앱이 만든 큐알·엔에프시 태그로 앱이 열리고 행사장 와이파이에 붙어 곧바로 들림(새방클, 이사장님 승인 2026-10-25). 2.5.0(261024-LI7) 대조표 미진한 부분 고치기(새방송클, 이사장님 지시 2026-10-24) — 인터넷 방송 영상으로 보기(늦게 들어와도). 2.4.1(261023-LI6) 이용 기록 — 듣기 상태가 바뀔 때마다 협회 서버에 남김(새방클, 이사장님 지시 2026-10-22). 2.4.0(261023-LI5) 아이피타임 방식 BYOD 방송도 저절로 찾아 들음(와이파이 안에서 8080번 문을 연 LVD 송출 폰 찾기, 찾은 자리 기억), 도움말 두 항목(새방클, 이사장님 지시 2026-10-23). 2.3.0(261019-LI4) 다시 듣기 내려받기를 앱 안에서(소리 mp3 두 가지·받아쓰기 글, 와이파이가 아니면 데이터 크기를 먼저 여쭘), 다시 듣기도 화면 잠가도 이어지고 전화 오면 멈춤, BYOD 방송 이름, 도움말 네 항목 더함(방클, 이사장님 결정 2026-10-19). 2.2.0(261018-LI3) LVD 방송 정리 — 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기를 첫 화면에, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 2.1.0(261016-LI2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 인터넷 생방송 듣기로 이름 줄임, 앱 안 누리집의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-LI1) LVD 방송 아이폰 첫 판 — 행사장 와이파이 저절로 붙기, 앱 열면 곧바로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
+    static let BILD = "261028-LI11"
     static let BAEP = "https://lvd.ada.or.kr/bfblive/"
 }
 
@@ -23,7 +23,7 @@ struct LvdBangsongApp: App {
             CheotHwamyeon()
                 .preferredColorScheme(.dark)
                 .onAppear { BfbOllim.shared.sijak(); BfbGirok.shared.sijak() }   // 2.4.1 이용 기록
-                .onOpenURL { u in Hyeonjang.hanbeon(u) }   // 2.6.0 (261025-LI8) 한 번에 듣기 — 큐알·태그(lvdbangsong://deut?w=…)로 열림
+                .onOpenURL { u in Hyeonjang.hanbeon(u); NotificationCenter.default.post(name: .init("lvdBeonhoBakkwim"), object: nil) }   // 2.6.0 (261025-LI8) 한 번에 듣기 — 큐알·태그(lvdbangsong://deut?w=…)로 열림
         }
     }
 }
@@ -116,6 +116,11 @@ struct CheotHwamyeon: View {
     @State private var malsori = Malsori.shared.kyeojim
     @State private var salpimJung = false
     @State private var gitaYeollim = false   // 2.2.0 그 밖에 들을 거리
+    @State private var beonhoYeollim = false   // 2.8.0 내 입장 번호
+    @State private var beonhoGeul = ""
+    @State private var beonhoMal = Chucheom.danchuMal
+    @AccessibilityFocusState private var beonhoCursor: Bool
+    @AccessibilityFocusState private var beonhoDanchuCursor: Bool
     @AccessibilityFocusState private var deutCursor: Bool
     @Environment(\.scenePhase) private var scenePhase
     private let tik = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
@@ -136,6 +141,7 @@ struct CheotHwamyeon: View {
         }
         .onReceive(tik) { _ in if hwamyeon == .cheot && !deut.kyeojim && jeoljeolo && !salpimJung { hyeonjangSalpigi(baro: false) } }
         .onChange(of: scenePhase) { p in if p == .active { hyeonjangSalpigi(baro: false) } }
+        .onReceive(NotificationCenter.default.publisher(for: .init("lvdBeonhoBakkwim"))) { _ in beonhoMal = Chucheom.danchuMal }   // 2.8.0 큐알·태그로 번호가 들어오면 단추 글을 고침
     }
 
     private var cheot: some View {
@@ -163,6 +169,23 @@ struct CheotHwamyeon: View {
                     Danchu("도와주세요 (현장영상해설사가 찾아갑니다)") { yocheong("dowum") }
                     Danchu("소리가 끊겨요") { yocheong("kkeunkim") }
                     Danchu("궁금한 것이 있어요") { yocheong("gungeum") }
+                }
+                // 2.8.0 (261028-LI11) 입장 번호와 행운권 추첨
+                Danchu(beonhoMal) {
+                    beonhoYeollim.toggle()
+                    if beonhoYeollim { beonhoGeul = Chucheom.beonho; DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { beonhoCursor = true } }
+                }
+                .accessibilityFocused($beonhoDanchuCursor)
+                if beonhoYeollim {
+                    TextField("입장 번호 (숫자만 넣고 아래 이 번호로 정하기)", text: $beonhoGeul)
+                        .keyboardType(.numberPad)
+                        .font(.title2).padding(10).foregroundStyle(Saek.geom)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white))
+                        .onSubmit { beonhoDugi(beonhoGeul) }
+                        .accessibilityLabel("입장 번호. 번호 카드나 안내받은 번호를 숫자로 넣으십시오")
+                        .accessibilityFocused($beonhoCursor)
+                    Danchu("이 번호로 정하기") { beonhoDugi(beonhoGeul) }
+                    Danchu("입장 번호 지우기") { beonhoDugi("") }
                 }
                 if !deungrok {
                     Danchu("행사장에 들어서면 저절로 들리게 하기 (처음 한 번 허락)") { deungrokHagi() }
@@ -232,6 +255,17 @@ struct CheotHwamyeon: View {
         Hyeonjang.yocheong(k) { ok in
             allim(ok ? "알렸습니다. 현장영상해설사가 곧 찾아갑니다." : "현장영상해설사에게 알리지 못했습니다. 도움 요청은 행사장 안에서만 됩니다. 잠시 뒤 다시 눌러 주십시오.")
         }
+    }
+
+    /// 2.8.0 입장 번호 정하기·지우기
+    private func beonhoDugi(_ t: String) {
+        guard let n = Chucheom.dadeum(t) else { allim("입장 번호는 숫자 네 자리 안으로 넣어 주십시오."); return }
+        Chucheom.dugi(n)
+        beonhoMal = Chucheom.danchuMal
+        beonhoYeollim = false
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        allim(n.isEmpty ? "입장 번호를 지웠습니다." : "입장 번호를 \(n)번으로 정했습니다. 행사장에서 듣는 동안 추첨에 당첨되시면 진동과 함께 알려 드립니다.")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { beonhoDanchuCursor = true }
     }
 
     private func deungrokHagi() {
