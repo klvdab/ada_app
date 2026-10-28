@@ -42,6 +42,7 @@ struct Chaeneol: Identifiable, Hashable {
     let name: String
     let freq: String
     let kind: String   // radio, tv
+    var grp: String = ""   // 2.120.0 (261028-I74, 방클 쪽지 2026-10-28·이사장님 지시 「방송에 관한거 적용해 길눈을 수정」, 안드로이드 2.85.0과 같음) 분류(지상파·홈쇼핑·KBS …)
     var julMal: String { freq.isEmpty ? name : "\(name) \(freq)" }
 }
 
@@ -950,12 +951,27 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         guard let j = await BangsongEngine.mutgi("/bfblive/sori.php", [("a", "list")]) else { return }
         let ls = ((j["list"] as? [[String: Any]]) ?? []).compactMap { r -> Chaeneol? in
             guard let id = r["id"] as? String, let nm = r["name"] as? String else { return nil }
-            return Chaeneol(id: id, name: nm, freq: (r["freq"] as? String) ?? "", kind: (r["kind"] as? String) ?? "radio")
+            return Chaeneol(id: id, name: nm, freq: (r["freq"] as? String) ?? "", kind: (r["kind"] as? String) ?? "radio", grp: (r["grp"] as? String) ?? "")
         }
         await MainActor.run { if !ls.isEmpty { self.chaeneolDeul = ls } }
     }
 
     func kindChaeneol(_ kind: String) -> [Chaeneol] { chaeneolDeul.filter { $0.kind == kind } }
+
+    /// 2.120.0 (261028-I74, 방클 쪽지 2026-10-28·이사장님 지시 「방송에 관한거 적용해 길눈을 수정」, 안드로이드 2.85.0과 같음) 분류 이름들 — 나스 목록에 나온 차례대로(TV 지상파·지역 SBS와 MBC·교육·공공과 문화·홈쇼핑·종교, 라디오 KBS·MBC·EBS와 기타)
+    func bunryuDeul(_ kind: String) -> [String] {
+        var l: [String] = []
+        for c in kindChaeneol(kind) where !c.grp.isEmpty && !l.contains(c.grp) { l.append(c.grp) }
+        return l
+    }
+
+    func bunryuChaeneol(_ kind: String, _ grp: String) -> [Chaeneol] { kindChaeneol(kind).filter { $0.grp == grp } }
+
+    /// 지난번에 튼 채널의 분류(없으면 빈 글)
+    func majimakBunryu(_ kind: String) -> String {
+        let id = UserDefaults.standard.string(forKey: kind == "radio" ? "gn.majimakRadio" : "gn.majimakTv") ?? ""
+        return kindChaeneol(kind).first { $0.id == id }?.grp ?? ""
+    }
 
     func chaeneolTeulgi(_ c: Chaeneol, malHagi: Bool = true) {
         jigeumChaeneol = c
@@ -987,6 +1003,11 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
     static func bangsongPyojun(_ t: String) -> String {
         var s = MalSajeon.ttuk(t).lowercased()
         let bakkum: [(String, String)] = [
+            // 2.120.0 (261028-I74, 방클 쪽지 2026-10-28·이사장님 지시 「방송에 관한거 적용해 길눈을 수정」, 안드로이드 2.85.0과 같음) 새 채널 이름 — 「티비」를 tv 로 바꾸기 전에
+            ("케이티비", "ktv"), ("케이티브이", "ktv"), ("에프지티비", "fgtv"), ("에프지티브이", "fgtv"),
+            ("케이엔엔", "knn"), ("케이비씨", "kbc"), ("케이비시", "kbc"), ("유비씨", "ubc"), ("유비시", "ubc"),
+            ("오유엔", "oun"), ("엔비에스", "nbs"), ("비티엔", "btn"), ("에이비엔", "abn"), ("에스비에스", "sbs"),
+            ("씨제이", "cj"), ("시제이", "cj"), ("지에스", "gs"), ("엔에스", "ns"), ("더블유", "w"), ("에스에스지", "신세계"),
             ("엠비씨", "mbc"), ("엠비시", "mbc"), ("앰비씨", "mbc"), ("앰비시", "mbc"), ("엠비", "mbc"), ("문화방송", "mbc"),
             ("케이비에스", "kbs"), ("케이비애스", "kbs"), ("캐이비에스", "kbs"), ("한국방송", "kbs"),
             ("이비에스", "ebs"), ("이비애스", "ebs"), ("교육방송", "ebs"),
@@ -1024,11 +1045,23 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         }
         let sa = BangsongEngine.bangsongsa(zz)
         let hubo = sa == nil ? pul : pul.filter { $0.1 == sa }
-        // 1) 이름 통째로
-        var gorun = hubo.first { !$0.2.isEmpty && zz.contains(($0.1 ?? "") + $0.2) }?.0
+        // 1) 이름 통째로 — 2.120.0 가장 길게 맞는 이름(현대홈쇼핑과 현대홈쇼핑 플러스샵을 가림)
+        var gorun = hubo.filter { !$0.2.isEmpty && zz.contains(($0.1 ?? "") + $0.2) }.max { $0.2.count < $1.2.count }?.0
         // 2) 방송사를 뺀 나머지(표준fm, fm4u, 1라디오, 해피fm …)
         let heunhan: Set<String> = ["tv", "fm", "라디오", "방송"]
-        if gorun == nil { gorun = hubo.first { $0.2.count >= 2 && !heunhan.contains($0.2) && zz.contains($0.2) }?.0 }
+        if gorun == nil { gorun = hubo.filter { $0.2.count >= 2 && !heunhan.contains($0.2) && zz.contains($0.2) }.max { $0.2.count < $1.2.count }?.0 }
+        // 2-1) 2.120.0 이름의 한 토막만(KNN, KBC, 방송대, 국민방송, 불교TV, GS샵 …)
+        if gorun == nil {
+            let ppaem: Set<String> = ["sbs", "계열", "tv", "fm", "라디오", "방송", "플러스", "kbs", "mbc", "ebs"]
+            var gin = 0
+            for p in hubo {
+                for tm in p.0.name.split(whereSeparator: { $0 == " " || $0 == "(" || $0 == ")" }) {
+                    let k = BangsongEngine.bangsongPyojun(String(tm))
+                    if k.count < 2 || ppaem.contains(k) || !zz.contains(k) { continue }
+                    if k.count > gin { gin = k.count; gorun = p.0 }
+                }
+            }
+        }
         // 3) 줄여 부른 말
         if gorun == nil {
             let jjal: [(String, String)] = [("표준", "표준fm"), ("4u", "fm4u"), ("해피", "해피fm"), ("쿨", "쿨fm"), ("클래식", "클래식fm"),
@@ -1046,6 +1079,17 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
                 : ["mbc": "mbcdeut", "kbs": "kbs1tv", "ebs": "ebs1tv"]
             gorun = hubo.first { $0.0.id == eutteum[sa!] }?.0 ?? hubo.first?.0
         }
+        // 4-1) 2.120.0 분류 이름(홈쇼핑, 종교, 교육, 지역, 지상파, 공공·문화, SBS)이면 그 분류의 채널을 알려 드리고 여쭘
+        if gorun == nil {
+            let bm: [(String, String)] = [("홈쇼핑", "홈쇼핑"), ("쇼핑", "홈쇼핑"), ("종교", "종교"), ("교육", "교육"), ("지역", "지역 SBS와 MBC"), ("sbs", "지역 SBS와 MBC"),
+                                          ("지상파", "지상파"), ("공공", "공공과 문화"), ("문화", "공공과 문화"), ("기타", "EBS와 기타")]
+            let bd = bunryuDeul(kind)
+            if let g = bm.first(where: { zz.contains($0.0) && bd.contains($0.1) })?.1 {
+                let gl = bunryuChaeneol(kind, g)
+                let sbsMal = (zz.contains("sbs") && g == "지역 SBS와 MBC") ? "서울 SBS는 아직 없고, " : ""
+                return ("\(sbsMal)\(g) 채널은 \(gl.count)개입니다. \(gl.map { $0.name }.joined(separator: ", ")). 이 가운데 말씀해 주십시오.", true)
+            }
+        }
         // 5) 아무 이름도 없이 "라디오 틀어 줘"면 지난번 채널
         if gorun == nil {
             var namun = zz
@@ -1057,9 +1101,17 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
                 gorun = ls.first { $0.id == id } ?? ls.first
             }
         }
+        if gorun == nil && kind == "radio" && !zz.contains("라디오") && !zz.contains("fm") && !kindChaeneol("tv").isEmpty {
+            // 2.120.0 라디오에 없는 이름(TBS, 국악방송, SBS …)이고 라디오라고 하지 않으셨으면 TV에서 한 번 더 찾음
+            return await chaeneolMalro(z, kind: "tv")
+        }
         guard let c = gorun else {
             Girok.shared.namgi("bangsong_moreum", ["mal": String(z.prefix(40))])
-            let ireum = ls.prefix(8).map { $0.name }.joined(separator: ", ")
+            let bd = bunryuDeul(kind)
+            if kind == "tv" && bd.count > 1 {   // 2.120.0 TV는 채널이 많아 분류로 여쭘
+                return ("어느 방송을 보실까요? 채널 이름을 말씀하시거나, \(bd.joined(separator: ", ")) 가운데 분류를 말씀하시면 그 분류의 채널을 알려 드립니다.", true)
+            }
+            let ireum = ls.prefix(10).map { $0.name }.joined(separator: ", ")
             return ("어느 방송을 \(kind == "radio" ? "들으실까요" : "보실까요")? \(ireum) 가운데 말씀해 주십시오.", true)
         }
         await MainActor.run { self.chaeneolTeulgi(c, malHagi: false) }
@@ -1068,7 +1120,9 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
 
     private func chaeneolBakkugi(_ d: Int) {
         guard let c = jigeumChaeneol else { return }
-        let ls = kindChaeneol(c.kind)
+        // 2.120.0 앞·다음 채널은 같은 분류 안에서만(홈쇼핑을 보다 다음이면 다음 홈쇼핑)
+        let gl = c.grp.isEmpty ? [] : bunryuChaeneol(c.kind, c.grp)
+        let ls = gl.isEmpty ? kindChaeneol(c.kind) : gl
         guard let i = ls.firstIndex(of: c), !ls.isEmpty else { return }
         let n = ls[(i + d + ls.count) % ls.count]
         chaeneolTeulgi(n)

@@ -401,6 +401,9 @@ struct ChaeneolView: View {
     @ObservedObject private var b = BangsongEngine.shared
     @State private var mot = false
     @State private var jeonche = false   // 2.106.0 전체화면으로 보기
+    /// 2.120.0 (261028-I74, 방클 쪽지 2026-10-28·이사장님 지시) 보고 있는 분류 — nil 은 아직 안 정함(지금·지난번 채널의 분류로 엶), 빈 글은 분류 고르는 중
+    @State private var bun: String? = nil
+    @AccessibilityFocusState private var bunChojeom: Bool
 
     private var nawa: Bool { (kind == "tv" && b.jong == .tv) || (kind == "radio" && b.jong == .radio) }
 
@@ -439,8 +442,38 @@ struct ChaeneolView: View {
                         Button("다시 받기") { batgi() }.buttonStyle(KeunDanchu())
                     }
                 } else {
-                    Mokrok5(ls) { c in
-                        Button(c.julMal) { b.chaeneolTeulgi(c) }.buttonStyle(KeunDanchu())
+                    let bd = b.bunryuDeul(kind)
+                    if bd.isEmpty {   // 나스가 분류를 주지 않으면 예전처럼 모두
+                        Mokrok5(ls) { c in
+                            Button(c.julMal) { b.chaeneolTeulgi(c) }.buttonStyle(KeunDanchu())
+                        }
+                    } else {
+                        // 2.120.0 분류로 나눠 보기 — 처음엔 지금(없으면 지난번) 채널의 분류, 그것도 없으면 분류 고르기부터
+                        let g = bunJigeum(bd, ls)
+                        if g.isEmpty {
+                            Text("분류를 고르십시오 — \(bd.count)가지").font(.title3.weight(.semibold))
+                                .accessibilityAddTraits(.isHeader)
+                                .accessibilityFocused($bunChojeom)
+                            ForEach(bd, id: \.self) { x in
+                                Button("\(x) — 채널 \(b.bunryuChaeneol(kind, x).count)개") {
+                                    bun = x
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { bunChojeom = true }
+                                }.buttonStyle(KeunDanchu())
+                            }
+                        } else {
+                            let gl = b.bunryuChaeneol(kind, g)
+                            Text("\(g) — 채널 \(gl.count)개").font(.title3.weight(.semibold))
+                                .accessibilityAddTraits(.isHeader)
+                                .accessibilityFocused($bunChojeom)
+                            Button("다른 분류 고르기 — 지금 \(g)") {
+                                bun = ""
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { bunChojeom = true }
+                            }.buttonStyle(KeunDanchu())
+                            Mokrok5(gl) { c in
+                                Button(c.julMal) { b.chaeneolTeulgi(c) }.buttonStyle(KeunDanchu())
+                            }
+                            .id(g)   // 분류를 바꾸면 처음 다섯부터
+                        }
                     }
                 }
             }
@@ -459,6 +492,15 @@ struct ChaeneolView: View {
             await b.chaeneolBatgi()
             await MainActor.run { mot = b.chaeneolDeul.isEmpty }
         }
+    }
+
+    /// 2.120.0 지금 보일 분류 — 아직 안 정했으면 지금 트는 채널, 없으면 지난번 채널의 분류(빈 글이면 분류 고르기)
+    private func bunJigeum(_ bd: [String], _ ls: [Chaeneol]) -> String {
+        if let s = bun { return bd.contains(s) ? s : "" }
+        let jg = ls.first { $0.id == b.jigeumChaeneolId }?.grp ?? ""
+        if bd.contains(jg) { return jg }
+        let mj = b.majimakBunryu(kind)
+        return bd.contains(mj) ? mj : ""
     }
 }
 

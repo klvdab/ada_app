@@ -2113,9 +2113,13 @@ final class MalHagi: ObservableObject {
         // 2.12.7 방송사 이름만 말씀하셔도(MBC 틀어 줘, 엠비시) 라디오로 — 음악 찾기로 새지 않게
         let pj = BangsongEngine.bangsongPyojun(z)
         let bangsongsaMal = ["kbs", "mbc", "ebs", "obs", "tbs", "bbs", "arirang", "표준fm", "fm4u", "4u", "해피fm", "쿨fm", "클래식fm", "사랑의소리", "한민족"].contains { pj.contains($0) }
+        // 2.120.0 (261028-I74) TV에만 있는 채널·분류 이름이면 TV로(홈쇼핑, KNN, 방송대 OUN, KTV 국민방송, 불교TV …)
+        let tvMal = ["홈쇼핑", "종교방송", "지상파", "knn", "kbc", "ubc", "oun", "방송대", "ktv", "국민방송", "nbs", "농업방송", "국악방송tv",
+                     "btn", "fgtv", "순복음", "abn", "아가페", "cj온스타일", "gs샵", "gs마이샵", "ns샵", "롯데원tv", "공영쇼핑", "홈앤쇼핑", "신세계쇼핑", "w쇼핑", "쇼핑엔티",
+                     "광주mbc", "대전mbc"].contains { pj.contains($0) }
         // 2.118.0 (261027-I72, 이사장님 승인 2026-10-27 「1」) 방송국·주파수·SBS·CBS·국악방송도 라디오로, 세상 일·선거 소식 같은 말도 뉴스로(NyuseuMal)
         let radio = z.contains("라디오") || zl.contains("fm") || z.contains("에프엠") || bangsongsaMal || NyuseuMal.radioMal(z)
-        let tv = zl.contains("tv") || z.contains("티비") || z.contains("티브이") || z.contains("텔레비전") || z.contains("듣는방송")
+        let tv = zl.contains("tv") || z.contains("티비") || z.contains("티브이") || z.contains("텔레비전") || z.contains("듣는방송") || (tvMal && !z.contains("라디오"))
         let nyuseu = s.itda(alts, "nyuseu") || s.itda(alts, "jangae") || z.contains("뉴스") || z.contains("세상이야기") || z.contains("속보") || z.contains("기사읽") || z.contains("기사들려") || NyuseuMal.mutneunInga(z)
         let eumak = s.itda(alts, "eumak") || z.contains("노래") || z.contains("음악") || z.contains("틀어")
         // 2.12.7 지나는 고장 노래 — "고장 노래 틀어 줘", "지나는 고장 노래 꺼"(이사장님 승인 1)

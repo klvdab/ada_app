@@ -368,13 +368,15 @@ class ChaeneolHwamyeon(private val kind: String) : BangsongBada(if (kind == "tv"
     private var mot = false
     private var batneun = false
     private var sijak = 0
+    /** 2.85.0 (261028-A73, 방클 쪽지 2026-10-28·이사장님 지시) 보고 있는 분류 — null 은 아직 안 정함(지금·지난번 채널의 분류로 엶), 빈 글은 분류 고르는 중 */
+    private var bun: String? = null
 
     private val nawa: Boolean
         get() = (kind == "tv" && Bangsong.jong == BangsongJong.TV) || (kind == "radio" && Bangsong.jong == BangsongJong.RADIO)
 
     override fun moyang(): String {
         val b = Bangsong
-        return listOf(nawa, b.jemok, b.sangtaeMal, b.meomchum, b.yeongsangKkeum, b.chaeneolNote, b.kindChaeneol(kind).size, mot, batneun).joinToString("|")
+        return listOf(nawa, b.jemok, b.sangtaeMal, b.meomchum, b.yeongsangKkeum, b.chaeneolNote, b.kindChaeneol(kind).size, mot, batneun, bun).joinToString("|")
     }
 
     override fun geurigi(t: GilnunActivity) {
@@ -404,7 +406,32 @@ class ChaeneolHwamyeon(private val kind: String) : BangsongBada(if (kind == "tv"
             t.geul(if (mot) "채널 목록을 받지 못했습니다." else "채널 목록을 받는 중입니다.", true)
             if (mot) danchu(t, "dasiBatgi", "다시 받기") { batgi(); t.dasiGeurigi() }
         } else {
-            mokrok5(t, "ch", ls, sijak, { sijak = it }, { it.julMal }) { _, c -> b.chaeneolTeulgi(c) }
+            val bd = b.bunryuDeul(kind)
+            if (bd.isEmpty()) {   // 나스가 분류를 주지 않으면 예전처럼 모두
+                mokrok5(t, "ch", ls, sijak, { sijak = it }, { it.julMal }) { _, c -> b.chaeneolTeulgi(c) }
+            } else {
+                // 2.85.0 분류로 나눠 보기 — 처음엔 지금(없으면 지난번) 채널의 분류, 그것도 없으면 분류 고르기부터
+                if (bun == null) {
+                    val jg = ls.firstOrNull { it.id == b.jigeumChaeneolId }?.grp ?: ""
+                    bun = if (bd.contains(jg)) jg else b.majimakBunryu(kind).takeIf { bd.contains(it) } ?: ""
+                }
+                val g = bun ?: ""
+                if (g.isEmpty() || !bd.contains(g)) {
+                    kiDeungrok("bunJemok", t.geul("분류를 고르십시오 — ${bd.size}가지", true))
+                    bd.forEachIndexed { i, x ->
+                        danchu(t, "bun_$i", "$x — 채널 ${b.bunryuChaeneol(kind, x).size}개") {
+                            bun = x; sijak = 0; chojeomDul("ch_0"); t.dasiGeurigi()
+                        }
+                    }
+                } else {
+                    val gl = b.bunryuChaeneol(kind, g)
+                    kiDeungrok("bunIreum", t.geul("$g — 채널 ${gl.size}개", true))
+                    danchu(t, "bunGoreugi", "다른 분류 고르기 — 지금 $g") {
+                        bun = ""; sijak = 0; chojeomDul("bun_${maxOf(0, bd.indexOf(g))}"); t.dasiGeurigi()
+                    }
+                    mokrok5(t, "ch", gl, sijak, { sijak = it }, { it.julMal }) { _, c -> b.chaeneolTeulgi(c) }
+                }
+            }
         }
     }
 

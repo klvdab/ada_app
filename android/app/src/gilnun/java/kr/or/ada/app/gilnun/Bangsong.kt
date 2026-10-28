@@ -48,7 +48,7 @@ class NugunaGok(val sn: String, val ireum: String, val jakgok: String, val jeoja
         get() = "저작자 $jeojakja" + (if (jakgok.isEmpty()) "" else ", 원곡 $jakgok") + ", 출처 공유마당(한국저작권위원회), 이용 조건 $jogeon"
 }
 
-class Chaeneol(val id: String, val name: String, val freq: String, val kind: String) {
+class Chaeneol(val id: String, val name: String, val freq: String, val kind: String, val grp: String = "") {   // grp: 2.85.0 (261028-A73, 방클 쪽지 2026-10-28·이사장님 지시 「방송에 관한거 적용해 길눈을 수정」, 아이폰 2.120.0과 같음) 분류(지상파·홈쇼핑·KBS …)
     val julMal: String get() = if (freq.isEmpty()) name else "$name $freq"
 }
 
@@ -1312,7 +1312,7 @@ object Bangsong {
                 val id = r.bsGeul("id")
                 val nm = r.bsGeul("name")
                 if (id.isEmpty() || nm.isEmpty()) continue
-                ls.add(Chaeneol(id, nm, r.bsGeul("freq"), r.bsGeul("kind").ifEmpty { "radio" }))
+                ls.add(Chaeneol(id, nm, r.bsGeul("freq"), r.bsGeul("kind").ifEmpty { "radio" }, r.bsGeul("grp")))
             }
             if (ls.isNotEmpty()) chaeneolDeul = ls
             allim()
@@ -1321,6 +1321,17 @@ object Bangsong {
     }
 
     fun kindChaeneol(kind: String): List<Chaeneol> = chaeneolDeul.filter { it.kind == kind }
+
+    /** 2.85.0 (261028-A73, 방클 쪽지 2026-10-28·이사장님 지시 「방송에 관한거 적용해 길눈을 수정」, 아이폰 2.120.0과 같음) 분류 이름들 — 나스 목록에 나온 차례대로(TV 지상파·지역 SBS와 MBC·교육·공공과 문화·홈쇼핑·종교, 라디오 KBS·MBC·EBS와 기타) */
+    fun bunryuDeul(kind: String): List<String> = kindChaeneol(kind).map { it.grp }.filter { it.isNotEmpty() }.distinct()
+
+    fun bunryuChaeneol(kind: String, grp: String): List<Chaeneol> = kindChaeneol(kind).filter { it.grp == grp }
+
+    /** 지난번에 튼 채널의 분류(없으면 빈 글) */
+    fun majimakBunryu(kind: String): String {
+        val id = if (kind == "radio") BangsongSeol.majimakRadio else BangsongSeol.majimakTv
+        return kindChaeneol(kind).firstOrNull { it.id == id }?.grp ?: ""
+    }
 
     fun chaeneolTeulgi(c: Chaeneol, malHagi: Boolean = true) {
         jigeumChaeneol = c
@@ -1351,6 +1362,11 @@ object Bangsong {
     fun bangsongPyojun(t: String): String {
         var s = MalSajeon.ttuk(t).lowercase(Locale.ROOT)
         val bakkum = listOf(
+            // 2.85.0 (261028-A73, 방클 쪽지 2026-10-28·이사장님 지시 「방송에 관한거 적용해 길눈을 수정」, 아이폰 2.120.0과 같음) 새 채널 이름 — 「티비」를 tv 로 바꾸기 전에
+            "케이티비" to "ktv", "케이티브이" to "ktv", "에프지티비" to "fgtv", "에프지티브이" to "fgtv",
+            "케이엔엔" to "knn", "케이비씨" to "kbc", "케이비시" to "kbc", "유비씨" to "ubc", "유비시" to "ubc",
+            "오유엔" to "oun", "엔비에스" to "nbs", "비티엔" to "btn", "에이비엔" to "abn", "에스비에스" to "sbs",
+            "씨제이" to "cj", "시제이" to "cj", "지에스" to "gs", "엔에스" to "ns", "더블유" to "w", "에스에스지" to "신세계",
             "엠비씨" to "mbc", "엠비시" to "mbc", "앰비씨" to "mbc", "앰비시" to "mbc", "엠비" to "mbc", "문화방송" to "mbc",
             "케이비에스" to "kbs", "케이비애스" to "kbs", "캐이비에스" to "kbs", "한국방송" to "kbs",
             "이비에스" to "ebs", "이비애스" to "ebs", "교육방송" to "ebs",
@@ -1396,11 +1412,23 @@ object Bangsong {
         }
         val sa = bangsongsa(zz)
         val hubo = if (sa == null) pul else pul.filter { it.sa == sa }
-        // 1) 이름 통째로
-        var gorun: Chaeneol? = hubo.firstOrNull { it.bu.isNotEmpty() && zz.contains((it.sa ?: "") + it.bu) }?.c
+        // 1) 이름 통째로 — 2.85.0 가장 길게 맞는 이름(현대홈쇼핑과 현대홈쇼핑 플러스샵을 가림)
+        var gorun: Chaeneol? = hubo.filter { it.bu.isNotEmpty() && zz.contains((it.sa ?: "") + it.bu) }.maxByOrNull { it.bu.length }?.c
         // 2) 방송사를 뺀 나머지(표준fm, fm4u, 1라디오, 해피fm …)
         val heunhan = setOf("tv", "fm", "라디오", "방송")
-        if (gorun == null) gorun = hubo.firstOrNull { it.bu.length >= 2 && !heunhan.contains(it.bu) && zz.contains(it.bu) }?.c
+        if (gorun == null) gorun = hubo.filter { it.bu.length >= 2 && !heunhan.contains(it.bu) && zz.contains(it.bu) }.maxByOrNull { it.bu.length }?.c
+        // 2-1) 2.85.0 이름의 한 토막만(KNN, KBC, 방송대, 국민방송, 불교TV, GS샵 …)
+        if (gorun == null) {
+            val ppaem = setOf("sbs", "계열", "tv", "fm", "라디오", "방송", "플러스", "kbs", "mbc", "ebs")
+            var gin = 0
+            for (p in hubo) {
+                for (tm in p.c.name.split(" ", "(", ")")) {
+                    val k = bangsongPyojun(tm)
+                    if (k.length < 2 || ppaem.contains(k) || !zz.contains(k)) continue
+                    if (k.length > gin) { gin = k.length; gorun = p.c }
+                }
+            }
+        }
         // 3) 줄여 부른 말
         if (gorun == null) {
             val jjal = listOf("표준" to "표준fm", "4u" to "fm4u", "해피" to "해피fm", "쿨" to "쿨fm", "클래식" to "클래식fm",
@@ -1418,6 +1446,19 @@ object Bangsong {
             else mapOf("mbc" to "mbcdeut", "kbs" to "kbs1tv", "ebs" to "ebs1tv")
             gorun = hubo.firstOrNull { it.c.id == eutteum[sa] }?.c ?: hubo.first().c
         }
+        // 4-1) 2.85.0 분류 이름(홈쇼핑, 종교, 교육, 지역, 지상파, 공공·문화, SBS)이면 그 분류의 채널을 알려 드리고 여쭘
+        if (gorun == null) {
+            val bm = listOf("홈쇼핑" to "홈쇼핑", "쇼핑" to "홈쇼핑", "종교" to "종교", "교육" to "교육", "지역" to "지역 SBS와 MBC", "sbs" to "지역 SBS와 MBC",
+                "지상파" to "지상파", "공공" to "공공과 문화", "문화" to "공공과 문화", "기타" to "EBS와 기타")
+            val bd = bunryuDeul(kind)
+            val g = bm.firstOrNull { zz.contains(it.first) && bd.contains(it.second) }?.second
+            if (g != null) {
+                val gl = bunryuChaeneol(kind, g)
+                val sbsMal = if (zz.contains("sbs") && g == "지역 SBS와 MBC") "서울 SBS는 아직 없고, " else ""
+                kkeut("$sbsMal$g 채널은 ${gl.size}개입니다. ${gl.joinToString(", ") { it.name }}. 이 가운데 말씀해 주십시오.", true)
+                return
+            }
+        }
         // 5) 아무 이름도 없이 "라디오 틀어 줘"면 지난번 채널
         if (gorun == null) {
             var namun = zz
@@ -1430,9 +1471,19 @@ object Bangsong {
             }
         }
         val c = gorun
+        if (c == null && kind == "radio" && !zz.contains("라디오") && !zz.contains("fm") && kindChaeneol("tv").isNotEmpty()) {
+            // 2.85.0 라디오에 없는 이름(TBS, 국악방송, SBS …)이고 라디오라고 하지 않으셨으면 TV에서 한 번 더 찾음
+            chaeneolMalroSok(z, "tv", kkeut)
+            return
+        }
         if (c == null) {
             Girok.namgi("bangsong_moreum", mapOf("mal" to z.take(40)))
-            val ireum = ls.take(8).joinToString(", ") { it.name }
+            val bd = bunryuDeul(kind)
+            if (kind == "tv" && bd.size > 1) {   // 2.85.0 TV는 채널이 많아 분류로 여쭘
+                kkeut("어느 방송을 보실까요? 채널 이름을 말씀하시거나, ${bd.joinToString(", ")} 가운데 분류를 말씀하시면 그 분류의 채널을 알려 드립니다.", true)
+                return
+            }
+            val ireum = ls.take(10).joinToString(", ") { it.name }
             kkeut("어느 방송을 ${if (kind == "radio") "들으실까요" else "보실까요"}? $ireum 가운데 말씀해 주십시오.", true)
             return
         }
@@ -1442,7 +1493,8 @@ object Bangsong {
 
     private fun chaeneolBakkugi(d: Int) {
         val c = jigeumChaeneol ?: return
-        val ls = kindChaeneol(c.kind)
+        // 2.85.0 앞·다음 채널은 같은 분류 안에서만(홈쇼핑을 보다 다음이면 다음 홈쇼핑)
+        val ls = if (c.grp.isEmpty()) kindChaeneol(c.kind) else bunryuChaeneol(c.kind, c.grp).ifEmpty { kindChaeneol(c.kind) }
         val i = ls.indexOfFirst { it.id == c.id }
         if (i < 0 || ls.isEmpty()) return
         chaeneolTeulgi(ls[((i + d) % ls.size + ls.size) % ls.size])
@@ -1747,9 +1799,13 @@ object BangsongMal {
         // 2.12.7 방송사 이름만 말씀하셔도(MBC 틀어 줘, 엠비시) 라디오로 — 음악 찾기로 새지 않게
         val pj = b.bangsongPyojun(z)
         val bangsongsaMal = listOf("kbs", "mbc", "ebs", "obs", "tbs", "bbs", "arirang", "표준fm", "fm4u", "4u", "해피fm", "쿨fm", "클래식fm", "사랑의소리", "한민족").any { pj.contains(it) }
+        // 2.85.0 (261028-A73) TV에만 있는 채널·분류 이름이면 TV로(홈쇼핑, KNN, 방송대 OUN, KTV 국민방송, 불교TV …)
+        val tvMal = listOf("홈쇼핑", "종교방송", "지상파", "knn", "kbc", "ubc", "oun", "방송대", "ktv", "국민방송", "nbs", "농업방송", "국악방송tv",
+            "btn", "fgtv", "순복음", "abn", "아가페", "cj온스타일", "gs샵", "gs마이샵", "ns샵", "롯데원tv", "공영쇼핑", "홈앤쇼핑", "신세계쇼핑", "w쇼핑", "쇼핑엔티",
+            "광주mbc", "대전mbc").any { pj.contains(it) }
         // 2.83.0 (261027-A71, 이사장님 승인 2026-10-27 「1」) 방송국·주파수·SBS·CBS·국악방송도 라디오로, 세상 일·선거 소식 같은 말도 뉴스로(NyuseuMal)
         val radio = z.contains("라디오") || zl.contains("fm") || z.contains("에프엠") || bangsongsaMal || NyuseuMal.radioMal(z)
-        val tv = zl.contains("tv") || z.contains("티비") || z.contains("티브이") || z.contains("텔레비전") || z.contains("듣는방송")
+        val tv = zl.contains("tv") || z.contains("티비") || z.contains("티브이") || z.contains("텔레비전") || z.contains("듣는방송") || (tvMal && !z.contains("라디오"))
         val nyuseu = s.itda(alts, "nyuseu") || s.itda(alts, "jangae") || z.contains("뉴스") || z.contains("세상이야기") || z.contains("속보") || z.contains("기사읽") || z.contains("기사들려") || NyuseuMal.mutneunInga(z)
         val eumak = s.itda(alts, "eumak") || z.contains("노래") || z.contains("음악") || z.contains("틀어")
         // 2.12.7 지나는 고장 노래 — "고장 노래 틀어 줘", "지나는 고장 노래 꺼"
