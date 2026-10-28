@@ -10,13 +10,18 @@ struct Gochim: Identifiable {
 }
 
 enum Pan {
-    static let pan = "2.120.0"
-    static let bild = "261028-I74"
+    static let pan = "2.121.0"
+    static let bild = "261028-I75"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.121.0", bild: "261028-I75", nal: "2026-10-28", naeyong: [
+            "앱스토어 심사 거절(2.5.4) 바로잡음 — 화면이 꺼진 동안 블루투스를 쓴다는 신고(bluetooth-central)를 뺌. 블루투스 음향신호기 자동 울리기와 찾기는 길눈 화면이 켜져 있을 때만 됨(블루투스 음향신호기를 실제로 만나 녹화할 수 있게 되면 다시 넣음)",
+            "도움말 「음향신호기 — 자동 울리기와 찾기」 마지막 문장을 그에 맞게 고침",
+            "앱스토어 사진 맨 윗줄을 아이폰 모양으로 다시 만듦(심사 거절 2.3.10)"
+        ]),
         Gochim(pan: "2.120.0", bild: "261028-I74", nal: "2026-10-28", naeyong: [
             "★TV와 라디오를 분류로 — TV 지상파·지역 SBS와 MBC·교육·공공과 문화·홈쇼핑·종교, 라디오 KBS·MBC·EBS와 기타(나스 방송 목록 2.4의 분류, 방클 쪽지 2026-10-28). 화면은 지금·지난번 채널의 분류로 열리고 다른 분류 고르기 단추",
             "앞·다음 채널은 같은 분류 안에서만",

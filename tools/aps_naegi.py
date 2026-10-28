@@ -1,4 +1,4 @@
-# 앱스토어 내기 (1.0판, 빌드 261025-1, 대클 — 이사장님 지시 2026-10-25 「아이폰 버전 앱스토어 올리는거 확실히 챙겨야한다」)
+# 앱스토어 내기 (1.1판, 빌드 261028-1 — 공개 방식 MANUAL(10-20 결정: 통과해도 공개 날은 이사장님이), 거절된 판·해결 안 된 심사 묶음을 이어 씀. 1.0판 빌드 261025-1, 대클 — 이사장님 지시 2026-10-25 「아이폰 버전 앱스토어 올리는거 확실히 챙겨야한다」)
 # 앱스토어 커넥트 열쇠로 애플에 직접 말해, 사람 손(로그인) 없이 아래 일을 합니다.
 #   gonggae : 심사를 통과하고 「우리가 공개하기를 기다림」에 있는 정식 판을 앱스토어에 공개
 #   saepan  : 새 정식 판(판 번호·빌드 번호)을 만들어 빌드를 붙이고, 새 기능 글을 넣어 심사에 냄
@@ -95,23 +95,23 @@ if HAL == "saepan":
     jun = [v for v in vs if v["attributes"]["versionString"] == PAN and sangtae(v) in ("PREPARE_FOR_SUBMISSION", "DEVELOPER_REJECTED", "REJECTED", "METADATA_REJECTED")]
     if jun:
         vid = jun[0]["id"]
-        mal("PATCH", "appStoreVersions/%s" % vid, mom={"data": {"type": "appStoreVersions", "id": vid, "attributes": {"releaseType": "AFTER_APPROVAL"}}})
+        mal("PATCH", "appStoreVersions/%s" % vid, mom={"data": {"type": "appStoreVersions", "id": vid, "attributes": {"releaseType": "MANUAL"}}})
     else:
-        jun2 = [v for v in vs if sangtae(v) == "PREPARE_FOR_SUBMISSION"]
+        jun2 = [v for v in vs if sangtae(v) in ("PREPARE_FOR_SUBMISSION", "DEVELOPER_REJECTED", "REJECTED", "METADATA_REJECTED")]   # 1.1 거절된 판도 번호를 바꿔 다시 씀
         if jun2:   # 다른 번호의 준비 중 판은 번호만 바꿔 씀(앱마다 준비 중 판은 하나뿐)
             vid = jun2[0]["id"]
             mal("PATCH", "appStoreVersions/%s" % vid, mom={"data": {"type": "appStoreVersions", "id": vid,
-                                                                     "attributes": {"versionString": PAN, "releaseType": "AFTER_APPROVAL"}}})
+                                                                     "attributes": {"versionString": PAN, "releaseType": "MANUAL"}}})
         else:
             vid = mal("POST", "appStoreVersions", mom={"data": {"type": "appStoreVersions",
-                      "attributes": {"platform": "IOS", "versionString": PAN, "releaseType": "AFTER_APPROVAL"},
+                      "attributes": {"platform": "IOS", "versionString": PAN, "releaseType": "MANUAL"},
                       "relationships": {"app": {"data": {"type": "apps", "id": ap["id"]}}}}})["data"]["id"]
     mal("PATCH", "appStoreVersions/%s/relationships/build" % vid, mom={"data": {"type": "builds", "id": b["id"]}})
     for lo in mal("GET", "appStoreVersions/%s/appStoreVersionLocalizations" % vid).get("data", []):
         mal("PATCH", "appStoreVersionLocalizations/%s" % lo["id"],
             mom={"data": {"type": "appStoreVersionLocalizations", "id": lo["id"], "attributes": {"whatsNew": SAE}}})
     # 심사 내기 — 열려 있는(아직 안 낸) 묶음이 있으면 그것을 씀
-    rs = mal("GET", "reviewSubmissions", {"filter[app]": ap["id"], "filter[state]": "READY_FOR_REVIEW", "limit": "5"}).get("data", [])
+    rs = mal("GET", "reviewSubmissions", {"filter[app]": ap["id"], "filter[state]": "READY_FOR_REVIEW,UNRESOLVED_ISSUES", "limit": "5"}).get("data", [])
     rid = rs[0]["id"] if rs else mal("POST", "reviewSubmissions", mom={"data": {"type": "reviewSubmissions",
         "attributes": {"platform": "IOS"}, "relationships": {"app": {"data": {"type": "apps", "id": ap["id"]}}}}})["data"]["id"]
     try:
@@ -121,7 +121,7 @@ if HAL == "saepan":
     except SystemExit:
         allim("묶음에 이미 들어 있을 수 있어 그대로 냄을 시도함")
     mal("PATCH", "reviewSubmissions/%s" % rid, mom={"data": {"type": "reviewSubmissions", "id": rid, "attributes": {"submitted": True}}})
-    allim("%s %s판(빌드 %s)을 심사에 냄 — 통과하면 바로 공개되게 함" % (ireum, PAN, BILD))
+    allim("%s %s판(빌드 %s)을 심사에 냄 — 통과해도 공개하지 않고 기다림(공개 날은 이사장님이 정하심)" % (ireum, PAN, BILD))
     sys.exit(0)
 
 allim("할 일(HAL)은 boda, gonggae, saepan 가운데 하나")
