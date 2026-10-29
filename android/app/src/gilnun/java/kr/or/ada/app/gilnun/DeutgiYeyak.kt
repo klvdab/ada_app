@@ -352,7 +352,8 @@ object DeutgiYeyak {
         val zl = z.lowercase(Locale.ROOT)
         val pj = Bangsong.bangsongPyojun(z)
         val bangsongMal = z.contains("라디오") || zl.contains("fm") || z.contains("에프엠") || z.contains("방송") ||
-            listOf("kbs", "mbc", "ebs", "obs", "tbs", "bbs", "표준fm", "fm4u", "해피fm", "쿨fm", "클래식fm", "사랑의소리", "한민족").any { pj.contains(it) }
+            listOf("kbs", "mbc", "ebs", "obs", "tbs", "bbs", "표준fm", "fm4u", "해피fm", "쿨fm", "클래식fm", "사랑의소리", "한민족",
+                "sbs", "cbs", "ytn", "와이티엔", "tbn", "교통방송", "국악방송", "극동방송", "불교방송", "국방fm", "경인방송", "ifm", "파워fm", "러브fm", "음악fm", "고릴라디오", "조이포유", "반디").any { pj.contains(it) }   // 2.86.0 새 라디오
         val yeyakMal = z.contains("예약")
         if (z.contains("듣기예약") || (yeyakMal && bangsongMal && !z.contains("시"))) {
             if (z.contains("지워") || z.contains("취소") || z.contains("없애")) {

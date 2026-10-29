@@ -1315,10 +1315,41 @@ object Bangsong {
                 if (id.isEmpty() || nm.isEmpty()) continue
                 ls.add(Chaeneol(id, nm, r.bsGeul("freq"), r.bsGeul("kind").ifEmpty { "radio" }, r.bsGeul("grp")))
             }
-            if (ls.isNotEmpty()) chaeneolDeul = ls
-            allim()
-            kkeut()
+            // 2.86.0 (261029-A74, 이사장님 승인 2026-10-29 「넣을 수 있는 건 다 넣도록 하자」, 아이폰 2.122.0과 같음) 라디오는 길눈 전용 목록(나스 jeom/radio.php)에서 —
+            //   27개 채널, 폰이 방송사 공식 주소를 직접 받아 틂(나스 중계 없음). 못 받으면 예전 라디오 목록 그대로
+            mutgi("/jeom/radio.php", listOf("a" to "list")) { rj ->
+                val ra = rj?.optJSONArray("list")
+                val rl = ArrayList<Chaeneol>()
+                if (ra != null) for (i in 0 until ra.length()) {
+                    val r = ra.optJSONObject(i) ?: continue
+                    val id = r.bsGeul("id")
+                    val nm = r.bsGeul("name")
+                    if (id.isEmpty() || nm.isEmpty()) continue
+                    rl.add(Chaeneol(id, nm, r.bsGeul("freq"), "radio", r.bsGeul("grp")))
+                }
+                val hap = if (rl.isNotEmpty()) ArrayList(ls.filter { it.kind != "radio" } + rl) else ls
+                if (hap.isNotEmpty()) chaeneolDeul = hap
+                allim()
+                kkeut()
+            }
         }
+    }
+
+    /** 2.86.0 (261029-A74) 방송사 주소 창구에 폰이 직접 물어 지금 쓸 주소를 받음 — kbs 는 json 의 라디오 service_url, mbc·sbs 는 글 속 첫 주소. 일꾼 줄에서 부를 것 */
+    private fun changMutgi(chang: String, cu: String): String? {
+        val t = gatgi(cu, 15000) ?: return null
+        if (chang == "kbs") {
+            return try {
+                val its = JSONObject(t).optJSONArray("channel_item") ?: return null
+                var su: String? = null
+                for (i in 0 until its.length()) {
+                    val o = its.optJSONObject(i) ?: continue
+                    if (o.optString("media_type") == "radio" && o.optString("service_url").isNotEmpty()) { su = o.optString("service_url"); break }
+                }
+                su ?: its.optJSONObject(0)?.optString("service_url")?.ifEmpty { null }
+            } catch (e: Exception) { null }
+        }
+        return Regex("https?://[^\\s\"]+").find(t)?.value
     }
 
     fun kindChaeneol(kind: String): List<Chaeneol> = chaeneolDeul.filter { it.kind == kind }
@@ -1344,6 +1375,38 @@ object Bangsong {
         if (c.kind == "radio") BangsongSeol.majimakRadio = c.id else BangsongSeol.majimakTv = c.id
         Girok.namgi("bangsong", mapOf("id" to c.id))
         // 2.86.0 (261029-A74, 이사장님 승인 2026-10-29 「1」, 아이폰 2.122.0과 같음) 방송사 주소를 폰이 직접(나스 중계 없이) — 나스가 아직 모르면 예전처럼
+        // 2.86.0 (261029-A74, 이사장님 승인 2026-10-29) 라디오는 길눈 전용 목록이 알려 주는 길로 — 폰이 방송사 공식 주소를 직접 받음(나스 중계 없음)
+        if (c.kind == "radio") {
+            mutgi("/jeom/radio.php", listOf("a" to "url", "id" to c.id)) { r ->
+                if (jigeumChaeneol?.id != c.id) return@mutgi
+                if (r == null || !r.optBoolean("ok", false)) { chaeneolSori(c); return@mutgi }
+                val chang = r.bsGeul("chang")
+                val cu = r.bsGeul("changUrl")
+                val s0 = r.bsGeul("url")
+                il.execute {
+                    val s = if (s0.isNotEmpty()) s0 else if (cu.isNotEmpty()) (changMutgi(chang, cu) ?: "") else ""
+                    main.post {
+                        if (jigeumChaeneol?.id != c.id) return@post
+                        if (s.isEmpty()) {
+                            Girok.namgi("bangsong_jikjeop_mot", mapOf("id" to c.id, "chang" to chang))
+                            chaeneolSori(c)
+                            return@post
+                        }
+                        Girok.namgi("bangsong_jikjeop", mapOf("id" to c.id, "chang" to chang))
+                        chaeneolNote = ""
+                        gaengsinR?.let { main.removeCallbacks(it) }
+                        gaengsinR = null
+                        teulgi(s, BangsongJong.RADIO, c.name)
+                    }
+                }
+            }
+            return
+        }
+        chaeneolSori(c)
+    }
+
+    /** 예전 길 — 나스 채널 주소 창구(bfblive/sori.php) */
+    private fun chaeneolSori(c: Chaeneol) {
         mutgi("/bfblive/sori.php", listOf("a" to "url", "id" to c.id, "jikjeop" to "1")) { j ->
             if (jigeumChaeneol?.id != c.id) return@mutgi
             val s = j?.bsGeul("url") ?: ""
@@ -1456,6 +1519,19 @@ object Bangsong {
                 if (gorun != null) break
             }
         }
+        // 3-1) 2.86.0 (261029-A74, 아이폰 2.122.0과 같음) 새 라디오 이름 — SBS, CBS, YTN, 교통방송, 국악방송, 극동방송, 불교방송, 국방FM, 경인방송 …
+        if (gorun == null && kind == "radio") {
+            val sae = listOf("고릴라" to "sbsdmb", "파워" to "sbspfm", "러브" to "sbslfm", "sbs" to "sbspfm",
+                "조이" to "cbsjoy", "음악fm" to "cbsmfm", "cbs" to "cbssfm", "ytn" to "ytnr", "와이티엔" to "ytnr",
+                "tbn" to "tbngi", "교통방송" to "tbngi", "영어방송" to "tbsefm", "반디" to "ebsbandi",
+                "국악" to "gugakr", "극동" to "febcr", "불교" to "bbsr", "국방" to "kookbang",
+                "경인방송" to "ifm", "ifm" to "ifm", "아리랑" to "arirangr")
+            for ((m, id) in sae) {
+                if (!zz.contains(m)) continue
+                val c = ls.firstOrNull { it.id == id }
+                if (c != null) { gorun = c; break }
+            }
+        }
         // 4) 방송사만 말씀하시면 그 방송사의 으뜸 채널(MBC → MBC 표준FM, KBS → KBS 1라디오)
         if (gorun == null && sa != null && hubo.isNotEmpty()) {
             val eutteum = if (kind == "radio") mapOf("mbc" to "mbcsfm", "kbs" to "kbs1r", "ebs" to "ebsfm")
@@ -1465,7 +1541,8 @@ object Bangsong {
         // 4-1) 2.85.0 분류 이름(홈쇼핑, 종교, 교육, 지역, 지상파, 공공·문화, SBS)이면 그 분류의 채널을 알려 드리고 여쭘
         if (gorun == null) {
             val bm = listOf("홈쇼핑" to "홈쇼핑", "쇼핑" to "홈쇼핑", "종교" to "종교", "교육" to "교육", "지역" to "지역 SBS와 MBC", "sbs" to "지역 SBS와 MBC",
-                "지상파" to "지상파", "공공" to "공공과 문화", "문화" to "공공과 문화", "기타" to "EBS와 기타")
+                "지상파" to "지상파", "공공" to "공공과 문화", "문화" to "공공과 문화", "기타" to "EBS와 기타",
+                "종교" to "국악과 종교", "교통" to "뉴스와 교통", "기타" to "그 밖에")   // 2.86.0 길눈 전용 라디오 분류
             val bd = bunryuDeul(kind)
             val g = bm.firstOrNull { zz.contains(it.first) && bd.contains(it.second) }?.second
             if (g != null) {
@@ -1814,7 +1891,8 @@ object BangsongMal {
         val kkeugi = listOf("그만", "꺼", "끄기", "끄자", "멈춰", "중지").any { z.contains(it) }
         // 2.12.7 방송사 이름만 말씀하셔도(MBC 틀어 줘, 엠비시) 라디오로 — 음악 찾기로 새지 않게
         val pj = b.bangsongPyojun(z)
-        val bangsongsaMal = listOf("kbs", "mbc", "ebs", "obs", "tbs", "bbs", "arirang", "표준fm", "fm4u", "4u", "해피fm", "쿨fm", "클래식fm", "사랑의소리", "한민족").any { pj.contains(it) }
+        val bangsongsaMal = listOf("kbs", "mbc", "ebs", "obs", "tbs", "bbs", "arirang", "표준fm", "fm4u", "4u", "해피fm", "쿨fm", "클래식fm", "사랑의소리", "한민족",
+            "sbs", "cbs", "ytn", "와이티엔", "tbn", "교통방송", "국악방송", "극동방송", "불교방송", "국방fm", "경인방송", "ifm", "파워fm", "러브fm", "음악fm", "고릴라디오", "조이포유", "반디")   // 2.86.0 새 라디오.any { pj.contains(it) }
         // 2.85.0 (261028-A73) TV에만 있는 채널·분류 이름이면 TV로(홈쇼핑, KNN, 방송대 OUN, KTV 국민방송, 불교TV …)
         val tvMal = listOf("홈쇼핑", "종교방송", "지상파", "knn", "kbc", "ubc", "oun", "방송대", "ktv", "국민방송", "nbs", "농업방송", "국악방송tv",
             "btn", "fgtv", "순복음", "abn", "아가페", "cj온스타일", "gs샵", "gs마이샵", "ns샵", "롯데원tv", "공영쇼핑", "홈앤쇼핑", "신세계쇼핑", "w쇼핑", "쇼핑엔티",
