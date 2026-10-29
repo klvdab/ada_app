@@ -23,12 +23,17 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.85.0"
-    const val bild = "261028-A73"
+    const val pan = "2.86.0"
+    const val bild = "261029-A74"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.86.0", "261029-A74", "2026-10-29", listOf(
+            "방송 주소를 나스 중계 없이 방송사 주소로 직접 받도록 청함(jikjeop=1) — 나스가 통행표 남은 시간을 알려 주면 끝나기 전에 새 주소로 이어 틂. 나스가 아직 모르면 예전 그대로(이사장님 승인 2026-10-29 「1」, 아이폰 2.122.0과 같음)",
+            "문자 알림처럼 짧은 끊김 뒤 이어 틀기는 안드로이드는 이미 됨(소리 자리를 잠시 빼앗기면 플레이어가 저절로 되찾음) — 확인만 함",
+            "도움말 「방송 — 문자 알림 뒤 저절로 이어 듣기」와 「방송의 권리」 더함"
+        )),
         Gochim("2.85.0", "261028-A73", "2026-10-28", listOf(
             "★TV와 라디오를 분류로 — TV 지상파·지역 SBS와 MBC·교육·공공과 문화·홈쇼핑·종교, 라디오 KBS·MBC·EBS와 기타(나스 방송 목록 2.4의 분류, 방클 쪽지 2026-10-28). 화면은 지금·지난번 채널의 분류로 열리고 다른 분류 고르기 단추",
             "앞·다음 채널은 같은 분류 안에서만",

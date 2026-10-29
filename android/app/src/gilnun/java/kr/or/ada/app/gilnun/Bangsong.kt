@@ -308,6 +308,7 @@ object Bangsong {
     private var malSijakTtae = 0L
     private var malKkeutR: Runnable? = null
     private var jigeumChaeneol: Chaeneol? = null
+    private var gaengsinR: Runnable? = null   // 2.86.0 (261029-A74) 방송사 주소가 끝나기 전에 새 주소 받기
     /** 2.80.0 (261027-A68) 듣기 예약이 지금 나오는 채널을 알게 */
     val jigeumChaeneolId: String? get() = jigeumChaeneol?.id
     private var nuguna: List<NugunaGok> = emptyList()
@@ -1342,7 +1343,8 @@ object Bangsong {
         }
         if (c.kind == "radio") BangsongSeol.majimakRadio = c.id else BangsongSeol.majimakTv = c.id
         Girok.namgi("bangsong", mapOf("id" to c.id))
-        mutgi("/bfblive/sori.php", listOf("a" to "url", "id" to c.id)) { j ->
+        // 2.86.0 (261029-A74, 이사장님 승인 2026-10-29 「1」, 아이폰 2.122.0과 같음) 방송사 주소를 폰이 직접(나스 중계 없이) — 나스가 아직 모르면 예전처럼
+        mutgi("/bfblive/sori.php", listOf("a" to "url", "id" to c.id, "jikjeop" to "1")) { j ->
             if (jigeumChaeneol?.id != c.id) return@mutgi
             val s = j?.bsGeul("url") ?: ""
             if (j == null || !j.optBoolean("ok", false) || s.isEmpty()) {
@@ -1355,6 +1357,20 @@ object Bangsong {
             val seek = if (j.has("seek") && !j.isNull("seek")) j.optDouble("seek", 0.0) else 0.0
             chaeneolNote = j.bsGeul("note")
             teulgi(url, if (c.kind == "tv") BangsongJong.TV else BangsongJong.RADIO, c.name, if (seek.isNaN()) 0.0 else seek)
+            // 2.86.0 방송사 주소의 통행표가 끝나기 전에 새 주소를 받아 이어 틂(나스가 gaengsin 초를 알려 줄 때만)
+            gaengsinR?.let { main.removeCallbacks(it) }
+            gaengsinR = null
+            val gs = j.optDouble("gaengsin", 0.0)
+            if (!gs.isNaN() && gs >= 30) {
+                val r = Runnable {
+                    if (jigeumChaeneol?.id == c.id && naneunJung) {
+                        Girok.namgi("bangsong_juso_gaengsin", mapOf("id" to c.id, "cho" to gs.toInt()))
+                        chaeneolTeulgi(c, false)
+                    }
+                }
+                gaengsinR = r
+                main.postDelayed(r, (gs * 1000).toLong())
+            }
         }
     }
 
