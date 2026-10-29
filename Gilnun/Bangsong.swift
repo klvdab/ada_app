@@ -114,6 +114,11 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
     /// 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 틀 때마다 하나씩 늘림 — 미뤄 둔 다시 잇기는 번호가 같을 때만(안드로이드 teulgiBeon 과 같음)
     private var teulgiBeon = 0
     private var meomchunTtae: Date?
+    // 2.122.0 (261029-I76, 이사장님 승인 2026-10-29 「1」) 문자 알림처럼 짧은 끊김 뒤 저절로 잇기
+    private var bakkatGgadak = ""          // 바깥 까닭으로 멈춘 까닭(ireopon·dareunApp)
+    private var kkeunkimSijakTtae: Date?   // 아이폰이 소리를 끊은 때
+    private var kkeunkimDasiTtae: Date?    // 아이폰이 「다시 틀어도 된다」고 돌려준 때
+    private var gaengsinJakeop: DispatchWorkItem?   // 2.122.0 방송사 주소가 끝나기 전에 새 주소 받기
     private var ssak = Set<AnyCancellable>()
     private var sttGwanchal: NSKeyValueObservation?
     private var tk: String { Yeolsoe.ilgi("eumakTk") ?? "" }
@@ -155,16 +160,37 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         nc.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] n in
             guard let self = self,
                   let v = n.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-                  let ty = AVAudioSession.InterruptionType(rawValue: v),
-                  ty == .began else { return }
+                  let ty = AVAudioSession.InterruptionType(rawValue: v) else { return }
+            // 2.122.0 (261029-I76, 이사장님 승인 2026-10-29 「1」) 끊김이 끝났다는 알림 — 아이폰이 「다시 틀어도 된다」고 하면 짧은 끊김으로 보고 이어 틂
+            //   (10월 29일 8시 4분 문자 알림이 4초 만에 소리를 돌려주었는데 라디오가 멈춘 채로 남던 일)
+            if ty == .ended {
+                let ov = (n.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt) ?? 0
+                let dasi = AVAudioSession.InterruptionOptions(rawValue: ov).contains(.shouldResume)
+                if self.itda {
+                    Girok.shared.namgi("bangsong_kkeunkim_kkeut", ["dasi": dasi, "jong": self.jong.rawValue, "meomchum": self.meomchum, "ggadak": self.bakkatGgadak])
+                }
+                if dasi { self.kkeunkimDasiTtae = Date(); self.jjalbeunKkeunkimIeum() }
+                return
+            }
+            guard ty == .began else { return }
             if let rv = n.userInfo?[AVAudioSessionInterruptionReasonKey] as? UInt,
                AVAudioSession.InterruptionReason(rawValue: rv) == .appWasSuspended { return }   // 앱이 잠들어 있던 동안의 묵은 알림
+            self.kkeunkimSijakTtae = Date()
+            self.kkeunkimDasiTtae = nil
+            // 2.122.0 길눈 말 때문에 5분의 1로 줄여 둔 방송 소리를 곧바로 제자리로 — 끊김 뒤 작은 소리로 남던 일
+            if self.malJung { self.malKkeut() }
             // 전화는 jeonhwa 가 맡음 — 3초 기다려 전화·긴급통화·말로 하기가 아닐 때만 멈춘 채로
             let beon = self.teulgiBeon
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                 guard beon == self.teulgiBeon, self.naebuMeomchum.isEmpty,
                       GinGeup.shared.sangtae == .eopseum,
                       self.jong != .gisa, self.player.rate == 0 else { return }
+                // 2.122.0 3초 안에 이미 「다시 틀어도 된다」를 받았으면 멈춰 두지 않고 이어 틂
+                if self.kkeunkimDasiTtae != nil, !self.meomchum, !JeonhwaGamsi.shared.jeonhwaJung {
+                    Girok.shared.namgi("bangsong_jeojeollo_ieum", ["jong": self.jong.rawValue, "cho": 3])
+                    self.dasiTeulgi()
+                    return
+                }
                 self.bakkatMeomchum("dareunApp")
             }
         }
@@ -175,9 +201,23 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         guard itda, !meomchum else { return }
         meomchum = true
         meomchunTtae = Date()
+        bakkatGgadak = ggadak
         if jong == .gisa { if gisaSynth.isSpeaking { gisaSynth.pauseSpeaking(at: .immediate) } } else { player.pause() }
         Girok.shared.namgi("bangsong_bakkat_meomchum", ["jong": jong.rawValue, "ggadak": ggadak])
         pyosiGaengsin()
+    }
+
+    /// 2.122.0 (261029-I76, 이사장님 승인 2026-10-29 「1」) 문자 알림처럼 짧은 끊김 뒤 아이폰이 「다시 틀어도 된다」고 하면 —
+    ///   다른 앱 때문에 멈춘 지 90초 안이고 전화·긴급통화가 아니면 저절로 이어 틂.
+    ///   이어폰이 빠졌을 때와 다른 앱이 오래 소리를 가져간 때는 지금처럼 멈춘 채로(10월 17일 승인 그대로)
+    private func jjalbeunKkeunkimIeum() {
+        guard itda, meomchum, bakkatGgadak == "dareunApp",
+              let s = kkeunkimSijakTtae, Date().timeIntervalSince(s) < 90,
+              !JeonhwaGamsi.shared.jeonhwaJung, GinGeup.shared.sangtae == .eopseum else { return }
+        meomchum = false
+        bakkatGgadak = ""
+        Girok.shared.namgi("bangsong_jeojeollo_ieum", ["jong": jong.rawValue, "cho": Int(Date().timeIntervalSince(s))])
+        if naebuMeomchum.isEmpty { dasiTeulgi() }
     }
 
     /// 지금 소리가 나고 있거나 멈춰 둔 방송이 있음
@@ -982,7 +1022,7 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         if c.kind == "radio" { UserDefaults.standard.set(c.id, forKey: "gn.majimakRadio") } else { UserDefaults.standard.set(c.id, forKey: "gn.majimakTv") }
         Girok.shared.namgi("bangsong", ["id": c.id])
         Task {
-            let j = await BangsongEngine.mutgi("/bfblive/sori.php", [("a", "url"), ("id", c.id)])
+            let j = await BangsongEngine.mutgi("/bfblive/sori.php", [("a", "url"), ("id", c.id), ("jikjeop", "1")])   // 2.122.0 방송사 주소를 폰이 직접(나스 중계 없이) — 나스가 아직 모르면 예전처럼
             await MainActor.run {
                 guard self.jigeumChaeneol?.id == c.id else { return }
                 guard (j?["ok"] as? Bool) == true, let s = j?["url"] as? String, !s.isEmpty else {
@@ -995,6 +1035,20 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
                 let seek = (j?["seek"] as? Double) ?? Double((j?["seek"] as? Int) ?? 0)
                 self.chaeneolNote = (j?["note"] as? String) ?? ""
                 self.teulgi(u, c.kind == "tv" ? .tv : .radio, c.name, seek: seek)
+                // 2.122.0 (261029-I76, 이사장님 승인 2026-10-29 「1」) 방송사 주소의 통행표가 끝나기 전에 새 주소를 받아 이어 틂(나스가 gaengsin 초를 알려 줄 때만)
+                self.gaengsinJakeop?.cancel()
+                self.gaengsinJakeop = nil
+                let gs = (j?["gaengsin"] as? Double) ?? Double((j?["gaengsin"] as? Int) ?? 0)
+                if gs >= 30 {
+                    let w = DispatchWorkItem { [weak self] in
+                        guard let self = self, self.jigeumChaeneol?.id == c.id else { return }
+                        if !self.naneunJung { return }   // 멈춰 두셨으면 다시 트실 때 새 주소를 받음(1분 넘게 멈추면 새로 이음)
+                        Girok.shared.namgi("bangsong_juso_gaengsin", ["id": c.id, "cho": Int(gs)])
+                        self.chaeneolTeulgi(c, malHagi: false)
+                    }
+                    self.gaengsinJakeop = w
+                    DispatchQueue.main.asyncAfter(deadline: .now() + gs, execute: w)
+                }
             }
         }
     }
