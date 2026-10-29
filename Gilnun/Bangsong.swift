@@ -581,6 +581,25 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
 
     // MARK: 나스에 묻기
 
+    /// 2.122.0 (261029-I76) 방송사 주소 창구에 폰이 직접 물어 지금 쓸 주소를 받음 — kbs 는 json 의 라디오 service_url, mbc·sbs 는 글 속 첫 주소
+    static func changMutgi(_ chang: String, _ cu: String) async -> String? {
+        guard let u = URL(string: cu) else { return nil }
+        var r = URLRequest(url: u)
+        r.cachePolicy = .reloadIgnoringLocalCacheData
+        r.timeoutInterval = 15
+        guard let dr = try? await URLSession.shared.data(for: r),
+              (dr.1 as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        if chang == "kbs" {
+            guard let j = (try? JSONSerialization.jsonObject(with: dr.0)) as? [String: Any],
+                  let its = j["channel_item"] as? [[String: Any]] else { return nil }
+            let ra = its.first { ($0["media_type"] as? String) == "radio" }
+            return (ra?["service_url"] as? String) ?? (its.first?["service_url"] as? String)
+        }
+        let t = String(data: dr.0, encoding: .utf8) ?? ""
+        guard let rg = t.range(of: "https?://[^\\s\"]+", options: .regularExpression) else { return nil }
+        return String(t[rg])
+    }
+
     /// 주소 — 값은 모두 글자·숫자 밖을 퍼센트로(파일 이름의 +·& 도 안전하게)
     static func juso(_ pail: String, _ q: [(String, String)]) -> URL? {
         var hm = CharacterSet.alphanumerics
@@ -989,9 +1008,18 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
 
     func chaeneolBatgi() async {
         guard let j = await BangsongEngine.mutgi("/bfblive/sori.php", [("a", "list")]) else { return }
-        let ls = ((j["list"] as? [[String: Any]]) ?? []).compactMap { r -> Chaeneol? in
+        var ls = ((j["list"] as? [[String: Any]]) ?? []).compactMap { r -> Chaeneol? in
             guard let id = r["id"] as? String, let nm = r["name"] as? String else { return nil }
             return Chaeneol(id: id, name: nm, freq: (r["freq"] as? String) ?? "", kind: (r["kind"] as? String) ?? "radio", grp: (r["grp"] as? String) ?? "")
+        }
+        // 2.122.0 (261029-I76, 이사장님 승인 2026-10-29 「넣을 수 있는 건 다 넣도록 하자」) 라디오는 길눈 전용 목록(나스 jeom/radio.php)에서 —
+        //   27개 채널, 폰이 방송사 공식 주소를 직접 받아 틂(나스 중계 없음). 목록을 못 받으면 예전 라디오 목록 그대로
+        if let rj = await BangsongEngine.mutgi("/jeom/radio.php", [("a", "list")]) {
+            let rl = ((rj["list"] as? [[String: Any]]) ?? []).compactMap { r -> Chaeneol? in
+                guard let id = r["id"] as? String, let nm = r["name"] as? String else { return nil }
+                return Chaeneol(id: id, name: nm, freq: (r["freq"] as? String) ?? "", kind: "radio", grp: (r["grp"] as? String) ?? "")
+            }
+            if !rl.isEmpty { ls = ls.filter { $0.kind != "radio" } + rl }
         }
         await MainActor.run { if !ls.isEmpty { self.chaeneolDeul = ls } }
     }
@@ -1022,6 +1050,24 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         if c.kind == "radio" { UserDefaults.standard.set(c.id, forKey: "gn.majimakRadio") } else { UserDefaults.standard.set(c.id, forKey: "gn.majimakTv") }
         Girok.shared.namgi("bangsong", ["id": c.id])
         Task {
+            // 2.122.0 (261029-I76, 이사장님 승인 2026-10-29) 라디오는 길눈 전용 목록이 알려 주는 길로 — 폰이 방송사 공식 주소를 직접 받음(나스 중계 없음)
+            if c.kind == "radio", let r = await BangsongEngine.mutgi("/jeom/radio.php", [("a", "url"), ("id", c.id)]), (r["ok"] as? Bool) == true {
+                var s = (r["url"] as? String) ?? ""
+                let chang = (r["chang"] as? String) ?? ""
+                if s.isEmpty, let cu = r["changUrl"] as? String { s = await BangsongEngine.changMutgi(chang, cu) ?? "" }
+                if !s.isEmpty, let u = URL(string: s) {
+                    await MainActor.run {
+                        guard self.jigeumChaeneol?.id == c.id else { return }
+                        Girok.shared.namgi("bangsong_jikjeop", ["id": c.id, "chang": chang])
+                        self.chaeneolNote = ""
+                        self.gaengsinJakeop?.cancel()
+                        self.gaengsinJakeop = nil
+                        self.teulgi(u, .radio, c.name)
+                    }
+                    return
+                }
+                Girok.shared.namgi("bangsong_jikjeop_mot", ["id": c.id, "chang": chang])   // 방송사 창구에서 주소를 못 받음 — 아래 예전 길로
+            }
             let j = await BangsongEngine.mutgi("/bfblive/sori.php", [("a", "url"), ("id", c.id), ("jikjeop", "1")])   // 2.122.0 방송사 주소를 폰이 직접(나스 중계 없이) — 나스가 아직 모르면 예전처럼
             await MainActor.run {
                 guard self.jigeumChaeneol?.id == c.id else { return }
@@ -1126,6 +1172,17 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
                 if gorun != nil { break }
             }
         }
+        // 3-1) 2.122.0 (261029-I76) 새 라디오 이름 — SBS, CBS, YTN, 교통방송, 국악방송, 극동방송, 불교방송, 국방FM, 경인방송 …
+        if gorun == nil && kind == "radio" {
+            let sae: [(String, String)] = [("고릴라", "sbsdmb"), ("파워", "sbspfm"), ("러브", "sbslfm"), ("sbs", "sbspfm"),
+                                           ("조이", "cbsjoy"), ("음악fm", "cbsmfm"), ("cbs", "cbssfm"), ("ytn", "ytnr"), ("와이티엔", "ytnr"),
+                                           ("tbn", "tbngi"), ("교통방송", "tbngi"), ("영어방송", "tbsefm"), ("반디", "ebsbandi"),
+                                           ("국악", "gugakr"), ("극동", "febcr"), ("불교", "bbsr"), ("국방", "kookbang"),
+                                           ("경인방송", "ifm"), ("ifm", "ifm"), ("아리랑", "arirangr")]
+            for (m, id) in sae where zz.contains(m) {
+                if let c = ls.first(where: { $0.id == id }) { gorun = c; break }
+            }
+        }
         // 4) 방송사만 말씀하시면 그 방송사의 으뜸 채널(MBC → MBC 표준FM, KBS → KBS 1라디오)
         if gorun == nil, sa != nil, !hubo.isEmpty {
             let eutteum: [String: String] = kind == "radio"
@@ -1136,7 +1193,8 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         // 4-1) 2.120.0 분류 이름(홈쇼핑, 종교, 교육, 지역, 지상파, 공공·문화, SBS)이면 그 분류의 채널을 알려 드리고 여쭘
         if gorun == nil {
             let bm: [(String, String)] = [("홈쇼핑", "홈쇼핑"), ("쇼핑", "홈쇼핑"), ("종교", "종교"), ("교육", "교육"), ("지역", "지역 SBS와 MBC"), ("sbs", "지역 SBS와 MBC"),
-                                          ("지상파", "지상파"), ("공공", "공공과 문화"), ("문화", "공공과 문화"), ("기타", "EBS와 기타")]
+                                          ("지상파", "지상파"), ("공공", "공공과 문화"), ("문화", "공공과 문화"), ("기타", "EBS와 기타"),
+                                          ("종교", "국악과 종교"), ("교통", "뉴스와 교통"), ("기타", "그 밖에")]   // 2.122.0 길눈 전용 라디오 분류
             let bd = bunryuDeul(kind)
             if let g = bm.first(where: { zz.contains($0.0) && bd.contains($0.1) })?.1 {
                 let gl = bunryuChaeneol(kind, g)

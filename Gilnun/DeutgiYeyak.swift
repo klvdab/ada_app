@@ -305,7 +305,8 @@ final class DeutgiYeyak: ObservableObject {
         let zl = z.lowercased()
         let pj = BangsongEngine.bangsongPyojun(z)
         let bangsongMal = z.contains("라디오") || zl.contains("fm") || z.contains("에프엠") || z.contains("방송") ||
-            ["kbs", "mbc", "ebs", "obs", "tbs", "bbs", "표준fm", "fm4u", "해피fm", "쿨fm", "클래식fm", "사랑의소리", "한민족"].contains { pj.contains($0) }
+            ["kbs", "mbc", "ebs", "obs", "tbs", "bbs", "표준fm", "fm4u", "해피fm", "쿨fm", "클래식fm", "사랑의소리", "한민족",
+             "sbs", "cbs", "ytn", "와이티엔", "tbn", "교통방송", "국악방송", "극동방송", "불교방송", "국방fm", "경인방송", "ifm", "파워fm", "러브fm", "음악fm", "고릴라디오", "조이포유", "반디"].contains { pj.contains($0) }   // 2.122.0 새 라디오
         let yeyakMal = z.contains("예약")
         // 1. 예약 듣기·지우기
         if z.contains("듣기예약") || (yeyakMal && bangsongMal && !z.contains("시")) {

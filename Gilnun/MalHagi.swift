@@ -2112,7 +2112,10 @@ final class MalHagi: ObservableObject {
         let kkeugi = ["그만", "꺼", "끄기", "끄자", "멈춰", "중지"].contains { z.contains($0) }
         // 2.12.7 방송사 이름만 말씀하셔도(MBC 틀어 줘, 엠비시) 라디오로 — 음악 찾기로 새지 않게
         let pj = BangsongEngine.bangsongPyojun(z)
-        let bangsongsaMal = ["kbs", "mbc", "ebs", "obs", "tbs", "bbs", "arirang", "표준fm", "fm4u", "4u", "해피fm", "쿨fm", "클래식fm", "사랑의소리", "한민족"].contains { pj.contains($0) }
+        let bangsongsaMal = ["kbs", "mbc", "ebs", "obs", "tbs", "bbs", "arirang", "표준fm", "fm4u", "4u", "해피fm", "쿨fm", "클래식fm", "사랑의소리", "한민족",
+                             // 2.122.0 (261029-I76) 새 라디오 — 길눈 전용 라디오 목록 27개
+                             "sbs", "cbs", "ytn", "와이티엔", "tbn", "교통방송", "국악방송", "극동방송", "불교방송", "국방fm", "경인방송", "ifm",
+                             "파워fm", "러브fm", "음악fm", "고릴라디오", "조이포유", "반디"].contains { pj.contains($0) }
         // 2.120.0 (261028-I74) TV에만 있는 채널·분류 이름이면 TV로(홈쇼핑, KNN, 방송대 OUN, KTV 국민방송, 불교TV …)
         let tvMal = ["홈쇼핑", "종교방송", "지상파", "knn", "kbc", "ubc", "oun", "방송대", "ktv", "국민방송", "nbs", "농업방송", "국악방송tv",
                      "btn", "fgtv", "순복음", "abn", "아가페", "cj온스타일", "gs샵", "gs마이샵", "ns샵", "롯데원tv", "공영쇼핑", "홈앤쇼핑", "신세계쇼핑", "w쇼핑", "쇼핑엔티",
