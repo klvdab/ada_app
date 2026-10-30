@@ -292,7 +292,7 @@ struct JeopsokView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 Danchu(geul: "뒤로") { dwiro() }.accessibilityFocused($wiChojeom)
-                Geul(flint ? "플린트 2 방식입니다. 듣는 분은 와이파이 태그 한 번(안드로이드)이나 와이파이 큐알 한 번(아이폰)이면 듣기 화면이 저절로 뜹니다. 듣기 주소 태그는 필요 없습니다."
+                Geul(flint ? "플린트 2 방식입니다. 듣는 분 폰에 LVD 방송 앱이 있으면 한 번에 듣기 태그(안드로이드)나 한 번에 듣기 큐알(아이폰) 한 번으로 곧바로 들립니다. 앱이 없는 폰은 와이파이 붙기 태그나 큐알로 붙은 뒤, 듣기 주소 열기 태그나 큐알로 듣기 화면을 엽니다."
                            : "아이피타임 방식입니다. 듣는 분은 두 번 합니다. 첫째, 와이파이에 붙습니다(안드로이드는 와이파이 태그, 아이폰은 와이파이 큐알). 둘째, 듣기 주소 태그나 듣기 주소 큐알로 듣기 화면을 엽니다(안드로이드와 아이폰 모두). 방송 와이파이 이름은 아이피타임 공유기 와이파이 이름 그대로 넣으십시오. 한 번 넣어 두면 기억합니다.")
                 Kan(ireum: "방송 와이파이 이름", gap: ssidB)
                 Kan(ireum: "와이파이 비밀번호(없으면 비워 두기)", gap: $pw)
@@ -321,10 +321,10 @@ struct JeopsokView: View {
                 }
                 Danchu(geul: "엔에프시 태그 쓰기 멈추기") { NfcSseugi.shared.meomchugi() }
                 Geul("큐알코드(아이폰은 카메라로 비추면 와이파이에 붙음)", gulgeum: true).accessibilityAddTraits(.isHeader)
-                Danchu(geul: flint ? "A4 인쇄용 한 장 만들기: 와이파이 큐알" : "A4 인쇄용 한 장 만들기: 위 와이파이, 아래 듣기 주소, 가운데를 잘라 두 장") {   // 1.1.6, 1.2.0, 1.7.0
+                Danchu(geul: "A4 인쇄용 한 장 만들기: 위 와이파이, 아래 듣기 주소, 가운데를 잘라 두 장") {   // 1.12.0 (261030-BI16) 플린트 2도 두 장   // 1.1.6, 1.2.0, 1.7.0
                     let s = ssid.trimmingCharacters(in: .whitespaces)
                     if s.isEmpty { mal("방송 와이파이 이름을 먼저 넣어 주십시오."); return }
-                    if flint {   // 1.2.0
+                    if false {   // 1.2.0 — 1.12.0 (261030-BI16) 플린트 2도 듣기 화면이 저절로 뜨지 않으므로 두 장으로(이 갈래는 쓰지 않음)
                         guard let a = Jeopsok.a4Flint(wifi: Jeopsok.wifiQr(ssid: s, pw: pw), ssid: s) else { mal("그림을 만들지 못했습니다."); return }
                         qr = a; qrIreum = "A4 인쇄용 한 장, 와이파이"; qrNae = ""
                         SajinJeojang.shared.jeojang(a) { ok in
@@ -355,10 +355,8 @@ struct JeopsokView: View {
                     }
                 }
                 // 듣기 주소 태그·큐알 — 아이피타임 방식(이 아이폰이 서버)에서 씀. 플린트 2 방식에서는 펼쳐야 보임
-                if flint {
-                    Danchu(geul: jusoPyeolchim ? "듣기 주소 태그와 큐알 접기" : "듣기 주소 태그와 큐알 펼치기 (아이피타임 방식에서 씀)") { jusoPyeolchim.toggle() }
-                }
-                if !flint || jusoPyeolchim {
+                // 1.12.0 (261030-BI16) 플린트 2도 앱이 없는 폰을 위해 늘 보임
+                if true {
                     Kan(ireum: "듣기 주소", gap: $juso)
                     Danchu(geul: "듣기 주소 확인하기") { jusoHwagin {} }   // 1.1.6
                     Danchu(geul: "엔에프시 태그 쓰기: 듣기 주소 열기") {

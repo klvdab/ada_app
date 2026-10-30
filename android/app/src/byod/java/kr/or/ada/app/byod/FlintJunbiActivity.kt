@@ -131,7 +131,7 @@ class FlintJunbiActivity : Activity() {
                 ch.disconnect()
                 if (kkeut) {
                     Flint.bangsikBakkugi(this, "flint")
-                    mal("플린트 2 준비를 마쳤습니다. 1분쯤 뒤 와이파이 " + Flint.SSID + " 가 뜨면 이 기기를 거기에 붙이고, 첫 화면에서 LVD 송출 시작을 누르십시오.")
+                    mal("플린트 2 준비를 마쳤습니다. 공유기가 다시 켜집니다. 1분쯤 뒤 이 기기의 설정, 와이파이에서 " + Flint.SSID + " 를 골라 붙이십시오. 비밀번호는 없고, 인터넷 연결이 확실치 않다는 물음이 뜨면 항상을 누르십시오. 그다음 첫 화면에서 BYOD 방송 시작을 누르십시오.")   // 1.12.0 (261030-B22) 이사장님이 「이 기기를 거기 붙이라」를 헷갈려 하심
                 } else mal("준비를 끝까지 마치지 못했습니다. 위의 마지막 안내를 보시고 다시 눌러 주십시오.")
             } catch (e: Exception) {
                 val m = e.message ?: ""

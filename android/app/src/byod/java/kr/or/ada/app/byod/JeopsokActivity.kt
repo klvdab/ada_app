@@ -59,7 +59,7 @@ class JeopsokActivity : Activity() {
         title = "접속 도구 — 엔에프시와 큐알"
         danchu("뒤로") { finish() }
         val flint = Flint.flintInga(this)   // 1.2.0
-        geul(if (flint) "플린트 2 방식입니다. 듣는 분은 와이파이 태그 한 번(안드로이드)이나 와이파이 큐알 한 번(아이폰)이면 듣기 화면이 저절로 뜹니다. 듣기 주소 태그는 필요 없습니다."
+        geul(if (flint) "플린트 2 방식입니다. 듣는 분 폰에 LVD 방송 앱이 있으면 한 번에 듣기 태그(안드로이드)나 한 번에 듣기 큐알(아이폰) 한 번으로 곧바로 들립니다. 앱이 없는 폰은 와이파이 붙기 태그나 큐알로 붙은 뒤, 듣기 주소 열기 태그나 큐알로 듣기 화면을 엽니다."
              else "아이피타임 방식입니다. 듣는 분은 두 번 합니다. 첫째, 와이파이에 붙습니다(안드로이드는 와이파이 태그, 아이폰은 와이파이 큐알). 둘째, 듣기 주소 태그나 듣기 주소 큐알로 듣기 화면을 엽니다(안드로이드와 아이폰 모두). 방송 와이파이 이름은 아이피타임 공유기 와이파이 이름 그대로 넣으십시오.")
         ssidCan = kan("방송 와이파이 이름", ssidCheo(flint))   // 1.2.0 한 번 넣은 이름을 기억
         pwCan = kan("와이파이 비밀번호(없으면 비워 두기)", "")
@@ -72,11 +72,11 @@ class JeopsokActivity : Activity() {
         danchu("엔에프시 태그 쓰기: 와이파이 붙기") { ssidGieok(); sseugiJunbi(wifiMessage(), "와이파이 붙기") }
         danchu("엔에프시 태그 쓰기 멈추기") { sseugiMeomchum() }
         danchu("큐알 보기: 와이파이 붙기") { ssidGieok(); qrBoyeogi(wifiQr(), "와이파이붙기") }
-        danchu(if (flint) "A4 인쇄용 한 장 만들기: 와이파이 큐알" else "A4 인쇄용 한 장 만들기: 위 와이파이, 아래 듣기 주소, 가운데를 잘라 두 장") { ssidGieok(); a4Mandeulgi() }   // 1.1.6, 1.2.0, 1.7.0
+        danchu("A4 인쇄용 한 장 만들기: 위 와이파이, 아래 듣기 주소, 가운데를 잘라 두 장") { ssidGieok(); a4Mandeulgi() }   // 1.1.6, 1.2.0, 1.7.0
         danchu("큐알 그림 저장(인쇄용)") { qrJeojang() }
         // 듣기 주소 태그·큐알 — 아이피타임 방식(이 기기가 서버)에서 씀. 플린트 2 방식에서는 펼쳐야 보임
-        val jusoMuk = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = if (flint) View.GONE else View.VISIBLE }
-        if (flint) danchu("듣기 주소 태그와 큐알 펼치기 (아이피타임 방식에서 씀)") { jusoMuk.visibility = if (jusoMuk.visibility == View.VISIBLE) View.GONE else View.VISIBLE }
+        // 1.12.0 (261030-B22) 플린트 2도 이제 듣기 화면이 저절로 뜨지 않으므로(인터넷 있는 척) 앱이 없는 폰을 위해 늘 보임
+        val jusoMuk = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.VISIBLE }
         val bon = body
         body = jusoMuk
         jusoCan = kan("듣기 주소", jusoGotchim(if (Bang.juso.isNotEmpty()) Bang.juso else if (flint) Flint.JUSO else ByodService.jusoChatgi()))   // 1.1.6 방송 중이면 방송 주소를 먼저
@@ -281,7 +281,7 @@ class JeopsokActivity : Activity() {
 
     // 1.1.6 A4 한 장 — 위에 와이파이 큐알, 아래에 듣기 주소 큐알. 1.7.0 큐알을 약 5센티미터로 작게, 가운데 자르는 선(두 장으로 잘라 씀)
     private fun a4Mandeulgi() {
-        if (Flint.flintInga(this)) { a4Flint(); return }   // 1.2.0
+        // 1.12.0 (261030-B22) 플린트 2도 위 와이파이, 아래 듣기 주소 두 장(듣기 화면이 저절로 뜨지 않으므로). a4Flint 는 남겨 둠
         val w = wifiQr(); val j = jusoGotchim(jusoCan.text.toString())
         if (w == "WIFI:T:nopass;S:;;") { mal("방송 와이파이 이름을 먼저 넣어 주십시오."); return }
         if (j.isEmpty()) { mal("듣기 주소가 비었습니다."); return }

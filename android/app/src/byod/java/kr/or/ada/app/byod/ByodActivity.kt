@@ -268,7 +268,6 @@ class ByodActivity : Activity() {
         mom.addView(deoDanchu)
 
         deoAn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
-        deoAn.addView(bangsikDanchu)   // 1.9.0 공유기 직접 고르기(보통은 앱이 스스로 알아냄)
         deoAn.addView(danchu("접속 도구: 엔에프시 태그와 큐알코드") { startActivity(Intent(this, JeopsokActivity::class.java)) })   // 1.1.0 (261006-B2)
         deoAn.addView(danchu("지난 행사 기록 (녹음과 결과보고)") { haengsaHwamyeon() })   // 1.3.0
         deoAn.addView(danchu("플린트 2 준비하기 (공유기 처음 한 번)") { startActivity(Intent(this, FlintJunbiActivity::class.java)) })   // 1.2.0
@@ -284,6 +283,7 @@ class ByodActivity : Activity() {
         malsoriDanchu = danchu(if (malsoriOn) "프로그램 말소리 끄기" else "프로그램 말소리 켜기") { malsoriBakkugi() }
         deoAn.addView(malsoriDanchu)
         deoAn.addView(danchu("도움말") { doumalHwamyeon() })
+        deoAn.addView(bangsikDanchu)   // 1.9.0 공유기 직접 고르기 — 1.12.0 (261030-B22, 이사장님 승인 2026-10-30) 예비로 더 보기 맨 아래에
         pdGeul = geul(pdMal(), 18f).apply { setTextColor(Saek.yeonhan) }   // 1.9.0 피디 번호 한 줄
         deoAn.addView(pdGeul)
         deoAn.addView(geul("LVD 송출 " + Bang.PAN + "판, 빌드 " + Bang.BILD, 16f).apply { setTextColor(Saek.yeonhan) })
@@ -412,8 +412,9 @@ class ByodActivity : Activity() {
 
     // 1.2.0 방송 방식 — 플린트 2(공유기 안 서버) 또는 이 기기가 서버
     // 1.7.0 (261021-B15, 이사장님 승인) 「공유기: 아이피타임」과 「공유기: 플린트 2」를 엔터 한 번에 번갈아 고름, 처음값은 아이피타임
-    private fun bangsikMal(): String = if (Flint.flintInga(this)) "공유기 직접 고르기: 지금 플린트 2. 누르면 아이피타임으로 바꿉니다(보통은 방송을 시작할 때 앱이 스스로 알아냅니다)"
-        else "공유기 직접 고르기: 지금 아이피타임. 누르면 플린트 2로 바꿉니다(보통은 방송을 시작할 때 앱이 스스로 알아냅니다)"
+    // 1.12.0 (261030-B22) 아이피타임은 예비 — 이름 앞에 「예비」
+    private fun bangsikMal(): String = if (Flint.flintInga(this)) "예비: 공유기 직접 고르기, 지금 플린트 2. 누르면 아이피타임으로 바꿉니다(보통은 방송을 시작할 때 앱이 스스로 알아냅니다)"
+        else "예비: 공유기 직접 고르기, 지금 아이피타임. 누르면 플린트 2로 바꿉니다(보통은 방송을 시작할 때 앱이 스스로 알아냅니다)"
 
     private fun bangsikBakkugi() {
         if (Bang.kyeojim) { val t = "방송 중에는 공유기를 바꾸지 않습니다. 방송을 멈춘 뒤 눌러 주십시오."; bangsikDanchu.announceForAccessibility(t); malhagi(t); return }
@@ -546,7 +547,8 @@ class ByodActivity : Activity() {
                 bangDanchu.isEnabled = true
                 if (doumalYeollim) return@post
                 if (flintDap) { if (!Flint.flintInga(this)) Flint.bangsikBakkugi(this, "flint") }
-                else if (Flint.flintInga(this)) Flint.bangsikBakkugi(this, "taebeullit")
+                // 1.12.0 (261030-B22) 플린트 2 주소(192.168.8.)에 붙어 있으면 방송 서버가 잠깐 답하지 않아도 아이피타임으로 바꾸지 않음(이사장님 지적 2026-10-30 「플린트를 골랐는데 왜 아이피타임이 자꾸 나오나」)
+                else if (Flint.flintInga(this) && !juso.removePrefix("http://").startsWith("192.168.8.")) Flint.bangsikBakkugi(this, "taebeullit")
                 bangsikDanchu.text = bangsikMal()
                 val host = juso.removePrefix("http://").substringBefore(":")
                 val munje: String? = when {

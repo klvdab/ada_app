@@ -26,8 +26,8 @@ try:
 except Exception:          # python3-openssl 이 없는 공유기 — 자물쇠 문 없이 돎
     ssl = None
 
-PAN = "1.6.0"   # 261028-F6 이름 추첨 — 명단 넣기(/myeongdan), 명단에서 이름 추첨(/chucheom?beom=myeongdan), 번호 추첨·호명 때 명단의 이름도 함께, 상태에 당첨 이름(dnm·dnmok)(새방클, 이사장님 승인 2026-10-28 「1」). 261026-F5 오푸스(시험) — 방송 앱이 BYOD2 꼴로 오푸스도 보내면 /opus 로 나눠 줌(뮤 /stream 은 그대로). 261024-F4 노트북판 현장 기능 전부·여러 갈래 해설·만족도·구역별 인원·자동 저장·자물쇠 문 8443·갈래 녹음과 기록도 나스로(새방송클). 261015-F3 상태에 행사 이름·현장영상해설사, 듣기 화면에 LVD 방송 앱 받기, 행사 기본 이름 「현장영상해설 방송」
-BILD = "261028-F6"
+PAN = "1.7.0"   # 261030-F7 원격 관리 — 1분마다 나스에 상태를 올리고 나스 지시(jisi.json)를 받아 설정 바꾸기·다시 켜기·새 판 넣기·스크립트 돌리기, 인터넷 있는 척을 처음값으로, 인터넷이 있으면 이름을 돌리지 않아 붙은 기기도 인터넷을 씀, 이름을 돌려도 협회 나스는 빼서 공유기가 나스에 닿음(방클, 이사장님 승인 2026-10-30 「1」). 261028-F6 이름 추첨 — 명단 넣기(/myeongdan), 명단에서 이름 추첨(/chucheom?beom=myeongdan), 번호 추첨·호명 때 명단의 이름도 함께, 상태에 당첨 이름(dnm·dnmok)(새방클, 이사장님 승인 2026-10-28 「1」). 261026-F5 오푸스(시험) — 방송 앱이 BYOD2 꼴로 오푸스도 보내면 /opus 로 나눠 줌(뮤 /stream 은 그대로). 261024-F4 노트북판 현장 기능 전부·여러 갈래 해설·만족도·구역별 인원·자동 저장·자물쇠 문 8443·갈래 녹음과 기록도 나스로(새방송클). 261015-F3 상태에 행사 이름·현장영상해설사, 듣기 화면에 LVD 방송 앱 받기, 행사 기본 이름 「현장영상해설 방송」
+BILD = "261030-F7"
 
 SEOBEO_IP = os.environ.get("BYOD_IP", "192.168.8.2")      # 듣기 화면 주소(공유기에 덧붙인 주소)
 WEB_PORT = int(os.environ.get("BYOD_WEB_PORT", "7880"))    # 80번은 방화벽이 이리로 돌려줌
@@ -80,8 +80,8 @@ def pd_beonho_mandeul():
 class Bang:
     def __init__(self):
         self.yeolsoe = ilkgi("yeolsoe")            # 방송 앱만 소리를 보낼 수 있게
-        self.ttuigi = ilkgi("ttuigi", "ttuim")     # ttuim: 듣기 화면 저절로 뜨기 / cheok: 인터넷 있는 척만
-        self.tonggwa_ttae = ilkgi("tonggwa", "an")  # deutgi: 듣기를 시작하면 그 폰은 인터넷 있는 척으로 / an: 늘 뜨기 창 그대로(현장 시험으로 정함)
+        self.ttuigi = ilkgi("ttuigi", "cheok")     # ttuim: 듣기 화면 저절로 뜨기 / cheok: 인터넷 있는 척만(1.7.0 처음값, 이사장님 승인 2026-10-30 — 아이폰이 와이파이를 놓고 안드로이드가 「이번만, 항상」을 묻던 일)
+        self.tonggwa_ttae = ilkgi("tonggwa", "deutgi")  # deutgi: 듣기를 시작하면 그 폰은 인터넷 있는 척으로 / an: 늘 뜨기 창 그대로(현장 시험으로 정함)
         self.deut = []                              # 저지연 듣는 분(갈래마다 d.gal)
         self.deut_mp3 = []                          # 잠가도 이어지는 듣는 분(갈래 1)
         self.bonaem = None                          # 지금 소리를 보내는 앱(쓰는 쪽)
@@ -911,6 +911,265 @@ async def nok_olligi():
     B.nok_olrinun = False
 
 
+# ───── 1.7.0 원격 관리(261030-F7, 방클, 이사장님 승인 2026-10-30 「1」) ─────
+# 이사장님 말씀: 「직원 없으면 아무것도 못하는 상황을 만들면 우리가 이짓을 왜해」.
+# 공유기가 사무실 인터넷(WAN)으로 1분마다
+#   ① 나스에 상태를 올림 — byod_olligi.php(jong=pail) → /volume1/lvt_data/bfblive/byod/byod99<공유기번호>/pail/flint_sangtae.json
+#   ② 나스의 지시 한 장(jisi.json)을 읽어 아직 하지 않은 지시를 함 — 클이 나스에서 설정 바꾸기·점검·되돌리기·새 판 넣기를 직접 함
+# 지시는 나스 웹 폴더(/test/bfblive/flint/)에 둔 파일만 믿음. 받는 파일(새 판·스크립트)은 sha256 이 맞아야 씀.
+# 지시 한 장 꼴: {"jisi":[{"id":"261030-01","ki":"all"|"<공유기번호>","il":"ttuigi","gap":"cheok"}, ...]}
+#   il: ttuigi(ttuim|cheok) · tonggwa(an|deutgi) · dasi(방송 서버 다시 켜기) · saepan(url, sha256 — 방송 서버 새 판) · sh(url, sha256 — 스크립트 돌리기)
+# 이름 풀이 문제(DNS)도 여기서 맞춤: 듣기 화면 저절로 뜨기(ttuim)이거나 공유기에 인터넷이 없으면 모든 이름을 듣기 화면으로(협회 나스 등 몇 곳은 빼고),
+#   인터넷 있는 척(cheok)이고 공유기에 인터넷이 있으면 이름을 돌리지 않음 — 공유기에 붙은 기기도 인터넷을 그대로 씀(클 노트북·태블릿 업데이트).
+import hashlib, socket, subprocess
+
+GWANRI_JISI = os.environ.get("BYOD_JISI", "https://lvd.ada.or.kr/bfblive/flint/jisi.json")
+GWANRI_GAN = float(os.environ.get("BYOD_GWANRI_GAN", "60"))
+GWANRI_MIDEUM = os.environ.get("BYOD_MIDEUM_JUSO", "https://lvd.ada.or.kr/")     # 받는 파일은 이 주소로 시작해야 함
+DNS_PAIL = os.environ.get("BYOD_DNS_PAIL", "/tmp/dnsmasq.d/byod.conf")
+DNS_DASI = os.environ.get("BYOD_DNS_DASI", "/etc/init.d/dnsmasq restart")   # 비우면 다시 켜지 않음(시험용)
+DNS_BBAEGI = ("lvd.ada.or.kr", "ada.or.kr", "downloads.openwrt.org", "fw.gl-inet.com", "pool.ntp.org", "time.google.com")
+INTEONET_SIHEOM = os.environ.get("BYOD_INTEONET", "8.8.8.8:53,1.1.1.1:443")
+GW = {"ki": "", "inteonet": None, "dns": "", "han": [], "gyeolgwa": [], "jisi_mal": "", "olim_mal": "", "ttae": 0.0, "dasi": False}
+GW_GIROK = []
+
+
+def gw_mal(t):
+    GW_GIROK.append("%s %s" % (time.strftime("%m-%d %H:%M:%S"), t))
+    del GW_GIROK[:-40]
+    print("관리: " + t, flush=True)
+
+
+def gw_beonho():
+    """공유기마다 다른 열 자리 번호(랜 쪽 맥 주소에서) — 나스 폴더 이름 byod99 + 열 자리"""
+    b = os.environ.get("BYOD_KI", "")
+    if b.isdigit() and len(b) == 10:
+        return b
+    for nm in ("br-lan", "eth0", "eth1", "lan1"):
+        try:
+            with open("/sys/class/net/%s/address" % nm) as f:
+                m = f.read().strip().replace(":", "")
+            if m and m != "000000000000":
+                return str(int(m, 16) % 10000000000).zfill(10)
+        except Exception:
+            pass
+    return "0000000000"
+
+
+def gw_inteonet():
+    for s in INTEONET_SIHEOM.split(","):
+        h, _, p = s.strip().rpartition(":")
+        try:
+            socket.create_connection((h, int(p)), 3).close()
+            return True
+        except Exception:
+            pass
+    return False
+
+
+def dns_matchugi(ileum=""):
+    """듣기 화면 저절로 뜨기이거나 인터넷이 없으면 이름을 돌리고, 아니면 돌리지 않음. 바뀔 때만 dnsmasq 를 다시 켬"""
+    dollim = B.ttuigi == "ttuim" or not GW["inteonet"]
+    if dollim:
+        jul = ["address=/#/%s" % SEOBEO_IP, "address=/console.gl-inet.com/192.168.8.1"] + ["server=/%s/#" % d for d in DNS_BBAEGI]
+        sae = "\n".join(jul) + "\n"
+    else:
+        sae = ""
+    try:
+        with open(DNS_PAIL, encoding="utf-8") as f:
+            jigeum_pail = f.read()
+    except Exception:
+        jigeum_pail = ""
+    GW["dns"] = "dollim" if dollim else "geudaero"
+    if sae == jigeum_pail:
+        return False
+    try:
+        if sae:
+            os.makedirs(os.path.dirname(DNS_PAIL), exist_ok=True)
+            with open(DNS_PAIL, "w", encoding="utf-8") as f:
+                f.write(sae)
+        elif os.path.exists(DNS_PAIL):
+            os.remove(DNS_PAIL)
+        if DNS_DASI:
+            subprocess.run(DNS_DASI, shell=True, timeout=30, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        gw_mal("이름 돌리기를 %s(%s)" % ("켬" if dollim else "끔", ileum or ("듣기 화면 뜨기" if B.ttuigi == "ttuim" else ("인터넷 없음" if not GW["inteonet"] else "인터넷 있음"))))
+    except Exception as e:
+        gw_mal("이름 돌리기를 바꾸지 못함: %s" % e)
+    return True
+
+
+def gw_batgi(url, data=None, timeout=30):
+    """https 받기·보내기 — 파이썬 자물쇠(ssl)가 없으면 curl 로"""
+    if ssl is not None:
+        rq = urllib.request.Request(url, data=data, method="POST" if data is not None else "GET")
+        with urllib.request.urlopen(rq, timeout=timeout) as r:
+            return r.read()
+    if shutil.which("curl"):
+        mok = ["curl", "-s", "-f", "-m", str(int(timeout)), url]
+        if data is not None:
+            mok[1:1] = ["-X", "POST", "--data-binary", "@-", "-H", "Content-Type: application/octet-stream"]
+        p = subprocess.run(mok, input=data or b"", stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=timeout + 5)
+        if p.returncode != 0:
+            raise IOError("curl %d" % p.returncode)
+        return p.stdout
+    raise IOError("https 부품 없음")
+
+
+def gw_sangtae():
+    lan = 0
+    try:
+        with open("/tmp/dhcp.leases") as f:
+            lan = sum(1 for _ in f)
+    except Exception:
+        pass
+    return {
+        "ki": GW["ki"], "pan": PAN, "bild": BILD, "ttae": int(time.time()), "kyeojin_cho": int(time.time() - B.sijak_ttae),
+        "ttuigi": B.ttuigi, "tonggwa": B.tonggwa_ttae, "dns": GW["dns"], "inteonet": GW["inteonet"],
+        "ssl": ssl is not None, "curl": bool(shutil.which("curl")), "mp3": B.mp3_iss, "tport": B.tport,
+        "deutnun": deutnun_su(), "lan_gigi": lan, "bonaem": B.bonaem_ireum, "bangsong": B.bonaem is not None,
+        "haengsa": B.haengsa.sid if B.haengsa else "", "hwakin": B.hwakin, "nas": B.nas_mal,
+        "jisi_mal": GW["jisi_mal"], "gyeolgwa": GW["gyeolgwa"][-20:], "girok": GW_GIROK[-30:],
+    }
+
+
+def gw_olligi():
+    sid = "byod99" + GW["ki"]
+    b = json.dumps(gw_sangtae(), ensure_ascii=False, indent=1).encode("utf-8")
+    q0 = "%s?k=%s&sid=%s&jong=pail" % (NAS_OLLIGI, OLLIGI_YEOLSOE, sid)
+    if b'"ok":true' not in gw_batgi(q0 + "&step=jogak&n=0", b, 30):
+        raise IOError("jogak")
+    if b'"ok":true' not in gw_batgi(q0 + "&step=kkeut&su=1&gil=%d&nm=flint_sangtae.json" % len(b), b"", 30):
+        raise IOError("kkeut")
+
+
+def gw_han_ilkgi():
+    """한 지시 번호와 결과를 다시 켜진 뒤에도 기억(새 판 넣기·다시 켜기 결과가 상태에 남게)"""
+    try:
+        with open(os.path.join(TEO, "gwanri_han.json"), encoding="utf-8") as f:
+            d = json.load(f)
+        if isinstance(d, list):
+            d = {"han": d}
+        GW["han"] = list(d.get("han", []))[-300:]
+        GW["gyeolgwa"] = list(d.get("gyeolgwa", []))[-30:]
+    except Exception:
+        GW["han"] = []
+
+
+def gw_han_sseugi():
+    try:
+        anjeon_sseugi(os.path.join(TEO, "gwanri_han.json"),
+                      json.dumps({"han": GW["han"][-300:], "gyeolgwa": GW["gyeolgwa"][-30:]}, ensure_ascii=False).encode("utf-8"))
+    except Exception:
+        pass
+
+
+def gw_pail_batgi(j):
+    url = str(j.get("url", ""))
+    sha = str(j.get("sha256", "")).lower()
+    if not url.startswith(GWANRI_MIDEUM) or len(sha) != 64:
+        raise ValueError("받을 주소나 sha256 이 맞지 않음")
+    b = gw_batgi(url + ("&" if "?" in url else "?") + "t=%d" % int(time.time()), None, 120)
+    if hashlib.sha256(b).hexdigest() != sha:
+        raise ValueError("받은 파일의 sha256 이 다름")
+    return b
+
+
+def gw_jisi_hagi(j):
+    il = str(j.get("il", ""))
+    gap_ = str(j.get("gap", ""))
+    if il == "ttuigi" and gap_ in ("ttuim", "cheok"):
+        B.ttuigi = gap_
+        anjeon_sseugi(os.path.join(TEO, "ttuigi"), (gap_ + "\n").encode())
+        dns_matchugi("지시")
+        return "ttuigi=" + gap_
+    if il == "tonggwa" and gap_ in ("an", "deutgi"):
+        B.tonggwa_ttae = gap_
+        anjeon_sseugi(os.path.join(TEO, "tonggwa"), (gap_ + "\n").encode())
+        return "tonggwa=" + gap_
+    if il == "dasi":
+        GW["dasi"] = True
+        return "방송 서버를 다시 켭니다"
+    if il == "saepan":
+        if B.bonaem is not None:
+            raise RuntimeError("방송 중이라 새 판은 방송이 끝난 뒤에 넣음")
+        b = gw_pail_batgi(j)
+        compile(b.decode("utf-8"), "byod_flint.py", "exec")
+        jigeum_p = os.path.abspath(__file__)
+        try:
+            shutil.copyfile(jigeum_p, jigeum_p + ".jeon")
+        except Exception:
+            pass
+        anjeon_sseugi(jigeum_p, b)
+        GW["dasi"] = True
+        return "새 판을 넣었습니다(%s). 다시 켭니다" % j.get("pan", "")
+    if il == "sh":
+        b = gw_pail_batgi(j)
+        p = os.path.join("/tmp", "byod_gwanri_%s.sh" % re.sub(r"[^A-Za-z0-9_-]", "", str(j.get("id", "x")))[:40])
+        with open(p, "wb") as f:
+            f.write(b)
+        r = subprocess.run(["sh", p], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=float(j.get("sigan", 600)))
+        return ("끝 %d\n" % r.returncode) + r.stdout.decode("utf-8", "replace")[-3500:]
+    raise ValueError("모르는 지시: " + il)
+
+
+def gwanri_hanbeon():
+    GW["ttae"] = time.time()
+    GW["inteonet"] = gw_inteonet()
+    dns_matchugi()
+    if not GW["inteonet"]:
+        GW["jisi_mal"] = "공유기에 인터넷이 없어 지시를 읽지 못함"
+        return
+    try:
+        raw = gw_batgi(GWANRI_JISI + "?t=%d" % int(time.time()), None, 20)
+        mok = json.loads(raw.decode("utf-8")).get("jisi", [])
+        GW["jisi_mal"] = "지시 %d개 읽음" % len(mok)
+    except Exception as e:
+        mok = []
+        GW["jisi_mal"] = "지시를 읽지 못함: %s" % e
+    for j in mok:
+        if not isinstance(j, dict):
+            continue
+        jid = str(j.get("id", ""))
+        if not jid or jid in GW["han"] or str(j.get("ki", "all")) not in ("all", GW["ki"]):
+            continue
+        GW["han"].append(jid)
+        gw_han_sseugi()
+        try:
+            mal = gw_jisi_hagi(j)
+            GW["gyeolgwa"].append({"id": jid, "il": j.get("il"), "ok": True, "mal": mal, "ttae": int(time.time())})
+            gw_mal("지시 %s 함: %s" % (jid, mal.split("\n")[0]))
+        except Exception as e:
+            GW["gyeolgwa"].append({"id": jid, "il": j.get("il"), "ok": False, "mal": str(e), "ttae": int(time.time())})
+            gw_mal("지시 %s 못 함: %s" % (jid, e))
+        del GW["gyeolgwa"][:-30]
+        gw_han_sseugi()
+        if GW["dasi"]:
+            break
+    try:
+        gw_olligi()
+        GW["olim_mal"] = "상태를 나스에 올림"
+    except Exception as e:
+        GW["olim_mal"] = "상태를 나스에 올리지 못함: %s" % e
+
+
+async def gwanri_ilkkun():
+    GW["ki"] = gw_beonho()
+    gw_han_ilkgi()
+    gw_mal("원격 관리 시작 — 공유기 번호 %s, 판 %s" % (GW["ki"], PAN))
+    await asyncio.sleep(float(os.environ.get("BYOD_GWANRI_CHEOT", "5")))
+    lp = asyncio.get_event_loop()
+    while True:
+        try:
+            await lp.run_in_executor(None, gwanri_hanbeon)
+        except Exception as e:
+            gw_mal("관리 한 바퀴 오류: %s" % e)
+        if GW["dasi"]:
+            gw_mal("방송 서버를 다시 켭니다")
+            await asyncio.sleep(1)
+            os._exit(0)          # procd 가 곧 다시 켬
+        await asyncio.sleep(GWANRI_GAN)
+
+
 # ───── 1.4.0 노트북판에서 옮긴 것: 상황 다루기 ─────
 MANJOK_MAL = {5: "매우 좋음", 4: "좋음", 3: "보통", 2: "아쉬움", 1: "매우 아쉬움"}
 
@@ -1328,7 +1587,7 @@ def sangtae(heoga=False, gal=1):
         d.update({"sjuso": tls_juso("/bang", "k=" + B.pdkey) if B.tport else "",
                   "djuso": "http://" + SEOBEO_IP + "/",
                   "gidari": [{"t": t, "nm": v[0]} for t, v in B.gidari.items()],
-                  "bangsik": 1 if B.ttuigi == "cheok" else 0, "dns": 0, "hwakin": B.hwakin,
+                  "bangsik": 1 if B.ttuigi == "cheok" else 0, "dns": 1 if GW["dns"] == "dollim" else 0, "gwanri": GW["ki"], "hwakin": B.hwakin,
                   "jiyeon": jiyeon_mal(), "siheom": "", "sij": False,
                   "mang": mang_mok(), "tport": B.tport})
     return json.dumps(d, ensure_ascii=False, separators=(",", ":"))
@@ -1483,7 +1742,13 @@ async def web(r, w, tls=False):
                     f.write(B.ttuigi + "\n")
             except Exception:
                 pass
+            try:
+                await asyncio.get_event_loop().run_in_executor(None, dns_matchugi, "방송 기기")   # 1.7.0
+            except Exception:
+                pass
             js(w, {"ok": True, "bangsik": 1 if B.ttuigi == "cheok" else 0})
+        elif uri == "/gwanri" and heoga:          # 1.7.0 원격 관리 상태
+            js(w, gw_sangtae())
         elif uri == "/siheom" and heoga:
             js(w, {"ok": False, "msg": "공유기 안 서버에서는 버티기 시험을 하지 않습니다."})
         elif uri in ("/yocheong_mok", "/yocheong_cheori", "/hs_mal", "/hs_mal_mok", "/kamera_mok", "/kamera_bogi", "/pyosi") and not heoga:
@@ -2304,6 +2569,7 @@ async def main():
     asyncio.ensure_future(olligi_ilkkun())
     asyncio.ensure_future(mp3_ilkkun())
     asyncio.ensure_future(jadong_ilkkun())
+    asyncio.ensure_future(gwanri_ilkkun())     # 1.7.0 원격 관리
     print("BYOD 플린트 서버 %s (%s) — 듣기 %d, 소리 %d, 자물쇠 %s, mp3 %s, 피디 번호 %s" % (PAN, BILD, WEB_PORT, SORI_PORT, B.tport or "없음", B.mp3_iss, B.pdkey), flush=True)
     await asyncio.gather(*[s.serve_forever() for s in sv])
 

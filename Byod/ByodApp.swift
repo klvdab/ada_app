@@ -260,7 +260,7 @@ struct CheotView: View {
                     Danchu(geul: "LVD 송출 새 판 \(p)이 나왔습니다. 두드리면 테스트플라이트에서 업데이트합니다") { ollim.yeolgi() }
                 }
                 if !st.juso.isEmpty {
-                    Geul(Flint.flintInga ? "듣기 화면(와이파이에 붙으면 저절로 뜸)" : "듣기 주소", saek: Saek.yeonhan).accessibilityHidden(true)
+                    Geul(Flint.flintInga ? "듣기 화면 주소(앱이 없는 폰은 와이파이에 붙은 뒤 이 주소를 엶)" : "듣기 주소", saek: Saek.yeonhan).accessibilityHidden(true)
                     Text(st.juso).font(.title2.weight(.bold)).foregroundStyle(Saek.norang)
                         .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
@@ -274,7 +274,6 @@ struct CheotView: View {
                     if deo { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { deoChojeom = true } }
                 }
                 if deo {
-                    Danchu(geul: (flintOn ? "공유기 직접 고르기: 지금 플린트 2. 누르면 아이피타임으로 바꿉니다" : "공유기 직접 고르기: 지금 아이피타임. 누르면 플린트 2로 바꿉니다") + "(보통은 방송을 시작할 때 앱이 스스로 알아냅니다)") { bangsikBakkugi() }   // 1.9.0
                     Danchu(geul: "접속 도구: 엔에프시 태그와 큐알코드") { gagi(.jeopsok) }
                     Danchu(geul: "지난 행사 기록 (녹음과 결과보고)") { gagi(.haengsa) }   // 1.3.0
                         .accessibilityFocused($deoChojeom)
@@ -287,6 +286,7 @@ struct CheotView: View {
                     Danchu(geul: ollim.seoljeongGeul) { ollim.seoljeongNureum() }
                     Danchu(geul: malsoriOn ? "프로그램 말소리 끄기" : "프로그램 말소리 켜기") { malsoriBakkugi() }
                     Danchu(geul: "도움말") { gagi(.doumal) }
+                    Danchu(geul: (flintOn ? "예비: 공유기 직접 고르기, 지금 플린트 2. 누르면 아이피타임으로 바꿉니다" : "예비: 공유기 직접 고르기, 지금 아이피타임. 누르면 플린트 2로 바꿉니다") + "(보통은 방송을 시작할 때 앱이 스스로 알아냅니다)") { bangsikBakkugi() }   // 1.9.0, 1.12.0 (261030-BI16) 예비로 더 보기 맨 아래에
                     Geul("피디 번호 \(HyeonjangGil.shared.pdKey)", saek: Saek.yeonhan)   // 1.9.0 (261024-BI11) 다른 폰에서 피디 화면을 열 때 씀
                     Geul("LVD 송출 아이폰 \(Bang.PAN)판, 빌드 \(Bang.BILD)", saek: Saek.yeonhan)
                     Geul(damgim, saek: Saek.yeonhan)
@@ -421,10 +421,11 @@ struct CheotView: View {
             DispatchQueue.main.async {
                 salpineunJung = false
                 let flintDap = j != nil
-                Flint.flintInga = flintDap
-                flintOn = flintDap
                 let juso = Juso.deutgiJuso()
                 let host = juso.replacingOccurrences(of: "http://", with: "").components(separatedBy: ":").first ?? ""
+                // 1.12.0 (261030-BI16) 플린트 2 주소(192.168.8.)에 붙어 있으면 방송 서버가 잠깐 답하지 않아도 아이피타임으로 바꾸지 않음
+                Flint.flintInga = flintDap || host.hasPrefix("192.168.8.")
+                flintOn = Flint.flintInga
                 var munje: String? = nil
                 if !flintDap {
                     if juso.isEmpty { munje = "이 아이폰이 어느 공유기에도 붙어 있지 않습니다. 방송 공유기의 와이파이에 붙이거나 랜 어댑터와 랜선으로 공유기에 이으십시오." }

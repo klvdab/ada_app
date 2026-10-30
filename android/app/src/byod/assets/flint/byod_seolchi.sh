@@ -3,6 +3,8 @@
 # 판 1.2.0 / 빌드 261014-F1 / 2026-10-14 (이사장님 승인 「1」, 방송클)
 # 1.3.0 / 261014-F2 행사 녹음을 배프에 올릴 https 꾸러미(python3-openssl, ca-bundle)를 함께 깖
 # 1.4.0 / 261024-F4 자물쇠 문(8443) 인증서 hj.crt·hj.key 와 피디·해설 화면(pd.html·bang.html), 듣기 화면·대기 음악을 함께 넣음
+# 1.7.0 / 261030-F7 (방클, 이사장님 승인 2026-10-30 「1」) 원격 관리(나스로 상태 보고·나스 지시 받기)가 든 방송 서버, 다시 준비할 때 이름 돌리기를 먼저 풀어 꾸러미를 받게,
+#   처음값을 인터넷 있는 척(cheok)으로, 이름을 돌릴 때도 협회 나스·꾸러미 받는 곳은 빼 둠
 # BYOD 앱의 「플린트 2 준비하기」가 이 파일과 byod_flint.py 를 공유기 /tmp 에 올린 뒤 sh /tmp/byod_seolchi.sh 로 돌립니다.
 # 사무실에서 한 번만 하면 됩니다. 공유기 인터넷(WAN) 단자에 사무실 인터넷 선이 꽂혀 있어야 합니다(파이썬과 mp3 꾸러미 받기).
 # 하는 일
@@ -10,7 +12,7 @@
 #   2. 방송 서버를 /etc/byod 에 두고, 켤 때마다 저절로 돌게(procd)
 #   3. 와이파이 이름 「현장영상해설방송」, 비밀번호 없음, 2.4와 5기가 모두
 #   4. 듣는 분 1,000명까지 주소를 나눠 줄 수 있게(192.168.8.0/22)
-#   5. 듣기 화면 주소 192.168.8.2, 폰이 어느 누리집을 물어도 듣기 화면으로(방송 중에만)
+#   5. 듣기 화면 주소 192.168.8.2. 이름 돌리기(어느 누리집을 물어도 듣기 화면으로)는 방송 서버가 맞춤 — 공유기에 인터넷이 있고 인터넷 있는 척이면 돌리지 않음
 # 줄마다 「BYOD:」로 시작하는 말을 앱이 그대로 읽어 줍니다.
 
 SSID="${BYOD_SSID:-현장영상해설방송}"
@@ -20,6 +22,12 @@ TEO=/etc/byod
 
 mal "플린트 2 준비를 시작합니다."
 [ -f /tmp/byod_flint.py ] || { mal "방송 서버 파일이 올라오지 않았습니다. 다시 눌러 주십시오."; exit 1; }
+
+# 0. 1.7.0 이미 준비한 공유기를 다시 준비할 때: 이름 돌리기를 풀어야 공유기가 꾸러미와 화면 파일을 받음
+[ -x /etc/init.d/byod ] && /etc/init.d/byod stop >/dev/null 2>&1
+rm -f /tmp/dnsmasq.d/byod.conf
+/etc/init.d/dnsmasq restart >/dev/null 2>&1
+sleep 2
 
 # 1. 꾸러미
 mal "파이썬을 받고 있습니다. 1분쯤 걸립니다."
@@ -64,8 +72,8 @@ for f in deut.html pd.html bang.html daegi.mp3 ment.mp3; do
   fi
 done
 [ -f $TEO/pd.html ] && [ -f $TEO/bang.html ] && mal "피디 화면과 해설 화면을 넣었습니다." || mal "피디 화면이나 해설 화면을 받지 못했습니다. 듣기는 그대로 됩니다."
-[ -f $TEO/ttuigi ] || echo ttuim > $TEO/ttuigi
-[ -f $TEO/tonggwa ] || echo an > $TEO/tonggwa
+[ -f $TEO/ttuigi ] || echo cheok > $TEO/ttuigi
+[ -f $TEO/tonggwa ] || echo deutgi > $TEO/tonggwa
 cat > /etc/init.d/byod <<'INIT'
 #!/bin/sh /etc/rc.common
 # BYOD 방송 서버(플린트 2) — 켜기·끄기
@@ -75,9 +83,11 @@ USE_PROCD=1
 IP=192.168.8.2
 start_service() {
   ip addr add $IP/22 dev br-lan 2>/dev/null
-  # 폰이 어느 누리집을 물어도 듣기 화면 주소로(공유기 관리 화면은 그대로)
+  # 폰이 어느 누리집을 물어도 듣기 화면 주소로(공유기 관리 화면은 그대로) — 켤 때만 우선 돌리고, 몇 초 뒤 방송 서버가 맞춤(1.7.0)
+  # 협회 나스·꾸러미 받는 곳·시계 맞추는 곳은 빼서 공유기가 나스에 상태를 올리고 지시를 받게
   mkdir -p /tmp/dnsmasq.d
   printf 'address=/#/%s\naddress=/console.gl-inet.com/192.168.8.1\n' $IP > /tmp/dnsmasq.d/byod.conf
+  for d in lvd.ada.or.kr ada.or.kr downloads.openwrt.org fw.gl-inet.com pool.ntp.org time.google.com; do echo "server=/$d/#" >> /tmp/dnsmasq.d/byod.conf; done
   /etc/init.d/dnsmasq restart >/dev/null 2>&1
   procd_open_instance
   procd_set_param command /usr/bin/python3 /etc/byod/byod_flint.py
@@ -129,7 +139,7 @@ uci commit
 
 # 5. 시험: 방송 서버가 이 공유기에서 뜨는지
 python3 -m py_compile $TEO/byod_flint.py 2>/dev/null || { mal "방송 서버 파일이 상했습니다. 다시 눌러 주십시오."; exit 4; }
-mal "준비를 마쳤습니다. 공유기가 다시 켜집니다. 1분 뒤 와이파이 $SSID 에 붙으면 듣기 화면이 저절로 뜹니다."
+mal "준비를 마쳤습니다. 공유기가 다시 켜집니다. 1분 뒤 와이파이 $SSID 에 붙으면 LVD 방송 앱으로 들을 수 있습니다. 이제 이 공유기는 사무실 인터넷 선이 꽂혀 있으면 협회 나스에서 관리합니다."
 echo "BYOD-KKEUT"
 ( sleep 3; reboot ) >/dev/null 2>&1 &
 exit 0
