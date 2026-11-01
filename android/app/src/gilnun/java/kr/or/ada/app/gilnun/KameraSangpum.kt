@@ -37,7 +37,7 @@ object SangpumIlgi : KameraNunBupum {
     private var chatneun = false                     // 이름을 찾는 중
     private var saeT = 0L                            // 마지막으로 바코드를 찾은 때
     private var dowumT = 0L                          // 마지막 찾는 법 알림
-    private var dowumHam = false                     // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 찾는 법은 바코드를 찾기 전까지 한 번만
+    private var dowumHam = false                     // 2.88.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 찾는 법은 바코드를 찾기 전까지 한 번만
     private val sigye = object : Runnable {
         override fun run() {
             if (!kyeojim) return
@@ -106,7 +106,7 @@ object SangpumIlgi : KameraNunBupum {
         }
         if (!chatneun && !dowumHam && now - saeT > 20000 && now - dowumT > 20000) {
             dowumT = now
-            dowumHam = true   // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 20초마다 되풀이하지 않음
+            dowumHam = true   // 2.88.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 20초마다 되풀이하지 않음
             mal("바코드는 보통 상품 뒷면이나 옆면 아래쪽에 있습니다. 천천히 돌려 주십시오.", MalGeup.JEONGBO)
         }
     }
@@ -134,7 +134,7 @@ object SangpumIlgi : KameraNunBupum {
         if (t != null && now - t < 10000) return
         beonhoT[beonho] = now
         saeT = now
-        dowumHam = false   // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 다음 상품을 찾을 때 다시 한 번
+        dowumHam = false   // 2.88.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 다음 상품을 찾을 때 다시 한 번
         chatneun = true
         Eum.naegi(EumJong.HWAKSIN)
         sangtae = "바코드를 찾았습니다. 상품 이름을 찾는 중입니다."

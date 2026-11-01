@@ -669,7 +669,7 @@ object Bangsong {
                 }
             }
             BangsongJong.NUGUNA -> {
-                // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 한 바퀴 다 들으시면 멈추고 알림(끝없이 되풀이하지 않음)
+                // 2.88.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 한 바퀴 다 들으시면 멈추고 알림(끝없이 되풀이하지 않음)
                 if (nugunaI + 1 >= nugunaJul.size) {
                     Sori.mal("누구나 음악을 한 바퀴 다 들으셨습니다. 더 들으시려면 다시 틀어 주십시오.", MalGeup.JEONGBO)
                     geuman(false)
@@ -908,7 +908,7 @@ object Bangsong {
     fun yeolsoeNeoki(pw: String, kkeut: (String?) -> Unit) {
         mutgi("/jeom/eumak.php", listOf("a" to "sangtae")) { s ->
             if (s == null) { kkeut("자료 창고에 닿지 못했습니다. 통신을 확인해 주십시오."); return@mutgi }
-            // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 폰에서 공용 열쇠를 새로 정하지 않음(pwset 길을 없앰)
+            // 2.88.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 폰에서 공용 열쇠를 새로 정하지 않음(pwset 길을 없앰)
             if (!s.optBoolean("jeonghaessna", false)) { kkeut("나스 음악 열쇠는 협회에서 받으십시오."); return@mutgi }
             mutgi("/jeom/eumak.php", listOf("a" to "deulgi", "pw" to pw)) { k ->
                 val t = k?.bsGeul("tk") ?: ""

@@ -85,7 +85,7 @@ object AnnaeSeoljeong {
     var jidoOn: Boolean get() = b("jidoOn", true); set(v) = sb("jidoOn", v)
     /** 2.88.0 걸을 때 지도 알림(시험 중, 처음 꺼짐) */
     var jidoGeotOn: Boolean get() = b("jidoGeotOn", false); set(v) = sb("jidoGeotOn", v)
-    /** 2.89.0 (261102, 이사장님 승인 「1」) 차 안에서 지나는 교차로 이름 — 국토교통부 표준노드링크 공식 이름 */
+    /** 2.88.0 (261102, 이사장님 승인 「1」) 차 안에서 지나는 교차로 이름 — 국토교통부 표준노드링크 공식 이름 */
     var gyoJinaOn: Boolean get() = b("gyoJinaOn", true); set(v) = sb("gyoJinaOn", v)
     /** 2.27.0 차 안 안내 정도 1 간단 · 2 보통 · 3 자세히(웹 길눈 gilnunChaJeongdo 와 같은 처음 값 보통) */
     var chaJeongdo: Int get() = i("chaJeongdo", 2); set(v) = si("chaJeongdo", v)

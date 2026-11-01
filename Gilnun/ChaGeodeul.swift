@@ -397,7 +397,7 @@ final class ChaGeodeul {
     }
 
     /// 「서울역교차로」·「강남역사거리」는 그대로, 이름이 없으면 몇 갈래인지로
-    /// 2.124.0 이름은 국토교통부 표준노드링크 공식 이름이 먼저(서버 jido.php 가 50미터 안 것만 붙임)
+    /// 2.123.0 이름은 국토교통부 표준노드링크 공식 이름이 먼저(서버 jido.php 가 50미터 안 것만 붙임)
     static func gyoIreum(_ n: String, _ gal: Int) -> String {
         let moyang = gal == 3 ? "삼거리" : (gal == 4 ? "사거리" : (gal == 5 ? "오거리" : (gal == 6 ? "육거리" : "교차로")))
         let nm = n.trimmingCharacters(in: .whitespaces)
@@ -411,7 +411,7 @@ final class ChaGeodeul {
         return false
     }
 
-    // 2.124.0 (261102, 이사장님 승인 「1」 4번) 지나는 교차로 — 이름이 교차로 이름인 공식 교차로만,
+    // 2.123.0 (261102, 이사장님 승인 「1」 4번) 지나는 교차로 — 이름이 교차로 이름인 공식 교차로만,
     //   30미터 안에 들었다가 45미터 넘게 멀어지면 「○○를 지났습니다. 다음은 ○○입니다」 한 번(다음은 가는 쪽 20도 안, 700미터 안).
     //   말과 말 사이 15초 넘게, 같은 교차로는 10분 안에 다시 말하지 않음. 멈췄던 교차로는 gyoJinam 이 말함.
     private var jgGyo: [(la: Double, lo: Double, n: String)] = []

@@ -168,7 +168,7 @@ final class JidoGeot {
         func su(_ k: String) -> Int { Int(Chatgi.su(o[k]) ?? 0) }
         switch t {
         case "geonneol":
-            // 2.124.0 (261102, 이사장님 승인 「1」) 40미터 안 공식 교차로 이름(국토교통부 표준노드링크)을 붙임
+            // 2.123.0 (261102, 이사장님 승인 「1」) 40미터 안 공식 교차로 이름(국토교통부 표준노드링크)을 붙임
             let gy = ((o["gyo"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
             var m = gy.isEmpty ? "횡단보도입니다." : "\(gy) 횡단보도입니다."
             if su("sinho") == 1 { m += " 신호등이 있습니다." } else if su("sinho") == -1 { m += " 신호등이 없습니다." }

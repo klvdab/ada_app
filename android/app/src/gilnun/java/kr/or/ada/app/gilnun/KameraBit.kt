@@ -23,7 +23,7 @@ object BitAlgi : KameraNunBupum {
         private set
     var sangtae = ""
         private set
-    /** 높낮이 소리 켜기·끄기 — 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 폰에 담아 두어 앱을 다시 열어도 고르신 대로 */
+    /** 높낮이 소리 켜기·끄기 — 2.88.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 폰에 담아 두어 앱을 다시 열어도 고르신 대로 */
     var nopnaji: Boolean
         get() = KameraNun.bitNopnaji
         set(v) { KameraNun.bitNopnaji = v }

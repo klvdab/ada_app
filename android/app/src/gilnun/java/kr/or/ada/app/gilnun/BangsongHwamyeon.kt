@@ -32,14 +32,14 @@ abstract class BangsongBada(jemok: String) : Hwamyeon(jemok) {
     /** 지금 엔진 형편으로 그릴 모양(글자들) — 이것이 달라질 때만 다시 그림 */
     protected abstract fun moyang(): String
     protected abstract fun geurigi(t: GilnunActivity)
-    /** 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 다시 그리지 않고 글자만 고칠 것(곡 이름·고장 줄 따위) */
+    /** 2.88.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 다시 그리지 않고 글자만 고칠 것(곡 이름·고장 줄 따위) */
     protected open fun jaseunGaengsin() {}
 
     final override fun chaeugi(t: GilnunActivity) {
         kiJul.clear()
         geurinMoyang = moyang()
         Bangsong.byeonhwa = {
-            // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 모양이 같으면 글자만 그 자리에서 고침(톡백이 같은 줄을 다시 읽지 않게)
+            // 2.88.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 모양이 같으면 글자만 그 자리에서 고침(톡백이 같은 줄을 다시 읽지 않게)
             if (t.wiHwamyeon === this && !t.isFinishing && moyang() == geurinMoyang) jaseunGaengsin()
             if (t.wiHwamyeon === this && !t.isFinishing && moyang() != geurinMoyang) {
                 // 톡백 커서가 머물던 줄을 기억했다가 다시 그린 뒤 그 줄로(곡이 저절로 바뀌어도 커서가 튀지 않게)
@@ -126,12 +126,12 @@ private class BsGoreugi(jemok: String, private val l: List<String>, private val 
 // MARK: 첫 화면
 
 class BangsongCheot : BangsongBada("음악·방송") {
-    // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 곡 이름은 모양에서 빼고 그 자리에서 고침
+    // 2.88.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 곡 이름은 모양에서 빼고 그 자리에서 고침
     override fun moyang() = "${Bangsong.itda}|${Bangsong.jeonhwaDwi}|${Bangsong.meomchum}"
     private var ieJul: Button? = null
     private var geumanJul: Button? = null
     private fun ieGeul() = "방송 이어 듣기 — ${Bangsong.jemok.ifEmpty { Bangsong.jong.ireum }}"
-    // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 멈춰 두셨을 때는 「멈춰 둔 것」
+    // 2.88.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 멈춰 두셨을 때는 「멈춰 둔 것」
     private fun geumanGeul() = "${if (Bangsong.meomchum) "멈춰 둔 것" else "지금 나오는 것"} — ${Bangsong.jemok.ifEmpty { "연결 중" }}. 그만 듣기"
     override fun jaseunGaengsin() {
         ieJul?.let { if (it.text.toString() != ieGeul()) it.text = ieGeul() }
@@ -185,7 +185,7 @@ class EumakHwamyeon : BangsongBada("길 위의 음악") {
     private var mokSijak = 0
     private var nugunaPyeol = false
     private var gibunPyeol = false
-    // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 가수나 곡 이름으로 찾기, 그 자리에서 고칠 줄
+    // 2.88.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 가수나 곡 이름으로 찾기, 그 자리에서 고칠 줄
     private var gokQ = ""
     private var gokChatneun = false
     private var gokKan: EditText? = null
@@ -195,7 +195,7 @@ class EumakHwamyeon : BangsongBada("길 위의 음악") {
 
     override fun moyang(): String {
         val b = Bangsong
-        // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 곡 이름·저작자 표시·고장 줄은 모양에서 빼고 그 자리에서 고침. 곡 목록은 펼쳤을 때만 모양에 넣음
+        // 2.88.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 곡 이름·저작자 표시·고장 줄은 모양에서 빼고 그 자리에서 고침. 곡 목록은 펼쳤을 때만 모양에 넣음
         return listOf(b.jong.ireum, b.nugunaPyosi.isNotEmpty(), b.meomchum, b.eumakDeureom, b.galraeDeul.size, b.jadoKyeojim, b.jadoJul.isNotEmpty(),
             b.cheoumIra, if (mokPyeol) "${b.gokMok.size}/${b.gokMok.firstOrNull()?.f ?: ""}" else b.gokMok.isNotEmpty().toString(), temaDeul.size).joinToString("|")
     }
@@ -245,7 +245,7 @@ class EumakHwamyeon : BangsongBada("길 위의 음악") {
                 })
             }
             danchu(t, "galraeTeulgi", "$galrae${if (tema.isEmpty()) "" else " $tema"} 이어서 틀기") { b.galraeTeulgi(galrae, tema) }
-            // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 가수나 곡 이름으로 찾기(말로 하기와 같은 찾기)
+            // 2.88.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 가수나 곡 이름으로 찾기(말로 하기와 같은 찾기)
             gokKan = chatgiKan(t, "가수나 곡 이름으로 찾기", gokQ, { gokQ = it }) { gokChatgi() }
             danchu(t, "gokChatgi", "찾기") { gokChatgi() }
         }
@@ -270,7 +270,7 @@ class EumakHwamyeon : BangsongBada("길 위의 음악") {
         }
         if (!b.eumakDeureom) {
             // 음악 전체(갈래·테마, 가수와 곡 찾기)는 열쇠를 넣으신 분만
-            // 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 폰에서 열쇠를 새로 정하지 않음 — 열쇠는 협회에서 받음
+            // 2.88.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 폰에서 열쇠를 새로 정하지 않음 — 열쇠는 협회에서 받음
             t.geul(if (b.cheoumIra) "나스 음악 열쇠는 협회에서 받으십시오."
                 else "지나는 고장 노래는 열쇠 없이 누구나 들으십니다. 갈래 틀기와 가수나 곡 이름으로 찾기 같은 나스 음악 전체는 열쇠를 넣으신 분만 쓰실 수 있습니다. 나스 음악 열쇠는 협회에서 받으십시오. 한 번 넣으시면 폰에 담아 두어 다시 묻지 않습니다.")
             val e = t.ipryeok("나스 음악 열쇠", false)
@@ -331,7 +331,7 @@ class EumakHwamyeon : BangsongBada("길 위의 음악") {
         }
     }
 
-    /** 2.89.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 가수나 곡 이름으로 찾기 — 말로 하기와 같은 찾기(찾으면 곧바로 틂) */
+    /** 2.88.0 / 2.59.0 (261017-I43 / 261017-A47, 이사장님 승인 2026-10-17) 가수나 곡 이름으로 찾기 — 말로 하기와 같은 찾기(찾으면 곧바로 틂) */
     private fun gokChatgi() {
         val q = gokQ.trim()
         if (q.isEmpty()) { Sori.mal("가수나 곡 이름을 적어 주십시오."); return }

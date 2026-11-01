@@ -56,7 +56,7 @@ final class Seoljeong: ObservableObject {
     @Published var jidoOn: Bool { didSet { d.set(jidoOn, forKey: "gn.jidoOn") } }
     /// 2.123.0 걸을 때 지도 알림(시험 중) — 계단·육교·지하도·경사로·보도 없는 길·횡단보도·엘리베이터·출입구·화장실·정류장
     @Published var jidoGeotOn: Bool { didSet { d.set(jidoGeotOn, forKey: "gn.jidoGeotOn") } }
-    /// 2.124.0 (261102, 이사장님 승인 「1」) 차 안에서 지나는 교차로 이름 — 국토교통부 표준노드링크 공식 이름, 「○○를 지났습니다. 다음은 ○○입니다」
+    /// 2.123.0 (261102, 이사장님 승인 「1」) 차 안에서 지나는 교차로 이름 — 국토교통부 표준노드링크 공식 이름, 「○○를 지났습니다. 다음은 ○○입니다」
     @Published var gyoJinaOn: Bool { didSet { d.set(gyoJinaOn, forKey: "gn.gyoJinaOn") } }
     /// 2.56.0 차 안 안내 정도 1 간단 · 2 보통 · 3 자세히(웹 길눈 0.84.0과 같은 처음 값 보통)
     @Published var chaJeongdo: Int { didSet { d.set(chaJeongdo, forKey: "gn.chaJeongdo") } }
