@@ -81,6 +81,10 @@ object AnnaeSeoljeong {
     var gilOn: Boolean get() = b("gilOn", true); set(v) = sb("gilOn", v)
     /** 지나는 곳 말하는 간격(초) */
     var gilGap: Int get() = i("gilGap", 60); set(v) = si("gilGap", v)
+    /** 2.88.0 (261101-A76, 이사장님 지시 2026-11-01) 지도 알림 — 다리·건너는 강·휴게소·나들목·요금소·고장 경계(오픈스트리트맵) */
+    var jidoOn: Boolean get() = b("jidoOn", true); set(v) = sb("jidoOn", v)
+    /** 2.88.0 걸을 때 지도 알림(시험 중, 처음 꺼짐) */
+    var jidoGeotOn: Boolean get() = b("jidoGeotOn", false); set(v) = sb("jidoGeotOn", v)
     /** 2.27.0 차 안 안내 정도 1 간단 · 2 보통 · 3 자세히(웹 길눈 gilnunChaJeongdo 와 같은 처음 값 보통) */
     var chaJeongdo: Int get() = i("chaJeongdo", 2); set(v) = si("chaJeongdo", v)
     /** 차 안 간판 알림 */
@@ -571,6 +575,8 @@ object AnnaeEngine {
         JihacheolEngine.meomchugi()
         GanpanAllim.kkeut()
         ChaGeodeul.kkeut()
+        JidoAllim.kkeut()   // 2.88.0
+        JidoGeot.kkeut()
         yj.doedolligi(d)
         dasiSijak()
         val y = yj.jigeum
@@ -1110,8 +1116,9 @@ object AnnaeEngine {
 
     private fun wichiBatda(w: Jari) {
         val y = yj.jigeum
-        if (y == null) { namEunGeori = null; GichaAnnae.kkeut(); ChaGeodeul.kkeut(); return }
+        if (y == null) { namEunGeori = null; GichaAnnae.kkeut(); ChaGeodeul.kkeut(); JidoAllim.kkeut(); return }
         if (!(y.danggye == Danggye.TANEUN_JUNG && yj.talgeot == Talgeot.GICHA)) GichaAnnae.kkeut()   // 2.61.0
+        if (!(y.danggye == Danggye.TANEUN_JUNG && yj.talgeot != Talgeot.SEONBAK && y.jiha == null)) JidoAllim.kkeut()   // 2.88.0 지도 알림은 탈것 안(배는 뺌)
         if (!(y.danggye == Danggye.TANEUN_JUNG && yj.talgeot != Talgeot.GICHA && yj.talgeot != Talgeot.SEONBAK && !(y.talgeot == Talgeot.JIHACHEOL && y.barojabeum) && y.jiha == null)) ChaGeodeul.kkeut()   // 2.62.0, 2.73.0 바로잡으신 지하철은 차 거들기 없음
         yj.dochakBoda(w)   // 2.62.0 목적지 50미터 안 2분이면 도착을 여쭘
         val d = Wichi.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
@@ -1451,6 +1458,7 @@ object AnnaeEngine {
 
     private fun georeumAnnae(w: Jari, mok: String, lat: Double, lon: Double, jungan: Boolean, y: Yeojeong) {
         jariGirok(w, lat, lon)   // 2.20.0 걷는 자리 기록(관리자 폰만)
+        JidoGeot.wichi(w.lat, w.lon, if (w.banghyang >= 0 && w.sokdo > 0.8) w.banghyang else null)   // 2.88.0 걸을 때 지도 알림(시험 중)
         val d = Wichi.geori(w.lat, w.lon, lat, lon)
         if (!jungan) meoreojimBoda(w, d, mok)   // 2.39.0 목적지에서 멀어짐
         val beom = if (jungan) max(15.0, min(w.ochae, 30.0)) else if (bg != null) max(5.0, min(w.ochae, 10.0)) else max(12.0, min(w.ochae, 25.0))   // 2.16.0 볼거리면 더 가까이
@@ -1593,6 +1601,8 @@ object AnnaeEngine {
         GanpanAllim.chaAn(w)   // 차 안 간판 알림
         // 2.62.0 (261017-A50, 이사장님 승인 2026-10-17) 터널 미리 알림·크게 돌 때·멈춘 까닭(웹 길눈에서 옮김, 아이폰 2.92.0과 같음) — 기차는 GichaAnnae 가 맡음
         if (y.talgeot != Talgeot.GICHA) ChaGeodeul.wichi(w, y) else ChaGeodeul.kkeut()
+        // 2.88.0 (261101-A76, 이사장님 지시 2026-11-01) 지도 알림 — 다리·건너는 강·휴게소·나들목·요금소·고장 경계(기차·지하철은 기찻길 다리만, 아이폰과 같음)
+        JidoAllim.wichi(w, y.talgeot == Talgeot.GICHA || y.talgeot == Talgeot.JIHACHEOL)
         // 2.31.0 (이사장님 승인) 승용차·택시는 받아 둔 차 길을 따라 남은 거리로 셈(아이폰과 같음)
         val d = (if (y.talgeot == Talgeot.CHA && ChaMat.gatEun(y.mokjeok.lat, y.mokjeok.lon)) ChaMat.namEunGilGeori(w) else null) ?: d0
         val mok = y.mokjeok.ireum

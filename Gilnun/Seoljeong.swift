@@ -52,6 +52,10 @@ final class Seoljeong: ObservableObject {
     @Published var doepul: Int { didSet { d.set(doepul, forKey: "gn.doepul") } }
     @Published var gilOn: Bool { didSet { d.set(gilOn, forKey: "gn.gilOn") } }
     @Published var gilGap: Int { didSet { d.set(gilGap, forKey: "gn.gilGap") } }
+    /// 2.123.0 (261101-I77, 이사장님 지시 2026-11-01) 지도 알림 — 다리·건너는 강·휴게소·나들목·요금소·고장 경계(오픈스트리트맵)
+    @Published var jidoOn: Bool { didSet { d.set(jidoOn, forKey: "gn.jidoOn") } }
+    /// 2.123.0 걸을 때 지도 알림(시험 중) — 계단·육교·지하도·경사로·보도 없는 길·횡단보도·엘리베이터·출입구·화장실·정류장
+    @Published var jidoGeotOn: Bool { didSet { d.set(jidoGeotOn, forKey: "gn.jidoGeotOn") } }
     /// 2.56.0 차 안 안내 정도 1 간단 · 2 보통 · 3 자세히(웹 길눈 0.84.0과 같은 처음 값 보통)
     @Published var chaJeongdo: Int { didSet { d.set(chaJeongdo, forKey: "gn.chaJeongdo") } }
     /// 2.25.0 차 안 간판 알림 — 달릴 때 지나는 가게·건물(처음부터 켜짐), 서 있을 때 카메라로 창밖 간판 읽기(처음엔 꺼짐)
@@ -119,6 +123,8 @@ final class Seoljeong: ObservableObject {
         doepul = (ud.object(forKey: "gn.doepul") as? Int) ?? 6
         gilOn = (ud.object(forKey: "gn.gilOn") as? Bool) ?? true
         gilGap = (ud.object(forKey: "gn.gilGap") as? Int) ?? 60
+        jidoOn = (ud.object(forKey: "gn.jidoOn") as? Bool) ?? true
+        jidoGeotOn = (ud.object(forKey: "gn.jidoGeotOn") as? Bool) ?? false
         chaJeongdo = (ud.object(forKey: "gn.chaJeongdo") as? Int) ?? 2
         ganpanOn = (ud.object(forKey: "gn.ganpanOn") as? Bool) ?? true
         baeGap = (ud.object(forKey: "gn.baeGap") as? Int) ?? 10

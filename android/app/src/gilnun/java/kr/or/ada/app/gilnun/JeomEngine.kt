@@ -809,6 +809,7 @@ object JeomEngine {
         }
         // 2.7.0 지나는 곳 안내 — 목적지 20미터 안에서는 문 찾기에 집중하도록 쉼
         if (rest >= 20) juwiMalhagi(la, lo)
+        JidoGeot.wichi(la, lo, jigeumHead)   // 2.88.0 걸을 때 지도 알림(시험 중)
         geollimSalpigi(la, lo)
         kkeokBoda(la, lo)
         gochilBoda()   // 2.79.0

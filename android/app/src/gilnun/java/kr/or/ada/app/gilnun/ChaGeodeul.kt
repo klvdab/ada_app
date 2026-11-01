@@ -27,6 +27,7 @@ object ChaGeodeul {
     /** AnnaeEngine.chaAnnae 가 자리마다 부름 */
     fun wichi(w: Jari, y: Yeojeong) {
         kyeojim = true
+        gyoJinam(w)
         if (mumchumBogo(w, y)) return   // 멈춘 동안은 위성 흔들림을 움직임으로 치지 않음
         doramBoda(w, y)
         teoneolSalpigi(w)
@@ -282,6 +283,15 @@ object ChaGeodeul {
     private var kkadakMal = false
     private var kkadakCh = false
     private val mBunMal = HashSet<Int>()
+    // 2.88.0 (261102, 이사장님 지시 2026-11-02 「교차로에서 멈추면 그 명칭도」) 멈춘 까닭 가리기(아이폰 2.123.0과 같음)
+    private var sinhoMum = false
+    private var oraeMal = false
+    private class Gyo(val la: Double, val lo: Double, val ireum: String, var gakkai: Boolean)
+    private var gyoGiok: Gyo? = null
+    private val mumGirok = ArrayList<Long>()
+    private class Jin(val la: Double, val lo: Double, val t: Long)
+    private val jinJul = ArrayList<Jin>()
+    private var makimMalT = 0L
 
     private fun mumchumBogo(w: Jari, y: Yeojeong): Boolean {
         val ije = System.currentTimeMillis()
@@ -295,7 +305,7 @@ object ChaGeodeul {
             if (sij.size >= 3 && ije - sij[0].t >= gidal) {
                 val f = sij[0]
                 val seoNa = if (sp != null) sij.all { (it.sp ?: 99.0) < 0.8 } else sij.all { geori(it.lat, it.lon, f.lat, f.lon) <= Math.max(8.0, acc) }
-                if (seoNa) { mum = true; mumT = f.t; dasiSu = 0; kkadakMal = false; kkadakCh = false; mBunMal.clear() }
+                if (seoNa) { mum = true; mumT = f.t; dasiSu = 0; kkadakMal = false; kkadakCh = false; mBunMal.clear(); sinhoMum = false; oraeMal = false; mumGirok.add(f.t); makimBoda(ije) }
             }
             return false
         }
@@ -306,9 +316,11 @@ object ChaGeodeul {
             val gil = ije - mumT
             mum = false; mJul.clear()
             if (gil >= 20_000) mal("다시 움직입니다.")
+            sinhoMum = false
             return false
         }
         if (ije - mumT >= 10_000) kkadakChatgi(w.lat, w.lon, y.talgeot == Talgeot.BEOSEU)
+        if (sinhoMum && !oraeMal && ije - mumT >= 180_000) { oraeMal = true; mal("신호보다 오래 서 있습니다. 차가 밀리는 것 같습니다.") }
         val bun = ((ije - mumT) / 60_000).toInt()
         // 자세히(차 길 맞춤)에서는 차 길 맞춤이 「○분째 서 있습니다」를 말하므로 까닭만 말함
         val chaMatMal = y.talgeot == Talgeot.CHA && ChaMat.jeongdo >= 3
@@ -322,6 +334,10 @@ object ChaGeodeul {
     private fun kkadakChatgi(la: Double, lo: Double, beoseu: Boolean) {
         if (kkadakCh) return
         kkadakCh = true
+        val h = head
+        // 2.88.0 (261102, 이사장님 승인 「2」) 서울은 실시간 도로 속도로 막힘을 가림(서울 열린데이터 TOPIS) — 먼저 속도를 묻고 까닭을 셈
+        var gilMal = ""
+        val deo = { if (gilMal.isEmpty()) "" else " $gilMal" }
         val sagoriBoda = {
             Tongsin.json("neagori.php", mapOf("lat" to f5(la), "lon" to f5(lo), "ban" to "80")) { o ->
                 val r = o?.optJSONArray("rows")?.optJSONObject(0)
@@ -329,15 +345,90 @@ object ChaGeodeul {
                 if (r != null) {
                     sagori = if (r.has("meter")) r.optDouble("meter", 999.0) <= 30 else geori(la, lo, r.optDouble("lat"), r.optDouble("lon")) <= 30
                 }
-                if (mum && !kkadakMal && sagori) { kkadakMal = true; mal("사거리 앞에 멈춰 있습니다.") }
+                if (mum && !kkadakMal && sagori) { kkadakMal = true; mal("사거리 앞에 멈춰 있습니다." + deo()) }
+                else if (mum && !kkadakMal && gilMal.isNotEmpty()) { kkadakMal = true; mal("멈춰 있습니다." + deo()) }
             }
         }
-        if (!beoseu) { sagoriBoda(); return }
-        Beoseu.gakkaun(la, lo) { l ->
-            val j0 = l?.firstOrNull()
-            if (j0 != null && j0.ireum.isNotEmpty() && geori(la, lo, j0.lat, j0.lon) <= 30) {
-                if (mum && !kkadakMal) { kkadakMal = true; mal("${j0.ireum} 정류장에 멈춰 있습니다.") }
-            } else sagoriBoda()
+        // 2.88.0 (261102, 이사장님 지시) 교차로 이름·몇 갈래·신호등 — 오픈스트리트맵(jido.php gal=gyo), 자료가 아직 없으면 예전대로
+        val gyoBoda = {
+            if (!AnnaeSeoljeong.jidoOn) sagoriBoda()
+            else Tongsin.json("jido.php", mapOf("gal" to "gyo", "lat" to f5(la), "lon" to f5(lo), "ban" to "90"), 15000) { o ->
+                if (o == null) { sagoriBoda(); return@json }
+                val jaryo = o.optInt("deo", 0) != 1
+                var best: org.json.JSONObject? = null; var bestD = 1e9
+                val arr = o.optJSONArray("gyo")
+                if (arr != null) for (i in 0 until arr.length()) {
+                    val r = arr.optJSONObject(i) ?: continue
+                    val d = geori(la, lo, r.optDouble("a"), r.optDouble("o"))
+                    if (d > 70) continue
+                    if (h != null && d > 25) { val c = Math.abs(((Jeomjido.bangwi(la, lo, r.optDouble("a"), r.optDouble("o")) - h + 540) % 360) - 180); if (c > 70) continue }
+                    if (d < bestD) { best = r; bestD = d }
+                }
+                val b = best
+                if (b != null) {
+                    val ireum = gyoIreum(b.optString("n"), b.optInt("gal", 0))
+                    val sinho = b.optInt("s", 0) == 1
+                    if (mum && !kkadakMal) {
+                        kkadakMal = true; sinhoMum = sinho
+                        mal((if (sinho) "$ireum 앞에서 신호를 기다리는 것 같습니다." else "$ireum 앞에 멈춰 있습니다.") + deo())
+                        gyoGiok = Gyo(b.optDouble("a"), b.optDouble("o"), ireum, false)
+                    }
+                } else if (jaryo) {
+                    if (mum && !kkadakMal) { kkadakMal = true; mal(if (gilMal.isEmpty()) "교차로나 정류장이 아닌 곳입니다. 차가 밀려 멈춘 것 같습니다." else "교차로나 정류장이 아닌 곳에 멈춰 있습니다." + deo()) }
+                } else sagoriBoda()
+            }
         }
+        val sijak = {
+            if (!beoseu) gyoBoda()
+            else Beoseu.gakkaun(la, lo) { l ->
+                val j0 = l?.firstOrNull()
+                if (j0 != null && j0.ireum.isNotEmpty() && geori(la, lo, j0.lat, j0.lon) <= 30) {
+                    if (mum && !kkadakMal) { kkadakMal = true; mal("${j0.ireum} 정류장에 멈춰 있습니다." + deo()) }
+                } else gyoBoda()
+            }
+        }
+        if (!AnnaeSeoljeong.jidoOn) { sijak(); return }
+        Tongsin.json("jido.php", mapOf("gal" to "sokdo", "lat" to f5(la), "lon" to f5(lo), "bang" to (h?.toInt()?.toString() ?: "")), 10000) { so ->
+            if (so != null && so.optInt("eopseum", 0) != 1 && so.has("sokdo")) gilMal = sokdoMal(so.optInt("sokdo"), so.optString("gil"), so.optString("e"))
+            sijak()
+        }
+    }
+
+    /** 서울 실시간 속도 말 — 시속 15 아래 막힘, 25 아래 천천히, 그 위 잘 빠짐 */
+    fun sokdoMal(sd: Int, gil: String, e: String): String {
+        val jeongdo = if (sd < 15) "막히고 있습니다" else if (sd < 25) "천천히 가고 있습니다" else "잘 빠지고 있습니다"
+        val eodi = if (gil.isEmpty()) "이 길" else if (e.isEmpty()) gil else "$gil $e 쪽"
+        return "${JidoAllim.eun(eodi)} 지금 시속 ${sd}킬로미터로 $jeongdo."
+    }
+
+    /** 「서울역교차로」·「강남역사거리」는 그대로, 이름이 없으면 몇 갈래인지로 */
+    fun gyoIreum(n: String, gal: Int): String {
+        val moyang = when (gal) { 3 -> "삼거리"; 4 -> "사거리"; 5 -> "오거리"; 6 -> "육거리"; else -> "교차로" }
+        val nm = n.trim()
+        if (nm.isEmpty()) return "이름 없는 $moyang"
+        if (nm.endsWith("거리") || nm.endsWith("교차로") || nm.endsWith("나들목") || nm.endsWith("분기점")) return nm
+        return "$nm $moyang"
+    }
+
+    /** 멈췄던 교차로를 지나면 한 번 알림 */
+    private fun gyoJinam(w: Jari) {
+        val ije = System.currentTimeMillis()
+        jinJul.add(Jin(w.lat, w.lon, ije)); jinJul.removeAll { ije - it.t > 300_000 }
+        val g = gyoGiok ?: return
+        if (mum) return
+        val d = geori(w.lat, w.lon, g.la, g.lo)
+        if (d < 30) { g.gakkai = true; return }
+        if (g.gakkai && d > 45) { gyoGiok = null; mal("${JidoAllim.eul(g.ireum)} 지났습니다."); return }
+        if (d > 400) gyoGiok = null
+    }
+
+    /** 5분 안에 세 번 넘게 서고 800미터도 못 갔으면 길이 막히는 것 */
+    private fun makimBoda(ije: Long) {
+        mumGirok.removeAll { ije - it > 300_000 }
+        val f = jinJul.firstOrNull() ?: return
+        if (mumGirok.size < 3 || ije - makimMalT < 900_000 || ije - f.t < 240_000) return
+        var m = 0.0
+        for (i in 1 until jinJul.size) m += geori(jinJul[i - 1].la, jinJul[i - 1].lo, jinJul[i].la, jinJul[i].lo)
+        if (m < 800) { makimMalT = ije; mal("길이 막히고 있습니다. 5분 동안 ${mumGirok.size}번 섰습니다.") }
     }
 }

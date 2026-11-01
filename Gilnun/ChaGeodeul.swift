@@ -25,6 +25,7 @@ final class ChaGeodeul {
     /// AnnaeEngine.chaAnnae 가 자리마다 부름
     func wichi(_ w: Wichi, _ y: Yeojeong) {
         kyeojim = true
+        gyoJinam(w)
         let meomchum = mumchumBogo(w, y)
         if meomchum { return }   // 멈춘 동안은 위성 흔들림을 움직임으로 치지 않음
         doramBoda(w, y)
@@ -282,6 +283,13 @@ final class ChaGeodeul {
     private var kkadakMal = false
     private var kkadakCh = false
     private var mBunMal: Set<Int> = []
+    // 2.123.0 (261102, 이사장님 지시 2026-11-02 「교차로에서 멈추면 그 명칭도」) 멈춘 까닭 가리기
+    private var sinhoMum = false          // 신호를 기다리는 것으로 본 멈춤
+    private var oraeMal = false           // 「신호보다 오래 서 있습니다」 말함
+    private var gyoGiok: (la: Double, lo: Double, ireum: String, gakkai: Bool)?   // 멈춘 교차로 — 지나면 알림
+    private var mumGirok: [Date] = []     // 멈춘 때들(5분)
+    private var jinJul: [(la: Double, lo: Double, t: Date)] = []   // 지나온 자리(5분)
+    private var makimMalT = Date.distantPast
 
     /// 멈춘 동안이면 true — 그 자리를 움직임으로 치지 않음
     private func mumchumBogo(_ w: Wichi, _ y: Yeojeong) -> Bool {
@@ -297,7 +305,7 @@ final class ChaGeodeul {
             if sij.count >= 3, let f = sij.first, ije.timeIntervalSince(f.t) >= gidal {
                 if sp != nil { seoNa = sij.allSatisfy { ($0.sp ?? 99) < 0.8 } }
                 else { seoNa = sij.allSatisfy { geori($0.lat, $0.lon, f.lat, f.lon) <= max(8, acc) } }
-                if seoNa { mum = true; mumT = f.t; dasiSu = 0; kkadakMal = false; kkadakCh = false; mBunMal = [] }
+                if seoNa { mum = true; mumT = f.t; dasiSu = 0; kkadakMal = false; kkadakCh = false; mBunMal = []; sinhoMum = false; oraeMal = false; mumGirok.append(f.t); makimBoda(ije) }
             }
             return false
         }
@@ -308,9 +316,11 @@ final class ChaGeodeul {
             let gil = ije.timeIntervalSince(mumT)
             mum = false; mJul = []
             if gil >= 20 { mal("다시 움직입니다.") }
+            sinhoMum = false
             return false
         }
         if ije.timeIntervalSince(mumT) >= 10 { kkadakChatgi(w.lat, w.lon, beoseu: y.talgeot == .beoseu) }
+        if sinhoMum && !oraeMal && ije.timeIntervalSince(mumT) >= 180 { oraeMal = true; mal("신호보다 오래 서 있습니다. 차가 밀리는 것 같습니다.") }
         let bun = Int(ije.timeIntervalSince(mumT) / 60)
         // 자세히(차 길 맞춤)에서는 차 길 맞춤이 「○분째 서 있습니다」를 말하므로 까닭만 말함
         let chaMatMal = y.talgeot == .cha && Seoljeong.shared.chaJeongdo >= 3
@@ -324,22 +334,93 @@ final class ChaGeodeul {
     private func kkadakChatgi(_ la: Double, _ lo: Double, beoseu: Bool) {
         guard !kkadakCh else { return }
         kkadakCh = true
+        let h = head
         Task { [weak self] in
             var jrMal: String?
             if beoseu, let jr = await Beoseu.gakkaun(la, lo)?.first, WichiEngine.geori(la, lo, jr.lat, jr.lon) <= 30 {
                 jrMal = "\(jr.ireum) 정류장에 멈춰 있습니다."
             }
+            // 2.123.0 (261102, 이사장님 지시) 교차로 이름·몇 갈래·신호등 — 오픈스트리트맵(jido.php gal=gyo)
+            var gyoMal: String?, gyo: (Double, Double, String)?, sinho = false, jaryoIsseum = false
+            if jrMal == nil, Seoljeong.shared.jidoOn,
+               let o = await Chatgi.json("jido.php", ["gal": "gyo", "lat": String(format: "%.5f", la), "lon": String(format: "%.5f", lo), "ban": "90"]) {
+                jaryoIsseum = Chatgi.su(o["deo"]) != 1
+                var best: (d: Double, r: [String: Any])?
+                for r in (o["gyo"] as? [[String: Any]]) ?? [] {
+                    guard let a = Chatgi.su(r["a"]), let b = Chatgi.su(r["o"]) else { continue }
+                    let d = WichiEngine.geori(la, lo, a, b)
+                    if d > 70 { continue }
+                    // 뒤에 두고 선 교차로는 빼고(25미터 안은 그대로) 가는 쪽 앞의 것
+                    if let hh = h, d > 25 { let c = abs((WichiEngine.bangwi(la, lo, a, b) - hh + 540).truncatingRemainder(dividingBy: 360) - 180); if c > 70 { continue } }
+                    if best == nil || d < best!.d { best = (d, r) }
+                }
+                if let b = best, let a = Chatgi.su(b.r["a"]), let oo = Chatgi.su(b.r["o"]) {
+                    let ireum = ChaGeodeul.gyoIreum((b.r["n"] as? String) ?? "", Int(Chatgi.su(b.r["gal"]) ?? 0))
+                    sinho = Chatgi.su(b.r["s"]) == 1
+                    gyoMal = sinho ? "\(ireum) 앞에서 신호를 기다리는 것 같습니다." : "\(ireum) 앞에 멈춰 있습니다."
+                    gyo = (a, oo, ireum)
+                }
+            }
+            // 2.123.0 (261102, 이사장님 승인 「2」) 서울은 실시간 도로 속도로 막힘을 가림(서울 열린데이터 TOPIS)
+            var gilMal = ""
+            if Seoljeong.shared.jidoOn, let so = await Chatgi.json("jido.php", ["gal": "sokdo", "lat": String(format: "%.5f", la), "lon": String(format: "%.5f", lo), "bang": h.map { String(Int($0)) } ?? ""]),
+               Chatgi.su(so["eopseum"]) != 1, let sd = Chatgi.su(so["sokdo"]) {
+                gilMal = ChaGeodeul.sokdoMal(Int(sd), (so["gil"] as? String) ?? "", (so["e"] as? String) ?? "")
+            }
             var sagori = false
-            if jrMal == nil, let o = await Chatgi.json("neagori.php", ["lat": String(format: "%.5f", la), "lon": String(format: "%.5f", lo), "ban": "80"]),
+            if jrMal == nil && gyoMal == nil && !jaryoIsseum, let o = await Chatgi.json("neagori.php", ["lat": String(format: "%.5f", la), "lon": String(format: "%.5f", lo), "ban": "80"]),
                let rows = o["rows"] as? [[String: Any]], let r = rows.first {
                 if let m = Chatgi.su(r["meter"]) { sagori = m <= 30 }
                 else if let a = Chatgi.su(r["lat"]), let b = Chatgi.su(r["lon"]) { sagori = WichiEngine.geori(la, lo, a, b) <= 30 }
             }
             await MainActor.run {
                 guard let self = self, self.mum, !self.kkadakMal else { return }
-                if let m = jrMal { self.kkadakMal = true; self.mal(m) }
-                else if sagori { self.kkadakMal = true; self.mal("사거리 앞에 멈춰 있습니다.") }
+                let deo = gilMal.isEmpty ? "" : " " + gilMal
+                if let m = jrMal { self.kkadakMal = true; self.mal(m + deo) }
+                else if let m = gyoMal {
+                    self.kkadakMal = true; self.sinhoMum = sinho; self.mal(m + deo)
+                    if let g = gyo { self.gyoGiok = (g.0, g.1, g.2, false) }
+                }
+                else if sagori { self.kkadakMal = true; self.mal("사거리 앞에 멈춰 있습니다." + deo) }
+                else if jaryoIsseum { self.kkadakMal = true; self.mal(gilMal.isEmpty ? "교차로나 정류장이 아닌 곳입니다. 차가 밀려 멈춘 것 같습니다." : "교차로나 정류장이 아닌 곳에 멈춰 있습니다." + deo) }
+                else if !gilMal.isEmpty { self.kkadakMal = true; self.mal("멈춰 있습니다." + deo) }
             }
         }
+    }
+
+    /// 서울 실시간 속도 말 — 시속 15 아래 막힘, 25 아래 천천히, 그 위 잘 빠짐
+    static func sokdoMal(_ sd: Int, _ gil: String, _ e: String) -> String {
+        let jeongdo = sd < 15 ? "막히고 있습니다" : (sd < 25 ? "천천히 가고 있습니다" : "잘 빠지고 있습니다")
+        let eodi = gil.isEmpty ? "이 길" : (e.isEmpty ? gil : "\(gil) \(e) 쪽")
+        return "\(JidoAllim.eun(eodi)) 지금 시속 \(sd)킬로미터로 \(jeongdo)."
+    }
+
+    /// 「서울역교차로」·「강남역사거리」는 그대로, 이름이 없으면 몇 갈래인지로
+    static func gyoIreum(_ n: String, _ gal: Int) -> String {
+        let moyang = gal == 3 ? "삼거리" : (gal == 4 ? "사거리" : (gal == 5 ? "오거리" : (gal == 6 ? "육거리" : "교차로")))
+        let nm = n.trimmingCharacters(in: .whitespaces)
+        if nm.isEmpty { return "이름 없는 " + moyang }
+        if nm.hasSuffix("거리") || nm.hasSuffix("교차로") || nm.hasSuffix("나들목") || nm.hasSuffix("분기점") { return nm }
+        return nm + " " + moyang
+    }
+
+    /// 멈췄던 교차로를 지나면 한 번 알림
+    private func gyoJinam(_ w: Wichi) {
+        let ije = Date()
+        jinJul.append((w.lat, w.lon, ije)); jinJul.removeAll { ije.timeIntervalSince($0.t) > 300 }
+        guard var g = gyoGiok, !mum else { return }
+        let d = geori(w.lat, w.lon, g.la, g.lo)
+        if d < 30 { g.gakkai = true; gyoGiok = g; return }
+        if g.gakkai && d > 45 { gyoGiok = nil; mal("\(JidoAllim.eul(g.ireum)) 지났습니다."); return }
+        if d > 400 { gyoGiok = nil }   // 다른 길로 감
+    }
+
+    /// 5분 안에 세 번 넘게 서고 800미터도 못 갔으면 길이 막히는 것
+    private func makimBoda(_ ije: Date) {
+        mumGirok.removeAll { ije.timeIntervalSince($0) > 300 }
+        guard mumGirok.count >= 3, ije.timeIntervalSince(makimMalT) > 900, let f = jinJul.first, ije.timeIntervalSince(f.t) >= 240 else { return }
+        var m = 0.0
+        for i in 1..<jinJul.count { m += geori(jinJul[i - 1].la, jinJul[i - 1].lo, jinJul[i].la, jinJul[i].lo) }
+        if m < 800 { makimMalT = ije; mal("길이 막히고 있습니다. 5분 동안 \(mumGirok.count)번 섰습니다.") }
     }
 }

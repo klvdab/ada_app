@@ -539,6 +539,8 @@ final class AnnaeEngine: ObservableObject {
         JihacheolEngine.shared.meomchugi()
         GanpanAllim.shared.kkeut()
         ChaGeodeul.shared.kkeut()
+        JidoAllim.shared.kkeut()   // 2.123.0
+        JidoGeot.shared.kkeut()
         yj.doedolligi(d)
         dasiSijak()
         guard let y = yj.jigeum else {
@@ -1060,8 +1062,9 @@ final class AnnaeEngine: ObservableObject {
     }
 
     private func wichiBatda(_ w: Wichi) {
-        guard let y = yj.jigeum else { namEunGeori = nil; GichaAnnae.shared.kkeut(); ChaGeodeul.shared.kkeut(); return }
+        guard let y = yj.jigeum else { namEunGeori = nil; GichaAnnae.shared.kkeut(); ChaGeodeul.shared.kkeut(); JidoAllim.shared.kkeut(); return }
         if !(y.danggye == .taneunJung && yj.talgeot == .gicha) { GichaAnnae.shared.kkeut() }   // 2.91.0
+        if !(y.danggye == .taneunJung && yj.talgeot != .seonbak && y.jiha == nil) { JidoAllim.shared.kkeut() }   // 2.123.0 지도 알림은 탈것 안(배는 뺌)
         if !(y.danggye == .taneunJung && yj.talgeot != .gicha && yj.talgeot != .seonbak && !(y.talgeot == .jihacheol && y.barojabeum) && y.jiha == nil) { ChaGeodeul.shared.kkeut() }   // 2.92.0
         let d = WichiEngine.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
         namEunGeori = d
@@ -1428,6 +1431,7 @@ final class AnnaeEngine: ObservableObject {
 
     private func georeumAnnae(_ w: Wichi, ireum mok: String, lat: Double, lon: Double, jungan: Bool, _ y: Yeojeong) {
         jariGirok(w, lat, lon)   // 2.52.0 걷는 자리 기록(관리자 폰만)
+        JidoGeot.shared.wichi(w.lat, w.lon, bang: (w.banghyang >= 0 && w.sokdo > 0.8) ? w.banghyang : nil)   // 2.123.0 걸을 때 지도 알림(시험 중)
         let d = WichiEngine.geori(w.lat, w.lon, lat, lon)
         if !jungan { meoreojimBoda(w, d, mok) }   // 2.67.0 목적지에서 멀어짐
         let beom = jungan ? max(15, min(w.ochae, 30)) : (bg != nil ? max(5, min(w.ochae, 10)) : max(12, min(w.ochae, 25)))   // 2.48.0 볼거리면 더 가까이
@@ -1586,6 +1590,8 @@ final class AnnaeEngine: ObservableObject {
         GanpanAllim.shared.chaAn(w)   // 2.25.0 차 안 간판 알림
         // 2.92.0 (261017-I46, 이사장님 승인 2026-10-17) 터널 미리 알림·크게 돌 때·멈춘 까닭(웹 길눈에서 옮김) — 기차는 GichaAnnae 가 맡음
         if y.talgeot != .gicha { ChaGeodeul.shared.wichi(w, y) } else { ChaGeodeul.shared.kkeut() }
+        // 2.123.0 (261101-I77, 이사장님 지시 2026-11-01) 지도 알림 — 다리·건너는 강·휴게소·나들목·요금소·고장 경계(기차·지하철은 기찻길 다리만)
+        JidoAllim.shared.wichi(w, cheol: y.talgeot == .gicha || y.talgeot == .jihacheol)
         // 2.60.0 (261009-I14, 이사장님 승인) 승용차·택시는 받아 둔 차 길을 따라 남은 거리로 셈(돌아가는 길에서 "곧 부근입니다"가 너무 이르던 일)
         let d = (y.talgeot == .cha && ChaMat.shared.gatEun(y.mokjeok.lat, y.mokjeok.lon) ? ChaMat.shared.namEunGilGeori(w) : nil) ?? d0
         let mok = y.mokjeok.ireum

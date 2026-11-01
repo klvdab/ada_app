@@ -139,6 +139,20 @@ struct MalSeolDeoView: View {
                 SoriEngine.shared.mal(s.gilOn ? "지나는 길을 알려 드립니다." : "지나는 길을 알리지 않습니다.")
             }
             .buttonStyle(KeunDanchu())
+            // 2.123.0 (261101-I77, 이사장님 지시 2026-11-01) 지도 알림 — 차·버스·기차·지하철 안에서 다리·건너는 강·휴게소·나들목·요금소·고장 경계
+            Button("지도 알림 — " + (s.jidoOn ? "켜져 있음 (누르면 끕니다)" : "꺼져 있음 (누르면 켭니다)")) {
+                s.jidoOn.toggle()
+                SoriEngine.shared.mal(s.jidoOn ? "차나 기차를 타고 가실 때 다리, 건너는 강, 휴게소, 나들목, 요금소, 들어서는 고장을 알려 드립니다." : "지도 알림을 하지 않습니다. 터널 알림은 그대로 나옵니다.")
+                if !s.jidoOn { JidoAllim.shared.kkeut() }
+            }
+            .buttonStyle(KeunDanchu())
+            // 2.123.0 걸을 때 지도 알림(시험 중, 처음 꺼짐)
+            Button("걸을 때 지도 알림(시험 중) — " + (s.jidoGeotOn ? "켜져 있음 (누르면 끕니다)" : "꺼져 있음 (누르면 켭니다)")) {
+                s.jidoGeotOn.toggle()
+                SoriEngine.shared.mal(s.jidoGeotOn ? "걸으실 때 계단, 육교, 지하도, 경사로, 보도 없는 길, 횡단보도, 엘리베이터, 지하철 출입구, 화장실, 버스 정류장, 건물 출입구를 알려 드립니다. 시험 중이라 틀린 곳이 있을 수 있습니다." : "걸을 때 지도 알림을 하지 않습니다.")
+                if !s.jidoGeotOn { JidoGeot.shared.kkeut() }
+            }
+            .buttonStyle(KeunDanchu())
             Button("차 안에서 지나는 곳 말하는 간격 — 지금 \(s.gilGap)초 (누르면 바뀝니다)") {
                 s.gilGap = s.gilGap == 30 ? 60 : (s.gilGap == 60 ? 120 : 30)
                 SoriEngine.shared.mal("\(s.gilGap)초에 한 번까지 지금 달리는 길을 말씀드립니다.")
