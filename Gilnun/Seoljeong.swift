@@ -56,6 +56,8 @@ final class Seoljeong: ObservableObject {
     @Published var jidoOn: Bool { didSet { d.set(jidoOn, forKey: "gn.jidoOn") } }
     /// 2.123.0 걸을 때 지도 알림(시험 중) — 계단·육교·지하도·경사로·보도 없는 길·횡단보도·엘리베이터·출입구·화장실·정류장
     @Published var jidoGeotOn: Bool { didSet { d.set(jidoGeotOn, forKey: "gn.jidoGeotOn") } }
+    /// 2.124.0 (261102, 이사장님 승인 「1」) 차 안에서 지나는 교차로 이름 — 국토교통부 표준노드링크 공식 이름, 「○○를 지났습니다. 다음은 ○○입니다」
+    @Published var gyoJinaOn: Bool { didSet { d.set(gyoJinaOn, forKey: "gn.gyoJinaOn") } }
     /// 2.56.0 차 안 안내 정도 1 간단 · 2 보통 · 3 자세히(웹 길눈 0.84.0과 같은 처음 값 보통)
     @Published var chaJeongdo: Int { didSet { d.set(chaJeongdo, forKey: "gn.chaJeongdo") } }
     /// 2.25.0 차 안 간판 알림 — 달릴 때 지나는 가게·건물(처음부터 켜짐), 서 있을 때 카메라로 창밖 간판 읽기(처음엔 꺼짐)
@@ -125,6 +127,7 @@ final class Seoljeong: ObservableObject {
         gilGap = (ud.object(forKey: "gn.gilGap") as? Int) ?? 60
         jidoOn = (ud.object(forKey: "gn.jidoOn") as? Bool) ?? true
         jidoGeotOn = (ud.object(forKey: "gn.jidoGeotOn") as? Bool) ?? false
+        gyoJinaOn = (ud.object(forKey: "gn.gyoJinaOn") as? Bool) ?? true
         chaJeongdo = (ud.object(forKey: "gn.chaJeongdo") as? Int) ?? 2
         ganpanOn = (ud.object(forKey: "gn.ganpanOn") as? Bool) ?? true
         baeGap = (ud.object(forKey: "gn.baeGap") as? Int) ?? 10

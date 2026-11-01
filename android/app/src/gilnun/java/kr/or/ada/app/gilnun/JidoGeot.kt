@@ -165,7 +165,9 @@ object JidoGeot {
         fun su(k: String) = o.optInt(k, 0)
         return when (t) {
             "geonneol" -> {
-                var m = "횡단보도입니다."
+                // 2.89.0 (261102, 이사장님 승인 「1」) 40미터 안 공식 교차로 이름(국토교통부 표준노드링크)을 붙임
+                val gy = o.optString("gyo").trim()
+                var m = if (gy.isEmpty()) "횡단보도입니다." else "$gy 횡단보도입니다."
                 if (su("sinho") == 1) m += " 신호등이 있습니다." else if (su("sinho") == -1) m += " 신호등이 없습니다."
                 if (su("sori") == 1) m += " 음향신호기가 있습니다." else if (su("sori") == -1) m += " 음향신호기는 없습니다."
                 if (su("jeomja") == 1) m += " 점자블록이 있습니다."

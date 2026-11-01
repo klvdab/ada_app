@@ -26,6 +26,7 @@ final class ChaGeodeul {
     func wichi(_ w: Wichi, _ y: Yeojeong) {
         kyeojim = true
         gyoJinam(w)
+        jinaGyo(w)
         let meomchum = mumchumBogo(w, y)
         if meomchum { return }   // 멈춘 동안은 위성 흔들림을 움직임으로 치지 않음
         doramBoda(w, y)
@@ -396,12 +397,85 @@ final class ChaGeodeul {
     }
 
     /// 「서울역교차로」·「강남역사거리」는 그대로, 이름이 없으면 몇 갈래인지로
+    /// 2.124.0 이름은 국토교통부 표준노드링크 공식 이름이 먼저(서버 jido.php 가 50미터 안 것만 붙임)
     static func gyoIreum(_ n: String, _ gal: Int) -> String {
         let moyang = gal == 3 ? "삼거리" : (gal == 4 ? "사거리" : (gal == 5 ? "오거리" : (gal == 6 ? "육거리" : "교차로")))
         let nm = n.trimmingCharacters(in: .whitespaces)
         if nm.isEmpty { return "이름 없는 " + moyang }
-        if nm.hasSuffix("거리") || nm.hasSuffix("교차로") || nm.hasSuffix("나들목") || nm.hasSuffix("분기점") { return nm }
+        if gyoIreumIm(nm) { return nm }
         return nm + " " + moyang
+    }
+    /// 이름 자체가 교차로 이름인지(○○사거리·○○교차로·○○네거리·○○나들목·○○IC 등)
+    static func gyoIreumIm(_ nm: String) -> Bool {
+        for k in ["거리", "교차로", "나들목", "분기점", "로터리", "IC", "JC", "요금소"] where nm.hasSuffix(k) { return true }
+        return false
+    }
+
+    // 2.124.0 (261102, 이사장님 승인 「1」 4번) 지나는 교차로 — 이름이 교차로 이름인 공식 교차로만,
+    //   30미터 안에 들었다가 45미터 넘게 멀어지면 「○○를 지났습니다. 다음은 ○○입니다」 한 번(다음은 가는 쪽 20도 안, 700미터 안).
+    //   말과 말 사이 15초 넘게, 같은 교차로는 10분 안에 다시 말하지 않음. 멈췄던 교차로는 gyoJinam 이 말함.
+    private var jgGyo: [(la: Double, lo: Double, n: String)] = []
+    private var jgJari: (Double, Double)?
+    private var jgBatTtae = Date.distantPast
+    private var jgBatneun = false
+    private var jgHan: [String: Date] = [:]
+    private var jgGakkai: (la: Double, lo: Double, n: String)?
+    private var jgMalTtae = Date.distantPast
+
+    private func jinaGyo(_ w: Wichi) {
+        guard Seoljeong.shared.jidoOn, Seoljeong.shared.gyoJinaOn, !mum else { return }
+        if w.sokdo >= 0 && w.sokdo < 2 { return }
+        if jgJari == nil || geori(w.lat, w.lon, jgJari!.0, jgJari!.1) > 250 { jgBatgi(w.lat, w.lon) }
+        let ije = Date()
+        jgHan = jgHan.filter { ije.timeIntervalSince($0.value) < 600 }
+        if let g = jgGakkai {
+            if geori(w.lat, w.lon, g.la, g.lo) <= 45 { return }
+            jgGakkai = nil
+            let key = "\(g.n)|\(Int(g.la * 1000))|\(Int(g.lo * 1000))"
+            if jgHan[key] != nil { return }
+            jgHan[key] = ije
+            if let m = gyoGiok, m.ireum == g.n { return }
+            guard ije.timeIntervalSince(jgMalTtae) >= 15 else { return }
+            var t = "\(JidoAllim.eul(g.n)) 지났습니다."
+            if let h = head {
+                var best: (d: Double, n: String)?
+                for x in jgGyo where x.n != g.n {
+                    let d = geori(w.lat, w.lon, x.la, x.lo)
+                    if d < 60 || d > 700 { continue }
+                    let c = abs((WichiEngine.bangwi(w.lat, w.lon, x.la, x.lo) - h + 540).truncatingRemainder(dividingBy: 360) - 180)
+                    if c > 20 { continue }
+                    if best == nil || d < best!.d { best = (d, x.n) }
+                }
+                if let b = best { t += " 다음은 \(b.n)입니다." }
+            }
+            jgMalTtae = ije
+            mal(t)
+            return
+        }
+        for x in jgGyo where geori(w.lat, w.lon, x.la, x.lo) < 30 {
+            let key = "\(x.n)|\(Int(x.la * 1000))|\(Int(x.lo * 1000))"
+            if jgHan[key] == nil { jgGakkai = x; break }
+        }
+    }
+
+    private func jgBatgi(_ la: Double, _ lo: Double) {
+        guard !jgBatneun, Date().timeIntervalSince(jgBatTtae) >= 20 else { return }
+        jgBatneun = true; jgBatTtae = Date()
+        Task { [weak self] in
+            let o = await Chatgi.json("jido.php", ["gal": "gyo", "lat": String(format: "%.5f", la), "lon": String(format: "%.5f", lo), "ban": "500"])
+            await MainActor.run {
+                guard let self = self else { return }
+                self.jgBatneun = false
+                guard let o = o else { return }
+                self.jgGyo = ((o["gyo"] as? [[String: Any]]) ?? []).compactMap { r in
+                    guard let a = Chatgi.su(r["a"]), let b = Chatgi.su(r["o"]) else { return nil }
+                    let n = ((r["n"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+                    guard (r["geungeo"] as? String) == "pyojun", ChaGeodeul.gyoIreumIm(n) else { return nil }
+                    return (a, b, n)
+                }
+                if Chatgi.su(o["deo"]) != 1 { self.jgJari = (la, lo) }
+            }
+        }
     }
 
     /// 멈췄던 교차로를 지나면 한 번 알림

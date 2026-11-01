@@ -146,6 +146,12 @@ struct MalSeolDeoView: View {
                 if !s.jidoOn { JidoAllim.shared.kkeut() }
             }
             .buttonStyle(KeunDanchu())
+            // 2.124.0 (261102, 이사장님 승인 「1」) 지나는 교차로 이름 — 공식 이름이 있는 교차로만
+            Button("지나는 교차로 알림 — " + (s.gyoJinaOn ? "켜져 있음 (누르면 끕니다)" : "꺼져 있음 (누르면 켭니다)")) {
+                s.gyoJinaOn.toggle()
+                SoriEngine.shared.mal(s.gyoJinaOn ? "차 안에서 이름 있는 교차로를 지나면 그 이름과 다음 교차로를 알려 드립니다. 지도 알림이 켜져 있어야 합니다." : "지나는 교차로를 알리지 않습니다. 멈췄을 때 교차로 이름은 그대로 알려 드립니다.")
+            }
+            .buttonStyle(KeunDanchu())
             // 2.123.0 걸을 때 지도 알림(시험 중, 처음 꺼짐)
             Button("걸을 때 지도 알림(시험 중) — " + (s.jidoGeotOn ? "켜져 있음 (누르면 끕니다)" : "꺼져 있음 (누르면 켭니다)")) {
                 s.jidoGeotOn.toggle()

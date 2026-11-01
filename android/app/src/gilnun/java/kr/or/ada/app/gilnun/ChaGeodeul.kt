@@ -28,6 +28,7 @@ object ChaGeodeul {
     fun wichi(w: Jari, y: Yeojeong) {
         kyeojim = true
         gyoJinam(w)
+        jinaGyo(w)
         if (mumchumBogo(w, y)) return   // 멈춘 동안은 위성 흔들림을 움직임으로 치지 않음
         doramBoda(w, y)
         teoneolSalpigi(w)
@@ -406,8 +407,83 @@ object ChaGeodeul {
         val moyang = when (gal) { 3 -> "삼거리"; 4 -> "사거리"; 5 -> "오거리"; 6 -> "육거리"; else -> "교차로" }
         val nm = n.trim()
         if (nm.isEmpty()) return "이름 없는 $moyang"
-        if (nm.endsWith("거리") || nm.endsWith("교차로") || nm.endsWith("나들목") || nm.endsWith("분기점")) return nm
+        if (gyoIreumIm(nm)) return nm
         return "$nm $moyang"
+    }
+    /** 이름 자체가 교차로 이름인지(○○사거리·○○교차로·○○네거리·○○나들목·○○IC 등) — 2.89.0 */
+    fun gyoIreumIm(nm: String): Boolean = listOf("거리", "교차로", "나들목", "분기점", "로터리", "IC", "JC", "요금소").any { nm.endsWith(it) }
+
+    // 2.89.0 (261102, 이사장님 승인 「1」 4번, 아이폰 2.124.0과 같음) 지나는 교차로 — 이름이 교차로 이름인 공식 교차로만,
+    //   30미터 안에 들었다가 45미터 넘게 멀어지면 「○○를 지났습니다. 다음은 ○○입니다」 한 번(다음은 가는 쪽 20도 안, 700미터 안).
+    //   말과 말 사이 15초 넘게, 같은 교차로는 10분 안에 다시 말하지 않음. 멈췄던 교차로는 gyoJinam 이 말함.
+    private class Jg(val la: Double, val lo: Double, val n: String)
+    private var jgGyo: List<Jg> = emptyList()
+    private var jgJari: Pair<Double, Double>? = null
+    private var jgBatTtae = 0L
+    private var jgBatneun = false
+    private val jgHan = HashMap<String, Long>()
+    private var jgGakkai: Jg? = null
+    private var jgMalTtae = 0L
+
+    private fun jinaGyo(w: Jari) {
+        if (!AnnaeSeoljeong.jidoOn || !AnnaeSeoljeong.gyoJinaOn || mum) return
+        if (w.sokdo >= 0 && w.sokdo < 2) return
+        val jr = jgJari
+        if (jr == null || geori(w.lat, w.lon, jr.first, jr.second) > 250) jgBatgi(w.lat, w.lon)
+        val ije = System.currentTimeMillis()
+        jgHan.entries.removeAll { ije - it.value > 600_000 }
+        val g = jgGakkai
+        if (g != null) {
+            if (geori(w.lat, w.lon, g.la, g.lo) <= 45) return
+            jgGakkai = null
+            val key = "${g.n}|${(g.la * 1000).toInt()}|${(g.lo * 1000).toInt()}"
+            if (jgHan.containsKey(key)) return
+            jgHan[key] = ije
+            if (gyoGiok?.ireum == g.n) return
+            if (ije - jgMalTtae < 15_000) return
+            var t = "${JidoAllim.eul(g.n)} 지났습니다."
+            val h = head
+            if (h != null) {
+                var best: Jg? = null; var bd = 1e9
+                for (x in jgGyo) {
+                    if (x.n == g.n) continue
+                    val d = geori(w.lat, w.lon, x.la, x.lo)
+                    if (d < 60 || d > 700) continue
+                    val c = Math.abs(((Jeomjido.bangwi(w.lat, w.lon, x.la, x.lo) - h + 540) % 360) - 180)
+                    if (c > 20) continue
+                    if (d < bd) { bd = d; best = x }
+                }
+                if (best != null) t += " 다음은 ${best.n}입니다."
+            }
+            jgMalTtae = ije
+            mal(t)
+            return
+        }
+        for (x in jgGyo) {
+            if (geori(w.lat, w.lon, x.la, x.lo) >= 30) continue
+            val key = "${x.n}|${(x.la * 1000).toInt()}|${(x.lo * 1000).toInt()}"
+            if (!jgHan.containsKey(key)) { jgGakkai = x; break }
+        }
+    }
+
+    private fun jgBatgi(la: Double, lo: Double) {
+        val ije = System.currentTimeMillis()
+        if (jgBatneun || ije - jgBatTtae < 20_000) return
+        jgBatneun = true; jgBatTtae = ije
+        Tongsin.json("jido.php", mapOf("gal" to "gyo", "lat" to f5(la), "lon" to f5(lo), "ban" to "500"), 15000) { o ->
+            jgBatneun = false
+            if (o == null) return@json
+            val l = ArrayList<Jg>()
+            val arr = o.optJSONArray("gyo")
+            if (arr != null) for (i in 0 until arr.length()) {
+                val r = arr.optJSONObject(i) ?: continue
+                val n = r.optString("n").trim()
+                if (r.optString("geungeo") != "pyojun" || !gyoIreumIm(n)) continue
+                l.add(Jg(r.optDouble("a"), r.optDouble("o"), n))
+            }
+            jgGyo = l
+            if (o.optInt("deo", 0) != 1) jgJari = Pair(la, lo)
+        }
     }
 
     /** 멈췄던 교차로를 지나면 한 번 알림 */
