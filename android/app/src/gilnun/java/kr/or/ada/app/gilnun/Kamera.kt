@@ -496,6 +496,11 @@ object Kamera {
             if (e == Lifecycle.Event.ON_STOP) {
                 val j = juin
                 if (j is TeokAllim && j.kyeojim) j.kkeugi(false)
+                // 2.89.0 (261102 이사장님 「1」 3번) 화면이 가려지면 문 찾기도 끔(켜진 채 오래 남았음)
+                if (j === MunChatgi && MunChatgi.kyeojim) {
+                    Girok.namgi("munchatgi_mot", mapOf("iyu" to "dwiro"))
+                    MunChatgi.kkeugi(false)
+                }
             } else if (e == Lifecycle.Event.ON_DESTROY) {
                 modukkeugi(false)
                 hwamyeonKyeon = false

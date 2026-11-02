@@ -686,6 +686,16 @@ final class JeomEngine: ObservableObject {
         if firstFix {
             firstFix = false
             for i in pyo.indices where pyo[i].i < idx { pyo[i].said = true; pyo[i].near = true; pyo[i].said30 = true }
+            // 2.124.0 (261102 이사장님 「1」 1번) 제기동 센터 앞에서 시작하자 끝자리의 턱·계단·문 안내 열두 마디가 1초 안에 쏟아졌음
+            //   — 끝 10미터 안에서 시작하면 길 위 표시는 말하지 않고 문까지 안내로 넘김.
+            //   그 밖에도 첫 자리에서 바로 닿는 표시(7.7미터 안)가 여럿이면 가장 가까운 하나만 남김
+            if namEun <= 10 {
+                for i in pyo.indices { pyo[i].said = true; pyo[i].near = true; pyo[i].said30 = true }
+                Girok.shared.namgi("jeom_kkeut_sijak", ["m": Int(namEun.rounded())])
+            } else {
+                let gakkaun = pyo.indices.filter { pyo[$0].i >= idx && ap(idx, pyo[$0].i) <= 7.7 }.sorted { pyo[$0].i < pyo[$1].i }
+                for i in gakkaun.dropFirst() { pyo[i].said = true; pyo[i].near = true; pyo[i].said30 = true }
+            }
         }
         // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 타는 곳에 닿으면(3미터 안이거나 지나쳤으면) 탈것 구간으로
         if let t = tagiGugan.first(where: { !tagiHan.contains($0.i0) && idx < $0.i1 && (idx >= $0.i0 || ap(idx, $0.i0) <= 3) }) {

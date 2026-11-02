@@ -637,7 +637,18 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
                               options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers])
             try s.setActive(true)
         } catch {
-            Girok.shared.namgi("sori_oryu", ["dan": "kyeogi", "code": (error as NSError).code])
+            let code = (error as NSError).code
+            Girok.shared.namgi("sori_oryu", ["dan": "kyeogi", "code": code])
+            // 2.124.0 (261102 이사장님 「1」 2번) 제기동 센터 앞에서 2분 동안 스무 번 「다른 소리를 끊고 낼 수 없다」(!int)로 막혔음
+            //   — 다른 소리를 낮추지 않고 섞어서라도 다시 잡고, 그래도 안 되면 진동으로 알림
+            do {
+                try s.setCategory(.playback, mode: .voicePrompt, options: [.mixWithOthers])
+                try s.setActive(true)
+                Girok.shared.namgi("sori_seokgi", ["code": code])
+            } catch {
+                Girok.shared.namgi("sori_oryu", ["dan": "kyeogi_seokgi", "code": (error as NSError).code])
+                Jindong.hagi("short")
+            }
         }
     }
 

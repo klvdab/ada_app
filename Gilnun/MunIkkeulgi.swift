@@ -55,7 +55,8 @@ final class MunIkkeulgi {
                     self.dolligi(g, b0, kamera, "changgo")
                 } else {
                     Girok.shared.namgi("mun_ikkeul", ["mun": "eopseum"])
-                    if kamera { MunChatgi.shared.kyeogi("dochak") }
+                    // 2.124.0 (261102 이사장님 「1」 3번) 문 정보가 없으면 카메라를 저절로 켜지 않고 한 마디만(폰이 주머니에 있으면 혼자 오래 돌았음)
+                    if kamera { SoriEngine.shared.mal("이곳은 문 정보가 없습니다. 문을 찾으시려면 문 찾아 줘라고 말씀하십시오.") }
                 }
             }
         }

@@ -488,15 +488,22 @@ final class ChaBureugi: NSObject, ObservableObject, CXCallObserverDelegate {
                 dap("", false); dapBatgi("baecha"); return true
             }
         }
-        if mureumId != nil, Date().timeIntervalSince(mureumTtae) < 600, mureumTtae > majimakMal, z.count <= 12 {
-            if z.contains("안돼") || z.contains("안된") || z.contains("안됐") || z.contains("안되") || z.contains("없대") || z.contains("없다") || z.contains("못") {
+        // 2.124.0 (261102 이사장님 「1」 5번) 「기다릴래」「기다리래」「기다리라고 한다」를 못 알아들었음 — 줄여 하시는 말을 넓게 받고,
+        //   여쭌 물음이 없어도 2시간 안에 부르고 결과를 모르는 콜이 있으면 받음. 여쭌 물음에 못 알아들으면 되물음
+        let kolNamum = girok.last.map { $0.gyeolgwa == nil && $0.tan == nil && Date().timeIntervalSince($0.ttae) < 7200 } ?? false
+        let yeojjumNow = mureumId != nil && Date().timeIntervalSince(mureumTtae) < 600 && mureumTtae > majimakMal
+        if (yeojjumNow || kolNamum) && z.count <= 12 {
+            if (yeojjumNow && (z.contains("안돼") || z.contains("안됐") || z.contains("안되") || z.contains("없다") || z.contains("못"))) || z.contains("안된") || z.contains("없대") {
                 dap("", false); dapBatgi("andoem"); return true
             }
-            if z.contains("기다리") || z.contains("대기") {
+            if z.contains("기다") || z.contains("기달") || z.contains("대기") {
                 dap("", false); dapBatgi("gidarim"); return true
             }
-            if z.contains("됐") || z.contains("되었") || z.contains("배차") || z.contains("온대") || z.contains("온다") {
+            if (yeojjumNow && (z.contains("됐") || z.contains("되었"))) || z.contains("배차") || z.contains("온대") || z.contains("온다") || z.contains("온데") || z.contains("보낸대") {
                 dap("", false); dapBatgi("baecha"); return true
+            }
+            if yeojjumNow {
+                dap("기다리라고 했나요, 차가 온다고 했나요, 안 된다고 했나요? 셋 가운데 말씀해 주십시오.", true); return true
             }
         }
         // 2. 다음 수단에 걸까요

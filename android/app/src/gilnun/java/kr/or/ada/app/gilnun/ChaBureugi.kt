@@ -604,15 +604,23 @@ internal object ChaBureugi {
                 dap("", false); dapBatgi("baecha"); return true
             }
         }
-        if (mureumId != null && now - mureumTtae < 600_000L && mureumTtae > MalHagi.majimakMureumSigakBoda() && z.length <= 12) {
-            if (z.contains("안돼") || z.contains("안된") || z.contains("안됐") || z.contains("안되") || z.contains("없대") || z.contains("없다") || z.contains("못")) {
+        // 2.89.0 (261102 이사장님 「1」 5번) 줄여 하시는 말을 넓게 받고, 여쭌 물음이 없어도 2시간 안에 부르고 결과를 모르는 콜이 있으면 받음.
+        //   여쭌 물음에 못 알아들으면 되물음(아이폰과 같음)
+        val hk = girok.lastOrNull()
+        val kolNamum = hk != null && hk.gyeolgwa == null && hk.tan == 0L && now - hk.ttae < 7_200_000L
+        val yeojjumNow = mureumId != null && now - mureumTtae < 600_000L && mureumTtae > MalHagi.majimakMureumSigakBoda()
+        if ((yeojjumNow || kolNamum) && z.length <= 12) {
+            if ((yeojjumNow && (z.contains("안돼") || z.contains("안됐") || z.contains("안되") || z.contains("없다") || z.contains("못"))) || z.contains("안된") || z.contains("없대")) {
                 dap("", false); dapBatgi("andoem"); return true
             }
-            if (z.contains("기다리") || z.contains("대기")) {
+            if (z.contains("기다") || z.contains("기달") || z.contains("대기")) {
                 dap("", false); dapBatgi("gidarim"); return true
             }
-            if (z.contains("됐") || z.contains("되었") || z.contains("배차") || z.contains("온대") || z.contains("온다")) {
+            if ((yeojjumNow && (z.contains("됐") || z.contains("되었"))) || z.contains("배차") || z.contains("온대") || z.contains("온다") || z.contains("온데") || z.contains("보낸대")) {
                 dap("", false); dapBatgi("baecha"); return true
+            }
+            if (yeojjumNow) {
+                dap("기다리라고 했나요, 차가 온다고 했나요, 안 된다고 했나요? 셋 가운데 말씀해 주십시오.", true); return true
             }
         }
         // 2. 다음 수단에 걸까요

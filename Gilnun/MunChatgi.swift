@@ -52,7 +52,15 @@ final class MunChatgi: NSObject, ObservableObject, ARSessionDelegate {
         super.init()
         session.delegate = self
         session.delegateQueue = jul
+        // 2.124.0 (261102 이사장님 「1」 3번) 폰을 잠그거나 길눈을 뒤로 보내면 카메라가 멈춰 문 찾기가 켜진 채 남았음(68분) — 그때 바로 끔
+        NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self = self, self.kyeojim else { return }
+            Girok.shared.namgi("munchatgi_mot", ["eodi": self.eodiseo, "iyu": "dwiro"])
+            self.kkeugi(malHagi: false)
+        }
     }
+    /// 2.124.0 켤 때마다 바뀌는 번호 — 5분 끝막이가 지난 켜짐을 끄지 않게
+    private var kyeonBeon = 0
 
     // MARK: 켜기·끄기
 
@@ -106,6 +114,16 @@ final class MunChatgi: NSObject, ObservableObject, ARSessionDelegate {
         chatneunMalSu = 0; ireotdaMal = false; ilgeunGeul = []; geulSun = []; majatda = false; munkkajiMotMal = false
         sangtae = "문을 찾는 중입니다."
         Girok.shared.namgi("munchatgi", ["eodi": e, "lidar": MunChatgi.lidar])
+        // 2.124.0 (261102 이사장님 「1」 3번) 무슨 일이 있어도 5분이 지나면 끔
+        kyeonBeon += 1
+        let b = kyeonBeon
+        DispatchQueue.main.asyncAfter(deadline: .now() + 300) { [weak self] in
+            guard let self = self, self.kyeojim, self.kyeonBeon == b else { return }
+            Girok.shared.namgi("munchatgi_mot", ["eodi": self.eodiseo, "iyu": "5bun"])
+            let jj = self.jjikgiNow
+            self.kkeugi(malHagi: false)
+            if !jj { self.mal("5분이 지나 문 찾기를 마칩니다.") }
+        }
         if jjikgiNow { return }   // 두 번 찍기 — 말 없이 글자만 모음
         let ap = (e == "munkkaji" || e == "dochak") ? "카메라로 문을 찾습니다. " : ""
         mal(ap + "폰을 가슴 앞에 세워 들고 천천히 걸으십시오.")

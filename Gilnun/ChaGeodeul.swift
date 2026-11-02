@@ -449,7 +449,7 @@ final class ChaGeodeul {
                 if let b = best { t += " 다음은 \(b.n)입니다." }
             }
             jgMalTtae = ije
-            mal(t)
+            jinamMal(g.n, t)
             return
         }
         for x in jgGyo where geori(w.lat, w.lon, x.la, x.lo) < 30 {
@@ -478,6 +478,16 @@ final class ChaGeodeul {
         }
     }
 
+    /// 2.124.0 (261102 이사장님 「1」 4번) 「○○를 지났습니다」는 한 교차로에 한 번만 — 2분 안에 같은 이름은 다시 말하지 않음
+    private var jinamHan: [String: Date] = [:]
+    private func jinamMal(_ n: String, _ t: String) {
+        let ije = Date()
+        jinamHan = jinamHan.filter { ije.timeIntervalSince($0.value) < 120 }
+        if jinamHan[n] != nil { return }
+        jinamHan[n] = ije
+        mal(t)
+    }
+
     /// 멈췄던 교차로를 지나면 한 번 알림
     private func gyoJinam(_ w: Wichi) {
         let ije = Date()
@@ -485,7 +495,13 @@ final class ChaGeodeul {
         guard var g = gyoGiok, !mum else { return }
         let d = geori(w.lat, w.lon, g.la, g.lo)
         if d < 30 { g.gakkai = true; gyoGiok = g; return }
-        if g.gakkai && d > 45 { gyoGiok = nil; mal("\(JidoAllim.eul(g.ireum)) 지났습니다."); return }
+        if g.gakkai && d > 45 {
+            gyoGiok = nil
+            // 2.124.0 (261102 이사장님 「1」 4번) 지나는 교차로 알림이 같은 교차로를 맡고 있으면 그쪽이 「다음은」까지 붙여 한 번만 말함
+            if Seoljeong.shared.jidoOn, Seoljeong.shared.gyoJinaOn, let j = jgGakkai, j.n == g.ireum { return }
+            jinamMal(g.ireum, "\(JidoAllim.eul(g.ireum)) 지났습니다.")
+            return
+        }
         if d > 400 { gyoGiok = nil }   // 다른 길로 감
     }
 

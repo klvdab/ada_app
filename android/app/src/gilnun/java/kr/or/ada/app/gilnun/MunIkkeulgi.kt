@@ -60,7 +60,8 @@ object MunIkkeulgi {
             if (g != null) dolligi(g, "changgo")
             else {
                 Girok.namgi("mun_ikkeul", mapOf("mun" to "eopseum"))
-                kamera?.invoke("dochak")
+                // 2.89.0 (261102 이사장님 「1」 3번) 문 정보가 없으면 카메라를 저절로 켜지 않고 한 마디만
+                if (kamera != null) Sori.mal("이곳은 문 정보가 없습니다. 문을 찾으시려면 문 찾아 줘라고 말씀하십시오.")
             }
         }
     }

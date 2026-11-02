@@ -748,6 +748,15 @@ object JeomEngine {
         if (firstFix) {
             firstFix = false
             for (q in pyo) if (q.i < idx) { q.said = true; q.near = true; q.said30 = true }
+            // 2.89.0 (261102 이사장님 「1」 1번) 끝 10미터 안에서 시작하면 길 위 표시는 말하지 않고 문까지 안내로 넘김.
+            //   그 밖에도 첫 자리에서 바로 닿는 표시(7.7미터 안)가 여럿이면 가장 가까운 하나만 남김
+            if (namEun <= 10) {
+                for (q in pyo) { q.said = true; q.near = true; q.said30 = true }
+                Girok.namgi("jeom_kkeut_sijak", mapOf("m" to Math.round(namEun).toInt()))
+            } else {
+                val gakkaun = pyo.filter { it.i >= idx && ap(idx, it.i) <= 7.7 }.sortedBy { it.i }
+                for (q in gakkaun.drop(1)) { q.said = true; q.near = true; q.said30 = true }
+            }
         }
         // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 타는 곳에 닿으면(3미터 안이거나 지나쳤으면) 탈것 구간으로
         val tt = tagiGugan.firstOrNull { !tagiHan.contains(it.i0) && idx < it.i1 && (idx >= it.i0 || ap(idx, it.i0) <= 3) }

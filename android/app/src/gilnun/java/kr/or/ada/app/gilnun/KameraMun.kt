@@ -27,6 +27,8 @@ import kotlin.math.sin
 import kotlin.math.tan
 
 object MunChatgi : KameraNunBupum {
+    /** 2.89.0 켤 때마다 바뀌는 번호 — 5분 끝막이가 지난 켜짐을 끄지 않게 */
+    private var kyeonBeon = 0
     override val ireum = "문 찾기"
     override var kyeojim = false
         private set
@@ -102,6 +104,16 @@ object MunChatgi : KameraNunBupum {
                 ilgeunGeul.clear(); geulSun.clear(); apGeul = HashSet()
                 sangtae = "문을 찾는 중입니다."
                 Girok.namgi("munchatgi", mapOf("eodi" to e, "android" to "geul"))
+                // 2.89.0 (261102 이사장님 「1」 3번) 무슨 일이 있어도 5분이 지나면 끔
+                kyeonBeon += 1
+                val b = kyeonBeon
+                Handler(Looper.getMainLooper()).postDelayed({
+                    if (kyeojim && kyeonBeon == b) {
+                        Girok.namgi("munchatgi_mot", mapOf("eodi" to eodiseo, "iyu" to "5bun"))
+                        kkeugi(false)
+                        if (!jjikgi) mal("5분이 지나 문 찾기를 마칩니다.")
+                    }
+                }, 300_000L)
                 if (!jjikgi) {   // 두 번 찍기 — 말 없이 글자만 모음
                     val ap = if (e == "munkkaji" || e == "dochak") "카메라로 문을 찾습니다. " else ""
                     mal(ap + "폰을 가슴 앞에 세워 들고 천천히 걸으십시오.")

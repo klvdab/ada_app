@@ -456,7 +456,7 @@ object ChaGeodeul {
                 if (best != null) t += " 다음은 ${best.n}입니다."
             }
             jgMalTtae = ije
-            mal(t)
+            jinamMal(g.n, t)
             return
         }
         for (x in jgGyo) {
@@ -486,6 +486,16 @@ object ChaGeodeul {
         }
     }
 
+    /** 2.89.0 (261102 이사장님 「1」 4번) 「○○를 지났습니다」는 한 교차로에 한 번만 — 2분 안에 같은 이름은 다시 말하지 않음 */
+    private val jinamHan = HashMap<String, Long>()
+    private fun jinamMal(n: String, t: String) {
+        val ije = System.currentTimeMillis()
+        jinamHan.entries.removeAll { ije - it.value > 120_000 }
+        if (jinamHan.containsKey(n)) return
+        jinamHan[n] = ije
+        mal(t)
+    }
+
     /** 멈췄던 교차로를 지나면 한 번 알림 */
     private fun gyoJinam(w: Jari) {
         val ije = System.currentTimeMillis()
@@ -494,7 +504,13 @@ object ChaGeodeul {
         if (mum) return
         val d = geori(w.lat, w.lon, g.la, g.lo)
         if (d < 30) { g.gakkai = true; return }
-        if (g.gakkai && d > 45) { gyoGiok = null; mal("${JidoAllim.eul(g.ireum)} 지났습니다."); return }
+        if (g.gakkai && d > 45) {
+            gyoGiok = null
+            // 2.89.0 (261102 이사장님 「1」 4번) 지나는 교차로 알림이 같은 교차로를 맡고 있으면 그쪽이 「다음은」까지 붙여 한 번만 말함
+            if (AnnaeSeoljeong.jidoOn && AnnaeSeoljeong.gyoJinaOn && jgGakkai?.n == g.ireum) return
+            jinamMal(g.ireum, "${JidoAllim.eul(g.ireum)} 지났습니다.")
+            return
+        }
         if (d > 400) gyoGiok = null
     }
 
