@@ -195,7 +195,8 @@ final class SinhogiEngine: NSObject, ObservableObject, CBCentralManagerDelegate,
         guard let p = pending else { return }
         pending = nil
         if !salpim { central?.stopScan() }
-        if !p.jadong { Girok.shared.namgi("sinhogi_gyeolgwa", ["ok": ok, "cmd": Int(p.cmd)]) }
+        // 2.125.0 (261103-I79, 이사장님 승인 2026-11-03 「모두 하자」) 저절로 울린 결과도 남기고, 어느 단계에서 막혔는지 말을 함께 남김 — 앱스토어 시연 영상 전에 실제로 울렸는지 확인하려고
+        Girok.shared.namgi("sinhogi_gyeolgwa", ["ok": ok, "cmd": Int(p.cmd), "jadong": p.jadong, "kkadak": mal])
         p.done(ok, mal)
     }
 

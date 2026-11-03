@@ -476,7 +476,8 @@ object SinhogiEngine {
         val p = pending ?: return
         pending = null
         dasiSalpim()
-        if (!p.jadong) Girok.namgi("sinhogi_gyeolgwa", mapOf("ok" to ok, "cmd" to p.cmd))
+        // 2.90.0 (261103-A78, 이사장님 승인 2026-11-03 「모두 하자」) 저절로 울린 결과도 남기고, 어느 단계에서 막혔는지 말을 함께 남김(아이폰 2.125.0과 같음)
+        Girok.namgi("sinhogi_gyeolgwa", mapOf("ok" to ok, "cmd" to p.cmd, "jadong" to p.jadong, "kkadak" to mal))
         p.done(ok, mal)
     }
 
