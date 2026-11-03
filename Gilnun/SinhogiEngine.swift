@@ -53,6 +53,7 @@ final class SinhogiEngine: NSObject, ObservableObject, CBCentralManagerDelegate,
     // MARK: 세우기
 
     func sijak() {
+        guard !Seoljeong.jabongApp else { return }   // 자봉 2.36.0 (261103-I30, 이사장님 승인 2026-11-03 「2」) 자봉은 블루투스를 쓰지 않음 — 앱스토어 심사 지침 2.1(블루투스 시연 영상 요구) 풀기
         dwi = UIApplication.shared.applicationState == .background   // 2.12.0 잠긴 채 켜졌으면 처음부터 뒤 살피기로
         let nc = NotificationCenter.default
         nc.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
@@ -73,6 +74,7 @@ final class SinhogiEngine: NSObject, ObservableObject, CBCentralManagerDelegate,
 
     /// 자동 울리기 켜기/끄기(설정)
     func jadongKyeogi(_ on: Bool) {
+        guard !Seoljeong.jabongApp else { return }   // 자봉 2.36.0 (261103-I30) 자봉은 블루투스를 쓰지 않음
         DispatchQueue.main.async {
             self.jadongOn = on
             if on { self.withCentral { self.dasiSalpim() } } else { self.dasiSalpim() }
@@ -109,6 +111,7 @@ final class SinhogiEngine: NSObject, ObservableObject, CBCentralManagerDelegate,
     ///   블루투스 상태를 먼저 살핌 — 꺼짐·허락 없음·지원 안 함이면 드릴 말, 쓸 수 있거나 아직 모르면(켜지는 중) nil
     ///   자동 울리기가 앱을 켤 때 부품을 미리 만들어 두어 상태 바뀜 알림이 다시 오지 않으므로, 누를 때마다 여기서 살핌
     func makimMal() -> String? {
+        if Seoljeong.jabongApp { return "음향신호기는 길눈에서 쓰실 수 있습니다. 자봉은 블루투스를 쓰지 않습니다." }   // 자봉 2.36.0 (261103-I30, 이사장님 승인 2026-11-03 「2」)
         if CBManager.authorization == .denied || CBManager.authorization == .restricted {
             return "음향신호기를 찾으려면 블루투스 허락이 필요합니다. 아이폰 설정의 길눈에서 블루투스를 켜 주십시오."
         }
@@ -122,6 +125,7 @@ final class SinhogiEngine: NSObject, ObservableObject, CBCentralManagerDelegate,
     }
 
     private func withCentral(_ go: @escaping () -> Void) {
+        guard !Seoljeong.jabongApp else { return }   // 자봉 2.36.0 (261103-I30) 자봉에서는 블루투스 부품을 만들지 않음
         if central == nil { central = CBCentralManager(delegate: self, queue: .main) }
         if central?.state == .poweredOn { go() } else { junbiDoemyeon = go }
     }
@@ -346,7 +350,7 @@ final class SinhogiEngine: NSObject, ObservableObject, CBCentralManagerDelegate,
             self.salpigiJaba = [:]
             self.salpigiJung = true
             SoriEngine.shared.mal("둘레의 음향신호기를 8초 동안 살핍니다. 폰을 앞으로 들어 주십시오.", .annae)
-            if self.central == nil { self.central = CBCentralManager(delegate: self, queue: .main) }
+            if self.central == nil && !Seoljeong.jabongApp { self.central = CBCentralManager(delegate: self, queue: .main) }   // 자봉 2.36.0 (261103-I30)
             self.dasiSalpim()
             DispatchQueue.main.asyncAfter(deadline: .now() + 8) { self.salpigiKkeut() }
         }
