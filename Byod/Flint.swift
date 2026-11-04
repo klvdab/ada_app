@@ -26,10 +26,22 @@ enum Flint {
     /// 1.7.0 공유기 이름(첫 화면·도움말·현장 점검에 씀)
     static var gongyugiIreum: String { flintInga ? "플린트 2" : "아이피타임" }
 
+    /// 1.13.0 (261104-BI17) 플린트 2 주소대인가 — 플은 192.168.8~11 번대를 줌
+    static func peulJuso(_ host: String) -> Bool { ["192.168.8.", "192.168.9.", "192.168.10.", "192.168.11."].contains { host.hasPrefix($0) } }
+
+    /// 1.13.0 세 번까지 묻기 — 플이 바쁠 때 한 번 못 들었다고 빠지지 않게
+    static func dasiMutgi(_ gil: String, _ nam: Int = 3, _ kkeut: @escaping ([String: Any]?) -> Void) {
+        mutgi(gil) { j in
+            if j != nil || nam <= 1 { kkeut(j); return }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) { dasiMutgi(gil, nam - 1, kkeut) }
+        }
+    }
+
     /// 공유기 안 서버에 묻기
     static func mutgi(_ gil: String, _ kkeut: @escaping ([String: Any]?) -> Void) {
         guard let u = URL(string: "http://\(IP):\(WEB)\(gil)") else { kkeut(nil); return }
         var q = URLRequest(url: u); q.timeoutInterval = 3; q.cachePolicy = .reloadIgnoringLocalCacheData
+        q.allowsCellularAccess = false   // 1.13.0 플에 묻는 말이 이동통신으로 새지 않게
         URLSession.shared.dataTask(with: q) { d, r, _ in
             var j: [String: Any]? = nil
             if (r as? HTTPURLResponse)?.statusCode == 200, let d = d { j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] }
@@ -124,7 +136,8 @@ final class FlintBonaegi {
 
     private func butgi() {
         guard dolgo else { return }
-        let c = NWConnection(host: NWEndpoint.Host(Flint.IP), port: NWEndpoint.Port(rawValue: Flint.SORI)!, using: .tcp)
+        let pm = NWParameters.tcp; pm.prohibitedInterfaceTypes = [.cellular]   // 1.13.0 소리가 이동통신으로 새지 않게
+        let c = NWConnection(host: NWEndpoint.Host(Flint.IP), port: NWEndpoint.Port(rawValue: Flint.SORI)!, using: pm)
         con = c
         ssain = 0
         ssainOpus = 0; kkol2 = false   // 1.10.0

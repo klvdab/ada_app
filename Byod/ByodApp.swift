@@ -324,7 +324,8 @@ struct CheotView: View {
         }
         .alert("공유기 확인", isPresented: $gongyugiBoim) {   // 1.9.0
             Button("닫기", role: .cancel) { }
-            Button("그래도 시작") { sijakhagi() }
+            if Flint.peulJuso((Juso.deutgiJuso().replacingOccurrences(of: "http://", with: "").components(separatedBy: ":").first ?? "")) { Button("다시 살피기") { gongyugiSalpigo() } }   // 1.13.0 플 주소대에서는 소리가 안 나가므로
+            else { Button("그래도 시작") { sijakhagi() } }
             Button("설정 열기") { if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) } }
         } message: {
             Text(gongyugiGeul)
@@ -417,19 +418,19 @@ struct CheotView: View {
         if salpineunJung { return }
         salpineunJung = true
         allyeo("붙은 공유기를 살피고 있습니다.")
-        Flint.mutgi("/status") { j in
+        Flint.dasiMutgi("/status") { j in
             DispatchQueue.main.async {
                 salpineunJung = false
                 let flintDap = j != nil
                 let juso = Juso.deutgiJuso()
                 let host = juso.replacingOccurrences(of: "http://", with: "").components(separatedBy: ":").first ?? ""
                 // 1.12.0 (261030-BI16) 플린트 2 주소(192.168.8.)에 붙어 있으면 방송 서버가 잠깐 답하지 않아도 아이피타임으로 바꾸지 않음
-                Flint.flintInga = flintDap || host.hasPrefix("192.168.8.")
+                Flint.flintInga = flintDap || Flint.peulJuso(host)   // 1.13.0 8~11 번대
                 flintOn = Flint.flintInga
                 var munje: String? = nil
                 if !flintDap {
                     if juso.isEmpty { munje = "이 아이폰이 어느 공유기에도 붙어 있지 않습니다. 방송 공유기의 와이파이에 붙이거나 랜 어댑터와 랜선으로 공유기에 이으십시오." }
-                    else if host.hasPrefix("192.168.8.") { munje = "플린트 2 공유기로 보이는데 방송 서버가 답하지 않습니다. 처음 쓰는 플린트 2면 안드로이드 LVD 송출 앱의 플린트 2 준비하기를 먼저 하십시오." }
+                    else if Flint.peulJuso(host) { munje = "플린트 2 공유기로 보이는데 방송 서버가 답하지 않습니다. 처음 쓰는 플린트 2면 안드로이드 LVD 송출 앱의 플린트 2 준비하기를 먼저 하십시오." }
                     else if !host.hasPrefix("192.168.") { munje = "이 아이폰이 방송 공유기가 아닌 와이파이에 붙어 있는 것 같습니다. 지금 주소는 \(host) 입니다. 아이피타임 방송 공유기에 붙으면 주소가 192.168 로 시작합니다. 이대로 시작하면 듣는 분이 방송을 찾지 못합니다." }
                 }
                 if let m = munje { gongyugiGeul = m; gongyugiBoim = true; malhagi(m); return }
