@@ -20,9 +20,15 @@ enum Flint {
     /// 방송 방식: flint(플린트 2 공유기 안 서버) 또는 taebeullit(아이피타임 방식 — 이 아이폰이 서버)
     /// 1.7.0 (261021-BI9, 이사장님 승인) 처음값을 아이피타임으로 — 플린트 2가 오기 전이라 지금 가진 아이피타임 A1004NS 로 방송
     static var flintInga: Bool {
-        get { (UserDefaults.standard.string(forKey: "bangsik") ?? "taebeullit") == "flint" }
-        set { UserDefaults.standard.set(newValue ? "flint" : "taebeullit", forKey: "bangsik") }
+        get { true }   // 1.14.0 아이피타임 방식을 뺌 — 언제나 플린트 2
+        set { }
     }
+    /// 1.14.0 이 아이폰은 무대 현장음 폰인가
+    static var hyeonPon: Bool {
+        get { UserDefaults.standard.bool(forKey: "hyeon_pon") }
+        set { UserDefaults.standard.set(newValue, forKey: "hyeon_pon") }
+    }
+    static var pdBeonho = ""   // 1.14.0 공유기가 알려 준 피디 번호
     /// 1.7.0 공유기 이름(첫 화면·도움말·현장 점검에 씀)
     static var gongyugiIreum: String { flintInga ? "플린트 2" : "아이피타임" }
 
@@ -63,6 +69,10 @@ final class FlintBonaegi {
     private var salpimTimer: DispatchSourceTimer?
     private var yseq = -1
     private var gigiIreum = "아이폰"
+    private var hyeon = false            // 1.14.0 무대 현장음 폰
+    private var seokCon: NWConnection?   // 1.14.0 섞은 소리 받는 줄
+    private var seokMeori = Data()
+    private var seokJinaem = false
 
     // 현장 점검·화면이 보는 값
     private let jamgeum = NSLock()
@@ -80,6 +90,7 @@ final class FlintBonaegi {
         q.async {
             self.gigiIreum = nm.isEmpty ? "아이폰" : nm
             self.dolgo = true
+            self.hyeon = Flint.hyeonPon
             self.yseq = -1
             self.butgi()
             let t = DispatchSource.makeTimerSource(queue: self.q)
@@ -96,6 +107,7 @@ final class FlintBonaegi {
             self.butum = false
             self.kkol2 = false   // 1.10.0
             self.con?.cancel(); self.con = nil
+            self.seokCon?.cancel(); self.seokCon = nil; Bang.shared.seokkimBatneun = false
             self.salpimTimer?.cancel(); self.salpimTimer = nil
             self.jamgeum.lock(); self._bonaenda = false; self.jamgeum.unlock()
         }
@@ -148,7 +160,7 @@ final class FlintBonaegi {
             case .ready:
                 // 1.3.0 행사 이름·현장영상해설사·이 아이폰 시각을 함께 보냄(공유기가 행사 녹음과 기록을 남김)
                 func kan(_ k: String) -> String { (UserDefaults.standard.string(forKey: k) ?? "").replacingOccurrences(of: "\t", with: " ").replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces) }
-                let meori = "BYOD - \(s.gigiIreum)\t\(kan("haengsa_jemok"))\t\(kan("haeseolsa"))\t\(Date().timeIntervalSince1970)" + (opusHal ? "\t2" : "") + "\n"
+                let meori = s.hyeon ? "HYEON - \(s.gigiIreum)" : "BYOD - \(s.gigiIreum)\t\(kan("haengsa_jemok"))\t\(kan("haeseolsa"))\t\(Date().timeIntervalSince1970)" + (opusHal ? "\t2" : "\t-") + (Bang.shared.songchul ? "" : "\tq")   // 1.14.0 + "\n"
                 c.send(content: meori.data(using: .utf8), completion: .contentProcessed { _ in })
                 c.receive(minimumIncompleteLength: 2, maximumLength: 64) { d, _, _, e in
                     s.q.async {
@@ -156,6 +168,7 @@ final class FlintBonaegi {
                         if e == nil && t.hasPrefix("OK") && (!opusHal || t.contains("\n")) {   // 1.10.0 오푸스를 청했으면 대답 한 줄을 다 받아야(반만 오면 다시 붙음)
                             // 1.10.0 공유기 1.5.0 부터는 받아들이면 대답 끝에 「 2」(OK 판 피디번호 2)
                             let jul = (t.split(separator: "\n").first.map(String.init) ?? t).split(separator: " ")
+                            if jul.count >= 3 { Flint.pdBeonho = String(jul[2]).trimmingCharacters(in: .whitespacesAndNewlines) }   // 1.14.0
                             s.kkol2 = opusHal && jul.count >= 3 && jul.last.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) == "2" } == true
                             s.butum = true
                             s.jamgeum.lock(); s._bonaenda = true; s.jamgeum.unlock()
@@ -187,9 +200,55 @@ final class FlintBonaegi {
         }
     }
 
+    /// 1.14.0 현장음이 있고 송출 중이면 공유기가 섞은 소리(갈래 8)를 받아 인터넷 방송으로. 끊기면 이 아이폰 소리로 돌아감
+    private func seokSalpigi() {
+        let hal = !hyeon && dolgo && Bang.shared.hyeonIssum && Bang.shared.songchul
+        if !hal {
+            if seokCon != nil { seokCon?.cancel(); seokCon = nil }
+            Bang.shared.seokkimBatneun = false
+            return
+        }
+        if seokCon != nil { return }
+        let pm = NWParameters.tcp; pm.prohibitedInterfaceTypes = [.cellular]
+        let c = NWConnection(host: NWEndpoint.Host(Flint.IP), port: NWEndpoint.Port(rawValue: Flint.WEB)!, using: pm)
+        seokCon = c; seokMeori = Data(); seokJinaem = false
+        c.stateUpdateHandler = { [weak self] st in
+            guard let s = self else { return }
+            switch st {
+            case .ready:
+                c.send(content: "GET /stream?gal=8 HTTP/1.0\r\n\r\n".data(using: .utf8), completion: .contentProcessed { _ in })
+                s.seokBatgi(c)
+            case .failed, .cancelled:
+                s.q.async { if s.seokCon === c { s.seokCon = nil }; Bang.shared.seokkimBatneun = false }
+            default: break
+            }
+        }
+        c.start(queue: q)
+    }
+
+    private func seokBatgi(_ c: NWConnection) {
+        c.receive(minimumIncompleteLength: 1, maximumLength: 3200) { [weak self] d, _, kkeut, e in
+            guard let s = self else { return }
+            if var b = d, !b.isEmpty {
+                if !s.seokJinaem {
+                    s.seokMeori.append(b)
+                    if let r = s.seokMeori.range(of: Data([13, 10, 13, 10])) {
+                        s.seokJinaem = true
+                        b = s.seokMeori.subdata(in: r.upperBound..<s.seokMeori.endIndex)
+                    } else { b = Data() }
+                }
+                if !b.isEmpty { Bang.shared.seokkimBatneun = true; InteonetBonaegi.shared.neoki(b) }
+            }
+            if kkeut || e != nil { c.cancel(); return }
+            s.seokBatgi(c)
+        }
+    }
+
     private func salpigi() {
         Flint.mutgi("/status") { [weak self] j in
             guard let s = self, let j = j else { return }
+            Bang.shared.hyeonIssum = j["hyeon"] as? Bool ?? false   // 1.14.0
+            s.q.async { s.seokSalpigi() }
             s.jamgeum.lock()
             s._dapTtae = Date(); s._pan = j["pan"] as? String ?? ""; s._mp3 = j["mp3"] as? Bool ?? false
             s.jamgeum.unlock()

@@ -21,7 +21,8 @@ enum Hyeonjang {
     /// 2.4.0 지금 듣는 방송 자리 — 「http://주소:문」
     static var jari = "http://\(IP):\(WEB)"
     private static var chatgiTtae = Date.distantPast
-    static var stream: URL? { URL(string: jari + "/stream") }
+    static var jeomgeom = false   // 2.10.0 점검 듣기(직원용)
+    static var stream: URL? { URL(string: jari + "/stream" + (jeomgeom ? "?gal=0" : "")) }
     static var opus: URL? { URL(string: jari + "/opus") }   // 2.7.0 (261026-LI10) 오푸스(시험) — 송출이 켜 두었을 때만 있음
 
     static var deungrokDoem: Bool {

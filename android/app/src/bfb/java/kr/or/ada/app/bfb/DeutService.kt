@@ -45,6 +45,7 @@ import java.net.URL
 
 /** 듣기 상태 한곳 — 화면과 일꾼이 함께 봄 */
 object Deut {
+    @Volatile var jeomgeom = false   // 2.10.0 점검 듣기 — 송출 시작 전에도 해설 소리를 들음(직원용)
     @Volatile var keugi = 1   // 2.6.1 (261026-L10) 현장영상해설 소리 더 크게 — 1 보통, 2 두 배, 4 네 배(BYOD 방송에 적용)
     @Volatile var kyeojim = false         // 듣기 일꾼이 도는가
     @Volatile var deullim = false         // 지금 소리가 나오는가
@@ -108,6 +109,8 @@ class DeutService : Service() {
                 else { Deut.sonMeomchum = true; Deut.bakkum("다른 소리가 시작되어 듣기를 멈추었습니다. 다시 들으시려면 듣기 단추를 누르십시오.", true); stopSelf() }
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT, AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                // 2.10.0 (261104-L14, 이사장님 지시 2026-11-04) 문자·카톡 같은 잠깐 소리에는 멈추지 않음. 통화만 멈춤
+                if (!tonghwaJung()) return@OnAudioFocusChangeListener
                 focusIssum = false
                 if (!jamsi) { jamsi = true; Deut.bakkum("전화나 다른 소리 때문에 잠시 멈추었습니다. 끝나면 저절로 다시 들려 드립니다.", false) }
                 try { kon?.disconnect() } catch (_: Exception) { }
@@ -264,7 +267,7 @@ class DeutService : Service() {
             }
             Deut.hyeonjangJung = true   // 2.8.0 행사장 — 추첨 일꾼이 입장 번호를 알리고 당첨을 봄
             // 2.7.0 (261026-L11) 오푸스(시험) — 송출이 오푸스도 내보내면 오푸스로, 없으면(없는 주소) 30초 동안은 묻지 않고 아래 지금 방식으로
-            if (System.currentTimeMillis() >= opusSwim) {
+            if (!Deut.jeomgeom && System.currentTimeMillis() >= opusSwim) {   // 2.10.0 점검 듣기는 오푸스를 쓰지 않음
                 val dap = opusDeutgi(n, jm0, beoseonaAllim && !cheotYeongyeol)
                 if (dap) {
                     beoseonaTtae = 0L; beoseonaAllim = false; cheotYeongyeol = false

@@ -203,6 +203,10 @@ struct CheotView: View {
     @State private var deo = false
     @State private var malsoriOn = Malsori.shared.kyeojim
     @State private var flintOn = Flint.flintInga   // 1.2.0
+    @State private var songchulOn = false   // 1.14.0
+    @State private var hyeonPonOn = Flint.hyeonPon   // 1.14.0
+    @State private var hyeonGi = 0   // 1.14.0
+    @State private var kiugiOn = true   // 1.14.0
     @AppStorage("haengsa_jemok") private var haengsaJemok = ""   // 1.3.0
     @AppStorage("haeseolsa") private var haeseolsa = ""
     @AppStorage("haeseolsa_phone") private var haeseolsaPhone = ""   // 1.5.0 인터넷 방송에 씀(협회 명단 번호)
@@ -240,6 +244,9 @@ struct CheotView: View {
                 // 1.9.0 (261024-BI11) 공유기는 방송을 시작할 때 앱이 스스로 알아냄 — 고르기 단추는 더 보기로(직접 고를 때만)
                 Danchu(geul: bangDanchuGeul, keun: true, norang: true) { bangNureum() }
                     .accessibilityFocused($bangChojeom)
+                if bang.kyeojim && !hyeonPonOn {   // 1.14.0 (261104-BI18) 송출 시작
+                    Danchu(geul: songchulOn ? "송출 멈춤" : "송출 시작", keun: true, norang: true) { songchulNureum() }
+                }
                 // 1.9.0 (261024-BI11) 무대 영상 녹화 — 켜 두면 BYOD 방송을 시작할 때 뒤 카메라로 무대를 함께 녹화
                 Danchu(geul: yeongsangOn ? "무대 영상 녹화: 켜짐. 누르면 끕니다" : "무대 영상 녹화: 꺼짐. 누르면 켭니다") { yeongsangBakkugi() }
                 Geul(st.geul, gulgeum: true)
@@ -286,7 +293,13 @@ struct CheotView: View {
                     Danchu(geul: ollim.seoljeongGeul) { ollim.seoljeongNureum() }
                     Danchu(geul: malsoriOn ? "프로그램 말소리 끄기" : "프로그램 말소리 켜기") { malsoriBakkugi() }
                     Danchu(geul: "도움말") { gagi(.doumal) }
-                    Danchu(geul: (flintOn ? "예비: 공유기 직접 고르기, 지금 플린트 2. 누르면 아이피타임으로 바꿉니다" : "예비: 공유기 직접 고르기, 지금 아이피타임. 누르면 플린트 2로 바꿉니다") + "(보통은 방송을 시작할 때 앱이 스스로 알아냅니다)") { bangsikBakkugi() }   // 1.9.0, 1.12.0 (261030-BI16) 예비로 더 보기 맨 아래에
+                    Danchu(geul: hyeonPonOn ? "이 아이폰은 무대 현장음 폰: 켜짐. 누르면 끕니다" : "이 아이폰은 무대 현장음 폰: 꺼짐. 누르면 켭니다") {   // 1.14.0
+                        if bang.kyeojim { malhagi("방송을 멈춘 뒤 눌러 주십시오."); return }
+                        hyeonPonOn.toggle(); Flint.hyeonPon = hyeonPonOn
+                        malhagi(hyeonPonOn ? "무대 현장음 폰으로 정했습니다. BYOD 방송 시작을 누르면 현장음을 공유기로 보냅니다." : "해설 폰으로 돌아왔습니다.")
+                    }
+                    Danchu(geul: ["현장음 크기: 보통. 누르면 작게", "현장음 크기: 작게. 누르면 크게", "현장음 크기: 크게. 누르면 끕니다", "현장음 크기: 끔. 누르면 보통"][hyeonGi]) { hyeonGiBakkugi() }
+                    Danchu(geul: kiugiOn ? "플 소리 키우기: 켜짐. 누르면 끕니다" : "플 소리 키우기: 꺼짐. 누르면 켭니다") { kiugiBakkugi() }
                     Geul("피디 번호 \(HyeonjangGil.shared.pdKey)", saek: Saek.yeonhan)   // 1.9.0 (261024-BI11) 다른 폰에서 피디 화면을 열 때 씀
                     Geul("LVD 송출 아이폰 \(Bang.PAN)판, 빌드 \(Bang.BILD)", saek: Saek.yeonhan)
                     Geul(damgim, saek: Saek.yeonhan)
@@ -324,8 +337,7 @@ struct CheotView: View {
         }
         .alert("공유기 확인", isPresented: $gongyugiBoim) {   // 1.9.0
             Button("닫기", role: .cancel) { }
-            if Flint.peulJuso((Juso.deutgiJuso().replacingOccurrences(of: "http://", with: "").components(separatedBy: ":").first ?? "")) { Button("다시 살피기") { gongyugiSalpigo() } }   // 1.13.0 플 주소대에서는 소리가 안 나가므로
-            else { Button("그래도 시작") { sijakhagi() } }
+            Button("다시 살피기") { gongyugiSalpigo() }   // 1.14.0 공유기 없이는 시작하지 않음
             Button("설정 열기") { if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) } }
         } message: {
             Text(gongyugiGeul)
@@ -431,7 +443,7 @@ struct CheotView: View {
                 if !flintDap {
                     if juso.isEmpty { munje = "이 아이폰이 어느 공유기에도 붙어 있지 않습니다. 방송 공유기의 와이파이에 붙이거나 랜 어댑터와 랜선으로 공유기에 이으십시오." }
                     else if Flint.peulJuso(host) { munje = "플린트 2 공유기로 보이는데 방송 서버가 답하지 않습니다. 처음 쓰는 플린트 2면 안드로이드 LVD 송출 앱의 플린트 2 준비하기를 먼저 하십시오." }
-                    else if !host.hasPrefix("192.168.") { munje = "이 아이폰이 방송 공유기가 아닌 와이파이에 붙어 있는 것 같습니다. 지금 주소는 \(host) 입니다. 아이피타임 방송 공유기에 붙으면 주소가 192.168 로 시작합니다. 이대로 시작하면 듣는 분이 방송을 찾지 못합니다." }
+                    else { munje = "이 아이폰이 플린트 2 공유기에 붙어 있지 않습니다. 와이파이 " + Flint.SSID + " 에 붙이십시오." }   // 1.14.0
                 }
                 if let m = munje { gongyugiGeul = m; gongyugiBoim = true; malhagi(m); return }
                 sijakhagi()
@@ -439,10 +451,47 @@ struct CheotView: View {
         }
     }
 
+    // 1.14.0 (261104-BI18, 이사장님 지시 2026-11-04) 송출 시작 — 그 전에는 현장 듣기 화면에 대기 음악, 인터넷으로는 안 나감
+    private func songchulNureum() {
+        let sae = !songchulOn
+        Flint.dasiMutgi("/cue?v=\(sae ? 1 : 0)&k=\(Flint.pdBeonho)") { j in
+            DispatchQueue.main.async {
+                if j == nil { malhagi("공유기가 답하지 않아 송출을 바꾸지 못했습니다. 다시 눌러 주십시오."); return }
+                songchulOn = sae
+                Bang.shared.songchul = sae
+                if sae { BangIl.shared.inteonetSijak() }
+                malhagi(sae ? "송출을 시작했습니다. 대기 음악이 꺼지고 현장과 인터넷으로 나갑니다." : "송출을 멈추었습니다. 현장 듣기 화면에는 대기 음악이 나갑니다.")
+            }
+        }
+    }
+
+    private func hyeonGiBakkugi() {
+        let n = (hyeonGi + 1) % 4
+        Flint.dasiMutgi("/hyeongi?mok=\(["0", "-8", "5", "-30"][n])&k=\(Flint.pdBeonho)") { j in
+            DispatchQueue.main.async {
+                if j == nil { malhagi("공유기가 답하지 않습니다. 방송 중에 다시 눌러 주십시오."); return }
+                hyeonGi = n
+                malhagi(["현장음 크기 보통", "현장음 크기 작게", "현장음 크기 크게", "현장음 끔"][n])
+            }
+        }
+    }
+
+    private func kiugiBakkugi() {
+        let sae = !kiugiOn
+        Flint.dasiMutgi("/sorikiugi?on=\(sae ? 1 : 0)&k=\(Flint.pdBeonho)") { j in
+            DispatchQueue.main.async {
+                if j == nil { malhagi("공유기가 답하지 않습니다. 방송 중에 다시 눌러 주십시오."); return }
+                kiugiOn = sae
+                malhagi(sae ? "플 소리 키우기를 켰습니다." : "플 소리 키우기를 껐습니다.")
+            }
+        }
+    }
+
     private func sijakhagi() {
+        songchulOn = false
         BangIl.shared.kyeogi { r in
             let itJul = (InteonetBonaegi.hamkke && InteonetBonaegi.jeonhwa.count < 9) ? " 다만 현장영상해설사 전화번호가 비어 있어 인터넷 방송은 나가지 않습니다." : ""
-            malhagi(r + (Bang.shared.kyeojim ? " 공유기: " + Flint.gongyugiIreum + "." + itJul : ""))
+            malhagi((Bang.shared.kyeojim ? (Flint.hyeonPon ? "현장음을 공유기로 보냅니다." : "점검을 시작했습니다. 아직 듣는 분과 인터넷으로 나가지 않습니다. 송출 시작을 누르면 나갑니다.") + " 공유기: " + Flint.gongyugiIreum + "." + itJul : r))
             if !Bang.shared.kyeojim { allyeo(r) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { st.gochigi(baro: true) }
         }

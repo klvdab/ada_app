@@ -39,7 +39,19 @@ object Flint {
 
     /** 방송 방식: flint(플린트 2 공유기 안 서버) 또는 taebeullit(아이피타임 방식 — 이 기기가 서버, 아이피타임 공유기에 랜선으로 이음)
      *  1.7.0 (261021-B15, 이사장님 승인) 처음값을 아이피타임으로 — 플린트 2가 오기 전이라 지금 가진 아이피타임 A1004NS 로 방송 */
-    fun bangsik(ctx: Context): String = pref(ctx).getString("bangsik", "taebeullit") ?: "taebeullit"
+    fun bangsik(ctx: Context): String = "flint"   // 1.14.0 (이사장님 결정 2026-11-03) 아이피타임 방식을 뺌 — 언제나 플린트 2
+    /** 1.14.0 이 기기는 무대 현장음 폰인가 */
+    fun hyeonPon(ctx: Context) = pref(ctx).getBoolean("hyeon_pon", false)
+    fun hyeonPonDugi(ctx: Context, v: Boolean) { pref(ctx).edit().putBoolean("hyeon_pon", v).apply() }
+    @Volatile var pdBeonho = ""   // 1.14.0 공유기가 알려 준 피디 번호
+    /** 1.14.0 송출 시작(큐) — 공유기에 세 번까지 알림 */
+    fun kyuBonaegi(ctx: Context, v: Boolean): Boolean {
+        for (i in 1..3) {
+            if (mutgi(ctx, "/cue?v=" + (if (v) "1" else "0") + "&k=" + pdBeonho) != null) return true
+            try { Thread.sleep(500) } catch (_: InterruptedException) { }
+        }
+        return false
+    }
     fun bangsikBakkugi(ctx: Context, b: String) { pref(ctx).edit().putString("bangsik", b).apply() }
     fun flintInga(ctx: Context) = bangsik(ctx) == "flint"
     /** 1.7.0 공유기 이름(첫 화면·도움말·현장 점검에 씀) */
@@ -83,7 +95,7 @@ object Flint {
     } catch (_: Exception) { null }
 
     /** 해설 소리를 공유기로 보내는 일꾼 — 끊기면 2초마다 다시 붙음 */
-    class Bonaegi(private val ctx: Context) {
+    class Bonaegi(private val ctx: Context, private val hyeon: Boolean = false) {   // 1.14.0 hyeon: 무대 현장음 폰
         private val jul = ArrayBlockingQueue<ByteArray>(50)   // 5초까지 쌓아 둠
         private val julOpus = ArrayBlockingQueue<ByteArray>(250)   // 1.10.0 (261026-B20) 오푸스(시험) 덩이 — 5초까지
         @Volatile private var kkol2 = false   // 1.10.0 공유기가 BYOD2 꼴(종류+길이)을 받아들였는가
@@ -106,6 +118,7 @@ object Flint {
             dolgo = true
             il = Thread({ dolgi() }, "byod-flint-bonae").apply { isDaemon = true; start() }
             salpim = Thread({ salpigi() }, "byod-flint-salpim").apply { isDaemon = true; start() }
+            if (!hyeon) Thread({ seokkimDolgi() }, "byod-flint-seokkim").apply { isDaemon = true; start() }
         }
 
         fun meomchugi() {
@@ -113,6 +126,37 @@ object Flint {
             try { sk?.close() } catch (_: Exception) { }
             il?.interrupt(); salpim?.interrupt()
             bonaenda = false
+        }
+
+        /** 1.14.0 현장음이 있으면 공유기가 섞은 소리(갈래 8)를 받아 인터넷 방송으로. 끊기면 이 기기 소리로 돌아감 */
+        private fun seokkimDolgi() {
+            while (dolgo) {
+                if (!Bang.hyeonIssum || !Bang.songchul) { Bang.seokkimBatneun = false; try { Thread.sleep(1000) } catch (_: InterruptedException) { }; continue }
+                var so: Socket? = null
+                try {
+                    val s = yeonggyeol(ctx, IP, WEB, 3000); so = s
+                    s.soTimeout = 3000
+                    val o = s.getOutputStream(); o.write("GET /stream?gal=8 HTTP/1.0\r\n\r\n".toByteArray()); o.flush()
+                    val i = s.getInputStream()
+                    var jul = 0
+                    while (jul < 2) {   // 머리 건너뛰기 — 빈 줄까지
+                        val c = i.read()
+                        if (c < 0) throw java.io.EOFException()
+                        if (c == 10) jul++ else if (c != 13) jul = 0
+                    }
+                    val b = ByteArray(1600)
+                    while (dolgo && Bang.hyeonIssum && Bang.songchul) {
+                        val n = i.read(b)
+                        if (n < 0) break
+                        if (n > 0) { Bang.seokkimBatneun = true; Inteonet.neoki(b.copyOf(n)) }
+                    }
+                } catch (_: Exception) {
+                } finally {
+                    Bang.seokkimBatneun = false
+                    try { so?.close() } catch (_: Exception) { }
+                }
+                try { Thread.sleep(1000) } catch (_: InterruptedException) { }
+            }
         }
 
         private fun dolgi() {
@@ -131,11 +175,14 @@ object Flint {
                     fun kan(k: String) = (p.getString(k, "") ?: "").replace("\t", " ").replace("\n", " ").trim()
                     // 1.10.0 (261026-B20) 오푸스(시험)를 켜 두셨고 이 폰이 만들 수 있으면 끝에 「2」(BYOD2 꼴로 보내겠다) — 옛 공유기는 이 칸을 보지 않음
                     val opusHal = OpusSori.on(ctx) && OpusSori.doena()
-                    o.write(("BYOD " + yeolsoe(ctx).ifEmpty { "-" } + " " + ireum + "\t" + kan("haengsa_jemok") + "\t" + kan("haeseolsa") + "\t" +
-                        (System.currentTimeMillis() / 1000.0) + (if (opusHal) "\t2" else "") + "\n").toByteArray(Charsets.UTF_8)); o.flush()
+                    if (hyeon) o.write(("HYEON " + yeolsoe(ctx).ifEmpty { "-" } + " " + ireum + "\n").toByteArray(Charsets.UTF_8))
+                    else o.write(("BYOD " + yeolsoe(ctx).ifEmpty { "-" } + " " + ireum + "\t" + kan("haengsa_jemok") + "\t" + kan("haeseolsa") + "\t" +
+                        (System.currentTimeMillis() / 1000.0) + (if (opusHal) "\t2" else "\t-") + (if (Bang.songchul) "" else "\tq") + "\n").toByteArray(Charsets.UTF_8))   // 1.14.0 q: 송출 시작 전
+                    o.flush()
                     val dap = StringBuilder()
                     while (true) { val ch = i.read(); if (ch < 0 || ch == '\n'.code) break; dap.append(ch.toChar()) }
                     if (!dap.startsWith("OK")) throw IllegalStateException("열쇠")
+                    dap.trim().split(" ").filter { it.isNotEmpty() }.getOrNull(2)?.let { pdBeonho = it }   // 1.14.0
                     // 공유기 1.5.0 부터는 받아들이면 대답 끝에 「 2」를 붙임(OK 판 피디번호 2)
                     val k2 = opusHal && dap.trim().split(" ").filter { it.isNotEmpty() }.let { it.size >= 3 && it.last() == "2" }
                     jul.clear(); julOpus.clear()
@@ -183,6 +230,7 @@ object Flint {
                     try {
                         val j = org.json.JSONObject(t)
                         dapTtae = System.currentTimeMillis()
+                        Bang.hyeonIssum = j.optBoolean("hyeon")   // 1.14.0
                         seobeoPan = j.optString("pan"); mp3 = j.optBoolean("mp3"); ttuigi = j.optString("ttuigi")
                         j.optString("haengsa").let { if (it.isNotEmpty()) haengsaJigeum = it }   // 1.9.0 (261024-B17) 무대 영상 녹화
                         val su = j.optInt("n")

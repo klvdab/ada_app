@@ -20,19 +20,19 @@
 # 길 이름은 노트북판·태블릿판(현장 해설방송 3.3판, BYOD 1.1.x)과 같아 듣는 화면(deut.html)·피디 화면(pd.html)·해설 화면(bang.html)이 그대로 돎.
 # 파이썬 3.9(오픈더블유알티 21.02) 이상에서 돎. 바깥 꾸러미 없이 표준 것만 씀(mp3는 lame 이 있을 때만, 자물쇠 문은 ssl 이 있을 때만).
 
-import asyncio, copy, json, os, re, sys, time, shutil, urllib.parse, urllib.request
+import asyncio, copy, json, math, os, re, sys, time, shutil, urllib.parse, urllib.request
 try:
     import ssl
 except Exception:          # python3-openssl 이 없는 공유기 — 자물쇠 문 없이 돎
     ssl = None
 
-PAN = "1.7.0"   # 261030-F7 원격 관리 — 1분마다 나스에 상태를 올리고 나스 지시(jisi.json)를 받아 설정 바꾸기·다시 켜기·새 판 넣기·스크립트 돌리기, 인터넷 있는 척을 처음값으로, 인터넷이 있으면 이름을 돌리지 않아 붙은 기기도 인터넷을 씀, 이름을 돌려도 협회 나스는 빼서 공유기가 나스에 닿음(방클, 이사장님 승인 2026-10-30 「1」). 261028-F6 이름 추첨 — 명단 넣기(/myeongdan), 명단에서 이름 추첨(/chucheom?beom=myeongdan), 번호 추첨·호명 때 명단의 이름도 함께, 상태에 당첨 이름(dnm·dnmok)(새방클, 이사장님 승인 2026-10-28 「1」). 261026-F5 오푸스(시험) — 방송 앱이 BYOD2 꼴로 오푸스도 보내면 /opus 로 나눠 줌(뮤 /stream 은 그대로). 261024-F4 노트북판 현장 기능 전부·여러 갈래 해설·만족도·구역별 인원·자동 저장·자물쇠 문 8443·갈래 녹음과 기록도 나스로(새방송클). 261015-F3 상태에 행사 이름·현장영상해설사, 듣기 화면에 LVD 방송 앱 받기, 행사 기본 이름 「현장영상해설 방송」
-BILD = "261030-F7"
+PAN = "1.8.0"   # 261104-F11 송출 대기·점검 듣기·현장음 섞기. 앞: 261103-F8~F10 소리 키우기·시계, 261030-F7
+BILD = "261104-F11"
 
 SEOBEO_IP = os.environ.get("BYOD_IP", "192.168.8.2")      # 듣기 화면 주소(공유기에 덧붙인 주소)
 WEB_PORT = int(os.environ.get("BYOD_WEB_PORT", "7880"))    # 80번은 방화벽이 이리로 돌려줌
 SORI_PORT = int(os.environ.get("BYOD_SORI_PORT", "7881"))  # 방송 앱이 소리를 보내는 문
-TLS_PORT = int(os.environ.get("BYOD_TLS_PORT", "8443"))    # 1.4.0 자물쇠 문(폰 마이크·카메라는 https 에서만 열림), 0 이면 열지 않음
+TLS_PORT = int(os.environ.get("BYOD_TLS_PORT", "8444"))    # 1.4.0 자물쇠 문(폰 마이크·카메라는 https 에서만 열림), 0 이면 열지 않음
 TEO = os.environ.get("BYOD_TEO", "/etc/byod")              # 듣는 화면·대기 음악·열쇠를 두는 곳
 RATE = 16000
 JOGAK = 1600                                               # 0.1초
@@ -60,6 +60,192 @@ for i in range(256):
     v = -x if s else x
     DEC.append(int(v).to_bytes(2, "little", signed=True))
 GOYO = bytes([0xFF]) * JOGAK
+
+
+# ── 소리 키우기(261103-F8) ── 듣는 분께 가는 소리만 키움. 녹음·오푸스·인터넷 방송은 그대로
+SQ = [int.from_bytes(x, "little", signed=True) ** 2 for x in DEC]
+KIUGI_PAIL = os.path.join(TEO, "sori_kiugi")
+KIUGI_MOK = float(os.environ.get("BYOD_KIUGI_MOK", "-8"))    # 말소리 평균 목표(dB)
+KIUGI_CHOE = 24.0                                             # 가장 많이 키우는 양(dB)
+KIUGI_JAP = -14.0                                             # 잡음이 이보다 커지도록은 안 키움(dB)
+KIUGI_PYO = {}
+KIUGI_GAP = [KIUGI_MOK, KIUGI_JAP]                            # 말소리 목표, 잡음 한도 — /sorikiugi 로 바꿈
+try:
+    _k = open(os.path.join(TEO, "sori_kiugi_gap")).read().split()
+    KIUGI_GAP[0], KIUGI_GAP[1] = float(_k[0]), float(_k[1])
+except Exception:
+    pass
+
+
+def mu_mandeulgi(v):
+    s = 0x80 if v < 0 else 0
+    v = min(abs(int(v)), 32635) + 0x84
+    e = 7
+    m = 0x4000
+    while e > 0 and not (v & m):
+        e -= 1
+        m >>= 1
+    return ~(s | (e << 4) | ((v >> (e + 3)) & 0x0F)) & 0xFF
+
+
+def kiugi_pyo(i):
+    """0.5dB 단계마다 뮤 표 — 큰 소리는 찢어지지 않게 부드럽게 눌림"""
+    p = KIUGI_PYO.get(i)
+    if p is None:
+        k = 10 ** (i / 40.0)
+        a = 0.5 * 32124
+        c = 32124 - a
+        l = []
+        for x in DEC:
+            v = int.from_bytes(x, "little", signed=True) * k
+            n = abs(v)
+            if n > a:
+                r = (n - a) / c
+                n = a + c * r / (1 + r)
+            l.append(mu_mandeulgi(-n if v < 0 else n))
+        p = KIUGI_PYO[i] = bytes(l)
+    return p
+
+
+class Kiugi:
+    def __init__(self):
+        self.g = 6.0
+        self.mal = -22.0
+        self.jap = -60.0
+        self.nul = 0.0
+
+    def cheori(self, b):
+        l = []
+        for o in range(0, len(b), 320):
+            d = b[o:o + 320]
+            n = len(d)
+            w = min(1.0, n / 320.0)
+            h = sum(map(SQ.__getitem__, d)) / n / 1073741824.0
+            lv = 10 * math.log10(h) if h > 1e-9 else -90.0
+            self.jap += (lv - self.jap) * 0.3 * w if lv < self.jap else 0.06 * w
+            self.jap = max(-65.0, self.jap)
+            if lv > max(-50.0, self.jap + 6):
+                self.mal += (lv - self.mal) * (0.06 if lv > self.mal else 0.04) * w
+            mok = min(KIUGI_GAP[0] - self.mal, max(0.0, KIUGI_GAP[1] - self.jap), KIUGI_CHOE)
+            mok = max(-6.0, mok)
+            cha = mok - self.g
+            self.g += max(-0.5 * w, min(0.1 * w, cha))
+            neom = lv + self.g - (KIUGI_GAP[0] + 7)      # 큰 소절은 바로 눌러 작은 말이 묻히지 않게
+            nmok = -0.7 * neom if neom > 0 else 0.0
+            self.nul += max(-3.0, min(1.0, nmok - self.nul))
+            l.append(d.translate(kiugi_pyo(int(round((self.g + self.nul) * 2)))))
+        return b"".join(l)
+
+
+SIGAN_DOEM = [False]
+
+
+def sigan_butim(t):
+    """플 시계가 틀리면 맞춤(앱·노트북이 알려 준 초) — 1분 넘게 다를 때만"""
+    if abs(t - time.time()) <= 60 or t < 1700000000:
+        return False
+    os.system(time.strftime("date -u -s '%Y-%m-%d %H:%M:%S' >/dev/null 2>&1", time.gmtime(t)))
+    SIGAN_DOEM[0] = True
+    return True
+
+
+KIUGI_GAL = {}
+KIUGI_KYEOM = [True]
+try:
+    KIUGI_KYEOM[0] = open(KIUGI_PAIL).read().strip() != "0"
+except Exception:
+    pass
+
+
+def sori_kiugi(g, b):
+    if not KIUGI_KYEOM[0]:
+        return b
+    try:
+        return KIUGI_GAL.setdefault(g, Kiugi()).cheori(b)
+    except Exception:
+        return b
+
+
+# ── 현장음(261104-F11) ── 무대 폰 소리를 받아 해설과 자동으로 섞음. 현장 듣는 분께는 해설만, 섞은 소리는 갈래 8(송출 폰이 받아 인터넷으로)
+GAL_JEOMGEOM = 0                                              # 점검 듣기 — 큐 전에도 해설 소리가 나옴
+GAL_SEOKKIM = 8                                               # 섞은 소리
+HYEON_PAIL = os.path.join(TEO, "hyeon_gap")
+HYEON = {"buf": bytearray(), "ttae": 0.0, "ireum": "", "g": 0.0, "mok": 0.0, "jap": -60.0, "pyo": None}
+try:
+    HYEON["mok"] = max(-30.0, min(6.0, float(open(HYEON_PAIL).read().strip())))
+except Exception:
+    pass
+
+
+def hyeon_saram():
+    return time.time() - HYEON["ttae"] < 1.5
+
+
+def hyeon_pyo():
+    """뮤 두 조각을 더하는 표(65536칸) — 처음 한 번만 만듦"""
+    if HYEON["pyo"] is None:
+        val = [int.from_bytes(x, "little", signed=True) for x in DEC]
+        l = bytearray(65536)
+        for a in range(256):
+            va = val[a]
+            for b in range(256):
+                l[(a << 8) | b] = mu_mandeulgi(max(-32000, min(32000, va + val[b])))
+        HYEON["pyo"] = bytes(l)
+    return HYEON["pyo"]
+
+
+HYEON_DWI = [x << 8 for x in range(256)]
+
+
+def hyeon_seokki(hae, ku):
+    """해설(원본 hae, 키운 ku)에 현장음을 섞어 돌려줌. 해설이 나오면 현장음을 낮추고 멈추면 올림"""
+    pyo = HYEON["pyo"]
+    if pyo is None or not hyeon_saram():
+        return None
+    n = len(ku)
+    b = HYEON["buf"]
+    if len(b) >= n:
+        h = bytes(b[:n])
+        del b[:n]
+    else:
+        h = bytes(b) + bytes([0xFF]) * (n - len(b))
+        del b[:]
+    e = sum(map(SQ.__getitem__, hae[::8])) / max(1, len(hae[::8])) / 1073741824.0
+    lv = 10 * math.log10(e) if e > 1e-9 else -90.0
+    HYEON["jap"] += (lv - HYEON["jap"]) * 0.3 if lv < HYEON["jap"] else 0.03
+    mal = lv > max(-45.0, HYEON["jap"] + 8)
+    mok = HYEON["mok"] - 14.0 if mal else HYEON["mok"]
+    cha = mok - HYEON["g"]
+    HYEON["g"] += max(-4.0, min(0.5, cha))
+    h = h.translate(kiugi_pyo(int(round(HYEON["g"] * 2))))
+    return bytes(map(pyo.__getitem__, map(int.__add__, map(HYEON_DWI.__getitem__, ku), h)))
+
+
+async def hyeon_batgi(r, w, ireum):
+    """무대 폰 — 뮤 소리를 그대로 받음. 해설과 끊겨도 해설 방송에는 영향 없음"""
+    HYEON["ireum"] = ireum
+    w.write(("OK " + PAN + " " + B.pdkey + "\n").encode()); await w.drain()
+    loop = asyncio.get_event_loop()
+    if HYEON["pyo"] is None:
+        await loop.run_in_executor(None, hyeon_pyo)
+    try:
+        while True:
+            b = await asyncio.wait_for(r.read(4096), 30)
+            if not b:
+                break
+            HYEON["ttae"] = time.time()
+            HYEON["buf"] += b
+            if len(HYEON["buf"]) > 8000:         # 0.5초 넘게 밀리면 앞을 버림
+                del HYEON["buf"][:len(HYEON["buf"]) - 4000]
+    except Exception:
+        pass
+    finally:
+        HYEON["ttae"] = 0.0
+        del HYEON["buf"][:]
+        try:
+            w.close()
+        except Exception:
+            pass
 
 
 def ilkgi(nm, gibon=""):
@@ -93,6 +279,7 @@ class Bang:
         self.yseq = 0
         self.tonggwa = set()                        # 듣기 화면을 이미 연 폰(주소)
         self.lame = None
+        self.lame2 = None                           # 듣는 분 mp3(키운 소리)
         self.mp3_iss = shutil.which("lame") is not None or bool(os.environ.get("BYOD_LAME"))
         self.sijak_ttae = time.time()
         self.sigan_chai = 0.0                       # 방송 기기 시계와의 차이(공유기는 현장에서 시계를 맞출 길이 없음)
@@ -207,6 +394,9 @@ async def sori_batgi(r, w):
         jul = mjul.split(" ", 2)
         # BYOD <열쇠> <이름>[\t행사 이름\t현장영상해설사\t기기 시각(초)[\t2]]  — 1.2.0 앱은 이름까지만 보냄
         # 1.5.0 끝에 「2」가 붙으면 BYOD2 꼴: 종류 1바이트(1 뮤, 2 오푸스) + 길이 2바이트 + 소리. 대답 끝에 「 2」를 붙여 받아들였음을 알림
+        if len(jul) >= 2 and jul[0] == "HYEON" and (not B.yeolsoe or jul[1] == B.yeolsoe):
+            await hyeon_batgi(r, w, (jul[2] if len(jul) > 2 else "").strip()[:40] or str(peer[0]))
+            return
         if len(jul) < 2 or jul[0] != "BYOD" or (B.yeolsoe and jul[1] != B.yeolsoe):
             w.write(b"NO\n"); await w.drain(); w.close(); return
         kan = (jul[2] if len(jul) > 2 else "").split("\t")
@@ -215,6 +405,7 @@ async def sori_batgi(r, w):
         haeseolsa = kan[2].strip()[:40] if len(kan) > 2 else ""
         if len(kan) > 3:
             try:
+                sigan_butim(float(kan[3]))
                 B.sigan_chai = float(kan[3]) - time.time()
                 if not B.sigan_matchum:
                     B.sigan_matchum = True
@@ -233,7 +424,9 @@ async def sori_batgi(r, w):
         B.bonaem = w
         B.bonaem_ireum = ireum
         B.bonaem_ip = str(peer[0])
-        B.jeongji1 = False               # 1.4.0 방송 기기가 새로 붙으면 피디의 방송중지를 풂
+        B.jeongji1 = len(kan) > 5 and kan[5].strip() == "q"   # 1.4.0 방송 기기가 새로 붙으면 방송중지를 풂. 1.8.0 앱이 q 를 보내면 「송출 시작」 전까지 대기
+        if B.jeongji1:
+            B.cue[1] = False
         B.tonggwa.add(peer[0])          # 방송 폰은 「인터넷 되느냐」에 늘 「됨」으로 답해 와이파이를 붙들게
         w.write(("OK " + PAN + " " + B.pdkey + (" 2" if kkol2 else "") + "\n").encode()); await w.drain()   # 1.4.0 피디 번호를 덧붙임(옛 앱은 OK 만 봄)
         while not kkol2:
@@ -243,7 +436,8 @@ async def sori_batgi(r, w):
             B.majimak_sori = time.time()
             B.majimak_butum = B.majimak_sori
             if B.jeongji1:
-                continue                 # 피디가 방송중지 — 듣는 분께는 소리 없음(대기 음악)
+                jeomgeom_naegi(b)        # 피디가 방송중지 — 듣는 분께는 소리 없음(대기 음악). 1.8.0 점검 듣기로만
+                continue
             gal_naegi(1, b)
         while kkol2:                     # 1.5.0 BYOD2 꼴
             m = await asyncio.wait_for(r.readexactly(3), 30)
@@ -255,6 +449,7 @@ async def sori_batgi(r, w):
                 B.majimak_sori = time.time()
                 B.majimak_butum = B.majimak_sori
                 if B.jeongji1:
+                    jeomgeom_naegi(b)
                     continue
                 gal_naegi(1, b)
             elif m[0] == 2 and b:
@@ -289,13 +484,29 @@ def opus_kkeunki():
 def gal_naegi(g, b):
     """1.4.0 갈래 g 로 소리 한 조각을 내보내고 녹음"""
     B.sori_ttae[g] = time.time()
-    B.ppurida(b, g)
+    ku = sori_kiugi(g, b)
+    B.ppurida(ku, g)
     if g == 1:
-        mp3_neoki(b)
+        B.ppurida(ku, GAL_JEOMGEOM)
+        try:
+            m = hyeon_seokki(b, ku)
+            if m is not None:
+                B.ppurida(m, GAL_SEOKKIM)
+                if B.haengsa is not None:
+                    B.haengsa.sseugi_gal(GAL_SEOKKIM, m)
+        except Exception:
+            pass
+        mp3_neoki(b, ku)
         if not B.mp3_iss and B.haengsa is not None:
             B.haengsa.sseugi(b)          # mp3 를 만들 수 없는 공유기면 뮤 그대로 녹음
     elif B.haengsa is not None:
         B.haengsa.sseugi_gal(g, b)       # 갈래 2·3 은 같은 행사 폴더에 gal2_*.ul 따로
+
+
+def jeomgeom_naegi(b):
+    """1.8.0 송출 시작 전 — 점검 듣기로만 내보내고 크기를 잼. 듣는 분·녹음에는 안 감"""
+    B.sori_ttae[1] = time.time()
+    B.ppurida(sori_kiugi(1, b), GAL_JEOMGEOM)
 
 
 def gal1_sori():
@@ -315,13 +526,14 @@ def keu_amugeona():
 
 
 # ───── mp3 (화면을 잠가도 이어지는 길) ─────
-def mp3_neoki(mu):
-    if B.lame is None or B.lame.stdin is None:
-        return
-    try:
-        B.lame.stdin.write(b"".join(DEC[x] for x in mu))
-    except Exception:
-        pass
+def mp3_neoki(mu, ku=None):
+    for p, s in ((B.lame, mu), (B.lame2, mu if ku is None else ku)):
+        if p is None or p.stdin is None:
+            continue
+        try:
+            p.stdin.write(b"".join(DEC[x] for x in s))
+        except Exception:
+            pass
 
 
 async def mp3_ilkkun():
@@ -339,12 +551,36 @@ async def mp3_ilkkun():
                 b = await out.read(1024)
                 if not b:
                     break
-                B.ppurida_mp3(b)
+                if B.lame2 is None:
+                    B.ppurida_mp3(b)
                 if B.haengsa is not None and gal1_sori():
                     B.haengsa.sseugi(b)      # 방송 기기(또는 갈래 1 해설 화면)가 붙어 있는 동안만 녹음
         except Exception:
             pass
         B.lame = None
+        await asyncio.sleep(2)
+
+
+async def mp3_ilkkun2():
+    """듣는 분께 가는 mp3 — 키운 소리. 이것이 멈추면 원본 mp3 가 대신 나감"""
+    if not B.mp3_iss:
+        return
+    cmd = os.environ.get("BYOD_LAME") or "lame"
+    while True:
+        try:
+            B.lame2 = await asyncio.create_subprocess_exec(
+                cmd, "--quiet", "-r", "-s", "16", "--bitwidth", "16", "--signed", "--little-endian",
+                "-m", "m", "-b", "32", "--cbr", "-q", "7", "--flush", "-", "-",
+                stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
+            out = B.lame2.stdout
+            while True:
+                b = await out.read(1024)
+                if not b:
+                    break
+                B.ppurida_mp3(b)
+        except Exception:
+            pass
+        B.lame2 = None
         await asyncio.sleep(2)
 
 
@@ -388,7 +624,7 @@ def kkeutnaegi(d):
 
 def deutnun_su(gal=0):
     """진짜 듣는 분 수(안쪽 다시 받기 nae 는 빼고), gal 0 이면 모두"""
-    return sum(1 for d in list(B.deut) + list(B.deut_mp3) if not d.nae and (gal == 0 or d.gal == gal))
+    return sum(1 for d in list(B.deut) + list(B.deut_mp3) if not d.nae and d.gal not in (GAL_JEOMGEOM, GAL_SEOKKIM) and (gal == 0 or d.gal == gal))
 
 
 
@@ -1570,6 +1806,10 @@ def sangtae(heoga=False, gal=1):
         "keu": keu_gal(gal),
         "mic": (gal == 1 and B.bonaem is not None) or now - B.mic_ttae[gal] < 4,
         "bonaem": B.bonaem_ireum,
+        "hyeon": hyeon_saram(), "hyeon_ireum": HYEON["ireum"] if hyeon_saram() else "", "hyeon_mok": HYEON["mok"], "jeongji": B.jeongji1,
+        "kiugi": KIUGI_KYEOM[0], "kiugi_mok": KIUGI_GAP[0], "kiugi_han": KIUGI_GAP[1], "kiugi_db": round(KIUGI_GAL[1].g, 1) if 1 in KIUGI_GAL else 0,
+        "kiugi_mal": round(KIUGI_GAL[1].mal, 1) if 1 in KIUGI_GAL else 0,
+        "kiugi_jap": round(KIUGI_GAL[1].jap, 1) if 1 in KIUGI_GAL else 0,
         "n": deutnun_su(), "n_jeo": sum(1 for x in B.deut if not x.nae), "n_mp3": len(B.deut_mp3),
         "haengsa": B.haengsa.sid if B.haengsa else "",
         "jemok": B.haengsa.g.get("jemok", "") if B.haengsa else "", "haeseolsa": B.haengsa.g.get("haeseolsa", "") if B.haengsa else "",
@@ -1747,6 +1987,37 @@ async def web(r, w, tls=False):
             except Exception:
                 pass
             js(w, {"ok": True, "bangsik": 1 if B.ttuigi == "cheok" else 0})
+        elif uri == "/hyeongi" and heoga:         # 현장음 크기 mok=dB
+            try:
+                HYEON["mok"] = max(-30.0, min(6.0, float(gap(q, "mok"))))
+                with open(HYEON_PAIL, "w") as f:
+                    f.write("%g\n" % HYEON["mok"])
+            except Exception:
+                pass
+            js(w, {"ok": True, "mok": HYEON["mok"]})
+        elif uri == "/sigan" and heoga:           # 플 시계 맞추기 t=초
+            try:
+                sigan_butim(float(gap(q, "t")))
+                B.sigan_chai = float(gap(q, "t")) - time.time()
+            except Exception:
+                pass
+            js(w, {"ok": True, "ttae": int(time.time())})
+        elif uri == "/sorikiugi" and heoga:       # 소리 키우기 켜고 끄기 on=1 켬, on=0 끔
+            try:
+                if gap(q, "on") in ("0", "1"):
+                    KIUGI_KYEOM[0] = gap(q, "on") == "1"
+                    with open(KIUGI_PAIL, "w") as f:
+                        f.write("1\n" if KIUGI_KYEOM[0] else "0\n")
+                if gap(q, "mok") or gap(q, "jap"):
+                    if gap(q, "mok"):
+                        KIUGI_GAP[0] = max(-20.0, min(-6.0, float(gap(q, "mok"))))
+                    if gap(q, "jap"):
+                        KIUGI_GAP[1] = max(-30.0, min(-8.0, float(gap(q, "jap"))))
+                    with open(os.path.join(TEO, "sori_kiugi_gap"), "w") as f:
+                        f.write("%g %g\n" % (KIUGI_GAP[0], KIUGI_GAP[1]))
+            except Exception:
+                pass
+            js(w, {"ok": True, "kiugi": KIUGI_KYEOM[0], "mok": KIUGI_GAP[0], "jap": KIUGI_GAP[1]})
         elif uri == "/gwanri" and heoga:          # 1.7.0 원격 관리 상태
             js(w, gw_sangtae())
         elif uri == "/siheom" and heoga:
@@ -2086,7 +2357,8 @@ async def web(r, w, tls=False):
                 js(w, manjok_mok())
         elif uri == "/stream":
             gyesok = True
-            await deut_butigi(w, ip, False, gal, loop and gap(q, "nae") == "1")
+            g2 = gap(q, "gal")                # 1.8.0 0 점검 듣기, 8 섞은 소리
+            await deut_butigi(w, ip, False, int(g2) if g2 in ("0", "8") else gal, loop and gap(q, "nae") == "1")
         elif uri == "/opus":             # 1.5.0 오푸스(시험) — 방송 앱이 오푸스를 보내고 있을 때만, 아니면 없는 주소(듣는 앱이 /stream 으로 들음)
             if B.bonaem is None or time.time() - B.opus_ttae > 3:
                 geulja(w, 404, "text/plain; charset=utf-8", "없는 주소입니다.")
@@ -2568,6 +2840,7 @@ async def main():
     asyncio.ensure_future(goyo_ilkkun())
     asyncio.ensure_future(olligi_ilkkun())
     asyncio.ensure_future(mp3_ilkkun())
+    asyncio.ensure_future(mp3_ilkkun2())
     asyncio.ensure_future(jadong_ilkkun())
     asyncio.ensure_future(gwanri_ilkkun())     # 1.7.0 원격 관리
     print("BYOD 플린트 서버 %s (%s) — 듣기 %d, 소리 %d, 자물쇠 %s, mp3 %s, 피디 번호 %s" % (PAN, BILD, WEB_PORT, SORI_PORT, B.tport or "없음", B.mp3_iss, B.pdkey), flush=True)

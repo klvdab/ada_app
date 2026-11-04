@@ -116,7 +116,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
         gorgi = []
         do {
             let s = AVAudioSession.sharedInstance()
-            try s.setCategory(.playback, mode: .spokenAudio, options: [])
+            try s.setCategory(.playback, mode: .spokenAudio, options: [.mixWithOthers])   // 2.10.0 알림 소리에 끊기지 않게
             try s.setActive(true)
         } catch { }
         if !gameun {
@@ -200,7 +200,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
             s.session = ses
             let m = (jm.isEmpty ? "" : jm + " 행사 ") + "현장영상해설에 연결되었습니다."
             // 2.7.0 오푸스(시험)를 먼저 물어봄 — 알림은 대답이 온 뒤에(오푸스면 오푸스라고, 없으면 지금 방식으로 붙으며)
-            if Date() >= s.opusSwim, let uo = Hyeonjang.opus {
+            if !Hyeonjang.jeomgeom, Date() >= s.opusSwim, let uo = Hyeonjang.opus {
                 s.opusMal = s.beoseona && !s.cheot ? "다시 연결되었습니다. " + m : m
                 s.opusJung = true
                 s.namjin = Data()
@@ -312,7 +312,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
         guard bogiJung else { return }
         bogiJung = false
         guard kyeojim, !jamsi else { return }
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [])
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.mixWithOthers])
         try? AVAudioSession.sharedInstance().setActive(true)
         if case .inteonet(let sid) = gil { avpTeulgi(sid) }   // 생방송이라 다시 붙어 지금 것부터
     }

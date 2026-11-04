@@ -39,8 +39,8 @@ import java.util.Locale
 class BangsongActivity : Activity() {
 
     companion object {
-        const val PAN = "2.9.0"   // 2.9.0(261104-L13) 플이 바쁠 때도 현장 방송을 놓치지 않게 3초까지 기다림 / 2.8.0: 2.8.0(261028-L12) 입장 번호와 행운권 추첨 — 첫 화면 「내 입장 번호」, 행사장에서 듣는 동안 번호를 알리고 당첨되면 진동·알림·말로(새방클, 이사장님 승인 2026-10-28 「1」). 2.7.0(261026-L11) 오푸스(시험) — 송출이 오푸스도 내보내면 저절로 오푸스로 듣고, 없으면 지금 방식(새방클, 이사장님 승인 2026-10-26). 2.6.1(261026-L10) 현장영상해설 소리 더 크게(보통·두 배·네 배, 새방클, 이사장님 지시 2026-10-26). 2.6.0(261025-L9) 한 번에 듣기 — 송출 앱이 만든 엔에프시 태그·큐알로 앱이 열리고 행사장 와이파이에 붙어 곧바로 들림(새방클, 이사장님 승인 2026-10-25). 2.5.1(261025-L8) 인터넷 없는 행사장 와이파이 붙잡기 — 모바일 데이터를 끄지 않아도 BYOD 방송이 이어짐(새방클, 이사장님 승인 2026-10-25). 2.5.0(261024-L7) 대조표 미진한 부분 고치기(새방송클, 이사장님 지시 2026-10-24) — 인터넷 방송 영상으로 보기(늦게 들어와도). 2.4.1(261023-L6) 이용 기록 — 듣기 상태가 바뀔 때마다 협회 서버에 남김(새방클, 이사장님 지시 2026-10-22). 2.4.0(261023-L5) 아이피타임 방식 BYOD 방송도 저절로 찾아 들음(와이파이 안에서 8080번 문을 연 LVD 송출 폰 찾기, 찾은 자리 기억), 도움말 두 항목(새방클, 이사장님 지시 2026-10-23). 2.3.0(261019-L4) 다시 듣기 내려받기를 앱 안에서(소리 mp3 두 가지·받아쓰기 글, 와이파이가 아니면 데이터 크기를 먼저 여쭘), 다시 듣기도 화면 잠가도 이어지고 전화 오면 멈춤, BYOD 방송 이름, 도움말 네 항목 더함(방클, 이사장님 결정 2026-10-19). 2.2.0(261018-L3) LVD 방송 정리 — 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기 첫 화면, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 2.1.0(261016-L2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 「인터넷 생방송 듣기」로 이름 줄임, 앱 안 누리집 화면의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-L1) LVD 방송 첫 판(배프 웹 껍데기 1.2.1의 뒤를 이음) — 배프 웹 껍데기를 속까지 앱으로: 행사장 와이파이 저절로 붙기와 저절로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 같은 폰 LVD 송출과 부딪치지 않기, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
-        const val BILD = "261104-L13"
+        const val PAN = "2.10.0"   // 2.10.0(261104-L14) 알림 소리에 끊기지 않게, 점검 듣기, 방해 금지 단추 / 2.9.0: 2.9.0(261104-L13) 플이 바쁠 때도 현장 방송을 놓치지 않게 3초까지 기다림 / 2.8.0: 2.8.0(261028-L12) 입장 번호와 행운권 추첨 — 첫 화면 「내 입장 번호」, 행사장에서 듣는 동안 번호를 알리고 당첨되면 진동·알림·말로(새방클, 이사장님 승인 2026-10-28 「1」). 2.7.0(261026-L11) 오푸스(시험) — 송출이 오푸스도 내보내면 저절로 오푸스로 듣고, 없으면 지금 방식(새방클, 이사장님 승인 2026-10-26). 2.6.1(261026-L10) 현장영상해설 소리 더 크게(보통·두 배·네 배, 새방클, 이사장님 지시 2026-10-26). 2.6.0(261025-L9) 한 번에 듣기 — 송출 앱이 만든 엔에프시 태그·큐알로 앱이 열리고 행사장 와이파이에 붙어 곧바로 들림(새방클, 이사장님 승인 2026-10-25). 2.5.1(261025-L8) 인터넷 없는 행사장 와이파이 붙잡기 — 모바일 데이터를 끄지 않아도 BYOD 방송이 이어짐(새방클, 이사장님 승인 2026-10-25). 2.5.0(261024-L7) 대조표 미진한 부분 고치기(새방송클, 이사장님 지시 2026-10-24) — 인터넷 방송 영상으로 보기(늦게 들어와도). 2.4.1(261023-L6) 이용 기록 — 듣기 상태가 바뀔 때마다 협회 서버에 남김(새방클, 이사장님 지시 2026-10-22). 2.4.0(261023-L5) 아이피타임 방식 BYOD 방송도 저절로 찾아 들음(와이파이 안에서 8080번 문을 연 LVD 송출 폰 찾기, 찾은 자리 기억), 도움말 두 항목(새방클, 이사장님 지시 2026-10-23). 2.3.0(261019-L4) 다시 듣기 내려받기를 앱 안에서(소리 mp3 두 가지·받아쓰기 글, 와이파이가 아니면 데이터 크기를 먼저 여쭘), 다시 듣기도 화면 잠가도 이어지고 전화 오면 멈춤, BYOD 방송 이름, 도움말 네 항목 더함(방클, 이사장님 결정 2026-10-19). 2.2.0(261018-L3) LVD 방송 정리 — 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기 첫 화면, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 2.1.0(261016-L2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 「인터넷 생방송 듣기」로 이름 줄임, 앱 안 누리집 화면의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-L1) LVD 방송 첫 판(배프 웹 껍데기 1.2.1의 뒤를 이음) — 배프 웹 껍데기를 속까지 앱으로: 행사장 와이파이 저절로 붙기와 저절로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 같은 폰 LVD 송출과 부딪치지 않기, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
+        const val BILD = "261104-L14"
         const val BAEP = "https://lvd.ada.or.kr/bfblive/"
     }
 
@@ -122,6 +122,7 @@ class BangsongActivity : Activity() {
 
     /** 2.6.1 (261026-L10, 새방클, 이사장님 지시 2026-10-26 「소리가 너무 작아 현장에서 사용이 불가」) 현장영상해설 소리 더 크게 — 보통·두 배·네 배를 차례로, 기억함 */
     private fun keugiIreum(k: Int) = when (k) { 2 -> "두 배"; 4 -> "네 배"; else -> "보통" }
+    private lateinit var jeomgeomDanchu: Button   // 2.10.0
     private fun keugiMal() = "현장영상해설 소리 더 크게: 지금 " + keugiIreum(pref.getInt("deo_keuge", 1)) + ". 누르면 바꿉니다"
     private fun keugiBakkugi() {
         val sae = when (pref.getInt("deo_keuge", 1)) { 1 -> 2; 2 -> 4; else -> 1 }
@@ -299,6 +300,25 @@ class BangsongActivity : Activity() {
         deoAn.addView(jeoljeoloDanchu)
         keugiDanchu = danchu(keugiMal()) { keugiBakkugi() }   // 2.6.1 소리 더 크게
         deoAn.addView(keugiDanchu)
+        // 2.10.0 (261104-L14) 점검 듣기(직원용), 방해 금지
+        jeomgeomDanchu = danchu("점검 듣기(직원용): 꺼짐. 누르면 켭니다") {
+            Deut.jeomgeom = !Deut.jeomgeom
+            jeomgeomDanchu.text = if (Deut.jeomgeom) "점검 듣기(직원용): 켜짐. 누르면 끕니다" else "점검 듣기(직원용): 꺼짐. 누르면 켭니다"
+            if (Deut.kyeojim) { DeutService.kkeugi(this); h.postDelayed({ Deut.sonMeomchum = false; DeutService.kyeogi(this) }, 700) }
+            allim(if (Deut.jeomgeom) "점검 듣기를 켰습니다. 송출 시작 전 해설 소리가 들립니다." else "점검 듣기를 껐습니다.")
+        }
+        deoAn.addView(jeomgeomDanchu)
+        deoAn.addView(danchu("방해 금지 켜고 끄기(알림 소리 없애기)") {
+            val nm = getSystemService(android.app.NotificationManager::class.java)
+            if (!nm.isNotificationPolicyAccessGranted) {
+                allim("이 앱에 방해 금지 허락을 주셔야 합니다. 설정 화면에서 LVD 방송을 켜 주십시오.")
+                try { startActivity(Intent(android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)) } catch (_: Exception) { }
+            } else {
+                val kyeojim = nm.currentInterruptionFilter != android.app.NotificationManager.INTERRUPTION_FILTER_ALL
+                nm.setInterruptionFilter(if (kyeojim) android.app.NotificationManager.INTERRUPTION_FILTER_ALL else android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY)
+                allim(if (kyeojim) "방해 금지를 껐습니다." else "방해 금지를 켰습니다. 듣기가 끝나면 다시 눌러 꺼 주십시오.")
+            }
+        })
         deoAn.addView(danchu("행사장 와이파이 저절로 붙기 다시 하기") { cheoeumHeorak() })
         malsoriDanchu = danchu(if (malsoriOn) "프로그램 말소리 끄기" else "프로그램 말소리 켜기") { malsoriBakkugi() }
         deoAn.addView(malsoriDanchu)

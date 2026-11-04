@@ -80,7 +80,11 @@ final class BangIl {
     private func flintKyeogi() -> String {
         let b = Bang.shared
         FlintBonaegi.shared.sijak()
-        let so = Sori { [weak self] d in self?.soriTtae = Date().timeIntervalSince1970; FlintBonaegi.shared.neoki(d); InteonetBonaegi.shared.neoki(d) }   // 1.5.0 인터넷 방송에도 같은 소리
+        let hy = Flint.hyeonPon   // 1.14.0 무대 현장음 폰이면 소리만 공유기로
+        b.songchul = false; b.hyeonIssum = false; b.seokkimBatneun = false
+        let so = Sori { [weak self] d in self?.soriTtae = Date().timeIntervalSince1970; FlintBonaegi.shared.neoki(d)
+            // 1.14.0 인터넷은 송출 시작 뒤에만. 공유기가 섞은 소리를 보내는 동안은 그쪽으로, 송출을 멈추면 조용한 소리로
+            if !hy && !Bang.shared.seokkimBatneun { InteonetBonaegi.shared.neoki(Bang.shared.songchul ? d : Data(repeating: 0xFF, count: d.count)) } }   // 1.5.0 인터넷 방송에도 같은 소리
         so.opusBatgi = { p in FlintBonaegi.shared.neokiOpus(p) }   // 1.10.0 오푸스(시험) — 공유기 1.5.0 이상이고 켜 두셨을 때만 실제로 나감
         do {
             try so.sijak()
@@ -94,7 +98,7 @@ final class BangIl {
         b.keu = true
         b.kyeojim = true
         b.sigakTtae = Date()
-        inteonetSijak()
+        // 1.14.0 인터넷 방송은 「송출 시작」을 누를 때 엶
         soriTtae = Date().timeIntervalSince1970; jikim.sijak()   // 1.6.0
         girokSijak("flint")   // 1.8.0
         yeongsangSijak()   // 1.9.0 (261024-BI11) 무대 영상 녹화
@@ -162,7 +166,7 @@ final class BangIl {
     }
 
     /// 1.5.0 현장 방송과 함께 인터넷 방송 — 제목은 행사 이름(비면 날짜와 시각), 현장영상해설사 이름을 함께
-    private func inteonetSijak() {
+    func inteonetSijak() {
         let d = UserDefaults.standard
         var jm = (d.string(forKey: "haengsa_jemok") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         if jm.isEmpty { let f = DateFormatter(); f.locale = Locale(identifier: "ko_KR"); f.dateFormat = "M월 d일 a h시 m분"; jm = "현장영상해설 방송 " + f.string(from: Date()) }
