@@ -170,7 +170,7 @@ enum Hyeonjang {
         if !hubo.contains(flint) { hubo.append(flint) }
         func charye(_ i: Int) {
             if i >= hubo.count { wifiChatgi(kkeut); return }
-            mutgiJari(hubo[i], "/status", ttae: 2) { d in
+            mutgiJari(hubo[i], "/status", ttae: 3) { d in
                 if let jm = hyeonjangInga(d) { chajeum(hubo[i]); DispatchQueue.main.async { kkeut(jm) } }
                 else { charye(i + 1) }
             }
@@ -190,7 +190,7 @@ enum Hyeonjang {
             if ip == nae { continue }
             let b = "http://\(ip):\(SONGCHUL_MUN)"
             g.enter()
-            mutgiJari(b, "/status", ttae: 1.5) { d in
+            mutgiJari(b, "/status", ttae: 3) { d in
                 if let jm = hyeonjangInga(d) { q.sync { if chajeun == nil { chajeun = (b, jm) } } }
                 g.leave()
             }
