@@ -159,7 +159,7 @@ object Hyeonjang {
         val hubo = LinkedHashSet<String>()
         hubo.add(jari); if (gieok.isNotEmpty()) hubo.add(gieok); hubo.add("http://$IP:$WEB")
         for (b in hubo) {
-            val jm = hyeonjangInga(mutgiJari(n, b, "/status", 1500))
+            val jm = hyeonjangInga(mutgiJari(n, b, "/status", 3000))
             if (jm != null) { chajeum(c, b); return jm }
         }
         val now = System.currentTimeMillis()
