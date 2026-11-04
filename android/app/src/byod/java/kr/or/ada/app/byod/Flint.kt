@@ -46,6 +46,9 @@ object Flint {
     fun gongyugiIreum(ctx: Context) = if (flintInga(ctx)) "플린트 2" else "아이피타임"
     fun yeolsoe(ctx: Context): String = pref(ctx).getString("flint_yeolsoe", "") ?: ""
 
+    /** 1.13.0 (261104-B23) 플린트 2 주소대인가 — 플은 192.168.8~11 번대를 줌(9 번대를 몰라 말없이 아이피타임으로 빠졌음) */
+    fun peulJuso(host: String) = host.startsWith("192.168.8.") || host.startsWith("192.168.9.") || host.startsWith("192.168.10.") || host.startsWith("192.168.11.")
+
     /** 공유기 쪽 망 — 주소가 192.168.8.0~11.255 인 망(와이파이든 랜이든) */
     fun mang(ctx: Context): Network? {
         val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager

@@ -541,29 +541,38 @@ class ByodActivity : Activity() {
         bangDanchu.isEnabled = false
         sangtae.text = "붙은 공유기를 살피고 있습니다."
         Thread {
-            val flintDap = Flint.mang(this) != null && Flint.mutgi(this, "/status", 1500) != null
+            // 1.13.0 (261104-B23) 플이 바쁠 때 한 번 못 들었다고 빠지지 않게 세 번까지 묻기
+            var flintDap = false
+            if (Flint.mang(this) != null) for (i in 1..3) {
+                if (Flint.mutgi(this, "/status", 2500) != null) { flintDap = true; break }
+                try { Thread.sleep(500) } catch (_: InterruptedException) { }
+            }
             val juso = ByodService.jusoChatgi()
             h.post {
                 bangDanchu.isEnabled = true
                 if (doumalYeollim) return@post
                 if (flintDap) { if (!Flint.flintInga(this)) Flint.bangsikBakkugi(this, "flint") }
                 // 1.12.0 (261030-B22) 플린트 2 주소(192.168.8.)에 붙어 있으면 방송 서버가 잠깐 답하지 않아도 아이피타임으로 바꾸지 않음(이사장님 지적 2026-10-30 「플린트를 골랐는데 왜 아이피타임이 자꾸 나오나」)
-                else if (Flint.flintInga(this) && !juso.removePrefix("http://").startsWith("192.168.8.")) Flint.bangsikBakkugi(this, "taebeullit")
+                else if (Flint.peulJuso(juso.removePrefix("http://"))) Flint.bangsikBakkugi(this, "flint")   // 1.13.0 플 주소대면 플로 — 말없이 아이피타임으로 가지 않음
+                else if (Flint.flintInga(this)) Flint.bangsikBakkugi(this, "taebeullit")
                 bangsikDanchu.text = bangsikMal()
                 val host = juso.removePrefix("http://").substringBefore(":")
                 val munje: String? = when {
                     flintDap -> null
                     juso.isEmpty() -> "이 기기가 어느 공유기에도 붙어 있지 않습니다. 방송 공유기의 와이파이에 붙이거나 허브 랜선을 공유기에 이으십시오."
-                    host.startsWith("192.168.8.") -> "플린트 2 공유기로 보이는데 방송 서버가 답하지 않습니다. 처음 쓰는 플린트 2면 더 보기의 플린트 2 준비하기를 먼저 하십시오."
+                    Flint.peulJuso(host) -> "플린트 2 공유기로 보이는데 방송 서버가 답하지 않습니다. 처음 쓰는 플린트 2면 더 보기의 플린트 2 준비하기를 먼저 하십시오."
                     !host.startsWith("192.168.") -> "이 기기가 방송 공유기가 아닌 와이파이에 붙어 있는 것 같습니다. 지금 주소는 " + host + " 입니다. 아이피타임 방송 공유기에 붙으면 주소가 192.168 로 시작합니다. 이대로 시작하면 듣는 분이 방송을 찾지 못합니다."
                     else -> null
                 }
                 if (munje == null) { sijakhagi(); return@post }
                 malhagi(munje)
-                android.app.AlertDialog.Builder(this).setTitle("공유기 확인").setMessage(munje)
+                val dlg = android.app.AlertDialog.Builder(this).setTitle("공유기 확인").setMessage(munje)
                     .setPositiveButton("와이파이 설정 열기") { _, _ -> try { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) } catch (_: Exception) { } }
-                    .setNegativeButton("그래도 시작") { _, _ -> sijakhagi() }
-                    .setNeutralButton("닫기", null).show()
+                    .setNeutralButton("닫기", null)
+                // 1.13.0 플 주소대에서 서버가 답하지 않으면 소리가 어디로도 안 나가므로 「그래도 시작」 대신 다시 살피기
+                if (Flint.peulJuso(host)) dlg.setNegativeButton("다시 살피기") { _, _ -> gongyugiSalpigo() }
+                else dlg.setNegativeButton("그래도 시작") { _, _ -> sijakhagi() }
+                dlg.show()
             }
         }.start()
     }
