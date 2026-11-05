@@ -466,7 +466,7 @@ struct CheotView: View {
                 salpineunJung = false
                 if j != nil { flintOn = true; sijakhagi(); return }
                 // 1.16.0 (261105-BI20, 이사장님 승인) 어디서 막혔는지 말하고 기록, 와이파이에 붙어 있지 않으면 저절로 붙어 봄
-                MangSalpim.salpigi { wae, mal in
+                MangWae.salpigi { wae, mal in
                     ByodGirok.shared.namgi("flint_mot_chatgi", ["wae": wae, "mal": mal])
                     ByodGirok.shared.jeojang()
                     if (wae == "wifi_eopseum" || wae == "dareun_wifi") && Date().timeIntervalSince(wifiHaebon) > 60 {

@@ -4,8 +4,8 @@ import Foundation
 import Network
 import Darwin
 
-enum MangSalpim {
-    static let APP_IREUM = "LVD 방송"
+enum MangWae {
+    static let APP_IREUM = "LVD 송출"
     static let SSID = "현장영상해설방송"
     private final class Kkeut {
         var doem = false

@@ -311,7 +311,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
     private var waeMal = ""      // 2.11.0 방송을 못 찾은 까닭
     private var waeNatmal = ""
     private func waeSalpigi() {
-        MangSalpim.salpigi { [weak self] a, b in
+        MangWae.salpigi { [weak self] a, b in
             guard let s = self, a != s.waeNatmal else { return }
             s.waeNatmal = a; s.waeMal = b
             BfbGirok.shared.namgi("bangsong_mot_chatgi", ["wae": a, "mal": b])   // 인터넷이 될 때 나스로 올라감
