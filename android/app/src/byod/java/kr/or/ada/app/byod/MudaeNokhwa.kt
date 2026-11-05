@@ -86,6 +86,9 @@ object MudaeNokhwa {
     private var hoejeon = 0
     private var fpsBeomwi: Range<Int>? = null
     private var afYeonsok = false
+    private var gamjiGak = 90                   // 1.15.0 카메라 감지기 방향(화면 비율 셈)
+    @Volatile private var bogi: Surface? = null // 1.15.0 첫 화면 영상 판(SurfaceView) — 화면이 있을 때만
+    private var sseunBogi: Surface? = null      // 1.15.0 지금 세션에 물린 판
     private var sedae = 0                       // 다시 켤 때마다 늘어, 지난 카메라의 늦은 알림을 버림
 
     private fun kst(ms: Long): Calendar = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")).apply { timeInMillis = ms }
@@ -136,6 +139,33 @@ object MudaeNokhwa {
         return ""
     }
 
+    // ───── 1.15.0 (261105-B25, 이사장님 지시 2026-11-05 「송출에서 화면이 보여야지」) 보내는 기기에서 찍히는 영상 보기 ─────
+    // 첫 화면의 판을 세션에 함께 물립니다. 판이 없어지면 판만 빼고 다시 묶습니다. 기록기는 그대로 돌아 녹화는 이어집니다.
+    // 판을 붙이지 못해도 녹화는 절대 멈추지 않습니다(판 없이 다시 묶음).
+    val bogiPyok: Int get() = kiPyok
+    val bogiNopi: Int get() = kiNopi
+    fun bogiSero(ctx: Context): Boolean = hoejeonGusagi(ctx, gamjiGak) % 180 != 0
+
+    fun bogiBuchigi(s: Surface) {
+        bogi = s
+        hd?.post { jaeguseong(null) }
+    }
+
+    /** 판이 사라지기 직전에 부름 — 세션에서 뺄 때까지 잠깐 기다림(사라진 판을 카메라가 쥐고 있지 않게) */
+    fun bogiTteoi() {
+        bogi = null
+        val h = hd ?: return
+        val l = CountDownLatch(1)
+        h.post { jaeguseong(l) }
+        try { l.await(700, TimeUnit.MILLISECONDS) } catch (_: InterruptedException) { }
+    }
+
+    private fun jaeguseong(l: CountDownLatch?) {
+        val c = kamera
+        if (c == null || sesyeon == null || !nokhwaJung || bogi === sseunBogi) { l?.countDown(); return }
+        sesyeonMandeul(c, sedae, false, l)
+    }
+
     private fun munjeDugi(t: String) {
         if (munje == t) return
         munje = t
@@ -169,7 +199,8 @@ object MudaeNokhwa {
             val s = keugiGoreugi(map?.getOutputSizes(MediaRecorder::class.java))
             kiPyok = s.width; kiNopi = s.height
             fpsBeomwi = fpsGoreugi(ch.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES))
-            hoejeon = hoejeonGusagi(ctx, ch.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 90)
+            gamjiGak = ch.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 90
+            hoejeon = hoejeonGusagi(ctx, gamjiGak)
             afYeonsok = (ch.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES) ?: IntArray(0)).contains(CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
             if (teoJigeum == null || g == null) teoYeolgi()
             val d = teoJigeum ?: throw IllegalStateException("teo")
@@ -207,22 +238,37 @@ object MudaeNokhwa {
     }
 
     @Suppress("DEPRECATION")
-    private fun sesyeonMandeul(c: CameraDevice, nae: Int) {
-        val pm = pyomyeon ?: return
-        val h = hd ?: return
+    private fun sesyeonMandeul(c: CameraDevice, nae: Int, ceot: Boolean = true, l: CountDownLatch? = null) {
+        val pm = pyomyeon ?: run { l?.countDown(); return }
+        val h = hd ?: run { l?.countDown(); return }
+        val b = bogi   // 1.15.0
+        /** 판 때문에 안 될 때 — 판을 빼고 다시 묶음. 판이 없는데 안 되면 예전처럼 카메라 문제 */
+        fun bogiPpaegi(m: String) {
+            if (b != null) {
+                if (bogi === b) bogi = null
+                sesyeonMandeul(c, nae, ceot, l)
+            } else { l?.countDown(); teullim(m) }
+        }
         try {
-            c.createCaptureSession(listOf(pm), object : CameraCaptureSession.StateCallback() {
+            c.createCaptureSession(if (b != null) listOf(pm, b) else listOf(pm), object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(s: CameraCaptureSession) {
-                    if (nae != sedae || !barang) { try { s.close() } catch (_: Exception) { }; return }
+                    if (nae != sedae || !barang) { l?.countDown(); try { s.close() } catch (_: Exception) { }; return }
                     sesyeon = s
+                    sseunBogi = b
                     try {
                         val q = c.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
                         q.addTarget(pm)
+                        if (b != null) q.addTarget(b)   // 1.15.0
                         q.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
                         if (afYeonsok) q.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
                         val fr = fpsBeomwi
                         if (fr != null) q.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fr)
                         s.setRepeatingRequest(q.build(), null, h)
+                        if (!ceot) {   // 1.15.0 판만 바꾼 것 — 기록기는 돌고 있음
+                            l?.countDown()
+                            if (bogi !== b) jaeguseong(null)
+                            return
+                        }
                         val r = rec ?: throw IllegalStateException("rec")
                         r.start()
                         val now = System.currentTimeMillis()
@@ -234,17 +280,19 @@ object MudaeNokhwa {
                         Bang.allyeo()
                         h.removeCallbacks(bunIl)
                         h.postDelayed(bunIl, 5_000L)
+                        l?.countDown()
+                        if (bogi !== b) jaeguseong(null)   // 1.15.0 묶는 사이에 판이 바뀌었으면
                     } catch (e: Exception) {
-                        teullim("녹화를 시작하지 못했습니다")
+                        bogiPpaegi("녹화를 시작하지 못했습니다")
                     }
                 }
                 override fun onConfigureFailed(s: CameraCaptureSession) {
-                    if (nae != sedae) return
-                    teullim("카메라 화면을 꾸리지 못했습니다")
+                    if (nae != sedae) { l?.countDown(); return }
+                    bogiPpaegi("카메라 화면을 꾸리지 못했습니다")
                 }
             }, h)
         } catch (e: Exception) {
-            teullim("카메라 화면을 꾸리지 못했습니다")
+            bogiPpaegi("카메라 화면을 꾸리지 못했습니다")
         }
     }
 
@@ -348,6 +396,7 @@ object MudaeNokhwa {
     /** 카메라·기록기를 닫음. majimak 이면 판과 폴더 기록까지 마감 */
     private fun jeongri(majimak: Boolean) {
         sedae++
+        sseunBogi = null   // 1.15.0
         hd?.removeCallbacks(bunIl)
         val r = rec
         rec = null

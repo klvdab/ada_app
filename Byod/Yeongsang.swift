@@ -10,6 +10,32 @@
 import Foundation
 import AVFoundation
 import UIKit
+import SwiftUI
+
+/// 1.15.0 (261105-BI19, 이사장님 지시 2026-11-05 「송출에서 화면이 보여야지」) 보내는 기기에서 찍히는 영상 보기
+struct MudaeBogi: UIViewRepresentable {
+    let pan: AVCaptureVideoPreviewLayer
+    let banghyang: AVCaptureVideoOrientation
+    final class Teul: UIView {
+        var pan: AVCaptureVideoPreviewLayer? {
+            didSet {
+                if oldValue !== pan { oldValue?.removeFromSuperlayer(); if let p = pan { layer.addSublayer(p); setNeedsLayout() } }
+            }
+        }
+        override func layoutSubviews() { super.layoutSubviews(); pan?.frame = bounds }
+    }
+    func makeUIView(context: Context) -> Teul {
+        let v = Teul()
+        v.backgroundColor = .black
+        v.isAccessibilityElement = false
+        v.accessibilityElementsHidden = true   // 낭독기 줄을 늘리지 않음
+        return v
+    }
+    func updateUIView(_ v: Teul, context: Context) {
+        v.pan = pan
+        if let c = pan.connection, c.isVideoOrientationSupported, c.videoOrientation != banghyang { c.videoOrientation = banghyang }
+    }
+}
 
 final class YeongsangNokhwa: NSObject, AVCaptureFileOutputRecordingDelegate {
     static let shared = YeongsangNokhwa()
@@ -40,6 +66,11 @@ final class YeongsangNokhwa: NSObject, AVCaptureFileOutputRecordingDelegate {
     private var _jogakSu = 0
     private var _majimakAllim = ""
     private var _banghyang: AVCaptureVideoOrientation = .landscapeRight
+    private var _bogi: AVCaptureVideoPreviewLayer?   // 1.15.0 (261105-BI19) 첫 화면 영상 보기 — 세션을 만들 때 함께 만들어 녹화 중 세션을 건드리지 않음
+
+    /// 1.15.0 첫 화면이 보는 영상 판(녹화 중일 때만 있음)
+    var bogiPan: AVCaptureVideoPreviewLayer? { jamgeum.lock(); defer { jamgeum.unlock() }; return _bogi }
+    var bogiBanghyang: AVCaptureVideoOrientation { jamgeum.lock(); defer { jamgeum.unlock() }; return _banghyang }
 
     var sid: String { jamgeum.lock(); defer { jamgeum.unlock() }; return _sid }
 
@@ -208,6 +239,9 @@ final class YeongsangNokhwa: NSObject, AVCaptureFileOutputRecordingDelegate {
             self?.sq.asyncAfter(deadline: .now() + 0.5) { self?.dasiHaebogi() }
         })
         session = ss; output = out
+        let pan = AVCaptureVideoPreviewLayer(session: ss)   // 1.15.0
+        pan.videoGravity = .resizeAspect
+        jamgeum.lock(); _bogi = pan; jamgeum.unlock()
         return true
     }
 
@@ -270,6 +304,7 @@ final class YeongsangNokhwa: NSObject, AVCaptureFileOutputRecordingDelegate {
         sesyeonBomyeon.removeAll()
         session?.stopRunning()
         session = nil; output = nil
+        jamgeum.lock(); _bogi = nil; jamgeum.unlock()   // 1.15.0
         dakneunJung = false
         g["kkeut"] = Date().timeIntervalSince1970
         g["sangtae"] = "kkeut"

@@ -26,6 +26,8 @@ import android.text.InputType
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.KeyEvent
+import android.view.SurfaceHolder
+import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
 import android.view.accessibility.AccessibilityNodeInfo
@@ -76,6 +78,8 @@ class ByodActivity : Activity() {
     // 1.9.0 (261024-B17) 무대 영상 녹화 — 켜고 끄는 단추 하나와 상태 한 줄
     private lateinit var yeongsangDanchu: Button
     private lateinit var yeongsangGeul: TextView
+    private lateinit var bogiPan: SurfaceView   // 1.15.0 (261105-B25) 보내는 영상 보기
+    private var bogiKi = ""
     private var boyeojunYeongsang = "\u0000"
     private var boyeojunYeongsangMunje = ""
     // 1.9.0 (261024-B17) 현장 기능 — 긴급 안내 한 줄(바뀔 때만 한 번 알림), 더 보기 안의 피디 번호 한 줄
@@ -238,6 +242,18 @@ class ByodActivity : Activity() {
         songchulDanchu.visibility = View.GONE
         mom.addView(songchulDanchu)
 
+        // 1.15.0 (261105-B25, 이사장님 지시 2026-11-05) 무대 영상 녹화 중에는 이 기기에서 찍히는 화면이 보이게
+        bogiPan = SurfaceView(this).apply {
+            visibility = View.GONE
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO   // 낭독기 줄을 늘리지 않음
+            holder.addCallback(object : SurfaceHolder.Callback {
+                override fun surfaceCreated(h: SurfaceHolder) { }
+                override fun surfaceChanged(h: SurfaceHolder, format: Int, w: Int, hh: Int) { MudaeNokhwa.bogiBuchigi(h.surface) }
+                override fun surfaceDestroyed(h: SurfaceHolder) { MudaeNokhwa.bogiTteoi() }
+            })
+        }
+        bogiKi = ""
+        mom.addView(bogiPan)
         sangtae = geul("", 22f, true)
         sangtae.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         mom.addView(sangtae)
@@ -473,6 +489,23 @@ class ByodActivity : Activity() {
         hamkkeDanchu.text = hamkkeMal()
         val t = (if (on) "BYOD 방송을 켜면 인터넷 방송도 함께 나갑니다." else "BYOD 방송만 나갑니다. 인터넷 방송은 함께 나가지 않습니다.") + (if (Bang.kyeojim) " 다음 방송부터 적용됩니다." else "")
         hamkkeDanchu.announceForAccessibility(t); malhagi(t)
+    }
+
+    /** 1.15.0 (261105-B25) 보내는 영상 보기 — 녹화가 돌 때만 보임. 기기 방향에 맞춰 판 크기를 맞춤 */
+    private fun bogiGochigi(boim: Boolean) {
+        if (!boim) { if (bogiPan.visibility != View.GONE) { bogiPan.visibility = View.GONE; bogiKi = "" }; return }
+        val sero = MudaeNokhwa.bogiSero(this)
+        val dm = resources.displayMetrics
+        val pok = dm.widthPixels - dp(32)
+        val ki = sero.toString() + pok + "x" + MudaeNokhwa.bogiPyok
+        if (ki != bogiKi) {
+            bogiKi = ki
+            val w: Int; val h: Int
+            if (sero) { h = minOf(pok * 16 / 9, dm.heightPixels * 45 / 100); w = h * 9 / 16 } else { w = pok; h = pok * 9 / 16 }
+            bogiPan.holder.setFixedSize(MudaeNokhwa.bogiPyok, MudaeNokhwa.bogiNopi)
+            bogiPan.layoutParams = LinearLayout.LayoutParams(w, h).apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = dp(8); bottomMargin = dp(8) }
+        }
+        if (bogiPan.visibility != View.VISIBLE) bogiPan.visibility = View.VISIBLE
     }
 
     // 1.9.0 (261024-B17) 무대 영상 녹화 — 켜 두면 BYOD 방송을 시작할 때 뒤 카메라로 무대를 함께 녹화(영상만, 소리는 나스에서 붙임)
@@ -742,6 +775,7 @@ class ByodActivity : Activity() {
             yeongsangGeul.text = yj
             yeongsangGeul.visibility = if (yj.isEmpty()) View.GONE else View.VISIBLE
         }
+        bogiGochigi(k && MudaeNokhwa.nokhwaJung)   // 1.15.0
         val ym = MudaeNokhwa.munje
         if (ym != boyeojunYeongsangMunje) {
             boyeojunYeongsangMunje = ym

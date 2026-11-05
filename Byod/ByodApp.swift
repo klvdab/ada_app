@@ -11,6 +11,7 @@
 //   「관계자 붙이기 큐알 보기」(크게), 더 보기에 피디 번호 한 줄, 피디 화면의 긴급 안내도 첫 화면 한 줄로 바뀔 때만 한 번 알림
 import SwiftUI
 import UIKit
+import AVFoundation
 
 @main
 struct ByodApp: App {
@@ -224,6 +225,8 @@ struct CheotView: View {
     @State private var salpineunJung = false
     @AppStorage("yeongsang_nokhwa") private var yeongsangOn = false   // 1.9.0 (261024-BI11) 무대 영상 녹화
     @State private var yeongsangJul = ""
+    @State private var bogiPan: AVCaptureVideoPreviewLayer? = nil   // 1.15.0 (261105-BI19) 보내는 영상 보기
+    @State private var bogiBanghyang: AVCaptureVideoOrientation = .landscapeRight
     @AccessibilityFocusState private var bangChojeom: Bool
     @AccessibilityFocusState private var deoChojeom: Bool
     private let tik = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -249,6 +252,13 @@ struct CheotView: View {
                 }
                 // 1.9.0 (261024-BI11) 무대 영상 녹화 — 켜 두면 BYOD 방송을 시작할 때 뒤 카메라로 무대를 함께 녹화
                 Danchu(geul: yeongsangOn ? "무대 영상 녹화: 켜짐. 누르면 끕니다" : "무대 영상 녹화: 꺼짐. 누르면 켭니다") { yeongsangBakkugi() }
+                if let p = bogiPan, bang.kyeojim {   // 1.15.0 무대 영상 녹화 중에는 찍히는 화면이 보임
+                    let sero = bogiBanghyang == .portrait || bogiBanghyang == .portraitUpsideDown
+                    MudaeBogi(pan: p, banghyang: bogiBanghyang)
+                        .aspectRatio(sero ? 9.0 / 16.0 : 16.0 / 9.0, contentMode: .fit)
+                        .frame(maxWidth: .infinity, maxHeight: sero ? 360 : nil)
+                        .accessibilityHidden(true)
+                }
                 Geul(st.geul, gulgeum: true)
                 if !yeongsangJul.isEmpty { Geul(yeongsangJul) }   // 1.9.0 (261024-BI11) 무대 영상 녹화 한 줄
                 if !bang.inteonet.isEmpty { Geul(bang.inteonet) }   // 1.5.0 함께 나가는 인터넷 방송
@@ -326,6 +336,10 @@ struct CheotView: View {
             // 1.9.0 (261024-BI11) 무대 영상 녹화 — 한 줄은 바뀔 때만 고침(읽어 주지는 않음, 문제는 녹화 쪽이 한 번 알림), 못 올린 영상은 1분마다 다시
             let yj = YeongsangNokhwa.shared.sangtaeMal
             if yj != yeongsangJul { yeongsangJul = yj }
+            let bp = YeongsangNokhwa.shared.bogiPan   // 1.15.0
+            if bp !== bogiPan { bogiPan = bp }
+            let bb = YeongsangNokhwa.shared.bogiBanghyang
+            if bb != bogiBanghyang { bogiBanghyang = bb }
             if tikSu % 60 == 30 && !bang.kyeojim && YeongsangOlligi.nameum { YeongsangOlligi.shared.sijak() }
         }
         .alert("현장 점검", isPresented: $jeomgeomBoim) {
