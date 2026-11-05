@@ -20,6 +20,10 @@ SSID="${BYOD_SSID:-현장영상해설방송}"
 SEOBEO_IP="192.168.8.2"
 mal() { echo "BYOD: $1"; }
 TEO=/etc/byod
+# 1.9.1 도중에 멈춰도 있던 방송 서버는 다시 켬(인터넷이 없을 때 서버가 꺼진 채 남지 않게)
+kkeutnaem=0
+dasi_kyeogi() { [ "$kkeutnaem" = 1 ] || { [ -x /etc/init.d/byod ] && /etc/init.d/byod start >/dev/null 2>&1; }; }
+trap dasi_kyeogi EXIT
 
 mal "플린트 2 준비를 시작합니다."
 [ -f /tmp/byod_flint.py ] || { mal "방송 서버 파일이 올라오지 않았습니다. 다시 눌러 주십시오."; exit 1; }
@@ -144,6 +148,7 @@ uci commit
 # 5. 시험: 방송 서버가 이 공유기에서 뜨는지
 python3 -m py_compile $TEO/byod_flint.py 2>/dev/null || { mal "방송 서버 파일이 상했습니다. 다시 눌러 주십시오."; exit 4; }
 mal "준비를 마쳤습니다. 공유기가 다시 켜집니다. 1분 뒤 와이파이 $SSID 에 붙으면 LVD 방송 앱으로 들을 수 있습니다. 이제 이 공유기는 사무실 인터넷 선이 꽂혀 있으면 협회 나스에서 관리합니다."
+kkeutnaem=1
 echo "BYOD-KKEUT"
 ( sleep 3; reboot ) >/dev/null 2>&1 &
 exit 0

@@ -204,7 +204,7 @@ final class FlintBonaegi {
             case .ready:
                 // 1.3.0 행사 이름·현장영상해설사·이 아이폰 시각을 함께 보냄(공유기가 행사 녹음과 기록을 남김)
                 func kan(_ k: String) -> String { (UserDefaults.standard.string(forKey: k) ?? "").replacingOccurrences(of: "\t", with: " ").replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces) }
-                let meori = s.hyeon ? "HYEON - \(s.gigiIreum)" : "BYOD - \(s.gigiIreum)\t\(kan("haengsa_jemok"))\t\(kan("haeseolsa"))\t\(Date().timeIntervalSince1970)" + (opusHal ? "\t2" : "\t-") + (Bang.shared.songchul ? "" : "\tq")   // 1.14.0 + "\n"
+                let meori = (s.hyeon ? "HYEON - \(s.gigiIreum)" : "BYOD - \(s.gigiIreum)\t\(kan("haengsa_jemok"))\t\(kan("haeseolsa"))\t\(Date().timeIntervalSince1970)" + (opusHal ? "\t2" : "\t-") + (Bang.shared.songchul ? "" : "\tq")) + "\n"   // 1.14.0 q. 1.16.1 (261105-BI21) 줄바꿈이 주석 뒤로 밀려 빠져 있어 공유기가 머리 줄을 끝까지 못 읽고 아이폰 소리를 받지 못했음(상암의 원인)
                 c.send(content: meori.data(using: .utf8), completion: .contentProcessed { _ in })
                 c.receive(minimumIncompleteLength: 2, maximumLength: 64) { d, _, _, e in
                     s.q.async {
@@ -218,7 +218,7 @@ final class FlintBonaegi {
                             s.jamgeum.lock(); s._bonaenda = true; s.jamgeum.unlock()
                             Bang.shared.juge { b in if b.jalmot.hasPrefix("공유기") { b.jalmot = "" } }
                         } else {
-                            s.kkeunkim("공유기: 방송 서버가 이 아이폰을 받지 않습니다. 안드로이드 LVD 송출 앱의 플린트 2 준비하기를 다시 하십시오.")
+                            s.kkeunkim("공유기: 방송 서버가 이 아이폰을 받지 않습니다. 더 보기의 플린트 2 준비하기를 다시 하십시오.")
                         }
                     }
                 }
