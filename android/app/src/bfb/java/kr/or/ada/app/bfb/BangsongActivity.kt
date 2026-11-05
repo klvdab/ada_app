@@ -39,8 +39,8 @@ import java.util.Locale
 class BangsongActivity : Activity() {
 
     companion object {
-        const val PAN = "2.10.0"   // 2.10.0(261104-L14) 알림 소리에 끊기지 않게, 점검 듣기, 방해 금지 단추 / 2.9.0: 2.9.0(261104-L13) 플이 바쁠 때도 현장 방송을 놓치지 않게 3초까지 기다림 / 2.8.0: 2.8.0(261028-L12) 입장 번호와 행운권 추첨 — 첫 화면 「내 입장 번호」, 행사장에서 듣는 동안 번호를 알리고 당첨되면 진동·알림·말로(새방클, 이사장님 승인 2026-10-28 「1」). 2.7.0(261026-L11) 오푸스(시험) — 송출이 오푸스도 내보내면 저절로 오푸스로 듣고, 없으면 지금 방식(새방클, 이사장님 승인 2026-10-26). 2.6.1(261026-L10) 현장영상해설 소리 더 크게(보통·두 배·네 배, 새방클, 이사장님 지시 2026-10-26). 2.6.0(261025-L9) 한 번에 듣기 — 송출 앱이 만든 엔에프시 태그·큐알로 앱이 열리고 행사장 와이파이에 붙어 곧바로 들림(새방클, 이사장님 승인 2026-10-25). 2.5.1(261025-L8) 인터넷 없는 행사장 와이파이 붙잡기 — 모바일 데이터를 끄지 않아도 BYOD 방송이 이어짐(새방클, 이사장님 승인 2026-10-25). 2.5.0(261024-L7) 대조표 미진한 부분 고치기(새방송클, 이사장님 지시 2026-10-24) — 인터넷 방송 영상으로 보기(늦게 들어와도). 2.4.1(261023-L6) 이용 기록 — 듣기 상태가 바뀔 때마다 협회 서버에 남김(새방클, 이사장님 지시 2026-10-22). 2.4.0(261023-L5) 아이피타임 방식 BYOD 방송도 저절로 찾아 들음(와이파이 안에서 8080번 문을 연 LVD 송출 폰 찾기, 찾은 자리 기억), 도움말 두 항목(새방클, 이사장님 지시 2026-10-23). 2.3.0(261019-L4) 다시 듣기 내려받기를 앱 안에서(소리 mp3 두 가지·받아쓰기 글, 와이파이가 아니면 데이터 크기를 먼저 여쭘), 다시 듣기도 화면 잠가도 이어지고 전화 오면 멈춤, BYOD 방송 이름, 도움말 네 항목 더함(방클, 이사장님 결정 2026-10-19). 2.2.0(261018-L3) LVD 방송 정리 — 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기 첫 화면, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 2.1.0(261016-L2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 「인터넷 생방송 듣기」로 이름 줄임, 앱 안 누리집 화면의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-L1) LVD 방송 첫 판(배프 웹 껍데기 1.2.1의 뒤를 이음) — 배프 웹 껍데기를 속까지 앱으로: 행사장 와이파이 저절로 붙기와 저절로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 같은 폰 LVD 송출과 부딪치지 않기, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
-        const val BILD = "261104-L14"
+        const val PAN = "2.11.0"   // 2.11.0(261105-L15) 대기 안내와 대기 음악. 2.10.0(261104-L14) 알림 소리에 끊기지 않게, 점검 듣기, 방해 금지 단추 / 2.9.0: 2.9.0(261104-L13) 플이 바쁠 때도 현장 방송을 놓치지 않게 3초까지 기다림 / 2.8.0: 2.8.0(261028-L12) 입장 번호와 행운권 추첨 — 첫 화면 「내 입장 번호」, 행사장에서 듣는 동안 번호를 알리고 당첨되면 진동·알림·말로(새방클, 이사장님 승인 2026-10-28 「1」). 2.7.0(261026-L11) 오푸스(시험) — 송출이 오푸스도 내보내면 저절로 오푸스로 듣고, 없으면 지금 방식(새방클, 이사장님 승인 2026-10-26). 2.6.1(261026-L10) 현장영상해설 소리 더 크게(보통·두 배·네 배, 새방클, 이사장님 지시 2026-10-26). 2.6.0(261025-L9) 한 번에 듣기 — 송출 앱이 만든 엔에프시 태그·큐알로 앱이 열리고 행사장 와이파이에 붙어 곧바로 들림(새방클, 이사장님 승인 2026-10-25). 2.5.1(261025-L8) 인터넷 없는 행사장 와이파이 붙잡기 — 모바일 데이터를 끄지 않아도 BYOD 방송이 이어짐(새방클, 이사장님 승인 2026-10-25). 2.5.0(261024-L7) 대조표 미진한 부분 고치기(새방송클, 이사장님 지시 2026-10-24) — 인터넷 방송 영상으로 보기(늦게 들어와도). 2.4.1(261023-L6) 이용 기록 — 듣기 상태가 바뀔 때마다 협회 서버에 남김(새방클, 이사장님 지시 2026-10-22). 2.4.0(261023-L5) 아이피타임 방식 BYOD 방송도 저절로 찾아 들음(와이파이 안에서 8080번 문을 연 LVD 송출 폰 찾기, 찾은 자리 기억), 도움말 두 항목(새방클, 이사장님 지시 2026-10-23). 2.3.0(261019-L4) 다시 듣기 내려받기를 앱 안에서(소리 mp3 두 가지·받아쓰기 글, 와이파이가 아니면 데이터 크기를 먼저 여쭘), 다시 듣기도 화면 잠가도 이어지고 전화 오면 멈춤, BYOD 방송 이름, 도움말 네 항목 더함(방클, 이사장님 결정 2026-10-19). 2.2.0(261018-L3) LVD 방송 정리 — 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기 첫 화면, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 2.1.0(261016-L2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 「인터넷 생방송 듣기」로 이름 줄임, 앱 안 누리집 화면의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-L1) LVD 방송 첫 판(배프 웹 껍데기 1.2.1의 뒤를 이음) — 배프 웹 껍데기를 속까지 앱으로: 행사장 와이파이 저절로 붙기와 저절로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 같은 폰 LVD 송출과 부딪치지 않기, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
+        const val BILD = "261105-L15"
         const val BAEP = "https://lvd.ada.or.kr/bfblive/"
     }
 
@@ -61,6 +61,16 @@ class BangsongActivity : Activity() {
     private lateinit var deoDanchu: Button
     private lateinit var deoAn: LinearLayout
     private lateinit var keugiDanchu: Button   // 2.6.1
+    // 2.11.0 (261105-L15) 웹 듣기 화면과 맞춤 — 해설 고르기, 만족도
+    private lateinit var galAn: LinearLayout
+    private lateinit var mjAn: LinearLayout
+    private lateinit var mjQGeul: TextView
+    private lateinit var mjAl: TextView
+    private lateinit var mjKan: EditText
+    private val mjDanchu = ArrayList<Button>()
+    private var boyeojunGal = ""
+    private var mjBon = -2
+    private var mjGol = 0
     private lateinit var gorgiAn: LinearLayout   // 2.2.0 인터넷 방송 고르기
     private lateinit var gitaAn: LinearLayout    // 2.2.0 그 밖에 들을 거리
     private var boyeojunGorgi = ""
@@ -235,6 +245,31 @@ class BangsongActivity : Activity() {
         sangtae = geul("", 22f, true)
         sangtae.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_NONE   // 바뀔 때 한 번은 allim 이 맡음
         mom.addView(sangtae)
+        galAn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }   // 2.11.0
+        mom.addView(galAn)
+        boyeojunGal = ""
+        mjAn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+        mjQGeul = geul("", 22f, true)
+        mjAn.addView(mjQGeul)
+        mjDanchu.clear()
+        for ((p, nm) in listOf(5 to "매우 좋음 5", 4 to "좋음 4", 3 to "보통 3", 2 to "아쉬움 2", 1 to "매우 아쉬움 1")) {
+            val b = danchu(nm) { mjGoreum(p, nm) }
+            mjDanchu.add(b); mjAn.addView(b)
+        }
+        mjKan = EditText(this).apply {
+            hint = "한마디 (적지 않으셔도 됩니다)"
+            setHintTextColor(Saek.yeonhan); setTextColor(Saek.geul)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
+            filters = arrayOf(android.text.InputFilter.LengthFilter(100))
+            contentDescription = "한마디. 적지 않으셔도 됩니다"
+        }
+        mjAn.addView(mjKan)
+        mjAn.addView(danchu("보내기") { mjBonaegi() })
+        mjAl = geul("", 20f)
+        mjAl.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        mjAn.addView(mjAl)
+        mjBon = -2
+        mom.addView(mjAn)
         bogiDanchu = danchu("영상으로 보기") { Deut.bogiBang?.let { bogiYeolgi(it) } }   // 2.5.0 — 듣는 방송에 영상이 있을 때만 보임
         bogiDanchu.visibility = View.GONE
         boyeojunBogi = ""
@@ -300,6 +335,10 @@ class BangsongActivity : Activity() {
         deoAn.addView(jeoljeoloDanchu)
         keugiDanchu = danchu(keugiMal()) { keugiBakkugi() }   // 2.6.1 소리 더 크게
         deoAn.addView(keugiDanchu)
+        deoAn.addView(danchu("해설 소리 크게") { kgBakkugi(true, 1) })   // 2.11.0 소리 크기 나누어 조절
+        deoAn.addView(danchu("해설 소리 작게") { kgBakkugi(true, -1) })
+        deoAn.addView(danchu("대기 음악과 안내 크게") { kgBakkugi(false, 1) })
+        deoAn.addView(danchu("대기 음악과 안내 작게") { kgBakkugi(false, -1) })
         // 2.10.0 (261104-L14) 점검 듣기(직원용), 방해 금지
         jeomgeomDanchu = danchu("점검 듣기(직원용): 꺼짐. 누르면 켭니다") {
             Deut.jeomgeom = !Deut.jeomgeom
@@ -339,8 +378,72 @@ class BangsongActivity : Activity() {
         if (yeolgi) gyeorugi(deoAn.getChildAt(0))
     }
 
+    // ───── 2.11.0 (261105-L15, 새방클, 이사장님 승인 2026-11-05) 웹 듣기 화면과 맞춤 ─────
+    private fun kgBakkugi(hae: Boolean, d: Int) {
+        val t: String
+        if (hae) {
+            val n = (Deut.kgH + d).coerceIn(1, 10)
+            t = if (n == Deut.kgH) "해설 소리는 이미 가장 " + (if (d > 0) "큰 " else "작은 ") + n + "단계입니다." else "해설 소리 크기 " + n + "단계입니다. (10단계까지, 처음은 8단계)"
+            Deut.kgH = n; pref.edit().putInt("kg_h", n).apply()
+        } else {
+            val n = (Deut.kgM + d).coerceIn(0, 10)
+            t = if (n == Deut.kgM) (if (n == 0) "대기 음악과 안내는 이미 꺼져 있습니다." else "대기 음악과 안내는 이미 가장 큰 " + n + "단계입니다.")
+                else if (n == 0) "대기 음악과 안내를 껐습니다. 0단계입니다." else "대기 음악과 안내 크기 " + n + "단계입니다. (10단계까지, 처음은 8단계)"
+            Deut.kgM = n; pref.edit().putInt("kg_m", n).apply()
+        }
+        allim(t)
+    }
+
+    private fun galGochigi() {
+        val on = Deut.galMok.filter { it.on }
+        val ki = if (on.size >= 2) on.joinToString("|") { it.n.toString() + it.nm } + "/" + Deut.gal else ""
+        if (ki == boyeojunGal) return
+        boyeojunGal = ki
+        galAn.removeAllViews()
+        galAn.visibility = if (ki.isEmpty()) View.GONE else View.VISIBLE
+        for (g in on) galAn.addView(danchu(g.nm + (if (g.n == Deut.gal) " — 듣는 중" else "")) {
+            if (g.n != Deut.gal) {
+                Deut.gal = g.n; pref.edit().putInt("gal", g.n).apply()
+                Thread { try { Deut.kkeunki?.invoke() } catch (_: Exception) { } }.start()
+                galGochigi(); allim(g.nm + "을 듣습니다.")
+            }
+        })
+    }
+
+    private fun mjGochigi() {
+        val q = Deut.mjQ; val sq = Deut.mjSeq
+        if (q.isEmpty() || pref.getString("mj_dap", "") == sq.toString() + "|" + q) { mjAn.visibility = View.GONE; return }
+        if (sq == mjBon) return
+        mjBon = sq; mjGol = 0
+        mjKan.setText(""); mjAl.text = ""
+        mjQGeul.text = "만족도 물음: " + q
+        mjAn.visibility = View.VISIBLE
+        allim("만족도를 여쭙니다. 점수를 고르고 보내기를 누르십시오. 물음: " + q)
+        gyeorugi(mjQGeul)
+    }
+
+    private fun mjGoreum(p: Int, nm: String) { mjGol = p; mjAl.text = nm + "점을 골랐습니다. 한마디를 적으시거나 바로 보내기를 누르십시오." }
+
+    private fun mjBonaegi() {
+        if (mjGol == 0) { mjAl.text = "점수를 먼저 골라 주십시오."; return }
+        val kiy = Deut.mjSeq.toString() + "|" + Deut.mjQ
+        val p = mjGol
+        val t = java.net.URLEncoder.encode(mjKan.text.toString().trim().take(100), "UTF-8")
+        mjAl.text = "보내고 있습니다."
+        val app = applicationContext
+        Thread {
+            val d = Hyeonjang.mutgi(app, "/manjok?i=" + Chucheom.jid(app) + "&n=" + Chucheom.beonho(app) + "&p=" + p + "&t=" + t + "&z=" + System.currentTimeMillis(), 3000)
+            val ok = d != null && d.contains("\"ok\":true")
+            runOnUiThread {
+                if (ok) { pref.edit().putString("mj_dap", kiy).apply(); mjAl.text = "보냈습니다. 고맙습니다."; h.postDelayed({ mjGochigi() }, 3000) }
+                else mjAl.text = "보내지 못했습니다. 다시 눌러 주십시오."
+            }
+        }.start()
+    }
+
     private fun sangtaeGochigi() {
         if (doumalYeollim || !::sangtae.isInitialized) return
+        galGochigi(); mjGochigi()   // 2.11.0
         deutDanchu.text = if (Deut.kyeojim) "듣기 멈추기" else "지금 현장영상해설 듣기"
         val t = Deut.sangtae
         if (t != boyeojunGeul) { sangtae.text = t; boyeojunGeul = t }

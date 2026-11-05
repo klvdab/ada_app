@@ -10,6 +10,9 @@ package kr.or.ada.app.byod
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.wifi.WifiManager
+import android.net.wifi.WifiNetworkSuggestion
 import android.os.Build
 import java.io.InputStream
 import java.io.OutputStream
@@ -55,7 +58,64 @@ object Flint {
     fun bangsikBakkugi(ctx: Context, b: String) { pref(ctx).edit().putString("bangsik", b).apply() }
     fun flintInga(ctx: Context) = bangsik(ctx) == "flint"
     /** 1.7.0 공유기 이름(첫 화면·도움말·현장 점검에 씀) */
-    fun gongyugiIreum(ctx: Context) = if (flintInga(ctx)) "플린트 2" else "아이피타임"
+    fun gongyugiIreum(ctx: Context) = "플린트 2"
+
+    /** 1.16.0 (261105-B26, 새방클, 이사장님 승인) 플을 못 찾을 때 어디서 막혔는지 — (기록용 낱말, 들려 드릴 말) */
+    fun wae(ctx: Context): Pair<String, String> {
+        val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        if (mang(ctx) != null) return "seobeo_mudap" to "방송 와이파이에는 붙었는데 방송 서버가 답하지 않습니다. 플린트 2가 켜진 지 1분이 안 되었으면 잠시 뒤 다시 살피기를 누르십시오. 그래도 답이 없으면 플린트 2 전원을 껐다 켜십시오. 처음 쓰는 플린트 2면 더 보기의 플린트 2 준비하기를 먼저 하십시오."
+        try {
+            val wm = ctx.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            if (!wm.isWifiEnabled) return "wifi_kkeojim" to "이 기기의 와이파이가 꺼져 있습니다. 와이파이를 켜고 " + SSID + " 에 붙이십시오."
+            @Suppress("DEPRECATION")
+            for (n in cm.allNetworks) {
+                val nc = cm.getNetworkCapabilities(n) ?: continue
+                if (nc.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) || nc.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET))
+                    return "dareun_wifi" to "이 기기가 방송 공유기가 아닌 다른 와이파이나 랜에 붙어 있습니다. 와이파이 " + SSID + " 에 붙이십시오."
+            }
+        } catch (_: Exception) { }
+        return "wifi_eopseum" to "이 기기가 어느 공유기에도 붙어 있지 않습니다. 플린트 2가 켜져 있는지 보시고, 와이파이 " + SSID + " 에 붙이십시오."
+    }
+
+    private var wifiCb: ConnectivityManager.NetworkCallback? = null
+    /** 1.16.0 방송 와이파이에 저절로 붙기 — 안드로이드 10 이상. 폰이 연결할지 물을 수 있음 */
+    fun wifiButgi(ctx: Context): Boolean {
+        if (Build.VERSION.SDK_INT < 29) return false
+        return try {
+            val ac = ctx.applicationContext
+            if (!pref(ac).getBoolean("wifi_deungrok", false)) {
+                val wm = ac.getSystemService(Context.WIFI_SERVICE) as WifiManager
+                val r = wm.addNetworkSuggestions(listOf(WifiNetworkSuggestion.Builder().setSsid(SSID).build()))
+                if (r == WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS || r == WifiManager.STATUS_NETWORK_SUGGESTIONS_ERROR_ADD_DUPLICATE)
+                    pref(ac).edit().putBoolean("wifi_deungrok", true).apply()
+            }
+            val cm = ac.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            wifiCb?.let { try { cm.unregisterNetworkCallback(it) } catch (_: Exception) { } }
+            val req = android.net.NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .setNetworkSpecifier(android.net.wifi.WifiNetworkSpecifier.Builder().setSsid(SSID).build())
+                .build()
+            val cb = object : ConnectivityManager.NetworkCallback() { }
+            cm.requestNetwork(req, cb)
+            wifiCb = cb
+            true
+        } catch (_: Exception) { false }
+    }
+
+    /** 1.16.0 방송 전에도 설정을 바꿀 수 있게 공유기에 피디 번호를 물음(공유기 1.9.0부터) */
+    fun pdMutgi(ctx: Context): Boolean {
+        if (pdBeonho.isNotEmpty()) return true
+        return try {
+            val s = yeonggyeol(ctx, IP, SORI, 3000)
+            s.soTimeout = 3000
+            s.getOutputStream().write(("PDKEY " + yeolsoe(ctx).ifEmpty { "-" } + "\n").toByteArray())
+            val j = s.getInputStream().bufferedReader().readLine() ?: ""
+            s.close()
+            val k = j.trim().split(" ")
+            if (k.size >= 3 && k[0] == "OK") { pdBeonho = k[2]; true } else false
+        } catch (_: Exception) { false }
+    }
     fun yeolsoe(ctx: Context): String = pref(ctx).getString("flint_yeolsoe", "") ?: ""
 
     /** 1.13.0 (261104-B23) 플린트 2 주소대인가 — 플은 192.168.8~11 번대를 줌(9 번대를 몰라 말없이 아이피타임으로 빠졌음) */

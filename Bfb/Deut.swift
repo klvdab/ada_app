@@ -32,6 +32,32 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
     static let shared = Deut()
     static let JUNGYE = "https://lvd.ada.or.kr:2053"
 
+    // 2.11.0 (261105-LI14, 새방클, 이사장님 승인 2026-11-05) 웹 듣기 화면과 맞춤 — 소리 크기 나누어 조절, 해설 고르기, 만족도
+    struct Gal: Equatable, Identifiable { let n: Int; let nm: String; let on: Bool; var id: Int { n } }
+    @Published private(set) var galMok: [Gal] = []
+    @Published private(set) var mjQ = ""
+    @Published private(set) var mjSeq = -1
+    static let KG: [Float] = [0, 0.1, 0.2, 0.3, 0.4, 0.55, 0.7, 0.85, 1, 1.25, 1.6]
+    static var kgH: Int {
+        get { let v = UserDefaults.standard.object(forKey: "kg_h") as? Int ?? 8; return min(10, max(1, v)) }
+        set { UserDefaults.standard.set(newValue, forKey: "kg_h") }
+    }
+    static var kgM: Int {
+        get { let v = UserDefaults.standard.object(forKey: "kg_m") as? Int ?? 8; return min(10, max(0, v)) }
+        set { UserDefaults.standard.set(newValue, forKey: "kg_m") }
+    }
+    static var gal: Int {
+        get { let v = UserDefaults.standard.integer(forKey: "gal"); return (v >= 1 && v <= 3) ? v : 1 }
+        set { UserDefaults.standard.set(newValue, forKey: "gal") }
+    }
+    private var jyTtae = Date.distantPast
+    func galGoreum(_ n: Int) {
+        guard n != Deut.gal else { return }
+        Deut.gal = n
+        task?.cancel(); task = nil
+        objectWillChange.send()
+    }
+
     @Published private(set) var kyeojim = false
     @Published private(set) var sangtae = "듣기가 꺼져 있습니다."
     @Published private(set) var gorgi: [InteonetBang] = []   // 2.2.0 인터넷 방송이 여럿일 때 고를 것
@@ -60,6 +86,15 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
     private var beoseona = false
     private var cheot = true
     private var dasiTimer: Timer?
+    private var daegiTimer: Timer?      // 2.11.0 (261105-LI14, 이사장님 승인 2026-11-05 「1」) 웹 듣기 화면과 같은 대기 안내와 대기 음악
+    private var daegiEumak: AVAudioPlayer?
+    private var daegiMent: AVAudioPlayer?
+    private var daegiJung = false
+    private var mentTtae = Date.distantPast
+    private var mutneunJung = false
+    private var sojaeBatneun = false
+    private var eumakData: Data?
+    private var mentData: Data?
     private var chucheomTimer: Timer?   // 2.8.0 (261028-LI11) 입장 번호 알리기·당첨 보기 — 행사장에서 듣는 동안만
     private var namjin = Data()
     private var gameun = false   // 엔진을 붙였는가
@@ -134,6 +169,9 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
         butgi()
         dasiTimer?.invalidate()
         dasiTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.salpigi() }
+        daegiTimer?.invalidate()   // 2.11.0
+        eumakData = nil; mentData = nil
+        daegiTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.daegiSalpigi() }
         chucheomTimer?.invalidate()   // 2.8.0
         chucheomTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in if let s = self, s.gil == .hyeonjang { Chucheom.salpigi() } }
     }
@@ -147,6 +185,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
         kyeojim = false
         dasiTimer?.invalidate(); dasiTimer = nil
         chucheomTimer?.invalidate(); chucheomTimer = nil   // 2.8.0
+        daegiTimer?.invalidate(); daegiTimer = nil; daegiKkeugi()   // 2.11.0
         task?.cancel(); task = nil
         session?.invalidateAndCancel(); session = nil
         avpKkeugi()
@@ -161,11 +200,124 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
         bakkum("듣기를 멈추었습니다.", malhal: false)
     }
 
+    // MARK: 2.11.0 대기 안내와 대기 음악 — 해설이 없으면 음악을 깔고 60초마다 안내말, 음악이 없으면 안내말을 25초마다
+
+    private func daegiKkeugi() {
+        daegiEumak?.stop(); daegiEumak = nil
+        daegiMent?.stop(); daegiMent = nil
+        daegiJung = false
+        mentTtae = Date.distantPast
+    }
+
+    private func sojaeBatgi(_ kkeut: @escaping () -> Void) {
+        guard !sojaeBatneun else { return }
+        sojaeBatneun = true
+        let c = URLSessionConfiguration.ephemeral
+        c.allowsCellularAccess = false
+        c.timeoutIntervalForRequest = 8
+        let ses = URLSession(configuration: c)
+        let muk = DispatchGroup()
+        var m: Data?, a: Data?
+        for (ireum, i) in [("daegi.mp3", 0), ("ment.mp3", 1)] {
+            guard let u = URL(string: Hyeonjang.jari + "/" + ireum) else { continue }
+            muk.enter()
+            ses.dataTask(with: u) { d, res, _ in
+                let ok = (res as? HTTPURLResponse)?.statusCode == 200 ? d : nil
+                DispatchQueue.main.async { if i == 0 { m = ok } else { a = ok }; muk.leave() }
+            }.resume()
+        }
+        muk.notify(queue: .main) { [weak self] in
+            ses.finishTasksAndInvalidate()
+            guard let s = self else { return }
+            s.eumakData = m; s.mentData = a; s.sojaeBatneun = false
+            kkeut()
+        }
+    }
+
+    private func mentHagi() {
+        mentTtae = Date()
+        guard let d = mentData, let p = try? AVAudioPlayer(data: d) else { return }
+        p.volume = Deut.KG[Deut.kgM]
+        daegiMent = p
+        p.play()
+    }
+
+    private func daegiSijak() {
+        guard kyeojim, gil == .hyeonjang, !daegiJung else { return }
+        daegiJung = true
+        if let d = eumakData, let p = try? AVAudioPlayer(data: d) {
+            p.numberOfLoops = -1
+            p.volume = 0.45 * Deut.KG[Deut.kgM]
+            daegiEumak = p
+            p.play()
+        }
+        bakkum("해설을 준비하고 있습니다. 음악과 안내가 나갑니다.", malhal: false)
+        mentHagi()
+    }
+
+    private func daegiSalpigi() {
+        guard kyeojim, !mutneunJung else { return }
+        guard gil == .hyeonjang else {
+            if daegiJung { daegiKkeugi() }
+            if !galMok.isEmpty { galMok = [] }
+            if !mjQ.isEmpty { mjQ = "" }
+            return
+        }
+        let tt0 = Date()
+        mutneunJung = true
+        Hyeonjang.mutgi("/status", ttae: 1.5) { [weak self] d in
+            DispatchQueue.main.async {
+                guard let s = self else { return }
+                s.mutneunJung = false
+                guard s.kyeojim, let d = d, let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] else { return }
+                if let l = j["gal"] as? [[String: Any]] {
+                    let m = l.map { Gal(n: $0["n"] as? Int ?? 1, nm: $0["nm"] as? String ?? "", on: $0["on"] as? Bool ?? false) }
+                    if m != s.galMok { s.galMok = m }
+                }
+                let q = j["mj"] as? String ?? "", sq = j["mjseq"] as? Int ?? -1
+                if q != s.mjQ || sq != s.mjSeq { s.mjQ = q; s.mjSeq = sq }
+                let keu = (j["keu"] as? Bool) ?? true
+                if keu, s.gil == .hyeonjang, Date().timeIntervalSince(s.jyTtae) >= 5 {   // 소리 늦음 알리기(피디 화면이 봄)
+                    s.jyTtae = Date()
+                    Hyeonjang.mutgi("/jiyeon?i=" + Chucheom.jid + "&d=\(600 + Int(Date().timeIntervalSince(tt0) * 500))", ttae: 1.5) { _ in }
+                }
+                s.daegiEumak?.volume = 0.45 * Deut.KG[Deut.kgM]
+                s.daegiMent?.volume = Deut.KG[Deut.kgM]
+                if s.jamsi || s.bogiJung || Hyeonjang.jeomgeom {
+                    if s.daegiJung { s.daegiKkeugi() }
+                    return
+                }
+                if keu {
+                    if s.daegiJung {
+                        s.daegiEumak?.setVolume(0, fadeDuration: 1)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak s] in s?.daegiKkeugi() }
+                        s.daegiJung = false
+                        s.bakkum("해설이 시작되었습니다.", malhal: true)
+                    }
+                } else if !s.daegiJung {
+                    if s.eumakData == nil && s.mentData == nil { s.sojaeBatgi { if s.eumakData != nil || s.mentData != nil { s.daegiSijak() } } } else { s.daegiSijak() }
+                } else if Date().timeIntervalSince(s.mentTtae) >= (s.daegiEumak != nil ? 60 : 25) {
+                    s.mentHagi()
+                }
+            }
+        }
+    }
+
     // MARK: 받기 — 먼저 행사장, 아니면 인터넷
 
     private var butneunJung = false
     private var majimakBatgi = Date.distantPast
     private var wifiHaebon = Date.distantPast   // 2.5.0 방송 와이파이에 붙어 본 때
+    private var waeMal = ""      // 2.11.0 방송을 못 찾은 까닭
+    private var waeNatmal = ""
+    private func waeSalpigi() {
+        MangSalpim.salpigi { [weak self] a, b in
+            guard let s = self, a != s.waeNatmal else { return }
+            s.waeNatmal = a; s.waeMal = b
+            BfbGirok.shared.namgi("bangsong_mot_chatgi", ["wae": a, "mal": b])   // 인터넷이 될 때 나스로 올라감
+            BfbGirok.shared.jeojang()
+        }
+    }
 
     private func butgi() {
         guard kyeojim, !jamsi, !butneunJung else { return }
@@ -179,12 +331,13 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
             if jm == nil && Date().timeIntervalSince(s.wifiHaebon) > 120 {
                 s.wifiHaebon = Date()
                 Hyeonjang.wifiBuchigi { buteum in
-                    guard buteum else { s.inteonetSalpigi(); return }
+                    guard buteum else { s.waeSalpigi(); s.inteonetSalpigi(); return }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 3) { s.butneunJung = false; s.butgi() }
                 }
                 return
             }
-            guard let jm = jm else { s.inteonetSalpigi(); return }
+            guard let jm = jm else { s.waeSalpigi(); s.inteonetSalpigi(); return }
+            s.waeNatmal = ""; s.waeMal = ""
             s.butneunJung = false
             if s.bogiJung { s.butneunJung = false; return }   // 2.5.0 영상으로 보는 동안은 현장 방송으로 바꾸지 않음
             if case .inteonet = s.gil { s.avpKkeugi(); s.bogiBang = nil }   // 2.2.0 행사장에 들어서면 현장 방송으로(더 빠름)
@@ -200,7 +353,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
             s.session = ses
             let m = (jm.isEmpty ? "" : jm + " 행사 ") + "현장영상해설에 연결되었습니다."
             // 2.7.0 오푸스(시험)를 먼저 물어봄 — 알림은 대답이 온 뒤에(오푸스면 오푸스라고, 없으면 지금 방식으로 붙으며)
-            if !Hyeonjang.jeomgeom, Date() >= s.opusSwim, let uo = Hyeonjang.opus {
+            if !Hyeonjang.jeomgeom, Deut.gal == 1, Date() >= s.opusSwim, let uo = Hyeonjang.opus {
                 s.opusMal = s.beoseona && !s.cheot ? "다시 연결되었습니다. " + m : m
                 s.opusJung = true
                 s.namjin = Data()
@@ -265,7 +418,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
             s.butneunJung = false
             guard s.kyeojim, s.gil == .eopseum else { return }
             guard let j = j else {
-                s.bakkum("인터넷에 닿지 않습니다. 행사장에서는 행사장 와이파이에 붙으면 저절로 들립니다.", malhal: s.cheot)
+                s.bakkum("인터넷에 닿지 않습니다. " + (s.waeMal.isEmpty ? "행사장에서는 행사장 와이파이에 붙으면 저절로 들립니다." : s.waeMal), malhal: s.cheot)
                 s.cheot = false
                 return
             }
@@ -274,7 +427,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
                                             yeongsang: ($0["hls"] as? Bool ?? false) || ($0["yeongsang"] as? Bool ?? false)) }.filter { !$0.id.isEmpty }
             if l.isEmpty {
                 s.gorgi = []
-                s.bakkum("지금 나가는 현장영상해설이 없습니다. 방송이 열리거나 행사장에 들어서시면 저절로 들려 드립니다.", malhal: true)
+                s.bakkum("지금 나가는 현장영상해설이 없습니다. 방송이 열리거나 행사장에 들어서시면 저절로 들려 드립니다." + ((s.waeNatmal.isEmpty || s.waeNatmal == "wifi_eopseum") ? "" : " 행사장이시면, " + s.waeMal), malhal: true)
             } else if l.count == 1 {
                 s.inteonetGoreum(l[0])
             } else if s.gorgi.map({ $0.id + ($0.yeongsang ? "v" : "") }) != l.map({ $0.id + ($0.yeongsang ? "v" : "") }) {
@@ -441,7 +594,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
             opusHeotdoem = 0
             opusPullim = true
             if let ch = out.floatChannelData?[0] {
-                let kg = Float(Deut.keugi)   // 2.6.1 소리 더 크게와 같게
+                let kg = Float(Deut.keugi) * Deut.KG[Deut.kgH]   // 2.6.1 소리 더 크게와 같게
                 if kg > 1 {
                     for i in 0..<Int(out.frameLength) {
                         var x = ch[i] * kg
@@ -466,7 +619,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
             namjin.removeFirst(1600)
             guard let b = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: 1600), let ch = b.floatChannelData?[0] else { continue }
             var i = 0
-            let kg = Float(Deut.keugi)   // 2.6.1 (261026-LI9) 현장영상해설 소리 더 크게 — 넘치는 소리는 부드럽게 눌러 찢어지지 않게
+            let kg = Float(Deut.keugi) * Deut.KG[Deut.kgH]   // 2.6.1 (261026-LI9) 현장영상해설 소리 더 크게 — 넘치는 소리는 부드럽게 눌러 찢어지지 않게
             for v in jogak {
                 var x = Deut.DEC[Int(v)] * kg
                 if kg > 1 { let ax = abs(x); if ax > 0.85 { x = (x < 0 ? -1 : 1) * min(1, 0.85 + (ax - 0.85) * 0.2) } }

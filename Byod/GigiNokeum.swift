@@ -59,7 +59,7 @@ final class GigiNokeum {
             try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
             let jemok = jemok0.isEmpty ? "현장영상해설 방송 " + GigiNokeum.nalMal(now) + " " + GigiNokeum.sigakMal(now) : jemok0
             self.g = ["sid": s, "jemok": jemok, "haeseolsa": haeseolsa, "sijak": now, "kkeut": 0, "majimak": now,
-                      "bun": [[Any]](), "yocheong": [[Any]](), "kkeunkim": [[now, "butum", "아이피타임 방식"] as [Any]] as [[Any]],
+                      "bun": [[Any]](), "yocheong": [[Any]](), "kkeunkim": [[now, "butum", "이 아이폰 녹음"] as [Any]] as [[Any]],
                       "jogak": [String](), "sangtae": "jinhaeng", "olim": 0, "hyeongsik": "mulaw",
                       "pan": "LVD 송출 아이폰 " + Bang.PAN, "bangsik": "iptime", "chobeon_deut": 0]
             self.teo = d; self.f = nil; self.fTtae = 0; self.jeojangTtae = now; self.bunTtae = now
@@ -235,7 +235,7 @@ final class GigiNokeum {
         for x in kk { L.append(sigakMal(x[0] as? Double ?? 0) + " 끊김 (" + (x.count > 2 ? (x[2] as? String ?? "") : "") + ")") }
         L.append("")
         L.append("녹음: " + (g["sid"] as? String ?? "") + ".ul, 길이 " + gileeMal(g["gilee"] as? Double ?? 0))
-        L.append("LVD 송출 아이폰 " + Bang.PAN + "판, 아이피타임 방식(이 아이폰이 녹음)")
+        L.append("LVD 송출 아이폰 " + Bang.PAN + "판, 이 아이폰이 녹음")
         return L.joined(separator: "\n") + "\n"
     }
 }

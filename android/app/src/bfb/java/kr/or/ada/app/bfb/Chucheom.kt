@@ -64,7 +64,7 @@ object Chucheom {
     }
 
     /** 이 폰의 이름표(무작위, 폰에 기억) — 노트북판 JID 와 같은 일 */
-    private fun jid(c: Context): String {
+    fun jid(c: Context): String {
         var j = pref(c).getString("jid", "") ?: ""
         if (j.length < 8) {
             val a = "0123456789abcdefghijklmnopqrstuvwxyz"

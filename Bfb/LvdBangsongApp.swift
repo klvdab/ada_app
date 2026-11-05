@@ -11,8 +11,8 @@ import UIKit
 import AVFoundation
 
 enum Pan {
-    static let PAN = "2.10.0"   // 2.10.0(261104-LI13) 다른 소리와 겹쳐도 계속, 점검 듣기 / 2.9.0: 2.9.0(261104-LI12) 플이 바쁠 때도 현장 방송을 놓치지 않게 3초까지 기다림 / 2.8.0: 2.8.0(261028-LI11) 입장 번호와 행운권 추첨 — 첫 화면 「내 입장 번호」, 행사장에서 듣는 동안 번호를 알리고 당첨되면 진동·소리·말로(새방클, 이사장님 승인 2026-10-28 「1」). 2.7.0(261026-LI10) 오푸스(시험) — 송출이 오푸스도 내보내면 저절로 오푸스로 듣고, 없으면 지금 방식(새방클, 이사장님 승인 2026-10-26). 2.6.1(261026-LI9) 현장영상해설 소리 더 크게(보통·두 배·네 배, 새방클, 이사장님 지시 2026-10-26). 2.6.0(261025-LI8) 한 번에 듣기 — 송출 앱이 만든 큐알·엔에프시 태그로 앱이 열리고 행사장 와이파이에 붙어 곧바로 들림(새방클, 이사장님 승인 2026-10-25). 2.5.0(261024-LI7) 대조표 미진한 부분 고치기(새방송클, 이사장님 지시 2026-10-24) — 인터넷 방송 영상으로 보기(늦게 들어와도). 2.4.1(261023-LI6) 이용 기록 — 듣기 상태가 바뀔 때마다 협회 서버에 남김(새방클, 이사장님 지시 2026-10-22). 2.4.0(261023-LI5) 아이피타임 방식 BYOD 방송도 저절로 찾아 들음(와이파이 안에서 8080번 문을 연 LVD 송출 폰 찾기, 찾은 자리 기억), 도움말 두 항목(새방클, 이사장님 지시 2026-10-23). 2.3.0(261019-LI4) 다시 듣기 내려받기를 앱 안에서(소리 mp3 두 가지·받아쓰기 글, 와이파이가 아니면 데이터 크기를 먼저 여쭘), 다시 듣기도 화면 잠가도 이어지고 전화 오면 멈춤, BYOD 방송 이름, 도움말 네 항목 더함(방클, 이사장님 결정 2026-10-19). 2.2.0(261018-LI3) LVD 방송 정리 — 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기를 첫 화면에, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 2.1.0(261016-LI2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 인터넷 생방송 듣기로 이름 줄임, 앱 안 누리집의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-LI1) LVD 방송 아이폰 첫 판 — 행사장 와이파이 저절로 붙기, 앱 열면 곧바로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
-    static let BILD = "261104-LI13"
+    static let PAN = "2.11.0"   // 2.11.0(261105-LI14) 대기 안내와 대기 음악. 2.10.0(261104-LI13) 다른 소리와 겹쳐도 계속, 점검 듣기 / 2.9.0: 2.9.0(261104-LI12) 플이 바쁠 때도 현장 방송을 놓치지 않게 3초까지 기다림 / 2.8.0: 2.8.0(261028-LI11) 입장 번호와 행운권 추첨 — 첫 화면 「내 입장 번호」, 행사장에서 듣는 동안 번호를 알리고 당첨되면 진동·소리·말로(새방클, 이사장님 승인 2026-10-28 「1」). 2.7.0(261026-LI10) 오푸스(시험) — 송출이 오푸스도 내보내면 저절로 오푸스로 듣고, 없으면 지금 방식(새방클, 이사장님 승인 2026-10-26). 2.6.1(261026-LI9) 현장영상해설 소리 더 크게(보통·두 배·네 배, 새방클, 이사장님 지시 2026-10-26). 2.6.0(261025-LI8) 한 번에 듣기 — 송출 앱이 만든 큐알·엔에프시 태그로 앱이 열리고 행사장 와이파이에 붙어 곧바로 들림(새방클, 이사장님 승인 2026-10-25). 2.5.0(261024-LI7) 대조표 미진한 부분 고치기(새방송클, 이사장님 지시 2026-10-24) — 인터넷 방송 영상으로 보기(늦게 들어와도). 2.4.1(261023-LI6) 이용 기록 — 듣기 상태가 바뀔 때마다 협회 서버에 남김(새방클, 이사장님 지시 2026-10-22). 2.4.0(261023-LI5) 아이피타임 방식 BYOD 방송도 저절로 찾아 들음(와이파이 안에서 8080번 문을 연 LVD 송출 폰 찾기, 찾은 자리 기억), 도움말 두 항목(새방클, 이사장님 지시 2026-10-23). 2.3.0(261019-LI4) 다시 듣기 내려받기를 앱 안에서(소리 mp3 두 가지·받아쓰기 글, 와이파이가 아니면 데이터 크기를 먼저 여쭘), 다시 듣기도 화면 잠가도 이어지고 전화 오면 멈춤, BYOD 방송 이름, 도움말 네 항목 더함(방클, 이사장님 결정 2026-10-19). 2.2.0(261018-LI3) LVD 방송 정리 — 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기를 첫 화면에, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 2.1.0(261016-LI2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 인터넷 생방송 듣기로 이름 줄임, 앱 안 누리집의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-LI1) LVD 방송 아이폰 첫 판 — 행사장 와이파이 저절로 붙기, 앱 열면 곧바로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
+    static let BILD = "261105-LI14"
     static let BAEP = "https://lvd.ada.or.kr/bfblive/"
 }
 
@@ -145,6 +145,20 @@ struct CheotHwamyeon: View {
         .onReceive(NotificationCenter.default.publisher(for: .init("lvdBeonhoBakkwim"))) { _ in beonhoMal = Chucheom.danchuMal }   // 2.8.0 큐알·태그로 번호가 들어오면 단추 글을 고침
     }
 
+    /// 2.11.0 해설 소리와 대기 음악 크기 따로
+    private func kgBakkugi(_ hae: Bool, _ d: Int) {
+        if hae {
+            let n = min(10, max(1, Deut.kgH + d))
+            allim(n == Deut.kgH ? "해설 소리는 이미 가장 \(d > 0 ? "큰" : "작은") \(n)단계입니다." : "해설 소리 크기 \(n)단계입니다. (10단계까지, 처음은 8단계)")
+            Deut.kgH = n
+        } else {
+            let n = min(10, max(0, Deut.kgM + d))
+            allim(n == Deut.kgM ? (n == 0 ? "대기 음악과 안내는 이미 꺼져 있습니다." : "대기 음악과 안내는 이미 가장 큰 \(n)단계입니다.")
+                  : (n == 0 ? "대기 음악과 안내를 껐습니다. 0단계입니다." : "대기 음악과 안내 크기 \(n)단계입니다. (10단계까지, 처음은 8단계)"))
+            Deut.kgM = n
+        }
+    }
+
     private var cheot: some View {
         ScrollView {
             VStack(spacing: 14) {
@@ -152,6 +166,13 @@ struct CheotHwamyeon: View {
                 Danchu(deut.kyeojim ? "듣기 멈추기" : "지금 현장영상해설 듣기", keun: true, norang: true) { deutNureum() }
                     .accessibilityFocused($deutCursor)
                 Geul(deut.sangtae, gulgeum: true)
+                // 2.11.0 (261105-LI14) 해설 고르기 — 소리가 나오는 갈래가 둘 이상일 때
+                if deut.galMok.filter({ $0.on }).count >= 2 {
+                    ForEach(deut.galMok.filter { $0.on }) { g in
+                        Danchu(g.nm + (g.n == Deut.gal ? " — 듣는 중" : "")) { deut.galGoreum(g.n); allim(g.nm + "을 듣습니다.") }
+                    }
+                }
+                if !deut.mjQ.isEmpty { ManjokPan(q: deut.mjQ, seq: deut.mjSeq) }   // 2.11.0 만족도
                 // 2.5.0 듣는 인터넷 방송에 영상이 있으면 영상으로 보기
                 if let bb = deut.bogiBang {
                     Danchu("영상으로 보기" + (bb.jemok.isEmpty ? "" : " — " + bb.jemok)) { hwamyeon = .bogi(bb.id, bb.jemok) }
@@ -214,6 +235,10 @@ struct CheotHwamyeon: View {
                         if Deut.shared.kyeojim { Deut.shared.kkeugi(son: true); DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { Deut.shared.kyeogi() } }
                         allim(jeomgeomOn ? "점검 듣기를 켰습니다. 송출 시작 전 해설 소리가 들립니다." : "점검 듣기를 껐습니다.")
                     }
+                    Danchu("해설 소리 크게") { kgBakkugi(true, 1) }   // 2.11.0 소리 크기 나누어 조절
+                    Danchu("해설 소리 작게") { kgBakkugi(true, -1) }
+                    Danchu("대기 음악과 안내 크게") { kgBakkugi(false, 1) }
+                    Danchu("대기 음악과 안내 작게") { kgBakkugi(false, -1) }
                     Danchu("현장영상해설 소리 더 크게: 지금 " + (keugi == 2 ? "두 배" : keugi == 4 ? "네 배" : "보통") + ". 누르면 바꿉니다") {   // 2.6.1 (261026-LI9)
                         let sae = keugi == 1 ? 2 : (keugi == 2 ? 4 : 1)
                         Deut.keugi = sae
@@ -285,6 +310,49 @@ struct CheotHwamyeon: View {
 }
 
 // MARK: 도움말 — 찾기 칸, 다섯 개씩, 위아래 뒤로, 두 손가락 문지르기로 돌아옴
+
+/// 2.11.0 (261105-LI14) 만족도 물음 — 웹 듣기 화면과 같게
+struct ManjokPan: View {
+    let q: String
+    let seq: Int
+    @State private var gol = 0
+    @State private var hanmadi = ""
+    @State private var mal = ""
+    @State private var dapBon = UserDefaults.standard.string(forKey: "mj_dap") ?? ""
+    private var kiy: String { "\(seq)|\(q)" }
+    var body: some View {
+        if dapBon != kiy {
+            VStack(spacing: 10) {
+                Geul("만족도 물음: " + q, gulgeum: true)
+                ForEach([(5, "매우 좋음 5"), (4, "좋음 4"), (3, "보통 3"), (2, "아쉬움 2"), (1, "매우 아쉬움 1")], id: \.0) { p, nm in
+                    Danchu(nm) { gol = p; mal = nm + "점을 골랐습니다. 한마디를 적으시거나 바로 보내기를 누르십시오." }
+                }
+                TextField("한마디 (적지 않으셔도 됩니다)", text: $hanmadi)
+                    .font(.title3).padding(10).foregroundStyle(Saek.geom)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(Color.white))
+                    .accessibilityLabel("한마디. 적지 않으셔도 됩니다")
+                Danchu("보내기") { bonaegi() }
+                if !mal.isEmpty { Geul(mal) }
+            }
+        }
+    }
+    private func bonaegi() {
+        guard gol > 0 else { mal = "점수를 먼저 골라 주십시오."; return }
+        mal = "보내고 있습니다."
+        let t = String(hanmadi.trimmingCharacters(in: .whitespacesAndNewlines).prefix(100)).addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
+        let k = kiy
+        Hyeonjang.mutgi("/manjok?i=" + Chucheom.jid + "&n=" + Chucheom.beonho + "&p=\(gol)&t=" + t + "&z=\(Int(Date().timeIntervalSince1970 * 1000))") { d in
+            let ok = d.flatMap { String(data: $0, encoding: .utf8) }?.contains("\"ok\":true") ?? false
+            DispatchQueue.main.async {
+                if ok {
+                    UserDefaults.standard.set(k, forKey: "mj_dap")
+                    mal = "보냈습니다. 고맙습니다."
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) { dapBon = k }
+                } else { mal = "보내지 못했습니다. 다시 눌러 주십시오." }
+            }
+        }
+    }
+}
 
 struct DoumalHwamyeon: View {
     let dwiro: () -> Void

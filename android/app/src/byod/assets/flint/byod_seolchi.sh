@@ -5,6 +5,7 @@
 # 1.4.0 / 261024-F4 자물쇠 문(8443) 인증서 hj.crt·hj.key 와 피디·해설 화면(pd.html·bang.html), 듣기 화면·대기 음악을 함께 넣음
 # 1.7.0 / 261030-F7 (방클, 이사장님 승인 2026-10-30 「1」) 원격 관리(나스로 상태 보고·나스 지시 받기)가 든 방송 서버, 다시 준비할 때 이름 돌리기를 먼저 풀어 꾸러미를 받게,
 #   처음값을 인터넷 있는 척(cheok)으로, 이름을 돌릴 때도 협회 나스·꾸러미 받는 곳은 빼 둠
+# 1.9.0 / 261105-F12 (새방클, 이사장님 승인 2026-11-05) 나스 올리기 예비 길 curl, 음향 콘솔 입력 부품(유에스비 소리, alsa-utils)
 # BYOD 앱의 「플린트 2 준비하기」가 이 파일과 byod_flint.py 를 공유기 /tmp 에 올린 뒤 sh /tmp/byod_seolchi.sh 로 돌립니다.
 # 사무실에서 한 번만 하면 됩니다. 공유기 인터넷(WAN) 단자에 사무실 인터넷 선이 꽂혀 있어야 합니다(파이썬과 mp3 꾸러미 받기).
 # 하는 일
@@ -40,6 +41,9 @@ python3 -c "import asyncio, json, urllib.parse" 2>/dev/null || { opkg install py
 python3 -c "import asyncio, json, urllib.parse" 2>/dev/null || { mal "파이썬 부품이 모자랍니다."; exit 3; }
 # 1.3.0 공유기가 인터넷이 될 때 행사 녹음을 스스로 배프에 올리려면 https 가 필요
 opkg install python3-openssl ca-bundle >>/tmp/byod_opkg.log 2>&1 || true
+opkg install curl >>/tmp/byod_opkg.log 2>&1 || true
+# 1.9.0 음향 콘솔 입력 — 공유기 펌웨어에 맞는 부품이 없으면 깔리지 않을 수 있음. 그래도 다른 기능에는 영향 없음
+opkg install kmod-usb-audio alsa-utils >>/tmp/byod_opkg.log 2>&1 && mal "음향 콘솔 입력 부품을 넣었습니다." || mal "음향 콘솔 입력 부품을 넣지 못했습니다. 다른 기능은 그대로 쓸 수 있습니다."
 if ! command -v lame >/dev/null 2>&1; then
   opkg install lame >>/tmp/byod_opkg.log 2>&1 && mal "화면을 잠가도 이어지는 소리(mp3)를 쓸 수 있습니다." || mal "mp3 꾸러미를 받지 못했습니다. 늦음이 가장 적은 방식만 씁니다."
 fi

@@ -26,8 +26,8 @@ try:
 except Exception:          # python3-openssl 이 없는 공유기 — 자물쇠 문 없이 돎
     ssl = None
 
-PAN = "1.8.0"   # 261104-F11 송출 대기·점검 듣기·현장음 섞기. 앞: 261103-F8~F10 소리 키우기·시계, 261030-F7
-BILD = "261104-F11"
+PAN = "1.9.0"   # 261105-F12 진단 /jindan, 나스 올리기 세 갈래와 시계 맞춤, 저절로 뜨기 때 아이폰 머물게, 음향 콘솔 입력, 피디 번호 묻기. 앞: 261104-F11 송출 대기·점검 듣기·현장음 섞기. 앞: 261103-F8~F10 소리 키우기·시계, 261030-F7
+BILD = "261105-F12"
 
 SEOBEO_IP = os.environ.get("BYOD_IP", "192.168.8.2")      # 듣기 화면 주소(공유기에 덧붙인 주소)
 WEB_PORT = int(os.environ.get("BYOD_WEB_PORT", "7880"))    # 80번은 방화벽이 이리로 돌려줌
@@ -221,6 +221,83 @@ def hyeon_seokki(hae, ku):
     return bytes(map(pyo.__getitem__, map(int.__add__, map(HYEON_DWI.__getitem__, ku), h)))
 
 
+# ── 1.9.0 음향 콘솔 입력(261105-F12, 새방클, 이사장님 승인 2026-11-05) ── 플의 유에스비 단자에 꽂은 소리 입력 장치로
+# 콘솔 소리를 받아 현장음과 같은 길로 섞음. 현장 듣는 분께는 해설만, 섞은 소리는 인터넷 방송으로. 무대 폰이 붙어 있으면 무대 폰이 먼저
+KONSOL_PAIL = os.path.join(TEO, "konsol")
+KONSOL = {"kyeojim": True, "jangchi": "", "badneun": False, "mal": ""}
+try:
+    KONSOL["kyeojim"] = open(KONSOL_PAIL).read().strip() != "0"
+except Exception:
+    pass
+
+
+def konsol_chatgi():
+    """유에스비 소리 장치의 카드 번호와 이름 — 없으면 (None, "")"""
+    try:
+        with open("/proc/asound/cards", encoding="utf-8", errors="replace") as f:
+            for j in f:
+                m = re.match(r"\s*(\d+)\s+\[.*?\]:\s*(.*)", j)
+                if m and "usb" in m.group(2).lower():
+                    return int(m.group(1)), m.group(2).strip()[:60]
+    except Exception:
+        pass
+    return None, ""
+
+
+async def konsol_ilkkun():
+    while True:
+        await asyncio.sleep(3)
+        if not KONSOL["kyeojim"]:
+            KONSOL["mal"] = "끔"
+            continue
+        if not shutil.which("arecord"):
+            KONSOL["mal"] = "녹음 부품(alsa-utils)이 없음"
+            continue
+        kadeu, ireum = konsol_chatgi()
+        KONSOL["jangchi"] = ireum
+        if kadeu is None:
+            KONSOL["mal"] = "유에스비 소리 장치가 없음"
+            continue
+        if hyeon_saram() and HYEON["ireum"] != "음향 콘솔":
+            KONSOL["mal"] = "무대 폰이 현장음을 보내는 중"
+            continue
+        loop = asyncio.get_event_loop()
+        if HYEON["pyo"] is None:
+            await loop.run_in_executor(None, hyeon_pyo)
+        pr = None
+        try:
+            pr = await asyncio.create_subprocess_exec(
+                "arecord", "-q", "-D", "plughw:%d,0" % kadeu, "-t", "raw", "-f", "MU_LAW", "-r", "16000", "-c", "1",
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
+            HYEON["ireum"] = "음향 콘솔"
+            KONSOL["badneun"] = True
+            KONSOL["mal"] = "받는 중"
+            while KONSOL["kyeojim"]:
+                b = await asyncio.wait_for(pr.stdout.read(1600), 5)
+                if not b:
+                    KONSOL["mal"] = "장치가 소리를 주지 않음"
+                    break
+                if time.time() - HYEON["ttae"] >= 1.5 or HYEON["ireum"] == "음향 콘솔":
+                    HYEON["ireum"] = "음향 콘솔"
+                    HYEON["ttae"] = time.time()
+                    HYEON["buf"] += b
+                    if len(HYEON["buf"]) > 8000:
+                        del HYEON["buf"][:len(HYEON["buf"]) - 4000]
+        except Exception as e:
+            KONSOL["mal"] = "소리를 받지 못함: %s" % e
+        finally:
+            KONSOL["badneun"] = False
+            if pr is not None:
+                try:
+                    pr.kill()
+                except Exception:
+                    pass
+                try:
+                    await pr.wait()
+                except Exception:
+                    pass
+
+
 async def hyeon_batgi(r, w, ireum):
     """무대 폰 — 뮤 소리를 그대로 받음. 해설과 끊겨도 해설 방송에는 영향 없음"""
     HYEON["ireum"] = ireum
@@ -277,6 +354,7 @@ class Bang:
         self.majimak_sori = 0.0                     # 소리가 마지막으로 들어온 때
         self.yocheong = []                          # (때, 번호, 종류) — 앱이 묻는 목록
         self.yseq = 0
+        self.hwamyeon = {}                          # 1.9.0 저절로 뜨기 — 듣기 화면을 받은 폰과 그 시각
         self.tonggwa = set()                        # 듣기 화면을 이미 연 폰(주소)
         self.lame = None
         self.lame2 = None                           # 듣는 분 mp3(키운 소리)
@@ -397,6 +475,8 @@ async def sori_batgi(r, w):
         if len(jul) >= 2 and jul[0] == "HYEON" and (not B.yeolsoe or jul[1] == B.yeolsoe):
             await hyeon_batgi(r, w, (jul[2] if len(jul) > 2 else "").strip()[:40] or str(peer[0]))
             return
+        if len(jul) >= 2 and jul[0] == "PDKEY" and (not B.yeolsoe or jul[1] == B.yeolsoe):   # 1.9.0 방송 전에 송출 앱이 설정을 바꿀 수 있게
+            w.write(("OK " + PAN + " " + B.pdkey + "\n").encode()); await w.drain(); w.close(); return
         if len(jul) < 2 or jul[0] != "BYOD" or (B.yeolsoe and jul[1] != B.yeolsoe):
             w.write(b"NO\n"); await w.drain(); w.close(); return
         kan = (jul[2] if len(jul) > 2 else "").split("\t")
@@ -1166,7 +1246,9 @@ DNS_PAIL = os.environ.get("BYOD_DNS_PAIL", "/tmp/dnsmasq.d/byod.conf")
 DNS_DASI = os.environ.get("BYOD_DNS_DASI", "/etc/init.d/dnsmasq restart")   # 비우면 다시 켜지 않음(시험용)
 DNS_BBAEGI = ("lvd.ada.or.kr", "ada.or.kr", "downloads.openwrt.org", "fw.gl-inet.com", "pool.ntp.org", "time.google.com")
 INTEONET_SIHEOM = os.environ.get("BYOD_INTEONET", "8.8.8.8:53,1.1.1.1:443")
-GW = {"ki": "", "inteonet": None, "dns": "", "han": [], "gyeolgwa": [], "jisi_mal": "", "olim_mal": "", "ttae": 0.0, "dasi": False}
+GW = {"ki": "", "inteonet": None, "dns": "", "han": [], "gyeolgwa": [], "jisi_mal": "", "olim_mal": "", "ttae": 0.0, "dasi": False,
+      "nas_ireum": "", "sigan_mal": "", "gil": ""}
+CA_PAIL = [x for x in ("/etc/ssl/certs/ca-certificates.crt", "/etc/ssl/cert.pem") if os.path.isfile(x)]
 GW_GIROK = []
 
 
@@ -1234,21 +1316,81 @@ def dns_matchugi(ileum=""):
     return True
 
 
+def gw_gamchugi(m):
+    """바깥에 보이는 말에서 창구 열쇠를 지움"""
+    return str(m).replace(OLLIGI_YEOLSOE, "(열쇠)")
+
+
 def gw_batgi(url, data=None, timeout=30):
-    """https 받기·보내기 — 파이썬 자물쇠(ssl)가 없으면 curl 로"""
+    """https 받기·보내기 — 1.9.0 파이썬 자물쇠, curl, wget 을 차례로 해 보고, 다 안 되면 각각 왜 안 됐는지 돌려줌"""
+    mal = []
     if ssl is not None:
-        rq = urllib.request.Request(url, data=data, method="POST" if data is not None else "GET")
-        with urllib.request.urlopen(rq, timeout=timeout) as r:
-            return r.read()
+        try:
+            rq = urllib.request.Request(url, data=data, method="POST" if data is not None else "GET")
+            cx = ssl.create_default_context(cafile=CA_PAIL[0]) if CA_PAIL else ssl.create_default_context()
+            with urllib.request.urlopen(rq, timeout=timeout, context=cx) as r:
+                GW["gil"] = "python"
+                return r.read()
+        except Exception as e:
+            mal.append("파이썬 %s" % gw_gamchugi(e))
+    else:
+        mal.append("파이썬 자물쇠 없음")
     if shutil.which("curl"):
-        mok = ["curl", "-s", "-f", "-m", str(int(timeout)), url]
+        mok = ["curl", "-s", "-S", "-f", "-m", str(int(timeout)), url]
         if data is not None:
             mok[1:1] = ["-X", "POST", "--data-binary", "@-", "-H", "Content-Type: application/octet-stream"]
-        p = subprocess.run(mok, input=data or b"", stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=timeout + 5)
-        if p.returncode != 0:
-            raise IOError("curl %d" % p.returncode)
-        return p.stdout
-    raise IOError("https 부품 없음")
+        p = subprocess.run(mok, input=data or b"", stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout + 5)
+        if p.returncode == 0:
+            GW["gil"] = "curl"
+            return p.stdout
+        mal.append("curl %d %s" % (p.returncode, gw_gamchugi(p.stderr.decode("utf-8", "replace").strip()[:120])))
+    else:
+        mal.append("curl 없음")
+    if data is None and shutil.which("wget"):
+        p = subprocess.run(["wget", "-q", "-T", str(int(timeout)), "-O", "-", url], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=timeout + 5)
+        if p.returncode == 0:
+            GW["gil"] = "wget"
+            return p.stdout
+        mal.append("wget %d" % p.returncode)
+    raise IOError(" / ".join(mal))
+
+
+def gw_sigan():
+    """1.9.0 플에는 건전지 시계가 없어 꺼졌다 켜지면 시각이 틀릴 수 있고, 그러면 자물쇠 확인이 실패함 — 나스가 알려 주는 시각으로 맞춤"""
+    if time.time() > 1790000000:     # 2026년 9월 뒤면 맞는 것으로 봄(하루 넘게 틀린 것까지는 잡지 못함)
+        GW["sigan_mal"] = "맞음"
+        return
+    try:
+        s = socket.create_connection(("lvd.ada.or.kr", 80), 8)
+        s.sendall(b"HEAD / HTTP/1.0\r\nHost: lvd.ada.or.kr\r\n\r\n")
+        d = s.recv(2000).decode("latin-1")
+        s.close()
+        m = re.search(r"(?im)^date:\s*(.+?)\s*$", d)
+        import calendar
+        t = calendar.timegm(time.strptime(m.group(1), "%a, %d %b %Y %H:%M:%S GMT"))
+        GW["sigan_mal"] = "나스 시각으로 맞춤" if sigan_butim(t) else "맞출 필요 없음"
+    except Exception as e:
+        GW["sigan_mal"] = "시각을 맞추지 못함: %s" % e
+
+
+def gw_ireum():
+    """1.9.0 나스 이름을 공유기가 찾는지"""
+    try:
+        GW["nas_ireum"] = socket.gethostbyname("lvd.ada.or.kr")
+    except Exception as e:
+        GW["nas_ireum"] = "못 찾음: %s" % e
+
+
+def jindan():
+    """1.9.0 (261105-F12) 왜 나스에 안 올라가는지 등을 공유기 안에서 바로 봄 — 비밀 값은 넣지 않음"""
+    return {"pan": PAN, "bild": BILD, "ki": GW["ki"], "sigan": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()), "sigan_mal": GW["sigan_mal"],
+            "inteonet": GW["inteonet"], "dns": GW["dns"], "nas_ireum": GW["nas_ireum"], "ssl": ssl is not None,
+            "curl": bool(shutil.which("curl")), "gil": GW["gil"], "ca": bool(CA_PAIL), "jisi_mal": gw_gamchugi(GW["jisi_mal"]),
+            "olim_mal": gw_gamchugi(GW["olim_mal"]), "kyeong_gwa": int(time.time() - GW["ttae"]) if GW["ttae"] else -1,
+            "ttuigi": B.ttuigi, "tonggwa": B.tonggwa_ttae, "tonggwa_su": len(B.tonggwa), "hwakin": B.hwakin,
+            "konsol": {"kyeojim": KONSOL["kyeojim"], "jangchi": KONSOL["jangchi"], "badneun": KONSOL["badneun"], "mal": KONSOL["mal"],
+                       "arecord": bool(shutil.which("arecord"))},
+            "girok": [gw_gamchugi(x) for x in GW_GIROK[-8:]]}
 
 
 def gw_sangtae():
@@ -1264,7 +1406,7 @@ def gw_sangtae():
         "ssl": ssl is not None, "curl": bool(shutil.which("curl")), "mp3": B.mp3_iss, "tport": B.tport,
         "deutnun": deutnun_su(), "lan_gigi": lan, "bonaem": B.bonaem_ireum, "bangsong": B.bonaem is not None,
         "haengsa": B.haengsa.sid if B.haengsa else "", "hwakin": B.hwakin, "nas": B.nas_mal,
-        "jisi_mal": GW["jisi_mal"], "gyeolgwa": GW["gyeolgwa"][-20:], "girok": GW_GIROK[-30:],
+        "jisi_mal": GW["jisi_mal"], "gyeolgwa": GW["gyeolgwa"][-20:], "girok": GW_GIROK[-30:], "jindan": jindan(),
     }
 
 
@@ -1354,7 +1496,10 @@ def gwanri_hanbeon():
     dns_matchugi()
     if not GW["inteonet"]:
         GW["jisi_mal"] = "공유기에 인터넷이 없어 지시를 읽지 못함"
+        GW["olim_mal"] = "공유기에 인터넷이 없어 상태를 올리지 못함"
         return
+    gw_ireum()
+    gw_sigan()
     try:
         raw = gw_batgi(GWANRI_JISI + "?t=%d" % int(time.time()), None, 20)
         mok = json.loads(raw.decode("utf-8")).get("jisi", [])
@@ -1383,7 +1528,7 @@ def gwanri_hanbeon():
             break
     try:
         gw_olligi()
-        GW["olim_mal"] = "상태를 나스에 올림"
+        GW["olim_mal"] = "상태를 나스에 올림(%s)" % time.strftime("%H:%M:%S", time.gmtime())
     except Exception as e:
         GW["olim_mal"] = "상태를 나스에 올리지 못함: %s" % e
 
@@ -1806,6 +1951,7 @@ def sangtae(heoga=False, gal=1):
         "keu": keu_gal(gal),
         "mic": (gal == 1 and B.bonaem is not None) or now - B.mic_ttae[gal] < 4,
         "bonaem": B.bonaem_ireum,
+        "konsol": 1 if KONSOL["kyeojim"] else 0, "konsol_jangchi": KONSOL["jangchi"], "konsol_mal": KONSOL["mal"],
         "hyeon": hyeon_saram(), "hyeon_ireum": HYEON["ireum"] if hyeon_saram() else "", "hyeon_mok": HYEON["mok"], "jeongji": B.jeongji1,
         "kiugi": KIUGI_KYEOM[0], "kiugi_mok": KIUGI_GAP[0], "kiugi_han": KIUGI_GAP[1], "kiugi_db": round(KIUGI_GAL[1].g, 1) if 1 in KIUGI_GAL else 0,
         "kiugi_mal": round(KIUGI_GAL[1].mal, 1) if 1 in KIUGI_GAL else 0,
@@ -1889,6 +2035,11 @@ async def web(r, w, tls=False):
         if uri_host or (not tls and any(c in uri for c in CAPTIVE)):
             B.hwakin += 1
         if not tls and (any(c in uri for c in CAPTIVE) or (uri_host and uri in ("/", "/index.html"))):
+            # 1.9.0 (261105-F12) 듣기 화면을 받은 폰이 몇 초 뒤 다시 물으면 「인터넷 됨」으로 답함 — 아이폰이 뜬 화면을 닫아도 와이파이에서 떨어지지 않게
+            hw = B.hwamyeon.get(ip)
+            if hw is not None and B.tonggwa_ttae == "deutgi" and time.time() - hw >= 4:
+                B.tonggwa.add(ip)
+                B.hwamyeon.pop(ip, None)
             if B.ttuigi == "ttuim" and ip not in B.tonggwa:
                 geulja(w, 302, "text/html", "", "Location: http://%s/\r\n" % SEOBEO_IP)
             elif "hotspot-detect" in uri or "library/test/success" in uri:
@@ -1923,6 +2074,10 @@ async def web(r, w, tls=False):
         S = B.S
 
         if uri in ("/", "/index.html", "/deut.html", "/deut"):
+            if B.ttuigi == "ttuim" and ip not in B.tonggwa and ip not in B.hwamyeon:   # 1.9.0
+                if len(B.hwamyeon) > 3000:
+                    B.hwamyeon.clear()
+                B.hwamyeon[ip] = time.time()
             geulja(w, 200, "text/html; charset=utf-8", deut_hwamyeon())
         elif uri == "/bang" or uri == "/mujeon":
             if not tls and not loop and B.tport:
@@ -2371,6 +2526,17 @@ async def web(r, w, tls=False):
             else:
                 gyesok = True
                 await deut_butigi(w, ip, True, 1, False)
+        elif uri == "/jindan":                    # 1.9.0 누구나 읽음, 바꾸는 것 없음
+            js(w, jindan())
+        elif uri == "/konsol" and heoga:          # 1.9.0 v=1 씀 / v=0 안 씀
+            if gap(q, "v") in ("0", "1"):
+                KONSOL["kyeojim"] = gap(q, "v") == "1"
+                try:
+                    with open(KONSOL_PAIL, "w") as f:
+                        f.write(gap(q, "v") + "\n")
+                except Exception:
+                    pass
+            js(w, {"ok": True, "konsol": 1 if KONSOL["kyeojim"] else 0})
         elif uri == "/tonggwa":
             if B.tonggwa_ttae == "deutgi":
                 B.tonggwa.add(ip)
@@ -2843,6 +3009,7 @@ async def main():
     asyncio.ensure_future(mp3_ilkkun2())
     asyncio.ensure_future(jadong_ilkkun())
     asyncio.ensure_future(gwanri_ilkkun())     # 1.7.0 원격 관리
+    asyncio.ensure_future(konsol_ilkkun())     # 1.9.0 음향 콘솔
     print("BYOD 플린트 서버 %s (%s) — 듣기 %d, 소리 %d, 자물쇠 %s, mp3 %s, 피디 번호 %s" % (PAN, BILD, WEB_PORT, SORI_PORT, B.tport or "없음", B.mp3_iss, B.pdkey), flush=True)
     await asyncio.gather(*[s.serve_forever() for s in sv])
 

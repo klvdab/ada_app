@@ -96,7 +96,7 @@ struct Kan: View {
 
 // MARK: 화면 고르기
 
-enum Hwamyeon { case cheot, doumal, jeopsok, haengsa, gyoyuk, live, tv, gwanQr, pdQr }   // 1.11.0 pdQr 노트북에서 피디 화면 열기   // 1.4.0 gyoyuk 교육 녹화, 1.5.0 tv TV해설방송 하기, 1.9.0 gwanQr 관계자 붙이기 큐알
+enum Hwamyeon { case cheot, doumal, jeopsok, haengsa, gyoyuk, live, tv, gwanQr, pdQr, flintJunbi }   // 1.11.0 pdQr 노트북에서 피디 화면 열기   // 1.4.0 gyoyuk 교육 녹화, 1.5.0 tv TV해설방송 하기, 1.9.0 gwanQr 관계자 붙이기 큐알
 
 struct RootView: View {
     @State private var hwamyeon = Hwamyeon.cheot
@@ -112,6 +112,7 @@ struct RootView: View {
             case .live: GyoyukView(jemok: "인터넷 방송", juso: GyoyukPan.LIVE, dwiro: { hwamyeon = .cheot })   // 1.4.0, 1.5.0 이름
             case .tv: GyoyukView(jemok: "TV해설방송", juso: GyoyukPan.TV, dwiro: { hwamyeon = .cheot })   // 1.5.0
             case .gwanQr: GwanQrView(dwiro: { hwamyeon = .cheot })   // 1.9.0
+            case .flintJunbi: FlintJunbiView(dwiro: { hwamyeon = .cheot })   // 1.16.0
             case .pdQr: PdQrView(dwiro: { hwamyeon = .cheot })   // 1.11.0
             }
         }
@@ -208,6 +209,9 @@ struct CheotView: View {
     @State private var hyeonPonOn = Flint.hyeonPon   // 1.14.0
     @State private var hyeonGi = 0   // 1.14.0
     @State private var kiugiOn = true   // 1.14.0
+    @State private var tteugiGeul = "듣기 화면 저절로 뜨기: 공유기에 붙어 있지 않습니다"   // 1.16.0
+    @State private var konsolGeul = "음향 콘솔 입력: 공유기에 붙어 있지 않습니다"   // 1.16.0
+    @State private var wifiHaebon = Date.distantPast   // 1.16.0
     @AppStorage("haengsa_jemok") private var haengsaJemok = ""   // 1.3.0
     @AppStorage("haeseolsa") private var haeseolsa = ""
     @AppStorage("haeseolsa_phone") private var haeseolsaPhone = ""   // 1.5.0 인터넷 방송에 씀(협회 명단 번호)
@@ -288,11 +292,12 @@ struct CheotView: View {
                 }
                 Danchu(geul: deo ? "더 보기 접기" : "더 보기") {
                     deo.toggle()
-                    if deo { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { deoChojeom = true } }
+                    if deo { peulDanchuGochigi(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { deoChojeom = true } }
                 }
                 if deo {
                     Danchu(geul: "접속 도구: 엔에프시 태그와 큐알코드") { gagi(.jeopsok) }
                     Danchu(geul: "지난 행사 기록 (녹음과 결과보고)") { gagi(.haengsa) }   // 1.3.0
+                    Danchu(geul: "플린트 2 준비하기 (공유기 처음 한 번)") { gagi(.flintJunbi) }   // 1.16.0
                         .accessibilityFocused($deoChojeom)
                     Danchu(geul: "BYOD 방송 서버 확인하기") { flintHwagin() }   // 1.2.0
                     Danchu(geul: hamkkeOn ? "BYOD 방송과 함께 인터넷 방송: 켜짐. 누르면 끕니다" : "BYOD 방송과 함께 인터넷 방송: 꺼짐. 누르면 켭니다") { hamkkeBakkugi() }   // 1.5.0
@@ -310,6 +315,8 @@ struct CheotView: View {
                     }
                     Danchu(geul: ["현장음 크기: 보통. 누르면 작게", "현장음 크기: 작게. 누르면 크게", "현장음 크기: 크게. 누르면 끕니다", "현장음 크기: 끔. 누르면 보통"][hyeonGi]) { hyeonGiBakkugi() }
                     Danchu(geul: kiugiOn ? "플 소리 키우기: 켜짐. 누르면 끕니다" : "플 소리 키우기: 꺼짐. 누르면 켭니다") { kiugiBakkugi() }
+                    Danchu(geul: tteugiGeul) { tteugiBakkugi() }   // 1.16.0
+                    Danchu(geul: konsolGeul) { konsolBakkugi() }   // 1.16.0
                     Geul("피디 번호 \(HyeonjangGil.shared.pdKey)", saek: Saek.yeonhan)   // 1.9.0 (261024-BI11) 다른 폰에서 피디 화면을 열 때 씀
                     Geul("LVD 송출 아이폰 \(Bang.PAN)판, 빌드 \(Bang.BILD)", saek: Saek.yeonhan)
                     Geul(damgim, saek: Saek.yeonhan)
@@ -387,12 +394,22 @@ struct CheotView: View {
     // 1.9.0 (261024-BI11) 피디 화면 — 아이피타임 방식에서 이 아이폰이 방송 서버일 때, 사파리로 http://127.0.0.1:8080/pd?k=피디 번호
     /// 피디 화면을 열 수 있는가 — 안 되면 까닭 한 줄
     private func hyeonjangMotham() -> String? {
-        if Flint.flintInga { return "피디 화면과 관계자 붙이기는 아이피타임 방식에서 이 아이폰이 방송 서버일 때 씁니다. 플린트 2 방식에서는 안드로이드 LVD 송출 앱에서 여십시오." }
+        if Flint.flintInga { return "관계자 붙이기는 피디 화면 안에 있습니다. 피디 화면 열기를 누르십시오." }
         if !bang.kyeojim || !Seobeo.shared.dolgo { return "피디 화면과 관계자 붙이기는 BYOD 방송을 시작한 뒤에 쓸 수 있습니다. 먼저 BYOD 방송 시작을 누르십시오." }
         return nil
     }
 
     private func pdHwamyeonYeolgi() {
+        // 1.16.0 (261105-BI20) 플린트 2 공유기의 피디 화면을 엶 — 예전 판은 아이피타임 방식에서만 열렸음
+        Flint.pdMutgi { ok in
+            guard ok, let u = URL(string: "\(Flint.JUSO)pd?k=\(Flint.pdBeonho)") else {
+                let t = "공유기가 답하지 않습니다. 공유기 와이파이에 붙은 뒤 다시 눌러 주십시오."
+                allyeo(t); malhagi(t); return
+            }
+            UIApplication.shared.open(u)
+        }
+    }
+    private func pdYetHwamyeon() {
         if let m = hyeonjangMotham() { allyeo(m); malhagi(m); return }
         guard let u = URL(string: "http://127.0.0.1:\(Bang.PORT)/pd?k=\(HyeonjangGil.shared.pdKey)") else { return }
         let ap = Jaryo.pail("pd.html") == nil ? "이 아이폰에 피디 화면 파일이 아직 없어 받는 법만 보입니다. 인터넷이 되는 곳에서 더 보기의 새로고침을 누르십시오. " : ""
@@ -447,20 +464,70 @@ struct CheotView: View {
         Flint.dasiMutgi("/status") { j in
             DispatchQueue.main.async {
                 salpineunJung = false
-                let flintDap = j != nil
-                let juso = Juso.deutgiJuso()
-                let host = juso.replacingOccurrences(of: "http://", with: "").components(separatedBy: ":").first ?? ""
-                // 1.12.0 (261030-BI16) 플린트 2 주소(192.168.8.)에 붙어 있으면 방송 서버가 잠깐 답하지 않아도 아이피타임으로 바꾸지 않음
-                Flint.flintInga = flintDap || Flint.peulJuso(host)   // 1.13.0 8~11 번대
-                flintOn = Flint.flintInga
-                var munje: String? = nil
-                if !flintDap {
-                    if juso.isEmpty { munje = "이 아이폰이 어느 공유기에도 붙어 있지 않습니다. 방송 공유기의 와이파이에 붙이거나 랜 어댑터와 랜선으로 공유기에 이으십시오." }
-                    else if Flint.peulJuso(host) { munje = "플린트 2 공유기로 보이는데 방송 서버가 답하지 않습니다. 처음 쓰는 플린트 2면 안드로이드 LVD 송출 앱의 플린트 2 준비하기를 먼저 하십시오." }
-                    else { munje = "이 아이폰이 플린트 2 공유기에 붙어 있지 않습니다. 와이파이 " + Flint.SSID + " 에 붙이십시오." }   // 1.14.0
+                if j != nil { flintOn = true; sijakhagi(); return }
+                // 1.16.0 (261105-BI20, 이사장님 승인) 어디서 막혔는지 말하고 기록, 와이파이에 붙어 있지 않으면 저절로 붙어 봄
+                MangSalpim.salpigi { wae, mal in
+                    ByodGirok.shared.namgi("flint_mot_chatgi", ["wae": wae, "mal": mal])
+                    ByodGirok.shared.jeojang()
+                    if (wae == "wifi_eopseum" || wae == "dareun_wifi") && Date().timeIntervalSince(wifiHaebon) > 60 {
+                        wifiHaebon = Date()
+                        let t = "와이파이 \(Flint.SSID) 에 붙어 봅니다. 아이폰이 연결할지 물으면 연결을 누르십시오."
+                        allyeo(t); malhagi(t)
+                        Flint.wifiButgi { ok in
+                            if ok { DispatchQueue.main.asyncAfter(deadline: .now() + 3) { gongyugiSalpigo() } }
+                            else { gongyugiGeul = mal; gongyugiBoim = true; malhagi(mal) }
+                        }
+                        return
+                    }
+                    gongyugiGeul = mal; gongyugiBoim = true; malhagi(mal)
                 }
-                if let m = munje { gongyugiGeul = m; gongyugiBoim = true; malhagi(m); return }
-                sijakhagi()
+            }
+        }
+    }
+
+    // 1.16.0 듣기 화면 저절로 뜨기, 음향 콘솔 입력 — 방송 전에도 공유기에 붙어 있으면 바꿈
+    private func peulDanchuGochigi() {
+        Flint.mutgi("/status") { j in
+            DispatchQueue.main.async {
+                switch j?["ttuigi"] as? String {
+                case "ttuim": tteugiGeul = "듣기 화면 저절로 뜨기: 켜짐. 누르면 끕니다"
+                case "cheok": tteugiGeul = "듣기 화면 저절로 뜨기: 꺼짐. 누르면 켭니다"
+                default: tteugiGeul = "듣기 화면 저절로 뜨기: 공유기에 붙어 있지 않습니다"
+                }
+                if j == nil { konsolGeul = "음향 콘솔 입력: 공유기에 붙어 있지 않습니다" }
+                else if let k = j?["konsol"] as? Int {
+                    konsolGeul = k == 1 ? "음향 콘솔 입력: 씀, \(j?["konsol_mal"] as? String ?? ""). 누르면 안 씁니다" : "음향 콘솔 입력: 안 씀. 누르면 씁니다"
+                } else { konsolGeul = "음향 콘솔 입력: 공유기 새 판이 필요합니다" }
+            }
+        }
+    }
+    private func peulBakkugi(_ gil: String, _ doem: String) {
+        Flint.pdMutgi { ok in
+            Flint.mutgi(gil + "&k=" + Flint.pdBeonho) { j in
+                DispatchQueue.main.async {
+                    let t = (ok && j != nil) ? doem : "바꾸지 못했습니다. 공유기 판이 1.9.0보다 낮으면 방송을 시작한 뒤에 눌러 주십시오."
+                    if Malsori.shared.kyeojim { malhagi(t) } else { allyeo(t) }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { peulDanchuGochigi() }
+                }
+            }
+        }
+    }
+    private func tteugiBakkugi() {
+        Flint.mutgi("/status") { j in
+            DispatchQueue.main.async {
+                guard let j = j else { let t = "공유기가 답하지 않습니다. 공유기 와이파이에 붙은 뒤 다시 눌러 주십시오."; allyeo(t); malhagi(t); return }
+                let kyeo = (j["ttuigi"] as? String) != "ttuim"
+                peulBakkugi("/bangsik?v=\(kyeo ? 0 : 1)", kyeo ? "듣기 화면 저절로 뜨기를 켰습니다. 이제 와이파이에 붙는 폰에 듣기 화면이 뜹니다." : "듣기 화면 저절로 뜨기를 껐습니다.")
+            }
+        }
+    }
+    private func konsolBakkugi() {
+        Flint.mutgi("/status") { j in
+            DispatchQueue.main.async {
+                guard let j = j else { let t = "공유기가 답하지 않습니다. 공유기 와이파이에 붙은 뒤 다시 눌러 주십시오."; allyeo(t); malhagi(t); return }
+                guard let k = j["konsol"] as? Int else { let t = "공유기 판이 낮습니다. 공유기에 새 방송 서버를 넣은 뒤에 쓸 수 있습니다."; allyeo(t); malhagi(t); return }
+                let sseum = k != 1
+                peulBakkugi("/konsol?v=\(sseum ? 1 : 0)", sseum ? "음향 콘솔 입력을 씁니다. 유에스비 소리 장치를 플린트 2에 꽂으십시오." : "음향 콘솔 입력을 쓰지 않습니다.")
             }
         }
     }
@@ -525,7 +592,7 @@ struct CheotView: View {
         if bang.kyeojim { let t = "방송 중에는 공유기를 바꾸지 않습니다. 방송을 멈춘 뒤 눌러 주십시오."; allyeo(t); malhagi(t); return }
         Flint.flintInga = !Flint.flintInga
         flintOn = Flint.flintInga
-        let t = flintOn ? "플린트 2로 바꾸었습니다." : "아이피타임으로 바꾸었습니다. 이 아이폰을 랜 어댑터와 랜선으로 아이피타임 공유기에 잇거나 아이피타임 와이파이에 붙이십시오. 듣는 분은 와이파이에 붙은 뒤 듣기 주소 엔에프시 태그나 큐알로 듣습니다."
+        let t = "플린트 2로 씁니다."
         allyeo(t); malhagi(t)
         st.gochigi(baro: true)
     }
@@ -540,7 +607,7 @@ struct CheotView: View {
                     t = "BYOD 방송 서버가 답합니다. \(j["pan"] as? String ?? "")판, 듣는 분 \(j["n"] as? Int ?? 0)명. " +
                         ((j["mp3"] as? Bool ?? false) ? "화면을 잠가도 이어지는 소리를 쓸 수 있습니다." : "늦음이 가장 적은 소리만 씁니다.")
                 } else {
-                    t = "BYOD 방송 서버가 답하지 않습니다. 이 아이폰이 와이파이 \(Flint.SSID) 에 붙었는지 보십시오. 새 공유기는 안드로이드 LVD 송출 앱의 플린트 2 준비하기로 먼저 준비합니다."
+                    t = "BYOD 방송 서버가 답하지 않습니다. 이 아이폰이 와이파이 \(Flint.SSID) 에 붙었는지 보십시오. 새 공유기는 더 보기의 플린트 2 준비하기로 먼저 준비합니다."
                 }
                 if Malsori.shared.kyeojim { malhagi(t) } else { allyeo(t) }
                 jeomgeomGeul = t; jeomgeomBoim = true

@@ -96,7 +96,7 @@ object GigiNokeum {
                 put("sid", s); put("jemok", jemok); put("haeseolsa", haeseolsa)
                 put("sijak", t); put("kkeut", 0); put("majimak", t)
                 put("bun", JSONArray()); put("yocheong", JSONArray())
-                put("kkeunkim", JSONArray().put(JSONArray().put(t).put("butum").put("아이피타임 방식")))
+                put("kkeunkim", JSONArray().put(JSONArray().put(t).put("butum").put("이 기기 녹음")))
                 put("jogak", JSONArray()); put("sangtae", "jinhaeng"); put("olim", 0); put("hyeongsik", "mulaw")
                 put("pan", "LVD 송출 " + Bang.PAN); put("bangsik", "iptime"); put("chobeon_deut", 0)
             }
@@ -260,7 +260,7 @@ object GigiNokeum {
         }
         L.add("")
         L.add("녹음: " + g.optString("sid") + ".ul, 길이 " + gileeMal(g.optDouble("gilee", 0.0)))
-        L.add("LVD 송출 " + Bang.PAN + "판, 아이피타임 방식(이 기기가 녹음)")
+        L.add("LVD 송출 " + Bang.PAN + "판, 이 기기가 녹음")
         return L.joinToString("\n") + "\n"
     }
 }

@@ -111,6 +111,27 @@ object Hyeonjang {
         return null
     }
 
+    /** 2.11.0 (261105-L15, 새방클, 이사장님 승인) 방송을 못 찾을 때 어디서 막혔는지 — (기록용 낱말, 들려 드릴 말) */
+    fun wae(c: Context): Pair<String, String> {
+        val cm = c.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        try {
+            val wm = c.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            if (!wm.isWifiEnabled) return "wifi_kkeojim" to "폰의 와이파이가 꺼져 있습니다. 와이파이를 켜 주십시오."
+            var dareun = false
+            @Suppress("DEPRECATION")
+            for (n in cm.allNetworks) {
+                val nc = cm.getNetworkCapabilities(n) ?: continue
+                if (!nc.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) continue
+                val a = wifiJuso(cm, n) ?: continue
+                if (a.startsWith("192.168.8.") || a.startsWith("192.168.9.") || a.startsWith("192.168.10.") || a.startsWith("192.168.11."))
+                    return "seobeo_mudap" to "방송 와이파이에는 붙었는데 방송 서버가 답하지 않습니다. 공유기가 켜진 지 1분이 안 되었으면 잠시 기다려 주십시오."
+                dareun = true
+            }
+            if (dareun) return "dareun_wifi" to "폰이 방송이 아닌 다른 와이파이에 붙어 있습니다. 와이파이 " + SSID + " 에 붙여 주십시오."
+        } catch (_: Exception) { }
+        return "wifi_eopseum" to "폰이 와이파이에 붙어 있지 않습니다. 와이파이 " + SSID + " 에 붙여 주십시오."
+    }
+
     /** 2.4.0 그 와이파이에서 이 폰의 IPv4 주소(사설 주소만) */
     private fun wifiJuso(cm: ConnectivityManager, n: Network): String? {
         val lp = cm.getLinkProperties(n) ?: return null
@@ -139,7 +160,7 @@ object Hyeonjang {
     }
 
     /** 2.4.0 지금 자리의 듣기 줄기 주소 */
-    fun stream(): URL = URL("$jari/stream" + (if (Deut.jeomgeom) "?gal=0" else ""))
+    fun stream(): URL = URL("$jari/stream" + (if (Deut.jeomgeom) "?gal=0" else if (Deut.gal > 1) "?gal=" + Deut.gal else ""))
     fun opus(): URL = URL("$jari/opus")   // 2.7.0 (261026-L11) 오푸스(시험) — 송출이 켜 두었을 때만 있음
 
     private fun hyeonjangInga(t: String?): String? {

@@ -11,6 +11,7 @@
     <!-- 1.3.0 행사 녹음을 모바일 데이터로 배프에 올림(공유기 와이파이에는 인터넷이 없음) -->
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />   <!-- 1.16.0 방송 와이파이 저절로 붙기 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- 1.4.0 (261016-B12) 현장영상해설교육 녹화 — 카메라 -->
     <uses-permission android:name="android.permission.CAMERA" />

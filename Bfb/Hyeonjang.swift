@@ -22,7 +22,7 @@ enum Hyeonjang {
     static var jari = "http://\(IP):\(WEB)"
     private static var chatgiTtae = Date.distantPast
     static var jeomgeom = false   // 2.10.0 점검 듣기(직원용)
-    static var stream: URL? { URL(string: jari + "/stream" + (jeomgeom ? "?gal=0" : "")) }
+    static var stream: URL? { URL(string: jari + "/stream" + (jeomgeom ? "?gal=0" : (Deut.gal > 1 ? "?gal=\(Deut.gal)" : ""))) }
     static var opus: URL? { URL(string: jari + "/opus") }   // 2.7.0 (261026-LI10) 오푸스(시험) — 송출이 켜 두었을 때만 있음
 
     static var deungrokDoem: Bool {
@@ -94,23 +94,25 @@ enum Hyeonjang {
     }
 
     /// 행사장 와이파이 등록 — 아이폰이 「연결하시겠습니까」를 한 번 묻습니다. 결과 말을 돌려줌
+    /// 2.11.0 (261105-LI14, 이사장님 승인) 실패해도 「등록했습니다」라 하던 것을 고침 — 아이폰에 실제로 등록되었는지 물어 보고 말함
     static func deungrok(_ kkeut: @escaping (String) -> Void) {
         let c = NEHotspotConfiguration(ssid: SSID)
         c.joinOnce = false
         NEHotspotConfigurationManager.shared.apply(c) { e in
-            DispatchQueue.main.async {
-                if let e = e as NSError?, e.domain == NEHotspotConfigurationErrorDomain,
-                   e.code != NEHotspotConfigurationError.alreadyAssociated.rawValue {
-                    if e.code == NEHotspotConfigurationError.userDenied.rawValue {
+            let ne = e as NSError?
+            let geobu = ne?.domain == NEHotspotConfigurationErrorDomain && ne?.code == NEHotspotConfigurationError.userDenied.rawValue
+            NEHotspotConfigurationManager.shared.getConfiguredSSIDs { l in
+                DispatchQueue.main.async {
+                    if l.contains(SSID) {
+                        deungrokDoem = true
+                        kkeut("행사장 와이파이를 등록했습니다. 행사장에 들어서면 아이폰이 저절로 붙습니다. 그때 LVD 방송을 열기만 하시면 됩니다.")
+                    } else if geobu {
+                        deungrokDoem = false
                         kkeut("등록하지 않았습니다. 더 보기의 행사장 와이파이 저절로 붙기 다시 하기로 언제든 다시 하실 수 있습니다.")
                     } else {
-                        // 행사장 밖이라 지금 붙지 못한 것은 괜찮음 — 아이폰이 기억해 두었다가 범위 안에서 붙음
-                        deungrokDoem = true
-                        kkeut("행사장 와이파이를 등록했습니다. 행사장에 들어서면 아이폰이 저절로 붙습니다. 그때 LVD 방송을 열기만 하시면 들립니다.")
+                        deungrokDoem = false
+                        kkeut("행사장 와이파이를 등록하지 못했습니다. 행사장에서 아이폰 설정의 와이파이를 열어 " + SSID + " 를 한 번 골라 주십시오. 그 뒤로는 저절로 붙습니다." + (ne == nil ? "" : " 오류 번호 \(ne?.code ?? 0)."))
                     }
-                } else {
-                    deungrokDoem = true
-                    kkeut("행사장 와이파이를 등록했습니다. 행사장에 들어서면 아이폰이 저절로 붙습니다. 그때 LVD 방송을 열기만 하시면 들립니다.")
                 }
             }
         }

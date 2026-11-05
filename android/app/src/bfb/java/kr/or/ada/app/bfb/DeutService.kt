@@ -45,6 +45,8 @@ import java.net.URL
 
 /** 듣기 상태 한곳 — 화면과 일꾼이 함께 봄 */
 object Deut {
+    @Volatile var waeMal = ""   // 2.11.0 방송을 못 찾은 까닭
+    @Volatile var waeNatmal = ""
     @Volatile var jeomgeom = false   // 2.10.0 점검 듣기 — 송출 시작 전에도 해설 소리를 들음(직원용)
     @Volatile var keugi = 1   // 2.6.1 (261026-L10) 현장영상해설 소리 더 크게 — 1 보통, 2 두 배, 4 네 배(BYOD 방송에 적용)
     @Volatile var kyeojim = false         // 듣기 일꾼이 도는가
@@ -58,6 +60,19 @@ object Deut {
     @Volatile var goreun = ""                                // 2.2.0 화면에서 고른 방 번호
     @Volatile var bogiBang: InteonetBang? = null             // 2.5.0 지금 듣는 인터넷 방송이 영상으로도 볼 수 있으면 그 방송
     @Volatile var bogiJung = false                           // 2.5.0 영상으로 보는 중 — 듣기 일꾼은 소리를 쉼
+    // 2.11.0 (261105-L15) 웹 듣기 화면과 맞춤 — 소리 크기 나누어 조절, 해설 고르기, 만족도
+    val KG = doubleArrayOf(0.0, 0.1, 0.2, 0.3, 0.4, 0.55, 0.7, 0.85, 1.0, 1.25, 1.6)
+    @Volatile var kgH = 8; @Volatile var kgM = 8
+    @Volatile var gal = 1
+    data class Gal(val n: Int, val nm: String, val on: Boolean)
+    @Volatile var galMok: List<Gal> = emptyList()
+    @Volatile var mjSeq = -1; @Volatile var mjQ = ""
+    @Volatile var kkeunki: (() -> Unit)? = null
+    fun haeseolBae(): Double = keugi * KG[kgH]
+    fun ilkgi(c: Context) {
+        val p = c.getSharedPreferences("lvd_bangsong", Context.MODE_PRIVATE)
+        kgH = p.getInt("kg_h", 8).coerceIn(1, 10); kgM = p.getInt("kg_m", 8).coerceIn(0, 10); gal = p.getInt("gal", 1).coerceIn(1, 3)
+    }
     @Volatile var hyeonjangJung = false                      // 2.8.0 (261028-L12) 지금 행사장(BYOD 방송)에 붙어 있는가 — 추첨 일꾼이 봄
     const val JUNGYE = "https://lvd.ada.or.kr:2053"
     val gwanchal = mutableListOf<() -> Unit>()
@@ -94,6 +109,7 @@ class DeutService : Service() {
     @Volatile private var dasiCheong = false     // 통화 때문에 소리 자리를 아주 잃음 — 통화가 끝나면 곧바로 다시 청함
     private var jamsiCho = 0                      // 통화가 끝난 뒤 소리 자리를 기다린 초
     private var il: Thread? = null
+    private var daegiIl: Thread? = null   // 2.11.0 (261105-L15) 대기 안내와 대기 음악
     private var chucheomIl: Thread? = null   // 2.8.0 (261028-L12) 입장 번호 알리기·당첨 보기 — 듣기 줄기를 막지 않게 따로
     private var kon: HttpURLConnection? = null
     private var gaksi: PowerManager.WakeLock? = null
@@ -137,6 +153,8 @@ class DeutService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        Deut.ilkgi(this)   // 2.11.0
+        Deut.kkeunki = { try { kon?.disconnect() } catch (_: Exception) { } }
         Deut.keugi = getSharedPreferences("lvd_bangsong", Context.MODE_PRIVATE).getInt("deo_keuge", 1)   // 2.6.1
         Girok.sijak(applicationContext)   // 2.4.1 이용 기록
         am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -161,6 +179,7 @@ class DeutService : Service() {
             wifiJabgi()   // 2.5.1 (261025-L8) 인터넷 없는 행사장 와이파이를 폰이 버리지 않게 붙잡아 둠
             Deut.bakkum("현장영상해설을 찾고 있습니다.", false)
             il = Thread({ dolligi() }, "lvd-deutgi").also { it.priority = Thread.MAX_PRIORITY; it.start() }
+            daegiIl = Thread({ DaegiSori(applicationContext, { dolgo }, { Deut.hyeonjangJung && !jamsi && !Deut.bogiJung && !Deut.jeomgeom && !tonghwaJung() && !(Deut.songchulJung && !iyeopon()) }).dolligi() }, "lvd-daegi").also { it.start() }   // 2.11.0
             chucheomIl = Thread({ while (dolgo) { if (Deut.hyeonjangJung) try { Chucheom.salpigi(applicationContext) } catch (_: Exception) { }; try { Thread.sleep(1000) } catch (_: InterruptedException) { break } } }, "lvd-chucheom").also { it.start() }   // 2.8.0
             Deut.allyeo()
         }
@@ -176,6 +195,7 @@ class DeutService : Service() {
         try { kon?.disconnect() } catch (_: Exception) { }
         il?.interrupt()
         chucheomIl?.interrupt()   // 2.8.0
+        daegiIl?.interrupt()   // 2.11.0
         Deut.hyeonjangJung = false
         try { unregisterReceiver(songchulBaram) } catch (_: Exception) { }
         try { unregisterReceiver(kkeugiBaram) } catch (_: Exception) { }
@@ -254,6 +274,12 @@ class DeutService : Service() {
             if (n == null || jm0 == null) {
                 Deut.deullim = false
                 Deut.hyeonjangJung = false   // 2.8.0
+                // 2.11.0 어디서 막혔는지 알아 두고, 까닭이 바뀔 때만 기록(인터넷이 될 때 나스로 올라감)
+                val wae = Hyeonjang.wae(this)
+                if (wae.first != Deut.waeNatmal) {
+                    Deut.waeNatmal = wae.first; Deut.waeMal = wae.second
+                    try { Girok.namgi("bangsong_mot_chatgi", mapOf("wae" to wae.first, "mal" to wae.second)); Girok.jeojang() } catch (_: Exception) { }
+                }
                 val now = System.currentTimeMillis()
                 if (beoseonaTtae == 0L) beoseonaTtae = now
                 if (!beoseonaAllim && !cheotYeongyeol && now - beoseonaTtae > 8000) {
@@ -265,9 +291,10 @@ class DeutService : Service() {
                 if (s != null) { inteonetTeulgi(s); continue }
                 swigiGoreum(10_000); continue
             }
+            Deut.waeNatmal = ""; Deut.waeMal = ""
             Deut.hyeonjangJung = true   // 2.8.0 행사장 — 추첨 일꾼이 입장 번호를 알리고 당첨을 봄
             // 2.7.0 (261026-L11) 오푸스(시험) — 송출이 오푸스도 내보내면 오푸스로, 없으면(없는 주소) 30초 동안은 묻지 않고 아래 지금 방식으로
-            if (!Deut.jeomgeom && System.currentTimeMillis() >= opusSwim) {   // 2.10.0 점검 듣기는 오푸스를 쓰지 않음
+            if (!Deut.jeomgeom && Deut.gal == 1 && System.currentTimeMillis() >= opusSwim) {   // 2.10.0 점검 듣기는 오푸스를 쓰지 않음
                 val dap = opusDeutgi(n, jm0, beoseonaAllim && !cheotYeongyeol)
                 if (dap) {
                     beoseonaTtae = 0L; beoseonaAllim = false; cheotYeongyeol = false
@@ -276,6 +303,7 @@ class DeutService : Service() {
                 }
             }
             // 3. 받아 틀기
+            val g0 = Deut.gal   // 2.11.0 고른 해설 갈래가 바뀌면 다시 붙음
             var at: AudioTrack? = null
             try {
                 val jm = jm0
@@ -300,12 +328,12 @@ class DeutService : Service() {
                 tongjiGochigi()
                 val b = ByteArray(1600)
                 val pcm = ShortArray(1600)
-                while (dolgo && !jamsi && !Deut.bogiJung && !(Deut.songchulJung && !iyeopon())) {
+                while (dolgo && !jamsi && Deut.gal == g0 && !Deut.bogiJung && !(Deut.songchulJung && !iyeopon())) {
                     val r = ins.read(b)
                     if (r < 0) break
                     for (i in 0 until r) pcm[i] = DEC[b[i].toInt() and 0xFF]
-                    val kg = Deut.keugi
-                    if (kg > 1) for (i in 0 until r) {   // 2.6.1 소리 더 크게 — 넘치는 소리는 부드럽게 눌러 찢어지지 않게
+                    val kg = Deut.haeseolBae()
+                    if (kg != 1.0) for (i in 0 until r) {   // 2.6.1 소리 더 크게 — 넘치는 소리는 부드럽게 눌러 찢어지지 않게
                         var x = pcm[i] * kg.toDouble()
                         val ax = Math.abs(x)
                         if (ax > 28000.0) x = Math.signum(x) * minOf(32767.0, 28000.0 + (ax - 28000.0) * 0.2)
@@ -374,7 +402,7 @@ class DeutService : Service() {
             var pcm = ShortArray(1920)
             val dlen = ByteArray(2)
             var pk = ByteArray(1500)
-            while (dolgo && !jamsi && !Deut.bogiJung && !(Deut.songchulJung && !iyeopon())) {
+            while (dolgo && !jamsi && Deut.gal == 1 && !Deut.bogiJung && !(Deut.songchulJung && !iyeopon())) {
                 if (!nawatda && System.currentTimeMillis() - buteunTtae > 3000) break   // 3초 넘게 소리가 안 나오면 지금 방식으로
                 ins.readFully(dlen)
                 val len = ((dlen[0].toInt() and 0xFF) shl 8) or (dlen[1].toInt() and 0xFF)
@@ -400,8 +428,8 @@ class DeutService : Service() {
                         val m = sb.remaining()
                         if (m > pcm.size) pcm = ShortArray(m)
                         sb.get(pcm, 0, m)
-                        val kg = Deut.keugi
-                        if (kg > 1) for (i in 0 until m) {   // 2.6.1 소리 더 크게와 같게
+                        val kg = Deut.haeseolBae()
+                        if (kg != 1.0) for (i in 0 until m) {   // 2.6.1 소리 더 크게와 같게
                             var x = pcm[i] * kg.toDouble()
                             val ax = Math.abs(x)
                             if (ax > 28000.0) x = Math.signum(x) * minOf(32767.0, 28000.0 + (ax - 28000.0) * 0.2)
@@ -473,7 +501,7 @@ class DeutService : Service() {
     /** 들을 인터넷 방송 — 고른 것이 있으면 그것, 하나면 그것, 여럿이면 화면에 고르기를 띄우고 null */
     private fun inteonetGoreugi(): String? {
         val j = jungyeMutgi("/moklok")
-        if (j == null) { Deut.bakkum("인터넷에 닿지 않습니다. 행사장에서는 행사장 와이파이에 붙으면 저절로 들립니다.", false); return null }
+        if (j == null) { Deut.bakkum("인터넷에 닿지 않습니다. " + Deut.waeMal.ifEmpty { "행사장에서는 행사장 와이파이에 붙으면 저절로 들립니다." }, false); return null }
         val a = j.optJSONArray("rows")
         val l = mutableListOf<Deut.InteonetBang>()
         if (a != null) for (i in 0 until a.length()) {
@@ -487,7 +515,7 @@ class DeutService : Service() {
         when {
             l.isEmpty() -> {
                 if (Deut.gorgi.isNotEmpty()) { Deut.gorgi = emptyList(); Deut.allyeo() }
-                Deut.bakkum("지금 나가는 현장영상해설이 없습니다. 방송이 열리거나 행사장에 들어서시면 저절로 들려 드립니다.", true)
+                Deut.bakkum("지금 나가는 현장영상해설이 없습니다. 방송이 열리거나 행사장에 들어서시면 저절로 들려 드립니다." + (if (Deut.waeNatmal == "wifi_eopseum" || Deut.waeNatmal == "") "" else " 행사장이시면, " + Deut.waeMal), true)
             }
             l.size == 1 -> { Deut.gorgi = emptyList(); Deut.jemok = l[0].jemok; bogiDugi(l[0]); inteonetMal(l[0]); return l[0].sid }
             else -> if (Deut.gorgi.map { it.sid } != l.map { it.sid }) {

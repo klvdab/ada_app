@@ -48,7 +48,7 @@ enum Hyeonjang {
             if b.kyeojim {
                 let dap = Date().timeIntervalSince(f.dapTtae) < 10
                 l.append(dap ? Jul(doem: true, mal: "BYOD 방송 서버: 답합니다. \(f.seobeoPan)판.")
-                             : Jul(doem: false, mal: "BYOD 방송 서버: 답하지 않습니다. 새 공유기는 안드로이드 LVD 송출 앱의 플린트 2 준비하기로 먼저 준비하십시오."))
+                             : Jul(doem: false, mal: "BYOD 방송 서버: 답하지 않습니다. 새 공유기는 더 보기의 플린트 2 준비하기로 먼저 준비하십시오."))
                 l.append(f.bonaenda ? Jul(doem: true, mal: "해설 소리: 공유기로 보내고 있습니다.") : Jul(doem: false, mal: "해설 소리: 공유기로 보내지 못하고 있습니다. 공유기 전원과 와이파이를 확인하십시오."))
                 if dap { l.append(f.mp3 ? Jul(doem: true, mal: "화면을 잠가도 이어지는 소리: 쓸 수 있습니다.") : Jul(doem: false, mal: "화면을 잠가도 이어지는 소리: 공유기에 없습니다. 사무실에서 플린트 2 준비하기를 다시 하십시오.")) }
             }
@@ -56,13 +56,13 @@ enum Hyeonjang {
         // 5. 공유기 연결
         let juso = Juso.deutgiJuso()
         // 1.7.0 (261021-BI9) 아이피타임 방식 — 공유기 이름을 밝히고, 이 아이폰이 녹음하고 있는지 살핌
-        l.append(juso.isEmpty ? Jul(doem: false, mal: "공유기(아이피타임): 붙지 않았습니다. 아이폰을 아이피타임 와이파이에 붙이거나, 어댑터에 랜선을 꽂아 아이피타임 공유기의 랜 구멍과 이으십시오.")
-                              : Jul(doem: true, mal: "공유기(아이피타임): 붙었습니다. 듣기 주소 \(juso)"))
+        l.append(juso.isEmpty ? Jul(doem: false, mal: "공유기: 붙지 않았습니다.")
+                              : Jul(doem: true, mal: "공유기: 붙었습니다. 듣기 주소 \(juso)"))
         // 1.8.0 (261023-BI10) 듣는 앱(LVD 방송 2.4.0부터)이 이 아이폰을 찾을 수 있는지 — 방송 중 10초마다 스스로 물어 본 결과
         if b.kyeojim {
             l.append(Date().timeIntervalSince(Bang.mundapTtae) < 25
                      ? Jul(doem: true, mal: "듣는 앱이 찾을 자리: 답합니다. 같은 와이파이의 LVD 방송 앱이 이 아이폰을 저절로 찾습니다.")
-                     : Jul(doem: false, mal: "듣는 앱이 찾을 자리: 답하지 않습니다. 이 아이폰이 아이피타임 공유기에 붙었는지, 듣는 폰이 같은 아이피타임 와이파이에 붙었는지 확인하십시오."))
+                     : Jul(doem: false, mal: "듣는 앱이 찾을 자리: 답하지 않습니다. 이 아이폰과 듣는 폰이 같은 공유기에 붙었는지 확인하십시오."))
         }
         if b.kyeojim {
             let gn = GigiNokeum.shared

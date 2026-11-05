@@ -8,6 +8,7 @@
 // 1.3.0 (261014-BI4) 소리를 보낼 때 행사 이름·현장영상해설사·이 아이폰 시각을 함께 보냄
 import Foundation
 import Network
+import NetworkExtension
 import UIKit
 
 enum Flint {
@@ -30,7 +31,50 @@ enum Flint {
     }
     static var pdBeonho = ""   // 1.14.0 공유기가 알려 준 피디 번호
     /// 1.7.0 공유기 이름(첫 화면·도움말·현장 점검에 씀)
-    static var gongyugiIreum: String { flintInga ? "플린트 2" : "아이피타임" }
+    static var gongyugiIreum: String { "플린트 2" }
+
+    /// 1.16.0 (261105-BI20, 새방클, 이사장님 승인) 방송 와이파이에 저절로 붙기 — 아이폰이 연결할지 물음. 붙으면 true
+    static func wifiButgi(_ kkeut: @escaping (Bool) -> Void) {
+        let c = NEHotspotConfiguration(ssid: SSID)
+        c.joinOnce = false
+        NEHotspotConfigurationManager.shared.apply(c) { e in
+            var ok = e == nil
+            if let n = e as NSError?, n.domain == NEHotspotConfigurationErrorDomain, n.code == NEHotspotConfigurationError.alreadyAssociated.rawValue { ok = true }
+            DispatchQueue.main.async { kkeut(ok) }
+        }
+    }
+
+    /// 1.16.0 방송 전에도 설정을 바꿀 수 있게 공유기에 피디 번호를 물음(공유기 1.9.0부터)
+    static func pdMutgi(_ kkeut: @escaping (Bool) -> Void) {
+        if !pdBeonho.isEmpty { kkeut(true); return }
+        guard let p = NWEndpoint.Port(rawValue: SORI) else { kkeut(false); return }
+        let c = NWConnection(host: NWEndpoint.Host(IP), port: p, using: .tcp)
+        let q = DispatchQueue(label: "byod.pdkey")
+        var doem = false
+        func matchim(_ ok: Bool) {
+            if doem { return }
+            doem = true
+            c.cancel()
+            DispatchQueue.main.async { kkeut(ok) }
+        }
+        c.stateUpdateHandler = { st in
+            switch st {
+            case .ready:
+                let y = UserDefaults.standard.string(forKey: "flint_yeolsoe") ?? ""
+                c.send(content: Data(("PDKEY " + (y.isEmpty ? "-" : y) + "\n").utf8), completion: .contentProcessed { _ in })
+                c.receive(minimumIncompleteLength: 1, maximumLength: 200) { d, _, _, _ in
+                    let k = String(decoding: d ?? Data(), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: " ")
+                    if k.count >= 3, k[0] == "OK" { pdBeonho = k[2]; matchim(true) } else { matchim(false) }
+                }
+            case .failed:
+                matchim(false)
+            default:
+                break
+            }
+        }
+        c.start(queue: q)
+        q.asyncAfter(deadline: .now() + 3.5) { matchim(false) }
+    }
 
     /// 1.13.0 (261104-BI17) 플린트 2 주소대인가 — 플은 192.168.8~11 번대를 줌
     static func peulJuso(_ host: String) -> Bool { ["192.168.8.", "192.168.9.", "192.168.10.", "192.168.11."].contains { host.hasPrefix($0) } }

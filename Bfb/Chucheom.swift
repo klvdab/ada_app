@@ -41,7 +41,7 @@ enum Chucheom {
         return "내 입장 번호: " + (g.isEmpty ? "" : g + " 구역 ") + n + "번. 누르면 바꿉니다"
     }
 
-    private static var jid: String {
+    static var jid: String {
         if let j = D.string(forKey: "jid"), j.count >= 8 { return j }
         let a = Array("0123456789abcdefghijklmnopqrstuvwxyz")
         let j = String((0..<16).map { _ in a[Int.random(in: 0..<a.count)] })

@@ -64,11 +64,12 @@ class ByodActivity : Activity() {
     private lateinit var deoDanchu: Button
     private lateinit var deoAn: LinearLayout
     private lateinit var malsoriDanchu: Button
-    private lateinit var bangsikDanchu: Button   // 1.2.0
     private lateinit var songchulDanchu: Button   // 1.14.0
     private lateinit var hyeonPonDanchu: Button
     private lateinit var hyeonGiDanchu: Button
     private lateinit var kiugiDanchu: Button
+    private lateinit var tteugiDanchu: Button   // 1.16.0
+    private lateinit var konsolDanchu: Button   // 1.16.0
     private var hyeonGi = 0   // 1.14.0 현장음 크기 차례
     private lateinit var inteonetGeul: TextView   // 1.5.0 함께 나가는 인터넷 방송 한 줄
     private lateinit var hamkkeDanchu: Button    // 1.5.0
@@ -233,7 +234,6 @@ class ByodActivity : Activity() {
         mom.addView(kanMandeul("현장영상해설사 이름", "haeseolsa"))
         mom.addView(kanMandeul("현장영상해설사 전화번호 (인터넷 방송에 꼭 필요합니다)", "haeseolsa_phone").apply { inputType = InputType.TYPE_CLASS_PHONE })
         // 1.9.0 (261024-B17) 공유기는 방송을 시작할 때 앱이 스스로 알아냄 — 고르기 단추는 더 보기로(직접 고를 때만)
-        bangsikDanchu = danchu(bangsikMal()) { bangsikBakkugi() }
         bangDanchu = danchu("BYOD 방송 시작", keun = true, norang = true) { bangDanchuNullim() }
         yeongsangDanchu = danchu(yeongsangMal()) { yeongsangBakkugi() }   // 1.9.0 (261024-B17) 무대 영상 녹화 — 방송 시작 바로 위
         mom.addView(yeongsangDanchu)
@@ -313,8 +313,10 @@ class ByodActivity : Activity() {
         deoAn.addView(hyeonGiDanchu)
         kiugiDanchu = danchu("플 소리 키우기: 켜짐. 누르면 끕니다") { kiugiBakkugi(kiugiDanchu) }   // 1.14.0
         deoAn.addView(kiugiDanchu)
-        // 1.14.0 아이피타임 방식을 뺌 — bangsikDanchu 는 화면에 넣지 않음
-        // deoAn.addView(bangsikDanchu)   // 1.9.0 공유기 직접 고르기 — 1.12.0 (261030-B22, 이사장님 승인 2026-10-30) 예비로 더 보기 맨 아래에
+        tteugiDanchu = danchu(tteugiMal(null)) { tteugiBakkugi() }   // 1.16.0
+        deoAn.addView(tteugiDanchu)
+        konsolDanchu = danchu(konsolMal(null)) { konsolBakkugi() }   // 1.16.0
+        deoAn.addView(konsolDanchu)
         pdGeul = geul(pdMal(), 18f).apply { setTextColor(Saek.yeonhan) }   // 1.9.0 피디 번호 한 줄
         deoAn.addView(pdGeul)
         deoAn.addView(geul("LVD 송출 " + Bang.PAN + "판, 빌드 " + Bang.BILD, 16f).apply { setTextColor(Saek.yeonhan) })
@@ -331,26 +333,19 @@ class ByodActivity : Activity() {
     }
 
     // ───── 1.9.0 (261024-B17) 현장 기능 — 피디 화면 열기, 관계자 붙이기 큐알, 피디 번호 ─────
-    private fun pdMal(): String = if (Bang.pdKey.isNotEmpty()) "피디 번호 " + Bang.pdKey else "피디 번호: 아이피타임 방식으로 BYOD 방송을 시작하면 정해집니다"
+    private fun pdMal(): String = if (Bang.pdKey.isNotEmpty()) "피디 번호 " + Bang.pdKey else if (Flint.pdBeonho.isNotEmpty()) "피디 번호 " + Flint.pdBeonho else "피디 번호: BYOD 방송을 시작하면 알려 드립니다"
 
     private fun allimMal(t: String) { if (malsoriOn && ttsDoem) malhagi(t) else mom.announceForAccessibility(t) }
 
     private fun pdYeolgi() {
-        val pk = Bang.pdKey
-        if (!Bang.kyeojim || Flint.flintInga(this) || pk.isEmpty()) {
-            allimMal("피디 화면은 아이피타임 방식으로 BYOD 방송을 하는 동안 이 기기에서 열립니다. 먼저 BYOD 방송 시작을 누르십시오.")
-            return
-        }
-        if (Jaryo.pail(this, "pd.html") == null) {
-            allimMal("피디 화면 파일이 아직 없습니다. 인터넷이 되는 곳에서 더 보기의 새로고침을 눌러 받으십시오.")
-            return
-        }
-        try {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://127.0.0.1:" + Bang.PORT + "/pd?k=" + pk)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            allimMal("피디 화면을 브라우저로 엽니다. 피디 번호는 " + pk.toCharArray().joinToString(" ") + " 입니다.")
-        } catch (_: Exception) {
-            allimMal("이 기기에서 웹 브라우저를 찾지 못했습니다. 크롬이나 삼성 인터넷을 설치한 뒤 다시 누르십시오.")
-        }
+        // 1.16.0 (261105-B26) 플린트 2 공유기의 피디 화면을 엶 — 예전 판은 아이피타임 방식에서만 열려 플린트 2에서는 열리지 않았음
+        Thread {
+            val ok = Flint.pdMutgi(this)
+            h.post {
+                if (!ok) allimMal("공유기가 답하지 않습니다. 공유기 와이파이에 붙은 뒤 다시 눌러 주십시오. 공유기 판이 낮으면 BYOD 방송을 시작한 뒤에 눌러 주십시오.")
+                else try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Flint.JUSO + "pd?k=" + Flint.pdBeonho))) } catch (_: Exception) { allimMal("인터넷 창을 열지 못했습니다.") }
+            }
+        }.start()
     }
 
     /** 1.11.0 (261028-B21, 새방클, 이사장님 승인 2026-10-28) 노트북에서 피디 화면 열기 큐알 — 아이피타임 방식은 이 기기 주소, 플린트 2는 공유기 주소(피디 번호를 공유기에 물음) */
@@ -396,10 +391,7 @@ class ByodActivity : Activity() {
     }
 
     private fun gwanQrBogi() {
-        if (!Bang.kyeojim || Flint.flintInga(this) || Bang.pdKey.isEmpty()) {
-            allimMal("관계자 붙이기 큐알은 아이피타임 방식으로 BYOD 방송을 하는 동안 만들 수 있습니다. 먼저 BYOD 방송 시작을 누르십시오.")
-            return
-        }
+        if (Flint.flintInga(this)) { allimMal("관계자 붙이기는 피디 화면 안에 있습니다. 피디 화면 열기를 누르십시오."); return }   // 1.16.0
         val j = HyeonjangSeobeo.gwanQrJuso()
         val bm = try { hjQrGeurim(j, 800) } catch (_: Exception) { null }
         if (bm == null) { allimMal("큐알을 만들지 못했습니다. 주소는 " + j + " 입니다."); return }
@@ -438,25 +430,11 @@ class ByodActivity : Activity() {
     private fun deoBogi(yeolgi: Boolean) {
         deoAn.visibility = if (yeolgi) View.VISIBLE else View.GONE
         deoDanchu.text = if (yeolgi) "더 보기 접기" else "더 보기"
+        if (yeolgi) peulDanchuGochigi()   // 1.16.0
         if (yeolgi) gyeorugi(deoAn.getChildAt(0))
     }
 
     // 1.2.0 방송 방식 — 플린트 2(공유기 안 서버) 또는 이 기기가 서버
-    // 1.7.0 (261021-B15, 이사장님 승인) 「공유기: 아이피타임」과 「공유기: 플린트 2」를 엔터 한 번에 번갈아 고름, 처음값은 아이피타임
-    // 1.12.0 (261030-B22) 아이피타임은 예비 — 이름 앞에 「예비」
-    private fun bangsikMal(): String = if (Flint.flintInga(this)) "예비: 공유기 직접 고르기, 지금 플린트 2. 누르면 아이피타임으로 바꿉니다(보통은 방송을 시작할 때 앱이 스스로 알아냅니다)"
-        else "예비: 공유기 직접 고르기, 지금 아이피타임. 누르면 플린트 2로 바꿉니다(보통은 방송을 시작할 때 앱이 스스로 알아냅니다)"
-
-    private fun bangsikBakkugi() {
-        if (Bang.kyeojim) { val t = "방송 중에는 공유기를 바꾸지 않습니다. 방송을 멈춘 뒤 눌러 주십시오."; bangsikDanchu.announceForAccessibility(t); malhagi(t); return }
-        Flint.bangsikBakkugi(this, if (Flint.flintInga(this)) "taebeullit" else "flint")
-        bangsikDanchu.text = bangsikMal()
-        val t = if (Flint.flintInga(this)) "플린트 2로 바꾸었습니다. 처음 쓰는 플린트 2면 더 보기의 플린트 2 준비하기를 먼저 하십시오."
-            else "아이피타임으로 바꾸었습니다. 이 기기를 허브 랜선으로 아이피타임 공유기에 이으십시오. 듣는 분은 와이파이에 붙은 뒤 듣기 주소 엔에프시 태그나 큐알로 듣습니다."
-        bangsikDanchu.announceForAccessibility(t); malhagi(t)
-        sangtaeGochigi(true)
-    }
-
     // 1.5.0 현장 방송과 함께 인터넷 방송 켜고 끄기 — 다음 방송부터
     private fun hamkkeMal() = if (Inteonet.hamkke(this)) "BYOD 방송과 함께 인터넷 방송: 켜짐. 누르면 끕니다" else "BYOD 방송과 함께 인터넷 방송: 꺼짐. 누르면 켭니다"
     // 1.9.2 (261026-B19) 소리 자동 맞춤 켜고 끄기 — 방송 중에도 곧바로 적용
@@ -595,22 +573,29 @@ class ByodActivity : Activity() {
                 if (Flint.mutgi(this, "/status", 2500) != null) { flintDap = true; break }
                 try { Thread.sleep(500) } catch (_: InterruptedException) { }
             }
-            val juso = ByodService.jusoChatgi()
             h.post {
                 bangDanchu.isEnabled = true
                 if (doumalYeollim) return@post
-                                // 1.12.0 (261030-B22) 플린트 2 주소(192.168.8.)에 붙어 있으면 방송 서버가 잠깐 답하지 않아도 아이피타임으로 바꾸지 않음(이사장님 지적 2026-10-30 「플린트를 골랐는데 왜 아이피타임이 자꾸 나오나」)
-                // 1.14.0 아이피타임을 뺌 — 언제나 플린트 2
-                bangsikDanchu.text = bangsikMal()
-                val host = juso.removePrefix("http://").substringBefore(":")
-                val munje: String? = when {
-                    flintDap -> null
-                    juso.isEmpty() -> "이 기기가 어느 공유기에도 붙어 있지 않습니다. 방송 공유기의 와이파이에 붙이거나 허브 랜선을 공유기에 이으십시오."
-                    Flint.peulJuso(host) -> "플린트 2 공유기로 보이는데 방송 서버가 답하지 않습니다. 처음 쓰는 플린트 2면 더 보기의 플린트 2 준비하기를 먼저 하십시오."
-                    !host.startsWith("192.168.") -> "이 기기가 방송 공유기가 아닌 와이파이에 붙어 있는 것 같습니다. 지금 주소는 " + host + " 입니다. 아이피타임 방송 공유기에 붙으면 주소가 192.168 로 시작합니다. 이대로 시작하면 듣는 분이 방송을 찾지 못합니다."
-                    else -> "이 기기가 플린트 2 공유기에 붙어 있지 않습니다. 와이파이 " + Flint.SSID + " 에 붙이십시오."   // 1.14.0
+                if (flintDap) { sijakhagi(); return@post }
+                // 1.16.0 (261105-B26, 이사장님 승인) 어디서 막혔는지 말하고 기록, 와이파이에 붙어 있지 않으면 저절로 붙어 봄
+                val wae = Flint.wae(this)
+                try { Girok.namgi("flint_mot_chatgi", mapOf("wae" to wae.first, "mal" to wae.second, "juso" to ByodService.jusoChatgi())); Girok.jeojang() } catch (_: Exception) { }
+                val now = System.currentTimeMillis()
+                if ((wae.first == "wifi_eopseum" || wae.first == "dareun_wifi") && now - wifiHaebon > 60_000 && Flint.wifiButgi(this)) {
+                    wifiHaebon = now
+                    bangDanchu.isEnabled = false
+                    val m = "와이파이 " + Flint.SSID + " 에 붙어 봅니다. 폰이 연결할지 물으면 연결을 누르십시오."
+                    sangtae.text = m; malhagi(m)
+                    Thread {
+                        for (i in 1..40) {
+                            if (Flint.mang(this) != null) break
+                            try { Thread.sleep(500) } catch (_: InterruptedException) { }
+                        }
+                        h.post { gongyugiSalpigo() }
+                    }.start()
+                    return@post
                 }
-                if (munje == null) { sijakhagi(); return@post }
+                val munje = wae.second
                 malhagi(munje)
                 val dlg = android.app.AlertDialog.Builder(this).setTitle("공유기 확인").setMessage(munje)
                     .setPositiveButton("와이파이 설정 열기") { _, _ -> try { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) } catch (_: Exception) { } }
@@ -619,6 +604,58 @@ class ByodActivity : Activity() {
                 dlg.setNegativeButton("다시 살피기") { _, _ -> gongyugiSalpigo() }   // 1.14.0 공유기 없이는 시작하지 않음
                 dlg.show()
             }
+        }.start()
+    }
+    private var wifiHaebon = 0L   // 1.16.0 저절로 붙어 본 때 — 1분에 한 번만
+
+    // 1.16.0 듣기 화면 저절로 뜨기, 음향 콘솔 입력 — 방송 전에도 공유기에 붙어 있으면 바꿈
+    private fun tteugiMal(j: org.json.JSONObject?) = when (j?.optString("ttuigi")) {
+        "ttuim" -> "듣기 화면 저절로 뜨기: 켜짐. 누르면 끕니다"
+        "cheok" -> "듣기 화면 저절로 뜨기: 꺼짐. 누르면 켭니다"
+        else -> "듣기 화면 저절로 뜨기: 공유기에 붙어 있지 않습니다"
+    }
+    private fun konsolMal(j: org.json.JSONObject?) = when {
+        j == null -> "음향 콘솔 입력: 공유기에 붙어 있지 않습니다"
+        !j.has("konsol") -> "음향 콘솔 입력: 공유기 새 판이 필요합니다"
+        j.optInt("konsol") == 1 -> "음향 콘솔 입력: 씀, " + j.optString("konsol_mal") + ". 누르면 안 씁니다"
+        else -> "음향 콘솔 입력: 안 씀. 누르면 씁니다"
+    }
+    private fun gongyugiSangtae(): org.json.JSONObject? = try { Flint.mutgi(this, "/status")?.let { org.json.JSONObject(it) } } catch (_: Exception) { null }
+    private fun peulDanchuGochigi() {
+        Thread {
+            val j = gongyugiSangtae()
+            h.post { tteugiDanchu.text = tteugiMal(j); konsolDanchu.text = konsolMal(j) }
+        }.start()
+    }
+    private fun tteugiBakkugi() {
+        Thread {
+            val j = gongyugiSangtae()
+            val mal: String
+            if (j == null) mal = "공유기가 답하지 않습니다. 공유기 와이파이에 붙은 뒤 다시 눌러 주십시오."
+            else {
+                val kyeo = j.optString("ttuigi") != "ttuim"
+                val ok = Flint.pdMutgi(this) && Flint.mutgi(this, "/bangsik?v=" + (if (kyeo) "0" else "1") + "&k=" + Flint.pdBeonho) != null
+                mal = if (!ok) "바꾸지 못했습니다. 공유기 판이 1.9.0보다 낮으면 방송을 시작한 뒤에 눌러 주십시오."
+                    else if (kyeo) "듣기 화면 저절로 뜨기를 켰습니다. 이제 와이파이에 붙는 폰에 듣기 화면이 뜹니다." else "듣기 화면 저절로 뜨기를 껐습니다."
+            }
+            val j2 = gongyugiSangtae()
+            h.post { tteugiDanchu.text = tteugiMal(j2); malhagi(mal); allimMal(mal) }
+        }.start()
+    }
+    private fun konsolBakkugi() {
+        Thread {
+            val j = gongyugiSangtae()
+            val mal: String
+            if (j == null) mal = "공유기가 답하지 않습니다. 공유기 와이파이에 붙은 뒤 다시 눌러 주십시오."
+            else if (!j.has("konsol")) mal = "공유기 판이 낮습니다. 공유기에 새 방송 서버를 넣은 뒤에 쓸 수 있습니다."
+            else {
+                val sseum = j.optInt("konsol") != 1
+                val ok = Flint.pdMutgi(this) && Flint.mutgi(this, "/konsol?v=" + (if (sseum) "1" else "0") + "&k=" + Flint.pdBeonho) != null
+                mal = if (!ok) "바꾸지 못했습니다." else if (sseum) "음향 콘솔 입력을 씁니다. 유에스비 소리 장치를 플린트 2에 꽂으십시오." else "음향 콘솔 입력을 쓰지 않습니다."
+            }
+            try { Thread.sleep(600) } catch (_: InterruptedException) { }
+            val j2 = gongyugiSangtae()
+            h.post { konsolDanchu.text = konsolMal(j2); malhagi(mal); allimMal(mal) }
         }.start()
     }
 
