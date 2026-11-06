@@ -155,6 +155,26 @@ object Flint {
         c.disconnect(); t
     } catch (_: Exception) { null }
 
+    /** 261107 (이사장님 승인) 공유기에 설정을 넘김 — 본문 JSON, 피디 번호 확인. 번호·비밀번호를 주소에 싣지 않음 */
+    fun seoljeong(ctx: Context, mom: org.json.JSONObject): String? = try {
+        if (!pdMutgi(ctx)) null else {
+            val n = mang(ctx)
+            val u = URL("http://$IP:$WEB/seoljeong?k=$pdBeonho")
+            val c = (n?.openConnection(u) ?: u.openConnection()) as HttpURLConnection
+            c.connectTimeout = 4000; c.readTimeout = 4000; c.useCaches = false
+            c.requestMethod = "POST"; c.doOutput = true
+            c.setRequestProperty("Content-Type", "application/json")
+            c.outputStream.use { it.write(mom.toString().toByteArray(Charsets.UTF_8)) }
+            val t = if (c.responseCode == 200) c.inputStream.bufferedReader().readText() else null
+            c.disconnect(); t
+        }
+    } catch (_: Exception) { null }
+    /** 261107 송출 앱에 등록된 현장영상해설사 번호를 공유기에 넘겨 기억시킴 */
+    fun beonhoNeomgigi(ctx: Context) {
+        val b = Inteonet.jeonhwa(ctx)
+        if (b.length >= 10) seoljeong(ctx, org.json.JSONObject().put("beonho", b))
+    }
+
     /** 해설 소리를 공유기로 보내는 일꾼 — 끊기면 2초마다 다시 붙음 */
     class Bonaegi(private val ctx: Context, private val hyeon: Boolean = false) {   // 1.14.0 hyeon: 무대 현장음 폰
         private val jul = ArrayBlockingQueue<ByteArray>(50)   // 5초까지 쌓아 둠

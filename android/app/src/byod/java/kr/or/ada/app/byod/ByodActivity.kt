@@ -75,6 +75,9 @@ class ByodActivity : Activity() {
     private lateinit var suhsinDanchu: Button   // 261107 수신기 해설 송출
     private var konsolKeugi = -1
     private var suhsinKeu = false
+    private lateinit var inetJul: TextView     // 261107 플 인터넷 방송 상태
+    private lateinit var hsDanchu: Button
+    private lateinit var hsMuk: LinearLayout
     private var hyeonGi = 0   // 1.14.0 현장음 크기 차례
     private lateinit var inteonetGeul: TextView   // 1.5.0 함께 나가는 인터넷 방송 한 줄
     private lateinit var hamkkeDanchu: Button    // 1.5.0
@@ -329,6 +332,20 @@ class ByodActivity : Activity() {
         ssimDanchu = danchu("") { ssimBakkugi() }; ssimDanchu.visibility = View.GONE; deoAn.addView(ssimDanchu)
         keugiDanchu = danchu("") { keugiBakkugi() }; keugiDanchu.visibility = View.GONE; deoAn.addView(keugiDanchu)
         suhsinDanchu = danchu("") { suhsinSongchul() }; suhsinDanchu.visibility = View.GONE; deoAn.addView(suhsinDanchu)
+        // 261107 (이사장님 승인) 폰 없이 인터넷 방송 — 핫스팟을 공유기에 기억시킴
+        inetJul = geul(""); inetJul.visibility = View.GONE; deoAn.addView(inetJul)
+        hsMuk = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+        val hsI = EditText(this).apply { hint = "핫스팟 이름(직원 폰의 개인용 핫스팟 이름)"; contentDescription = hint; setTextColor(Saek.geul); setHintTextColor(Saek.yeonhan); setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f) }
+        val hsB = EditText(this).apply { hint = "핫스팟 비밀번호"; contentDescription = hint; setTextColor(Saek.geul); setHintTextColor(Saek.yeonhan); setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f); inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD }
+        hsMuk.addView(hsI); hsMuk.addView(hsB)
+        hsMuk.addView(danchu("플에 핫스팟 기억시키기") { hsNeoki(hsI, hsB) })
+        hsDanchu = danchu("플 인터넷: 핫스팟 넣기") {
+            val yeol = hsMuk.visibility != View.VISIBLE
+            hsMuk.visibility = if (yeol) View.VISIBLE else View.GONE
+            hsDanchu.text = if (yeol) "플 인터넷 핫스팟 칸 닫기" else "플 인터넷: 핫스팟 넣기"
+        }
+        hsDanchu.visibility = View.GONE
+        deoAn.addView(hsDanchu); deoAn.addView(hsMuk)
         pdGeul = geul(pdMal(), 18f).apply { setTextColor(Saek.yeonhan) }   // 1.9.0 피디 번호 한 줄
         deoAn.addView(pdGeul)
         deoAn.addView(geul("LVD 송출 " + Bang.PAN + "판, 빌드 " + Bang.BILD, 16f).apply { setTextColor(Saek.yeonhan) })
@@ -652,6 +669,29 @@ class ByodActivity : Activity() {
             else if (suhsinKeu) "수신기 해설 송출: 나가는 중. 누르면 멈춥니다" else "수신기 해설 송출: 멈춤. 누르면 내보냅니다"
         ssimDanchu.visibility = View.VISIBLE; keugiDanchu.visibility = View.VISIBLE
         suhsinDanchu.visibility = if (hs) View.VISIBLE else View.GONE
+        // 261107 플 인터넷 방송 — 공유기 1.9.6부터. 상태를 볼 때 번호도 넘겨 둠
+        val it = j.optJSONObject("inet")
+        if (it == null) { inetJul.visibility = View.GONE; hsDanchu.visibility = View.GONE }
+        else {
+            val bm = it.optString("mal")
+            inetJul.text = "플 인터넷 방송: " + bm.ifEmpty { "나가지 않음" } + ". 번호 " + it.optString("beonho", "없음") + ". 핫스팟 " + it.optString("hotspot", "없음") + ", " + it.optString("hotspot_mal")
+            inetJul.visibility = View.VISIBLE; hsDanchu.visibility = View.VISIBLE
+            Thread { Flint.beonhoNeomgigi(this) }.start()
+        }
+    }
+    private fun hsNeoki(hsI: EditText, hsB: EditText) {
+        val i = hsI.text.toString().trim(); val b = hsB.text.toString()
+        try { (getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(hsB.windowToken, 0) } catch (_: Exception) { }
+        Thread {
+            val r = Flint.seoljeong(this, org.json.JSONObject().put("hs_ssid", i).put("hs_pw", b).put("beonho", Inteonet.jeonhwa(this)))
+            val m = if (r == null) "공유기가 답하지 않습니다. 공유기 와이파이에 붙은 뒤 다시 눌러 주십시오."
+                else if (i.isEmpty()) "핫스팟을 지웠습니다." else "$i 핫스팟을 공유기에 기억시켰습니다. 그 핫스팟이 켜지면 공유기가 저절로 붙습니다."
+            val j2 = gongyugiSangtae()
+            h.post {
+                if (r != null) { hsB.setText(""); hsMuk.visibility = View.GONE; hsDanchu.text = "플 인터넷: 핫스팟 넣기" }
+                konsolDanchu.text = konsolMal(j2); suhsinDanchuGochigi(j2); malhagi(m); allimMal(m)
+            }
+        }.start()
     }
     private fun peulBakkugi(gil: String, doem: String) {
         Thread {

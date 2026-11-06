@@ -26,8 +26,8 @@ try:
 except Exception:          # python3-openssl 이 없는 공유기 — 자물쇠 문 없이 돎
     ssl = None
 
-PAN = "1.9.5"   # 261107-F17 수신기 해설 — 허브에 꽂은 송수신기 소리를 플이 직접 해설로(폰 없이도), 멈추면 대기 음악, 받는 크기 기억. 261107-F16 현장 와이파이 세기 — 기기마다 2초마다 읽어 진단·나스 보고에, 거리 재기 화면 /sege. 261106-F15 콘솔 소리가 3초 넘게 안 오면 「소리 장치가 멈춤」, 끄면 바로 「끔」, 진단에 마지막 소리 몇 초 전. 261106-F14 콘솔 녹음기를 하나만 띄워 따로 읽음. 261106-F13 보내는 기기가 끊겨 돌아오지 않으면 해설 중을 끄고 대기 음악으로, 두 대 송출은 묻고 넘겨받기. 261105-F12 진단 /jindan, 나스 올리기 세 갈래와 시계 맞춤, 저절로 뜨기 때 아이폰 머물게, 음향 콘솔 입력, 피디 번호 묻기. 앞: 261104-F11 송출 대기·점검 듣기·현장음 섞기. 앞: 261103-F8~F10 소리 키우기·시계, 261030-F7
-BILD = "261107-F17"
+PAN = "1.9.6"   # 261107-F18 폰 없이 인터넷 방송 — 송출 앱이 넘겨준 해설사 번호와 기억한 핫스팟으로 플이 직접 협회 중계에. 261107-F17 수신기 해설 — 허브에 꽂은 송수신기 소리를 플이 직접 해설로(폰 없이도), 멈추면 대기 음악, 받는 크기 기억. 261107-F16 현장 와이파이 세기 — 기기마다 2초마다 읽어 진단·나스 보고에, 거리 재기 화면 /sege. 261106-F15 콘솔 소리가 3초 넘게 안 오면 「소리 장치가 멈춤」, 끄면 바로 「끔」, 진단에 마지막 소리 몇 초 전. 261106-F14 콘솔 녹음기를 하나만 띄워 따로 읽음. 261106-F13 보내는 기기가 끊겨 돌아오지 않으면 해설 중을 끄고 대기 음악으로, 두 대 송출은 묻고 넘겨받기. 261105-F12 진단 /jindan, 나스 올리기 세 갈래와 시계 맞춤, 저절로 뜨기 때 아이폰 머물게, 음향 콘솔 입력, 피디 번호 묻기. 앞: 261104-F11 송출 대기·점검 듣기·현장음 섞기. 앞: 261103-F8~F10 소리 키우기·시계, 261030-F7
+BILD = "261107-F18"
 
 SEOBEO_IP = os.environ.get("BYOD_IP", "192.168.8.2")      # 듣기 화면 주소(공유기에 덧붙인 주소)
 WEB_PORT = int(os.environ.get("BYOD_WEB_PORT", "7880"))    # 80번은 방화벽이 이리로 돌려줌
@@ -230,6 +230,34 @@ KONSOL_SSIM_PAIL = os.path.join(TEO, "konsol_ssim")
 KONSOL_KEUGI_PAIL = os.path.join(TEO, "konsol_keugi")
 # 1.9.5 (261107-F17, 이사장님 승인) 수신기 해설 — 폰 없이 송수신기·젠더·허브·플만으로 방송
 SUHSIN = {"on": False, "pd_meom": False, "jadong_meom": False, "ttae": 0.0}
+# 1.9.6 (261107-F18, 이사장님 승인) 폰 없이 인터넷 방송 — 해설사 번호와 핫스팟은 플 안에만 둠(바깥 보고에는 끝 네 자리와 이름만)
+INET_PAIL = os.path.join(TEO, "inteonet.json")
+INET = {"beonho": "", "hs_ssid": "", "hs_pw": "", "hs_mal": "핫스팟을 넣지 않음", "hs_sido": 0.0, "hs_boim": None,
+        "bang": False, "sid": "", "tok": "", "moum": bytearray(), "cheot": True, "geobu": "", "mal": "", "yeolgi_ttae": 0.0,
+        "silpae": 0, "kkeum_ttae": 0.0, "bonaen_cho": 0.0}
+JUNGYE = os.environ.get("BYOD_JUNGYE", "https://lvd.ada.or.kr:2053")
+try:
+    _j = json.load(open(INET_PAIL, encoding="utf-8"))
+    INET["beonho"] = re.sub(r"\D", "", str(_j.get("beonho", "")))[:11]
+    INET["hs_ssid"] = str(_j.get("hs_ssid", ""))[:32]
+    INET["hs_pw"] = str(_j.get("hs_pw", ""))[:63]
+except Exception:
+    pass
+
+
+def inet_jeojang():
+    try:
+        with open(INET_PAIL, "w", encoding="utf-8") as f:
+            json.dump({"beonho": INET["beonho"], "hs_ssid": INET["hs_ssid"], "hs_pw": INET["hs_pw"]}, f, ensure_ascii=False)
+        os.chmod(INET_PAIL, 0o600)
+    except Exception:
+        pass
+
+
+def inet_yoyak():
+    return {"beonho": ("등록됨, 끝 네 자리 " + INET["beonho"][-4:]) if INET["beonho"] else "없음",
+            "hotspot": INET["hs_ssid"] or "없음", "hotspot_mal": INET["hs_mal"],
+            "bang": INET["bang"], "mal": INET["mal"] or ("나가지 않음" if not INET["bang"] else "")}
 KONSOL_MEOMCHUM = "소리 장치가 멈춤. 소리가 오지 않습니다. 다른 장치로 바꿔 보십시오"
 
 
@@ -513,6 +541,169 @@ def wifi_yoyak():
             "deut_dan": {k: sum(1 for x in deut if wifi_dan(x) == k) for k in ("좋음", "보통", "약함", "끊길 위험")}}
 
 
+# ───── 1.9.6 핫스팟 저절로 붙기와 플 인터넷 방송 ─────
+def hs_boim(ssid):
+    """주변에 그 핫스팟이 켜져 있는가 — 살필 수 없으면 None"""
+    import subprocess as sp
+    if not shutil.which("iwinfo"):
+        return None
+    salpim = False
+    for f in ("ra0", "rax0"):
+        try:
+            t = sp.run(["iwinfo", f, "scan"], stdout=sp.PIPE, stderr=sp.DEVNULL, timeout=15).stdout.decode("utf-8", "replace")
+        except Exception:
+            continue
+        if "ESSID" in t or "Address" in t:
+            salpim = True
+        if ('ESSID: "%s"' % ssid) in t:
+            return True
+    return False if salpim else None
+
+
+def hs_butgi():
+    import subprocess as sp
+    arg = json.dumps({"ssid": INET["hs_ssid"], "key": INET["hs_pw"], "remember": False}, ensure_ascii=False)
+    try:
+        p = sp.run(["ubus", "call", "repeater", "connect", arg], stdout=sp.PIPE, stderr=sp.PIPE, timeout=30)
+        return p.returncode == 0
+    except Exception:
+        return False
+
+
+async def hs_ilkkun():
+    """인터넷이 없고 기억한 핫스팟이 주변에 켜져 있을 때만, 2분에 한 번 붙어 봄 — 붙는 순간 그쪽 와이파이 채널이 바뀌어 듣는 폰이 잠깐 끊길 수 있음"""
+    lp = asyncio.get_event_loop()
+    await asyncio.sleep(20)
+    while True:
+        try:
+            if INET["hs_ssid"]:
+                it = await lp.run_in_executor(None, gw_inteonet)
+                if it:
+                    INET["hs_mal"] = "인터넷 있음"
+                elif time.time() - INET["hs_sido"] >= 120:
+                    bo = await lp.run_in_executor(None, hs_boim, INET["hs_ssid"])
+                    INET["hs_boim"] = bo
+                    if bo is False:
+                        INET["hs_mal"] = "핫스팟이 주변에 보이지 않음"
+                    else:
+                        INET["hs_sido"] = time.time()
+                        if bo is None and time.time() - INET.get("hs_none_ttae", 0) < 300:
+                            INET["hs_mal"] = "주변을 살필 수 없어 5분에 한 번 붙어 봄"
+                        else:
+                            INET["hs_none_ttae"] = time.time()
+                            ok = await lp.run_in_executor(None, hs_butgi)
+                            await asyncio.sleep(15)
+                            it = await lp.run_in_executor(None, gw_inteonet)
+                            INET["hs_mal"] = "핫스팟에 붙음, 인터넷 있음" if it else ("핫스팟에 붙기를 청했으나 인터넷이 아직 없음" if ok else "핫스팟에 붙지 못함")
+                            if it:
+                                GW["inteonet"] = True
+        except Exception as e:
+            INET["hs_mal"] = "핫스팟 살피기 오류: %r" % e
+        await asyncio.sleep(30)
+
+
+def inet_yocheong(gil, data=None):
+    """중계에 묻기 — (코드, 내용). 403 은 명단에 없음"""
+    try:
+        b = gw_batgi(JUNGYE + gil, data, 15)
+        return 200, b
+    except Exception as e:
+        t = str(e)
+        if "403" in t:
+            return 403, b""
+        if "404" in t:
+            return 404, b""
+        return 0, t.encode("utf-8", "replace")
+
+
+def inet_wav_meori():
+    import struct
+    return (b"RIFF" + struct.pack("<I", 0xFFFFFFFF) + b"WAVE" + b"fmt " + struct.pack("<IHHIIHH", 16, 7, 1, RATE, RATE, 1, 8)
+            + b"data" + struct.pack("<I", 0xFFFFFFFF))
+
+
+def inet_mal_ireum():
+    h = B.haengsa
+    jm = (h.g.get("jemok", "") if h else "") or ("현장영상해설 방송 " + time.strftime("%m월 %d일 %H시 %M분", time.localtime(jigeum())))
+    return jm, ((h.g.get("haeseolsa", "") if h else "") or "수신기 해설")
+
+
+async def inet_ilkkun():
+    """폰 없이 수신기 해설이 송출 중이고, 번호가 있고, 인터넷이 닿으면 플이 협회 중계로 2초마다 보냄"""
+    lp = asyncio.get_event_loop()
+    while True:
+        await asyncio.sleep(2)
+        try:
+            now = time.time()
+            haeya = suhsin_saram() and B.cue.get(1) and bool(INET["beonho"]) and not INET["geobu"]
+            if not INET["beonho"]:
+                INET["mal"] = "해설사 번호가 없음 — 송출 앱으로 공유기에 한 번 붙으면 넘겨받음" if KONSOL["ssim"] == "haeseol" else ""
+            if not haeya:
+                if INET["bang"]:
+                    if INET["kkeum_ttae"] == 0:
+                        INET["kkeum_ttae"] = now          # 잠깐 멈춘 것일 수 있어 10초 기다린 뒤 방을 닫음
+                    elif now - INET["kkeum_ttae"] > 10:
+                        INET["bang"] = False
+                        if INET["sid"]:
+                            await lp.run_in_executor(None, inet_yocheong, "/datgi?sid=%s&tok=%s" % (INET["sid"], INET["tok"]))
+                        INET["sid"] = ""
+                        INET["kkeum_ttae"] = 0.0
+                        INET["mal"] = "멈춤"
+                continue
+            INET["kkeum_ttae"] = 0.0
+            if not INET["bang"]:
+                if now - INET["yeolgi_ttae"] < 12:
+                    continue
+                INET["yeolgi_ttae"] = now
+                import random
+                al = "abcdefghijklmnopqrstuvwxyz0123456789"
+                sid = "lvd" + "".join(random.choice(al) for _ in range(9))
+                tok = "".join(random.choice(al) for _ in range(10))
+                jm, who = inet_mal_ireum()
+                gil = "/yeolgi?sid=%s&tok=%s&phone=%s&mime=%s&jong=live&title=%s&who=%s" % (
+                    sid, tok, INET["beonho"], urllib.parse.quote("audio/wav"), urllib.parse.quote(jm), urllib.parse.quote(who))
+                code, b = await lp.run_in_executor(None, inet_yocheong, gil)
+                ok = False
+                if code == 200:
+                    try:
+                        j = json.loads(b.decode("utf-8"))
+                        ok = bool(j.get("ok"))
+                        sid = j.get("sid") or sid
+                        tok = j.get("tok") or tok
+                    except Exception:
+                        ok = False
+                if ok:
+                    INET.update({"bang": True, "sid": sid, "tok": tok, "cheot": True, "silpae": 0, "bonaen_cho": 0.0})
+                    del INET["moum"][:]
+                    INET["mal"] = "나가는 중"
+                elif code == 403:
+                    INET["geobu"] = INET["beonho"]
+                    INET["mal"] = "이 번호가 협회 현장영상해설사 명단에 없어 인터넷으로는 나가지 않음"
+                else:
+                    INET["mal"] = "인터넷이나 중계에 닿지 않음 — 저절로 다시 시도"
+                continue
+            mo = INET["moum"]
+            if not mo:
+                continue
+            body = (inet_wav_meori() if INET["cheot"] else b"") + bytes(mo)
+            cho = len(mo) / RATE
+            del mo[:]
+            code, _ = await lp.run_in_executor(None, inet_yocheong, "/jogak?sid=%s&tok=%s" % (INET["sid"], INET["tok"]), body)
+            if code == 200:
+                INET["cheot"] = False; INET["silpae"] = 0; INET["bonaen_cho"] += cho
+                INET["mal"] = "나가는 중"
+            elif code in (403, 404):
+                INET["bang"] = False; INET["sid"] = ""; INET["yeolgi_ttae"] = 0.0
+                INET["mal"] = "중계가 다시 켜져 방을 새로 엶"
+            else:
+                INET["silpae"] += 1
+                INET["mal"] = "인터넷이나 중계에 닿지 않음 — 저절로 다시 시도"
+                if INET["silpae"] >= 5:
+                    INET["bang"] = False; INET["sid"] = ""
+        except Exception as e:
+            INET["mal"] = "오류: %r" % e
+
+
 async def hyeon_batgi(r, w, ireum):
     """무대 폰 — 뮤 소리를 그대로 받음. 해설과 끊겨도 해설 방송에는 영향 없음"""
     HYEON["ireum"] = ireum
@@ -790,6 +981,11 @@ def gal_naegi(g, b):
         B.ppurida(ku, GAL_JEOMGEOM)
         try:
             m = hyeon_seokki(b, ku)
+            if INET["bang"]:                       # 1.9.6 플이 직접 인터넷 방송 — 현장음을 섞은 소리가 있으면 그것, 없으면 해설
+                mo = INET["moum"]
+                mo += (m if m is not None else ku)
+                if len(mo) > RATE * 10:
+                    del mo[:len(mo) - RATE * 2]
             if m is not None:
                 B.ppurida(m, GAL_SEOKKIM)
                 if B.haengsa is not None:
@@ -1624,6 +1820,7 @@ def jindan():
                        "majimak_cho": round(time.time() - KONSOL["ttae"], 1) if KONSOL["ttae"] else -1,
                        "arecord": bool(shutil.which("arecord"))},
             "wifi": wifi_yoyak(),   # 1.9.4
+            "inet": inet_yoyak(),   # 1.9.6
             "girok": [gw_gamchugi(x) for x in GW_GIROK[-8:]]}
 
 
@@ -2187,6 +2384,7 @@ def sangtae(heoga=False, gal=1):
         "bonaem": B.bonaem_ireum or ("수신기" if gal == 1 and suhsin_saram() else ""),
         "konsol": 1 if KONSOL["kyeojim"] else 0, "konsol_jangchi": KONSOL["jangchi"], "konsol_mal": konsol_mal(),
         "konsol_ssim": KONSOL["ssim"], "konsol_keugi": KONSOL["keugi"], "suhsin": suhsin_saram(),   # 1.9.5
+        "inet": inet_yoyak(),   # 1.9.6
         "hyeon": hyeon_saram(), "hyeon_ireum": HYEON["ireum"] if hyeon_saram() else "", "hyeon_mok": HYEON["mok"], "jeongji": B.jeongji1,
         "kiugi": KIUGI_KYEOM[0], "kiugi_mok": KIUGI_GAP[0], "kiugi_han": KIUGI_GAP[1], "kiugi_db": round(KIUGI_GAL[1].g, 1) if 1 in KIUGI_GAL else 0,
         "kiugi_mal": round(KIUGI_GAL[1].mal, 1) if 1 in KIUGI_GAL else 0,
@@ -2763,6 +2961,27 @@ async def web(r, w, tls=False):
             else:
                 gyesok = True
                 await deut_butigi(w, ip, True, 1, False)
+        elif uri == "/seoljeong" and method == "POST":   # 1.9.6 송출 앱이 해설사 번호·핫스팟을 넘겨줌(본문 JSON, 해설사 번호 확인 필요)
+            if not heoga:
+                js(w, {"ok": False, "msg": "해설사 번호가 맞지 않습니다."}, 403)
+            else:
+                try:
+                    j = json.loads(body.decode("utf-8") or "{}")
+                except Exception:
+                    j = {}
+                if "beonho" in j:
+                    bn = re.sub(r"\D", "", str(j.get("beonho", "")))
+                    if 10 <= len(bn) <= 11 and bn.startswith("01"):
+                        if bn != INET["beonho"]:
+                            INET["geobu"] = ""
+                        INET["beonho"] = bn
+                if "hs_ssid" in j:
+                    INET["hs_ssid"] = str(j.get("hs_ssid", "")).strip()[:32]
+                    INET["hs_pw"] = str(j.get("hs_pw", ""))[:63]
+                    INET["hs_sido"] = 0.0; INET["hs_none_ttae"] = 0
+                    INET["hs_mal"] = "핫스팟을 기억함" if INET["hs_ssid"] else "핫스팟을 지움"
+                inet_jeojang()
+                js(w, {"ok": True, "inet": inet_yoyak()})
         elif uri == "/sege":                      # 1.9.4 거리 재기 화면 — 이 폰의 와이파이 세기
             geulja(w, 200, "text/html; charset=utf-8", SEGE_HTML, "Cache-Control: no-store\r\n")
         elif uri == "/sege.json":
@@ -3280,6 +3499,8 @@ async def main():
     asyncio.ensure_future(gwanri_ilkkun())     # 1.7.0 원격 관리
     asyncio.ensure_future(konsol_ilkkun())     # 1.9.0 음향 콘솔
     asyncio.ensure_future(wifi_ilkkun())       # 1.9.4 현장 와이파이 세기
+    asyncio.ensure_future(hs_ilkkun())         # 1.9.6 핫스팟 저절로 붙기
+    asyncio.ensure_future(inet_ilkkun())       # 1.9.6 폰 없이 인터넷 방송
     print("BYOD 플린트 서버 %s (%s) — 듣기 %d, 소리 %d, 자물쇠 %s, mp3 %s, 피디 번호 %s" % (PAN, BILD, WEB_PORT, SORI_PORT, B.tport or "없음", B.mp3_iss, B.pdkey), flush=True)
     await asyncio.gather(*[s.serve_forever() for s in sv])
 

@@ -98,6 +98,29 @@ enum Flint {
             kkeut(j)
         }.resume()
     }
+
+    /// 261107 (이사장님 승인) 공유기에 설정을 넘김 — 본문 JSON, 피디 번호 확인. 번호·비밀번호를 주소에 싣지 않음
+    static func seoljeong(_ mom: [String: Any], _ kkeut: @escaping ([String: Any]?) -> Void) {
+        pdMutgi { ok in
+            guard ok, let u = URL(string: "http://\(IP):\(WEB)/seoljeong?k=\(pdBeonho)"),
+                  let b = try? JSONSerialization.data(withJSONObject: mom) else { kkeut(nil); return }
+            var q = URLRequest(url: u); q.httpMethod = "POST"; q.httpBody = b; q.timeoutInterval = 4
+            q.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            q.allowsCellularAccess = false
+            URLSession.shared.dataTask(with: q) { d, r, _ in
+                var j: [String: Any]? = nil
+                if (r as? HTTPURLResponse)?.statusCode == 200, let d = d { j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] }
+                DispatchQueue.main.async { kkeut(j) }
+            }.resume()
+        }
+    }
+
+    /// 261107 송출 앱에 등록된 현장영상해설사 번호를 공유기에 넘겨 기억시킴 — 폰 없이 수신기 해설로 인터넷 방송할 때 공유기가 씀
+    static func beonhoNeomgigi() {
+        let b = InteonetBonaegi.jeonhwa
+        guard b.count >= 10 else { return }
+        seoljeong(["beonho": b]) { _ in }
+    }
 }
 
 /// 해설 소리를 공유기로 보내는 일꾼 — 끊기면 2초마다 다시 붙음, 3초마다 듣는 분 수·도움 요청을 물음

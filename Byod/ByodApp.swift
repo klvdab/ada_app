@@ -217,6 +217,10 @@ struct CheotView: View {
     @State private var suhsinGeul = ""      // 261107 수신기 해설 송출
     @State private var konsolKeugi = -1
     @State private var suhsinKeu = false
+    @State private var inetGeul = ""        // 261107 플 인터넷 방송 상태
+    @State private var hsBoim = false       // 261107 핫스팟 넣는 칸 열림
+    @State private var hsIreum = ""
+    @State private var hsBimil = ""
     @State private var wifiHaebon = Date.distantPast   // 1.16.0
     @AppStorage("haengsa_jemok") private var haengsaJemok = ""   // 1.3.0
     @AppStorage("haeseolsa") private var haeseolsa = ""
@@ -335,6 +339,16 @@ struct CheotView: View {
                     if !ssimGeul.isEmpty { Danchu(geul: ssimGeul) { ssimBakkugi() } }
                     if !keugiGeul.isEmpty { Danchu(geul: keugiGeul) { keugiBakkugi() } }
                     if !suhsinGeul.isEmpty { Danchu(geul: suhsinGeul) { suhsinSongchul() } }
+                    // 261107 (이사장님 승인) 폰 없이 인터넷 방송 — 핫스팟을 공유기에 기억시킴
+                    if !inetGeul.isEmpty { Geul(inetGeul) }
+                    if !inetGeul.isEmpty {
+                        Danchu(geul: hsBoim ? "플 인터넷 핫스팟 칸 닫기" : "플 인터넷: 핫스팟 넣기") { hsBoim.toggle() }
+                        if hsBoim {
+                            Kan(ireum: "핫스팟 이름(직원 폰의 개인용 핫스팟 이름)", gap: $hsIreum)
+                            Kan(ireum: "핫스팟 비밀번호", gap: $hsBimil)
+                            Danchu(geul: "플에 핫스팟 기억시키기") { hsNeoki() }
+                        }
+                    }
                     Geul("피디 번호 \(HyeonjangGil.shared.pdKey)", saek: Saek.yeonhan)   // 1.9.0 (261024-BI11) 다른 폰에서 피디 화면을 열 때 씀
                     Geul("LVD 송출 아이폰 \(Bang.PAN)판, 빌드 \(Bang.BILD)", saek: Saek.yeonhan)
                     Geul(damgim, saek: Saek.yeonhan)
@@ -541,6 +555,16 @@ struct CheotView: View {
                     else if suhsinKeu { suhsinGeul = "수신기 해설 송출: 나가는 중. 누르면 멈춥니다" }
                     else { suhsinGeul = "수신기 해설 송출: 멈춤. 누르면 내보냅니다" }
                 } else { ssimGeul = ""; keugiGeul = ""; suhsinGeul = "" }
+                // 261107 플 인터넷 방송 — 공유기 1.9.6부터. 상태를 볼 때 번호도 넘겨 둠
+                if let it = j?["inet"] as? [String: Any] {
+                    let bm = it["mal"] as? String ?? ""
+                    let bm2: String = bm.isEmpty ? "나가지 않음" : bm
+                    let bh: String = it["beonho"] as? String ?? "없음"
+                    let hs: String = it["hotspot"] as? String ?? "없음"
+                    let hm: String = it["hotspot_mal"] as? String ?? ""
+                    inetGeul = "플 인터넷 방송: \(bm2). 번호 \(bh). 핫스팟 \(hs), \(hm)"
+                    Flint.beonhoNeomgigi()
+                } else { inetGeul = "" }
             }
         }
     }
@@ -552,6 +576,17 @@ struct CheotView: View {
                 peulBakkugi(hs ? "/konsol?ssim=haeseol&v=1" : "/konsol?ssim=hyeon",
                             hs ? "수신기 해설로 바꿨습니다. 허브에 꽂은 수신기 소리를 공유기가 곧바로 해설로 내보냅니다. 이 폰에서 BYOD 방송을 시작하면 폰 해설이 먼저입니다." : "현장음으로 바꿨습니다. 허브 소리는 인터넷 방송에 섞는 현장음으로 씁니다.")
             }
+        }
+    }
+    private func hsNeoki() {
+        let i = hsIreum.trimmingCharacters(in: .whitespaces)
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        Flint.seoljeong(["hs_ssid": i, "hs_pw": hsBimil, "beonho": InteonetBonaegi.jeonhwa]) { j in
+            let t: String = j == nil ? "공유기가 답하지 않습니다. 공유기 와이파이에 붙은 뒤 다시 눌러 주십시오."
+                : (i.isEmpty ? "핫스팟을 지웠습니다." : "\(i) 핫스팟을 공유기에 기억시켰습니다. 그 핫스팟이 켜지면 공유기가 저절로 붙습니다.")
+            if j != nil { hsBoim = false; hsBimil = "" }
+            if Malsori.shared.kyeojim { malhagi(t) } else { allyeo(t) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { peulDanchuGochigi() }
         }
     }
     private func keugiBakkugi() {
