@@ -70,6 +70,11 @@ class ByodActivity : Activity() {
     private lateinit var kiugiDanchu: Button
     private lateinit var tteugiDanchu: Button   // 1.16.0
     private lateinit var konsolDanchu: Button   // 1.16.0
+    private lateinit var ssimDanchu: Button     // 261107 콘솔 쓰임새(현장음 / 수신기 해설)
+    private lateinit var keugiDanchu: Button    // 261107 수신기 받는 크기
+    private lateinit var suhsinDanchu: Button   // 261107 수신기 해설 송출
+    private var konsolKeugi = -1
+    private var suhsinKeu = false
     private var hyeonGi = 0   // 1.14.0 현장음 크기 차례
     private lateinit var inteonetGeul: TextView   // 1.5.0 함께 나가는 인터넷 방송 한 줄
     private lateinit var hamkkeDanchu: Button    // 1.5.0
@@ -320,6 +325,10 @@ class ByodActivity : Activity() {
         deoAn.addView(tteugiDanchu)
         konsolDanchu = danchu(konsolMal(null)) { konsolBakkugi() }   // 1.16.0
         deoAn.addView(konsolDanchu)
+        // 261107 (이사장님 승인) 수신기 해설 — 방송을 시작하지 않고 플 상태만 보고 조절
+        ssimDanchu = danchu("") { ssimBakkugi() }; ssimDanchu.visibility = View.GONE; deoAn.addView(ssimDanchu)
+        keugiDanchu = danchu("") { keugiBakkugi() }; keugiDanchu.visibility = View.GONE; deoAn.addView(keugiDanchu)
+        suhsinDanchu = danchu("") { suhsinSongchul() }; suhsinDanchu.visibility = View.GONE; deoAn.addView(suhsinDanchu)
         pdGeul = geul(pdMal(), 18f).apply { setTextColor(Saek.yeonhan) }   // 1.9.0 피디 번호 한 줄
         deoAn.addView(pdGeul)
         deoAn.addView(geul("LVD 송출 " + Bang.PAN + "판, 빌드 " + Bang.BILD, 16f).apply { setTextColor(Saek.yeonhan) })
@@ -627,8 +636,50 @@ class ByodActivity : Activity() {
     private fun peulDanchuGochigi() {
         Thread {
             val j = gongyugiSangtae()
-            h.post { tteugiDanchu.text = tteugiMal(j); konsolDanchu.text = konsolMal(j) }
+            h.post { tteugiDanchu.text = tteugiMal(j); konsolDanchu.text = konsolMal(j); suhsinDanchuGochigi(j) }
         }.start()
+    }
+    // 261107 수신기 해설 — 공유기 1.9.5부터
+    private fun suhsinDanchuGochigi(j: org.json.JSONObject?) {
+        if (j == null || !j.has("konsol_ssim")) { ssimDanchu.visibility = View.GONE; keugiDanchu.visibility = View.GONE; suhsinDanchu.visibility = View.GONE; return }
+        val hs = j.optString("konsol_ssim") == "haeseol"
+        ssimDanchu.text = if (hs) "콘솔 쓰임새: 수신기 해설. 누르면 현장음으로" else "콘솔 쓰임새: 현장음. 누르면 수신기 해설로"
+        konsolKeugi = j.optInt("konsol_keugi", -1)
+        keugiDanchu.text = "수신기 받는 크기: " + (if (konsolKeugi < 0) "그대로" else "${konsolKeugi}퍼센트") + ". 누르면 바꿉니다"
+        suhsinKeu = j.optBoolean("keu")
+        val on = j.optBoolean("suhsin")
+        suhsinDanchu.text = if (!on) "수신기 해설: 소리가 오지 않습니다. 누르면 송출을 " + (if (suhsinKeu) "멈춥니다" else "켭니다")
+            else if (suhsinKeu) "수신기 해설 송출: 나가는 중. 누르면 멈춥니다" else "수신기 해설 송출: 멈춤. 누르면 내보냅니다"
+        ssimDanchu.visibility = View.VISIBLE; keugiDanchu.visibility = View.VISIBLE
+        suhsinDanchu.visibility = if (hs) View.VISIBLE else View.GONE
+    }
+    private fun peulBakkugi(gil: String, doem: String) {
+        Thread {
+            val ok = Flint.pdMutgi(this) && Flint.mutgi(this, gil + "&k=" + Flint.pdBeonho) != null
+            val mal = if (ok) doem else "바꾸지 못했습니다. 공유기 와이파이에 붙어 있는지 보십시오."
+            try { Thread.sleep(600) } catch (_: InterruptedException) { }
+            val j2 = gongyugiSangtae()
+            h.post { konsolDanchu.text = konsolMal(j2); suhsinDanchuGochigi(j2); malhagi(mal); allimMal(mal) }
+        }.start()
+    }
+    private fun ssimBakkugi() {
+        Thread {
+            val j = gongyugiSangtae()
+            if (j == null || !j.has("konsol_ssim")) { val m = "공유기가 답하지 않거나 판이 낮습니다. 공유기 1.9.5부터 쓸 수 있습니다."; h.post { malhagi(m); allimMal(m) }; return@Thread }
+            val hs = j.optString("konsol_ssim") != "haeseol"
+            peulBakkugi(if (hs) "/konsol?ssim=haeseol&v=1" else "/konsol?ssim=hyeon",
+                if (hs) "수신기 해설로 바꿨습니다. 허브에 꽂은 수신기 소리를 공유기가 곧바로 해설로 내보냅니다. 이 기기에서 BYOD 방송을 시작하면 기기 해설이 먼저입니다."
+                else "현장음으로 바꿨습니다. 허브 소리는 인터넷 방송에 섞는 현장음으로 씁니다.")
+        }.start()
+    }
+    private fun keugiBakkugi() {
+        val k = listOf(30, 50, 70, 90)
+        val sae = if (konsolKeugi < 0) 50 else k[(k.indexOf(konsolKeugi) + 1) % k.size]
+        peulBakkugi("/konsol?keugi=$sae", "수신기 받는 크기를 ${sae}퍼센트로 바꿨습니다. 소리가 찌그러지면 줄이고 작으면 키우십시오.")
+    }
+    private fun suhsinSongchul() {
+        val sae = !suhsinKeu
+        peulBakkugi("/cue?v=" + (if (sae) "1" else "0"), if (sae) "수신기 해설을 내보냅니다." else "수신기 해설을 멈췄습니다. 듣는 분께는 대기 음악과 안내가 나갑니다.")
     }
     private fun tteugiBakkugi() {
         Thread {

@@ -212,6 +212,11 @@ struct CheotView: View {
     @State private var kiugiOn = true   // 1.14.0
     @State private var tteugiGeul = "듣기 화면 저절로 뜨기: 공유기에 붙어 있지 않습니다"   // 1.16.0
     @State private var konsolGeul = "음향 콘솔 입력: 공유기에 붙어 있지 않습니다"   // 1.16.0
+    @State private var ssimGeul = ""        // 261107 콘솔 쓰임새(현장음 / 수신기 해설)
+    @State private var keugiGeul = ""       // 261107 수신기 받는 크기
+    @State private var suhsinGeul = ""      // 261107 수신기 해설 송출
+    @State private var konsolKeugi = -1
+    @State private var suhsinKeu = false
     @State private var wifiHaebon = Date.distantPast   // 1.16.0
     @AppStorage("haengsa_jemok") private var haengsaJemok = ""   // 1.3.0
     @AppStorage("haeseolsa") private var haeseolsa = ""
@@ -326,6 +331,10 @@ struct CheotView: View {
                     Danchu(geul: kiugiOn ? "플 소리 키우기: 켜짐. 누르면 끕니다" : "플 소리 키우기: 꺼짐. 누르면 켭니다") { kiugiBakkugi() }
                     Danchu(geul: tteugiGeul) { tteugiBakkugi() }   // 1.16.0
                     Danchu(geul: konsolGeul) { konsolBakkugi() }   // 1.16.0
+                    // 261107 (이사장님 승인) 수신기 해설 — 방송을 시작하지 않고 플 상태만 보고 조절
+                    if !ssimGeul.isEmpty { Danchu(geul: ssimGeul) { ssimBakkugi() } }
+                    if !keugiGeul.isEmpty { Danchu(geul: keugiGeul) { keugiBakkugi() } }
+                    if !suhsinGeul.isEmpty { Danchu(geul: suhsinGeul) { suhsinSongchul() } }
                     Geul("피디 번호 \(HyeonjangGil.shared.pdKey)", saek: Saek.yeonhan)   // 1.9.0 (261024-BI11) 다른 폰에서 피디 화면을 열 때 씀
                     Geul("LVD 송출 아이폰 \(Bang.PAN)판, 빌드 \(Bang.BILD)", saek: Saek.yeonhan)
                     Geul(damgim, saek: Saek.yeonhan)
@@ -517,8 +526,42 @@ struct CheotView: View {
                 else if let k = j?["konsol"] as? Int {
                     konsolGeul = k == 1 ? "음향 콘솔 입력: 씀, \(j?["konsol_mal"] as? String ?? ""). 누르면 안 씁니다" : "음향 콘솔 입력: 안 씀. 누르면 씁니다"
                 } else { konsolGeul = "음향 콘솔 입력: 공유기 새 판이 필요합니다" }
+                // 261107 수신기 해설 — 공유기 1.9.5부터
+                if let ss = j?["konsol_ssim"] as? String {
+                    let hs = ss == "haeseol"
+                    ssimGeul = hs ? "콘솔 쓰임새: 수신기 해설. 누르면 현장음으로" : "콘솔 쓰임새: 현장음. 누르면 수신기 해설로"
+                    konsolKeugi = j?["konsol_keugi"] as? Int ?? -1
+                    let kg: String = konsolKeugi < 0 ? "그대로" : "\(konsolKeugi)퍼센트"
+                    keugiGeul = "수신기 받는 크기: " + kg + ". 누르면 바꿉니다"
+                    suhsinKeu = j?["keu"] as? Bool ?? false
+                    let on = j?["suhsin"] as? Bool ?? false
+                    let kkeut: String = suhsinKeu ? "멈춥니다" : "켭니다"
+                    if !hs { suhsinGeul = "" }
+                    else if !on { suhsinGeul = "수신기 해설: 소리가 오지 않습니다. 누르면 송출을 " + kkeut }
+                    else if suhsinKeu { suhsinGeul = "수신기 해설 송출: 나가는 중. 누르면 멈춥니다" }
+                    else { suhsinGeul = "수신기 해설 송출: 멈춤. 누르면 내보냅니다" }
+                } else { ssimGeul = ""; keugiGeul = ""; suhsinGeul = "" }
             }
         }
+    }
+    private func ssimBakkugi() {
+        Flint.mutgi("/status") { j in
+            DispatchQueue.main.async {
+                guard let j = j, let ss = j["konsol_ssim"] as? String else { let t = "공유기가 답하지 않거나 판이 낮습니다. 공유기 1.9.5부터 쓸 수 있습니다."; allyeo(t); malhagi(t); return }
+                let hs = ss != "haeseol"
+                peulBakkugi(hs ? "/konsol?ssim=haeseol&v=1" : "/konsol?ssim=hyeon",
+                            hs ? "수신기 해설로 바꿨습니다. 허브에 꽂은 수신기 소리를 공유기가 곧바로 해설로 내보냅니다. 이 폰에서 BYOD 방송을 시작하면 폰 해설이 먼저입니다." : "현장음으로 바꿨습니다. 허브 소리는 인터넷 방송에 섞는 현장음으로 씁니다.")
+            }
+        }
+    }
+    private func keugiBakkugi() {
+        let k = [30, 50, 70, 90]
+        let sae = konsolKeugi < 0 ? 50 : k[((k.firstIndex(of: konsolKeugi) ?? -1) + 1) % k.count]
+        peulBakkugi("/konsol?keugi=\(sae)", "수신기 받는 크기를 \(sae)퍼센트로 바꿨습니다. 소리가 찌그러지면 줄이고 작으면 키우십시오.")
+    }
+    private func suhsinSongchul() {
+        let sae = !suhsinKeu
+        peulBakkugi("/cue?v=\(sae ? 1 : 0)", sae ? "수신기 해설을 내보냅니다." : "수신기 해설을 멈췄습니다. 듣는 분께는 대기 음악과 안내가 나갑니다.")
     }
     private func peulBakkugi(_ gil: String, _ doem: String) {
         Flint.pdMutgi { ok in

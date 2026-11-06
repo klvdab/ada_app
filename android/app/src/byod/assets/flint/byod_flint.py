@@ -26,8 +26,8 @@ try:
 except Exception:          # python3-openssl 이 없는 공유기 — 자물쇠 문 없이 돎
     ssl = None
 
-PAN = "1.9.4"   # 261107-F16 현장 와이파이 세기 — 기기마다 2초마다 읽어 진단·나스 보고에, 거리 재기 화면 /sege. 261106-F15 콘솔 소리가 3초 넘게 안 오면 「소리 장치가 멈춤」, 끄면 바로 「끔」, 진단에 마지막 소리 몇 초 전. 261106-F14 콘솔 녹음기를 하나만 띄워 따로 읽음. 261106-F13 보내는 기기가 끊겨 돌아오지 않으면 해설 중을 끄고 대기 음악으로, 두 대 송출은 묻고 넘겨받기. 261105-F12 진단 /jindan, 나스 올리기 세 갈래와 시계 맞춤, 저절로 뜨기 때 아이폰 머물게, 음향 콘솔 입력, 피디 번호 묻기. 앞: 261104-F11 송출 대기·점검 듣기·현장음 섞기. 앞: 261103-F8~F10 소리 키우기·시계, 261030-F7
-BILD = "261107-F16"
+PAN = "1.9.5"   # 261107-F17 수신기 해설 — 허브에 꽂은 송수신기 소리를 플이 직접 해설로(폰 없이도), 멈추면 대기 음악, 받는 크기 기억. 261107-F16 현장 와이파이 세기 — 기기마다 2초마다 읽어 진단·나스 보고에, 거리 재기 화면 /sege. 261106-F15 콘솔 소리가 3초 넘게 안 오면 「소리 장치가 멈춤」, 끄면 바로 「끔」, 진단에 마지막 소리 몇 초 전. 261106-F14 콘솔 녹음기를 하나만 띄워 따로 읽음. 261106-F13 보내는 기기가 끊겨 돌아오지 않으면 해설 중을 끄고 대기 음악으로, 두 대 송출은 묻고 넘겨받기. 261105-F12 진단 /jindan, 나스 올리기 세 갈래와 시계 맞춤, 저절로 뜨기 때 아이폰 머물게, 음향 콘솔 입력, 피디 번호 묻기. 앞: 261104-F11 송출 대기·점검 듣기·현장음 섞기. 앞: 261103-F8~F10 소리 키우기·시계, 261030-F7
+BILD = "261107-F17"
 
 SEOBEO_IP = os.environ.get("BYOD_IP", "192.168.8.2")      # 듣기 화면 주소(공유기에 덧붙인 주소)
 WEB_PORT = int(os.environ.get("BYOD_WEB_PORT", "7880"))    # 80번은 방화벽이 이리로 돌려줌
@@ -224,7 +224,12 @@ def hyeon_seokki(hae, ku):
 # ── 1.9.0 음향 콘솔 입력(261105-F12, 새방클, 이사장님 승인 2026-11-05) ── 플의 유에스비 단자에 꽂은 소리 입력 장치로
 # 콘솔 소리를 받아 현장음과 같은 길로 섞음. 현장 듣는 분께는 해설만, 섞은 소리는 인터넷 방송으로. 무대 폰이 붙어 있으면 무대 폰이 먼저
 KONSOL_PAIL = os.path.join(TEO, "konsol")
-KONSOL = {"kyeojim": True, "jangchi": "", "badneun": False, "mal": "", "pr": None, "ttae": 0.0}
+KONSOL = {"kyeojim": True, "jangchi": "", "badneun": False, "mal": "", "pr": None, "ttae": 0.0,
+          "ssim": "hyeon", "keugi": -1, "moum": bytearray()}   # 1.9.5 ssim: hyeon 현장음 / haeseol 수신기 해설, keugi: 받는 크기(0~100, -1 이면 건드리지 않음)
+KONSOL_SSIM_PAIL = os.path.join(TEO, "konsol_ssim")
+KONSOL_KEUGI_PAIL = os.path.join(TEO, "konsol_keugi")
+# 1.9.5 (261107-F17, 이사장님 승인) 수신기 해설 — 폰 없이 송수신기·젠더·허브·플만으로 방송
+SUHSIN = {"on": False, "pd_meom": False, "jadong_meom": False, "ttae": 0.0}
 KONSOL_MEOMCHUM = "소리 장치가 멈춤. 소리가 오지 않습니다. 다른 장치로 바꿔 보십시오"
 
 
@@ -241,6 +246,53 @@ try:
     KONSOL["kyeojim"] = open(KONSOL_PAIL).read().strip() != "0"
 except Exception:
     pass
+try:
+    KONSOL["ssim"] = "haeseol" if open(KONSOL_SSIM_PAIL).read().strip() == "haeseol" else "hyeon"
+except Exception:
+    pass
+try:
+    KONSOL["keugi"] = max(-1, min(100, int(open(KONSOL_KEUGI_PAIL).read().strip())))
+except Exception:
+    pass
+
+
+def suhsin_saram():
+    """수신기 해설이 지금 나가고 있는가(폰이 붙어 있으면 폰이 먼저라 아님)"""
+    return KONSOL["ssim"] == "haeseol" and SUHSIN["on"] and B.bonaem is None and time.time() - KONSOL["ttae"] < 3
+
+
+def suhsin_naegi(b):
+    """수신기 소리 0.1초 한 조각 — 폰이 해설 중이면 넘김. 처음이면 행사를 열고 곧바로 송출"""
+    if B.bonaem is not None:
+        SUHSIN["on"] = False
+        return
+    now = time.time()
+    if not SUHSIN["on"]:
+        SUHSIN["on"] = True
+        haengsa_butum("수신기", "", "")
+        B.jeongji1 = False
+        if not SUHSIN["pd_meom"]:
+            B.cue[1] = True                   # 송수신기로 해설할 때는 손에 폰이 없으므로 곧바로 송출
+    if SUHSIN["jadong_meom"]:
+        SUHSIN["jadong_meom"] = False         # 멈췄던 소리가 돌아옴 — 피디가 멈춘 것이 아니면 다시 해설로
+        if not SUHSIN["pd_meom"]:
+            B.cue[1] = True
+    SUHSIN["ttae"] = now
+    B.majimak_sori = now
+    B.majimak_butum = now
+    gal_naegi(1, b)
+
+
+def konsol_keugi_matchugi(kadeu):
+    """1.9.5 받는 크기를 기억한 값으로 — 수신기 소리는 마이크보다 커서 찌그러지지 않게"""
+    if KONSOL["keugi"] < 0:
+        return
+    import subprocess as sp
+    for c in ("Mic", "Capture", "PCM"):
+        try:
+            sp.run(["amixer", "-q", "-c", str(kadeu), "sset", c, "%d%%" % KONSOL["keugi"], "cap"], stdout=sp.DEVNULL, stderr=sp.DEVNULL, timeout=3)
+        except Exception:
+            pass
 
 
 def konsol_chatgi():
@@ -261,10 +313,19 @@ def konsol_ilgi(kadeu, loop):
     import subprocess as sp
     sp.run(["killall", "-q", "arecord"], stdout=sp.DEVNULL, stderr=sp.DEVNULL)
     time.sleep(0.5)
+    konsol_keugi_matchugi(kadeu)              # 1.9.5
+    del KONSOL["moum"][:]
     pr = sp.Popen(["arecord", "-q", "-D", "plughw:%d,0" % kadeu, "-t", "raw", "-f", "MU_LAW", "-r", "16000", "-c", "1"],
                   stdout=sp.PIPE, stderr=sp.PIPE, bufsize=0)
     KONSOL["pr"] = pr
     def neoki(b):
+        if KONSOL["ssim"] == "haeseol":       # 1.9.5 수신기 해설 — 0.1초씩 모아 해설로
+            m = KONSOL["moum"]
+            m += b
+            while len(m) >= JOGAK:
+                suhsin_naegi(bytes(m[:JOGAK]))
+                del m[:JOGAK]
+            return
         if time.time() - HYEON["ttae"] >= 1.5 or HYEON["ireum"] == "음향 콘솔":
             HYEON["ireum"] = "음향 콘솔"
             HYEON["ttae"] = time.time()
@@ -314,7 +375,7 @@ async def konsol_ilkkun():
         if kadeu is None:
             KONSOL["mal"] = "유에스비 소리 장치가 없음"
             continue
-        if hyeon_saram() and HYEON["ireum"] != "음향 콘솔":
+        if KONSOL["ssim"] != "haeseol" and hyeon_saram() and HYEON["ireum"] != "음향 콘솔":   # 1.9.5 수신기 해설일 때는 무대 폰과 함께 씀
             KONSOL["mal"] = "무대 폰이 현장음을 보내는 중"
             continue
         if HYEON["pyo"] is None:
@@ -750,7 +811,7 @@ def jeomgeom_naegi(b):
 
 def gal1_sori():
     """갈래 1 소리가 오고 있는가(방송 앱이 붙어 있거나 해설 화면이 4초 안에 보냄)"""
-    return B.bonaem is not None or time.time() - B.pcm_ttae[1] < 4
+    return B.bonaem is not None or time.time() - B.pcm_ttae[1] < 4 or suhsin_saram()
 
 
 def keu_gal(g):
@@ -840,6 +901,12 @@ async def goyo_ilkkun():
         if B.bonaem is None and B.cue[1] and B.majimak_butum > B.cue_jeongri and now - B.majimak_butum > 10 and now - B.pcm_ttae[1] > 10:
             B.cue[1] = False
             B.cue_jeongri = now
+        # 1.9.5 수신기 소리 자료가 3초 넘게 끊기면(선이 빠짐·수신기 꺼짐) 듣는 분께 대기 음악과 안내 — 말을 쉬는 조용함은 자료가 계속 오므로 해당 없음
+        if KONSOL["ssim"] == "haeseol" and SUHSIN["on"] and B.bonaem is None and now - SUHSIN["ttae"] > 3 and not SUHSIN["jadong_meom"]:
+            SUHSIN["jadong_meom"] = True
+            if B.cue[1] and not SUHSIN["pd_meom"]:
+                B.cue[1] = False
+                B.cue_jeongri = now
         if now - B.sori_ttae[1] > 0.3:
             mp3_neoki(GOYO)
         for g in range(1, GAL_SU + 1):
@@ -1552,6 +1619,8 @@ def jindan():
             "olim_mal": gw_gamchugi(GW["olim_mal"]), "kyeong_gwa": int(time.time() - GW["ttae"]) if GW["ttae"] else -1,
             "ttuigi": B.ttuigi, "tonggwa": B.tonggwa_ttae, "tonggwa_su": len(B.tonggwa), "hwakin": B.hwakin,
             "konsol": {"pr": KONSOL.get("pr") is not None, "kyeojim": KONSOL["kyeojim"], "jangchi": KONSOL["jangchi"], "badneun": KONSOL["badneun"], "mal": konsol_mal(),
+                       "ssim": "수신기 해설" if KONSOL["ssim"] == "haeseol" else "현장음", "keugi": KONSOL["keugi"],
+                       "suhsin": suhsin_saram(), "suhsin_jadong_meom": SUHSIN["jadong_meom"], "suhsin_pd_meom": SUHSIN["pd_meom"],
                        "majimak_cho": round(time.time() - KONSOL["ttae"], 1) if KONSOL["ttae"] else -1,
                        "arecord": bool(shutil.which("arecord"))},
             "wifi": wifi_yoyak(),   # 1.9.4
@@ -1569,7 +1638,7 @@ def gw_sangtae():
         "ki": GW["ki"], "pan": PAN, "bild": BILD, "ttae": int(time.time()), "kyeojin_cho": int(time.time() - B.sijak_ttae),
         "ttuigi": B.ttuigi, "tonggwa": B.tonggwa_ttae, "dns": GW["dns"], "inteonet": GW["inteonet"],
         "ssl": ssl is not None, "curl": bool(shutil.which("curl")), "mp3": B.mp3_iss, "tport": B.tport,
-        "deutnun": deutnun_su(), "lan_gigi": lan, "bonaem": B.bonaem_ireum, "bangsong": B.bonaem is not None,
+        "deutnun": deutnun_su(), "lan_gigi": lan, "bonaem": B.bonaem_ireum or ("수신기" if suhsin_saram() else ""), "bangsong": B.bonaem is not None or suhsin_saram(),
         "haengsa": B.haengsa.sid if B.haengsa else "", "hwakin": B.hwakin, "nas": B.nas_mal,
         "jisi_mal": GW["jisi_mal"], "gyeolgwa": GW["gyeolgwa"][-20:], "girok": GW_GIROK[-30:], "jindan": jindan(),
     }
@@ -2114,9 +2183,10 @@ def sangtae(heoga=False, gal=1):
     d = {
         "hyeonjang": True, "byod": True, "flint": True, "pan": "BYOD " + PAN, "bild": BILD,
         "keu": keu_gal(gal),
-        "mic": (gal == 1 and B.bonaem is not None) or now - B.mic_ttae[gal] < 4,
-        "bonaem": B.bonaem_ireum,
+        "mic": (gal == 1 and (B.bonaem is not None or suhsin_saram())) or now - B.mic_ttae[gal] < 4,
+        "bonaem": B.bonaem_ireum or ("수신기" if gal == 1 and suhsin_saram() else ""),
         "konsol": 1 if KONSOL["kyeojim"] else 0, "konsol_jangchi": KONSOL["jangchi"], "konsol_mal": konsol_mal(),
+        "konsol_ssim": KONSOL["ssim"], "konsol_keugi": KONSOL["keugi"], "suhsin": suhsin_saram(),   # 1.9.5
         "hyeon": hyeon_saram(), "hyeon_ireum": HYEON["ireum"] if hyeon_saram() else "", "hyeon_mok": HYEON["mok"], "jeongji": B.jeongji1,
         "kiugi": KIUGI_KYEOM[0], "kiugi_mok": KIUGI_GAP[0], "kiugi_han": KIUGI_GAP[1], "kiugi_db": round(KIUGI_GAL[1].g, 1) if 1 in KIUGI_GAL else 0,
         "kiugi_mal": round(KIUGI_GAL[1].mal, 1) if 1 in KIUGI_GAL else 0,
@@ -2286,6 +2356,8 @@ async def web(r, w, tls=False):
             else:
                 v = gap(q, "v") == "1"
                 B.cue[gal] = v
+                if gal == 1 and KONSOL["ssim"] == "haeseol" and B.bonaem is None:
+                    SUHSIN["pd_meom"] = not v      # 1.9.5 피디가 수신기 해설을 멈추거나 다시 내보냄
                 if gal == 1:
                     B.jeongji1 = (not v) and B.bonaem is not None
                 js(w, {"ok": True, "keu": keu_gal(gal)})
@@ -2699,7 +2771,26 @@ async def web(r, w, tls=False):
                    "mal": "" if d is not None else ("이 폰의 세기를 찾지 못했습니다. 와이파이 " + "현장영상해설방송" + "에 붙어 있는지 보십시오." if WIFI["bangsik"] else WIFI["mal"])})
         elif uri == "/jindan":                    # 1.9.0 누구나 읽음, 바꾸는 것 없음
             js(w, jindan())
-        elif uri == "/konsol" and heoga:          # 1.9.0 v=1 씀 / v=0 안 씀
+        elif uri == "/konsol" and heoga:          # 1.9.0 v=1 씀 / v=0 안 씀. 1.9.5 ssim=haeseol|hyeon 쓰임새, keugi=0~100 받는 크기
+            if gap(q, "ssim") in ("haeseol", "hyeon"):
+                KONSOL["ssim"] = gap(q, "ssim")
+                SUHSIN["on"] = False; SUHSIN["pd_meom"] = False; SUHSIN["jadong_meom"] = False
+                del KONSOL["moum"][:]
+                try:
+                    with open(KONSOL_SSIM_PAIL, "w") as f:
+                        f.write(KONSOL["ssim"] + "\n")
+                except Exception:
+                    pass
+            if gap(q, "keugi"):
+                try:
+                    KONSOL["keugi"] = max(-1, min(100, int(gap(q, "keugi"))))
+                    with open(KONSOL_KEUGI_PAIL, "w") as f:
+                        f.write("%d\n" % KONSOL["keugi"])
+                    kd, _ = konsol_chatgi()
+                    if kd is not None:
+                        konsol_keugi_matchugi(kd)
+                except Exception:
+                    pass
             if gap(q, "v") in ("0", "1"):
                 KONSOL["kyeojim"] = gap(q, "v") == "1"
                 if not KONSOL["kyeojim"]:
@@ -2714,7 +2805,7 @@ async def web(r, w, tls=False):
                         f.write(gap(q, "v") + "\n")
                 except Exception:
                     pass
-            js(w, {"ok": True, "konsol": 1 if KONSOL["kyeojim"] else 0})
+            js(w, {"ok": True, "konsol": 1 if KONSOL["kyeojim"] else 0, "ssim": KONSOL["ssim"], "keugi": KONSOL["keugi"]})
         elif uri == "/tonggwa":
             if B.tonggwa_ttae == "deutgi":
                 B.tonggwa.add(ip)
