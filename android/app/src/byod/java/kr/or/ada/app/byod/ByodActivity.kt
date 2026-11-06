@@ -232,7 +232,10 @@ class ByodActivity : Activity() {
         // 1.3.0 행사 이름과 현장영상해설사(녹음 이름·다시듣기 제목·결과보고에 쓰임, 한 번 넣으면 기억), 1.5.0 두 방식 모두·전화번호(인터넷 방송)
         mom.addView(kanMandeul("행사 이름 (비워 두면 날짜와 시각)", "haengsa_jemok"))
         mom.addView(kanMandeul("현장영상해설사 이름", "haeseolsa"))
-        mom.addView(kanMandeul("현장영상해설사 전화번호 (인터넷 방송에 꼭 필요합니다)", "haeseolsa_phone").apply { inputType = InputType.TYPE_CLASS_PHONE })
+        // 261106 번호는 한 번 넣으면 칸을 닫고 「등록됨」과 「번호 바꾸기」만 — 열린 숫자 자판에 손이 닿아 번호 끝에 숫자가 붙던 일 막기(이사장님 승인 「1」)
+        val pn = (pref.getString("haeseolsa_phone", "") ?: "").count { it.isDigit() }
+        if (pn == 10 || pn == 11) pref.edit().putBoolean("haeseolsa_phone_jamgeum", true).apply()
+        mom.addView(LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; phoneTeul = this; phoneKanChaeum() })
         // 1.9.0 (261024-B17) 공유기는 방송을 시작할 때 앱이 스스로 알아냄 — 고르기 단추는 더 보기로(직접 고를 때만)
         bangDanchu = danchu("BYOD 방송 시작", keun = true, norang = true) { bangDanchuNullim() }
         yeongsangDanchu = danchu(yeongsangMal()) { yeongsangBakkugi() }   // 1.9.0 (261024-B17) 무대 영상 녹화 — 방송 시작 바로 위
@@ -885,6 +888,34 @@ class ByodActivity : Activity() {
     }
 
     // ───── 1.3.0 입력 칸(바꾸면 바로 기억) ─────
+    // 261106 전화번호 칸 — 닫혀 있으면 「등록됨」과 「번호 바꾸기」, 열려 있으면 칸과 「번호 다 넣었습니다」
+    private var phoneTeul: LinearLayout? = null
+    private fun phoneKanChaeum() {
+        val l = phoneTeul ?: return
+        l.removeAllViews()
+        val d = (pref.getString("haeseolsa_phone", "") ?: "").filter { it.isDigit() }
+        if (pref.getBoolean("haeseolsa_phone_jamgeum", false) && d.length >= 10) {
+            l.addView(geul("현장영상해설사 전화번호: 등록됨. 끝 네 자리 " + d.takeLast(4).toList().joinToString(" ")))
+            l.addView(danchu("번호 바꾸기") {
+                pref.edit().putBoolean("haeseolsa_phone_jamgeum", false).apply()
+                phoneKanChaeum()
+                malhagi("전화번호 칸을 열었습니다. 번호를 고치신 뒤 번호 다 넣었습니다 단추를 누르십시오.")
+            })
+        } else {
+            val e = kanMandeul("현장영상해설사 전화번호 (인터넷 방송에 꼭 필요합니다)", "haeseolsa_phone").apply { inputType = InputType.TYPE_CLASS_PHONE }
+            l.addView(e)
+            l.addView(danchu("번호 다 넣었습니다") {
+                try { (getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(e.windowToken, 0) } catch (_: Exception) { }
+                val n = (pref.getString("haeseolsa_phone", "") ?: "").count { it.isDigit() }
+                if (n >= 10) {
+                    pref.edit().putBoolean("haeseolsa_phone_jamgeum", true).apply()
+                    phoneKanChaeum()
+                    malhagi("전화번호를 등록했습니다. 바꾸실 때는 번호 바꾸기 단추를 누르십시오.")
+                } else malhagi("전화번호가 ${n}자리입니다. 휴대전화 번호를 모두 넣어 주십시오.")
+            })
+        }
+    }
+
     private fun kanMandeul(ireum: String, kiy: String): EditText {
         val e = EditText(this).apply {
             hint = ireum

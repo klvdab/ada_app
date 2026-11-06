@@ -216,6 +216,7 @@ struct CheotView: View {
     @AppStorage("haengsa_jemok") private var haengsaJemok = ""   // 1.3.0
     @AppStorage("haeseolsa") private var haeseolsa = ""
     @AppStorage("haeseolsa_phone") private var haeseolsaPhone = ""   // 1.5.0 인터넷 방송에 씀(협회 명단 번호)
+    @AppStorage("haeseolsa_phone_jamgeum") private var phoneJamgeum = false   // 261106 번호를 한 번 넣으면 칸을 닫음(열린 숫자 자판에 손이 닿아 숫자가 붙던 일, 이사장님 승인)
     @State private var hamkkeOn = InteonetBonaegi.hamkke   // 1.5.0
     @State private var keugiOn = JadongKeugi.on   // 1.9.2 소리 자동 맞춤
     @State private var opusOn = OpusSori.on   // 1.10.0 소리 방식 오푸스(시험)
@@ -248,7 +249,14 @@ struct CheotView: View {
                 // 1.3.0 행사 이름과 현장영상해설사(녹음 이름·다시듣기 제목·결과보고에 쓰임, 한 번 넣으면 기억), 1.5.0 두 방식 모두·전화번호(인터넷 방송)
                 Kan(ireum: "행사 이름 (비워 두면 날짜와 시각)", gap: $haengsaJemok)
                 Kan(ireum: "현장영상해설사 이름", gap: $haeseolsa)
-                Kan(ireum: "현장영상해설사 전화번호 (인터넷 방송에 꼭 필요합니다)", gap: $haeseolsaPhone, pan: .phonePad)
+                // 261106 번호는 한 번 넣으면 칸을 닫고 「등록됨」과 「번호 바꾸기」만 — 열린 숫자 자판에 손이 닿아 번호 끝에 숫자가 붙던 일 막기(이사장님 승인 「1」)
+                if phoneJamgeum && haeseolsaPhone.filter({ $0.isNumber }).count >= 10 {
+                    Geul("현장영상해설사 전화번호: 등록됨. 끝 네 자리 " + String(haeseolsaPhone.filter({ $0.isNumber }).suffix(4)).map { String($0) }.joined(separator: " "))
+                    Danchu(geul: "번호 바꾸기") { phoneJamgeum = false; malhagi("전화번호 칸을 열었습니다. 번호를 고치신 뒤 번호 다 넣었습니다 단추를 누르십시오.") }
+                } else {
+                    Kan(ireum: "현장영상해설사 전화번호 (인터넷 방송에 꼭 필요합니다)", gap: $haeseolsaPhone, pan: .phonePad)
+                    Danchu(geul: "번호 다 넣었습니다") { beonhoDatgi() }
+                }
                 // 1.9.0 (261024-BI11) 공유기는 방송을 시작할 때 앱이 스스로 알아냄 — 고르기 단추는 더 보기로(직접 고를 때만)
                 Danchu(geul: bangDanchuGeul, keun: true, norang: true) { bangNureum() }
                     .accessibilityFocused($bangChojeom)
@@ -332,6 +340,7 @@ struct CheotView: View {
         .onAppear {
             HaengsaOlligi.shared.allim = { t in if Malsori.shared.kyeojim { Malsori.shared.mal(t) } else { allyeo(t) } }   // 1.3.0
             st.gochigi(baro: true)
+            let pn = haeseolsaPhone.filter { $0.isNumber }.count; if pn == 10 || pn == 11 { phoneJamgeum = true }   // 261106 이미 바른 번호가 있으면 칸을 닫아 둠
             if Jaryo.pail("deut.html") == nil || Jaryo.pail("pd.html") == nil { Jaryo.batgi { _ in damgim = Jaryo.damgimMal } }   // 듣는 화면(1.9.0 피디 화면)을 한 번도 받지 못했으면 조용히 받아 둠
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { bangChojeom = true }
         }
@@ -622,6 +631,18 @@ struct CheotView: View {
                 if Malsori.shared.kyeojim { malhagi(t) } else { allyeo(t) }
                 jeomgeomGeul = t; jeomgeomBoim = true
             }
+        }
+    }
+
+    // 261106 전화번호 칸 닫기 — 자판을 내리고 칸을 닫음. 숫자가 10자리보다 적으면 닫지 않고 알림
+    private func beonhoDatgi() {
+        let n = haeseolsaPhone.filter { $0.isNumber }.count
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        if n >= 10 {
+            phoneJamgeum = true
+            malhagi("전화번호를 등록했습니다. 바꾸실 때는 번호 바꾸기 단추를 누르십시오.")
+        } else {
+            malhagi("전화번호가 \(n)자리입니다. 휴대전화 번호를 모두 넣어 주십시오.")
         }
     }
 
