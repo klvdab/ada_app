@@ -226,7 +226,8 @@ class JeopsokActivity : Activity() {
         if (t.isEmpty()) return ""
         if (!t.startsWith("http://") && !t.startsWith("https://")) t = "http://" + t
         val host = t.substringAfter("://").substringBefore("/")
-        if (!host.contains(":")) t = t.replaceFirst(host, host + ":" + Bang.PORT)
+        // 261106 플린트 2(192.168.8.x)는 기본 문(80)으로 받으므로 문 번호를 붙이지 않음 — 8080을 붙여 듣기 주소 큐알·태그가 열리지 않던 일(이사장님 승인)
+        if (!host.contains(":") && !host.startsWith("192.168.8.")) t = t.replaceFirst(host, host + ":" + Bang.PORT)
         if (t.substringAfter("://").indexOf('/') < 0) t += "/"
         return t
     }

@@ -72,7 +72,8 @@ enum Jeopsok {
         if !t.hasPrefix("http://") && !t.hasPrefix("https://") { t = "http://" + t }
         let dwi = t.components(separatedBy: "://").last ?? ""
         let host = dwi.components(separatedBy: "/").first ?? ""
-        if !host.contains(":"), let r = t.range(of: host) { t.replaceSubrange(r, with: host + ":\(Bang.PORT)") }
+        // 261106 플린트 2(192.168.8.x)는 기본 문(80)으로 받으므로 문 번호를 붙이지 않음 — 8080을 붙여 듣기 주소 큐알·태그가 열리지 않던 일(이사장님 승인)
+        if !host.contains(":"), !host.hasPrefix("192.168.8."), let r = t.range(of: host) { t.replaceSubrange(r, with: host + ":\(Bang.PORT)") }
         let dwi2 = t.components(separatedBy: "://").last ?? ""
         if !dwi2.contains("/") { t += "/" }
         return t
