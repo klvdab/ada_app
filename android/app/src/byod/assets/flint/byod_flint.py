@@ -26,8 +26,8 @@ try:
 except Exception:          # python3-openssl 이 없는 공유기 — 자물쇠 문 없이 돎
     ssl = None
 
-PAN = "1.9.2"   # 261106-F14 콘솔 녹음기를 하나만 띄워 따로 읽음. 261106-F13 보내는 기기가 끊겨 돌아오지 않으면 해설 중을 끄고 대기 음악으로, 두 대 송출은 묻고 넘겨받기. 261105-F12 진단 /jindan, 나스 올리기 세 갈래와 시계 맞춤, 저절로 뜨기 때 아이폰 머물게, 음향 콘솔 입력, 피디 번호 묻기. 앞: 261104-F11 송출 대기·점검 듣기·현장음 섞기. 앞: 261103-F8~F10 소리 키우기·시계, 261030-F7
-BILD = "261106-F14"
+PAN = "1.9.3"   # 261106-F15 콘솔 소리가 3초 넘게 안 오면 「소리 장치가 멈춤」, 끄면 바로 「끔」, 진단에 마지막 소리 몇 초 전. 261106-F14 콘솔 녹음기를 하나만 띄워 따로 읽음. 261106-F13 보내는 기기가 끊겨 돌아오지 않으면 해설 중을 끄고 대기 음악으로, 두 대 송출은 묻고 넘겨받기. 261105-F12 진단 /jindan, 나스 올리기 세 갈래와 시계 맞춤, 저절로 뜨기 때 아이폰 머물게, 음향 콘솔 입력, 피디 번호 묻기. 앞: 261104-F11 송출 대기·점검 듣기·현장음 섞기. 앞: 261103-F8~F10 소리 키우기·시계, 261030-F7
+BILD = "261106-F15"
 
 SEOBEO_IP = os.environ.get("BYOD_IP", "192.168.8.2")      # 듣기 화면 주소(공유기에 덧붙인 주소)
 WEB_PORT = int(os.environ.get("BYOD_WEB_PORT", "7880"))    # 80번은 방화벽이 이리로 돌려줌
@@ -224,7 +224,19 @@ def hyeon_seokki(hae, ku):
 # ── 1.9.0 음향 콘솔 입력(261105-F12, 새방클, 이사장님 승인 2026-11-05) ── 플의 유에스비 단자에 꽂은 소리 입력 장치로
 # 콘솔 소리를 받아 현장음과 같은 길로 섞음. 현장 듣는 분께는 해설만, 섞은 소리는 인터넷 방송으로. 무대 폰이 붙어 있으면 무대 폰이 먼저
 KONSOL_PAIL = os.path.join(TEO, "konsol")
-KONSOL = {"kyeojim": True, "jangchi": "", "badneun": False, "mal": "", "pr": None}
+KONSOL = {"kyeojim": True, "jangchi": "", "badneun": False, "mal": "", "pr": None, "ttae": 0.0}
+KONSOL_MEOMCHUM = "소리 장치가 멈춤. 소리가 오지 않습니다. 다른 장치로 바꿔 보십시오"
+
+
+def konsol_mal():
+    """1.9.3 (261106-F15) 상태 말 — 끄면 끔, 받던 소리가 3초 넘게 안 오면 멈춤(값싼 장치가 첫 조각만 주고 멈추던 일)"""
+    if not KONSOL["kyeojim"]:
+        return "끔"
+    if KONSOL["badneun"] and time.time() - KONSOL["ttae"] > 3:
+        return KONSOL_MEOMCHUM
+    return KONSOL["mal"]
+
+
 try:
     KONSOL["kyeojim"] = open(KONSOL_PAIL).read().strip() != "0"
 except Exception:
@@ -262,6 +274,9 @@ def konsol_ilgi(kadeu, loop):
     try:
         while KONSOL["kyeojim"]:
             b = pr.stdout.read(800)
+            if not KONSOL["kyeojim"]:     # 1.9.3 끄는 중에 끊긴 것은 오류로 적지 않음
+                KONSOL["mal"] = "끔"
+                break
             if not b:
                 err = b""
                 try:
@@ -271,6 +286,7 @@ def konsol_ilgi(kadeu, loop):
                 KONSOL["mal"] = "장치가 소리를 주지 않음 " + err.decode("utf-8", "replace").strip()[:120]
                 break
             KONSOL["badneun"] = True
+            KONSOL["ttae"] = time.time()
             KONSOL["mal"] = "받는 중"
             loop.call_soon_threadsafe(neoki, b)
     finally:
@@ -1409,7 +1425,8 @@ def jindan():
             "curl": bool(shutil.which("curl")), "gil": GW["gil"], "ca": bool(CA_PAIL), "jisi_mal": gw_gamchugi(GW["jisi_mal"]),
             "olim_mal": gw_gamchugi(GW["olim_mal"]), "kyeong_gwa": int(time.time() - GW["ttae"]) if GW["ttae"] else -1,
             "ttuigi": B.ttuigi, "tonggwa": B.tonggwa_ttae, "tonggwa_su": len(B.tonggwa), "hwakin": B.hwakin,
-            "konsol": {"pr": KONSOL.get("pr") is not None, "kyeojim": KONSOL["kyeojim"], "jangchi": KONSOL["jangchi"], "badneun": KONSOL["badneun"], "mal": KONSOL["mal"],
+            "konsol": {"pr": KONSOL.get("pr") is not None, "kyeojim": KONSOL["kyeojim"], "jangchi": KONSOL["jangchi"], "badneun": KONSOL["badneun"], "mal": konsol_mal(),
+                       "majimak_cho": round(time.time() - KONSOL["ttae"], 1) if KONSOL["ttae"] else -1,
                        "arecord": bool(shutil.which("arecord"))},
             "girok": [gw_gamchugi(x) for x in GW_GIROK[-8:]]}
 
@@ -1972,7 +1989,7 @@ def sangtae(heoga=False, gal=1):
         "keu": keu_gal(gal),
         "mic": (gal == 1 and B.bonaem is not None) or now - B.mic_ttae[gal] < 4,
         "bonaem": B.bonaem_ireum,
-        "konsol": 1 if KONSOL["kyeojim"] else 0, "konsol_jangchi": KONSOL["jangchi"], "konsol_mal": KONSOL["mal"],
+        "konsol": 1 if KONSOL["kyeojim"] else 0, "konsol_jangchi": KONSOL["jangchi"], "konsol_mal": konsol_mal(),
         "hyeon": hyeon_saram(), "hyeon_ireum": HYEON["ireum"] if hyeon_saram() else "", "hyeon_mok": HYEON["mok"], "jeongji": B.jeongji1,
         "kiugi": KIUGI_KYEOM[0], "kiugi_mok": KIUGI_GAP[0], "kiugi_han": KIUGI_GAP[1], "kiugi_db": round(KIUGI_GAL[1].g, 1) if 1 in KIUGI_GAL else 0,
         "kiugi_mal": round(KIUGI_GAL[1].mal, 1) if 1 in KIUGI_GAL else 0,
@@ -2552,6 +2569,8 @@ async def web(r, w, tls=False):
         elif uri == "/konsol" and heoga:          # 1.9.0 v=1 씀 / v=0 안 씀
             if gap(q, "v") in ("0", "1"):
                 KONSOL["kyeojim"] = gap(q, "v") == "1"
+                if not KONSOL["kyeojim"]:
+                    KONSOL["mal"] = "끔"           # 1.9.3 끄면 바로 끔
                 if not KONSOL["kyeojim"] and KONSOL.get("pr") is not None:
                     try:
                         KONSOL["pr"].kill()
