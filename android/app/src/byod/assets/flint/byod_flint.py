@@ -26,8 +26,8 @@ try:
 except Exception:          # python3-openssl 이 없는 공유기 — 자물쇠 문 없이 돎
     ssl = None
 
-PAN = "1.9.1"   # 261106-F13 보내는 기기가 끊겨 돌아오지 않으면 해설 중을 끄고 대기 음악으로, 두 대 송출은 묻고 넘겨받기. 261105-F12 진단 /jindan, 나스 올리기 세 갈래와 시계 맞춤, 저절로 뜨기 때 아이폰 머물게, 음향 콘솔 입력, 피디 번호 묻기. 앞: 261104-F11 송출 대기·점검 듣기·현장음 섞기. 앞: 261103-F8~F10 소리 키우기·시계, 261030-F7
-BILD = "261106-F13"
+PAN = "1.9.2"   # 261106-F14 콘솔 녹음기를 하나만 띄워 따로 읽음. 261106-F13 보내는 기기가 끊겨 돌아오지 않으면 해설 중을 끄고 대기 음악으로, 두 대 송출은 묻고 넘겨받기. 261105-F12 진단 /jindan, 나스 올리기 세 갈래와 시계 맞춤, 저절로 뜨기 때 아이폰 머물게, 음향 콘솔 입력, 피디 번호 묻기. 앞: 261104-F11 송출 대기·점검 듣기·현장음 섞기. 앞: 261103-F8~F10 소리 키우기·시계, 261030-F7
+BILD = "261106-F14"
 
 SEOBEO_IP = os.environ.get("BYOD_IP", "192.168.8.2")      # 듣기 화면 주소(공유기에 덧붙인 주소)
 WEB_PORT = int(os.environ.get("BYOD_WEB_PORT", "7880"))    # 80번은 방화벽이 이리로 돌려줌
@@ -224,7 +224,7 @@ def hyeon_seokki(hae, ku):
 # ── 1.9.0 음향 콘솔 입력(261105-F12, 새방클, 이사장님 승인 2026-11-05) ── 플의 유에스비 단자에 꽂은 소리 입력 장치로
 # 콘솔 소리를 받아 현장음과 같은 길로 섞음. 현장 듣는 분께는 해설만, 섞은 소리는 인터넷 방송으로. 무대 폰이 붙어 있으면 무대 폰이 먼저
 KONSOL_PAIL = os.path.join(TEO, "konsol")
-KONSOL = {"kyeojim": True, "jangchi": "", "badneun": False, "mal": ""}
+KONSOL = {"kyeojim": True, "jangchi": "", "badneun": False, "mal": "", "pr": None}
 try:
     KONSOL["kyeojim"] = open(KONSOL_PAIL).read().strip() != "0"
 except Exception:
@@ -244,7 +244,47 @@ def konsol_chatgi():
     return None, ""
 
 
+def konsol_ilgi(kadeu, loop):
+    """1.9.2 (261106-F14) 녹음기를 하나만 띄워 따로 도는 줄에서 읽음 — 1.9.1은 비동기 읽기에서 소리가 오지 않은 채 녹음기가 남아 장치를 붙잡았음"""
+    import subprocess as sp
+    sp.run(["killall", "-q", "arecord"], stdout=sp.DEVNULL, stderr=sp.DEVNULL)
+    time.sleep(0.5)
+    pr = sp.Popen(["arecord", "-q", "-D", "plughw:%d,0" % kadeu, "-t", "raw", "-f", "MU_LAW", "-r", "16000", "-c", "1"],
+                  stdout=sp.PIPE, stderr=sp.PIPE, bufsize=0)
+    KONSOL["pr"] = pr
+    def neoki(b):
+        if time.time() - HYEON["ttae"] >= 1.5 or HYEON["ireum"] == "음향 콘솔":
+            HYEON["ireum"] = "음향 콘솔"
+            HYEON["ttae"] = time.time()
+            HYEON["buf"] += b
+            if len(HYEON["buf"]) > 8000:
+                del HYEON["buf"][:len(HYEON["buf"]) - 4000]
+    try:
+        while KONSOL["kyeojim"]:
+            b = pr.stdout.read(800)
+            if not b:
+                err = b""
+                try:
+                    err = pr.stderr.read(300) or b""
+                except Exception:
+                    pass
+                KONSOL["mal"] = "장치가 소리를 주지 않음 " + err.decode("utf-8", "replace").strip()[:120]
+                break
+            KONSOL["badneun"] = True
+            KONSOL["mal"] = "받는 중"
+            loop.call_soon_threadsafe(neoki, b)
+    finally:
+        KONSOL["badneun"] = False
+        try:
+            pr.kill()
+            pr.wait(3)
+        except Exception:
+            pass
+        KONSOL["pr"] = None
+
+
 async def konsol_ilkkun():
+    loop = asyncio.get_event_loop()
     while True:
         await asyncio.sleep(3)
         if not KONSOL["kyeojim"]:
@@ -261,41 +301,14 @@ async def konsol_ilkkun():
         if hyeon_saram() and HYEON["ireum"] != "음향 콘솔":
             KONSOL["mal"] = "무대 폰이 현장음을 보내는 중"
             continue
-        loop = asyncio.get_event_loop()
         if HYEON["pyo"] is None:
             await loop.run_in_executor(None, hyeon_pyo)
-        pr = None
+        KONSOL["mal"] = "여는 중"
         try:
-            pr = await asyncio.create_subprocess_exec(
-                "arecord", "-q", "-D", "plughw:%d,0" % kadeu, "-t", "raw", "-f", "MU_LAW", "-r", "16000", "-c", "1",
-                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
-            HYEON["ireum"] = "음향 콘솔"
-            KONSOL["badneun"] = True
-            KONSOL["mal"] = "받는 중"
-            while KONSOL["kyeojim"]:
-                b = await asyncio.wait_for(pr.stdout.read(1600), 5)
-                if not b:
-                    KONSOL["mal"] = "장치가 소리를 주지 않음"
-                    break
-                if time.time() - HYEON["ttae"] >= 1.5 or HYEON["ireum"] == "음향 콘솔":
-                    HYEON["ireum"] = "음향 콘솔"
-                    HYEON["ttae"] = time.time()
-                    HYEON["buf"] += b
-                    if len(HYEON["buf"]) > 8000:
-                        del HYEON["buf"][:len(HYEON["buf"]) - 4000]
+            await loop.run_in_executor(None, konsol_ilgi, kadeu, loop)
         except Exception as e:
-            KONSOL["mal"] = "소리를 받지 못함: %s" % e
-        finally:
-            KONSOL["badneun"] = False
-            if pr is not None:
-                try:
-                    pr.kill()
-                except Exception:
-                    pass
-                try:
-                    await pr.wait()
-                except Exception:
-                    pass
+            KONSOL["mal"] = "소리를 받지 못함: %r" % e
+        await asyncio.sleep(5)
 
 
 async def hyeon_batgi(r, w, ireum):
@@ -1396,7 +1409,7 @@ def jindan():
             "curl": bool(shutil.which("curl")), "gil": GW["gil"], "ca": bool(CA_PAIL), "jisi_mal": gw_gamchugi(GW["jisi_mal"]),
             "olim_mal": gw_gamchugi(GW["olim_mal"]), "kyeong_gwa": int(time.time() - GW["ttae"]) if GW["ttae"] else -1,
             "ttuigi": B.ttuigi, "tonggwa": B.tonggwa_ttae, "tonggwa_su": len(B.tonggwa), "hwakin": B.hwakin,
-            "konsol": {"kyeojim": KONSOL["kyeojim"], "jangchi": KONSOL["jangchi"], "badneun": KONSOL["badneun"], "mal": KONSOL["mal"],
+            "konsol": {"pr": KONSOL.get("pr") is not None, "kyeojim": KONSOL["kyeojim"], "jangchi": KONSOL["jangchi"], "badneun": KONSOL["badneun"], "mal": KONSOL["mal"],
                        "arecord": bool(shutil.which("arecord"))},
             "girok": [gw_gamchugi(x) for x in GW_GIROK[-8:]]}
 
@@ -2539,6 +2552,11 @@ async def web(r, w, tls=False):
         elif uri == "/konsol" and heoga:          # 1.9.0 v=1 씀 / v=0 안 씀
             if gap(q, "v") in ("0", "1"):
                 KONSOL["kyeojim"] = gap(q, "v") == "1"
+                if not KONSOL["kyeojim"] and KONSOL.get("pr") is not None:
+                    try:
+                        KONSOL["pr"].kill()
+                    except Exception:
+                        pass
                 try:
                     with open(KONSOL_PAIL, "w") as f:
                         f.write(gap(q, "v") + "\n")
