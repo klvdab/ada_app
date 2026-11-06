@@ -26,8 +26,8 @@ try:
 except Exception:          # python3-openssl 이 없는 공유기 — 자물쇠 문 없이 돎
     ssl = None
 
-PAN = "1.9.3"   # 261106-F15 콘솔 소리가 3초 넘게 안 오면 「소리 장치가 멈춤」, 끄면 바로 「끔」, 진단에 마지막 소리 몇 초 전. 261106-F14 콘솔 녹음기를 하나만 띄워 따로 읽음. 261106-F13 보내는 기기가 끊겨 돌아오지 않으면 해설 중을 끄고 대기 음악으로, 두 대 송출은 묻고 넘겨받기. 261105-F12 진단 /jindan, 나스 올리기 세 갈래와 시계 맞춤, 저절로 뜨기 때 아이폰 머물게, 음향 콘솔 입력, 피디 번호 묻기. 앞: 261104-F11 송출 대기·점검 듣기·현장음 섞기. 앞: 261103-F8~F10 소리 키우기·시계, 261030-F7
-BILD = "261106-F15"
+PAN = "1.9.4"   # 261107-F16 현장 와이파이 세기 — 기기마다 2초마다 읽어 진단·나스 보고에, 거리 재기 화면 /sege. 261106-F15 콘솔 소리가 3초 넘게 안 오면 「소리 장치가 멈춤」, 끄면 바로 「끔」, 진단에 마지막 소리 몇 초 전. 261106-F14 콘솔 녹음기를 하나만 띄워 따로 읽음. 261106-F13 보내는 기기가 끊겨 돌아오지 않으면 해설 중을 끄고 대기 음악으로, 두 대 송출은 묻고 넘겨받기. 261105-F12 진단 /jindan, 나스 올리기 세 갈래와 시계 맞춤, 저절로 뜨기 때 아이폰 머물게, 음향 콘솔 입력, 피디 번호 묻기. 앞: 261104-F11 송출 대기·점검 듣기·현장음 섞기. 앞: 261103-F8~F10 소리 키우기·시계, 261030-F7
+BILD = "261107-F16"
 
 SEOBEO_IP = os.environ.get("BYOD_IP", "192.168.8.2")      # 듣기 화면 주소(공유기에 덧붙인 주소)
 WEB_PORT = int(os.environ.get("BYOD_WEB_PORT", "7880"))    # 80번은 방화벽이 이리로 돌려줌
@@ -327,6 +327,131 @@ async def konsol_ilkkun():
         await asyncio.sleep(5)
 
 
+# ───── 1.9.4 (261107-F16, 이사장님 승인) 현장 와이파이 세기 ─────
+# 공유기에 붙은 기기마다 와이파이 세기를 2초마다 읽음. 해설 폰·무대 현장음 폰·듣는 분 기기로 나눠 진단과 나스 보고에, /sege 는 그 화면을 연 폰의 세기
+WIFI = {"gigi": {}, "bangsik": "", "ttae": 0.0, "mal": "아직 읽지 않음"}
+
+
+def wifi_dan(d):
+    if d is None:
+        return ""
+    if d >= -60:
+        return "좋음"
+    if d >= -70:
+        return "보통"
+    if d >= -78:
+        return "약함"
+    return "끊길 위험"
+
+
+def wifi_ifs():
+    o = []
+    try:
+        for n in sorted(os.listdir("/sys/class/net")):
+            if n.startswith(("ra", "rax", "wlan", "phy", "wl", "mld")) and not n.startswith("apcli"):
+                o.append(n)
+    except Exception:
+        pass
+    return o
+
+
+def wifi_ilgi():
+    """기기 MAC -> 세기(dBm). iwinfo assoclist, iw station dump, iwpriv get_mac_table 가운데 되는 것으로"""
+    import subprocess as sp
+    MAC = re.compile(r"([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})")
+    gigi = {}
+    bangsik = ""
+    for f in wifi_ifs():
+        for gil, cmd in (("iwinfo", ["iwinfo", f, "assoclist"]), ("iw", ["iw", "dev", f, "station", "dump"]),
+                         ("iwpriv", ["iwpriv", f, "get_mac_table"])):
+            if not shutil.which(cmd[0]):
+                continue
+            try:
+                t = sp.run(cmd, stdout=sp.PIPE, stderr=sp.DEVNULL, timeout=3).stdout.decode("utf-8", "replace")
+            except Exception:
+                continue
+            chajeun = 0
+            if gil == "iw":
+                mac = None
+                for l in t.splitlines():
+                    m = MAC.search(l)
+                    if l.startswith("Station") and m:
+                        mac = m.group(1).lower()
+                    elif mac and l.strip().startswith("signal:"):
+                        n = re.search(r"(-\d+)", l)
+                        if n:
+                            gigi[mac] = (int(n.group(1)), f); chajeun += 1
+            else:
+                for l in t.splitlines():
+                    m = MAC.search(l)
+                    if not m:
+                        continue
+                    n = re.findall(r"(?<![\w:])(-\d{2,3})(?![\d:])", l[m.end():])
+                    if n:
+                        gigi[m.group(1).lower()] = (int(n[0]), f); chajeun += 1
+            if chajeun:
+                bangsik = gil
+                break
+    return gigi, bangsik
+
+
+def wifi_ip_mac():
+    d = {}
+    try:
+        with open("/proc/net/arp") as fp:
+            for l in fp.readlines()[1:]:
+                k = l.split()
+                if len(k) >= 4 and k[3] != "00:00:00:00:00:00":
+                    d[k[0]] = k[3].lower()
+    except Exception:
+        pass
+    return d
+
+
+async def wifi_ilkkun():
+    loop = asyncio.get_event_loop()
+    while True:
+        try:
+            g, b = await loop.run_in_executor(None, wifi_ilgi)
+            WIFI["gigi"] = g
+            WIFI["bangsik"] = b
+            WIFI["ttae"] = time.time()
+            WIFI["mal"] = ("기기 %d대 읽음" % len(g)) if b else ("무선 기기가 없거나 세기를 읽는 도구가 없음 (살핀 곳: %s)" % (", ".join(wifi_ifs()) or "없음"))
+        except Exception as e:
+            WIFI["mal"] = "읽지 못함: %r" % e
+        await asyncio.sleep(2)
+
+
+def wifi_ip_sege(ip):
+    mac = wifi_ip_mac().get(ip)
+    if not mac:
+        return None
+    v = WIFI["gigi"].get(mac)
+    return v[0] if v else None
+
+
+def wifi_yoyak():
+    """해설 폰·무대 폰·듣는 분 기기로 나눈 세기 — 이름이나 MAC 은 담지 않음"""
+    im = wifi_ip_mac()
+    mi = {v: k for k, v in im.items()}
+    def hana(ip):
+        mac = im.get(ip) if ip else None
+        v = WIFI["gigi"].get(mac) if mac else None
+        return {"dbm": v[0], "dan": wifi_dan(v[0]), "jari": v[1]} if v else None
+    haeseol = hana(getattr(B, "bonaem_ip", "")) if B.bonaem is not None else None
+    mudae = hana(HYEON.get("ip", "")) if hyeon_saram() and HYEON["ireum"] != "음향 콘솔" else None
+    deut_ip = set(d.ip for d in list(B.deut) + list(B.deut_mp3))
+    deut = []
+    for mac, v in WIFI["gigi"].items():
+        if mi.get(mac) in deut_ip:
+            deut.append(v[0])
+    deut.sort()
+    return {"bangsik": WIFI["bangsik"], "mal": WIFI["mal"], "jeon_cho": round(time.time() - WIFI["ttae"], 1) if WIFI["ttae"] else -1,
+            "gigi_su": len(WIFI["gigi"]), "haeseol": haeseol, "mudae": mudae,
+            "deut_su": len(deut), "deut_yakhan": [{"dbm": x, "dan": wifi_dan(x)} for x in deut[:3]],
+            "deut_dan": {k: sum(1 for x in deut if wifi_dan(x) == k) for k in ("좋음", "보통", "약함", "끊길 위험")}}
+
+
 async def hyeon_batgi(r, w, ireum):
     """무대 폰 — 뮤 소리를 그대로 받음. 해설과 끊겨도 해설 방송에는 영향 없음"""
     HYEON["ireum"] = ireum
@@ -503,6 +628,7 @@ async def sori_batgi(r, w):
         # BYOD <열쇠> <이름>[\t행사 이름\t현장영상해설사\t기기 시각(초)[\t2]]  — 1.2.0 앱은 이름까지만 보냄
         # 1.5.0 끝에 「2」가 붙으면 BYOD2 꼴: 종류 1바이트(1 뮤, 2 오푸스) + 길이 2바이트 + 소리. 대답 끝에 「 2」를 붙여 받아들였음을 알림
         if len(jul) >= 2 and jul[0] == "HYEON" and (not B.yeolsoe or jul[1] == B.yeolsoe):
+            HYEON["ip"] = str(peer[0]) if peer else ""   # 1.9.4 와이파이 세기에서 무대 폰을 가려냄
             await hyeon_batgi(r, w, (jul[2] if len(jul) > 2 else "").strip()[:40] or str(peer[0]))
             return
         if len(jul) >= 2 and jul[0] == "PDKEY" and (not B.yeolsoe or jul[1] == B.yeolsoe):   # 1.9.0 방송 전에 송출 앱이 설정을 바꿀 수 있게
@@ -1428,6 +1554,7 @@ def jindan():
             "konsol": {"pr": KONSOL.get("pr") is not None, "kyeojim": KONSOL["kyeojim"], "jangchi": KONSOL["jangchi"], "badneun": KONSOL["badneun"], "mal": konsol_mal(),
                        "majimak_cho": round(time.time() - KONSOL["ttae"], 1) if KONSOL["ttae"] else -1,
                        "arecord": bool(shutil.which("arecord"))},
+            "wifi": wifi_yoyak(),   # 1.9.4
             "girok": [gw_gamchugi(x) for x in GW_GIROK[-8:]]}
 
 
@@ -2564,6 +2691,12 @@ async def web(r, w, tls=False):
             else:
                 gyesok = True
                 await deut_butigi(w, ip, True, 1, False)
+        elif uri == "/sege":                      # 1.9.4 거리 재기 화면 — 이 폰의 와이파이 세기
+            geulja(w, 200, "text/html; charset=utf-8", SEGE_HTML, "Cache-Control: no-store\r\n")
+        elif uri == "/sege.json":
+            d = wifi_ip_sege(ip)
+            js(w, {"ok": d is not None, "dbm": d, "dan": wifi_dan(d), "bangsik": WIFI["bangsik"],
+                   "mal": "" if d is not None else ("이 폰의 세기를 찾지 못했습니다. 와이파이 " + "현장영상해설방송" + "에 붙어 있는지 보십시오." if WIFI["bangsik"] else WIFI["mal"])})
         elif uri == "/jindan":                    # 1.9.0 누구나 읽음, 바꾸는 것 없음
             js(w, jindan())
         elif uri == "/konsol" and heoga:          # 1.9.0 v=1 씀 / v=0 안 씀
@@ -3055,11 +3188,39 @@ async def main():
     asyncio.ensure_future(jadong_ilkkun())
     asyncio.ensure_future(gwanri_ilkkun())     # 1.7.0 원격 관리
     asyncio.ensure_future(konsol_ilkkun())     # 1.9.0 음향 콘솔
+    asyncio.ensure_future(wifi_ilkkun())       # 1.9.4 현장 와이파이 세기
     print("BYOD 플린트 서버 %s (%s) — 듣기 %d, 소리 %d, 자물쇠 %s, mp3 %s, 피디 번호 %s" % (PAN, BILD, WEB_PORT, SORI_PORT, B.tport or "없음", B.mp3_iss, B.pdkey), flush=True)
     await asyncio.gather(*[s.serve_forever() for s in sv])
 
 
 # ───── 듣기 화면(공유기에 deut.html 이 없을 때 쓰는 기본 화면) ─────
+SEGE_HTML = r"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>와이파이 세기</title><style>
+body{font-family:sans-serif;margin:0 auto;max-width:640px;padding:16px;background:#12346E;color:#fff}
+.logo{text-align:center;margin:4px 0 12px}.logo .j{font-size:28px;letter-spacing:4px}.logo .l{font-size:34px;font-weight:800;letter-spacing:6px}
+h1{font-size:26px;margin:8px 0}
+#k{font-size:44px;font-weight:800;margin:18px 0 6px}
+p{font-size:19px;line-height:1.7}
+button{box-sizing:border-box;display:block;width:100%;padding:24px 16px;font-size:22px;font-weight:700;margin:14px 0;border:3px solid #FFCC00;border-radius:16px;background:#FFCC00;color:#111}
+</style></head><body>
+<div class="logo" role="img" aria-label="사단법인 한국시각장애인현장영상해설협회"><div class="j" aria-hidden="true">⠇⠧⠙</div><div class="l" aria-hidden="true"><span style="color:#FF5A4F">L</span><span style="color:#FFCC00">V</span><span style="color:#3DDC84">D</span></div></div>
+<h1>와이파이 세기</h1>
+<div id="k" aria-hidden="true">읽는 중</div>
+<p id="m" aria-live="polite">이 화면을 열어 둔 채 걸어가면, 이 폰의 와이파이 세기가 바뀔 때만 한 번 알려 드립니다. 좋음, 보통, 약함, 끊길 위험 네 단계입니다.</p>
+<button id="b">지금 세기 듣기</button>
+<p>좋음과 보통이면 방송이 튼튼합니다. 약함이면 공유기 쪽으로 조금 다가가십시오. 끊길 위험이면 그 자리에서는 방송이 끊길 수 있습니다.</p>
+<script>
+var jeon="",jigeum="";var $=function(i){return document.getElementById(i)};
+function mal(d){return d.ok?("와이파이 세기 "+d.dan+". 영하 "+(-d.dbm)):(d.mal||"세기를 찾지 못했습니다.")}
+function ilk(){fetch("/sege.json?t="+Date.now(),{cache:"no-store"}).then(function(r){return r.json()}).then(function(d){
+ jigeum=mal(d);$("k").textContent=d.ok?(d.dan+" ("+d.dbm+")"):"찾지 못함";var dan=d.ok?d.dan:"x";
+ if(dan!==jeon){jeon=dan;$("m").textContent=d.ok?(d.dan+"으로 바뀌었습니다. "+jigeum):jigeum;}
+}).catch(function(){if(jeon!=="n"){jeon="n";$("m").textContent="공유기에 닿지 않습니다. 끊긴 자리입니다.";}});}
+$("b").onclick=function(){$("m").textContent="";setTimeout(function(){$("m").textContent=jigeum||"아직 읽는 중입니다.";},150);};
+ilk();setInterval(ilk,3000);
+</script></body></html>"""
+
 DEUT_HTML = r"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>현장영상해설 듣기</title><style>
