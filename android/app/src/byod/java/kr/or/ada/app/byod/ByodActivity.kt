@@ -768,8 +768,23 @@ class ByodActivity : Activity() {
     }
 
     // ───── 상태 글 — 바뀔 때만, 듣는 분 수만 바뀐 때는 10초에 한 번까지 ─────
+    // 1.16.1 (261106-B27) 다른 기기가 방송 중일 때 넘겨받을지 물음
+    private var neomChang = false
+    private fun neomMutgi() {
+        val nm = Bang.neomgyeoMul
+        if (nm.isEmpty() || neomChang) return
+        neomChang = true
+        val m = "이미 " + nm + " 기기가 방송 중입니다. 넘겨받으면 그 기기는 방송을 멈춥니다."
+        malhagi(m)
+        android.app.AlertDialog.Builder(this).setTitle("방송 넘겨받기").setMessage(m).setCancelable(false)
+            .setPositiveButton("넘겨받기") { _, _ -> neomChang = false; Flint.neomHal = true }
+            .setNegativeButton("그만두기") { _, _ -> neomChang = false; Bang.neomgyeoMul = ""; ByodService.kkeugi(this) }
+            .show()
+    }
+
     private fun sangtaeGochigi(baro: Boolean) {
         if (doumalYeollim) return
+        neomMutgi()   // 1.16.1
         val now = System.currentTimeMillis()
         if (now - meomchumDaegi > 5000) bangDanchuGeul()
         val k = Bang.kyeojim

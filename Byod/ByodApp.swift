@@ -206,6 +206,7 @@ struct CheotView: View {
     @State private var malsoriOn = Malsori.shared.kyeojim
     @State private var flintOn = Flint.flintInga   // 1.2.0
     @State private var songchulOn = false   // 1.14.0
+    @State private var neomBoim = false     // 1.16.2
     @State private var hyeonPonOn = Flint.hyeonPon   // 1.14.0
     @State private var hyeonGi = 0   // 1.14.0
     @State private var kiugiOn = true   // 1.14.0
@@ -355,6 +356,15 @@ struct CheotView: View {
             Button("결과 복사") { UIPasteboard.general.string = jeomgeomGeul; malhagi("현장 점검 결과를 복사했습니다.") }
         } message: {
             Text(jeomgeomGeul)
+        }
+        .alert("방송 넘겨받기", isPresented: $neomBoim) {   // 1.16.2
+            Button("넘겨받기") { bang.neomgyeoMul = ""; FlintBonaegi.shared.neomgyeoBatgi() }
+            Button("그만두기", role: .cancel) { bang.neomgyeoMul = ""; BangIl.shared.kkeugi() }
+        } message: {
+            Text("이미 \(bang.neomgyeoMul) 기기가 방송 중입니다. 넘겨받으면 그 기기는 방송을 멈춥니다.")
+        }
+        .onChange(of: bang.neomgyeoMul) { v in
+            if !v.isEmpty { neomBoim = true; malhagi("이미 \(v) 기기가 방송 중입니다. 넘겨받을지 골라 주십시오.") }
         }
         .alert("공유기 확인", isPresented: $gongyugiBoim) {   // 1.9.0
             Button("닫기", role: .cancel) { }

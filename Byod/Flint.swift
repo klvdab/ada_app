@@ -105,6 +105,8 @@ final class FlintBonaegi {
     static let shared = FlintBonaegi()
     private let q = DispatchQueue(label: "byod.flint")
     private var con: NWConnection?
+    private var neom = false             // 1.16.2 넘겨받기를 고름
+    private var buteotda = false         // 1.16.2 이번 방송에서 공유기에 붙은 적 있는가
     private var dolgo = false
     private var butum = false            // 공유기가 OK 라고 답했는가
     private var ssain = 0                // 아직 보내지 못하고 쌓인 조각 수
@@ -134,6 +136,7 @@ final class FlintBonaegi {
         q.async {
             self.gigiIreum = nm.isEmpty ? "아이폰" : nm
             self.dolgo = true
+            self.neom = false; self.buteotda = false   // 1.16.2
             self.hyeon = Flint.hyeonPon
             self.yseq = -1
             self.butgi()
@@ -142,6 +145,15 @@ final class FlintBonaegi {
             t.setEventHandler { [weak self] in self?.salpigi() }
             t.resume()
             self.salpimTimer = t
+        }
+    }
+
+    /// 1.16.2 넘겨받기를 고름 — 앞 기기는 다시 붙으려다 교대된 것을 알고 멈춤
+    func neomgyeoBatgi() {
+        q.async {
+            guard self.dolgo else { return }
+            self.neom = true
+            self.butgi()
         }
     }
 
@@ -204,7 +216,7 @@ final class FlintBonaegi {
             case .ready:
                 // 1.3.0 행사 이름·현장영상해설사·이 아이폰 시각을 함께 보냄(공유기가 행사 녹음과 기록을 남김)
                 func kan(_ k: String) -> String { (UserDefaults.standard.string(forKey: k) ?? "").replacingOccurrences(of: "\t", with: " ").replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces) }
-                let meori = (s.hyeon ? "HYEON - \(s.gigiIreum)" : "BYOD - \(s.gigiIreum)\t\(kan("haengsa_jemok"))\t\(kan("haeseolsa"))\t\(Date().timeIntervalSince1970)" + (opusHal ? "\t2" : "\t-") + (Bang.shared.songchul ? "" : "\tq")) + "\n"   // 1.14.0 q. 1.16.1 (261105-BI21) 줄바꿈이 주석 뒤로 밀려 빠져 있어 공유기가 머리 줄을 끝까지 못 읽고 아이폰 소리를 받지 못했음(상암의 원인)
+                let meori = (s.hyeon ? "HYEON - \(s.gigiIreum)" : "BYOD - \(s.gigiIreum)\t\(kan("haengsa_jemok"))\t\(kan("haeseolsa"))\t\(Date().timeIntervalSince1970)" + (opusHal ? "\t2" : "\t-") + (Bang.shared.songchul ? "\t-" : "\tq") + (s.neom ? "\tneom" : "\tmut")) + "\n"   // 1.14.0 q. 1.16.1 (261105-BI21) 줄바꿈이 주석 뒤로 밀려 빠져 있어 공유기가 머리 줄을 끝까지 못 읽고 아이폰 소리를 받지 못했음(상암의 원인)
                 c.send(content: meori.data(using: .utf8), completion: .contentProcessed { _ in })
                 c.receive(minimumIncompleteLength: 2, maximumLength: 64) { d, _, _, e in
                     s.q.async {
@@ -215,8 +227,23 @@ final class FlintBonaegi {
                             if jul.count >= 3 { Flint.pdBeonho = String(jul[2]).trimmingCharacters(in: .whitespacesAndNewlines) }   // 1.14.0
                             s.kkol2 = opusHal && jul.count >= 3 && jul.last.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) == "2" } == true
                             s.butum = true
+                            if !s.hyeon { s.buteotda = true }   // 1.16.2
                             s.jamgeum.lock(); s._bonaenda = true; s.jamgeum.unlock()
                             Bang.shared.juge { b in if b.jalmot.hasPrefix("공유기") { b.jalmot = "" } }
+                        } else if t.hasPrefix("BAPPEUM") {
+                            // 1.16.2 (261106-BI22, 이사장님 승인) 다른 기기가 방송 중 — 앞서 보내던 기기면 교대된 것이니 멈추고, 새로 시작하면 넘겨받을지 물음
+                            let nm = String(t.dropFirst(7)).trimmingCharacters(in: .whitespacesAndNewlines)
+                            s.con?.stateUpdateHandler = nil
+                            s.con?.cancel(); s.con = nil
+                            let gyodae = s.buteotda
+                            DispatchQueue.main.async {
+                                if gyodae {
+                                    BangIl.shared.kkeugi()
+                                    Bang.shared.jalmot = "\(nm) 기기가 방송을 넘겨받아 이 아이폰은 방송을 멈췄습니다."
+                                } else {
+                                    Bang.shared.neomgyeoMul = nm
+                                }
+                            }
                         } else {
                             s.kkeunkim("공유기: 방송 서버가 이 아이폰을 받지 않습니다. 더 보기의 플린트 2 준비하기를 다시 하십시오.")
                         }

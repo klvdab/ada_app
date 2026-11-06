@@ -35,6 +35,7 @@ object Flint {
     @Volatile var mp3 = false             // 화면을 잠가도 이어지는 소리 길이 있는가
     @Volatile var ttuigi = ""             // 듣기 화면 저절로 뜨기 방식
     @Volatile var dapTtae = 0L            // 공유기가 마지막으로 답한 때
+    @Volatile var neomHal = false         // 1.16.1 넘겨받기를 고름
     @Volatile var bonaenda = false        // 소리를 공유기로 보내고 있는가
     @Volatile var haengsaJigeum = ""      // 1.9.0 (261024-B17) 무대 영상 녹화 — 공유기가 알려 준 지금 행사(sid), 영상과 행사를 짝짓는 데 씀
 
@@ -174,8 +175,11 @@ object Flint {
             return o
         }
 
+        private var buteotda = false   // 1.16.1 이번 방송에서 공유기에 붙은 적 있는가
+
         fun sijak() {
             dolgo = true
+            buteotda = false; neomHal = false; Bang.neomgyeoMul = ""
             il = Thread({ dolgi() }, "byod-flint-bonae").apply { isDaemon = true; start() }
             salpim = Thread({ salpigi() }, "byod-flint-salpim").apply { isDaemon = true; start() }
             if (!hyeon) Thread({ seokkimDolgi() }, "byod-flint-seokkim").apply { isDaemon = true; start() }
@@ -237,11 +241,27 @@ object Flint {
                     val opusHal = OpusSori.on(ctx) && OpusSori.doena()
                     if (hyeon) o.write(("HYEON " + yeolsoe(ctx).ifEmpty { "-" } + " " + ireum + "\n").toByteArray(Charsets.UTF_8))
                     else o.write(("BYOD " + yeolsoe(ctx).ifEmpty { "-" } + " " + ireum + "\t" + kan("haengsa_jemok") + "\t" + kan("haeseolsa") + "\t" +
-                        (System.currentTimeMillis() / 1000.0) + (if (opusHal) "\t2" else "\t-") + (if (Bang.songchul) "" else "\tq") + "\n").toByteArray(Charsets.UTF_8))   // 1.14.0 q: 송출 시작 전
+                        (System.currentTimeMillis() / 1000.0) + (if (opusHal) "\t2" else "\t-") + (if (Bang.songchul) "\t-" else "\tq") + (if (neomHal) "\tneom" else "\tmut") + "\n").toByteArray(Charsets.UTF_8))   // 1.14.0 q: 송출 시작 전
                     o.flush()
                     val dap = StringBuilder()
                     while (true) { val ch = i.read(); if (ch < 0 || ch == '\n'.code) break; dap.append(ch.toChar()) }
+                    // 1.16.1 (261106-B27, 이사장님 승인) 다른 기기가 방송 중 — 앞서 보내던 기기면 교대된 것이니 멈추고, 새로 시작하면 넘겨받을지 물음
+                    if (dap.toString().startsWith("BAPPEUM")) {
+                        val nm = dap.toString().removePrefix("BAPPEUM").trim()
+                        try { s.close() } catch (_: Exception) { }
+                        if (buteotda) {
+                            val ac = ctx.applicationContext
+                            android.os.Handler(android.os.Looper.getMainLooper()).post { ByodService.kkeugi(ac) }
+                            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ Bang.jalmot = nm + " 기기가 방송을 넘겨받아 이 기기는 방송을 멈췄습니다."; Bang.allyeo() }, 900)
+                            return
+                        }
+                        Bang.neomgyeoMul = nm; Bang.allyeo()
+                        while (dolgo && !neomHal) Thread.sleep(300)
+                        Bang.neomgyeoMul = ""
+                        continue
+                    }
                     if (!dap.startsWith("OK")) throw IllegalStateException("열쇠")
+                    if (!hyeon) buteotda = true   // 1.16.1
                     dap.trim().split(" ").filter { it.isNotEmpty() }.getOrNull(2)?.let { pdBeonho = it }   // 1.14.0
                     // 공유기 1.5.0 부터는 받아들이면 대답 끝에 「 2」를 붙임(OK 판 피디번호 2)
                     val k2 = opusHal && dap.trim().split(" ").filter { it.isNotEmpty() }.let { it.size >= 3 && it.last() == "2" }

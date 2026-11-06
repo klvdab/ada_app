@@ -26,8 +26,8 @@ try:
 except Exception:          # python3-openssl 이 없는 공유기 — 자물쇠 문 없이 돎
     ssl = None
 
-PAN = "1.9.0"   # 261105-F12 진단 /jindan, 나스 올리기 세 갈래와 시계 맞춤, 저절로 뜨기 때 아이폰 머물게, 음향 콘솔 입력, 피디 번호 묻기. 앞: 261104-F11 송출 대기·점검 듣기·현장음 섞기. 앞: 261103-F8~F10 소리 키우기·시계, 261030-F7
-BILD = "261105-F12"
+PAN = "1.9.1"   # 261106-F13 보내는 기기가 끊겨 돌아오지 않으면 해설 중을 끄고 대기 음악으로, 두 대 송출은 묻고 넘겨받기. 261105-F12 진단 /jindan, 나스 올리기 세 갈래와 시계 맞춤, 저절로 뜨기 때 아이폰 머물게, 음향 콘솔 입력, 피디 번호 묻기. 앞: 261104-F11 송출 대기·점검 듣기·현장음 섞기. 앞: 261103-F8~F10 소리 키우기·시계, 261030-F7
+BILD = "261106-F13"
 
 SEOBEO_IP = os.environ.get("BYOD_IP", "192.168.8.2")      # 듣기 화면 주소(공유기에 덧붙인 주소)
 WEB_PORT = int(os.environ.get("BYOD_WEB_PORT", "7880"))    # 80번은 방화벽이 이리로 돌려줌
@@ -354,6 +354,7 @@ class Bang:
         self.majimak_sori = 0.0                     # 소리가 마지막으로 들어온 때
         self.yocheong = []                          # (때, 번호, 종류) — 앱이 묻는 목록
         self.yseq = 0
+        self.cue_jeongri = 0.0                      # 1.9.1 끊긴 뒤 해설 중을 끈 때
         self.hwamyeon = {}                          # 1.9.0 저절로 뜨기 — 듣기 화면을 받은 폰과 그 시각
         self.tonggwa = set()                        # 듣기 화면을 이미 연 폰(주소)
         self.lame = None
@@ -493,6 +494,9 @@ async def sori_batgi(r, w):
             except Exception:
                 pass
         kkol2 = len(kan) > 4 and kan[4].strip() == "2"
+        # 1.9.1 (261106-F13, 이사장님 승인) 다른 기기가 방송 중이면 끊지 않고 먼저 물음. 끊긴 앞 기기가 다시 붙어 서로 끊는 일을 막음. 옛 앱은 이 칸이 없어 그대로 넘겨받음
+        if B.bonaem is not None and len(kan) > 6 and kan[6].strip() == "mut" and str(peer[0]) != B.bonaem_ip:
+            w.write(("BAPPEUM " + B.bonaem_ireum + "\n").encode()); await w.drain(); w.close(); return
         haengsa_butum(ireum, jemok, haeseolsa)
         opus_kkeunki()                   # 1.5.0 방송 기기가 바뀌면 오푸스로 듣던 분은 다시 붙어 맞는 쪽으로 듣게
         # 새로 붙은 쪽이 넘겨받음(해설 교대)
@@ -677,6 +681,10 @@ async def goyo_ilkkun():
                 h.bun(deutnun_su())
             if B.bonaem is None and now - B.majimak_butum > IEUM:
                 haengsa_maegam()
+        # 1.9.1 (261106-F13) 송출 시작 뒤 보내는 기기가 끊겨 10초 안에 돌아오지 않으면 해설 중을 끔 — 듣는 분께 대기 음악과 안내가 나가게
+        if B.bonaem is None and B.cue[1] and B.majimak_butum > B.cue_jeongri and now - B.majimak_butum > 10 and now - B.pcm_ttae[1] > 10:
+            B.cue[1] = False
+            B.cue_jeongri = now
         if now - B.sori_ttae[1] > 0.3:
             mp3_neoki(GOYO)
         for g in range(1, GAL_SU + 1):
