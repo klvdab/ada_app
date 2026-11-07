@@ -1,4 +1,4 @@
-# LVD투어스튜디오 앱스토어 사진 찍기 1.1 (빌드 261107-TS2 — 이미 깔린 기계를 씀. 1.0 빌드 261107-TS1, 대클 — 이사장님 승인 2026-11-07 「1」)
+# LVD투어스튜디오 앱스토어 사진 찍기 1.2 (빌드 261107-TS3 — 맥이 먼저 로그인해 통행증을 앱에 넣어 둠. 1.1 261107-TS2 이미 깔린 기계를 씀. 1.0 빌드 261107-TS1, 대클 — 이사장님 승인 2026-11-07 「1」)
 # 맥 일꾼의 아이폰 흉내 기계(시뮬레이터)에서 투어스튜디오를 실제로 띄워 다섯 화면을 찍습니다.
 #   - 시험 계정(sgtest1) 비밀번호는 앱스토어 커넥트 심사 정보에 이사장님이 넣으신 것을 열쇠(ASC_BUNDLE)로 읽어 씁니다. 화면·기록에는 나오지 않게 가립니다.
 #   - 찍은 사진은 tour-sajin 갈래에 올려 대클이 먼저 살펴봅니다.
@@ -72,6 +72,29 @@ jobs:
           PY
           /tmp/py/bin/python /tmp/demo.py
 
+      - name: 투어스튜디오 통행증 받기(가림) — 1.2
+        run: |
+          cat > /tmp/tk.py <<'PY'
+          import os, json, urllib.request
+          b = json.dumps({"action": "login", "id": os.environ.get("SAJIN_ID", "sgtest1"), "pw": os.environ.get("SAJIN_PWX", "")}).encode()
+          r = urllib.request.Request("https://lvd.ada.or.kr/lvdts/lvdts_api.php", data=b, method="POST",
+              headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) LVDTourStudio/1.0"})
+          try:
+              t = urllib.request.urlopen(r, timeout=40).read().decode("utf-8", "replace")
+          except Exception as e:
+              print("서버에 닿지 못함:", str(e)[:200]); raise SystemExit(0)
+          try:
+              j = json.loads(t)
+          except Exception:
+              print("서버 대답이 JSON 이 아님(앞 200자):", t[:200].replace("\n", " ")); raise SystemExit(0)
+          tk = j.get("token") or ""
+          if tk:
+              print("::add-mask::" + tk)
+              open(os.environ["GITHUB_ENV"], "a").write("SAJIN_TK=%s\n" % tk)
+          print("로그인 결과: ok=%s, 통행증 %s, 까닭=%s" % (j.get("ok"), "받음" if tk else "없음", j.get("error", "")))
+          PY
+          /tmp/py/bin/python /tmp/tk.py
+
       - name: 시험 기계용으로 짓기
         run: |
           xcodegen generate --spec seolgye_tour.yml
@@ -94,6 +117,8 @@ jobs:
           xcrun simctl location "$U" set 35.1007,129.0327
           xcrun simctl install "$U" "$APP"
           for k in location microphone photos-add motion speech-recognition; do xcrun simctl privacy "$U" grant $k kr.or.ada.tourstudio || true; done
+          # 1.2 통행증을 앱 설정에 미리 넣어 둠(앱이 스스로 로그인하지 못해도 들어가 있게)
+          if [ -n "$SAJIN_TK" ]; then xcrun simctl spawn "$U" defaults write kr.or.ada.tourstudio lvdtsToken "$SAJIN_TK"; xcrun simctl spawn "$U" defaults write kr.or.ada.tourstudio meName "시험 계정"; fi
           mkdir -p sajin
           n=0
           for t in 0 1 2 3 4; do
