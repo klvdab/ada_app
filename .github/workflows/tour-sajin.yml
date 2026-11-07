@@ -1,4 +1,4 @@
-# LVD투어스튜디오 앱스토어 사진 찍기 1.0 (빌드 261107-TS1, 대클 — 이사장님 승인 2026-11-07 「1」)
+# LVD투어스튜디오 앱스토어 사진 찍기 1.1 (빌드 261107-TS2 — 이미 깔린 기계를 씀. 1.0 빌드 261107-TS1, 대클 — 이사장님 승인 2026-11-07 「1」)
 # 맥 일꾼의 아이폰 흉내 기계(시뮬레이터)에서 투어스튜디오를 실제로 띄워 다섯 화면을 찍습니다.
 #   - 시험 계정(sgtest1) 비밀번호는 앱스토어 커넥트 심사 정보에 이사장님이 넣으신 것을 열쇠(ASC_BUNDLE)로 읽어 씁니다. 화면·기록에는 나오지 않게 가립니다.
 #   - 찍은 사진은 tour-sajin 갈래에 올려 대클이 먼저 살펴봅니다.
@@ -84,11 +84,12 @@ jobs:
           KOS: ${{ github.event.inputs.kos || 'C001' }}
         run: |
           APP=$(ls -d dd/Build/Products/Debug-iphonesimulator/TourApp.app)
-          RT=$(xcrun simctl list runtimes | grep -m1 -o 'com.apple.CoreSimulator.SimRuntime.iOS-26[-0-9]*')
-          DT=$(xcrun simctl list devicetypes | grep -o 'com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max' | head -1)
-          [ -z "$DT" ] && DT=com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro-Max
-          U=$(xcrun simctl create sajin "$DT" "$RT"); echo "기계 $DT / $RT"
-          xcrun simctl boot "$U"; xcrun simctl bootstatus "$U" -b
+          # 1.1 (261107) 이미 깔린 기계 가운데 가장 새 iOS 의 Pro Max 를 씀(새로 만든 기계가 켜지지 않고 멈췄음)
+          U=$(xcrun simctl list devices available -j | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];c=[(k,x) for k,v in d.items() if 'iOS' in k for x in v if 'Pro Max' in x['name']];c.sort(key=lambda a:[int(n) for n in a[0].split('iOS-')[1].split('-')]);k,x=c[-1];print(x['udid']);print('기계',k,x['name'],file=sys.stderr)")
+          xcrun simctl boot "$U" || true
+          for i in $(seq 1 72); do xcrun simctl list devices | grep "$U" | grep -q Booted && break; sleep 5; done
+          xcrun simctl list devices | grep "$U"
+          sleep 20
           xcrun simctl status_bar "$U" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
           xcrun simctl location "$U" set 35.1007,129.0327
           xcrun simctl install "$U" "$APP"
