@@ -1,0 +1,163 @@
+# LVD투어스튜디오 앱스토어 사진 찍기 1.0 (빌드 261107-TS1, 대클 — 이사장님 승인 2026-11-07 「1」)
+# 맥 일꾼의 아이폰 흉내 기계(시뮬레이터)에서 투어스튜디오를 실제로 띄워 다섯 화면을 찍습니다.
+#   - 시험 계정(sgtest1) 비밀번호는 앱스토어 커넥트 심사 정보에 이사장님이 넣으신 것을 열쇠(ASC_BUNDLE)로 읽어 씁니다. 화면·기록에는 나오지 않게 가립니다.
+#   - 찍은 사진은 tour-sajin 갈래에 올려 대클이 먼저 살펴봅니다.
+#   - olligi 를 1 로 주면 찍은 사진을 앱스토어 커넥트 1.4.0판(한국어) 아이폰 6.9인치 묶음에 바로 올립니다(옛 사진은 바꿈).
+# 앱 쪽 손질: Tour/TourApp.swift 의 #if DEBUG 부분(SAJIN_PW·SAJIN_KOS·SAJIN_TAB) — 시험 짓기에만 들어가고 정식 판에는 들어가지 않습니다.
+name: tour-sajin
+on:
+  workflow_dispatch:
+    inputs:
+      kos:
+        description: "띄울 코스 번호(sgtest1 의 예시 코스)"
+        default: "C001"
+      olligi:
+        description: "1 이면 앱스토어 커넥트에 사진까지 올림"
+        default: "0"
+permissions:
+  contents: write
+jobs:
+  jjikgi:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode 26 고르기
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1)
+          sudo xcode-select -s "$X/Contents/Developer"
+          xcodebuild -version
+
+      - name: 도구 준비
+        run: |
+          brew install xcodegen
+          python3 -m venv /tmp/py
+          /tmp/py/bin/pip install --quiet pillow pyjwt cryptography
+          /tmp/py/bin/python tools/make_icon.py
+
+      - name: 열쇠 풀어 놓기
+        env:
+          ASC_BUNDLE: ${{ secrets.ASC_BUNDLE }}
+        run: |
+          umask 077
+          B="$RUNNER_TEMP/bundle.txt"
+          printf '%s\n' "$ASC_BUNDLE" | tr -d '\r' > "$B"
+          KID=$(grep -m1 '^KEY_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          IID=$(grep -m1 '^ISSUER_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          mkdir -p "$HOME/private_keys"
+          sed -n '/BEGIN PRIVATE KEY/,/END PRIVATE KEY/p' "$B" > "$HOME/private_keys/AuthKey_$KID.p8"
+          rm -f "$B"
+          echo "::add-mask::$IID"
+          echo "ASC_KEY_ID=$KID" >> "$GITHUB_ENV"
+          echo "ASC_ISSUER_ID=$IID" >> "$GITHUB_ENV"
+
+      - name: 시험 계정 비밀번호 읽기(가림)
+        run: |
+          cat > /tmp/demo.py <<'PY'
+          import os, time, json, urllib.request, urllib.parse, jwt
+          kid = os.environ["ASC_KEY_ID"]; iss = os.environ["ASC_ISSUER_ID"]
+          key = open(os.path.expanduser("~/private_keys/AuthKey_%s.p8" % kid)).read()
+          def mal(gil, q=None):
+              t = jwt.encode({"iss": iss, "iat": int(time.time()), "exp": int(time.time()) + 600, "aud": "appstoreconnect-v1"}, key, algorithm="ES256", headers={"kid": kid, "typ": "JWT"})
+              u = "https://api.appstoreconnect.apple.com/v1/" + gil + (("?" + urllib.parse.urlencode(q)) if q else "")
+              return json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"Authorization": "Bearer " + t}), timeout=60).read())
+          ap = mal("apps", {"filter[bundleId]": "kr.or.ada.tourstudio"})["data"][0]
+          vs = mal("apps/%s/appStoreVersions" % ap["id"], {"filter[appStoreState]": "PREPARE_FOR_SUBMISSION"})["data"]
+          rd = mal("appStoreVersions/%s/appStoreReviewDetail" % vs[0]["id"])["data"]["attributes"]
+          pw = rd.get("demoAccountPassword") or ""
+          print("::add-mask::" + pw)
+          open(os.environ["GITHUB_ENV"], "a").write("SAJIN_ID=%s\nSAJIN_PWX=%s\n" % (rd.get("demoAccountName") or "sgtest1", pw))
+          print("시험 계정 비밀번호를 읽었습니다(%s)" % ("있음" if pw else "없음"))
+          PY
+          /tmp/py/bin/python /tmp/demo.py
+
+      - name: 시험 기계용으로 짓기
+        run: |
+          xcodegen generate --spec seolgye_tour.yml
+          set -o pipefail
+          xcodebuild -project AdaApp.xcodeproj -scheme TourApp -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath dd CODE_SIGNING_ALLOWED=NO build | tail -n 20
+
+      - name: 아이폰 흉내 기계 띄우고 찍기
+        env:
+          KOS: ${{ github.event.inputs.kos || 'C001' }}
+        run: |
+          APP=$(ls -d dd/Build/Products/Debug-iphonesimulator/TourApp.app)
+          RT=$(xcrun simctl list runtimes | grep -m1 -o 'com.apple.CoreSimulator.SimRuntime.iOS-26[-0-9]*')
+          DT=$(xcrun simctl list devicetypes | grep -o 'com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max' | head -1)
+          [ -z "$DT" ] && DT=com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro-Max
+          U=$(xcrun simctl create sajin "$DT" "$RT"); echo "기계 $DT / $RT"
+          xcrun simctl boot "$U"; xcrun simctl bootstatus "$U" -b
+          xcrun simctl status_bar "$U" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
+          xcrun simctl location "$U" set 35.1007,129.0327
+          xcrun simctl install "$U" "$APP"
+          for k in location microphone photos-add motion speech-recognition; do xcrun simctl privacy "$U" grant $k kr.or.ada.tourstudio || true; done
+          mkdir -p sajin
+          n=0
+          for t in 0 1 2 3 4; do
+            n=$((n+1))
+            xcrun simctl terminate "$U" kr.or.ada.tourstudio 2>/dev/null || true
+            SIMCTL_CHILD_SAJIN_ID="$SAJIN_ID" SIMCTL_CHILD_SAJIN_PW="$SAJIN_PWX" SIMCTL_CHILD_SAJIN_KOS="$KOS" SIMCTL_CHILD_SAJIN_TAB="$t" \
+              xcrun simctl launch "$U" kr.or.ada.tourstudio -AppleLanguages "(ko)" -AppleLocale ko_KR >/dev/null
+            sleep 25
+            xcrun simctl io "$U" screenshot "sajin/ios_tour_$n.png"
+          done
+          ls -l sajin
+          sips -g pixelWidth -g pixelHeight sajin/ios_tour_1.png
+
+      - name: 사진을 tour-sajin 갈래에 올려 살펴보기
+        run: |
+          cp -R sajin /tmp/sajin
+          cd /tmp/sajin
+          git init -q && git checkout -q -b tour-sajin
+          git config user.name "github-actions" && git config user.email "actions@github.com"
+          git add . && git commit -qm "투어스튜디오 앱스토어 사진 $(TZ=Asia/Seoul date +%y%m%d-%H%M)"
+          git push -fq "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" tour-sajin
+
+      - name: 앱스토어 커넥트에 올리기
+        if: ${{ github.event.inputs.olligi == '1' }}
+        run: |
+          cat > /tmp/olligi.py <<'PY'
+          import os, time, json, glob, hashlib, urllib.request, urllib.parse, urllib.error, jwt
+          kid = os.environ["ASC_KEY_ID"]; iss = os.environ["ASC_ISSUER_ID"]
+          key = open(os.path.expanduser("~/private_keys/AuthKey_%s.p8" % kid)).read()
+          def mal(bang, gil, q=None, mom=None):
+              t = jwt.encode({"iss": iss, "iat": int(time.time()), "exp": int(time.time()) + 600, "aud": "appstoreconnect-v1"}, key, algorithm="ES256", headers={"kid": kid, "typ": "JWT"})
+              u = "https://api.appstoreconnect.apple.com/v1/" + gil + (("?" + urllib.parse.urlencode(q)) if q else "")
+              r = urllib.request.Request(u, data=json.dumps(mom).encode() if mom is not None else None, method=bang, headers={"Authorization": "Bearer " + t, "Content-Type": "application/json"})
+              try:
+                  b = urllib.request.urlopen(r, timeout=120).read(); return json.loads(b) if b else {}
+              except urllib.error.HTTPError as e:
+                  print("애플이 거절함", bang, gil, e.read().decode()[:600]); raise
+          ap = mal("GET", "apps", {"filter[bundleId]": "kr.or.ada.tourstudio"})["data"][0]
+          v = mal("GET", "apps/%s/appStoreVersions" % ap["id"], {"filter[appStoreState]": "PREPARE_FOR_SUBMISSION"})["data"][0]
+          print("판", v["attributes"]["versionString"])
+          fs = sorted(glob.glob("sajin/ios_tour_*.png"))
+          for lo in mal("GET", "appStoreVersions/%s/appStoreVersionLocalizations" % v["id"])["data"]:
+              sets = mal("GET", "appStoreVersionLocalizations/%s/appScreenshotSets" % lo["id"])["data"]
+              st = next((s for s in sets if s["attributes"]["screenshotDisplayType"] == "APP_IPHONE_67"), None)
+              if not st:
+                  st = mal("POST", "appScreenshotSets", mom={"data": {"type": "appScreenshotSets", "attributes": {"screenshotDisplayType": "APP_IPHONE_67"},
+                       "relationships": {"appStoreVersionLocalization": {"data": {"type": "appStoreVersionLocalizations", "id": lo["id"]}}}}})["data"]
+              for y in mal("GET", "appScreenshotSets/%s/appScreenshots" % st["id"])["data"]:
+                  mal("DELETE", "appScreenshots/%s" % y["id"])
+              for f in fs:
+                  b = open(f, "rb").read()
+                  r = mal("POST", "appScreenshots", mom={"data": {"type": "appScreenshots", "attributes": {"fileName": os.path.basename(f), "fileSize": len(b)},
+                          "relationships": {"appScreenshotSet": {"data": {"type": "appScreenshotSets", "id": st["id"]}}}}})["data"]
+                  for op in r["attributes"]["uploadOperations"]:
+                      hd = {x["name"]: x["value"] for x in (op.get("requestHeaders") or [])}
+                      urllib.request.urlopen(urllib.request.Request(op["url"], data=b[op["offset"]:op["offset"] + op["length"]], method=op["method"], headers=hd), timeout=120).read()
+                  mal("PATCH", "appScreenshots/%s" % r["id"], mom={"data": {"type": "appScreenshots", "id": r["id"], "attributes": {"uploaded": True, "sourceFileChecksum": hashlib.md5(b).hexdigest()}}})
+              print(lo["attributes"]["locale"], "아이폰 6.9인치 묶음에 사진", len(fs), "장 올림")
+          for _ in range(30):
+              mot = 0
+              for lo in mal("GET", "appStoreVersions/%s/appStoreVersionLocalizations" % v["id"])["data"]:
+                  for s in mal("GET", "appStoreVersionLocalizations/%s/appScreenshotSets" % lo["id"])["data"]:
+                      for y in mal("GET", "appScreenshotSets/%s/appScreenshots" % s["id"])["data"]:
+                          if ((y["attributes"].get("assetDeliveryState") or {}).get("state")) not in ("COMPLETE", None): mot += 1
+              if mot == 0: print("애플 쪽 사진 처리 끝"); break
+              time.sleep(10)
+          PY
+          /tmp/py/bin/python /tmp/olligi.py
