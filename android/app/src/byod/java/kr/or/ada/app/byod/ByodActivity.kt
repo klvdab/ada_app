@@ -71,7 +71,7 @@ class ByodActivity : Activity() {
     private lateinit var tteugiDanchu: Button   // 1.16.0
     private lateinit var konsolDanchu: Button   // 1.16.0
     private lateinit var ssimDanchu: Button     // 261107 콘솔 쓰임새(현장음 / 수신기 해설)
-    private lateinit var keugiDanchu: Button    // 261107 수신기 받는 크기
+    private lateinit var suKeugiDanchu: Button  // 261107 수신기 받는 크기(1.9.2 keugiDanchu 와 다름)
     private lateinit var suhsinDanchu: Button   // 261107 수신기 해설 송출
     private var konsolKeugi = -1
     private var suhsinKeu = false
@@ -330,7 +330,7 @@ class ByodActivity : Activity() {
         deoAn.addView(konsolDanchu)
         // 261107 (이사장님 승인) 수신기 해설 — 방송을 시작하지 않고 플 상태만 보고 조절
         ssimDanchu = danchu("") { ssimBakkugi() }; ssimDanchu.visibility = View.GONE; deoAn.addView(ssimDanchu)
-        keugiDanchu = danchu("") { keugiBakkugi() }; keugiDanchu.visibility = View.GONE; deoAn.addView(keugiDanchu)
+        suKeugiDanchu = danchu("") { suKeugiBakkugi() }; suKeugiDanchu.visibility = View.GONE; deoAn.addView(suKeugiDanchu)
         suhsinDanchu = danchu("") { suhsinSongchul() }; suhsinDanchu.visibility = View.GONE; deoAn.addView(suhsinDanchu)
         // 261107 (이사장님 승인) 폰 없이 인터넷 방송 — 핫스팟을 공유기에 기억시킴
         inetJul = geul(""); inetJul.visibility = View.GONE; deoAn.addView(inetJul)
@@ -658,16 +658,16 @@ class ByodActivity : Activity() {
     }
     // 261107 수신기 해설 — 공유기 1.9.5부터
     private fun suhsinDanchuGochigi(j: org.json.JSONObject?) {
-        if (j == null || !j.has("konsol_ssim")) { ssimDanchu.visibility = View.GONE; keugiDanchu.visibility = View.GONE; suhsinDanchu.visibility = View.GONE; return }
+        if (j == null || !j.has("konsol_ssim")) { ssimDanchu.visibility = View.GONE; suKeugiDanchu.visibility = View.GONE; suhsinDanchu.visibility = View.GONE; return }
         val hs = j.optString("konsol_ssim") == "haeseol"
         ssimDanchu.text = if (hs) "콘솔 쓰임새: 수신기 해설. 누르면 현장음으로" else "콘솔 쓰임새: 현장음. 누르면 수신기 해설로"
         konsolKeugi = j.optInt("konsol_keugi", -1)
-        keugiDanchu.text = "수신기 받는 크기: " + (if (konsolKeugi < 0) "그대로" else "${konsolKeugi}퍼센트") + ". 누르면 바꿉니다"
+        suKeugiDanchu.text = "수신기 받는 크기: " + (if (konsolKeugi < 0) "그대로" else "${konsolKeugi}퍼센트") + ". 누르면 바꿉니다"
         suhsinKeu = j.optBoolean("keu")
         val on = j.optBoolean("suhsin")
         suhsinDanchu.text = if (!on) "수신기 해설: 소리가 오지 않습니다. 누르면 송출을 " + (if (suhsinKeu) "멈춥니다" else "켭니다")
             else if (suhsinKeu) "수신기 해설 송출: 나가는 중. 누르면 멈춥니다" else "수신기 해설 송출: 멈춤. 누르면 내보냅니다"
-        ssimDanchu.visibility = View.VISIBLE; keugiDanchu.visibility = View.VISIBLE
+        ssimDanchu.visibility = View.VISIBLE; suKeugiDanchu.visibility = View.VISIBLE
         suhsinDanchu.visibility = if (hs) View.VISIBLE else View.GONE
         // 261107 플 인터넷 방송 — 공유기 1.9.6부터. 상태를 볼 때 번호도 넘겨 둠
         val it = j.optJSONObject("inet")
@@ -712,7 +712,7 @@ class ByodActivity : Activity() {
                 else "현장음으로 바꿨습니다. 허브 소리는 인터넷 방송에 섞는 현장음으로 씁니다.")
         }.start()
     }
-    private fun keugiBakkugi() {
+    private fun suKeugiBakkugi() {   // 261107 수신기 받는 크기
         val k = listOf(30, 50, 70, 90)
         val sae = if (konsolKeugi < 0) 50 else k[(k.indexOf(konsolKeugi) + 1) % k.size]
         peulBakkugi("/konsol?keugi=$sae", "수신기 받는 크기를 ${sae}퍼센트로 바꿨습니다. 소리가 찌그러지면 줄이고 작으면 키우십시오.")

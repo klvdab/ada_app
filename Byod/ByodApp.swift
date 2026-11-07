@@ -337,7 +337,7 @@ struct CheotView: View {
                     Danchu(geul: konsolGeul) { konsolBakkugi() }   // 1.16.0
                     // 261107 (이사장님 승인) 수신기 해설 — 방송을 시작하지 않고 플 상태만 보고 조절
                     if !ssimGeul.isEmpty { Danchu(geul: ssimGeul) { ssimBakkugi() } }
-                    if !keugiGeul.isEmpty { Danchu(geul: keugiGeul) { keugiBakkugi() } }
+                    if !keugiGeul.isEmpty { Danchu(geul: keugiGeul) { suKeugiBakkugi() } }
                     if !suhsinGeul.isEmpty { Danchu(geul: suhsinGeul) { suhsinSongchul() } }
                     // 261107 (이사장님 승인) 폰 없이 인터넷 방송 — 핫스팟을 공유기에 기억시킴
                     if !inetGeul.isEmpty { Geul(inetGeul) }
@@ -589,7 +589,7 @@ struct CheotView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { peulDanchuGochigi() }
         }
     }
-    private func keugiBakkugi() {
+    private func suKeugiBakkugi() {   // 261107 수신기 받는 크기(1.9.2 소리 자동 맞춤의 keugiBakkugi 와 다름)
         let k = [30, 50, 70, 90]
         let sae = konsolKeugi < 0 ? 50 : k[((k.firstIndex(of: konsolKeugi) ?? -1) + 1) % k.count]
         peulBakkugi("/konsol?keugi=\(sae)", "수신기 받는 크기를 \(sae)퍼센트로 바꿨습니다. 소리가 찌그러지면 줄이고 작으면 키우십시오.")
