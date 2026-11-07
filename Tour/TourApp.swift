@@ -32,6 +32,12 @@ struct TourApp: App {
             .environmentObject(store)
             .task {
                 await store.sijak()
+                #if DEBUG
+                // 앱스토어 사진 찍기(tour-sajin.yml, 261107 대클, 이사장님 「1」) — 시험 기계에서만. 정식 판(Release)에는 들어가지 않음
+                let hwan = ProcessInfo.processInfo.environment
+                if let pw = hwan["SAJIN_PW"], !pw.isEmpty, !store.loggedIn { _ = await store.login(id: hwan["SAJIN_ID"] ?? "sgtest1", pw: pw) }
+                if let k = hwan["SAJIN_KOS"], !k.isEmpty, store.loggedIn { _ = await store.open(k) }
+                #endif
                 sijakham = true
             }
         }
@@ -75,7 +81,11 @@ struct RootView: View {
                 .tag(4)
         }
         .environmentObject(nav)
-        .onAppear { TourOllim.shared.sijak(); Gwan.shared.pingSijak(); Danchu.shared.buchigi(); Task { await PanGirok.alrigi() } }
+        .onAppear {
+            #if DEBUG
+            if let t = Int(ProcessInfo.processInfo.environment["SAJIN_TAB"] ?? "") { nav.tab = t }   // 앱스토어 사진 찍기 — 시험 기계에서만
+            #endif
+            TourOllim.shared.sijak(); Gwan.shared.pingSijak(); Danchu.shared.buchigi(); Task { await PanGirok.alrigi() } }
         .background(EmptyView().fullScreenCover(isPresented: $danchu.kameraYeolgi) { JeoljeoroView(auto: UserDefaults.standard.object(forKey: "camAuto") as? Bool ?? false).environmentObject(store) })
         .onChange(of: nav.tab) { _, t in Gwan.shared.tab = t; if t != 1 { Beoseonam.shared.meomchum() } }
         .fullScreenCover(isPresented: Binding(get: { (store.me?["mustChange"] as? Bool) == true }, set: { _ in })) {
