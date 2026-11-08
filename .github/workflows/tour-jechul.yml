@@ -1,4 +1,4 @@
-# LVD투어스튜디오 심사에 제출 1.1 (빌드 261108-TJ2 — 무료 가격·콘텐츠 권리 신고 「권리 있음」을 넣고 냄, 이사장님 「1」. 1.0 261108-TJ1, 대클 — 이사장님 승인 2026-11-08 「2」 깃허브로 제출해라)
+# LVD투어스튜디오 심사에 제출 1.2 (빌드 261108-TJ3 — 무료 가격표를 늘 새로 넣음. 1.1 261108-TJ2 — 무료 가격·콘텐츠 권리 신고 「권리 있음」을 넣고 냄, 이사장님 「1」. 1.0 261108-TJ1, 대클 — 이사장님 승인 2026-11-08 「2」 깃허브로 제출해라)
 # 앱스토어 커넥트 열쇠(ASC_BUNDLE)로 로그인 없이 「제출 준비 중」인 판을 애플 심사에 냅니다.
 #   - 먼저 판·빌드·사진·시험 계정이 다 있는지 살피고, 빠진 것이 있으면 내지 않고 멈춥니다.
 #   - 출시 방식은 건드리지 않습니다(지금 「수동」 — 통과해도 이사장님이 정하시는 날에 냄).
@@ -69,11 +69,8 @@ jobs:
               mal("PATCH", "apps/%s" % ap["id"], mom={"data": {"type": "apps", "id": ap["id"], "attributes": {"contentRightsDeclaration": "USES_THIRD_PARTY_CONTENT"}}})
               print("콘텐츠 권리 신고: 권리 있음으로 넣음")
           # 1.1 가격 — 이사장님 결정(261108 「1」): 무료
-          try:
-              ps = mal("GET", "apps/%s/appPriceSchedule" % ap["id"]).get("data")
-          except SystemExit:
-              ps = None
-          if not ps:
+          # 1.2 가격표가 빈 채로 있을 수 있어(애플이 「가격 없음」이라 함) 늘 무료 가격표를 새로 넣음
+          if True:
               pp = mal("GET", "apps/%s/appPricePoints" % ap["id"], {"filter[territory]": "USA", "limit": "200"})["data"]
               free = [x for x in pp if str(x["attributes"].get("customerPrice")) in ("0", "0.0", "0.00")]
               if not free: print("무료 가격 자리를 찾지 못했습니다."); raise SystemExit(1)
