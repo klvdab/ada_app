@@ -1,0 +1,78 @@
+# LVD투어스튜디오 심사에 제출 1.0 (빌드 261108-TJ1, 대클 — 이사장님 승인 2026-11-08 「2」 깃허브로 제출해라)
+# 앱스토어 커넥트 열쇠(ASC_BUNDLE)로 로그인 없이 「제출 준비 중」인 판을 애플 심사에 냅니다.
+#   - 먼저 판·빌드·사진·시험 계정이 다 있는지 살피고, 빠진 것이 있으면 내지 않고 멈춥니다.
+#   - 출시 방식은 건드리지 않습니다(지금 「수동」 — 통과해도 이사장님이 정하시는 날에 냄).
+name: tour-jechul
+on:
+  workflow_dispatch:
+    inputs:
+      bundle:
+        description: "낼 앱의 번들 아이디"
+        default: "kr.or.ada.tourstudio"
+permissions:
+  contents: read
+jobs:
+  jechul:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 열쇠 풀어 놓기
+        env:
+          ASC_BUNDLE: ${{ secrets.ASC_BUNDLE }}
+        run: |
+          umask 077
+          B="$RUNNER_TEMP/bundle.txt"
+          printf '%s\n' "$ASC_BUNDLE" | tr -d '\r' > "$B"
+          KID=$(grep -m1 '^KEY_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          IID=$(grep -m1 '^ISSUER_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          mkdir -p "$HOME/private_keys"
+          sed -n '/BEGIN PRIVATE KEY/,/END PRIVATE KEY/p' "$B" > "$HOME/private_keys/AuthKey_$KID.p8"
+          rm -f "$B"
+          echo "::add-mask::$IID"
+          echo "ASC_KEY_ID=$KID" >> "$GITHUB_ENV"
+          echo "ASC_ISSUER_ID=$IID" >> "$GITHUB_ENV"
+          pip install --quiet pyjwt cryptography
+
+      - name: 살피고 심사에 내기
+        env:
+          BUNDLE: ${{ github.event.inputs.bundle || 'kr.or.ada.tourstudio' }}
+        run: |
+          cat > /tmp/jechul.py <<'PY'
+          import os, time, json, urllib.request, urllib.parse, urllib.error, jwt
+          kid = os.environ["ASC_KEY_ID"]; iss = os.environ["ASC_ISSUER_ID"]
+          key = open(os.path.expanduser("~/private_keys/AuthKey_%s.p8" % kid)).read()
+          def mal(bang, gil, q=None, mom=None):
+              t = jwt.encode({"iss": iss, "iat": int(time.time()), "exp": int(time.time()) + 600, "aud": "appstoreconnect-v1"}, key, algorithm="ES256", headers={"kid": kid, "typ": "JWT"})
+              u = "https://api.appstoreconnect.apple.com/v1/" + gil + (("?" + urllib.parse.urlencode(q)) if q else "")
+              r = urllib.request.Request(u, data=json.dumps(mom).encode() if mom is not None else None, method=bang, headers={"Authorization": "Bearer " + t, "Content-Type": "application/json"})
+              try:
+                  b = urllib.request.urlopen(r, timeout=120).read(); return json.loads(b) if b else {}
+              except urllib.error.HTTPError as e:
+                  print("애플이 거절함", bang, gil, e.read().decode()[:1500]); raise SystemExit(1)
+          ap = mal("GET", "apps", {"filter[bundleId]": os.environ["BUNDLE"]})["data"][0]
+          v = mal("GET", "apps/%s/appStoreVersions" % ap["id"], {"filter[appStoreState]": "PREPARE_FOR_SUBMISSION"})["data"]
+          if not v: print("제출 준비 중인 판이 없습니다."); raise SystemExit(1)
+          v = v[0]; a = v["attributes"]
+          print("앱", ap["attributes"]["name"], "/ 판", a["versionString"], "/ 출시 방식", a.get("releaseType"))
+          bd = mal("GET", "appStoreVersions/%s/build" % v["id"]).get("data")
+          print("빌드", (bd or {}).get("attributes", {}).get("version", "없음"))
+          if not bd: print("빌드가 붙어 있지 않아 내지 않습니다."); raise SystemExit(1)
+          n = 0
+          for lo in mal("GET", "appStoreVersions/%s/appStoreVersionLocalizations" % v["id"])["data"]:
+              for s in mal("GET", "appStoreVersionLocalizations/%s/appScreenshotSets" % lo["id"])["data"]:
+                  n += len(mal("GET", "appScreenshotSets/%s/appScreenshots" % s["id"])["data"])
+          print("사진", n, "장")
+          if n == 0: print("사진이 없어 내지 않습니다."); raise SystemExit(1)
+          rd = mal("GET", "appStoreVersions/%s/appStoreReviewDetail" % v["id"])["data"]["attributes"]
+          print("시험 계정", rd.get("demoAccountName"), "/ 비밀번호", "있음" if rd.get("demoAccountPassword") else "없음")
+          sub = mal("POST", "reviewSubmissions", mom={"data": {"type": "reviewSubmissions", "attributes": {"platform": "IOS"},
+                "relationships": {"app": {"data": {"type": "apps", "id": ap["id"]}}}}})["data"]
+          mal("POST", "reviewSubmissionItems", mom={"data": {"type": "reviewSubmissionItems",
+                "relationships": {"reviewSubmission": {"data": {"type": "reviewSubmissions", "id": sub["id"]}},
+                                  "appStoreVersion": {"data": {"type": "appStoreVersions", "id": v["id"]}}}}})
+          r = mal("PATCH", "reviewSubmissions/%s" % sub["id"], mom={"data": {"type": "reviewSubmissions", "id": sub["id"], "attributes": {"submitted": True}}})
+          print("심사에 냈습니다. 상태:", r["data"]["attributes"].get("state"))
+          time.sleep(20)
+          v2 = mal("GET", "appStoreVersions/%s" % v["id"])["data"]["attributes"]
+          print("판 상태:", v2.get("appStoreState") or v2.get("appVersionState"))
+          PY
+          python3 /tmp/jechul.py
