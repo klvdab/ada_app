@@ -1,0 +1,93 @@
+# 앱스토어 심사 중인 앱 살피기 1.0 (빌드 261109-TS1, 대클 — 이사장님 지시 2026-11-09 「투어스튜디오도 확인해야 돼, 얼른 확인해 봐」)
+# 읽기만 합니다. 애플에 적힌 개인정보·지원 주소와, 앱이 부르는 서버 주소를 깃허브 바깥 기계(애플 심사처럼 바깥)에서 두드려 봅니다.
+#   - 아무것도 고치지 않습니다. 비밀번호는 쓰지 않습니다.
+name: tour-salpim
+on:
+  workflow_dispatch:
+    inputs:
+      bundle:
+        description: "살필 앱의 번들 아이디"
+        default: "kr.or.ada.tourstudio"
+permissions:
+  contents: read
+jobs:
+  salpim:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 열쇠 풀어 놓기
+        env:
+          ASC_BUNDLE: ${{ secrets.ASC_BUNDLE }}
+        run: |
+          umask 077
+          B="$RUNNER_TEMP/bundle.txt"
+          printf '%s\n' "$ASC_BUNDLE" | tr -d '\r' > "$B"
+          KID=$(grep -m1 '^KEY_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          IID=$(grep -m1 '^ISSUER_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          mkdir -p "$HOME/private_keys"
+          sed -n '/BEGIN PRIVATE KEY/,/END PRIVATE KEY/p' "$B" > "$HOME/private_keys/AuthKey_$KID.p8"
+          rm -f "$B"
+          echo "::add-mask::$IID"
+          echo "ASC_KEY_ID=$KID" >> "$GITHUB_ENV"
+          echo "ASC_ISSUER_ID=$IID" >> "$GITHUB_ENV"
+          pip install --quiet pyjwt cryptography
+
+      - name: 애플 기록과 서버 주소 살피기
+        env:
+          BUNDLE: ${{ github.event.inputs.bundle || 'kr.or.ada.tourstudio' }}
+        run: |
+          cat > /tmp/salpim.py <<'PY'
+          import os, time, json, urllib.request, urllib.parse, urllib.error, jwt
+          kid = os.environ["ASC_KEY_ID"]; iss = os.environ["ASC_ISSUER_ID"]
+          key = open(os.path.expanduser("~/private_keys/AuthKey_%s.p8" % kid)).read()
+          def mal(gil, q=None):
+              t = jwt.encode({"iss": iss, "iat": int(time.time()), "exp": int(time.time()) + 600, "aud": "appstoreconnect-v1"}, key, algorithm="ES256", headers={"kid": kid, "typ": "JWT"})
+              u = "https://api.appstoreconnect.apple.com/v1/" + gil + (("?" + urllib.parse.urlencode(q)) if q else "")
+              r = urllib.request.Request(u, headers={"Authorization": "Bearer " + t})
+              try:
+                  return json.loads(urllib.request.urlopen(r, timeout=60).read())
+              except urllib.error.HTTPError as e:
+                  print("애플 대답 오류", gil, e.code); return {"data": []}
+          def dudeurim(u, bang="GET", mom=None, ua="LVDTourStudio/1.4.0 CFNetwork Darwin"):
+              t0 = time.time()
+              try:
+                  r = urllib.request.Request(u, data=mom, method=bang, headers={"User-Agent": ua, "Content-Type": "application/json"})
+                  with urllib.request.urlopen(r, timeout=30) as x:
+                      b = x.read(300); return "%d %.1f초 %s" % (x.status, time.time() - t0, b[:80].decode("utf-8", "replace").replace("\n", " "))
+              except urllib.error.HTTPError as e:
+                  return "%d %.1f초 %s" % (e.code, time.time() - t0, e.read(200)[:80].decode("utf-8", "replace").replace("\n", " "))
+              except Exception as e:
+                  return "닿지 않음 %s" % str(e)[:80]
+          ap = mal("apps", {"filter[bundleId]": os.environ["BUNDLE"]})["data"][0]
+          print("앱", ap["attributes"]["name"], "/ 콘텐츠 권리", ap["attributes"].get("contentRightsDeclaration"))
+          juso = set()
+          for inf in mal("apps/%s/appInfos" % ap["id"])["data"]:
+              for lo in mal("appInfos/%s/appInfoLocalizations" % inf["id"])["data"]:
+                  a = lo["attributes"]
+                  print("앱 정보", a.get("locale"), "/ 개인정보 주소", a.get("privacyPolicyUrl"), "/ 개인정보 선택 주소", a.get("privacyChoicesUrl"))
+                  for k in ("privacyPolicyUrl", "privacyChoicesUrl"):
+                      if a.get(k): juso.add(a[k])
+          for v in mal("apps/%s/appStoreVersions" % ap["id"], {"limit": "2"})["data"]:
+              va = v["attributes"]
+              print("판", va.get("versionString"), "/ 상태", va.get("appStoreState"))
+              for lo in mal("appStoreVersions/%s/appStoreVersionLocalizations" % v["id"])["data"]:
+                  a = lo["attributes"]
+                  print("판 설명", a.get("locale"), "/ 지원 주소", a.get("supportUrl"), "/ 홍보 주소", a.get("marketingUrl"))
+                  for k in ("supportUrl", "marketingUrl"):
+                      if a.get(k): juso.add(a[k])
+              try:
+                  rd = mal("appStoreVersions/%s/appStoreReviewDetail" % v["id"])["data"]["attributes"]
+                  print("심사 연락 / 시험 계정", rd.get("demoAccountName"), "/ 비밀번호", "있음" if rd.get("demoAccountPassword") else "없음", "/ 메모 길이", len(rd.get("notes") or ""))
+              except Exception:
+                  pass
+          print("--- 애플에 적힌 주소를 바깥에서 열어 봄")
+          for u in sorted(juso):
+              print(u, "→", dudeurim(u, ua="Mozilla/5.0 (Macintosh) AppleWebKit Safari"))
+          print("--- 앱이 부르는 서버를 앱처럼(브라우저 아님) 두드려 봄")
+          for u in ["https://lvd.ada.or.kr/lvdts/", "https://lvd.ada.or.kr/lvdts/lvdts.html", "https://lvd.ada.or.kr/sihum/pan.json"]:
+              print(u, "→", dudeurim(u))
+          print("https://lvd.ada.or.kr/lvdts/lvdts_api.php (ping, 로그인 없이 — 401 이 정상)", "→", dudeurim("https://lvd.ada.or.kr/lvdts/lvdts_api.php", "POST", b'{"action":"ping"}'))
+          print("--- 다른 앱이 쓰는 문 (참고)")
+          for u in ["https://lvd.ada.or.kr:2053/sangtae", "https://lvd.ada.or.kr/jeom/gongji.php", "https://lvd.ada.or.kr/eyec/ice.json", "https://lvd.ada.or.kr/jabong/yeongsang/mokrok.json", "https://ada.or.kr/", "https://ada.or.kr/dispatch.html"]:
+              print(u, "→", dudeurim(u))
+          PY
+          python3 /tmp/salpim.py
