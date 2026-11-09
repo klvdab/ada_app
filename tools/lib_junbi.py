@@ -1,4 +1,4 @@
-# AI점자도서관 앱스토어 제출 준비 1.0 (빌드 261109-LJ1, 도클 — LVD 방송 도구(대클)를 본뜸, 이사장님 승인 2026-11-09 23시 56분 「1」)
+# AI점자도서관 앱스토어 제출 준비 1.1 (빌드 261110-LJ2 — 판 번호 맞추기 PAN. 1.0 빌드 261109-LJ1, 도클 — LVD 방송 도구(대클)를 본뜸, 이사장님 승인 2026-11-09 23시 56분 「1」)
 # 앱스토어 커넥트 열쇠로 애플에 직접 말해, 사람 손(로그인) 없이 「제출 준비 중」 판의 빈 칸을 채웁니다.
 #   boda    : 아무것도 바꾸지 않고 채워진 것·빠진 것만 알림(기본)
 #   chaeugi : 이사장님이 승인하신 글과 설정을 넣음(개인정보 주소·부제·설명·키워드·지원 주소·저작권·
@@ -15,6 +15,7 @@ API = "https://api.appstoreconnect.apple.com/v1/"
 HAL = os.environ.get("HAL", "boda").strip() or "boda"
 BUNDLE = os.environ.get("BUNDLE", "kr.or.ada.lib").strip() or "kr.or.ada.lib"
 BILD = os.environ.get("BILD", "").strip()
+PAN = os.environ.get("PAN", "").strip()   # 1.1 (261110 도클, 이사장님 승인 「1」): 애플 쪽 판 번호를 빌드 판(예: 0.8.6)에 맞춤
 SAJIN_GLOB = os.environ.get("SAJIN_GLOB", "").strip()
 
 # ---- 이사장님이 승인하신 글(2026-11-09 23시 56분 「1」) ----
@@ -210,6 +211,9 @@ def chaeugi():
                           "relationships": {"appPricePoint": {"data": {"type": "appPricePoints", "id": free[0]["id"]}}}}]})
         allim("가격: 무료로 넣음")
     # 판: 출시 수동, 저작권
+    if PAN and v["attributes"].get("versionString") != PAN:
+        mal("PATCH", "appStoreVersions/%s" % VID, mom={"data": {"type": "appStoreVersions", "id": VID, "attributes": {"versionString": PAN}}})
+        allim("판 번호: %s 에서 %s 로 바꿈" % (v["attributes"].get("versionString"), PAN))
     mal("PATCH", "appStoreVersions/%s" % VID, mom={"data": {"type": "appStoreVersions", "id": VID,
         "attributes": {"releaseType": "MANUAL", "copyright": JEOJAKGWON}}})
     allim("출시 방식: 수동(통과해도 이사장님이 정하신 날 공개), 저작권 넣음")
