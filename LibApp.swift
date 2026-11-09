@@ -70,6 +70,7 @@ final class Nav: ObservableObject {
 
 struct RootView: View {
     @StateObject private var nav = Nav()
+    @ObservedObject private var hw = Hoewon.shared   // 0.8.6 엔터테인먼트는 인증 회원에게만(서버 enter.php 와 같은 기준)
     var body: some View {
         TabView(selection: Binding(get: { nav.tab }, set: { t in let same = (t == nav.tab); nav.tab = t; nav.tabGo(t, same) })) {   // 0.3.0 — 지금 탭을 다시 누르면 그 탭 첫 화면 맨 위로
             NavigationStack(path: $nav.lib) {
@@ -78,12 +79,14 @@ struct RootView: View {
             .id(nav.gen[0])
             .tabItem { Label("도서관", systemImage: "books.vertical") }
             .tag(0)
-            NavigationStack(path: $nav.ent) {   // 0.7.0 엔터테인먼트
-                EntHomeView().routes()
+            if hw.entBoim {   // 0.8.6 (261109-L25) 일반 회원에게는 엔터테인먼트 탭을 감춤(이사장님 승인 2026-11-09 「1」)
+                NavigationStack(path: $nav.ent) {   // 0.7.0 엔터테인먼트
+                    EntHomeView().routes()
+                }
+                .id(nav.gen[3])
+                .tabItem { Label("엔터테인먼트", systemImage: "film") }
+                .tag(3)
             }
-            .id(nav.gen[3])
-            .tabItem { Label("엔터테인먼트", systemImage: "film") }
-            .tag(3)
             NavigationStack(path: $nav.seojae) {
                 SeojaeView().routes()
             }
@@ -98,6 +101,7 @@ struct RootView: View {
             .tag(2)
         }
         .environmentObject(nav)
+        .onChange(of: hw.entBoim) { _, boim in if !boim && nav.tab == 3 { nav.tab = 0 } }   // 0.8.6
         .onAppear { LibOllim.shared.sijak(); LibGirok.shared.sijak() }
         .task { await Hoewon.shared.deungHwakin() }   // 0.8.3 켤 때 내 회원 등급   // 0.4.3 새 판 알림(대장클, 이사장님 지시) · 0.6.3 이용 기록(도서관 창 클, 이사장님 승인)
     }
