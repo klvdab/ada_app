@@ -1,4 +1,5 @@
 // AI점자도서관 앱 — 독서기 (판 0.1.0, 빌드 260930-1)
+// 0.8.6 (261109-L25) 받다가 실패해 선 곡도 멈춤 지킴이가 알아채 그 자리부터 다시 틀고(세 번 넘으면 다음 곡), 까닭을 기록에 남김. 회원 탈퇴·개인정보 처리방침(이사장님 승인 2026-11-09 「1」, 도클)
 // 0.8.2 (261019-L21) 이용 장부(책 열기·1분마다 들은 시간·끝까지 들음) — 실적용(이사장님 승인 2026-10-18 「1」). 13곡째쯤 곡 중간에 멈추던 것 바로잡음 — 곡마다 붙인 끝남·멈춤 지킴이를 떼지 않아 쌓이던 것을 떼고, 6초 넘게 멈추면 스스로 다시 이어 틂, 미리 받은 다음 곡을 그대로 써서 두 번 내려받지 않음(이사장님 겪으심 23시 35분)
 // 0.8.0 (261018-L19) 엔터테인먼트 이어 듣기·이어 보기 — 곡·회가 끝나면 듣는 방식대로 다음 것을 저절로(곡 하나 끝나면 멈추던 것, 이사장님 지적·승인 「1」), 이어폰·잠금 화면 다음 곡, 다음 곡 미리 받기
 // 0.7.1 (261014-L17) 앱이 점점 무거워지고 멈춤(이사장님 지적) — 미리 받기를 세 문단 차례로, 묻기 줄이기, 멀어진 미리 받기는 그만둠(이사장님 승인 23시 17분 「1」)
@@ -79,8 +80,21 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
         if kind == "geul" && waiting { return }   // 글자책은 소리를 굽는 동안 세지 않음
         if deutI != i { deutBonaegi(); deutI = i; deutK = jangbuK() }
         if kind != "geul", let p = player {
-            if p.timeControlStatus == .waitingToPlayAtSpecifiedRate {
-                if meomSijak == nil { meomSijak = Date() }
+            // 0.8.6 (261109-L25) 받다가 실패해 그대로 선 곡(item 실패, 또는 듣는 중인데 저절로 멈춤)도 지킴이가 본다 — 13곡째쯤 곡 중간에 멈추고 다음 곡을 누르면 잘 나오던 일(이사장님 지적 2026-11-09)
+            let silpae = p.currentItem?.status == .failed
+            let jeoljeollo = p.timeControlStatus == .paused && !ieoJung && !silpae && { () -> Bool in
+                guard let it = p.currentItem, it.isPlaybackBufferEmpty || !it.isPlaybackLikelyToKeepUp else { return false }   // 소리가 모자라 선 것만(전화·이어폰 뽑힘으로 멈춘 것은 빼고)
+                let d = it.duration.seconds, t = p.currentTime().seconds
+                return !(d.isFinite && t.isFinite && d - t < 2)   // 곡 끝에 다다라 선 것은 빼고
+            }()
+            if p.timeControlStatus == .waitingToPlayAtSpecifiedRate || silpae || jeoljeollo {
+                if meomSijak == nil {
+                    meomSijak = Date()
+                    if silpae || jeoljeollo {
+                        let er = (p.currentItem?.error as NSError?).map { "\($0.domain) \($0.code)" } ?? ""
+                        LibGirok.shared.namgi("lib_sori_meomchum", ["kka": silpae ? "silpae" : "seon", "ent": API.isEnt(i), "cho": Int(p.currentTime().seconds.isFinite ? p.currentTime().seconds : 0), "er": er])
+                    }
+                }
                 let cho = Date().timeIntervalSince(meomSijak!)
                 if cho >= 6 { meomDasiTeulgi() }
                 return
@@ -97,17 +111,20 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
         meomSijak = nil; meomDasi += 1
         let t = p.currentTime()
         LibGirok.shared.namgi("lib_sori_dasi", ["beon": meomDasi, "ent": API.isEnt(i), "cho": Int(t.seconds.isFinite ? t.seconds : 0)])
-        if meomDasi <= 1 {
+        if meomDasi >= 4 && API.isEnt(i) && store.ieo != "han" && store.ieo != "ban" {   // 0.8.6 세 번 해도 안 되면 다음 곡으로
+            store.say("이 곡을 받지 못해 다음 곡으로 넘어갑니다."); ieoGa(1); return
+        }
+        if meomDasi <= 1 && p.currentItem?.status != .failed {
             p.seek(to: t, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in Task { @MainActor in guard let self, self.playing else { return }; self.player?.play(); self.player?.rate = self.store.rate } }
             return
         }
         let ui = i, ti = title, ki = kind, s = t.seconds
         if s.isFinite && s > 1 { store.remember(i: ui, t: ti, kind: ki, pos: s, modu: Int(p.currentItem?.duration.seconds.isFinite == true ? p.currentItem!.duration.seconds : 0)) }
-        let ieoOn = ieoSijak, ael = aelbeom
+        let ieoOn = ieoSijak, ael = aelbeom, md = meomDasi
         Task {
             self.i = -1
             await self.open(i: ui, title: ti, kind: ki, cheoum: false, ieo: true)
-            self.ieoSijak = ieoOn; self.aelbeom = ael
+            self.ieoSijak = ieoOn; self.aelbeom = ael; self.meomDasi = md   // 0.8.6 다시 연 횟수를 이어 셈(세 번 넘으면 다음 곡)
             if !self.playing { self.toggle() }
             self.updateNowPlaying()
         }
