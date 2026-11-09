@@ -1,0 +1,43 @@
+# LVD 방송 앱스토어 제출 준비 1.0 (빌드 261109-BJ1, 대클 — 이사장님 승인 2026-11-09 「1」)
+# 로그인 없이 앱스토어 커넥트 열쇠(ASC_BUNDLE)로 「제출 준비 중」 판의 빈 칸을 보거나 채웁니다. 할 일은 tools/bfb_junbi.py 머리말.
+# 심사에 내는 일은 하지 않습니다(마지막 제출은 이사장님이 링크로).
+name: bfb-junbi
+on:
+  workflow_dispatch:
+    inputs:
+      hal:
+        description: "할 일 (boda = 보기만, chaeugi = 승인된 글과 설정 넣기)"
+        default: "boda"
+      bild:
+        description: "붙일 빌드 번호 (chaeugi 때, 예: 2611092010)"
+        default: ""
+permissions:
+  contents: read
+jobs:
+  junbi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: 열쇠 풀어 놓기
+        env:
+          ASC_BUNDLE: ${{ secrets.ASC_BUNDLE }}
+        run: |
+          umask 077
+          B="$RUNNER_TEMP/bundle.txt"
+          printf '%s\n' "$ASC_BUNDLE" | tr -d '\r' > "$B"
+          KID=$(grep -m1 '^KEY_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          IID=$(grep -m1 '^ISSUER_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          mkdir -p "$HOME/private_keys"
+          sed -n '/BEGIN PRIVATE KEY/,/END PRIVATE KEY/p' "$B" > "$HOME/private_keys/AuthKey_$KID.p8"
+          rm -f "$B"
+          echo "::add-mask::$IID"
+          echo "ASC_KEY_ID=$KID" >> "$GITHUB_ENV"
+          echo "ASC_ISSUER_ID=$IID" >> "$GITHUB_ENV"
+          pip install --quiet pyjwt cryptography
+      - name: 보기 또는 채우기
+        env:
+          HAL: ${{ github.event.inputs.hal || 'boda' }}
+          BILD: ${{ github.event.inputs.bild }}
+          BUNDLE: kr.or.ada.bfb
+        run: python3 tools/bfb_junbi.py

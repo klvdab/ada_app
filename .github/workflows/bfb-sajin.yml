@@ -1,0 +1,95 @@
+# LVD 방송 앱스토어 사진 찍기 1.0 (빌드 261109-BS1, 대클 — 이사장님 승인 2026-11-09 「1」 LVD 방송 앱스토어 제출 진행)
+# 맥 일꾼의 아이폰 흉내 기계(시뮬레이터)에서 LVD 방송을 실제로 띄워 첫 화면과 도움말 화면을 찍습니다.
+#   - 앱 쪽 손질: Bfb/LvdBangsongApp.swift 의 #if DEBUG(SAJIN_HWAMYEON) — 시험 짓기에만 들어가고 정식 판에는 들어가지 않습니다.
+#   - 찍은 사진은 bfb-sajin 갈래에 올려 대클이 먼저 살펴봅니다.
+#   - olligi 를 1 로 주면 앱스토어 커넥트의 「제출 준비 중」 판(한국어) 아이폰 6.9인치 묶음에 바로 올립니다(옛 사진은 바꿈).
+name: bfb-sajin
+on:
+  workflow_dispatch:
+    inputs:
+      olligi:
+        description: "1 이면 앱스토어 커넥트에 사진까지 올림"
+        default: "0"
+permissions:
+  contents: write
+jobs:
+  jjikgi:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode 26 고르기
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1)
+          sudo xcode-select -s "$X/Contents/Developer"
+          xcodebuild -version
+
+      - name: 도구 준비
+        run: |
+          brew install xcodegen
+          python3 -m venv /tmp/py
+          /tmp/py/bin/pip install --quiet pillow pyjwt cryptography
+          /tmp/py/bin/python tools/make_icon.py
+
+      - name: 시험 기계용으로 짓기
+        run: |
+          xcodegen generate --spec seolgye_bfb.yml
+          set -o pipefail
+          xcodebuild -project AdaApp.xcodeproj -scheme BfbApp -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath dd CODE_SIGNING_ALLOWED=NO build | tail -n 20
+
+      - name: 아이폰 흉내 기계 띄우고 찍기
+        run: |
+          APP=$(ls -d dd/Build/Products/Debug-iphonesimulator/*.app | head -n 1)
+          BID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")
+          echo "앱 $APP / $BID"
+          U=$(xcrun simctl list devices available -j | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];c=[(k,x) for k,v in d.items() if 'iOS' in k for x in v if 'Pro Max' in x['name']];c.sort(key=lambda a:[int(n) for n in a[0].split('iOS-')[1].split('-')]);k,x=c[-1];print(x['udid']);print('기계',k,x['name'],file=sys.stderr)")
+          xcrun simctl boot "$U" || true
+          for i in $(seq 1 72); do xcrun simctl list devices | grep "$U" | grep -q Booted && break; sleep 5; done
+          sleep 20
+          xcrun simctl status_bar "$U" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
+          xcrun simctl install "$U" "$APP"
+          xcrun simctl privacy "$U" grant notifications "$BID" || true
+          mkdir -p sajin
+          n=0
+          for h in cheot doumal; do
+            n=$((n+1))
+            xcrun simctl terminate "$U" "$BID" 2>/dev/null || true
+            SIMCTL_CHILD_SAJIN_HWAMYEON="$h" xcrun simctl launch "$U" "$BID" -AppleLanguages "(ko)" -AppleLocale ko_KR >/dev/null
+            sleep 25
+            xcrun simctl io "$U" screenshot "sajin/ios_bfb_$n.png"
+          done
+          ls -l sajin
+          sips -g pixelWidth -g pixelHeight sajin/ios_bfb_1.png
+
+      - name: 사진을 bfb-sajin 갈래에 올려 살펴보기
+        run: |
+          cp -R sajin /tmp/sajin
+          cd /tmp/sajin
+          git init -q && git checkout -q -b bfb-sajin
+          git config user.name "github-actions" && git config user.email "actions@github.com"
+          git add . && git commit -qm "LVD 방송 앱스토어 사진 $(TZ=Asia/Seoul date +%y%m%d-%H%M)"
+          git push -fq "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" bfb-sajin
+
+      - name: 열쇠 풀어 놓기
+        if: ${{ github.event.inputs.olligi == '1' }}
+        env:
+          ASC_BUNDLE: ${{ secrets.ASC_BUNDLE }}
+        run: |
+          umask 077
+          B="$RUNNER_TEMP/bundle.txt"
+          printf '%s\n' "$ASC_BUNDLE" | tr -d '\r' > "$B"
+          KID=$(grep -m1 '^KEY_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          IID=$(grep -m1 '^ISSUER_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          mkdir -p "$HOME/private_keys"
+          sed -n '/BEGIN PRIVATE KEY/,/END PRIVATE KEY/p' "$B" > "$HOME/private_keys/AuthKey_$KID.p8"
+          rm -f "$B"
+          echo "::add-mask::$IID"
+          echo "ASC_KEY_ID=$KID" >> "$GITHUB_ENV"
+          echo "ASC_ISSUER_ID=$IID" >> "$GITHUB_ENV"
+
+      - name: 앱스토어 커넥트에 올리기
+        if: ${{ github.event.inputs.olligi == '1' }}
+        run: |
+          SAJIN_GLOB="sajin/ios_bfb_*.png" BUNDLE=kr.or.ada.bfb HAL=sajin /tmp/py/bin/python tools/bfb_junbi.py
