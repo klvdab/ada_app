@@ -117,6 +117,12 @@ final class SoriGirok: NSObject, MXMetricManagerSubscriber {
         }
         // 방송 크기가 길눈 말 때문에 줄어든 채 오래 남으면 되돌림(2.126.0 소리 하나로 쥐기)
         BangsongEngine.shared.jageunChaeNamumPulgi()
+        // 2.127.0 방송이 나오는 동안 길눈이 말하지 않는데 소리 방식이 방송 방식(재생·기본·섞지 않음)이 아니면 바로잡음
+        if BangsongEngine.shared.naneunJung, !SoriEngine.shared.bappeum, !MalDeutgi.shared.dolgoItda, !RemoteDanchu.shared.kyeojim,
+           b != "Playback/Default/0" {
+            BangsongEngine.shared.sesyeonJapgi()
+            Girok.shared.namgi("bangsong_bangsik_barojapgi", ["jeon": b])
+        }
         // 1분마다 살아 있음 표시, 방송이 나오는 동안 10분마다 기록
         let jigeum = Date()
         if jigeum.timeIntervalSince(saraitdaTtae) >= 60 { saraitda() }

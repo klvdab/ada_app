@@ -235,7 +235,10 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         if MalDeutgi.shared.dolgoItda && s.category == .playAndRecord { try? s.setActive(true); return }   // 말로 하기 마이크가 열려 있음(2.12.1 이어폰 단추보다 먼저)
         if RemoteDanchu.shared.kyeojim { RemoteDanchu.shared.sesyeonJapgi(); return }
         do {
-            if s.category != .playback { SoriGirok.nuga = "bangsong"; try s.setCategory(.playback, mode: .default, options: []) }
+            // 2.127.0 (261109-I81) 길눈 안내 말이 먼저 「재생·음성 안내(VoicePrompt)·다른 소리 낮추기」로 잡아 둔 채 방송이 시작되면
+            //   종류가 같은 「재생」이라 그대로 두어서, 방송 내내 음성 안내 방식으로 나왔음(이사장님 11-09 기록: Playback/VoicePrompt/19).
+            //   화면을 만지면 낭독기 말과 겹쳐 소리가 커졌다 작아짐 → 종류만이 아니라 방식·섞기까지 방송 방식으로 바로잡음
+            if s.category != .playback || s.mode != .default || !s.categoryOptions.isEmpty { SoriGirok.nuga = "bangsong"; try s.setCategory(.playback, mode: .default, options: []) }
             try s.setActive(true)
         } catch {
             Girok.shared.namgi("bangsong_oryu", ["dan": "sesyeon", "code": (error as NSError).code])
