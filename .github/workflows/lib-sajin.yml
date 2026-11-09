@@ -1,0 +1,110 @@
+# AI점자도서관 앱스토어 사진 찍기 1.0 (빌드 261110-LS1, 도클 — LVD 방송 사진 도구(대클)를 본뜸, 이사장님 승인 2026-11-10 0시 8분 「1」)
+# 맥 일꾼의 아이폰 흉내 기계(시뮬레이터)에서 AI점자도서관을 실제로 띄워 네 화면(도서관 첫 화면, 책 정보, 엔터테인먼트, 설정·도움말)을 찍습니다.
+#   - 심사용 인증 회원(애플심사)으로 서버에 등록해 받은 회원 열쇠를 앱에 넣어 띄웁니다. 열쇠는 기록에 나오지 않게 가립니다.
+#   - 앱 쪽 손질: Lib/LibApp.swift 의 #if DEBUG(SAJIN_TAB·SAJIN_CHAEK) — 시험 짓기에만 들어가고 정식 판에는 들어가지 않습니다.
+#   - 찍은 사진은 lib-sajin 갈래에 올려 도클이 먼저 살펴봅니다.
+#   - olligi 를 1 로 주면 앱스토어 커넥트의 「제출 준비 중」 판(한국어) 아이폰 6.9인치 묶음에 바로 올립니다(옛 사진은 바꿈).
+name: lib-sajin
+on:
+  workflow_dispatch:
+    inputs:
+      olligi:
+        description: "1 이면 앱스토어 커넥트에 사진까지 올림"
+        default: "0"
+      chaek:
+        description: "책 정보 화면에 띄울 책 번호"
+        default: "137134"
+permissions:
+  contents: write
+jobs:
+  jjikgi:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode 26 고르기
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1)
+          sudo xcode-select -s "$X/Contents/Developer"
+          xcodebuild -version
+
+      - name: 도구 준비
+        run: |
+          brew install xcodegen
+          python3 -m venv /tmp/py
+          /tmp/py/bin/pip install --quiet pillow pyjwt cryptography
+          /tmp/py/bin/python tools/make_icon.py
+
+      - name: 시험 기계용으로 짓기
+        run: |
+          xcodegen generate --spec seolgye_lib.yml
+          set -o pipefail
+          xcodebuild -project AdaApp.xcodeproj -scheme LibApp -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath dd CODE_SIGNING_ALLOWED=NO build | tail -n 20
+
+      - name: 심사용 회원 열쇠 받기(가림)
+        run: |
+          J=$(curl -sS -X POST -F "ireum=애플심사" -F "jeonhwa=01000000533" -F "jangae=밝히지 않음" -F "jiyeok=밝히지 않음" -F "nai=밝히지 않음" -F "dongui=1" "https://lvd.ada.or.kr/nas/hoewon.php?a=deungrok")
+          TK=$(printf '%s' "$J" | python3 -c "import json,sys;print(json.load(sys.stdin).get('tk',''))")
+          echo "::add-mask::$TK"
+          echo "SAJIN_TK=$TK" >> "$GITHUB_ENV"
+          printf '%s' "$J" | python3 -c "import json,sys;d=json.load(sys.stdin);print('등록', d.get('ok'), '등급', d.get('deung'))"
+
+      - name: 아이폰 흉내 기계 띄우고 찍기
+        env:
+          CHAEK: ${{ github.event.inputs.chaek || '137134' }}
+        run: |
+          APP=$(ls -d dd/Build/Products/Debug-iphonesimulator/*.app | head -n 1)
+          BID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")
+          echo "앱 $APP / $BID"
+          U=$(xcrun simctl list devices available -j | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];c=[(k,x) for k,v in d.items() if 'iOS' in k for x in v if 'Pro Max' in x['name']];c.sort(key=lambda a:[int(n) for n in a[0].split('iOS-')[1].split('-')]);k,x=c[-1];print(x['udid']);print('기계',k,x['name'],file=sys.stderr)")
+          xcrun simctl boot "$U" || true
+          for i in $(seq 1 72); do xcrun simctl list devices | grep "$U" | grep -q Booted && break; sleep 5; done
+          sleep 20
+          xcrun simctl status_bar "$U" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
+          xcrun simctl install "$U" "$APP"
+          xcrun simctl privacy "$U" grant notifications "$BID" || true
+          mkdir -p sajin
+          n=0
+          for h in "TAB=0" "CHAEK" "TAB=3" "TAB=2"; do
+            n=$((n+1))
+            xcrun simctl terminate "$U" "$BID" 2>/dev/null || true
+            if [ "$h" = "CHAEK" ]; then export SIMCTL_CHILD_SAJIN_CHAEK="$CHAEK"; export SIMCTL_CHILD_SAJIN_TAB=0; else unset SIMCTL_CHILD_SAJIN_CHAEK; export SIMCTL_CHILD_SAJIN_TAB="${h#TAB=}"; fi
+            xcrun simctl launch "$U" "$BID" -AppleLanguages "(ko)" -AppleLocale ko_KR -hoewonTk "$SAJIN_TK" -hoewonIreum "애플심사" -hoewonBogang YES -hoewonDeung injeung -hoewonDeungT "인증 회원" >/dev/null
+            sleep 30
+            xcrun simctl io "$U" screenshot "sajin/ios_lib_$n.png"
+          done
+          ls -l sajin
+          sips -g pixelWidth -g pixelHeight sajin/ios_lib_1.png
+
+      - name: 사진을 lib-sajin 갈래에 올려 살펴보기
+        run: |
+          cp -R sajin /tmp/sajin
+          cd /tmp/sajin
+          git init -q && git checkout -q -b lib-sajin
+          git config user.name "github-actions" && git config user.email "actions@github.com"
+          git add . && git commit -qm "AI점자도서관 앱스토어 사진 $(TZ=Asia/Seoul date +%y%m%d-%H%M)"
+          git push -fq "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" lib-sajin
+
+      - name: 열쇠 풀어 놓기
+        if: ${{ github.event.inputs.olligi == '1' }}
+        env:
+          ASC_BUNDLE: ${{ secrets.ASC_BUNDLE }}
+        run: |
+          umask 077
+          B="$RUNNER_TEMP/bundle.txt"
+          printf '%s\n' "$ASC_BUNDLE" | tr -d '\r' > "$B"
+          KID=$(grep -m1 '^KEY_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          IID=$(grep -m1 '^ISSUER_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          mkdir -p "$HOME/private_keys"
+          sed -n '/BEGIN PRIVATE KEY/,/END PRIVATE KEY/p' "$B" > "$HOME/private_keys/AuthKey_$KID.p8"
+          rm -f "$B"
+          echo "::add-mask::$IID"
+          echo "ASC_KEY_ID=$KID" >> "$GITHUB_ENV"
+          echo "ASC_ISSUER_ID=$IID" >> "$GITHUB_ENV"
+
+      - name: 앱스토어 커넥트에 올리기
+        if: ${{ github.event.inputs.olligi == '1' }}
+        run: |
+          SAJIN_GLOB="sajin/ios_lib_*.png" BUNDLE=kr.or.ada.lib HAL=sajin /tmp/py/bin/python tools/lib_junbi.py
