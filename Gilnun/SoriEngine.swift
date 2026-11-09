@@ -633,6 +633,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
         }
         let s = AVAudioSession.sharedInstance()
         do {
+            SoriGirok.nuga = "annae_mal"   // 2.126.0 소리 방식을 누가 바꿨는지 기록
             try s.setCategory(.playback, mode: .voicePrompt,
                               options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers])
             try s.setActive(true)
@@ -642,6 +643,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
             // 2.124.0 (261102 이사장님 「1」 2번) 제기동 센터 앞에서 2분 동안 스무 번 「다른 소리를 끊고 낼 수 없다」(!int)로 막혔음
             //   — 다른 소리를 낮추지 않고 섞어서라도 다시 잡고, 그래도 안 되면 진동으로 알림
             do {
+                SoriGirok.nuga = "annae_mal"   // 2.126.0 소리 방식을 누가 바꿨는지 기록
                 try s.setCategory(.playback, mode: .voicePrompt, options: [.mixWithOthers])
                 try s.setActive(true)
                 Girok.shared.namgi("sori_seokgi", ["code": code])

@@ -98,6 +98,8 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
     private var gisaMajimak: AVSpeechUtterance?
     private var naebuMeomchum = Set<String>()   // gyeonggo, deutgi, tonghwa
     private var malJung = false
+    /// 2.126.0 (261109-I80) 길눈 말 때문에 방송을 작게 한 때 — 말 끝 신호를 놓쳐 작은 채로 남는 일을 풀려고
+    private var malSijakTtae = Date.distantPast
     private var jigeumChaeneol: Chaeneol?
     /// 2.115.0 (261027-I69) 듣기 예약이 지금 나오는 채널을 알게
     var jigeumChaeneolId: String? { jigeumChaeneol?.id }
@@ -233,7 +235,7 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         if MalDeutgi.shared.dolgoItda && s.category == .playAndRecord { try? s.setActive(true); return }   // 말로 하기 마이크가 열려 있음(2.12.1 이어폰 단추보다 먼저)
         if RemoteDanchu.shared.kyeojim { RemoteDanchu.shared.sesyeonJapgi(); return }
         do {
-            if s.category != .playback { try s.setCategory(.playback, mode: .default, options: []) }
+            if s.category != .playback { SoriGirok.nuga = "bangsong"; try s.setCategory(.playback, mode: .default, options: []) }
             try s.setActive(true)
         } catch {
             Girok.shared.namgi("bangsong_oryu", ["dan": "sesyeon", "code": (error as NSError).code])
@@ -252,6 +254,8 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
             if gisaSynth.isSpeaking && !gisaSynth.isPaused { gisaSynth.pauseSpeaking(at: .word) }
         } else {
             player.volume = 0.2
+            malSijakTtae = Date()
+            Girok.shared.namgi("bangsong_jageum", ["jong": jong.rawValue])   // 2.126.0 방송을 작게 한 때를 기록
         }
     }
 
@@ -260,6 +264,7 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         guard malJung else { return }
         malJung = false
         naebu("gyeonggo", false)
+        if player.volume < 0.99 { Girok.shared.namgi("bangsong_doedollim", ["jong": jong.rawValue, "cho": Int(Date().timeIntervalSince(malSijakTtae))]) }   // 2.126.0
         player.volume = 1.0
         if jong == .gisa && gisaIlkneun && !meomchum && naebuMeomchum.isEmpty && gisaSynth.isPaused {
             gisaSynth.continueSpeaking()
@@ -267,6 +272,14 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
     }
 
     /// 말로 하기가 명령을 듣는 동안 멈춤
+    /// 2.126.0 (261109-I80, 이사장님 승인 2026-11-09) 길눈이 말을 마쳤는데 말 끝 신호가 오지 않아 방송이 작은 채(0.2)로 남으면
+    ///   말이 없는 채 2.5초가 지나면 저절로 되돌림(안드로이드 길눈 0.5초 살피기와 같은 잣대) — 화면을 만질 때마다 갑자기 커졌다 작아지는 일을 막음. SoriGirok 이 1초마다 부름
+    func jageunChaeNamumPulgi() {
+        guard malJung, Date().timeIntervalSince(malSijakTtae) > 2.5, !SoriEngine.shared.bappeum else { return }
+        Girok.shared.namgi("bangsong_jageum_pulgi", ["jong": jong.rawValue, "cho": Int(Date().timeIntervalSince(malSijakTtae))])
+        malKkeut()
+    }
+
     func deutgiMeomchum(_ t: Bool) { naebu("deutgi", t) }
     /// 2.12.2 "하이 길눈"을 들은 때부터 명령을 마칠 때까지 멈춤
     func bureumMeomchum(_ t: Bool) { naebu("bureum", t) }
@@ -429,6 +442,7 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         player.replaceCurrentItem(with: item)
         jong = j
         jemok = ireum
+        Girok.shared.namgi("bangsong_teulgi", ["jong": j.rawValue, "beon": beon])   // 2.126.0 곡·채널이 바뀔 때마다(이어 듣는 동안의 빈자리 메움)
         meomchum = false
         naebuMeomchum.remove("gyeonggo")
         hwajilMatchugi()

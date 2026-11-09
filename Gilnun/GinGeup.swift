@@ -495,6 +495,7 @@ final class GinGeup: NSObject, ObservableObject, RTCPeerConnectionDelegate {
             let ss = AVAudioSession.sharedInstance()
             try? ss.overrideOutputAudioPort(.none)
             if !MalDeutgi.shared.dolgoItda && !RemoteDanchu.shared.kyeojim {
+                SoriGirok.nuga = "gingeup"   // 2.126.0 소리 방식을 누가 바꿨는지 기록
                 try? ss.setCategory(.playback, mode: .voicePrompt, options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers])
             }
         }

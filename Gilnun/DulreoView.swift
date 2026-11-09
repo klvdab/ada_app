@@ -219,7 +219,7 @@ struct DulreoCheot: View {
                     .buttonStyle(KeunDanchu())
                 // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 현장영상해설 받기 줄을 둘러보기 첫 화면에서 감춤 —
                 //   화면(HaeseolView)은 지우지 않고 그대로 둠. 말로 「현장영상해설 받고 싶어」는 긴급통화서비스로 현장영상해설사에게 요청함(MalHagi)
-                // NavigationLink(value: DulreoHwamyeon.haeseol) { Text("현장영상해설 받기 — 현장영상해설사 화상통화, 현장영상해설 코스, 파견 신청") }
+                // NavigationLink(value: DulreoHwamyeon.haeseol) { Text("현장영상해설 받기 — 현장영상해설사 화상통화, 현장영상해설 코스") }
                 //     .buttonStyle(KeunDanchu())
                 DisclosureGroup("가는 김에 펼치기") {
                     VStack(alignment: .leading, spacing: 10) {

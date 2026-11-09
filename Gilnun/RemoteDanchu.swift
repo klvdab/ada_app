@@ -160,12 +160,15 @@ final class RemoteDanchu {
         // 2.12.1 하이 길눈 마이크가 열려 있으면 재생 전용으로 바꾸지 않음(마이크가 멎음) — 섞기만 풀어 단추가 길눈으로 오게
         if MalDeutgi.shared.dolgoItda && s.category == .playAndRecord {
             if s.categoryOptions.contains(.mixWithOthers) {
+                SoriGirok.nuga = "ieopon_danchu"   // 2.126.0 소리 방식을 누가 바꿨는지 기록
                 try? s.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothA2DP])
             }
             try? s.setActive(true)
             return
         }
-        try? s.setCategory(.playback, mode: .spokenAudio, options: [])
+        SoriGirok.nuga = "ieopon_danchu"   // 2.126.0 소리 방식을 누가 바꿨는지 기록
+        // 2.126.0 (261109-I80, 이사장님 승인 2026-11-09) 방송이 나오는 동안에는 방송과 똑같은 방식(재생·기본)으로 쥠 — 방식이 갈려 소리 크기가 오락가락하지 않게
+        try? s.setCategory(.playback, mode: BangsongEngine.shared.itda ? .default : .spokenAudio, options: [])
         try? s.setActive(true)
     }
 

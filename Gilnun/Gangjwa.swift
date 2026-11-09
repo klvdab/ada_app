@@ -139,6 +139,7 @@ struct GangjwaJaesaengView: View {
         }
         .padding()
         .onAppear {
+            SoriGirok.nuga = "gangjwa"   // 2.126.0 소리 방식을 누가 바꿨는지 기록
             try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
             try? AVAudioSession.sharedInstance().setActive(true)
             teulgi(cheot)

@@ -353,6 +353,7 @@ final class MalDeutgi: NSObject {
             if bangsik != .bureum { o.insert(.allowBluetooth) }
             do {
                 let n0 = beopeoSuIlgi()
+                SoriGirok.nuga = "maldeutgi"   // 2.126.0 소리 방식을 누가 바꿨는지 기록
                 try s.setCategory(.playAndRecord, mode: .default, options: o)
                 try s.setActive(true)
                 Girok.shared.namgi("modu_meomchum", ["ok": true])
@@ -380,6 +381,7 @@ final class MalDeutgi: NSObject {
             Girok.shared.namgi("modu_doedollim", ["dadeum": true])
         } else if engine.isRunning {
             // 잠긴 폰에서는 마이크를 닫으면 다시 못 여니 섞기로만 되돌림(다른 앱은 멈춘 그대로)
+            SoriGirok.nuga = "maldeutgi"   // 2.126.0 소리 방식을 누가 바꿨는지 기록
             try? s.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothA2DP, .mixWithOthers])
             Girok.shared.namgi("modu_doedollim", ["dadeum": false])
         }
@@ -424,6 +426,7 @@ final class MalDeutgi: NSObject {
         if moduMeomchumJung && !seokgi { o.remove(.mixWithOthers); o.remove(.duckOthers) }
         // 2.12.7 폰이 잠겼거나 앱이 뒤에 있을 때 다른 소리를 끊고 들어가지 못하면(!int) 섞어서라도 엶
         if seokgi { o.remove(.duckOthers); o.insert(.mixWithOthers) }
+        SoriGirok.nuga = "maldeutgi"   // 2.126.0 소리 방식을 누가 바꿨는지 기록
         try s.setCategory(.playAndRecord, mode: .default, options: o)
         try s.setActive(true)
         // 2.110.0 블루투스 마이크가 소리를 주지 않았으면 폰 마이크를 고름
