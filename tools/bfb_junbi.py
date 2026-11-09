@@ -163,17 +163,30 @@ def chaeugi():
                    "horrorOrFearThemes": "NONE", "matureOrSuggestiveThemes": "NONE",
                    "violenceCartoonOrFantasy": "NONE", "violenceRealisticProlongedGraphicOrSadistic": "NONE",
                    "violenceRealistic": "NONE", "socialMedia": False}
-            bin_ = [k for k, x in (ar.get("attributes") or {}).items() if x is None]
-            for k in bin_:
-                if k not in NAI:
-                    print("나이 등급", k, "은 손대지 않음")
-                    continue
-                val = NAI[k]
-                r1 = mal("PATCH", "ageRatingDeclarations/%s" % ar["id"], mom={"data": {"type": "ageRatingDeclarations", "id": ar["id"], "attributes": {k: val}}}, gwaen=True)
-                if "_oryu" in r1:
-                    alt = ("NONE" if val is False else False) if not isinstance(val, str) or val == "NONE" else val
-                    r2 = mal("PATCH", "ageRatingDeclarations/%s" % ar["id"], mom={"data": {"type": "ageRatingDeclarations", "id": ar["id"], "attributes": {k: alt}}}, gwaen=True)
-                    print("나이 등급", k, "→", alt, "실패" if "_oryu" in r2 else "넣음")
+            import re as _re
+            sae = dict(NAI)
+            for _ in range(12):
+                r1 = mal("PATCH", "ageRatingDeclarations/%s" % ar["id"], mom={"data": {"type": "ageRatingDeclarations", "id": ar["id"], "attributes": sae}}, gwaen=True)
+                if "_oryu" not in r1:
+                    allim("나이 등급: 한 번에 넣음")
+                    break
+                m = r1.get("_mal", "")
+                k = (_re.search(r"attribute '([A-Za-z]+)'", m) or [None, None])[1]
+                if not k:
+                    allim("나이 등급 넣기 실패: " + m[:300])
+                    break
+                if "Expected a BOOLEAN" in m:
+                    sae[k] = False
+                elif "Expected" in m and k in sae:
+                    sae[k] = "NONE"
+                elif "required" in m.lower() or "REQUIRED" in m:
+                    sae[k] = False if k.startswith(("is", "has")) else "NONE"
+                elif k in sae:
+                    print("나이 등급", k, "을 빼고 다시")
+                    sae.pop(k)
+                else:
+                    allim("나이 등급 넣기 실패: " + m[:300])
+                    break
             nam = [k for k, x in (mal("GET", "appInfos/%s/ageRatingDeclaration" % info["id"])["data"]["attributes"]).items() if x is None]
             allim("나이 등급: 넣은 뒤 빈 물음 %d개 %s" % (len(nam), ", ".join(nam)))
     # 콘텐츠 권리(협회 자체 해설과 유튜브 공식 화면을 씀 — 길눈과 같이 「권리 있음」)
