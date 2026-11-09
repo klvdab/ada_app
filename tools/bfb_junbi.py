@@ -150,29 +150,32 @@ def chaeugi():
             r = mal("PATCH", "appInfos/%s" % info["id"], mom={"data": {"type": "appInfos", "id": info["id"],
                     "relationships": {"primaryCategory": {"data": {"type": "appCategories", "id": "ENTERTAINMENT"}}}}}, gwaen=True)
             allim("주 카테고리: " + ("엔터테인먼트로 넣음" if "_oryu" not in r else "넣지 못함"))
-        # 나이 등급 — 빈 물음은 모두 「없음」으로
+        # 나이 등급 — LVD 방송에 맞게(행운권 추첨이 있어 contests 만 「가끔·가벼움」, 나머지는 없음)
         ar = mal("GET", "appInfos/%s/ageRatingDeclaration" % info["id"], gwaen=True).get("data")
         if ar:
-            sae = {}
-            for k, val in (ar.get("attributes") or {}).items():
-                if val is None:
-                    if k in ("kidsAgeBand", "ageRatingOverride", "ageRatingOverrideV2", "koreaAgeRatingOverride", "developerAgeRatingInfoUrl"):
-                        continue
-                    sae[k] = False if k.startswith(("is", "has", "unrestricted", "gambling", "lootBox", "advertising", "ageAssurance", "parentalControls", "messaging", "userGenerated", "healthOrWellness")) and k not in ("gamblingSimulated",) else "NONE"
-            if sae:
-                r = mal("PATCH", "ageRatingDeclarations/%s" % ar["id"], mom={"data": {"type": "ageRatingDeclarations", "id": ar["id"], "attributes": sae}}, gwaen=True)
-                if "_oryu" in r:
-                    # 참거짓 물음을 하나씩 바로잡아 다시
-                    allim("나이 등급 한 번에 넣기 실패 — 하나씩 넣음")
-                    for k, val in sae.items():
-                        r1 = mal("PATCH", "ageRatingDeclarations/%s" % ar["id"], mom={"data": {"type": "ageRatingDeclarations", "id": ar["id"], "attributes": {k: val}}}, gwaen=True)
-                        if "_oryu" in r1:
-                            alt = "NONE" if isinstance(val, bool) else False
-                            r2 = mal("PATCH", "ageRatingDeclarations/%s" % ar["id"], mom={"data": {"type": "ageRatingDeclarations", "id": ar["id"], "attributes": {k: alt}}}, gwaen=True)
-                            print("  ", k, "→", alt, "실패" if "_oryu" in r2 else "넣음")
-                allim("나이 등급: 빈 물음 %d개를 「없음」으로 넣음" % len(sae))
-            else:
-                allim("나이 등급: 이미 다 채워져 있음")
+            NAI = {"advertising": False, "gambling": False, "lootBox": False, "messagingAndChat": False,
+                   "parentalControls": False, "ageAssurance": False, "healthOrWellnessTopics": False,
+                   "userGeneratedContent": False, "unrestrictedWebAccess": False,
+                   "contests": "INFREQUENT_OR_MILD", "gamblingSimulated": "NONE",
+                   "alcoholTobaccoOrDrugUseOrReferences": "NONE", "gunsOrOtherWeapons": "NONE",
+                   "medicalOrTreatmentInformation": "NONE", "profanityOrCrudeHumor": "NONE",
+                   "sexualContentGraphicAndNudity": "NONE", "sexualContentOrNudity": "NONE",
+                   "horrorOrFearThemes": "NONE", "matureOrSuggestiveThemes": "NONE",
+                   "violenceCartoonOrFantasy": "NONE", "violenceRealisticProlongedGraphicOrSadistic": "NONE",
+                   "violenceRealistic": "NONE", "socialMedia": False}
+            bin_ = [k for k, x in (ar.get("attributes") or {}).items() if x is None]
+            for k in bin_:
+                if k not in NAI:
+                    print("나이 등급", k, "은 손대지 않음")
+                    continue
+                val = NAI[k]
+                r1 = mal("PATCH", "ageRatingDeclarations/%s" % ar["id"], mom={"data": {"type": "ageRatingDeclarations", "id": ar["id"], "attributes": {k: val}}}, gwaen=True)
+                if "_oryu" in r1:
+                    alt = ("NONE" if val is False else False) if not isinstance(val, str) or val == "NONE" else val
+                    r2 = mal("PATCH", "ageRatingDeclarations/%s" % ar["id"], mom={"data": {"type": "ageRatingDeclarations", "id": ar["id"], "attributes": {k: alt}}}, gwaen=True)
+                    print("나이 등급", k, "→", alt, "실패" if "_oryu" in r2 else "넣음")
+            nam = [k for k, x in (mal("GET", "appInfos/%s/ageRatingDeclaration" % info["id"])["data"]["attributes"]).items() if x is None]
+            allim("나이 등급: 넣은 뒤 빈 물음 %d개 %s" % (len(nam), ", ".join(nam)))
     # 콘텐츠 권리(협회 자체 해설과 유튜브 공식 화면을 씀 — 길눈과 같이 「권리 있음」)
     if ap["attributes"].get("contentRightsDeclaration") != "USES_THIRD_PARTY_CONTENT":
         mal("PATCH", "apps/%s" % APID, mom={"data": {"type": "apps", "id": APID, "attributes": {"contentRightsDeclaration": "USES_THIRD_PARTY_CONTENT"}}})
