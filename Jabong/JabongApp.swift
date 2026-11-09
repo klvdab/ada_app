@@ -53,7 +53,7 @@ final class JabongBonche {
     private(set) var kkeutnaem = false
 
     /// 저장하고 위치·걸음·소리를 모두 멈춘 뒤 폰의 첫 화면으로 — 아이폰은 앱 스스로 꺼질 수 없어 첫 화면으로 물러남.
-    /// badgiYuji 가 false 이면 긴급통화 받기까지 끔(true 면 길눈님이 부르실 때 애플 알림이 폰을 깨워 그대로 울림)
+    /// badgiYuji 가 false 이면 긴급통화 받기까지 끔(true 면 길손님이 부르실 때 애플 알림이 폰을 깨워 그대로 울림)
     func kkeutnaegi(badgiYuji: Bool) {
         Girok.shared.namgi("jabong_kkeutnaegi", ["badgi_yuji": badgiYuji, "badgi_kyeojim": JabongDaegi.shared.kyeojim])
         JeomGeurigi.shared.jamkkan()   // 그리는 중이면 잠깐 멈춤으로 저장 — 다시 여시면 이어 그리기

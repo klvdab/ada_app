@@ -4,8 +4,8 @@
 //    잠겨 있어도, 다른 앱을 쓰고 있어도. 받으시면 곧바로 통화(JabongTonghwa)
 // ③ 다른 길눈님이 먼저 받으면 벨을 멈추고 "다른 분께 연결되었습니다. 감사합니다"
 // 2.4.0 (261004-G1, 이사장님 승인 2026-10-04) 긴급통화는 자봉 앱 하나로 받습니다.
-//   가족·지인으로 받기 — 길눈님이 불러 주신 이음 번호 세 자리(2.23.0 (261016-I17, 이사장님 승인 2026-10-16 「1」))와 부르실 내 이름을 넣으면 그 길눈님 명단에 등록(나스 jiin.php a=ieum).
-//     이때 이 폰의 대기 열쇠(k)가 지인 열쇠가 되어, 그 길눈님이 나를 고르시면 이 폰만 "○○ 님이 화상통화를 요청합니다"로 울림.
+//   가족·지인으로 받기 — 길손님이 불러 주신 이음 번호 세 자리(2.23.0 (261016-I17, 이사장님 승인 2026-10-16 「1」))와 부르실 내 이름을 넣으면 그 길손님 명단에 등록(나스 jiin.php a=ieum).
+//     이때 이 폰의 대기 열쇠(k)가 지인 열쇠가 되어, 그 길손님이 나를 고르시면 이 폰만 "○○ 님이 화상통화를 요청합니다"로 울림.
 //   긴급통화 받지 않기 — 점지도만 그려 주시고 통화는 원치 않는 분. 대기를 끄고 알림 주소도 지움. 언제든 다시 켤 수 있음.
 // 대표님 약속: 별명만(실명·전화번호는 화면에 없음), 자원봉사자는 수료 번호로, 해설사는 협회에 등록한 전화번호로 확인만.
 import Foundation
@@ -25,7 +25,7 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
     @Published private(set) var byeol: String
     @Published private(set) var kyeojim: Bool          // 긴급통화 받기를 켜 둠
     @Published private(set) var sangtae = ""
-    /// 2.4.0 가족·지인으로 등록된 길눈님 이름들과, 그분들이 부르실 내 이름
+    /// 2.4.0 가족·지인으로 등록된 길손님 이름들과, 그분들이 부르실 내 이름
     @Published private(set) var gajok: [String]
     @Published private(set) var gajokIreum: String
     /// 2.4.0 긴급통화 받지 않기를 고르심
@@ -105,7 +105,7 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
         let b = beonho.filter { $0.isNumber }
         let nm = ireum.trimmingCharacters(in: .whitespaces)
         guard b.count == 3 || b.count == 6 else { return "이음 번호 세 자리를 넣어 주십시오." }
-        guard !nm.isEmpty else { return "길눈님이 부르실 내 이름을 적어 주십시오." }
+        guard !nm.isEmpty else { return "길손님이 부르실 내 이름을 적어 주십시오." }
         _ = await AVCaptureDevice.requestAccess(for: .video)
         _ = await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
             AVAudioSession.sharedInstance().requestRecordPermission { c.resume(returning: $0) }
@@ -115,7 +115,7 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
             return "통신이 닿지 않았습니다. 잠시 뒤 다시 눌러 주십시오."
         }
         guard (j["ok"] as? Bool) == true else { return (j["error"] as? String) ?? "등록을 마치지 못했습니다." }
-        let who = (j["who"] as? String) ?? "길눈님"
+        let who = (j["who"] as? String) ?? "길손님"
         await MainActor.run {
             if !self.gajok.contains(who) { self.gajok.append(who) }
             self.gajokIreum = nm
@@ -160,7 +160,7 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
     /// 함께하겠습니다 — 성공하면 nil, 안 되면 까닭
     func hamkke(kind: String, byeol: String, hwagin: String) async -> String? {
         let b = byeol.trimmingCharacters(in: .whitespaces)
-        guard !b.isEmpty else { return "길눈님 별명을 적어 주십시오." }
+        guard !b.isEmpty else { return "길손님 별명을 적어 주십시오." }
         // 카메라·마이크 허락을 지금 받아 둠 — 통화 때 허용 창을 찾는 일이 없게
         _ = await AVCaptureDevice.requestAccess(for: .video)
         _ = await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
@@ -234,7 +234,7 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
         let u = CXCallUpdate()
         u.remoteHandle = CXHandle(type: .generic, value: "길손님")
         if gal == "jiin" {
-            u.localizedCallerName = buleun.isEmpty ? "길눈님이 화상통화를 요청합니다" : buleun + " 님이 화상통화를 요청합니다"
+            u.localizedCallerName = buleun.isEmpty ? "길손님이 화상통화를 요청합니다" : buleun + " 님이 화상통화를 요청합니다"
         } else {
             u.localizedCallerName = gal == "haeseolsa" ? "길손님이 현장영상해설사를 청합니다" : "길손님이 도움을 청합니다"
         }
@@ -252,7 +252,7 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
                 return
             }
             // 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 통화 중(받기 확인 중 포함)에 온 부름은 말없이 버리지 않고 나스에 거절로 알림 —
-            //   길눈님이 1분 30초를 기다리지 않고 곧바로 다른 분께 넘기시게
+            //   길손님이 1분 30초를 기다리지 않고 곧바로 다른 분께 넘기시게
             let bappeum = JabongTonghwa.shared.tonghwaJung || self.batgiUuid != nil
             if e != nil || room.isEmpty || bappeum {
                 self.provider.reportCall(with: uuid, endedAt: nil, reason: .failed)
@@ -374,7 +374,7 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
                     Girok.shared.namgi("jabong_batum", [:])
                     return
                 }
-                // 확인하지 못했거나(받기 답을 잃었을 수 있음), 내 것인데 전화가 이미 닫혔으면 받기를 놓아 줌 — 길눈님이 40초를 기다리지 않게
+                // 확인하지 못했거나(받기 답을 잃었을 수 있음), 내 것인데 전화가 이미 닫혔으면 받기를 놓아 줌 — 길손님이 40초를 기다리지 않게
                 if g != .nam { self.geojeolAllim(u.room) }
                 action.fail()
                 self.provider.reportCall(with: u.uuid, endedAt: nil, reason: g == .nam ? .answeredElsewhere : .failed)
@@ -402,7 +402,7 @@ final class JabongDaegi: NSObject, ObservableObject, PKPushRegistryDelegate, CXP
         if let u = ulim, u.uuid == action.callUUID {
             salpimTimer?.invalidate(); salpimTimer = nil
             ulim = nil
-            // 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 받기 전에 거절하심 — 나스에 알려 길눈님이 1분 30초를 기다리지 않게
+            // 2.17.0 (261009-I11, 이사장님 승인 2026-10-09) 받기 전에 거절하심 — 나스에 알려 길손님이 1분 30초를 기다리지 않게
             geojeolAllim(u.room)
         } else {
             JabongTonghwa.shared.kkeunki(bonaegi: true)
@@ -495,7 +495,7 @@ struct JbHamkkeView: View {
                     Button("마음이 바뀌면 — 긴급통화 받기 시작") { geobuPulgi() }.buttonStyle(KeunDanchu()).disabled(hal)
                 } else if g.kyeojim && !gochim {
                     Text(badeumMal).font(.title3)
-                    Text("요청이 오면 일반 전화처럼 울립니다. 받으시면 곧바로 길눈님 카메라 화면과 말소리가 이어집니다.").font(.body)
+                    Text("요청이 오면 일반 전화처럼 울립니다. 받으시면 곧바로 길손님 카메라 화면과 말소리가 이어집니다.").font(.body)
                     Button("잠시 쉬기 — 긴급통화를 받지 않음") { swigi(true) }.buttonStyle(KeunDanchu()).disabled(hal)
                     DisclosureGroup("더 보기 펼치기") {
                         if !g.kind.isEmpty {
@@ -512,16 +512,16 @@ struct JbHamkkeView: View {
                     Button("역할이나 별명 고치기") { kind = g.kind.isEmpty ? "haebong" : g.kind; byeol = g.byeol; gochim = true }.buttonStyle(KeunDanchu())
                     Button("긴급통화 받지 않기 — 점지도만 그립니다") { geobu() }.buttonStyle(KeunDanchu()).disabled(hal)
                 } else {
-                    Text("길눈님이 도움을 청할 때 받으실 역할을 고르십시오. 실명과 전화번호는 화면에 나오지 않습니다.").font(.body)
+                    Text("길손님이 도움을 청할 때 받으실 역할을 고르십시오. 실명과 전화번호는 화면에 나오지 않습니다.").font(.body)
                     Button((kind == "haebong" ? "고름 — " : "") + "자원봉사자로 받기 — 교육을 마치신 분") { kind = "haebong"; hwagin = "" }.buttonStyle(KeunDanchu())
                     Button((kind == "haeseolsa" ? "고름 — " : "") + "현장영상해설사로 받기 — 협회 해설사") { kind = "haeseolsa"; hwagin = "" }.buttonStyle(KeunDanchu())
-                    Button((kind == "gajok" ? "고름 — " : "") + "가족·지인으로 받기 — 길눈님께 이음 번호를 받으신 분") { kind = "gajok" }.buttonStyle(KeunDanchu())
+                    Button((kind == "gajok" ? "고름 — " : "") + "가족·지인으로 받기 — 길손님께 이음 번호를 받으신 분") { kind = "gajok" }.buttonStyle(KeunDanchu())
                     if kind == "gajok" {
-                        TextField("이음 번호 세 자리 — 길눈님께 받으신 번호", text: $beonho).keyboardType(.numberPad).textFieldStyle(.roundedBorder).font(.title3)
-                        TextField("길눈님이 부르실 내 이름 — 보기: 큰딸, 김철수", text: $gajokIreum).textFieldStyle(.roundedBorder).font(.title3)
+                        TextField("이음 번호 세 자리 — 길손님께 받으신 번호", text: $beonho).keyboardType(.numberPad).textFieldStyle(.roundedBorder).font(.title3)
+                        TextField("길손님이 부르실 내 이름 — 보기: 큰딸, 김철수", text: $gajokIreum).textFieldStyle(.roundedBorder).font(.title3)
                         Button("가족·지인으로 등록하기") { gajokDeungrok() }.buttonStyle(KeunDanchu()).disabled(hal)
                     } else {
-                        TextField("길눈님 별명", text: $byeol).textFieldStyle(.roundedBorder).font(.title3)
+                        TextField("길손님 별명", text: $byeol).textFieldStyle(.roundedBorder).font(.title3)
                         if kind == "haeseolsa" {
                             TextField("협회에 등록하신 전화번호 — 확인에만 씁니다", text: $hwagin).keyboardType(.phonePad).textFieldStyle(.roundedBorder).font(.title3)
                         } else {
@@ -554,7 +554,7 @@ struct JbHamkkeView: View {
             let t = await g.hamkke(kind: kind, byeol: byeol, hwagin: hwagin)
             await MainActor.run {
                 hal = false
-                if let t = t { allyeo(t) } else { gochim = false; allyeo("고맙습니다. 이제 함께하는 눈이 되셨습니다. 길눈님이 도움을 청하면 전화처럼 울립니다.") }
+                if let t = t { allyeo(t) } else { gochim = false; allyeo("고맙습니다. 이제 함께하는 눈이 되셨습니다. 길손님이 도움을 청하면 전화처럼 울립니다.") }
             }
         }
     }

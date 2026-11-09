@@ -78,7 +78,7 @@ struct GrGil: Codable, Identifiable {
     var seobeoId: String? = nil
     var heum: [String]? = nil
     var heumSaek: [String]? = nil   // 2.13.0 고칠 곳의 빛깔(빨강·주황·노랑)
-    var butakId: String? = nil      // 2.14.0 길눈님 「그려 주세요」 부탁으로 그린 길
+    var butakId: String? = nil      // 2.14.0 길손님 「그려 주세요」 부탁으로 그린 길
     // 2.20.0 AI 밑그림과 견준 것(봉사자 손에만 — 길눈 점지도에는 실리지 않음)
     var mit: GrMit? = nil
     var mitEotgan: [GrEotgan]? = nil
@@ -163,7 +163,7 @@ final class JeomGeurigi: ObservableObject {
     ]
 
     @Published private(set) var sangtae: Sangtae = .swim
-    /// 2.14.0 그리러 가기로 정한 길눈님 부탁(번호, 출발지, 도착지) — 다음 걷기 시작에 이름이 들어가고, 점검을 통과해 올리면 저절로 다 그렸습니다
+    /// 2.14.0 그리러 가기로 정한 길손님 부탁(번호, 출발지, 도착지) — 다음 걷기 시작에 이름이 들어가고, 점검을 통과해 올리면 저절로 다 그렸습니다
     @Published private(set) var butak: (id: String, sin: String, min: String)? = {
         let d = UserDefaults.standard
         guard let i = d.string(forKey: "jb.butak.id"), !i.isEmpty else { return nil }
@@ -333,7 +333,7 @@ final class JeomGeurigi: ObservableObject {
         mureum = nil
         majimakId = nil
         var cb = chulbal.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let b = butak {   // 2.14.0 길눈님 부탁 길 — 출발지·도착지 이름을 부탁대로
+        if let b = butak {   // 2.14.0 길손님 부탁 길 — 출발지·도착지 이름을 부탁대로
             gil?.butakId = b.id
             if cb.isEmpty && !Butak.wiseongJari(b.sin) { cb = b.sin }   // 2.21.0 위성 위치로 남긴 출발지는 이름으로 쓰지 않음(출발 자리 주소를 저절로)
             if !b.min.isEmpty { gil?.to = String(b.min.prefix(40)) }
@@ -347,7 +347,7 @@ final class JeomGeurigi: ObservableObject {
         dolligi()
         momKyeogi()
         Girok.shared.namgi("jb_geurigi_sijak", ["id": gil?.id ?? ""])
-        alrigi((butak.map { "길눈님 부탁 길, \(Butak.wiseongJari($0.sin) ? "출발 자리" : $0.sin)에서 \($0.min)까지 그립니다. " } ?? (bowan.map { "보완 길, \($0.from)에서 \($0.to)까지 다시 그립니다. " } ?? "")) + "걷기 시작했습니다. 평소 걸음으로 걸으시고, 꺾이는 곳과 계단, 건널목, 문에 닿는 순간 표시를 남겨 주십시오.")
+        alrigi((butak.map { "길손님 부탁 길, \(Butak.wiseongJari($0.sin) ? "출발 자리" : $0.sin)에서 \($0.min)까지 그립니다. " } ?? (bowan.map { "보완 길, \($0.from)에서 \($0.to)까지 다시 그립니다. " } ?? "")) + "걷기 시작했습니다. 평소 걸음으로 걸으시고, 꺾이는 곳과 계단, 건널목, 문에 닿는 순간 표시를 남겨 주십시오.")
         // 출발한 자리 주소를 저절로 적음 — 2.11.0 봉사자가 이름을 넣었으면 그대로 둠
         if cb.isEmpty, let w = WichiEngine.shared.jigeum {
             Task {
@@ -1184,7 +1184,7 @@ final class JeomGeurigi: ObservableObject {
             Girok.shared.namgi("jb_olim", ["id": id, "seobeo": geurinGil[i].seobeoId ?? ""])
             // 2.18.0 (261010-I12, 이사장님 승인 2026-10-10) 흠이 있어도 받은 길(보완 필요)은 부탁 다 그렸습니다로 잇지 않음
             let bowanPilyo = (r["bowanPilyo"] as? Bool) ?? false
-            if !bowanPilyo, let bid = g.butakId, let sid = geurinGil[i].seobeoId {   // 2.14.0 점검을 통과한 길만 길눈님 부탁에 다 그렸습니다로
+            if !bowanPilyo, let bid = g.butakId, let sid = geurinGil[i].seobeoId {   // 2.14.0 점검을 통과한 길만 길손님 부탁에 다 그렸습니다로
                 let beonho = JabongNae.shared.beonho
                 Task {
                     let ok = await GilButak.hagi("doen", bid, [("gil", sid), ("nugu", "자봉 \(beonho)")])
@@ -1192,7 +1192,7 @@ final class JeomGeurigi: ObservableObject {
                         if ok {
                             if self.butak?.id == bid { self.butakGeumanduggi() }
                             Baksu.chigi(keuge: true)
-                            SoriEngine.shared.mal("길눈님이 부탁하신 길에도 다 그렸다고 알렸습니다. 고맙습니다!", .annae)
+                            SoriEngine.shared.mal("길손님이 부탁하신 길에도 다 그렸다고 알렸습니다. 고맙습니다!", .annae)
                         }
                     }
                 }
@@ -1203,7 +1203,7 @@ final class JeomGeurigi: ObservableObject {
             let cheotMal = cheot ? "첫 점지도를 그리셨습니다! 축하드립니다. " : ""
             // 2.35.0 (261026-I29, 이사장님 승인 2026-10-26 「1」) 협회가 매긴 점지도 등급(A·B·C)을 알려 드림
             let dg = Nas.gul(r["deunggeup"])
-            let dgMal = dg.isEmpty ? "" : "\(dg)급 점지도로 실렸습니다. " + (dg == "B" ? "고칠 곳만 보완하면 A급이 됩니다. " : dg == "C" ? "아직 그리는 중인 길로 길눈님께 알려 드립니다. 보완하면 등급이 오릅니다. " : "")
+            let dgMal = dg.isEmpty ? "" : "\(dg)급 점지도로 실렸습니다. " + (dg == "B" ? "고칠 곳만 보완하면 A급이 됩니다. " : dg == "C" ? "아직 그리는 중인 길로 길손님께 알려 드립니다. 보완하면 등급이 오릅니다. " : "")
             let bm = (r["bowanMachim"] as? Int) ?? 0   // 2.13.0 같은 출발지·도착지 보완 부탁이 있었으면 보완 완료
             if bm > 0 { bowanGeumanduggi(); Task { await JbBowan.shared.bulleo(gangje: true) } }   // 2.21.0 보완 완료면 보완하기도 마침
             if bowanPilyo {   // 2.18.0 받기는 했지만 손볼 곳이 있음 — 보완 목록에도 올라가 누구든 이어서 보완
@@ -1362,8 +1362,8 @@ struct GeurigiView: View {
     @ViewBuilder private var sijakJeon: some View {
         if !JbMadang.shared.cheotGil && g.geurinGil.isEmpty { CheotGilKan() }   // 2.22.0 처음 걷는 분께 세 가지만(문제 없이)
         if s.bopok > 0.2 && s.bopokJaem {
-            if let b = g.butak {   // 2.14.0 길눈님 부탁 길 — 안내와 그만두기 단추를 한 자리에
-                Text("길눈님 부탁 길: \(Butak.wiseongJari(b.sin) ? "출발지 이름 확인 필요" : b.sin) → \(b.min). 걷기 시작을 누르시면 이 이름이 들어갑니다.").font(.title3.bold())
+            if let b = g.butak {   // 2.14.0 길손님 부탁 길 — 안내와 그만두기 단추를 한 자리에
+                Text("길손님 부탁 길: \(Butak.wiseongJari(b.sin) ? "출발지 이름 확인 필요" : b.sin) → \(b.min). 걷기 시작을 누르시면 이 이름이 들어갑니다.").font(.title3.bold())
                 if JeomGeurigi.butakMok != nil {   // 2.20.0
                     Text("출발 자리에서 걷기 시작을 누르시면 AI 밑그림을 받아 들려 드립니다. " + JbMitgeurim.gyoyuk).font(.body)
                 }

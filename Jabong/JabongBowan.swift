@@ -159,7 +159,7 @@ struct BowanGilView: View {
                     Text("도움 되는 동영상 — \(JbMadang.shared.pyeon(pn)?.ireum ?? "\(pn)편")")
                 }.buttonStyle(KeunDanchu())
                 if let dg = gil.deunggeup, !dg.isEmpty {   // 2.35.0 등급과 보완하면 어떻게 되는지
-                    Text("지금 \(dg)급 점지도입니다. " + (dg == "C" ? "아직 그리는 중인 길로 길눈님께 알려 드립니다. 고칠 곳을 보완하면 등급이 오릅니다." : dg == "B" ? "고칠 곳만 보완하면 A급이 됩니다." : "협회 점검 기준을 넘은 길입니다.")).font(.title3)
+                    Text("지금 \(dg)급 점지도입니다. " + (dg == "C" ? "아직 그리는 중인 길로 길손님께 알려 드립니다. 고칠 곳을 보완하면 등급이 오릅니다." : dg == "B" ? "고칠 곳만 보완하면 A급이 됩니다." : "협회 점검 기준을 넘은 길입니다.")).font(.title3)
                 }
                 Text(gil.mal ?? JbBowan.butak).font(.title3.bold())
                 Text("보완 부탁 날 " + JbBowan.nalMal(gil.ttae) + (gil.nal.map { ", \($0)일 지남" } ?? "")).font(.body)

@@ -83,7 +83,7 @@ enum Hamkke {
     }
 }
 
-// MARK: 2.9.0 볼거리 표시(이사장님 승인 2026-10-06) — 길눈님이 목적지 가까이에서 이 자리와 말로 찾아오심
+// MARK: 2.9.0 볼거리 표시(이사장님 승인 2026-10-06) — 길손님이 목적지 가까이에서 이 자리와 말로 찾아오심
 extension JeomGeurigi {
     func bolgeoriNamgi(_ ireum0: String, _ mal0: String, kkeut: @escaping (Bool) -> Void) {
         let ireum = ireum0.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -100,7 +100,7 @@ extension JeomGeurigi {
             await MainActor.run {
                 if ok {
                     Baksu.chigi()
-                    SoriEngine.shared.mal("\(ireum) 볼거리를 남겼습니다. 길눈님이 이 자리로 찾아오실 수 있습니다. 고맙습니다!")
+                    SoriEngine.shared.mal("\(ireum) 볼거리를 남겼습니다. 길손님이 이 자리로 찾아오실 수 있습니다. 고맙습니다!")
                 } else {
                     SoriEngine.shared.mal("남기지 못했습니다. 통신을 확인해 주십시오.")
                 }
