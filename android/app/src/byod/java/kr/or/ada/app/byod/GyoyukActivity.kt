@@ -34,6 +34,8 @@ class GyoyukActivity : Activity() {
         const val LIVE = "https://lvd.ada.or.kr/bfblive/bang2.html"
         const val TV = "https://lvd.ada.or.kr/lvds/lvds_live.html"   // 1.5.0 TV해설방송 하기
         // 화면 쪽 뒤로 단추(배프 대문으로 감)를 감춤 — 낭독기에도 안 읽힘
+        // 1.16.5 녹화 화면 이용 기록 — iOS GyoyukGirok.JS 와 같은 것
+        const val GIROK_JS = "(function(){if(window.__lvdGirok)return;window.__lvdGirok=1;function s(t){t=String(t||'').replace(/[0-9]+/g,'#').slice(0,200);try{if(window.webkit&&webkit.messageHandlers&&webkit.messageHandlers.lvdGirok)webkit.messageHandlers.lvdGirok.postMessage(t);else if(window.LVDSongchul&&LVDSongchul.girok)LVDSongchul.girok(t);}catch(e){}}var last='';function bogi(){var t=[];document.querySelectorAll('[aria-live],[role=status],[role=alert]').forEach(function(e){var x=(e.innerText||'').trim();if(x)t.push(x);});var j=t.join(' / ').replace(/[0-9]+/g,'#');if(j&&j!==last){last=j;s('화면: '+j);}}new MutationObserver(function(){clearTimeout(window.__lvdT);window.__lvdT=setTimeout(bogi,400);}).observe(document.documentElement,{subtree:true,childList:true,characterData:true});window.addEventListener('error',function(e){s('오류: '+(e.message||''));});window.addEventListener('unhandledrejection',function(e){s('오류: '+((e.reason&&e.reason.message)||e.reason||''));});s('열림 '+location.pathname);})();"
         const val GAMCHUGI = "(function(){var s=document.createElement('style');s.textContent='#btnDwi1,#btnDwi2,.dwiro-btn,#homeBtn{display:none!important}';(document.head||document.documentElement).appendChild(s);})();"
     }
 
@@ -44,9 +46,13 @@ class GyoyukActivity : Activity() {
     @Volatile private var majimak = 0L
     @Volatile private var boinda = true
     private var jikim: Jikim? = null
+    @Volatile private var jeonSangtae = ""
     inner class Dari {
+        // 1.16.5 (261109, 새방클) 녹화 화면 안내 말·오류를 이용 기록에(숫자는 화면 쪽에서 #로 가림)
+        @JavascriptInterface fun girok(s: String) { Girok.namgi("gyoyuk_hwamyeon", mapOf("mal" to s.take(200))) }
         @JavascriptInterface fun nokhwa(s: String) {
             majimak = System.currentTimeMillis()
+            if (s != "salaitda" && s != jeonSangtae) { jeonSangtae = s; Girok.namgi("gyoyuk_nokhwa", mapOf("sangtae" to s)) }
             when (s) {
                 "sijak", "salaitda" -> { nokhwaJung = true; meomchumBat = false }
                 "meomchum" -> { nokhwaJung = true; meomchumBat = true }
@@ -85,7 +91,10 @@ class GyoyukActivity : Activity() {
             settings.databaseEnabled = true
             settings.mediaPlaybackRequiresUserGesture = false
             webViewClient = object : WebViewClient() {
-                override fun onPageFinished(view: WebView?, url: String?) { view?.evaluateJavascript(GAMCHUGI, null) }
+                override fun onPageFinished(view: WebView?, url: String?) { view?.evaluateJavascript(GAMCHUGI, null); view?.evaluateJavascript(GIROK_JS, null) }
+                override fun onReceivedError(view: WebView?, request: android.webkit.WebResourceRequest?, error: android.webkit.WebResourceError?) {
+                    if (request?.isForMainFrame == true) Girok.namgi("gyoyuk_hwamyeon", mapOf("mal" to "열지 못함: " + (error?.description ?: "")))
+                }
             }
             webChromeClient = object : WebChromeClient() {
                 override fun onPermissionRequest(request: PermissionRequest) {
@@ -106,6 +115,7 @@ class GyoyukActivity : Activity() {
         mom.addView(dwiroDanchu(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         setContentView(mom)
         if (!heorakIssum()) heorakMutgi()
+        Girok.namgi("gyoyuk_yeolgi", mapOf("hwamyeon" to jemok))   // 1.16.5
         web.loadUrl(intent.getStringExtra("juso") ?: JUSO)
     }
 
@@ -145,6 +155,7 @@ class GyoyukActivity : Activity() {
     override fun onStop() { boinda = false; super.onStop() }   // 1.6.0 화면이 잠기거나 앱이 뒤로 가면 녹화가 멈출 수 있어 지킴이가 알림
 
     override fun onDestroy() {
+        Girok.namgi("gyoyuk_datgi", mapOf("hwamyeon" to jemok))   // 1.16.5
         try { jikim?.meomchugi() } catch (_: Exception) { }
         try { web.destroy() } catch (_: Exception) { }
         super.onDestroy()
