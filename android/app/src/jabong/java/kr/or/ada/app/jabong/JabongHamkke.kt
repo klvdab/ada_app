@@ -85,7 +85,7 @@ class BolgeoriKan {
         Hamkke.bolgeoriNamgi(ir, ml, w.lat, w.lon) { ok ->
             if (ok) {
                 Baksu.chigi()
-                Sori.mal("${ir} 볼거리를 남겼습니다. 길눈님이 이 자리로 찾아오실 수 있습니다. 고맙습니다!")
+                Sori.mal("${ir} 볼거리를 남겼습니다. 길손님이 이 자리로 찾아오실 수 있습니다. 고맙습니다!")
                 ireum = ""; mal = ""; pyeol = false
                 t.dasiGeurigi()
             } else Sori.mal("남기지 못했습니다. 통신을 확인해 주십시오.")

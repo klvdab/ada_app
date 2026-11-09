@@ -261,7 +261,7 @@ object Geurigi {
     // MARK: 시작·멈춤·끝
 
     /** 그리기 시작 — 보폭이 있어야 함 */
-    /** 2.14.0 그리러 가기로 정한 길눈님 부탁(번호, 출발지, 도착지) — 다음 걷기에 이름이 들어가고, 점검을 통과해 올리면 저절로 다 그렸습니다 */
+    /** 2.14.0 그리러 가기로 정한 길손님 부탁(번호, 출발지, 도착지) — 다음 걷기에 이름이 들어가고, 점검을 통과해 올리면 저절로 다 그렸습니다 */
     val butak: Triple<String, String, String>?
         get() {
             val d = ctx?.getSharedPreferences("jabong", Context.MODE_PRIVATE) ?: return null
@@ -320,7 +320,7 @@ object Geurigi {
         majimakId = null
         var cb = chulbal.trim().take(40)
         val bt = butak
-        if (bt != null) {   // 2.14.0 길눈님 부탁 길 — 출발지·도착지 이름을 부탁대로
+        if (bt != null) {   // 2.14.0 길손님 부탁 길 — 출발지·도착지 이름을 부탁대로
             gil?.put("butakId", bt.first)
             if (cb.isEmpty() && !NnButak.wiseongJari(bt.second)) cb = bt.second.take(40)   // 2.22.0 위성 위치로 남긴 출발지는 이름으로 쓰지 않음(출발 자리 주소를 저절로)
             if (bt.third.isNotEmpty()) gil?.put("to", bt.third.take(40))
@@ -336,7 +336,7 @@ object Geurigi {
         momKyeogi()
         gijunBogiSijak()
         Girok.namgi("jb_geurigi_sijak", mapOf("id" to gil?.optString("id")))
-        alrigi((if (bt != null) "길눈님 부탁 길, ${if (NnButak.wiseongJari(bt.second)) "출발 자리" else bt.second}에서 ${bt.third}까지 그립니다. " else if (bw != null) "보완 길, ${bw.second}에서 ${bw.third}까지 다시 그립니다. " else "") + "걷기 시작했습니다. 평소 걸음으로 걸으시고, 꺾이는 곳과 계단, 건널목, 문에 닿는 순간 표시를 남겨 주십시오.")
+        alrigi((if (bt != null) "길손님 부탁 길, ${if (NnButak.wiseongJari(bt.second)) "출발 자리" else bt.second}에서 ${bt.third}까지 그립니다. " else if (bw != null) "보완 길, ${bw.second}에서 ${bw.third}까지 다시 그립니다. " else "") + "걷기 시작했습니다. 평소 걸음으로 걸으시고, 꺾이는 곳과 계단, 건널목, 문에 닿는 순간 표시를 남겨 주십시오.")
         // 출발한 자리 주소를 저절로 적음 — 2.11.0 봉사자가 이름을 넣었으면 그대로 둠
         val w = Wichi.jigeum
         if (w != null && cb.isEmpty()) {
@@ -1012,14 +1012,14 @@ object Geurigi {
             Girok.namgi("jb_olim", mapOf("id" to id, "seobeo" to r.optString("id")))
             // 2.19.0 (261010-A15, 이사장님 승인 2026-10-10) 흠이 있어도 받은 길(보완 필요)은 부탁 다 그렸습니다로 잇지 않음
             val bowanPilyo = r.optBoolean("bowanPilyo", false)
-            val bid = g.optString("butakId")   // 2.14.0 점검을 통과한 길만 길눈님 부탁에 다 그렸습니다로
+            val bid = g.optString("butakId")   // 2.14.0 점검을 통과한 길만 길손님 부탁에 다 그렸습니다로
             if (bid.isNotEmpty() && !bowanPilyo) {
                 NnGilButak.hagi("doen", bid, listOf("gil" to r.optString("id"), "nugu" to "자봉 ${JabongNae.beonho}")) { ok ->
                     main.post {
                         if (ok) {
                             if (butak?.first == bid) butakGeumanduggi()
                             Baksu.chigi(true)
-                            Sori.mal("길눈님이 부탁하신 길에도 다 그렸다고 알렸습니다. 고맙습니다!", MalGeup.ANNAE)
+                            Sori.mal("길손님이 부탁하신 길에도 다 그렸다고 알렸습니다. 고맙습니다!", MalGeup.ANNAE)
                         }
                     }
                 }
@@ -1030,7 +1030,7 @@ object Geurigi {
             val cheotMal = if (cheot) "첫 점지도를 그리셨습니다! 축하드립니다. " else ""
             // 2.35.0 (261026-A31, 이사장님 승인 2026-10-26 「1」) 협회가 매긴 점지도 등급(A·B·C)을 알려 드림
             val dg = r.optString("deunggeup", "")
-            val dgMal = if (dg.isEmpty()) "" else "${dg}급 점지도로 실렸습니다. " + when (dg) { "B" -> "고칠 곳만 보완하면 A급이 됩니다. "; "C" -> "아직 그리는 중인 길로 길눈님께 알려 드립니다. 보완하면 등급이 오릅니다. "; else -> "" }
+            val dgMal = if (dg.isEmpty()) "" else "${dg}급 점지도로 실렸습니다. " + when (dg) { "B" -> "고칠 곳만 보완하면 A급이 됩니다. "; "C" -> "아직 그리는 중인 길로 길손님께 알려 드립니다. 보완하면 등급이 오릅니다. "; else -> "" }
             val bm = r.optInt("bowanMachim", 0)   // 2.13.0 같은 출발지·도착지 보완 부탁이 있었으면 보완 완료
             if (bm > 0) { bowanGeumanduggi(); ctx?.let { c -> JbBowan.bulleo(c, true) { bakkwim?.invoke() } } }   // 2.22.0 보완 완료면 보완하기도 마침
             if (bowanPilyo) {   // 2.19.0 받기는 했지만 손볼 곳이 있음 — 보완 목록에도 올라가 누구든 이어서 보완

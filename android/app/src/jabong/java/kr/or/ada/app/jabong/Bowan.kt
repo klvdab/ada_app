@@ -152,7 +152,7 @@ class BowanGilHwamyeon(private val g: JSONObject) : JbHwamyeon("보완 부탁") 
         val pn = JbMadang.doumPyeon((0 until (hm?.length() ?: 0)).map { hm?.optJSONObject(it)?.optString("mal") ?: "" })
         t.danchu("도움 되는 동영상 — ${JbMadang.pyeon(pn)?.ireum ?: "${pn}편"}") { JbMadang.teulgi(t, pn) }
         val dg = g.optString("deunggeup")   // 2.35.0 등급과 보완하면 어떻게 되는지
-        if (dg.isNotEmpty()) t.geul("지금 ${dg}급 점지도입니다. " + when (dg) { "C" -> "아직 그리는 중인 길로 길눈님께 알려 드립니다. 고칠 곳을 보완하면 등급이 오릅니다."; "B" -> "고칠 곳만 보완하면 A급이 됩니다."; else -> "협회 점검 기준을 넘은 길입니다." })
+        if (dg.isNotEmpty()) t.geul("지금 ${dg}급 점지도입니다. " + when (dg) { "C" -> "아직 그리는 중인 길로 길손님께 알려 드립니다. 고칠 곳을 보완하면 등급이 오릅니다."; "B" -> "고칠 곳만 보완하면 A급이 됩니다."; else -> "협회 점검 기준을 넘은 길입니다." })
         t.geul(g.optString("mal", JbBowan.BUTAK), true)
         t.geul("보완 부탁 날 " + JbBowan.nalMal(g.optString("ttae")) + if (g.has("nal")) ", ${g.optInt("nal")}일 지남" else "")
         val h = g.optJSONArray("heum")
