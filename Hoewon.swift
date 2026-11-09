@@ -33,6 +33,8 @@ final class Hoewon: ObservableObject {
 
     /// 0.8.3 일반 회원인가 — 일반 회원은 외국 도서(저작권이 끝난 책)만 듣고, 장애 확인을 받으면 모든 책을 들음
     var ilban: Bool { deung == "ilban" }
+    /// 0.8.6 엔터테인먼트 탭을 보일까 — 서버(hw_injeung)와 같이 인증 회원·운영자·최고관리자에게만
+    var entBoim: Bool { ["injeung", "unyeong", "choego"].contains(deung) }
     static let jeungMal = "장애인 복지카드나 장애인증명서를 사진으로 찍어 올려 주십시오. 협회가 확인하면 인증 회원이 되어 모든 책과 엔터테인먼트 작품을 들으실 수 있습니다. 올리신 사진은 장애 확인에만 쓰고, 운영하는 사람만 봅니다."
     static func jeungIreum(_ j: String) -> String {
         switch j { case "daegi": return "올리신 서류를 협회가 확인하고 있습니다"; case "seungin": return "장애 확인을 마쳤습니다"; case "georeo": return "서류를 다시 올려 주셔야 합니다"; default: return "아직 서류를 올리지 않으셨습니다" }
@@ -148,6 +150,23 @@ final class Hoewon: ObservableObject {
         } catch {
             return "도서관에 닿지 못했습니다. 인터넷을 확인한 뒤 다시 등록을 눌러 주십시오."
         }
+    }
+
+    /// 0.8.6 (261109-L25) 회원 탈퇴 — 서버의 회원 기록과 올린 장애 확인 서류를 지우고, 폰의 회원 열쇠·등급도 지운다(애플 심사 지침 5.1.1, 이사장님 승인 2026-11-09 「1」).
+    /// 성공하면 (nil, 알릴 말), 실패하면 (알릴 말, nil)
+    func talte() async -> (String?, String?) {
+        let tk = yeolsoe
+        guard !tk.isEmpty else { return ("등록된 회원 열쇠가 없습니다.", nil) }
+        var r = API.request(URL(string: API.base + "hoewon.php")!, timeout: 30)
+        r.httpMethod = "POST"
+        r.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        r.httpBody = "a=talte&tk=\(tk)".data(using: .utf8)
+        guard let res = try? await URLSession.shared.data(for: r),
+              let dap = try? JSONDecoder().decode(Dap.self, from: res.0) else { return ("도서관에 닿지 못했습니다. 인터넷을 확인한 뒤 다시 눌러 주십시오.", nil) }
+        guard dap.ok else { return (dap.error ?? "탈퇴하지 못했습니다. 잠시 뒤 다시 해 주십시오.", nil) }
+        for k in [kTk, kIreum, "hoewonDeung", "hoewonDeungT", "hoewonBogang"] { ud.removeObject(forKey: k) }
+        await MainActor.run { self.deung = ""; self.deungT = ""; self.jeung = ""; self.bogangPilyo = true; self.deungrokdoem = false }
+        return (nil, dap.mal ?? "탈퇴했습니다.")
     }
 
     /// 나스가 열쇠를 받아 주지 않을 때(403) 부른다. 등록 화면이 다시 나온다.
