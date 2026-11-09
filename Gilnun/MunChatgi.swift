@@ -11,6 +11,7 @@ import SwiftUI
 import ARKit
 import AVFoundation
 import Vision
+import CoreImage   // 2.128.0 사진 한 장
 
 final class MunChatgi: NSObject, ObservableObject, ARSessionDelegate {
     static let shared = MunChatgi()
@@ -47,6 +48,22 @@ final class MunChatgi: NSObject, ObservableObject, ARSessionDelegate {
     var gidae: (String, [String])?
     /// 두 번 찍기 중(말 없이 글자만 모음) — jul 에서도 읽음
     private var jjikgiNow = false
+    /// 2.128.0 사진 한 장으로 문 찾기 — sajinHam 은 메인, sajinPilyo 는 jul
+    private var sajinHam = false
+    private var sajinPilyo = false
+
+    /// 2.128.0 사진 한 장 — 사진 읽어 주기(문 모드)에 문이 어디 있는지만 묻고, 답이 오면 한 번 말함. 사진 다루기는 사진 읽어 주기(sajin.php)와 같음. 읽어 주는 열쇠가 준비되지 않았으면 말하지 않음
+    private func sajinBonaegi(_ jpeg: Data) {
+        let e0 = eodiseo
+        Task {
+            let (ok, m) = await Dulreo.sajin(jpeg, "mun")
+            await MainActor.run {
+                Girok.shared.namgi("munchatgi_sajin", ["eodi": e0, "ok": ok])
+                guard ok, self.kyeojim, !self.munBoim else { return }
+                self.mal("사진으로 본 문입니다. " + m)
+            }
+        }
+    }
 
     override init() {
         super.init()
@@ -112,6 +129,7 @@ final class MunChatgi: NSObject, ObservableObject, ARSessionDelegate {
         malT = Date.distantPast
         majimakSi = 0; majimakGeoreum = 0; gakkaum = 99
         chatneunMalSu = 0; ireotdaMal = false; ilgeunGeul = []; geulSun = []; majatda = false; munkkajiMotMal = false
+        sajinHam = false; jul.async { self.sajinPilyo = false }   // 2.128.0
         sangtae = "문을 찾는 중입니다."
         Girok.shared.namgi("munchatgi", ["eodi": e, "lidar": MunChatgi.lidar])
         // 2.124.0 (261102 이사장님 「1」 3번) 무슨 일이 있어도 5분이 지나면 끔
@@ -186,6 +204,16 @@ final class MunChatgi: NSObject, ObservableObject, ARSessionDelegate {
             geul = MunChatgi.geulIlgi(frame.capturedImage)
             ingneun = false
         }
+        // 2.128.0 사진 한 장 — 문을 못 본 채 10초가 지나 메인이 청했을 때 한 번만
+        if sajinPilyo && best == nil {
+            sajinPilyo = false
+            let ci = CIImage(cvPixelBuffer: frame.capturedImage).oriented(.right)
+            let bi = 1024.0 / max(ci.extent.width, ci.extent.height)
+            let sc = ci.transformed(by: CGAffineTransform(scaleX: bi, y: bi))
+            if let cg = CIContext().createCGImage(sc, from: sc.extent), let jpeg = UIImage(cgImage: cg).jpegData(compressionQuality: 0.6) {
+                DispatchQueue.main.async { self.sajinBonaegi(jpeg) }
+            }
+        }
         DispatchQueue.main.async { self.boda(best, geul) }
     }
 
@@ -220,10 +248,23 @@ final class MunChatgi: NSObject, ObservableObject, ARSessionDelegate {
                 chatneunMalSu += 1
                 mal("문을 찾고 있습니다. 폰을 가슴 앞에 세워 들고 천천히 9시에서 3시 쪽으로 돌려 주십시오.")   // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 시계 방향으로
             }
+            // 2.128.0 (261109-I82) 라이다 없는 폰 — 10초 동안 못 보면 사진 한 장으로 문이 어디 있는지만 물음(사진 읽어 주기가 준비돼 있을 때만 말함)
+            if !munBoim && !sajinHam && el > 10 && !MunChatgi.lidar && eodiseo != "munkkaji" {
+                sajinHam = true
+                jul.async { self.sajinPilyo = true }
+            }
             if !munBoim && !ireotdaMal && el > 30 && eodiseo != "munkkaji" {
+                let gd = gidae
+                let e0 = eodiseo
                 kkeugi(malHagi: false)
-                mal("30초 동안 문을 찾지 못했습니다. 사진 읽어 주기로 문 앞을 찍어 보시거나, 긴급통화로 현장영상해설사에게 요청하실 수 있습니다.")   // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 「부르실」 → 「요청하실」
-                Girok.shared.namgi("munchatgi_mot", ["eodi": eodiseo])
+                Girok.shared.namgi("munchatgi_mot", ["eodi": e0, "iyu": "30cho", "lidar": MunChatgi.lidar])
+                // 2.128.0 찍어 두신 문 글자가 있으면 그 글자로 이어 찾음, 없으면 찾는 글자를 권함
+                if let gd = gd, let g = gd.1.first(where: { $0.range(of: "[0-9]", options: .regularExpression) != nil }) ?? gd.1.first, !g.isEmpty {
+                    mal("카메라로는 문을 찾지 못해, 찍어 두신 문 글자 \(g)로 찾겠습니다.")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { GeulIlgi.shared.chatgiSijak(g, [g], munEseo: true) }
+                } else {
+                    mal("30초 동안 문을 찾지 못했습니다. 문패나 호수를 아시면 105호 찾아 줘처럼 말씀하십시오. 그 글자로 문을 찾아 드립니다. 사진 읽어 주기나 긴급통화로 현장영상해설사에게 요청하실 수도 있습니다.")   // 2.86.0 / 2.56.0 「요청하실」
+                }
                 return
             }
             // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 문까지 안내 중에도 30초 동안 카메라가 문을 한 번도 못 보면 한 번 알려 드림(카메라는 위성 안내를 돕도록 그대로 둠)

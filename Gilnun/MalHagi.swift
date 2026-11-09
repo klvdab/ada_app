@@ -1627,6 +1627,15 @@ final class MalHagi: ObservableObject {
     private func myeongryeong(_ alts: [String], _ z: String, _ tg: Talgeot?, _ dap: @escaping (String, Bool) -> Void) -> Bool {
         let s = sajeon
         if doeMal(z, dap) { return true }   // 2.118.0 즐겨찾기 담기(「기억해 줘」)보다 먼저
+        // 2.128.0 (261109-I82, 이사장님 승인 2026-11-09 「1」) 찾는 글자로 길잡기 — 「105호 찾아 줘」「화장실 표지 찾아 줘」「7번 출구 표지 찾아 줘」
+        if let c = GeulIlgi.chatneunMal(z) {
+            dap("", false)
+            TabGil.shared.tab = 1
+            DulreoGil.shared.path = NavigationPath()
+            GeulIlgi.shared.chatgiSijak(c.0, c.1)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { DulreoGil.shared.path.append(DulreoHwamyeon.geulIlgi) }
+            return true
+        }
         let y = YeojeongEngine.shared.jigeum
         // 2.6.0 음향신호기 — "신호기 울려 줘", "신호 알려 줘", "신호기 어디", "신호기 찾아 줘"
         if z.contains("신호기") || z.contains("신호알려") || z.contains("신호안내") || z.contains("신호등") {
