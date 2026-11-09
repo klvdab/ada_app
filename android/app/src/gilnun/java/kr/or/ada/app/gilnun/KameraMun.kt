@@ -199,9 +199,18 @@ object MunChatgi : KameraNunBupum {
                 mal("문을 찾고 있습니다. 폰을 가슴 앞에 세워 들고 천천히 9시에서 3시 쪽으로 돌려 주십시오.")   // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 시계 방향으로
             }
             if (!munBoim && !ireotdaMal && el > 30 && eodiseo != "munkkaji") {
+                val gd = gidae
+                val e0 = eodiseo
                 kkeugi(false)
-                mal("30초 동안 문을 찾지 못했습니다. 사진 읽어 주기로 문 앞을 찍어 보시거나, 긴급통화로 현장영상해설사에게 요청하실 수 있습니다.")   // 2.86.0 / 2.56.0 (261016-I40 / 261016-A44, 이사장님 승인 2026-10-16) 「부르실」 → 「요청하실」
-                Girok.namgi("munchatgi_mot", mapOf("eodi" to eodiseo))
+                Girok.namgi("munchatgi_mot", mapOf("eodi" to e0, "iyu" to "30cho"))
+                // 2.92.0 (261109-A80) 찍어 두신 문 글자가 있으면 그 글자로 이어 찾음, 없으면 찾는 글자를 권함(아이폰 2.128.0과 같음)
+                val g = gd?.second?.firstOrNull { Regex("[0-9]").containsMatchIn(it) } ?: gd?.second?.firstOrNull()
+                if (!g.isNullOrEmpty()) {
+                    mal("카메라로는 문을 찾지 못해, 찍어 두신 문 글자 ${g}로 찾겠습니다.")
+                    main.postDelayed({ GeulIlgi.chatgiSijak(null, g, listOf(g), munEseo = true) }, 1500)
+                } else {
+                    mal("30초 동안 문을 찾지 못했습니다. 문패나 호수를 아시면 105호 찾아 줘처럼 말씀하십시오. 그 글자로 문을 찾아 드립니다. 사진 읽어 주기나 긴급통화로 현장영상해설사에게 요청하실 수도 있습니다.")   // 2.86.0 / 2.56.0 「요청하실」
+                }
                 return
             }
             if (el > 90) {

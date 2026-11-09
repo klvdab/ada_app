@@ -1186,6 +1186,15 @@ object MalHagi {
     private fun myeongryeong(alts: List<String>, z: String, dap: (String, Boolean) -> Unit): Boolean {
         val s = MalSajeon
         if (doeMal(z, dap)) return true   // 2.83.0 즐겨찾기 담기(「기억해 줘」)보다 먼저
+        // 2.92.0 (261109-A80, 이사장님 승인 2026-11-09 「1」) 찾는 글자로 길잡기 — 「105호 찾아 줘」「화장실 표지 찾아 줘」(아이폰 2.128.0과 같음)
+        GeulIlgi.chatneunMal(z)?.let { c ->
+            val a = hwalseong?.get()
+            if (a == null) { dap("지금은 카메라를 쓸 수 없습니다.", false); return true }
+            dap("", false)
+            GeulIlgi.chatgiSijak(a, c.first, c.second, kyeogiDo = false)   // 화면이 열리며 카메라를 켬
+            KameraNun.dulreoYeolgi(a, GeulIlgiHwamyeon())
+            return true
+        }
         if (YeojeongMal.myeongryeong(alts, z, dap)) return true   // 2.7.0 묶음 b1 — 내렸어·탔어·얼마나 걸려·지금 가는 길·즐겨찾기·탈것만 말씀하심·어떻게 가실지의 대답
         // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 배리어프리방송국은 따로 앱으로 키우기로 함(이사장님 결정) — 모르는 척하지 않고 그렇다고 말씀드림(아이폰 MalHagi 2.13.0과 같은 말)
         if (z.contains("배프") || z.contains("배리어프리")) {
