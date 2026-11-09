@@ -35,6 +35,9 @@ enum Chucheom {
         if !n.isEmpty { UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in } }
     }
 
+    /// 2.11.2 (261109-LI16, 대클, 이사장님 승인 261109 「1」) 앱스토어 지침 5.3 — 추첨 주최는 협회, 애플은 후원자가 아니고 관계없음
+    static let aeplMal = "행운권 추첨은 행사를 여는 곳과 사단법인 한국시각장애인현장영상해설협회가 진행합니다. 참여에 돈이 들지 않습니다. 애플(Apple)은 이 추첨의 후원자가 아니며 추첨과 아무 관계가 없습니다."
+
     static var danchuMal: String {
         let n = beonho, g = guyeok
         if n.isEmpty { return "내 입장 번호: 없음. 행사장에서 들으시면 저절로 매겨집니다" }
