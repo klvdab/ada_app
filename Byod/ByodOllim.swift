@@ -49,7 +49,8 @@ final class ByodOllim: ObservableObject {
                let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {
                 bateum = true
                 if let a = (j["byod"] as? [String: Any])?["ios"] as? [String: Any],
-                   let pan = a["pan"] as? String, let tf = a["testflight"] as? String,
+                   let pan = a["pan"] as? String,
+                   let tf = a[ByodOllim.testFlightPan ? "testflight" : "appstore"] as? String,   // 261109 앱스토어 판이면 appstore 주소
                    tf.hasPrefix("https://"), ByodOllim.deoSae(pan, jigeum) {
                     chat = (pan, tf)
                 }
@@ -62,10 +63,15 @@ final class ByodOllim: ObservableObject {
         }.resume()
     }
 
+    /// 261109 테스트플라이트로 깐 판인지(앱스토어 판이면 거짓)
+    static var testFlightPan: Bool { Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt" }
+    static var gos: String { testFlightPan ? "테스트플라이트" : "앱스토어" }
+
     func yeolgi() {
         if Bang.shared.kyeojim { mal("방송 중에는 업데이트하지 않습니다. 방송을 멈춘 뒤 업데이트를 눌러 주십시오."); return }
+        if !ByodOllim.testFlightPan && testflight.isEmpty { return }
         guard let u = URL(string: testflight.isEmpty ? "itms-beta://" : testflight) else { return }
-        mal("테스트플라이트를 엽니다. LVD 송출 옆의 업데이트를 두 번 두드리십시오.")
+        mal(ByodOllim.testFlightPan ? "테스트플라이트를 엽니다. LVD 송출 옆의 업데이트를 두 번 두드리십시오." : "앱스토어를 엽니다. 업데이트를 두 번 두드리십시오.")
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { UIApplication.shared.open(u) }
     }
 
@@ -83,7 +89,7 @@ final class ByodOllim: ObservableObject {
     }
 
     var seoljeongGeul: String {
-        if let p = saePan { return "업데이트 — 새 판 \(p)이 있습니다. 누르면 테스트플라이트에서 업데이트합니다(지금 \(jigeumPan)판)" }
+        if let p = saePan { return "업데이트 — 새 판 \(p)이 있습니다. 누르면 \(ByodOllim.gos)에서 업데이트합니다(지금 \(jigeumPan)판)" }
         return "업데이트 — 지금 \(jigeumPan)판. 누르면 새 판이 있는지 살핍니다"
     }
 

@@ -52,8 +52,13 @@ final class BfbOllim: ObservableObject {
                 // 2.5.0 (261024-LI7, 대조표 듣는 앱 13번) 공개 링크가 없어도 판만 있으면 알림 — 그때는 테스트플라이트 앱(itms-beta://)을 엶
                 if let a = (j["bfb"] as? [String: Any])?["ios"] as? [String: Any],
                    let pan = a["pan"] as? String, BfbOllim.deoSae(pan, jigeum) {
-                    let tf = (a["testflight"] as? String) ?? ""
-                    chat = (pan, tf.hasPrefix("https://") ? tf : "")
+                    // 261109 앱스토어 판이면 pan.json 의 appstore 주소(없으면 알리지 않음), 테스트플라이트 판이면 예전처럼
+                    if BfbOllim.testFlightPan {
+                        let tf = (a["testflight"] as? String) ?? ""
+                        chat = (pan, tf.hasPrefix("https://") ? tf : "")
+                    } else if let as_ = a["appstore"] as? String, as_.hasPrefix("https://") {
+                        chat = (pan, as_)
+                    }
                 }
             }
             DispatchQueue.main.async {
@@ -64,9 +69,14 @@ final class BfbOllim: ObservableObject {
         }.resume()
     }
 
+    /// 261109 테스트플라이트로 깐 판인지(앱스토어 판이면 거짓)
+    static var testFlightPan: Bool { Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt" }
+    static var gos: String { testFlightPan ? "테스트플라이트" : "앱스토어" }
+
     func yeolgi() {
+        if !BfbOllim.testFlightPan && testflight.isEmpty { return }
         guard let u = URL(string: testflight.isEmpty ? "itms-beta://" : testflight) else { return }
-        mal("테스트플라이트를 엽니다. LVD 방송 옆의 업데이트를 두 번 두드리십시오.")
+        mal(BfbOllim.testFlightPan ? "테스트플라이트를 엽니다. LVD 방송 옆의 업데이트를 두 번 두드리십시오." : "앱스토어를 엽니다. 업데이트를 두 번 두드리십시오.")
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { UIApplication.shared.open(u) }
     }
 
@@ -84,7 +94,7 @@ final class BfbOllim: ObservableObject {
     }
 
     var seoljeongGeul: String {
-        if let p = saePan { return "업데이트 — 새 판 \(p)이 있습니다. 누르면 테스트플라이트에서 업데이트합니다(지금 \(jigeumPan)판)" }
+        if let p = saePan { return "업데이트 — 새 판 \(p)이 있습니다. 누르면 \(BfbOllim.gos)에서 업데이트합니다(지금 \(jigeumPan)판)" }
         return "업데이트 — 지금 \(jigeumPan)판. 누르면 새 판이 있는지 살핍니다"
     }
 

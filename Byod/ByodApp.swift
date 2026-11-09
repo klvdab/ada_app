@@ -293,10 +293,10 @@ struct CheotView: View {
                 Danchu(geul: "노트북에서 피디 화면 열기 큐알") { pdQrBogi() }   // 1.11.0 (261028-BI15) 대형 화면을 띄울 노트북이 같은 공유기에서 피디 화면을 엶
                 Danchu(geul: "관계자 붙이기 큐알 보기") { gwanQrBogi() }
                 Danchu(geul: "인터넷 방송만 하기 (공유기 없이)") { gagi(.live) }   // 1.4.0 한 폰 한 화면에서, 1.5.0 이름
-                Danchu(geul: "TV해설방송 하기") { gagi(.tv) }   // 1.5.0
+                // 261109 「TV해설방송 하기」는 앱스토어 지침(방송사 허락)으로 아이폰 앱에서 뺌. 누리집과 안드로이드에는 그대로
                 Danchu(geul: "현장영상해설교육 녹화") { gagi(.gyoyuk) }   // 1.4.0 (261016-BI6) 교육 녹화를 앱 안에서
                 if let p = ollim.saePan {
-                    Danchu(geul: "LVD 송출 새 판 \(p)이 나왔습니다. 두드리면 테스트플라이트에서 업데이트합니다") { ollim.yeolgi() }
+                    Danchu(geul: "LVD 송출 새 판 \(p)이 나왔습니다. 두드리면 \(ByodOllim.gos)에서 업데이트합니다") { ollim.yeolgi() }
                 }
                 if !st.juso.isEmpty {
                     Geul(Flint.flintInga ? "듣기 화면 주소(앱이 없는 폰은 와이파이에 붙은 뒤 이 주소를 엶)" : "듣기 주소", saek: Saek.yeonhan).accessibilityHidden(true)

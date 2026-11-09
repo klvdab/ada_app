@@ -112,7 +112,7 @@ struct GyoyukPan: UIViewRepresentable {
         w.uiDelegate = context.coordinator
         w.navigationDelegate = GyoyukGirok.shared
         w.isOpaque = false
-        if let u = URL(string: juso) { w.load(URLRequest(url: u)) }
+        BangsongsaMakgi.butigi(w) { if let u = URL(string: juso) { w.load(URLRequest(url: u)) } }   // 261109 방송사 채널 막기
         return w
     }
     func updateUIView(_ uiView: WKWebView, context: Context) {}
