@@ -20,7 +20,7 @@ class DulreoCheot : Hwamyeon("둘러보기") {
         t.danchu("안면인식 — 카메라 앞의 사람을 알려 드립니다") { t.yeolgi(AnmyeonHwamyeon()) }
         // 2.88.0 / 2.58.0 (261016-I42 / 261016-A46, 이사장님 승인 2026-10-16) 현장영상해설 받기 줄을 둘러보기 첫 화면에서 감춤 —
         //   화면(HaeseolBatgiHwamyeon)은 지우지 않고 그대로 둠. 말로 「현장영상해설 받고 싶어」는 긴급통화서비스로 현장영상해설사에게 요청함(MalHagi)
-        // t.danchu("현장영상해설 받기 — 현장영상해설사 화상통화, 현장영상해설 코스, 파견 신청") { t.yeolgi(HaeseolBatgiHwamyeon()) }   // b6
+        // t.danchu("현장영상해설 받기 — 현장영상해설사 화상통화, 현장영상해설 코스") { t.yeolgi(HaeseolBatgiHwamyeon()) }   // b6
         t.pyeolchigi("가는 김에", ganeunGim) { ganeunGim = !ganeunGim }
         if (ganeunGim) {
             t.danchu("가 볼 곳") { t.yeolgi(GotMokrokHwamyeon("gabol")) }

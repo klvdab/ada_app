@@ -441,6 +441,7 @@ object Bangsong {
             gisaSwigi()
         } else {
             exo?.volume = 0.2f
+            Girok.namgi("bangsong_jageum", mapOf("jong" to jong.ireum))   // 2.91.0 방송을 작게 한 때를 기록(아이폰 2.126.0과 같음)
         }
     }
 
@@ -460,6 +461,7 @@ object Bangsong {
         if (!malJung) return
         malJung = false
         naebu("gyeonggo", false)
+        if ((exo?.volume ?: 1f) < 0.99f) Girok.namgi("bangsong_doedollim", mapOf("jong" to jong.ireum, "cho" to ((System.currentTimeMillis() - malSijakTtae) / 1000)))   // 2.91.0
         exo?.volume = 1f
         if (jong == BangsongJong.GISA && gisaIlkneun && !meomchum && naebuMeomchum.isEmpty()) gisaIeoIlkgi()
     }
@@ -651,6 +653,7 @@ object Bangsong {
         anNaomAllim = false
         jariIlheum = 0L
         p.setMediaItem(b.build())
+        Girok.namgi("bangsong_teulgi", mapOf("jong" to j.ireum, "beon" to teulgiBeon))   // 2.91.0 곡·채널이 바뀔 때마다(아이폰 2.126.0과 같음)
         hwajilMatchugi()
         p.prepare()
         p.volume = if (malJung) 0.2f else 1f

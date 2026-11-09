@@ -103,6 +103,7 @@ class GilnunActivity : AppCompatActivity() {
         BangsongDuck.sijak(this)    // 2.27.0 다른 앱 음악을 길눈 말 동안만 작게
         JeonhwaGamsi.sijak(this)    // 2.30.0 전화가 오거나 걸면 길눈의 모든 소리를 멈춤(이사장님 지시)
         Bangsong.sijak(this)        // b5 음악·방송 — 멈춤 지킴이, 말로 하기·긴급통화 중 멈춤(재생기는 처음 틀 때 세움)
+        SoriGirok.sijak(this)       // 2.91.0 (261109-A79, 이사장님 지시 2026-11-09) 볼륨 단추·소리 나가는 곳·방송 이어짐·앱 앞뒤·지난 종료 까닭 기록(아이폰 2.126.0과 같음)
         DeutgiYeyak.sijak(this)     // 2.80.0 듣기 예약 — 정한 시각에 라디오 틀기·끄기(이사장님 승인 2026-10-27)
         Iljeong.sijak(this)         // 2.81.0 일정 — 아침 브리핑·떠날 시각 알람을 다시 걺(이사장님 승인 2026-10-27)
         NasMoksori.sijak(this)      // b6 길눈 목소리(선희) — 나스 소리 창고를 미리 깨움
