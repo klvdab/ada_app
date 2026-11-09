@@ -11,6 +11,9 @@ on:
       bild:
         description: "붙일 빌드 번호 (chaeugi 때, 예: 2611092240)"
         default: ""
+      pan:
+        description: "애플 쪽 판 번호를 이 번호로 맞춤 (chaeugi 때, 예: 0.8.6, 비우면 그대로)"
+        default: ""
 permissions:
   contents: read
 jobs:
@@ -39,5 +42,6 @@ jobs:
         env:
           HAL: ${{ github.event.inputs.hal || 'boda' }}
           BILD: ${{ github.event.inputs.bild }}
+          PAN: ${{ github.event.inputs.pan }}
           BUNDLE: kr.or.ada.lib
         run: python3 tools/lib_junbi.py
