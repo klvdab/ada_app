@@ -26,8 +26,8 @@ try:
 except Exception:          # python3-openssl 이 없는 공유기 — 자물쇠 문 없이 돎
     ssl = None
 
-PAN = "1.9.6"   # 261107-F18 폰 없이 인터넷 방송 — 송출 앱이 넘겨준 해설사 번호와 기억한 핫스팟으로 플이 직접 협회 중계에. 261107-F17 수신기 해설 — 허브에 꽂은 송수신기 소리를 플이 직접 해설로(폰 없이도), 멈추면 대기 음악, 받는 크기 기억. 261107-F16 현장 와이파이 세기 — 기기마다 2초마다 읽어 진단·나스 보고에, 거리 재기 화면 /sege. 261106-F15 콘솔 소리가 3초 넘게 안 오면 「소리 장치가 멈춤」, 끄면 바로 「끔」, 진단에 마지막 소리 몇 초 전. 261106-F14 콘솔 녹음기를 하나만 띄워 따로 읽음. 261106-F13 보내는 기기가 끊겨 돌아오지 않으면 해설 중을 끄고 대기 음악으로, 두 대 송출은 묻고 넘겨받기. 261105-F12 진단 /jindan, 나스 올리기 세 갈래와 시계 맞춤, 저절로 뜨기 때 아이폰 머물게, 음향 콘솔 입력, 피디 번호 묻기. 앞: 261104-F11 송출 대기·점검 듣기·현장음 섞기. 앞: 261103-F8~F10 소리 키우기·시계, 261030-F7
-BILD = "261107-F18"
+PAN = "1.9.7"   # 261107-F19 걷기 기록 — 방송·행사 중 2초마다 듣는 분 수·세기·붙음/나감·해설 크기·인터넷 상태를 남기고 요약 글을 만들어 /georeum 과 나스에. 261107-F18 폰 없이 인터넷 방송 — 송출 앱이 넘겨준 해설사 번호와 기억한 핫스팟으로 플이 직접 협회 중계에. 261107-F17 수신기 해설 — 허브에 꽂은 송수신기 소리를 플이 직접 해설로(폰 없이도), 멈추면 대기 음악, 받는 크기 기억. 261107-F16 현장 와이파이 세기 — 기기마다 2초마다 읽어 진단·나스 보고에, 거리 재기 화면 /sege. 261106-F15 콘솔 소리가 3초 넘게 안 오면 「소리 장치가 멈춤」, 끄면 바로 「끔」, 진단에 마지막 소리 몇 초 전. 261106-F14 콘솔 녹음기를 하나만 띄워 따로 읽음. 261106-F13 보내는 기기가 끊겨 돌아오지 않으면 해설 중을 끄고 대기 음악으로, 두 대 송출은 묻고 넘겨받기. 261105-F12 진단 /jindan, 나스 올리기 세 갈래와 시계 맞춤, 저절로 뜨기 때 아이폰 머물게, 음향 콘솔 입력, 피디 번호 묻기. 앞: 261104-F11 송출 대기·점검 듣기·현장음 섞기. 앞: 261103-F8~F10 소리 키우기·시계, 261030-F7
+BILD = "261107-F19"
 
 SEOBEO_IP = os.environ.get("BYOD_IP", "192.168.8.2")      # 듣기 화면 주소(공유기에 덧붙인 주소)
 WEB_PORT = int(os.environ.get("BYOD_WEB_PORT", "7880"))    # 80번은 방화벽이 이리로 돌려줌
@@ -972,6 +972,258 @@ def opus_kkeunki():
         kkeutnaegi(d)
 
 
+# ───── 1.9.7 걷기 기록(261107-F19) ─────
+# 시장을 걸으며 해설할 때 2초마다 한 줄씩 남김 — 듣는 분 수, 듣는 분 와이파이 세기(이름·주소 없이 값만), 새로 붙음·다시 붙음·나감,
+# 해설 소리 크기, 송출·인터넷·핫스팟·콘솔 상태. 방송이 멈추고 2분이 지나면 한 묶음을 닫고 읽기 쉬운 요약(.txt)을 만듦.
+# 인터넷이 닿으면 나스 byod99<공유기번호>/pail/ 에 올림. 공유기 안 주소: /georeum (목록), /georeum/<이름>
+GEOT_TEO = os.path.join(TEO, "georeum")
+GEOT = {"pail": "", "sijak": 0.0, "majimak": 0.0, "ip": set(), "bon_ip": set(), "sq": 0, "n": 0, "pk": 0,
+        "ollin": {}, "mal": "아직 기록 없음"}
+GEOT_KEUN = 3 * 1024 * 1024
+
+
+def geot_sori(ku):
+    """갈래 1 로 나간 소리 크기를 모음(뮤 바이트를 넷에 하나씩만 셈 — 공유기 힘을 아낌)"""
+    try:
+        s = ku[::4]
+        GEOT["sq"] += sum(SQ[x] for x in s)
+        GEOT["n"] += len(s)
+        if s:
+            p = max(SQ[x] for x in s)
+            if p > GEOT["pk"]:
+                GEOT["pk"] = p
+    except Exception:
+        pass
+
+
+def geot_db(sq, n):
+    import math
+    if n <= 0 or sq <= 0:
+        return None
+    return round(10 * math.log10(sq / n / (32768.0 ** 2)), 1)
+
+
+def geot_ireum_ok(nm):
+    return bool(re.match(r"^geot_\d{6}_\d{6}\.(jsonl|txt)$", nm))
+
+
+def geot_yoyak_mandeulgi(p):
+    """한 묶음(.jsonl)을 읽어 사람이 읽는 요약 글을 돌려줌"""
+    jul = []
+    with open(p, encoding="utf-8") as f:
+        for l in f:
+            try:
+                jul.append(json.loads(l))
+            except Exception:
+                pass
+    if not jul:
+        return ""
+    n = len(jul)
+    cho = n * 2
+    choe_deut = max(j.get("deut", 0) for j in jul)
+    sae = sum(j.get("sae", 0) for j in jul)
+    dasi = sum(j.get("dasi", 0) for j in jul)
+    nagam = sum(j.get("nagam", 0) for j in jul)
+    yak = [min(j["dbm"]) for j in jul if j.get("dbm")]
+    gajang_yak = min(yak) if yak else None
+    yak_cho = sum(2 for x in yak if x < -70)
+    wiheom_cho = sum(2 for x in yak if x < -78)
+    hs = [j["hs"] for j in jul if j.get("hs") is not None]
+    bs = [j for j in jul if j.get("bs") or j.get("cue")]
+    db = [j["db"] for j in bs if j.get("db") is not None]
+    goyo_cho = sum(2 for j in bs if j.get("db") is None or j["db"] < -50)
+    in_cho = sum(2 for j in jul if j.get("inet") == "나가는 중")
+    in_kkeun = 0
+    ap = ""
+    for j in jul:
+        m = j.get("inet", "")
+        if ap == "나가는 중" and m != "나가는 중" and m:
+            in_kkeun += 1
+        ap = m
+    L = []
+    L.append("걷기 기록 요약 (LVD 공유기 %s, 판 %s)" % (GW["ki"], PAN))
+    L.append("시작 %s, 끝 %s, 길이 %d분 %d초" % (jul[0].get("t", ""), jul[-1].get("t", ""), cho // 60, cho % 60))
+    L.append("")
+    L.append("듣는 분")
+    L.append("가장 많을 때 %d명. 새로 붙음 %d번, 다시 붙음 %d번, 나감 %d번" % (choe_deut, sae, dasi, nagam))
+    if gajang_yak is not None:
+        L.append("가장 약한 듣는 분 세기: 가장 나빴을 때 %d dBm(%s)" % (gajang_yak, wifi_dan(gajang_yak)))
+        L.append("누군가 약함(-70 아래)이던 시간 %d초, 끊길 위험(-78 아래)이던 시간 %d초" % (yak_cho, wiheom_cho))
+    else:
+        L.append("듣는 분 와이파이 세기를 읽지 못함")
+    L.append("")
+    L.append("해설 폰")
+    if hs:
+        L.append("세기 가장 나빴을 때 %d dBm(%s), 가장 좋았을 때 %d dBm" % (min(hs), wifi_dan(min(hs)), max(hs)))
+    else:
+        L.append("해설 폰 세기 없음(수신기로 해설했거나 읽지 못함)")
+    L.append("")
+    L.append("해설 소리")
+    L.append("방송한 시간 %d분 %d초" % (len(bs) * 2 // 60, len(bs) * 2 % 60))
+    if db:
+        L.append("평균 크기 %.1f dB, 조용하던(말이 없던) 시간 %d초" % (sum(db) / len(db), goyo_cho))
+    L.append("")
+    L.append("인터넷 방송")
+    L.append("나간 시간 %d분 %d초, 끊어졌다 다시 이은 횟수 %d번" % (in_cho // 60, in_cho % 60, in_kkeun))
+    L.append("")
+    L.append("1분마다")
+    for i in range(0, n, 30):
+        mu = jul[i:i + 30]
+        ys = [min(j["dbm"]) for j in mu if j.get("dbm")]
+        ds = [j["db"] for j in mu if (j.get("bs") or j.get("cue")) and j.get("db") is not None]
+        dd = max(j.get("deut", 0) for j in mu)
+        s = "%s 듣는 분 %d명" % (mu[0].get("t", "")[:5], dd)
+        if ys:
+            s += ", 가장 약한 세기 %d dBm(%s)" % (min(ys), wifi_dan(min(ys)))
+        hh = [j["hs"] for j in mu if j.get("hs") is not None]
+        if hh:
+            s += ", 해설 폰 %d dBm" % min(hh)
+        s += (", 해설 %.0f dB" % (sum(ds) / len(ds))) if ds else ", 해설 없음"
+        s += ", 보냄 " + (mu[-1].get("bn") or "없음")
+        im = mu[-1].get("inet", "")
+        if im:
+            s += ", 인터넷 " + im
+        if any(j.get("nagam") for j in mu):
+            s += ", 나감 %d" % sum(j.get("nagam", 0) for j in mu)
+        L.append(s)
+    return "\r\n".join(L) + "\r\n"
+
+
+def geot_datgi():
+    """지금 묶음을 닫고 요약 .txt(점자정보단말기용 EUC-KR, CRLF)를 만듦"""
+    p = GEOT["pail"]
+    GEOT["pail"] = ""
+    GEOT["ip"] = set(); GEOT["bon_ip"] = set()
+    if not p or not os.path.isfile(p):
+        return
+    try:
+        t = geot_yoyak_mandeulgi(p)
+        if t:
+            with open(p[:-6] + ".txt", "wb") as f:
+                f.write(t.encode("cp949", "replace"))
+        GEOT["mal"] = "묶음을 닫고 요약을 만듦: " + os.path.basename(p)[:-6]
+    except Exception as e:
+        GEOT["mal"] = "요약을 만들지 못함: %s" % e
+    try:
+        mok = sorted(x for x in os.listdir(GEOT_TEO) if geot_ireum_ok(x))
+        jul = sorted(set(x.rsplit(".", 1)[0] for x in mok))
+        for ir in jul[:-30]:                       # 묶음 30개만 남김
+            for hw in (".jsonl", ".txt"):
+                try:
+                    os.remove(os.path.join(GEOT_TEO, ir + hw))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
+def geot_olligi():
+    """인터넷이 닿을 때 바뀐 기록 파일을 나스로(관리 한 바퀴에서 부름)"""
+    if not GW["ki"] or not os.path.isdir(GEOT_TEO):
+        return
+    for nm in sorted(os.listdir(GEOT_TEO)):
+        if not geot_ireum_ok(nm):
+            continue
+        p = os.path.join(GEOT_TEO, nm)
+        try:
+            k = os.path.getsize(p)
+        except Exception:
+            continue
+        if GEOT["ollin"].get(nm) == k or k == 0:
+            continue
+        with open(p, "rb") as f:
+            nas_bonaegi("byod99" + GW["ki"], "pail", f.read(), "&nm=" + (nm[:-6] + "_jul.json" if nm.endswith(".jsonl") else nm))   # 나스는 jsonl 이름을 받지 않음
+        GEOT["ollin"][nm] = k
+
+
+async def geot_ilkkun():
+    try:
+        os.makedirs(GEOT_TEO, exist_ok=True)
+        for x in os.listdir(GEOT_TEO):           # 전기가 끊겨 요약을 못 만든 묶음
+            if geot_ireum_ok(x) and x.endswith(".jsonl") and not os.path.isfile(os.path.join(GEOT_TEO, x[:-6] + ".txt")):
+                GEOT["pail"] = os.path.join(GEOT_TEO, x)
+                geot_datgi()
+    except Exception:
+        pass
+    GEOT["mal"] = "기다림 — 방송하거나 행사를 열면 2초마다 기록"
+    while True:
+        await asyncio.sleep(2)
+        try:
+            now = time.time()
+            bs = B.bonaem is not None or suhsin_saram()
+            sseum = bs or bool(B.cue.get(1)) or B.haengsa is not None
+            sq, n, pk = GEOT["sq"], GEOT["n"], GEOT["pk"]
+            GEOT["sq"] = GEOT["n"] = GEOT["pk"] = 0
+            if not sseum:
+                if GEOT["pail"] and now - GEOT["majimak"] > 120:
+                    geot_datgi()
+                continue
+            pp = GEOT["pail"]
+            if not pp or (os.path.isfile(pp) and os.path.getsize(pp) > GEOT_KEUN):
+                if GEOT["pail"]:
+                    geot_datgi()
+                GEOT["pail"] = os.path.join(GEOT_TEO, time.strftime("geot_%y%m%d_%H%M%S.jsonl", time.localtime(jigeum())))
+                GEOT["sijak"] = now
+                GEOT["mal"] = "기록 중: " + os.path.basename(GEOT["pail"])[:-6]
+            GEOT["majimak"] = now
+            ips = set(d.ip for d in list(B.deut) + list(B.deut_mp3) if not d.nae and d.gal not in (GAL_JEOMGEOM, GAL_SEOKKIM))
+            sae = [x for x in ips if x not in GEOT["ip"] and x not in GEOT["bon_ip"]]
+            dasi = [x for x in ips if x not in GEOT["ip"] and x in GEOT["bon_ip"]]
+            nagam = [x for x in GEOT["ip"] if x not in ips]
+            GEOT["bon_ip"] |= ips
+            GEOT["ip"] = ips
+            im = wifi_ip_mac()
+            dbm = []
+            for ip in ips:
+                v = WIFI["gigi"].get(im.get(ip, ""))
+                if v:
+                    dbm.append(v[0])
+            dbm.sort()
+            hs = None
+            if B.bonaem is not None:
+                v = WIFI["gigi"].get(im.get(getattr(B, "bonaem_ip", ""), ""))
+                hs = v[0] if v else None
+            j = {"t": time.strftime("%H:%M:%S", time.localtime(jigeum())), "bs": bs,
+                 "bn": "폰" if B.bonaem is not None else ("수신기" if suhsin_saram() else ""), "cue": bool(B.cue.get(1)),
+                 "deut": deutnun_su(), "dbm": dbm, "hs": hs, "sae": len(sae), "dasi": len(dasi), "nagam": len(nagam),
+                 "db": geot_db(sq, n), "pk": geot_db(pk, 1), "inet": INET.get("mal", ""), "hs_mal": INET.get("hs_mal", ""),
+                 "kon": konsol_mal() if KONSOL["kyeojim"] else "", "gw": GW["inteonet"]}
+            with open(GEOT["pail"], "a", encoding="utf-8") as f:
+                f.write(json.dumps(j, ensure_ascii=False, separators=(",", ":")) + "\n")
+        except Exception as e:
+            GEOT["mal"] = "기록 오류: %s" % e
+
+
+def geot_mokrok():
+    try:
+        mok = sorted((x for x in os.listdir(GEOT_TEO) if geot_ireum_ok(x)), reverse=True)
+    except Exception:
+        mok = []
+    return [{"ireum": x, "keugi": os.path.getsize(os.path.join(GEOT_TEO, x))} for x in mok]
+
+
+def geot_yoyak():
+    return {"mal": GEOT["mal"], "jigeum": os.path.basename(GEOT["pail"]) if GEOT["pail"] else "", "su": len(geot_mokrok())}
+
+
+GEOT_HTML_MEORI = """<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>걷기 기록</title><style>body{font-family:sans-serif;font-size:20px;margin:16px;line-height:1.6}a{display:block;padding:10px 0}</style></head><body>
+<h1>걷기 기록</h1><p>방송이나 행사 중 2초마다 남긴 기록입니다. 요약은 글 파일, 자세한 기록은 jsonl 파일입니다. 듣는 분의 이름과 주소는 담지 않습니다.</p>
+"""
+
+
+def geot_html():
+    t = [GEOT_HTML_MEORI, "<p>지금: %s</p><ul>" % GEOT["mal"]]
+    mok = geot_mokrok()
+    for m in mok:
+        jong = "요약" if m["ireum"].endswith(".txt") else "자세한 기록"
+        t.append('<li><a href="/georeum/%s">%s %s, %d킬로바이트</a></li>' % (m["ireum"], m["ireum"][5:18], jong, max(1, m["keugi"] // 1024)))
+    if not mok:
+        t.append("<li>아직 기록이 없습니다.</li>")
+    t.append("</ul></body></html>")
+    return "".join(t)
+
+
 def gal_naegi(g, b):
     """1.4.0 갈래 g 로 소리 한 조각을 내보내고 녹음"""
     B.sori_ttae[g] = time.time()
@@ -979,6 +1231,7 @@ def gal_naegi(g, b):
     B.ppurida(ku, g)
     if g == 1:
         B.ppurida(ku, GAL_JEOMGEOM)
+        geot_sori(ku)                          # 1.9.7 걷기 기록 — 해설 소리 크기
         try:
             m = hyeon_seokki(b, ku)
             if INET["bang"]:                       # 1.9.6 플이 직접 인터넷 방송 — 현장음을 섞은 소리가 있으면 그것, 없으면 해설
@@ -1821,6 +2074,7 @@ def jindan():
                        "arecord": bool(shutil.which("arecord"))},
             "wifi": wifi_yoyak(),   # 1.9.4
             "inet": inet_yoyak(),   # 1.9.6
+            "georeum": geot_yoyak(),   # 1.9.7
             "girok": [gw_gamchugi(x) for x in GW_GIROK[-8:]]}
 
 
@@ -1962,6 +2216,10 @@ def gwanri_hanbeon():
         GW["olim_mal"] = "상태를 나스에 올림(%s)" % time.strftime("%H:%M:%S", time.gmtime())
     except Exception as e:
         GW["olim_mal"] = "상태를 나스에 올리지 못함: %s" % e
+    try:
+        geot_olligi()                          # 1.9.7 걷기 기록도 나스에
+    except Exception as e:
+        GEOT["mal"] = "걷기 기록을 나스에 올리지 못함: %s" % e
 
 
 async def gwanri_ilkkun():
@@ -2385,6 +2643,7 @@ def sangtae(heoga=False, gal=1):
         "konsol": 1 if KONSOL["kyeojim"] else 0, "konsol_jangchi": KONSOL["jangchi"], "konsol_mal": konsol_mal(),
         "konsol_ssim": KONSOL["ssim"], "konsol_keugi": KONSOL["keugi"], "suhsin": suhsin_saram(),   # 1.9.5
         "inet": inet_yoyak(),   # 1.9.6
+        "georeum": geot_yoyak(),   # 1.9.7
         "hyeon": hyeon_saram(), "hyeon_ireum": HYEON["ireum"] if hyeon_saram() else "", "hyeon_mok": HYEON["mok"], "jeongji": B.jeongji1,
         "kiugi": KIUGI_KYEOM[0], "kiugi_mok": KIUGI_GAP[0], "kiugi_han": KIUGI_GAP[1], "kiugi_db": round(KIUGI_GAL[1].g, 1) if 1 in KIUGI_GAL else 0,
         "kiugi_mal": round(KIUGI_GAL[1].mal, 1) if 1 in KIUGI_GAL else 0,
@@ -2982,6 +3241,19 @@ async def web(r, w, tls=False):
                     INET["hs_mal"] = "핫스팟을 기억함" if INET["hs_ssid"] else "핫스팟을 지움"
                 inet_jeojang()
                 js(w, {"ok": True, "inet": inet_yoyak()})
+        elif uri == "/georeum":                   # 1.9.7 걷기 기록 목록
+            geulja(w, 200, "text/html; charset=utf-8", geot_html(), "Cache-Control: no-store\r\n")
+        elif uri == "/georeum.json":
+            js(w, {"ok": True, "georeum": geot_yoyak(), "mok": geot_mokrok()})
+        elif uri.startswith("/georeum/"):
+            nm = os.path.basename(uri[9:])
+            p = os.path.join(GEOT_TEO, nm)
+            if geot_ireum_ok(nm) and os.path.isfile(p):
+                with open(p, "rb") as f:
+                    geulja(w, 200, "text/plain; charset=euc-kr" if nm.endswith(".txt") else "application/x-ndjson; charset=utf-8", f.read(),
+                           "Content-Disposition: attachment; filename=%s\r\nCache-Control: no-store\r\n" % nm)
+            else:
+                geulja(w, 404, "text/plain; charset=utf-8", "없는 기록입니다.")
         elif uri == "/sege":                      # 1.9.4 거리 재기 화면 — 이 폰의 와이파이 세기
             geulja(w, 200, "text/html; charset=utf-8", SEGE_HTML, "Cache-Control: no-store\r\n")
         elif uri == "/sege.json":
@@ -3501,6 +3773,7 @@ async def main():
     asyncio.ensure_future(wifi_ilkkun())       # 1.9.4 현장 와이파이 세기
     asyncio.ensure_future(hs_ilkkun())         # 1.9.6 핫스팟 저절로 붙기
     asyncio.ensure_future(inet_ilkkun())       # 1.9.6 폰 없이 인터넷 방송
+    asyncio.ensure_future(geot_ilkkun())       # 1.9.7 걷기 기록
     print("BYOD 플린트 서버 %s (%s) — 듣기 %d, 소리 %d, 자물쇠 %s, mp3 %s, 피디 번호 %s" % (PAN, BILD, WEB_PORT, SORI_PORT, B.tport or "없음", B.mp3_iss, B.pdkey), flush=True)
     await asyncio.gather(*[s.serve_forever() for s in sv])
 
