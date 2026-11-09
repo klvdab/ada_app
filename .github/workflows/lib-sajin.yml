@@ -1,4 +1,4 @@
-# AI점자도서관 앱스토어 사진 찍기 1.0 (빌드 261110-LS2 — 짓기가 막히면 막힌 줄을 보여 줌. 261110-LS1, 도클 — LVD 방송 사진 도구(대클)를 본뜸, 이사장님 승인 2026-11-10 0시 8분 「1」)
+# AI점자도서관 앱스토어 사진 찍기 1.0 (빌드 261110-LS3 — Debug 짓기는 게시판 화면 식이 길어 시간 넘김(Gesipan.swift 120줄)이라, 정식 판과 같은 Release 로 짓고 사진용 손질만 켬. 261110-LS2 — 짓기가 막히면 막힌 줄을 보여 줌. 261110-LS1, 도클 — LVD 방송 사진 도구(대클)를 본뜸, 이사장님 승인 2026-11-10 0시 8분 「1」)
 # 맥 일꾼의 아이폰 흉내 기계(시뮬레이터)에서 AI점자도서관을 실제로 띄워 네 화면(도서관 첫 화면, 책 정보, 엔터테인먼트, 설정·도움말)을 찍습니다.
 #   - 심사용 인증 회원(애플심사)으로 서버에 등록해 받은 회원 열쇠를 앱에 넣어 띄웁니다. 열쇠는 기록에 나오지 않게 가립니다.
 #   - 앱 쪽 손질: Lib/LibApp.swift 의 #if DEBUG(SAJIN_TAB·SAJIN_CHAEK) — 시험 짓기에만 들어가고 정식 판에는 들어가지 않습니다.
@@ -39,8 +39,9 @@ jobs:
       - name: 시험 기계용으로 짓기
         run: |
           xcodegen generate --spec seolgye_lib.yml
-          xcodebuild -project AdaApp.xcodeproj -scheme LibApp -configuration Debug -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' -derivedDataPath dd CODE_SIGNING_ALLOWED=NO build > /tmp/jitgi.log 2>&1 || { grep -E "error:" /tmp/jitgi.log | sort -u | head -40; tail -n 15 /tmp/jitgi.log; exit 1; }
+          xcodebuild -project AdaApp.xcodeproj -scheme LibApp -configuration Release -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath dd CODE_SIGNING_ALLOWED=NO \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES SWIFT_ACTIVE_COMPILATION_CONDITIONS=DEBUG build > /tmp/jitgi.log 2>&1 || { grep -E "error:" /tmp/jitgi.log | sort -u | head -40; tail -n 15 /tmp/jitgi.log; exit 1; }
           tail -n 5 /tmp/jitgi.log
 
       - name: 심사용 회원 열쇠 받기(가림)
@@ -55,7 +56,7 @@ jobs:
         env:
           CHAEK: ${{ github.event.inputs.chaek || '137134' }}
         run: |
-          APP=$(ls -d dd/Build/Products/Debug-iphonesimulator/*.app | head -n 1)
+          APP=$(ls -d dd/Build/Products/Release-iphonesimulator/*.app | head -n 1)
           BID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")
           echo "앱 $APP / $BID"
           U=$(xcrun simctl list devices available -j | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];c=[(k,x) for k,v in d.items() if 'iOS' in k for x in v if 'Pro Max' in x['name']];c.sort(key=lambda a:[int(n) for n in a[0].split('iOS-')[1].split('-')]);k,x=c[-1];print(x['udid']);print('기계',k,x['name'],file=sys.stderr)")
