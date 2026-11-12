@@ -1,0 +1,65 @@
+# LVD 송출 앱스토어 사진 찍기 1.0 (빌드 261111-YS1, 대클 — 이사장님 승인 2026-11-11 「2」 목록 비공개 배포 신청, 「1」 글·진행 승인)
+# 맥 일꾼의 아이폰 흉내 기계(시뮬레이터)에서 LVD 송출을 실제로 띄워 첫 화면을 찍습니다.
+#   - 앱 코드는 바꾸지 않습니다. 시험 기계용으로만 지어 찍고, 정식 판은 짓지 않습니다.
+#   - 찍은 사진은 byod-sajin 갈래에 올리고, 대클이 살펴본 뒤 앱스토어 커넥트에 올립니다.
+name: byod-sajin
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  jjikgi:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode 26 고르기
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1)
+          sudo xcode-select -s "$X/Contents/Developer"
+          xcodebuild -version
+
+      - name: 도구 준비
+        run: |
+          brew install xcodegen
+          python3 -m venv /tmp/py
+          /tmp/py/bin/pip install --quiet pillow
+          /tmp/py/bin/python tools/make_icon.py
+
+      - name: 시험 기계용으로 짓기
+        run: |
+          xcodegen generate --spec seolgye_byod.yml
+          set -o pipefail
+          xcodebuild -project AdaApp.xcodeproj -scheme ByodApp -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath dd CODE_SIGNING_ALLOWED=NO build | tail -n 20
+
+      - name: 아이폰 흉내 기계 띄우고 찍기
+        run: |
+          APP=$(ls -d dd/Build/Products/Debug-iphonesimulator/*.app | head -n 1)
+          BID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")
+          echo "앱 $APP / $BID"
+          U=$(xcrun simctl list devices available -j | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];c=[(k,x) for k,v in d.items() if 'iOS' in k for x in v if 'Pro Max' in x['name']];c.sort(key=lambda a:[int(n) for n in a[0].split('iOS-')[1].split('-')]);k,x=c[-1];print(x['udid']);print('기계',k,x['name'],file=sys.stderr)")
+          xcrun simctl boot "$U" || true
+          for i in $(seq 1 72); do xcrun simctl list devices | grep "$U" | grep -q Booted && break; sleep 5; done
+          sleep 20
+          xcrun simctl status_bar "$U" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
+          xcrun simctl install "$U" "$APP"
+          for p in notifications microphone camera photos; do xcrun simctl privacy "$U" grant $p "$BID" || true; done
+          mkdir -p sajin
+          xcrun simctl launch "$U" "$BID" -AppleLanguages "(ko)" -AppleLocale ko_KR >/dev/null
+          sleep 30
+          xcrun simctl io "$U" screenshot "sajin/ios_byod_1.png"
+          sleep 15
+          xcrun simctl io "$U" screenshot "sajin/ios_byod_2.png"
+          ls -l sajin
+          sips -g pixelWidth -g pixelHeight sajin/ios_byod_1.png
+
+      - name: 사진을 byod-sajin 갈래에 올려 살펴보기
+        run: |
+          cp -R sajin /tmp/sajin
+          cd /tmp/sajin
+          git init -q && git checkout -q -b byod-sajin
+          git config user.name "github-actions" && git config user.email "actions@github.com"
+          git add . && git commit -qm "LVD 송출 앱스토어 사진 $(TZ=Asia/Seoul date +%y%m%d-%H%M)"
+          git push -fq "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" byod-sajin
