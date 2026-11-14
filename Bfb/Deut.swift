@@ -328,7 +328,11 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
             guard s.kyeojim, !s.jamsi else { s.butneunJung = false; return }
             // 2.5.0 (261024-LI7, 이사장님 지시 2026-10-23) 행사장 방송을 못 찾으면, 방송 와이파이(현장영상해설방송·아이피타임 등)에 붙어 봄 —
             // 아이폰이 「연결하시겠습니까」를 물으면 연결 한 번. 붙으면 다시 찾고, 아니면 인터넷 방송으로(2분에 한 번만 해 봄)
-            if jm == nil && Date().timeIntervalSince(s.wifiHaebon) > 120 {
+            // 2.11.3 (261114-LI17, 대클, 이사장님 긴급 지시 2026-11-14) 저절로 와이파이 붙어 보기를 껐음 —
+            // 행사장 밖에서 2분마다 아이폰 「와이파이에 연결할 수 없음」 창이 끝없이 떠서 폰을 쓸 수 없게 됨(이사장님 아이폰).
+            // 와이파이 붙기는 이용자가 직접 할 때만: 큐알·엔에프시 「한 번에 듣기」, 더 보기 「행사장 와이파이 저절로 붙기」.
+            // 등록해 둔 와이파이는 아이폰이 행사장 범위 안에서 스스로 붙으므로 앱이 따로 붙지 않아도 됨.
+            if false && jm == nil && Date().timeIntervalSince(s.wifiHaebon) > 120 {
                 s.wifiHaebon = Date()
                 Hyeonjang.wifiBuchigi { buteum in
                     guard buteum else { s.waeSalpigi(); s.inteonetSalpigi(); return }
