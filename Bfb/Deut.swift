@@ -399,14 +399,16 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
                 guard let s = self else { return }
                 s.butneunJung = false
                 guard s.kyeojim, case .inteonet(let sid2) = s.gil, sid2 == sid else { return }
-                if let j = j, j["on"] as? Bool == false {
+                // 2.12.0 (261115-LI18, 이사장님 원칙 2026-11-15) 마지막 자료가 30초 넘게 끊긴 방송은 끝난 것으로 봄
+                if let j = j, j["on"] as? Bool == false || Deut.majiCho(j) > 30 {
                     s.avpKkeugi(); s.gil = .eopseum; s.bogiBang = nil
                     s.bakkum("그 현장영상해설 방송이 끝났습니다. 다른 방송을 찾고 있습니다.", malhal: true)
                     return
                 }
                 // 2.5.0 처음엔 영상 조각이 준비되지 않았다가 뒤에 준비될 수 있음
                 if let j = j, (j["hls"] as? Bool ?? false) || (j["yeongsang"] as? Bool ?? false), s.bogiBang?.id != sid {
-                    s.bogiBang = InteonetBang(id: sid, jemok: j["title"] as? String ?? s.jemok, who: j["who"] as? String ?? "", cho: j["cho"] as? Int ?? 0, yeongsang: true)
+                    let b = InteonetBang(id: sid, jemok: j["title"] as? String ?? s.jemok, who: j["who"] as? String ?? "", cho: j["cho"] as? Int ?? 0, yeongsang: true)
+                    s.bogiDugi(b)   // 2.12.0 영상 길이 실제로 열릴 때만 「영상으로 보기」
                 }
                 if s.bogiJung { return }   // 2.5.0 영상으로 보는 동안은 소리를 다시 붙지 않음
                 // 소리가 10초 넘게 멈춰 있으면 다시 붙음
@@ -426,7 +428,8 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
                 s.cheot = false
                 return
             }
-            let rows = ((j["rows"] as? [[String: Any]]) ?? []).filter { ["live", "bangsong"].contains($0["jong"] as? String ?? "") }
+            // 2.12.0 마지막 자료가 30초 넘게 끊긴 방송(끝난 방송)은 목록에서 뺌 — 남은 것이 하나면 곧바로 틂
+            let rows = ((j["rows"] as? [[String: Any]]) ?? []).filter { ["live", "bangsong"].contains($0["jong"] as? String ?? "") && Deut.majiCho($0) <= 30 }
             let l = rows.map { InteonetBang(id: $0["sid"] as? String ?? "", jemok: $0["title"] as? String ?? "", who: $0["who"] as? String ?? "", cho: $0["cho"] as? Int ?? 0,
                                             yeongsang: ($0["hls"] as? Bool ?? false) || ($0["yeongsang"] as? Bool ?? false)) }.filter { !$0.id.isEmpty }
             if l.isEmpty {
@@ -449,7 +452,8 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
         gil = .inteonet(b.id)
         gorgi = []
         jemok = b.jemok
-        bogiBang = b.yeongsang ? b : nil   // 2.5.0
+        bogiBang = nil   // 2.5.0, 2.12.0 영상 길이 열리는지 본 뒤에만 「영상으로 보기」(안 열리면 소리만 그대로)
+        if b.yeongsang { bogiDugi(b) }
         if !bogiJung { avpTeulgi(b.id) }
         let jm: String = b.jemok.isEmpty ? "" : "\(b.jemok) "
         let w: String = b.who.isEmpty ? "" : " 현장영상해설사 \(b.who)."
@@ -487,6 +491,23 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
     private func avpKkeugi() { avp?.pause(); avp = nil; avpMeomchumTtae = nil }
 
     /// 중계에 묻기 — 인터넷 길(휴대전화망 포함)
+    /// 2.12.0 중계 목록·상태의 maji(마지막 자료 뒤 지난 초) — 없으면 0
+    static func majiCho(_ j: [String: Any]) -> Int { (j["maji"] as? NSNumber)?.intValue ?? 0 }
+
+    /// 2.12.0 영상 조각 목록(HLS)이 실제로 열리면 그때 「영상으로 보기」를 띄움. 안 열리면 소리만 그대로 들려 드림
+    private func bogiDugi(_ b: InteonetBang) {
+        guard let u = URL(string: Deut.JUNGYE + "/hls/" + (b.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? b.id) + "/index.m3u8") else { return }
+        var r = URLRequest(url: u, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 8)
+        r.allowsCellularAccess = true
+        URLSession.shared.dataTask(with: r) { [weak self] d, res, _ in
+            let ok = (res as? HTTPURLResponse)?.statusCode == 200 && (d.map { String(decoding: $0, as: UTF8.self).contains("#EXTM3U") } ?? false)
+            DispatchQueue.main.async {
+                guard let s = self, ok, case .inteonet(let sid) = s.gil, sid == b.id, s.bogiBang?.id != b.id else { return }
+                s.bogiBang = b
+            }
+        }.resume()
+    }
+
     private func mutgi(_ gil: String, _ kkeut: @escaping ([String: Any]?) -> Void) {
         guard let u = URL(string: Deut.JUNGYE + gil) else { kkeut(nil); return }
         var r = URLRequest(url: u, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 8)
