@@ -115,6 +115,19 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
         return AVAudioFormat(streamDescription: &d)
     }
     private var salpinTtae = Date.distantPast
+    // 2.12.1 (261115-LI19, 새방클, 이사장님 승인 2026-11-15 「1」) 플 와이파이에 붙어 있어도 플에 송출이 없으면 인터넷 방송을 들려 드림
+    //   (11-15 밤 시험: 듣는 아이폰이 플에 붙어 대기 음악만 나오고, 그때 나가던 인터넷 방송은 찾지도 않았음)
+    private var keuEopseumTtae: Date?      // 플에 해설(송출 소리)이 없기 시작한 때
+    private var flintBium = false          // 플에 송출이 없어 인터넷 방송을 듣는 중 — 플에 송출이 들어오면 현장으로 돌아감
+    private var bimMutTtae = Date.distantPast
+    // 2.12.1 (이사장님 승인 2026-11-15 「1」) 인터넷으로 들을 때도 지금 나가는 방송이 없으면 대기 음악(협회 서버의 행사장 대기 음악과 같은 것)
+    private var inetEumak: AVAudioPlayer?
+    private var inetEumakData: Data?
+    private var inetEumakBatneun = false
+    // 2.12.1 송출 1.17.0 은 화면이 꺼지면(영상 → 소리) 방을 닫고 새 방을 엶 — 같은 현장영상해설사·같은 제목의 새 방이 15초 안에 나오면 「이어집니다」로 곧바로 붙음
+    private var teunWho = ""
+    private var kkeunBang: (who: String, jemok: String, ttae: Date)?
+    private static let INET_EUMAK = "https://lvd.ada.or.kr/bfblive/hyeonjang/daegi.mp3"
 
     private static let DEC: [Float] = (0..<256).map { i in
         let u = ~i & 0xFF, s = u & 0x80, e = (u >> 4) & 7, m = u & 0x0F
@@ -183,6 +196,8 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
         guard kyeojim else { return }
         if son { sonMeomchum = true }
         kyeojim = false
+        flintBium = false; keuEopseumTtae = nil; kkeunBang = nil   // 2.12.1
+        inetDaegiKkeugi()   // 2.12.1
         dasiTimer?.invalidate(); dasiTimer = nil
         chucheomTimer?.invalidate(); chucheomTimer = nil   // 2.8.0
         daegiTimer?.invalidate(); daegiTimer = nil; daegiKkeugi()   // 2.11.0
@@ -277,6 +292,10 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
                 let q = j["mj"] as? String ?? "", sq = j["mjseq"] as? Int ?? -1
                 if q != s.mjQ || sq != s.mjSeq { s.mjQ = q; s.mjSeq = sq }
                 let keu = (j["keu"] as? Bool) ?? true
+                // 2.12.1 플린트 2 방식에서만, 플에 붙은 송출 폰·수신기·무대 폰이 하나도 없고 해설도 없을 때만 셈(아이피타임 방식은 송출 폰이 곧 방송 서버)(송출 시작을 기다리는 동안은 다른 방송으로 넘기지 않음)
+                let biom = ((j["flint"] as? Bool) ?? false) && !keu && (j["bonaem"] as? String ?? "").isEmpty && !((j["hyeon"] as? Bool) ?? false)
+                if !biom { s.keuEopseumTtae = nil } else if s.keuEopseumTtae == nil { s.keuEopseumTtae = Date() }
+                s.bimSalpigi()   // 2.12.1
                 if keu, s.gil == .hyeonjang, Date().timeIntervalSince(s.jyTtae) >= 5 {   // 소리 늦음 알리기(피디 화면이 봄)
                     s.jyTtae = Date()
                     Hyeonjang.mutgi("/jiyeon?i=" + Chucheom.jid + "&d=\(600 + Int(Date().timeIntervalSince(tt0) * 500))", ttae: 1.5) { _ in }
@@ -340,12 +359,38 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
                 }
                 return
             }
-            guard let jm = jm else { s.waeSalpigi(); s.inteonetSalpigi(); return }
+            guard let jm = jm else { s.flintBium = false; s.waeSalpigi(); s.inteonetSalpigi(); return }
+            if s.flintBium {   // 2.12.1 플에 송출이 없어 인터넷 방송을 듣는 중 — 플에 송출이 들어왔으면 현장으로, 아니면 인터넷 방송을 이어 감
+                Hyeonjang.mutgi("/status", ttae: 1.5) { d in
+                    let fj = d.flatMap { (try? JSONSerialization.jsonObject(with: $0)) as? [String: Any] }
+                    // 플에 해설이 나오거나 송출 폰·수신기·무대 폰이 붙으면 현장으로(현장이 먼저)
+                    let keu = (fj?["keu"] as? Bool ?? false) || !(fj?["bonaem"] as? String ?? "").isEmpty || (fj?["hyeon"] as? Bool ?? false)
+                    DispatchQueue.main.async {
+                        guard s.kyeojim, !s.jamsi, s.flintBium else { s.butneunJung = false; return }
+                        if keu {
+                            s.flintBium = false; s.keuEopseumTtae = nil
+                            s.avpKkeugi(); s.bogiBang = nil; s.gil = .eopseum
+                            s.butneunJung = false
+                            s.bakkum("행사장 방송이 시작되어 현장 방송으로 바꿉니다.", malhal: true)
+                            s.butgi()
+                        } else if case .inteonet = s.gil {
+                            s.inteonetSalpigi()
+                        } else {   // 인터넷 방송이 끝났으면 플(대기 음악·안내)로 돌아감
+                            s.inteonetInna { inna in
+                                if inna { s.inteonetSalpigi() }
+                                else { s.flintBium = false; s.keuEopseumTtae = nil; s.butneunJung = false; s.butgi() }
+                            }
+                        }
+                    }
+                }
+                return
+            }
             s.waeNatmal = ""; s.waeMal = ""
             s.butneunJung = false
             if s.bogiJung { s.butneunJung = false; return }   // 2.5.0 영상으로 보는 동안은 현장 방송으로 바꾸지 않음
             if case .inteonet = s.gil { s.avpKkeugi(); s.bogiBang = nil }   // 2.2.0 행사장에 들어서면 현장 방송으로(더 빠름)
             s.gil = .hyeonjang
+            s.inetDaegiKkeugi()   // 2.12.1
             s.gorgi = []
             s.jemok = jm
             let c = URLSessionConfiguration.default
@@ -402,7 +447,9 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
                 // 2.12.0 (261115-LI18, 이사장님 원칙 2026-11-15) 마지막 자료가 30초 넘게 끊긴 방송은 끝난 것으로 봄
                 if let j = j, j["on"] as? Bool == false || Deut.majiCho(j) > 30 {
                     s.avpKkeugi(); s.gil = .eopseum; s.bogiBang = nil
-                    s.bakkum("그 현장영상해설 방송이 끝났습니다. 다른 방송을 찾고 있습니다.", malhal: true)
+                    s.salpinTtae = .distantPast   // 2.12.1 10초를 기다리지 않고 곧바로 다음 방송을 찾음(송출이 영상·소리를 바꿔 방을 새로 열 때 빈틈을 줄임)
+                    s.kkeunBang = (s.teunWho, s.jemok, Date())   // 2.12.1 같은 방송이 새 방으로 이어지는지 먼저 봄(끝났다는 말은 아닐 때만)
+                    s.bakkum("방송을 다시 찾고 있습니다.", malhal: false)
                     return
                 }
                 // 2.5.0 처음엔 영상 조각이 준비되지 않았다가 뒤에 준비될 수 있음
@@ -411,6 +458,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
                     s.bogiDugi(b)   // 2.12.0 영상 길이 실제로 열릴 때만 「영상으로 보기」
                 }
                 if s.bogiJung { return }   // 2.5.0 영상으로 보는 동안은 소리를 다시 붙지 않음
+                s.avpDanggigi()   // 2.12.1 늦어졌으면 앞으로 당김
                 // 소리가 10초 넘게 멈춰 있으면 다시 붙음
                 if let p = s.avp, p.timeControlStatus != .playing {
                     if s.avpMeomchumTtae == nil { s.avpMeomchumTtae = Date() }
@@ -432,22 +480,65 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
             let rows = ((j["rows"] as? [[String: Any]]) ?? []).filter { ["live", "bangsong"].contains($0["jong"] as? String ?? "") && Deut.majiCho($0) <= 30 }
             let l = rows.map { InteonetBang(id: $0["sid"] as? String ?? "", jemok: $0["title"] as? String ?? "", who: $0["who"] as? String ?? "", cho: $0["cho"] as? Int ?? 0,
                                             yeongsang: ($0["hls"] as? Bool ?? false) || ($0["yeongsang"] as? Bool ?? false)) }.filter { !$0.id.isEmpty }
+            // 2.12.1 듣던 방송이 새 방으로 이어졌으면(같은 현장영상해설사·같은 제목) 곧바로 붙음. 15초 기다려도 없으면 그제야 끝났다고 알림
+            var ap = ""
+            if let k = s.kkeunBang {
+                if let b = l.first(where: { $0.who == k.who && $0.jemok == k.jemok }) {
+                    s.kkeunBang = nil
+                    s.inteonetGoreum(b, ieoMal: true)
+                    s.cheot = false
+                    return
+                }
+                if Date().timeIntervalSince(k.ttae) < 15 { s.salpinTtae = .distantPast; return }   // 새 방이 열리는 동안 15초까지 기다림(2초마다 다시 봄)
+                s.kkeunBang = nil
+                ap = "그 현장영상해설 방송이 끝났습니다. "
+            }
             if l.isEmpty {
                 s.gorgi = []
-                s.bakkum("지금 나가는 현장영상해설이 없습니다. 방송이 열리거나 행사장에 들어서시면 저절로 들려 드립니다." + ((s.waeNatmal.isEmpty || s.waeNatmal == "wifi_eopseum") ? "" : " 행사장이시면, " + s.waeMal), malhal: true)
+                s.inetDaegiKyeogi()   // 2.12.1
+                s.bakkum(ap + "지금 나가는 현장영상해설이 없습니다. 방송이 열리거나 행사장에 들어서시면 저절로 들려 드립니다." + ((s.waeNatmal.isEmpty || s.waeNatmal == "wifi_eopseum") ? "" : " 행사장이시면, " + s.waeMal), malhal: true)
             } else if l.count == 1 {
-                s.inteonetGoreum(l[0])
-            } else if s.gorgi.map({ $0.id + ($0.yeongsang ? "v" : "") }) != l.map({ $0.id + ($0.yeongsang ? "v" : "") }) {
+                s.inetDaegiKkeugi()   // 2.12.1
+                s.inteonetGoreum(l[0], apMal: ap)
+            } else if !ap.isEmpty || s.gorgi.map({ $0.id + ($0.yeongsang ? "v" : "") }) != l.map({ $0.id + ($0.yeongsang ? "v" : "") }) {
                 s.gorgi = l
-                s.bakkum("지금 나가는 현장영상해설이 \(l.count)개 있습니다. 아래에서 들으실 것을 고르십시오.", malhal: true)
+                s.inetDaegiKkeugi()   // 2.12.1
+                s.bakkum(ap + "지금 나가는 현장영상해설이 \(l.count)개 있습니다. 아래에서 들으실 것을 고르십시오.", malhal: true)
             }
             s.cheot = false
         }
     }
 
+    /// 2.12.1 플에 붙어 듣는데 송출이 10초 넘게 없으면, 지금 나가는 인터넷 방송이 있는지 10초마다 보고 있으면 그리로 바꿈
+    private func bimSalpigi() {
+        guard gil == .hyeonjang, !flintBium, !Hyeonjang.jeomgeom, !bogiJung, let t = keuEopseumTtae,
+              Date().timeIntervalSince(t) > 10, Date().timeIntervalSince(bimMutTtae) > 10 else { return }
+        bimMutTtae = Date()
+        inteonetInna { [weak self] inna in
+            guard let s = self, inna, s.kyeojim, !s.jamsi, s.gil == .hyeonjang, !s.flintBium, s.keuEopseumTtae != nil else { return }
+            s.flintBium = true
+            s.task?.cancel(); s.task = nil
+            s.daegiKkeugi()
+            s.gil = .eopseum
+            s.bakkum("행사장 공유기에 방송하는 기기가 없어, 지금 나가는 인터넷 방송을 들려 드립니다. 행사장 방송이 시작되면 저절로 바꿉니다.", malhal: true)
+            s.butneunJung = true
+            s.inteonetSalpigi()
+        }
+    }
+
+    /// 2.12.1 지금 나가는(마지막 자료가 30초 안인) 인터넷 방송이 하나라도 있는가 — 인터넷에 닿지 않으면 없음
+    private func inteonetInna(_ kkeut: @escaping (Bool) -> Void) {
+        mutgi("/moklok") { j in
+            let rows = ((j?["rows"] as? [[String: Any]]) ?? []).filter { ["live", "bangsong"].contains($0["jong"] as? String ?? "") && Deut.majiCho($0) <= 30 && !($0["sid"] as? String ?? "").isEmpty }
+            kkeut(!rows.isEmpty)
+        }
+    }
+
     /// 인터넷 방송 하나를 골라 틂(여럿일 때 화면 단추가 부름)
-    func inteonetGoreum(_ b: InteonetBang) {
+    func inteonetGoreum(_ b: InteonetBang, ieoMal: Bool = false, apMal: String = "") {
         guard kyeojim else { return }
+        teunWho = b.who   // 2.12.1
+        inetDaegiKkeugi()   // 2.12.1
         task?.cancel(); task = nil
         gil = .inteonet(b.id)
         gorgi = []
@@ -457,7 +548,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
         if !bogiJung { avpTeulgi(b.id) }
         let jm: String = b.jemok.isEmpty ? "" : "\(b.jemok) "
         let w: String = b.who.isEmpty ? "" : " 현장영상해설사 \(b.who)."
-        let m = "인터넷으로 \(jm)현장영상해설을 들려 드립니다.\(w)"
+        let m = ieoMal ? "같은 현장영상해설이 이어집니다." : apMal + "인터넷으로 \(jm)현장영상해설을 들려 드립니다.\(w)"   // 2.12.1
         bakkum(m, malhal: true)
         jamgeumHwamyeon()
     }
@@ -466,6 +557,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
 
     func bogiSijak() {
         bogiJung = true
+        inetDaegiKkeugi()   // 2.12.1
         avp?.pause()
     }
 
@@ -481,11 +573,55 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
     private func avpTeulgi(_ sid: String) {
         avp?.pause()
         guard let u = URL(string: Deut.JUNGYE + "/mp3?sid=\(sid)&_c=\(Int(Date().timeIntervalSince1970))") else { return }
-        let p = AVPlayer(url: u)
-        p.automaticallyWaitsToMinimizeStalling = true
+        // 2.12.1 (11-15 밤 시험: 인터넷 방송이 20~30초 늦게 들림 — 서버까지는 제 속도였고, 재생기가 끊기지 않으려고 소리를 길게 모았다가 틂)
+        //   모아 두는 양을 2초로 줄이고, 들어온 대로 곧바로 틂. 늦어지면 avpDanggigi 가 앞으로 당김
+        let it = AVPlayerItem(url: u)
+        it.preferredForwardBufferDuration = 2
+        let p = AVPlayer(playerItem: it)
+        p.automaticallyWaitsToMinimizeStalling = false
         avp = p
         avpMeomchumTtae = nil
+        p.playImmediately(atRate: 1)
+    }
+
+    /// 2.12.1 받아 둔 소리가 지금 들리는 곳보다 6초 넘게 앞서 있으면(그만큼 늦게 듣는 중) 받아 둔 끝 1.5초 앞으로 당김
+    private func avpDanggigi() {
+        guard let p = avp, let it = p.currentItem, let r = it.loadedTimeRanges.last?.timeRangeValue else { return }
+        let kkeut = CMTimeGetSeconds(CMTimeRangeGetEnd(r)), jigeum = CMTimeGetSeconds(p.currentTime())
+        guard kkeut.isFinite, jigeum.isFinite, kkeut - jigeum > 6 else { return }
+        p.seek(to: CMTime(seconds: kkeut - 1.5, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: CMTime(seconds: 0.5, preferredTimescale: 600)) { _ in }
+    }
+
+    /// 2.12.1 인터넷으로 들을 때 지금 나가는 방송이 없으면 대기 음악 — 방송이 열리면 끔
+    private func inetDaegiKyeogi() {
+        guard kyeojim, !jamsi, !bogiJung, gil == .eopseum, inetEumak == nil else { return }
+        guard let d = inetEumakData else {
+            guard !inetEumakBatneun, let u = URL(string: Deut.INET_EUMAK) else { return }
+            inetEumakBatneun = true
+            var r = URLRequest(url: u, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 15)
+            r.allowsCellularAccess = true
+            URLSession.shared.dataTask(with: r) { [weak self] d, res, _ in
+                let ok = (res as? HTTPURLResponse)?.statusCode == 200 ? d : nil
+                DispatchQueue.main.async {
+                    guard let s = self else { return }
+                    s.inetEumakBatneun = false
+                    if let ok = ok { s.inetEumakData = ok; s.inetDaegiKyeogi() }
+                }
+            }.resume()
+            return
+        }
+        guard let p = try? AVAudioPlayer(data: d) else { return }
+        p.numberOfLoops = -1
+        p.volume = 0.35 * Deut.KG[Deut.kgM]
+        inetEumak = p
         p.play()
+    }
+
+    private func inetDaegiKkeugi() {
+        guard let p = inetEumak else { return }
+        inetEumak = nil
+        p.setVolume(0, fadeDuration: 1)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { p.stop() }
     }
 
     private func avpKkeugi() { avp?.pause(); avp = nil; avpMeomchumTtae = nil }
@@ -668,6 +804,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
             jamsi = true
             task?.cancel(); task = nil
             avp?.pause()
+            inetDaegiKkeugi()   // 2.12.1
             bakkum("전화나 다른 소리 때문에 잠시 멈추었습니다. 끝나면 저절로 다시 들려 드립니다.", malhal: false)
         } else {
             jamsi = false
