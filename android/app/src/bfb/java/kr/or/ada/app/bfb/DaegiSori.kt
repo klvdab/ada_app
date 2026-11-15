@@ -98,6 +98,9 @@ class DaegiSori(private val c: Context, private val dolgo: () -> Boolean, privat
                     val rtt = System.currentTimeMillis() - t0
                     val j = if (t != null) try { JSONObject(t) } catch (_: Exception) { null } else null
                     val k = j?.optBoolean("keu", true)
+                    // 2.11.1 플린트 2 방식에서만, 플에 붙은 송출 폰·수신기·무대 폰이 하나도 없고 해설도 없을 때만 셈(아이피타임 방식은 송출 폰이 곧 방송 서버)(송출 시작을 기다리는 동안은 다른 방송으로 넘기지 않음)
+                    val biom = j != null && j.optBoolean("flint", false) && k == false && j.optString("bonaem", "").isEmpty() && !j.optBoolean("hyeon", false)
+                    if (!biom) Deut.keuEopseumTtae = 0L else if (Deut.keuEopseumTtae == 0L) Deut.keuEopseumTtae = System.currentTimeMillis()
                     if (j != null) sangtaeBoda(j)
                     keu = if (teulsu()) k else true
                     // 소리 늦음 알리기(피디 화면이 봄) — 웹과 같이 5초에 한 번

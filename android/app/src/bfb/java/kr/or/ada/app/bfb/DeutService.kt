@@ -73,6 +73,9 @@ object Deut {
         val p = c.getSharedPreferences("lvd_bangsong", Context.MODE_PRIVATE)
         kgH = p.getInt("kg_h", 8).coerceIn(1, 10); kgM = p.getInt("kg_m", 8).coerceIn(0, 10); gal = p.getInt("gal", 1).coerceIn(1, 3)
     }
+    // 2.11.1 (261115-L16, 새방클, 이사장님 승인 2026-11-15 「1」) 플 와이파이에 붙어 있어도 플에 송출이 없으면 인터넷 방송을 들려 드림
+    @Volatile var keuEopseumTtae = 0L    // 플에 해설(송출 소리)이 없기 시작한 때(대기 일꾼이 적음)
+    @Volatile var flintBium = false      // 플에 송출이 없어 인터넷 방송을 듣는 중 — 플에 송출이 들어오면 현장으로 돌아감
     @Volatile var hyeonjangJung = false                      // 2.8.0 (261028-L12) 지금 행사장(BYOD 방송)에 붙어 있는가 — 추첨 일꾼이 봄
     const val JUNGYE = "https://lvd.ada.or.kr:2053"
     val gwanchal = mutableListOf<() -> Unit>()
@@ -187,6 +190,8 @@ class DeutService : Service() {
     }
 
     override fun onDestroy() {
+        inetDaegiKkeugi()   // 2.11.1
+        Deut.flintBium = false; Deut.keuEopseumTtae = 0L   // 2.11.1
         dolgo = false
         Deut.kyeojim = false
         Deut.deullim = false
@@ -253,12 +258,14 @@ class DeutService : Service() {
         while (dolgo) {
             // 0. 2.5.0 영상으로 보는 중 — 소리가 겹치지 않게 쉼(영상 화면을 나오면 이어 들려 드림)
             if (Deut.bogiJung) {
+                inetDaegiKkeugi()   // 2.11.1
                 Deut.deullim = false
                 Deut.bakkum("영상으로 보시는 동안 소리 듣기를 쉬고 있습니다.", false)
                 swigi(1000); continue
             }
             // 1. 틀 수 없는 때 — 전화 중, 같은 폰 송출 중(스피커)
             if (jamsi || tonghwaJung()) {
+                inetDaegiKkeugi()   // 2.11.1
                 // 잠시 멈춤 — 소리 자리가 돌아오면(AUDIOFOCUS_GAIN) 풀림. 통화가 끝난 뒤 30초가 지나도 안 돌아오면 한 번 청함
                 Deut.deullim = false; jamsi = true; swigi(1000)
                 if (!tonghwaJung() && dasiCheong) { dasiCheong = false; if (focusBatgi()) focusIssum = true }
@@ -274,6 +281,7 @@ class DeutService : Service() {
             if (n == null || jm0 == null) {
                 Deut.deullim = false
                 Deut.hyeonjangJung = false   // 2.8.0
+                Deut.keuEopseumTtae = 0L   // 2.11.1 플을 벗어남
                 // 2.11.0 어디서 막혔는지 알아 두고, 까닭이 바뀔 때만 기록(인터넷이 될 때 나스로 올라감)
                 val wae = Hyeonjang.wae(this)
                 if (wae.first != Deut.waeNatmal) {
@@ -287,11 +295,24 @@ class DeutService : Service() {
                     Deut.bakkum("BYOD 방송에서 벗어났습니다. 다시 들어오시면 저절로 이어서 들려 드립니다. 그사이 인터넷 방송이 있으면 그것을 들려 드립니다.", true)
                 }
                 // 2.2.0 행사장이 아니면 인터넷 방송
+                inetBium = false; kkeunGidari = false
                 val s = inteonetGoreugi()
-                if (s != null) { inteonetTeulgi(s); continue }
-                swigiGoreum(10_000); continue
+                if (s != null) { inetDaegiKkeugi(); inteonetTeulgi(s); continue }
+                if (inetBium) inetDaegiKyeogi() else inetDaegiKkeugi()   // 2.11.1 지금 나가는 방송이 없으면 대기 음악
+                swigiGoreum(if (kkeunGidari) 2_000 else 10_000); continue   // 2.11.1 같은 방송의 새 방을 기다리는 동안은 2초마다
+            }
+            // 2.11.1 플에 송출이 없어 인터넷 방송을 듣는 중 — 플에 송출이 들어왔으면 현장으로, 아니면 인터넷 방송을 이어 감(끝났으면 플로)
+            if (Deut.flintBium) {
+                if (flintKeu()) { Deut.flintBium = false; Deut.keuEopseumTtae = 0L; Deut.bakkum("행사장 방송이 시작되어 현장 방송으로 바꿉니다.", true) }
+                else if (inteonetInna()) {
+                    Deut.hyeonjangJung = false
+                    val s = inteonetGoreugi()
+                    if (s != null) { inteonetTeulgi(s); continue }
+                    swigiGoreum(10_000); continue
+                } else { Deut.flintBium = false; Deut.keuEopseumTtae = 0L }
             }
             Deut.waeNatmal = ""; Deut.waeMal = ""
+            inetDaegiKkeugi()   // 2.11.1
             Deut.hyeonjangJung = true   // 2.8.0 행사장 — 추첨 일꾼이 입장 번호를 알리고 당첨을 봄
             // 2.7.0 (261026-L11) 오푸스(시험) — 송출이 오푸스도 내보내면 오푸스로, 없으면(없는 주소) 30초 동안은 묻지 않고 아래 지금 방식으로
             if (!Deut.jeomgeom && Deut.gal == 1 && System.currentTimeMillis() >= opusSwim) {   // 2.10.0 점검 듣기는 오푸스를 쓰지 않음
@@ -328,7 +349,7 @@ class DeutService : Service() {
                 tongjiGochigi()
                 val b = ByteArray(1600)
                 val pcm = ShortArray(1600)
-                while (dolgo && !jamsi && Deut.gal == g0 && !Deut.bogiJung && !(Deut.songchulJung && !iyeopon())) {
+                while (dolgo && !jamsi && Deut.gal == g0 && !Deut.bogiJung && !(Deut.songchulJung && !iyeopon()) && !bimBakkul()) {   // 2.11.1 bimBakkul
                     val r = ins.read(b)
                     if (r < 0) break
                     for (i in 0 until r) pcm[i] = DEC[b[i].toInt() and 0xFF]
@@ -488,6 +509,68 @@ class DeutService : Service() {
         while (dolgo && t < ms && Deut.goreun.isEmpty()) { swigi(500); t += 500 }
     }
 
+    // ───── 2.11.1 (261115-L16, 이사장님 승인 「1」) 인터넷으로 들을 때도 지금 나가는 방송이 없으면 대기 음악 ─────
+    @Volatile private var inetBium = false
+    // 2.11.1 송출 1.17.0 은 화면이 꺼지면(영상 → 소리) 방을 닫고 새 방을 엶 — 같은 현장영상해설사·같은 제목의 새 방이 15초 안에 나오면 「이어집니다」로 곧바로 붙음
+    private var teunWho = ""
+    private var kkeunWho: String? = null
+    private var kkeunJemok = ""
+    private var kkeunTtae = 0L
+    private var kkeunGidari = false
+    private var inetEumak: MediaPlayer? = null
+    private fun inetDaegiKyeogi() {
+        if (inetEumak != null || !dolgo) return
+        try {
+            val mp = MediaPlayer()
+            mp.setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
+            mp.setDataSource("https://lvd.ada.or.kr/bfblive/hyeonjang/daegi.mp3")
+            mp.isLooping = true
+            val v = (0.35 * Deut.KG[Deut.kgM]).toFloat()
+            mp.setVolume(v, v)
+            mp.setOnPreparedListener { try { if (inetEumak === it) it.start() } catch (_: Exception) { } }
+            mp.setOnErrorListener { m, _, _ -> try { m.release() } catch (_: Exception) { }; if (inetEumak === m) inetEumak = null; true }
+            inetEumak = mp
+            mp.prepareAsync()
+        } catch (_: Exception) { inetEumak = null }
+    }
+    private fun inetDaegiKkeugi() {
+        val mp = inetEumak ?: return
+        inetEumak = null
+        try { mp.stop() } catch (_: Exception) { }
+        try { mp.release() } catch (_: Exception) { }
+    }
+
+    // ───── 2.11.1 (261115-L16) 플에 송출이 없을 때 인터넷 방송으로 ─────
+    private var bimMutTtae = 0L
+    /** 플에 붙어 듣는데 송출이 10초 넘게 없으면, 지금 나가는 인터넷 방송이 있는지 10초마다 보고 있으면 그리로 바꿈(참이면 플 듣기를 그만둠) */
+    private fun bimBakkul(): Boolean {
+        val t = Deut.keuEopseumTtae
+        val now = System.currentTimeMillis()
+        if (Deut.jeomgeom || Deut.flintBium || t == 0L || now - t < 10_000L || now - bimMutTtae < 10_000L) return false
+        bimMutTtae = now
+        if (!inteonetInna()) return false
+        Deut.flintBium = true
+        Deut.hyeonjangJung = false
+        Deut.bakkum("행사장 공유기에 방송하는 기기가 없어, 지금 나가는 인터넷 방송을 들려 드립니다. 행사장 방송이 시작되면 저절로 바꿉니다.", true)
+        return true
+    }
+
+    /** 플에 해설이 나오거나 송출 폰·수신기·무대 폰이 붙어 있는가(현장이 먼저) — 답이 없으면 아니라고 봄 */
+    private fun flintKeu(): Boolean = try {
+        val j = JSONObject(Hyeonjang.mutgi(this, "/status", 1500) ?: "{}")
+        j.optBoolean("keu", false) || j.optString("bonaem", "").isNotEmpty() || j.optBoolean("hyeon", false)
+    } catch (_: Exception) { false }
+
+    /** 지금 나가는(마지막 자료가 30초 안인) 인터넷 방송이 하나라도 있는가 — 인터넷에 닿지 않으면 없음 */
+    private fun inteonetInna(): Boolean {
+        val a = jungyeMutgi("/moklok")?.optJSONArray("rows") ?: return false
+        for (i in 0 until a.length()) {
+            val o = a.optJSONObject(i) ?: continue
+            if ((o.optString("jong") == "live" || o.optString("jong") == "bangsong") && o.optString("sid").isNotEmpty() && o.optInt("maji", 0) <= 30) return true
+        }
+        return false
+    }
+
     // ───── 2.2.0 인터넷 방송 ─────
     private fun jungyeMutgi(gil: String): JSONObject? = try {
         val k = URL(Deut.JUNGYE + gil).openConnection() as HttpURLConnection
@@ -510,17 +593,26 @@ class DeutService : Service() {
             if (o.optString("sid").isEmpty()) continue
             l.add(Deut.InteonetBang(o.optString("sid"), o.optString("title"), o.optString("who"), o.optInt("cho"), o.optBoolean("hls", false) || o.optBoolean("yeongsang", false)))
         }
+        // 2.11.1 듣던 방송이 새 방으로 이어졌으면(같은 현장영상해설사·같은 제목) 곧바로 붙음. 15초 기다려도 없으면 그제야 끝났다고 알림
+        var ap = ""
+        kkeunWho?.let { kw ->
+            val b = l.firstOrNull { it.who == kw && it.jemok == kkeunJemok }
+            if (b != null) { kkeunWho = null; Deut.gorgi = emptyList(); Deut.jemok = b.jemok; bogiDugi(b); teunWho = b.who; Deut.bakkum("같은 현장영상해설이 이어집니다.", true); return b.sid }
+            if (System.currentTimeMillis() - kkeunTtae < 15_000L) { kkeunGidari = true; return null }
+            kkeunWho = null; ap = "그 현장영상해설 방송이 끝났습니다. "
+        }
         val g = Deut.goreun
         if (g.isNotEmpty()) { Deut.goreun = ""; l.firstOrNull { it.sid == g }?.let { Deut.gorgi = emptyList(); Deut.jemok = it.jemok; bogiDugi(it); inteonetMal(it); return it.sid } }
         when {
             l.isEmpty() -> {
+                inetBium = true   // 2.11.1
                 if (Deut.gorgi.isNotEmpty()) { Deut.gorgi = emptyList(); Deut.allyeo() }
-                Deut.bakkum("지금 나가는 현장영상해설이 없습니다. 방송이 열리거나 행사장에 들어서시면 저절로 들려 드립니다." + (if (Deut.waeNatmal == "wifi_eopseum" || Deut.waeNatmal == "") "" else " 행사장이시면, " + Deut.waeMal), true)
+                Deut.bakkum(ap + "지금 나가는 현장영상해설이 없습니다. 방송이 열리거나 행사장에 들어서시면 저절로 들려 드립니다." + (if (Deut.waeNatmal == "wifi_eopseum" || Deut.waeNatmal == "") "" else " 행사장이시면, " + Deut.waeMal), true)
             }
-            l.size == 1 -> { Deut.gorgi = emptyList(); Deut.jemok = l[0].jemok; bogiDugi(l[0]); inteonetMal(l[0]); return l[0].sid }
-            else -> if (Deut.gorgi.map { it.sid } != l.map { it.sid }) {
+            l.size == 1 -> { Deut.gorgi = emptyList(); Deut.jemok = l[0].jemok; bogiDugi(l[0]); inteonetMal(l[0], ap); return l[0].sid }
+            else -> if (ap.isNotEmpty() || Deut.gorgi.map { it.sid } != l.map { it.sid }) {
                 Deut.gorgi = l
-                Deut.bakkum("지금 나가는 현장영상해설이 " + l.size + "개 있습니다. 아래에서 들으실 것을 고르십시오.", true)
+                Deut.bakkum(ap + "지금 나가는 현장영상해설이 " + l.size + "개 있습니다. 아래에서 들으실 것을 고르십시오.", true)
                 Deut.allyeo()
             }
         }
@@ -533,8 +625,9 @@ class DeutService : Service() {
         if (sae?.sid != Deut.bogiBang?.sid) { Deut.bogiBang = sae; Deut.allyeo() }
     }
 
-    private fun inteonetMal(b: Deut.InteonetBang) {
-        Deut.bakkum("인터넷으로 " + (if (b.jemok.isEmpty()) "" else b.jemok + " ") + "현장영상해설을 들려 드립니다." + (if (b.who.isEmpty()) "" else " 현장영상해설사 " + b.who + "."), true)
+    private fun inteonetMal(b: Deut.InteonetBang, ap: String = "") {
+        teunWho = b.who   // 2.11.1
+        Deut.bakkum(ap + "인터넷으로 " + (if (b.jemok.isEmpty()) "" else b.jemok + " ") + "현장영상해설을 들려 드립니다." + (if (b.who.isEmpty()) "" else " 현장영상해설사 " + b.who + "."), true)
     }
 
     /** 인터넷 방송 틀기 — 끝나거나, 멈추거나, 행사장에 들어서거나, 다른 것을 고르면 돌아감 */
@@ -565,9 +658,16 @@ class DeutService : Service() {
                 if (meomchum > 10) break   // 10초 넘게 소리가 없으면 다시 붙음
                 if (cho % 10 == 0) {
                     // 행사장에 들어서면 현장 방송으로(더 빠름)
-                    if (Hyeonjang.mang(this) != null && Hyeonjang.salpigi(this) != null) { Deut.bakkum("행사장에 들어서서 BYOD 방송으로 바꿉니다.", true); break }
+                    if (Hyeonjang.mang(this) != null && Hyeonjang.salpigi(this) != null) {
+                        if (!Deut.flintBium) { Deut.bakkum("행사장에 들어서서 BYOD 방송으로 바꿉니다.", true); break }
+                        // 2.11.1 플에 송출이 없어 인터넷으로 듣는 중 — 플에 해설이 시작되면 현장으로
+                        if (flintKeu()) { Deut.flintBium = false; Deut.keuEopseumTtae = 0L; Deut.bakkum("행사장 방송이 시작되어 현장 방송으로 바꿉니다.", true); break }
+                    } else if (Deut.flintBium) { Deut.flintBium = false; Deut.keuEopseumTtae = 0L }   // 플을 벗어남 — 보통 인터넷 방송 듣기로
                     val j = jungyeMutgi("/sangtae?sid=$sid")
-                    if (j != null && !j.optBoolean("on", true)) { Deut.bakkum("그 현장영상해설 방송이 끝났습니다. 다른 방송을 찾고 있습니다.", true); break }
+                    if (j != null && !j.optBoolean("on", true)) {   // 2.11.1 같은 방송이 새 방으로 이어지는지 먼저 봄(끝났다는 말은 아닐 때만)
+                        kkeunWho = teunWho; kkeunJemok = Deut.jemok; kkeunTtae = System.currentTimeMillis()
+                        Deut.bakkum("방송을 다시 찾고 있습니다.", false); break
+                    }
                     // 2.5.0 처음엔 영상 조각이 준비되지 않았다가 뒤에 준비될 수 있음
                     if (j != null && (j.optBoolean("hls", false) || j.optBoolean("yeongsang", false)) && Deut.bogiBang?.sid != sid)
                         bogiDugi(Deut.InteonetBang(sid, j.optString("title"), j.optString("who"), j.optInt("cho"), true))
