@@ -11,6 +11,23 @@ class AchimGirokHwamyeon : Hwamyeon("아침 기록") {
     private var mot = false
 
     override fun chaeugi(t: GilnunActivity) {
+        // 2.93.0 (261115-A81, 이사장님 승인 2026-11-15 「1」) 관리자만 — 나스 음악 열쇠를 넣은 폰에서만 엶(관리자 시험과 같은 열쇠)
+        if (!KameraGwanli.boim(t)) {
+            t.geul("아침 기록은 관리자만 볼 수 있습니다. 관리자 열쇠를 넣어 주십시오.")
+            val e = t.ipryeok("관리자 열쇠 — 나스 음악 열쇠", false)
+            e.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            t.danchu("들어가기") {
+                val pw = e.text.toString().trim()
+                if (pw.isEmpty()) { Sori.mal("관리자 열쇠를 넣어 주십시오."); return@danchu }
+                Sori.mal("확인하는 중입니다.", MalGeup.JEONGBO)
+                KameraGwanli.yeolsoeNeoki(t, pw) { oryu ->
+                    if (oryu != null) { Sori.mal(oryu); return@yeolsoeNeoki }
+                    Sori.mal("아침 기록을 엽니다.")
+                    if (t.wiHwamyeon === this) t.dasiGeurigi()
+                }
+            }
+            return
+        }
         if (!batham && !badneun) batgi(t)
         when {
             badneun -> t.chojeomJul(t.geul("아침 기록을 받는 중입니다."))

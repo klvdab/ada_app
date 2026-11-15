@@ -712,7 +712,7 @@ class SeoljeongCheot : Hwamyeon("설정") {
         t.pyeolchigi("더 보기 — 기초 시험, 아침 기록, 관리자 시험", deo) { deo = !deo }
         if (deo) {
             t.danchu("기초 시험 — 위치, 방향, 걸음, 말소리가 도는지 듣기") { t.yeolgi(GichoSiheom()) }
-            t.danchu("아침 기록 — 지난 24시간 길눈과 자봉 쓰임, 오류") { t.yeolgi(AchimGirokHwamyeon()) }   // 2.30.0 관리자(이사장님 승인)
+            t.danchu("아침 기록 — 관리자만, 지난 24시간 길눈과 자봉 쓰임, 오류") { t.yeolgi(AchimGirokHwamyeon()) }   // 2.30.0 관리자(이사장님 승인)
             t.danchu("관리자 시험 — 카메라 눈(문 찾기, 발 앞 계단·턱 알림)") { t.yeolgi(KameraGwanliHwamyeon()) }   // 2.7.0 b3 — 열쇠가 없으면 열쇠 넣기
             t.danchu("관리자 시험 — 말벗 견주기, 서버 대답 빠르기") { t.yeolgi(MalbeotGyeonjugiHwamyeon()) }   // 2.19.0
         }
