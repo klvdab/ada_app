@@ -9,9 +9,15 @@
 //   4. 인터넷이 안 되어도 현장 방송은 그대로 나갑니다. 상태는 첫 화면 한 줄로 바뀔 때만 알립니다.
 //   5. 방송이 끝나면 중계 방을 닫습니다. 플린트 2 방식이면 공유기의 온전한 녹음이 다시 듣기에 올라간 뒤,
 //      같은 때 인터넷으로 나간 녹음은 다시 듣기 목록에서 감춥니다(지우지 않음, 같은 행사가 두 번 나오지 않게).
+//   6. 1.17.0 (261115-BI26, 대클, 이사장님 지시 2026-11-15) 영상도 함께 — 무대 영상 녹화를 켜 두지 않았고 카메라 허락이 있으면
+//      인터넷 쪽은 뒤 카메라 영상과 해설 소리를 조각 mp4(video/mp4)로 보냄(InteonetYeongsang). 현장(플)으로는 지금처럼 소리만.
+//      카메라가 안 되거나 화면이 꺼지면 소리만(audio/wav) 보내는 길로 돌아가고, 화면이 돌아오면 다시 영상으로.
+//      영상 녹음은 다시 듣기에서 감추지 않음(나스 byod_olligi.php 1.7.0 이 영상 쪽을 남기고 공유기 녹음을 감춤).
 import Foundation
 import Network
 import Security
+import AVFoundation
+import UIKit
 
 final class InteonetBonaegi {
     static let shared = InteonetBonaegi()
@@ -43,6 +49,11 @@ final class InteonetBonaegi {
     private var bonaenCho: Double = 0
     private var yeollinTtae = Date()
     private var timer: DispatchSourceTimer?
+    // 1.17.0 영상
+    private var yeongsangWonham = false   // 이번 방송에서 영상을 싣기로 함(무대 영상 녹화가 꺼져 있을 때)
+    private var yeongsang = false         // 지금 연 방(또는 열 방)이 영상인가
+    private var jogak = Data()            // 보낼 조각 mp4
+    private var bomyeon: NSObjectProtocol?
 
     // MARK: 켜고 끄기 — 방송 일(BangIl)이 부름
 
@@ -57,6 +68,22 @@ final class InteonetBonaegi {
             self.flintBangsik = true; self.cell = true   // 1.7.0 두 방식 모두 현장 녹음이 다시 듣기에 올라가므로 감춤 대기에 넣음(올라간 것을 확인한 뒤에만 감춤), 아이피타임 와이파이에도 인터넷이 없으므로 휴대전화망 먼저(안 되면 바꿈)
             self.silpae = 0; self.bonaenCho = 0; self.moum = Data(); self.cheot = true
             self.yeolgiTtae = .distantPast
+            // 1.17.0 영상도 함께 — 무대 영상 녹화(카메라를 따로 씀)가 꺼져 있을 때만
+            self.yeongsangWonham = !YeongsangNokhwa.kyeojim
+            self.yeongsang = self.yeongsangWonham && InteonetYeongsang.heorak
+            self.jogak = Data()
+            InteonetYeongsang.shared.jogakBatgi = { [weak self] d in self?.q.async { self?.jogakDeohagi(d) } }
+            InteonetYeongsang.shared.silpae = { [weak self] mal in self?.q.async { self?.soriManeuro(mal) } }
+            if self.yeongsangWonham && AVCaptureDevice.authorizationStatus(for: .video) == .notDetermined {
+                AVCaptureDevice.requestAccess(for: .video) { ok in if ok { self.q.async { self.yeongsangDasi() } } }
+            }
+            DispatchQueue.main.async {
+                if self.bomyeon == nil {
+                    self.bomyeon = NotificationCenter.default.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: nil) { [weak self] _ in
+                        self?.q.asyncAfter(deadline: .now() + 1) { self?.yeongsangDasi() }
+                    }
+                }
+            }
             let t = DispatchSource.makeTimerSource(queue: self.q)
             t.schedule(deadline: .now() + 2, repeating: 2)
             t.setEventHandler { [weak self] in self?.dolgi() }
@@ -71,6 +98,10 @@ final class InteonetBonaegi {
     func neoki(_ d: Data) {
         q.async {
             guard self.dolgo, !self.geobu else { return }
+            if self.yeongsang {   // 1.17.0 영상 방은 조각 mp4 에 소리를 실음
+                if self.yeollim { InteonetYeongsang.shared.soriNeoki(d) }
+                return
+            }
             self.moum.append(d)
             let mak = InteonetBonaegi.RATE * 10   // 10초 넘게 밀리면 오래된 것을 버림(늦어지지 않게)
             if self.moum.count > mak { self.moum = self.moum.suffix(mak) }
@@ -82,14 +113,18 @@ final class InteonetBonaegi {
             guard self.dolgo else { return }
             self.dolgo = false
             self.timer?.cancel(); self.timer = nil
-            let s = self.sid, t = self.tok, yeol = self.yeollim, nameun = self.moum, cheot = self.cheot
-            self.yeollim = false; self.moum = Data()
+            let s = self.sid, t = self.tok, yeol = self.yeollim, cheot = self.cheot
+            let ys = self.yeongsang
+            let nameun = ys ? self.jogak : self.moum
+            self.yeollim = false; self.moum = Data(); self.jogak = Data()
+            if ys { InteonetYeongsang.shared.kkeugi() }
+            DispatchQueue.main.async { if let b = self.bomyeon { NotificationCenter.default.removeObserver(b); self.bomyeon = nil } }
             if yeol {
                 let datgi = { self.yocheong("GET", "/datgi?sid=\(s)&tok=\(t)", nil) { _, _ in } }
                 if !nameun.isEmpty {
-                    self.yocheong("POST", "/jogak?sid=\(s)&tok=\(t)", cheot ? InteonetBonaegi.wavMeori() + nameun : nameun) { _, _ in datgi() }
+                    self.yocheong("POST", "/jogak?sid=\(s)&tok=\(t)", (cheot && !ys) ? InteonetBonaegi.wavMeori() + nameun : nameun) { _, _ in datgi() }
                 } else { datgi() }
-                if self.flintBangsik && self.bonaenCho > 5 { GamchumDaegi.deohagi(s, self.yeollinTtae) }
+                if !ys && self.flintBangsik && self.bonaenCho > 5 { GamchumDaegi.deohagi(s, self.yeollinTtae) }
             }
             self.allim("")
         }
@@ -106,12 +141,13 @@ final class InteonetBonaegi {
         guard dolgo, !geobu, !yeolgiJung, Date().timeIntervalSince(yeolgiTtae) > 12 else { return }
         yeolgiJung = true; yeolgiTtae = Date()
         let s = "lvd" + InteonetBonaegi.nanSu(9), tk = InteonetBonaegi.nanSu(10)
-        let gil = "/yeolgi?sid=\(s)&tok=\(tk)&phone=\(phone)&mime=\(InteonetBonaegi.mal("audio/wav"))&jong=live&title=\(InteonetBonaegi.mal(jemok))&who=\(InteonetBonaegi.mal(who))"
+        let ys = yeongsang
+        let gil = "/yeolgi?sid=\(s)&tok=\(tk)&phone=\(phone)&mime=\(InteonetBonaegi.mal(ys ? "video/mp4" : "audio/wav"))&jong=live&title=\(InteonetBonaegi.mal(jemok))&who=\(InteonetBonaegi.mal(who))"
         yocheong("GET", gil, nil) { code, d in
             self.yeolgiJung = false
             let j = d.flatMap { (try? JSONSerialization.jsonObject(with: $0)) as? [String: Any] }
             let ok = code == 200 && (j?["ok"] as? Bool ?? false)
-            if !self.dolgo {   // 그사이 방송을 멈췄으면 연 방을 바로 닫음
+            if !self.dolgo || ys != self.yeongsang {   // 그사이 방송을 멈췄거나 영상·소리를 바꿨으면 연 방을 바로 닫음
                 if ok { self.yocheong("GET", "/datgi?sid=\(j?["sid"] as? String ?? s)&tok=\(j?["tok"] as? String ?? tk)", nil) { _, _ in } }
                 return
             }
@@ -120,7 +156,8 @@ final class InteonetBonaegi {
                 self.tok = j?["tok"] as? String ?? tk
                 self.yeollim = true; self.cheot = true; self.silpae = 0; self.yeollinTtae = Date()
                 self.moum = self.moum.suffix(InteonetBonaegi.RATE)   // 밀린 것은 1초만 남김
-                self.allim("인터넷 방송: 함께 나가고 있습니다. LVD 방송 앱과 누리집의 지금 현장영상해설 듣기에서 들립니다.")
+                if ys { self.moum = Data(); self.jogak = Data(); InteonetYeongsang.shared.kyeogi() }   // 1.17.0 머리 조각부터 새로
+                self.allim(self.nagamMal())
             } else if code == 403 {
                 self.geobu = true; self.moum = Data()
                 self.allim("인터넷 방송: 이 전화번호가 협회 현장영상해설사 명단에 없어 인터넷으로는 나가지 않습니다. BYOD 방송은 그대로 나갑니다.")
@@ -135,11 +172,17 @@ final class InteonetBonaegi {
     private func dolgi() {
         guard dolgo, !geobu else { return }
         if !yeollim { yeolgi(); return }
-        guard !moum.isEmpty, !bonaeneun else { return }
-        let meori = cheot
-        let body = meori ? InteonetBonaegi.wavMeori() + moum : moum
-        let cho = Double(moum.count) / Double(InteonetBonaegi.RATE)
-        moum = Data()
+        let ys = yeongsang
+        guard !(ys ? jogak : moum).isEmpty, !bonaeneun else { return }
+        let meori = cheot && !ys
+        let body: Data
+        let cho: Double
+        if ys { body = jogak; cho = 2; jogak = Data() }   // 1.17.0 조각 mp4 는 머리를 붙이지 않음
+        else {
+            body = meori ? InteonetBonaegi.wavMeori() + moum : moum
+            cho = Double(moum.count) / Double(InteonetBonaegi.RATE)
+            moum = Data()
+        }
         bonaeneun = true
         let s = sid
         yocheong("POST", "/jogak?sid=\(sid)&tok=\(tok)", body) { code, _ in
@@ -149,9 +192,10 @@ final class InteonetBonaegi {
                 if meori { self.cheot = false }
                 self.silpae = 0
                 self.bonaenCho += cho
-                self.allim("인터넷 방송: 함께 나가고 있습니다. LVD 방송 앱과 누리집의 지금 현장영상해설 듣기에서 들립니다.")
+                self.allim(self.nagamMal())
             } else if code == 404 || code == 403 {   // 중계가 다시 켜져 방이 없어짐 — 새로 엶
-                if self.flintBangsik && self.bonaenCho > 5 { GamchumDaegi.deohagi(s, self.yeollinTtae) }
+                if !ys && self.flintBangsik && self.bonaenCho > 5 { GamchumDaegi.deohagi(s, self.yeollinTtae) }
+                if ys { InteonetYeongsang.shared.kkeugi(); self.jogak = Data() }   // 새 방에는 머리 조각부터 다시
                 self.yeollim = false; self.bonaenCho = 0; self.yeolgiTtae = .distantPast
                 self.allim("인터넷 방송: 중계가 다시 켜져 방을 새로 엽니다.")
             } else {
@@ -160,6 +204,43 @@ final class InteonetBonaegi {
                 self.allim("인터넷 방송: 인터넷에 닿지 않습니다. 저절로 다시 시도합니다. BYOD 방송은 그대로 나갑니다.")
             }
         }
+    }
+
+    // MARK: 1.17.0 영상
+
+    private func nagamMal() -> String {
+        yeongsang ? "인터넷 방송: 영상과 해설 소리가 함께 나가고 있습니다. 현장으로는 소리만 나갑니다."
+                  : "인터넷 방송: 함께 나가고 있습니다. LVD 방송 앱과 누리집의 지금 현장영상해설 듣기에서 들립니다."
+    }
+
+    private func jogakDeohagi(_ d: Data) {
+        guard dolgo, yeongsang, yeollim else { return }
+        jogak.append(d)
+        if jogak.count > 8_000_000 { soriManeuro("인터넷이 느려 영상 조각이 밀렸습니다.") }   // 밀리면 소리만으로
+    }
+
+    /// 영상을 이어 갈 수 없을 때 — 영상 방을 닫고 소리만 보내는 방으로
+    private func soriManeuro(_ mal: String) {
+        guard dolgo, yeongsang else { return }
+        InteonetYeongsang.shared.kkeugi()
+        if yeollim { let s = sid, t = tok; yocheong("GET", "/datgi?sid=\(s)&tok=\(t)", nil) { _, _ in } }
+        yeongsang = false; yeollim = false; jogak = Data(); moum = Data(); bonaenCho = 0; yeolgiTtae = .distantPast
+        allim("인터넷 방송: " + mal + " 지금은 소리만 보냅니다. 화면을 켜 두시면 다시 영상으로 보냅니다.")
+    }
+
+    /// 화면이 돌아왔거나 카메라 허락을 받았을 때 — 다시 영상으로
+    private func yeongsangDasi() {
+        guard dolgo, !geobu, yeongsangWonham, !yeongsang, InteonetYeongsang.heorak, !YeongsangNokhwa.kyeojim else { return }
+        if yeollim {
+            let s = sid, t = tok, nameun = moum, cheot = self.cheot
+            yocheong("POST", "/jogak?sid=\(s)&tok=\(t)", cheot ? InteonetBonaegi.wavMeori() + nameun : nameun) { _, _ in
+                self.yocheong("GET", "/datgi?sid=\(s)&tok=\(t)", nil) { _, _ in }
+            }
+            if flintBangsik && bonaenCho > 5 { GamchumDaegi.deohagi(s, yeollinTtae) }
+        }
+        yeongsang = true; yeollim = false; moum = Data(); jogak = Data(); bonaenCho = 0; yeolgiTtae = .distantPast
+        allim("인터넷 방송: 다시 영상과 함께 보냅니다.")
+        yeolgi()
     }
 
     /// 뮤 8비트 한 줄기 1초에 16000 웨이브 머리(길이는 모름 — 흘려보내는 방식)

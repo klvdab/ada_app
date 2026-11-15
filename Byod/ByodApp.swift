@@ -376,7 +376,7 @@ struct CheotView: View {
             // 1.9.0 (261024-BI11) 무대 영상 녹화 — 한 줄은 바뀔 때만 고침(읽어 주지는 않음, 문제는 녹화 쪽이 한 번 알림), 못 올린 영상은 1분마다 다시
             let yj = YeongsangNokhwa.shared.sangtaeMal
             if yj != yeongsangJul { yeongsangJul = yj }
-            let bp = YeongsangNokhwa.shared.bogiPan   // 1.15.0
+            let bp = YeongsangNokhwa.shared.bogiPan ?? InteonetYeongsang.shared.bogiPan   // 1.15.0, 1.17.0 인터넷으로 나가는 영상도 보여 줌
             if bp !== bogiPan { bogiPan = bp }
             let bb = YeongsangNokhwa.shared.bogiBanghyang
             if bb != bogiBanghyang { bogiBanghyang = bb }
