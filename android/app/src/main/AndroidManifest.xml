@@ -32,8 +32,12 @@
         </intent>
     </queries>
 
+    <!-- 261115 (대클, 이사장님 승인 2026-11-15 「1」) 개인 기록 지키기 — 구글 자동 백업과 폰 옮기기로 앱 기록(걸은 길·여정·설정·열쇠)이
+         같은 구글 계정의 다른 폰에 되살아나던 구멍을 막음. 앱 기록은 그 폰 안에만 둡니다 -->
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
