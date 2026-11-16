@@ -56,6 +56,7 @@ final class YeongsangNokhwa: NSObject, AVCaptureFileOutputRecordingDelegate {
     private var dakneunJung = false      // 멈춘 뒤 닫는 중(그사이 다시 켜면 기다렸다 엶)
     private var dwie = false             // sq: 앱이 뒤로 가 있음(화면 꺼짐) — 이때는 카메라를 다시 열지 않음
     private var hwamyeonMeomchum = false // sq: 화면이 꺼져 멈춘 적이 있음(돌아오면 「다시 이었습니다」 한 번)
+    private var neomgim = false          // 1.17.2 sq: 인터넷 영상에 카메라를 넘겨 둠 — 이 동안은 다시 열지 않음
 
     // 화면이 보는 값 — 잠금으로 지킴
     private let jamgeum = NSLock()
@@ -146,6 +147,7 @@ final class YeongsangNokhwa: NSObject, AVCaptureFileOutputRecordingDelegate {
         bomyeon.removeAll()
         UIDevice.current.endGeneratingDeviceOrientationNotifications()
         sq.async {
+            self.neomgim = false   // 1.17.2
             guard self.hwalseong else { return }
             self.hwalseong = false
             self.dakneunJung = true
@@ -285,8 +287,36 @@ final class YeongsangNokhwa: NSObject, AVCaptureFileOutputRecordingDelegate {
         }
     }
 
+    // 1.17.2 (261116-BI28, 새방클, 대표님 승인 261116 「가 안」) 무대 영상 녹화와 인터넷 영상이 카메라 하나를 나눠 씀 —
+    // 인터넷 영상 방이 열리면 무대 녹화를 잠시 멈춰 카메라를 넘기고(그동안 영상은 인터넷 녹화로 나스에 남음),
+    // 인터넷이 끊기면 InteonetBonaegi 가 2초 뒤 돌려주어 무대 녹화를 새 조각으로 다시 이음
+    func kameraNeomgigi(_ kkeut: @escaping () -> Void) {
+        sq.async {
+            guard self.hwalseong, !self.neomgim else { kkeut(); return }
+            self.neomgim = true
+            self.kkeunkimNeogi("inteonet_yeongsang")
+            if let o = self.output, o.isRecording { o.stopRecording() }
+            self.sq.asyncAfter(deadline: .now() + 1) {
+                if self.neomgim { self.session?.stopRunning() }
+                self.malNeogi("인터넷 영상에 카메라를 넘겨 무대 녹화를 잠시 멈췄습니다. 인터넷 영상도 나스에 녹화됩니다.", allil: false)
+                kkeut()
+            }
+        }
+    }
+    func kameraDoragagi() {
+        sq.async {
+            guard self.neomgim else { return }
+            self.neomgim = false
+            guard self.hwalseong else { return }
+            self.kkeunkimNeogi("kamera_doraom")
+            self.malNeogi("", allil: false)
+            self.dasiHaebogi()
+            if self.output?.isRecording ?? false || self.yeoneunJung { DispatchQueue.main.async { allyeo("무대 영상 녹화를 다시 이었습니다.") } }
+        }
+    }
+
     private func dasiHaebogi() {
-        guard hwalseong, !dwie, let ss = session else { return }
+        guard hwalseong, !dwie, !neomgim, let ss = session else { return }
         if !ss.isRunning { ss.startRunning() }
         if ss.isRunning && !ss.isInterrupted && !(output?.isRecording ?? false) && !yeoneunJung {
             saeJogak()

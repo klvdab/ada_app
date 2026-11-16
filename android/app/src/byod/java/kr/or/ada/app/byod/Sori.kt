@@ -263,6 +263,24 @@ object Gidarim {
         if (jari >= gil * 1000) jari = 0
         return out
     }
+
+    // 1.16.5 (261116-B37, 새방클, 대표님 승인 261116) 「송출 멈춤」 동안 인터넷으로 듣는 분께 빈 소리 대신 같은 기다림 안내.
+    // 통화 중 안내와 자리를 따로 두어 두 안내가 서로 끼어들지 않음
+    @Volatile private var meomchumJari = 0
+    fun meomchumCheoeum() { meomchumJari = 0 }
+    @Synchronized fun meomchum(ctx: Context, n: Int): ByteArray {
+        val s = sori ?: wavMuro(ctx).also { sori = it }
+        val out = ByteArray(n)
+        val gil = s.size + SWIM
+        var j = meomchumJari
+        for (i in 0 until n) {
+            val k = j % gil
+            out[i] = if (k < s.size) s[k] else 0xFF.toByte()
+            j++
+        }
+        meomchumJari = if (j >= gil * 1000) 0 else j
+        return out
+    }
 }
 
 // 1.9.2 (261026-B19, 새방클, 이사장님 지시 2026-10-26 「소리가 너무 작아 현장에서 사용이 불가」) 소리 자동 맞춤 —

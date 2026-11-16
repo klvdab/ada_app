@@ -120,6 +120,7 @@ class ByodActivity : Activity() {
             sangtaeGochigi(false)
             // 1.3.0 배프에 아직 못 올린 행사가 있으면 1분마다 다시 올려 봄
             if (++tikSu % 60 == 0 && !Bang.kyeojim && !Haengsa.dolgo) Thread { if (Haengsa.nameum(this@ByodActivity) || GamchumDaegi.mokrok(this@ByodActivity).isNotEmpty() || MudaeNokhwa.nameum(this@ByodActivity)) Haengsa.sijak(this@ByodActivity, false) }.start()   // 1.5.0 감출 인터넷 녹음도, 1.9.0 (261024-B17) 무대 영상 녹화 조각도
+            if (tikSu % 10 == 3 && !Bang.kyeojim && Haengsa.anKkeutnam(this@ByodActivity)) Haengsa.anKkeutnanMaegam(this@ByodActivity)   // 1.16.5 방송 끝 없이 꺼진 지난 방송 — 10초마다 플에 붙었는지 보고 마감
             if (tikSu % 60 == 30 && !Bang.kyeojim) { val app = applicationContext; Thread { if (HyeonjangSeobeo.galNameum(app)) HyeonjangSeobeo.galOlligiDwi(app) }.start() }   // 1.9.0 (261024-B17) 갈래 2·3 녹음도 1분마다 다시 올려 봄
             h.postDelayed(this, 1000)
         }
@@ -771,6 +772,7 @@ class ByodActivity : Activity() {
             h.post {
                 songchulDanchu.isEnabled = true
                 if (ok) {
+                    if (!sae) Gidarim.meomchumCheoeum()   // 1.16.5 멈추면 기다림 안내를 처음부터
                     Bang.songchul = sae
                     if (sae) Bang.inteonetKyeogi?.invoke()
                     malhagi(if (sae) "송출을 시작했습니다. 대기 음악이 꺼지고 현장과 인터넷으로 나갑니다." else "송출을 멈추었습니다. 현장 듣기 화면에는 대기 음악이 나갑니다.")

@@ -144,12 +144,32 @@ class GyoyukActivity : Activity() {
         }
     }
 
+    // 1.16.5 (261116-B37, 새방클, 대표님 지시 261116 「설정에서 켜고 돌아오면 하던 화면으로」) 설정을 이 화면 위에 열어(새 작업으로 열지 않음)
+    // 뒤로 가기 한 번이면 이 화면으로 바로 돌아오고, 돌아오면 허락이 켜졌는지 소리로 알림
+    @Volatile private var seoljeongGam = false
     private fun seoljeongYeolgi() {
+        seoljeongGam = true
         try {
-            startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.fromParts("package", packageName, null)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+            startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.fromParts("package", packageName, null)))
         } catch (_: Exception) {
-            try { startActivity(android.content.Intent(android.provider.Settings.ACTION_SETTINGS)) } catch (_: Exception) { }
+            try { startActivity(android.content.Intent(android.provider.Settings.ACTION_SETTINGS)) } catch (_: Exception) { seoljeongGam = false }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (!seoljeongGam) return
+        seoljeongGam = false
+        val mic = itda(Manifest.permission.RECORD_AUDIO)
+        val cam = !kameraPilyo || itda(Manifest.permission.CAMERA)
+        Girok.namgi("seoljeong_doraom", mapOf("mic" to mic, "cam" to cam))
+        val mal = when {
+            mic && cam -> "설정에서 돌아왔습니다. " + (if (kameraPilyo) "마이크와 카메라" else "마이크") + " 허락이 켜졌습니다. 하던 화면을 새로 엽니다."
+            mic -> "설정에서 돌아왔습니다. 마이크는 켜졌고 카메라는 아직 꺼져 있습니다. 소리만 담깁니다."
+            else -> "설정에서 돌아왔습니다. 마이크 허락이 아직 꺼져 있습니다. 설정 열기를 다시 누르고 권한에서 마이크를 허용해 주십시오."
+        }
+        web.postDelayed({ try { web.announceForAccessibility(mal) } catch (_: Exception) { } }, 700)
+        if (mic && !nokhwaJung) try { web.reload() } catch (_: Exception) { }   // 허락을 새로 받으려면 화면을 새로 엶(적어 둔 교육 제목은 화면이 30분 안이면 되살림)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {

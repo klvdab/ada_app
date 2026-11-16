@@ -68,8 +68,8 @@ final class InteonetBonaegi {
             self.flintBangsik = true; self.cell = true   // 1.7.0 두 방식 모두 현장 녹음이 다시 듣기에 올라가므로 감춤 대기에 넣음(올라간 것을 확인한 뒤에만 감춤), 아이피타임 와이파이에도 인터넷이 없으므로 휴대전화망 먼저(안 되면 바꿈)
             self.silpae = 0; self.bonaenCho = 0; self.moum = Data(); self.cheot = true
             self.yeolgiTtae = .distantPast
-            // 1.17.0 영상도 함께 — 무대 영상 녹화(카메라를 따로 씀)가 꺼져 있을 때만
-            self.yeongsangWonham = !YeongsangNokhwa.kyeojim
+            // 1.17.0 영상도 함께. 1.17.2 무대 영상 녹화를 켜 두었어도 — 인터넷 영상 방이 열리면 카메라를 넘겨받고, 끊기면 2초 뒤 돌려줌
+            self.yeongsangWonham = true
             self.yeongsang = self.yeongsangWonham && InteonetYeongsang.heorak
             self.jogak = Data()
             InteonetYeongsang.shared.jogakBatgi = { [weak self] d in self?.q.async { self?.jogakDeohagi(d) } }
@@ -156,13 +156,19 @@ final class InteonetBonaegi {
                 self.tok = j?["tok"] as? String ?? tk
                 self.yeollim = true; self.cheot = true; self.silpae = 0; self.yeollinTtae = Date()
                 self.moum = self.moum.suffix(InteonetBonaegi.RATE)   // 밀린 것은 1초만 남김
-                if ys { self.moum = Data(); self.jogak = Data(); InteonetYeongsang.shared.kyeogi() }   // 1.17.0 머리 조각부터 새로
+                if ys {   // 1.17.0 머리 조각부터 새로. 1.17.2 무대 녹화 중이면 카메라를 먼저 넘겨받음
+                    self.moum = Data(); self.jogak = Data()
+                    if YeongsangNokhwa.kyeojim {
+                        YeongsangNokhwa.shared.kameraNeomgigi { self.q.async { if self.dolgo && self.yeongsang && self.yeollim { InteonetYeongsang.shared.kyeogi() } } }
+                    } else { InteonetYeongsang.shared.kyeogi() }
+                }
                 self.allim(self.nagamMal())
             } else if code == 403 {
                 self.geobu = true; self.moum = Data()
                 self.allim("인터넷 방송: 이 전화번호가 협회 현장영상해설사 명단에 없어 인터넷으로는 나가지 않습니다. BYOD 방송은 그대로 나갑니다.")
             } else {
                 self.silpae += 1
+                if ys && YeongsangNokhwa.kyeojim && self.silpae >= 2 { self.soriManeuro("인터넷 영상 방을 열지 못했습니다."); return }   // 1.17.2 카메라는 무대 녹화에
                 if self.silpae >= 2 { self.cell.toggle(); self.silpae = 0 }
                 self.allim("인터넷 방송: 인터넷에 닿지 않습니다. 저절로 다시 시도합니다. BYOD 방송은 그대로 나갑니다.")
             }
@@ -200,9 +206,19 @@ final class InteonetBonaegi {
                 self.allim("인터넷 방송: 중계가 다시 켜져 방을 새로 엽니다.")
             } else {
                 self.silpae += 1
+                if ys && YeongsangNokhwa.kyeojim { self.soriManeuro("인터넷이 끊겼습니다."); return }   // 1.17.2 무대 녹화로 카메라를 돌려줌
                 if self.silpae >= 3 { self.cell.toggle(); self.silpae = 0 }
                 self.allim("인터넷 방송: 인터넷에 닿지 않습니다. 저절로 다시 시도합니다. BYOD 방송은 그대로 나갑니다.")
             }
+        }
+    }
+
+    /// 1.17.2 영상 방이 닫히면 2초 뒤 무대 영상 녹화에 카메라를 돌려줌(그사이 다시 영상 방이 열렸으면 두기)
+    private func kameraDollyeojugi() {
+        guard YeongsangNokhwa.kyeojim else { return }
+        q.asyncAfter(deadline: .now() + 2) {
+            if self.dolgo && self.yeongsang && self.yeollim { return }
+            YeongsangNokhwa.shared.kameraDoragagi()
         }
     }
 
@@ -226,11 +242,12 @@ final class InteonetBonaegi {
         if yeollim { let s = sid, t = tok; yocheong("GET", "/datgi?sid=\(s)&tok=\(t)", nil) { _, _ in } }
         yeongsang = false; yeollim = false; jogak = Data(); moum = Data(); bonaenCho = 0; yeolgiTtae = .distantPast
         allim("인터넷 방송: " + mal + " 지금은 소리만 보냅니다. 화면을 켜 두시면 다시 영상으로 보냅니다.")
+        kameraDollyeojugi()   // 1.17.2
     }
 
     /// 화면이 돌아왔거나 카메라 허락을 받았을 때 — 다시 영상으로
     private func yeongsangDasi() {
-        guard dolgo, !geobu, yeongsangWonham, !yeongsang, InteonetYeongsang.heorak, !YeongsangNokhwa.kyeojim else { return }
+        guard dolgo, !geobu, yeongsangWonham, !yeongsang, InteonetYeongsang.heorak else { return }   // 1.17.2 무대 녹화 중이어도(방이 열리면 카메라를 넘겨받음)
         if yeollim {
             let s = sid, t = tok, nameun = moum, cheot = self.cheot
             yocheong("POST", "/jogak?sid=\(s)&tok=\(t)", cheot ? InteonetBonaegi.wavMeori() + nameun : nameun) { _, _ in

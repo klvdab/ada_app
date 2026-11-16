@@ -66,8 +66,29 @@ final class SeoljeongYeolgi: NSObject, WKScriptMessageHandler {
     static let shared = SeoljeongYeolgi()
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         ByodGirok.shared.namgi("seoljeong_yeolgi", ["mu": (message.body as? String) ?? ""])
+        SeoljeongDoragagi.gagi()
+    }
+}
+
+/// 1.17.2 (261116-BI28, 새방클, 대표님 지시 261116 「설정에서 켜고 돌아오면 하던 화면으로」) 아이폰은 설정에서 허락을 바꾸면 앱을 껐다 켬 —
+/// 설정을 열 때 어느 화면이었는지 적어 두고, 15분 안에 앱이 다시 켜지면 그 화면을 곧바로 엶(교육 녹화·인터넷 방송·TV해설방송)
+enum SeoljeongDoragagi {
+    static var jigeum = ""   // 지금 보고 있는 화면(gyoyuk·live·tv)
+    static func gagi() {
+        let d = UserDefaults.standard
+        d.set(jigeum, forKey: "seoljeong_hwamyeon"); d.set(Date().timeIntervalSince1970, forKey: "seoljeong_ttae")
         if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) }
     }
+    /// 앱이 켜질 때 한 번 — 15분 안에 설정에 다녀왔으면 그 화면(한 번 쓰면 지움)
+    static func doraon() -> Hwamyeon? {
+        let d = UserDefaults.standard
+        let hw = d.string(forKey: "seoljeong_hwamyeon") ?? "", t = d.double(forKey: "seoljeong_ttae")
+        d.removeObject(forKey: "seoljeong_hwamyeon"); d.removeObject(forKey: "seoljeong_ttae")
+        guard Date().timeIntervalSince1970 - t < 15 * 60 else { return nil }
+        ByodGirok.shared.namgi("seoljeong_doraom", ["hwamyeon": hw])
+        switch hw { case "gyoyuk": return .gyoyuk; case "live": return .live; case "tv": return .tv; default: return nil }
+    }
+    static let DORAOGI = " 켜신 뒤 화면 맨 왼쪽 위의 LVD 송출을 누르시면 이 화면으로 돌아옵니다."
 }
 
 /// 1.17.1 (261116) 카메라·마이크 허락 살피기 — 처음이면 앱이 먼저 묻고, 꺼져 있으면 무엇이 꺼졌는지 알리고 「설정 열기」를 내놓음.
@@ -103,7 +124,7 @@ struct GyoyukView: View {
             Danchu(geul: "뒤로") { mutgi = true }
             GyoyukPan(juso: juso)
                 .alert("허락이 꺼져 있습니다", isPresented: $heorakBoim) {   // 1.17.1
-                    Button("설정 열기") { ByodGirok.shared.namgi("seoljeong_yeolgi", ["mu": "alrim"]); if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) } }
+                    Button("설정 열기") { ByodGirok.shared.namgi("seoljeong_yeolgi", ["mu": "alrim"]); SeoljeongDoragagi.gagi() }
                     Button("그대로 쓰기", role: .cancel) { }
                 } message: { Text(heorakGeul) }
             Danchu(geul: "뒤로") { mutgi = true }
@@ -112,17 +133,18 @@ struct GyoyukView: View {
         .accessibilityAction(.escape) { mutgi = true }
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true; ByodGirok.shared.namgi("gyoyuk_yeolgi", ["hwamyeon": jemok])    // 녹화하는 동안 화면이 꺼지지 않게
+            SeoljeongDoragagi.jigeum = juso == GyoyukPan.LIVE ? "live" : (juso == GyoyukPan.TV ? "tv" : "gyoyuk")   // 1.17.2
             HeorakSalpim.salpigi(kamera: kamera) { k in   // 1.17.1 마이크·카메라 허락 살피기
                 guard !k.isEmpty else { return }
                 if k.contains("마이크") {
-                    heorakGeul = "이 폰에서 LVD 송출의 " + k.joined(separator: "와 ") + " 허락이 꺼져 있어 소리를 받을 수 없습니다. 설정 열기를 누르고 " + k.joined(separator: "와 ") + "를 켠 뒤 돌아와 주십시오."
+                    heorakGeul = "이 폰에서 LVD 송출의 " + k.joined(separator: "와 ") + " 허락이 꺼져 있어 소리를 받을 수 없습니다. 설정 열기를 누르고 " + k.joined(separator: "와 ") + "를 켜 주십시오." + SeoljeongDoragagi.DORAOGI
                 } else {
-                    heorakGeul = "이 폰에서 LVD 송출의 카메라 허락이 꺼져 있어 영상은 담기지 않고 소리만 녹음됩니다. 영상도 담으시려면 설정 열기를 누르고 카메라를 켠 뒤 돌아와 주십시오."
+                    heorakGeul = "이 폰에서 LVD 송출의 카메라 허락이 꺼져 있어 영상은 담기지 않고 소리만 녹음됩니다. 영상도 담으시려면 설정 열기를 누르고 카메라를 켜 주십시오." + SeoljeongDoragagi.DORAOGI
                 }
                 heorakBoim = true
             }
         }
-        .onDisappear { UIApplication.shared.isIdleTimerDisabled = false; ByodGirok.shared.namgi("gyoyuk_datgi", ["hwamyeon": jemok]) }
+        .onDisappear { UIApplication.shared.isIdleTimerDisabled = false; SeoljeongDoragagi.jigeum = ""; ByodGirok.shared.namgi("gyoyuk_datgi", ["hwamyeon": jemok]) }
         .alert(jemok + "에서 나가기", isPresented: $mutgi) {
             Button("나가기", role: .destructive) { dwiro() }
             Button("머무르기", role: .cancel) { }

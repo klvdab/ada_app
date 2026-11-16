@@ -160,6 +160,7 @@ final class FlintBonaegi {
             self.gigiIreum = nm.isEmpty ? "아이폰" : nm
             self.dolgo = true
             self.neom = false; self.buteotda = false   // 1.16.2
+            self.girokSangtae = ""   // 1.17.2 방송마다 첫 붙음을 남김
             self.hyeon = Flint.hyeonPon
             self.yseq = -1
             self.butgi()
@@ -225,6 +226,15 @@ final class FlintBonaegi {
         }
     }
 
+    // 1.17.2 (261116-BI28, 새방클, 대표님 승인 261116) 송출 앱이 플에 붙었는지·거절당했는지를 이용 기록에 남김(바뀔 때만, 2초마다 다시 붙어도 쌓이지 않게) —
+    // 11-16 녹음이 통째로 안 남았을 때 까닭을 찾을 길이 없었음
+    private var girokSangtae = ""
+    private func butgiGirok(_ sangtae: String, _ mal: String = "") {
+        guard sangtae != girokSangtae else { return }
+        girokSangtae = sangtae
+        ByodGirok.shared.namgi("flint_" + sangtae, ["mal": mal, "hyeon": hyeon, "songchul": Bang.shared.songchul])
+    }
+
     private func butgi() {
         guard dolgo else { return }
         let pm = NWParameters.tcp; pm.prohibitedInterfaceTypes = [.cellular]   // 1.13.0 소리가 이동통신으로 새지 않게
@@ -252,10 +262,12 @@ final class FlintBonaegi {
                             s.butum = true
                             if !s.hyeon { s.buteotda = true }   // 1.16.2
                             s.jamgeum.lock(); s._bonaenda = true; s.jamgeum.unlock()
+                            s.butgiGirok("butum", t.trimmingCharacters(in: .whitespacesAndNewlines))   // 1.17.2
                             Bang.shared.juge { b in if b.jalmot.hasPrefix("공유기") { b.jalmot = "" } }
                         } else if t.hasPrefix("BAPPEUM") {
                             // 1.16.2 (261106-BI22, 이사장님 승인) 다른 기기가 방송 중 — 앞서 보내던 기기면 교대된 것이니 멈추고, 새로 시작하면 넘겨받을지 물음
                             let nm = String(t.dropFirst(7)).trimmingCharacters(in: .whitespacesAndNewlines)
+                            s.butgiGirok("geojeol", "다른 기기 방송 중: " + nm)   // 1.17.2
                             s.con?.stateUpdateHandler = nil
                             s.con?.cancel(); s.con = nil
                             let gyodae = s.buteotda
@@ -268,12 +280,13 @@ final class FlintBonaegi {
                                 }
                             }
                         } else {
+                            s.butgiGirok("geojeol", e.map { "\($0)" } ?? String(t.prefix(40)))   // 1.17.2
                             s.kkeunkim("공유기: 방송 서버가 이 아이폰을 받지 않습니다. 더 보기의 플린트 2 준비하기를 다시 하십시오.")
                         }
                     }
                 }
             case .failed, .waiting:
-                s.q.async { s.kkeunkim("공유기: 방송 서버에 닿지 않습니다. 이 아이폰을 와이파이 \(Flint.SSID) 에 붙이고, 처음 쓰는 공유기면 안드로이드 LVD 송출 앱에서 플린트 2 준비하기를 하십시오.") }
+                s.q.async { s.butgiGirok("mot_dateum", "\(st)"); s.kkeunkim("공유기: 방송 서버에 닿지 않습니다. 이 아이폰을 와이파이 \(Flint.SSID) 에 붙이고, 처음 쓰는 공유기면 안드로이드 LVD 송출 앱에서 플린트 2 준비하기를 하십시오.") }
             default: break
             }
         }

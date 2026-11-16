@@ -130,6 +130,34 @@ object Haengsa {
     /** 아직 배프에 올리지 못한 것이 있는가 */
     fun nameum(ctx: Context): Boolean = mokrok(ctx).any { !it.olim }
 
+    // 1.16.5 (261116-B37, 새방클, 대표님 승인 261116) 「방송 끝」 없이 앱이 꺼졌을 때(앱을 닫거나 폰이 앱을 정리함) —
+    // 다음에 앱을 켜고 플 와이파이에 붙으면 앱이 지난 방송을 마감하고, 녹음을 받아 다시 듣기에 올린 뒤 소리로 알림.
+    // 다른 기기나 수신기가 지금 방송 중이면 그 방송을 끊지 않게 마감하지 않음(받을 것만 받음)
+    fun anKkeutnam(ctx: Context): Boolean = ctx.getSharedPreferences("byod", Context.MODE_PRIVATE).getBoolean("bang_an_kkeutnam", false)
+    fun anKkeutnam(ctx: Context, v: Boolean) { ctx.getSharedPreferences("byod", Context.MODE_PRIVATE).edit().putBoolean("bang_an_kkeutnam", v).apply() }
+    @Volatile private var maegamSalpim = false
+    fun anKkeutnanMaegam(ctx: Context) {
+        if (maegamSalpim || Bang.kyeojim || dolgo || !anKkeutnam(ctx)) return
+        maegamSalpim = true
+        val app = ctx.applicationContext
+        Thread {
+            try {
+                val t = Flint.mutgi(app, "/status")
+                if (t != null && !Bang.kyeojim && anKkeutnam(app)) {   // 플 와이파이가 아니면 다음에 다시
+                    val j = org.json.JSONObject(t)
+                    anKkeutnam(app, false)
+                    val bonaem = j.optString("bonaem", ""); val haengsa = j.optString("haengsa", "")
+                    val maegam = bonaem.isEmpty() && haengsa.isNotEmpty()
+                    Girok.namgi("an_kkeutnam", mapOf("haengsa" to haengsa, "bonaem" to bonaem, "maegam" to maegam))
+                    mal(if (maegam) "지난 방송이 방송 끝 없이 꺼져 있었습니다. 공유기의 행사를 마감하고 녹음을 받아 다시 듣기에 올립니다."
+                        else "지난 방송이 방송 끝 없이 꺼져 있었습니다. 공유기에 남은 녹음을 받아 다시 듣기에 올립니다.")
+                    sijak(app, maegam)
+                }
+            } catch (_: Exception) {
+            } finally { maegamSalpim = false }
+        }.start()
+    }
+
     /** 방송을 멈춘 뒤 부름 — 마감·받기·올리기를 뒤에서 */
     fun sijak(ctx: Context, maegam: Boolean) {
         if (dolgo) return

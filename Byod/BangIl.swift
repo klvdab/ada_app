@@ -83,8 +83,8 @@ final class BangIl {
         let hy = Flint.hyeonPon   // 1.14.0 무대 현장음 폰이면 소리만 공유기로
         b.songchul = false; b.hyeonIssum = false; b.seokkimBatneun = false
         let so = Sori { [weak self] d in self?.soriTtae = Date().timeIntervalSince1970; FlintBonaegi.shared.neoki(d)
-            // 1.14.0 인터넷은 송출 시작 뒤에만. 공유기가 섞은 소리를 보내는 동안은 그쪽으로, 송출을 멈추면 조용한 소리로
-            if !hy && !Bang.shared.seokkimBatneun { InteonetBonaegi.shared.neoki(Bang.shared.songchul ? d : Data(repeating: 0xFF, count: d.count)) } }   // 1.5.0 인터넷 방송에도 같은 소리
+            // 1.14.0 인터넷은 송출 시작 뒤에만. 공유기가 섞은 소리를 보내는 동안은 그쪽으로, 송출을 멈추면 1.17.2 기다림 안내로(빈 소리 대신)
+            if !hy && !Bang.shared.seokkimBatneun { InteonetBonaegi.shared.neoki(Bang.shared.songchul ? d : Gidarim.meomchum(d.count)) } }   // 1.5.0 인터넷 방송에도 같은 소리
         so.opusBatgi = { p in FlintBonaegi.shared.neokiOpus(p) }   // 1.10.0 오푸스(시험) — 공유기 1.5.0 이상이고 켜 두셨을 때만 실제로 나감
         do {
             try so.sijak()
@@ -102,6 +102,7 @@ final class BangIl {
         soriTtae = Date().timeIntervalSince1970; jikim.sijak()   // 1.6.0
         girokSijak("flint")   // 1.8.0
         yeongsangSijak()   // 1.9.0 (261024-BI11) 무대 영상 녹화
+        BangIl.anKkeutnam = true   // 1.17.2 「방송 끝」을 누르면 지움 — 남아 있으면 다음에 켰을 때 지난 방송을 마감
         return "BYOD 방송을 시작했습니다. 해설 소리를 플린트 2 공유기로 보냅니다."
     }
 
@@ -185,7 +186,34 @@ final class BangIl {
                                       haeseolsa: (ud.string(forKey: "haeseolsa") ?? "").trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
+    // 1.17.2 (261116-BI28, 새방클, 대표님 승인 261116) 「방송 끝」 없이 앱이 꺼졌을 때(앱이 닫히거나 아이폰이 앱을 정리함) —
+    // 다음에 앱을 켜고 플 와이파이에 붙으면 앱이 지난 방송을 마감하고, 녹음을 받아 다시 듣기에 올린 뒤 소리로 알림.
+    // 다른 기기나 수신기가 지금 방송 중이면 그 방송을 끊지 않게 마감하지 않음(받을 것만 받음)
+    static var anKkeutnam: Bool {
+        get { UserDefaults.standard.bool(forKey: "bang_an_kkeutnam") }
+        set { UserDefaults.standard.set(newValue, forKey: "bang_an_kkeutnam") }
+    }
+    private var maegamSalpim = false
+    func anKkeutnanMaegam() {
+        guard BangIl.anKkeutnam, !maegamSalpim, !Bang.shared.kyeojim else { return }
+        maegamSalpim = true
+        Flint.mutgi("/status") { j in
+            DispatchQueue.main.async {
+                self.maegamSalpim = false
+                guard let j = j, BangIl.anKkeutnam, !Bang.shared.kyeojim else { return }   // 플 와이파이가 아니면 다음에 다시
+                BangIl.anKkeutnam = false
+                let bonaem = j["bonaem"] as? String ?? "", haengsa = j["haengsa"] as? String ?? ""
+                let maegam = bonaem.isEmpty && !haengsa.isEmpty
+                ByodGirok.shared.namgi("an_kkeutnam", ["haengsa": haengsa, "bonaem": bonaem, "maegam": maegam])
+                HaengsaOlligi.shared.allim(maegam ? "지난 방송이 방송 끝 없이 꺼져 있었습니다. 공유기의 행사를 마감하고 녹음을 받아 다시 듣기에 올립니다."
+                                                  : "지난 방송이 방송 끝 없이 꺼져 있었습니다. 공유기에 남은 녹음을 받아 다시 듣기에 올립니다.")
+                HaengsaOlligi.shared.sijak(maegam: maegam)
+            }
+        }
+    }
+
     func kkeugi() {
+        BangIl.anKkeutnam = false   // 1.17.2
         let b = Bang.shared
         YeongsangNokhwa.shared.kkeugi()   // 1.9.0 (261024-BI11) 무대 영상 녹화도 함께 멈춤
         b.keu = false

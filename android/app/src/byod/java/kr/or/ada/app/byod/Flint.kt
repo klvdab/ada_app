@@ -243,6 +243,15 @@ object Flint {
             }
         }
 
+        // 1.16.5 (261116-B37, 새방클, 대표님 승인 261116) 송출 앱이 플에 붙었는지·거절당했는지를 이용 기록에 남김(바뀔 때만, 2초마다 다시 붙어도 쌓이지 않게) —
+        // 11-16 녹음이 통째로 안 남았을 때 까닭을 찾을 길이 없었음
+        private var girokSangtae = ""
+        private fun butgiGirok(sangtae: String, mal: String = "") {
+            if (sangtae == girokSangtae) return
+            girokSangtae = sangtae
+            Girok.namgi("flint_" + sangtae, mapOf("mal" to mal.take(80), "hyeon" to hyeon, "songchul" to Bang.songchul))
+        }
+
         private fun dolgi() {
             var allyeotda = ""
             while (dolgo) {
@@ -268,6 +277,7 @@ object Flint {
                     // 1.16.1 (261106-B27, 이사장님 승인) 다른 기기가 방송 중 — 앞서 보내던 기기면 교대된 것이니 멈추고, 새로 시작하면 넘겨받을지 물음
                     if (dap.toString().startsWith("BAPPEUM")) {
                         val nm = dap.toString().removePrefix("BAPPEUM").trim()
+                        butgiGirok("geojeol", "다른 기기 방송 중: " + nm)   // 1.16.5
                         try { s.close() } catch (_: Exception) { }
                         if (buteotda) {
                             val ac = ctx.applicationContext
@@ -280,7 +290,8 @@ object Flint {
                         Bang.neomgyeoMul = ""
                         continue
                     }
-                    if (!dap.startsWith("OK")) throw IllegalStateException("열쇠")
+                    if (!dap.startsWith("OK")) { butgiGirok("geojeol", dap.toString().take(40)); throw IllegalStateException("열쇠") }   // 1.16.5
+                    butgiGirok("butum", dap.toString().trim())   // 1.16.5
                     if (!hyeon) buteotda = true   // 1.16.1
                     dap.trim().split(" ").filter { it.isNotEmpty() }.getOrNull(2)?.let { pdBeonho = it }   // 1.14.0
                     // 공유기 1.5.0 부터는 받아들이면 대답 끝에 「 2」를 붙임(OK 판 피디번호 2)
@@ -313,6 +324,7 @@ object Flint {
                     val m = if (mang(ctx) == null) "공유기: 플린트 2 와이파이(" + SSID + ")나 랜선에 붙지 않았습니다. 이 기기를 공유기에 붙이십시오."
                             else if (e.message == "열쇠") "공유기: 방송 서버가 이 기기를 받지 않습니다. 더 보기의 플린트 2 준비하기를 다시 하십시오."
                             else "공유기: 방송 서버에 닿지 않습니다. 공유기 전원을 확인하고, 처음 쓰는 공유기면 더 보기의 플린트 2 준비하기를 하십시오."
+                    if (e.message != "열쇠") butgiGirok("mot_dateum", (e.javaClass.simpleName + " " + (e.message ?: "")).trim())   // 1.16.5
                     if (m != allyeotda) { allyeotda = m; Bang.jalmot = m; Bang.allyeo() }
                 } finally {
                     try { sk?.close() } catch (_: Exception) { }

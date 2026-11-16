@@ -361,15 +361,26 @@ enum Gidarim {
     static func cheoeum() { jamgeum.lock(); jari = 0; jamgeum.unlock() }
     static func jogak(_ n: Int) -> Data {
         jamgeum.lock(); defer { jamgeum.unlock() }
+        return ppaegi(n, &jari)
+    }
+    // 1.17.2 (261116-BI28, 새방클, 대표님 승인 261116) 「송출 멈춤」 동안 인터넷으로 듣는 분께 빈 소리 대신 같은 기다림 안내.
+    // 통화 중 안내와 자리(jari)를 따로 두어 두 안내가 서로 끼어들지 않음(어느 쪽이든 하나만 나감)
+    private static var meomchumJari = 0
+    static func meomchumCheoeum() { jamgeum.lock(); meomchumJari = 0; jamgeum.unlock() }
+    static func meomchum(_ n: Int) -> Data {
+        jamgeum.lock(); defer { jamgeum.unlock() }
+        return ppaegi(n, &meomchumJari)
+    }
+    private static func ppaegi(_ n: Int, _ j: inout Int) -> Data {
         let s = [UInt8](sori)
         let gil = s.count + SWIM
         var out = [UInt8](repeating: 0xFF, count: n)
         for i in 0..<n {
-            let k = jari % gil
+            let k = j % gil
             if k < s.count { out[i] = s[k] }
-            jari += 1
+            j += 1
         }
-        if jari >= gil * 1000 { jari = 0 }
+        if j >= gil * 1000 { j = 0 }
         return Data(out)
     }
 }

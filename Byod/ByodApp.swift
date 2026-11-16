@@ -99,7 +99,7 @@ struct Kan: View {
 enum Hwamyeon { case cheot, doumal, jeopsok, haengsa, gyoyuk, live, tv, gwanQr, pdQr, flintJunbi }   // 1.11.0 pdQr 노트북에서 피디 화면 열기   // 1.4.0 gyoyuk 교육 녹화, 1.5.0 tv TV해설방송 하기, 1.9.0 gwanQr 관계자 붙이기 큐알
 
 struct RootView: View {
-    @State private var hwamyeon = Hwamyeon.cheot
+    @State private var hwamyeon = SeoljeongDoragagi.doraon() ?? Hwamyeon.cheot   // 1.17.2 설정에 다녀와 앱이 다시 켜졌으면 하던 화면으로
     var body: some View {
         ZStack {
             Saek.bada.ignoresSafeArea()
@@ -374,6 +374,7 @@ struct CheotView: View {
             // 1.3.0 배프에 아직 못 올린 행사가 있으면 1분마다 다시 올려 봄
             Self.tikSu += 1
             if Self.tikSu % 60 == 0 && !bang.kyeojim && (HaengsaOlligi.nameum || !GamchumDaegi.mokrok.isEmpty) { HaengsaOlligi.shared.sijak(maegam: false) }   // 1.5.0 감출 인터넷 녹음도
+            if Self.tikSu % 10 == 3 && !bang.kyeojim && BangIl.anKkeutnam { BangIl.shared.anKkeutnanMaegam() }   // 1.17.2 방송 끝 없이 꺼진 지난 방송 — 10초마다 플에 붙었는지 보고 마감
             // 1.9.0 (261024-BI11) 무대 영상 녹화 — 한 줄은 바뀔 때만 고침(읽어 주지는 않음, 문제는 녹화 쪽이 한 번 알림), 못 올린 영상은 1분마다 다시
             let yj = YeongsangNokhwa.shared.sangtaeMal
             if yj != yeongsangJul { yeongsangJul = yj }
@@ -636,6 +637,7 @@ struct CheotView: View {
         Flint.dasiMutgi("/cue?v=\(sae ? 1 : 0)&k=\(Flint.pdBeonho)") { j in
             DispatchQueue.main.async {
                 if j == nil { malhagi("공유기가 답하지 않아 송출을 바꾸지 못했습니다. 다시 눌러 주십시오."); return }
+                if !sae { Gidarim.meomchumCheoeum() }   // 1.17.2 멈추면 기다림 안내를 처음부터
                 songchulOn = sae
                 Bang.shared.songchul = sae
                 if sae { BangIl.shared.inteonetSijak() }

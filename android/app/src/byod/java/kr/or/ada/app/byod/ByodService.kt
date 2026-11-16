@@ -251,15 +251,15 @@ class ByodService : Service() {
         Bang.kyeojim = true
         Bang.sigakTtae = System.currentTimeMillis()
         MudaeNokhwa.sijak(this, "flint", "")   // 1.9.0 (261024-B17) 무대 영상 녹화 — 켜 두셨을 때만
-        val goyo = ByteArray(1600) { -1 }
         val so = Sori(this) { x -> soriTtae = System.currentTimeMillis(); b.neoki(x)
-            // 1.14.0 인터넷은 송출 시작 뒤에만. 공유기가 섞은 소리를 보내는 동안은 그쪽으로, 송출을 멈추면 조용한 소리로
-            if (!hy && !Bang.seokkimBatneun) Inteonet.neoki(if (Bang.songchul) x else if (x.size == goyo.size) goyo else ByteArray(x.size) { -1 }) }   // 1.5.0 인터넷 방송에도 같은 소리
+            // 1.14.0 인터넷은 송출 시작 뒤에만. 공유기가 섞은 소리를 보내는 동안은 그쪽으로, 송출을 멈추면 1.16.5 기다림 안내로(빈 소리 대신)
+            if (!hy && !Bang.seokkimBatneun) Inteonet.neoki(if (Bang.songchul) x else Gidarim.meomchum(this, x.size)) }   // 1.5.0 인터넷 방송에도 같은 소리
         so.opusBatgi = { op -> b.neokiOpus(op) }   // 1.10.0 (261026-B20) 오푸스(시험) — 공유기가 1.5.0 이상이고 켜 두셨을 때만 실제로 나감
         so.sijak()
         sori = so
         jikimSijak()   // 1.6.0
         Bang.gwanchal.add(gwan)
+        Haengsa.anKkeutnam(this, true)   // 1.16.5 「방송 끝」을 누르면 지움 — 남아 있으면 다음에 켰을 때 지난 방송을 마감
         // 1.14.0 인터넷 방송은 「송출 시작」을 누를 때 엶
         Bang.allyeo()
         girokSijak("flint")   // 1.8.0
@@ -285,6 +285,7 @@ class ByodService : Service() {
     }
 
     override fun onDestroy() {
+        Haengsa.anKkeutnam(this, false)   // 1.16.5 방송 끝으로 제대로 마침
         songchulH.removeCallbacks(songchulAllim)
         try { jikim?.meomchugi() } catch (_: Exception) { }; jikim = null   // 1.6.0
         songchulBonaegi(false)
