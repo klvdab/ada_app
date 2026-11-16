@@ -625,8 +625,12 @@ class DeutService : Service() {
         if (sae?.sid != Deut.bogiBang?.sid) { Deut.bogiBang = sae; Deut.allyeo() }
     }
 
+    // 2.11.2 (261116, 새방클) 인터넷 방송이 짧게 끊겼다 이어지기를 거듭해 늦어지면, 같은 방송에 다시 붙어 지금 나가는 데로 당김(아이폰 2.12.2와 같은 뜻)
+    private var danggin = 0L
+    private var danggimSid = ""
     private fun inteonetMal(b: Deut.InteonetBang, ap: String = "") {
         teunWho = b.who   // 2.11.1
+        if (b.sid == danggimSid && ap.isEmpty()) { danggimSid = ""; return }   // 2.11.2 당기려고 다시 붙은 것 — 같은 안내를 되풀이하지 않음
         Deut.bakkum(ap + "인터넷으로 " + (if (b.jemok.isEmpty()) "" else b.jemok + " ") + "현장영상해설을 들려 드립니다." + (if (b.who.isEmpty()) "" else " 현장영상해설사 " + b.who + "."), true)
     }
 
@@ -647,6 +651,7 @@ class DeutService : Service() {
             tongjiGochigi()
             var cho = 0
             var meomchum = 0
+            var neujeum = 0   // 2.11.2 듣는 중 소리가 멈췄던 초(그만큼 늦어짐)
             while (dolgo) {
                 swigi(1000); cho++
                 if (jamsi || tonghwaJung()) break
@@ -655,7 +660,14 @@ class DeutService : Service() {
                 if (Deut.goreun.isNotEmpty() && Deut.goreun != sid) break
                 if (Deut.bogiJung) break   // 2.5.0 영상으로 보기로 넘어감 — 소리는 쉼
                 meomchum = if (mp.isPlaying) 0 else meomchum + 1
+                if (!mp.isPlaying) neujeum++
                 if (meomchum > 10) break   // 10초 넘게 소리가 없으면 다시 붙음
+                // 2.11.2 짧은 끊김이 쌓여 8초 넘게 늦어졌으면 같은 방송에 다시 붙어 앞으로 당김(2분에 한 번까지, 안내 말 되풀이 없음)
+                if (neujeum >= 8 && mp.isPlaying && System.currentTimeMillis() - danggin > 120_000L) {
+                    danggin = System.currentTimeMillis(); danggimSid = sid; Deut.goreun = sid
+                    Girok.namgi("inteonet_danggim", mapOf("neujeum" to neujeum))
+                    break
+                }
                 if (cho % 10 == 0) {
                     // 행사장에 들어서면 현장 방송으로(더 빠름)
                     if (Hyeonjang.mang(this) != null && Hyeonjang.salpigi(this) != null) {

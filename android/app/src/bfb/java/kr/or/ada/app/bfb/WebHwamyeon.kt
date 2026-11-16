@@ -160,6 +160,7 @@ class WebHwamyeon : Activity() {
         mom.addView(web, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         mom.addView(dwiroDanchu(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         setContentView(mom)
+        try { web.clearCache(false) } catch (_: Exception) { }   // 2.11.2 (261116) 폰 저장본 말고 늘 새 화면
         web.loadUrl(intent.getStringExtra("juso") ?: BangsongActivity.BAEP)
         hd.postDelayed(salpim, 1000)
     }
