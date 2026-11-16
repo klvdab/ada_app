@@ -213,7 +213,7 @@ class GyoyukActivity : Activity() {
     }
 
     override fun onStart() { super.onStart(); boinda = true; majimak = System.currentTimeMillis() }
-    override fun onStop() { boinda = false; super.onStop() }   // 1.6.0 화면이 잠기거나 앱이 뒤로 가면 녹화가 멈출 수 있어 지킴이가 알림
+    override fun onStop() { boinda = false; try { android.webkit.CookieManager.getInstance().flush() } catch (_: Exception) { }; super.onStop() }   // 1.16.5 로그인 쿠키를 곧바로 폰에 써 둠(로그아웃할 때까지 기억)   // 1.6.0 화면이 잠기거나 앱이 뒤로 가면 녹화가 멈출 수 있어 지킴이가 알림
 
     override fun onDestroy() {
         Girok.namgi("gyoyuk_datgi", mapOf("hwamyeon" to jemok))   // 1.16.5
