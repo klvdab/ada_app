@@ -49,6 +49,8 @@ class GyoyukActivity : Activity() {
     @Volatile private var jeonSangtae = ""
     inner class Dari {
         // 1.16.5 (261109, 새방클) 녹화 화면 안내 말·오류를 이용 기록에(숫자는 화면 쪽에서 #로 가림)
+        // 1.17.1 (261116, 새방클, 대표님 지시) 화면의 「설정 열기」 단추 → 이 앱의 설정(권한) 화면을 곧장 엶
+        @JavascriptInterface fun seoljeong(mu: String) { Girok.namgi("seoljeong_yeolgi", mapOf("mu" to mu.take(10))); runOnUiThread { seoljeongYeolgi() } }
         @JavascriptInterface fun girok(s: String) { Girok.namgi("gyoyuk_hwamyeon", mapOf("mal" to s.take(200))) }
         @JavascriptInterface fun nokhwa(s: String) {
             majimak = System.currentTimeMillis()
@@ -99,8 +101,10 @@ class GyoyukActivity : Activity() {
             webChromeClient = object : WebChromeClient() {
                 override fun onPermissionRequest(request: PermissionRequest) {
                     runOnUiThread {
-                        if (heorakIssum()) request.grant(request.resources)
-                        else { gidarim = request; heorakMutgi() }
+                        // 1.17.1 화면이 청한 것(마이크·카메라)만 따져, 허락된 것은 내주고 없는 것만 묻습니다.
+                        //   전에는 카메라·마이크 둘 다 있어야만 내주어, 카메라 하나가 꺼져도 「소리만」 녹화까지 막혔음.
+                        if (eopneunGeot(request.resources).isEmpty()) request.grant(request.resources)
+                        else { gidarim = request; heorakMutgi(request.resources) }
                     }
                 }
             }
@@ -114,26 +118,63 @@ class GyoyukActivity : Activity() {
         mom.addView(web, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         mom.addView(dwiroDanchu(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         setContentView(mom)
-        if (!heorakIssum()) heorakMutgi()
+        if (!heorakIssum()) heorakMutgi(null)
         Girok.namgi("gyoyuk_yeolgi", mapOf("hwamyeon" to jemok))   // 1.16.5
+        try { web.clearCache(true) } catch (_: Exception) { }   // 1.16.4 (261116) 폰이 담아 둔 옛 화면 말고 늘 새 화면을 받음
         web.loadUrl(intent.getStringExtra("juso") ?: JUSO)
     }
 
-    private fun heorakIssum(): Boolean =
-        Build.VERSION.SDK_INT < 23 ||
-        (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED &&
-         checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
+    private fun itda(p: String): Boolean = Build.VERSION.SDK_INT < 23 || checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED
+    private val kameraPilyo get() = intent.getStringExtra("juso") != TV   // TV해설방송은 소리만
+    private fun heorakIssum(): Boolean = itda(Manifest.permission.RECORD_AUDIO) && (!kameraPilyo || itda(Manifest.permission.CAMERA))
 
-    private fun heorakMutgi() {
-        if (Build.VERSION.SDK_INT >= 23) requestPermissions(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO), 31)
+    /** 화면이 청한 자원 가운데 앱 허락이 없는 것(안드로이드 권한 이름) */
+    private fun eopneunGeot(res: Array<String>?): List<String> {
+        val l = mutableListOf<String>()
+        val r = res ?: arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE, PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+        if (r.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE) && !itda(Manifest.permission.RECORD_AUDIO)) l.add(Manifest.permission.RECORD_AUDIO)
+        if (r.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE) && (res != null || kameraPilyo) && !itda(Manifest.permission.CAMERA)) l.add(Manifest.permission.CAMERA)
+        return l
+    }
+
+    private fun heorakMutgi(res: Array<String>?) {
+        if (Build.VERSION.SDK_INT >= 23) {
+            val l = eopneunGeot(res)
+            if (l.isNotEmpty()) requestPermissions(l.toTypedArray(), 31)
+        }
+    }
+
+    private fun seoljeongYeolgi() {
+        try {
+            startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.fromParts("package", packageName, null)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: Exception) {
+            try { startActivity(android.content.Intent(android.provider.Settings.ACTION_SETTINGS)) } catch (_: Exception) { }
+        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode != 31) return
         val r = gidarim; gidarim = null
-        if (r != null) { if (heorakIssum()) r.grant(r.resources) else r.deny() }
-        if (!heorakIssum()) web.announceForAccessibility("카메라와 마이크 허락이 없으면 녹화할 수 없습니다. 폰 설정의 애플리케이션, LVD 송출, 권한에서 카메라와 마이크를 허용해 주십시오.")
+        if (r != null) {
+            // 1.17.1 허락된 것만이라도 내줌 — 카메라가 없으면 화면이 소리만으로 이어 감
+            val juldeot = r.resources.filter { (it == PermissionRequest.RESOURCE_AUDIO_CAPTURE && itda(Manifest.permission.RECORD_AUDIO)) || (it == PermissionRequest.RESOURCE_VIDEO_CAPTURE && itda(Manifest.permission.CAMERA)) || (it != PermissionRequest.RESOURCE_AUDIO_CAPTURE && it != PermissionRequest.RESOURCE_VIDEO_CAPTURE) }
+            if (juldeot.isNotEmpty()) r.grant(juldeot.toTypedArray()) else r.deny()
+        }
+        val mic = itda(Manifest.permission.RECORD_AUDIO)
+        val cam = !kameraPilyo || itda(Manifest.permission.CAMERA)
+        Girok.namgi("gyoyuk_heorak", mapOf("mic" to (if (mic) "heorak" else "geojeol"), "cam" to (if (itda(Manifest.permission.CAMERA)) "heorak" else "geojeol")))
+        if (!mic || !cam) {
+            val kkeojin = listOfNotNull(if (!mic) "마이크" else null, if (!cam) "카메라" else null).joinToString("와 ")
+            val mal = if (!mic) "이 폰에서 LVD 송출의 $kkeojin 허락이 꺼져 있어 소리를 받을 수 없습니다. 설정 열기를 누르고 권한에서 ${kkeojin}를 허용한 뒤 돌아와 주십시오."
+                      else "이 폰에서 LVD 송출의 카메라 허락이 꺼져 있어 영상은 담기지 않고 소리만 녹음됩니다. 영상도 담으시려면 설정 열기를 누르고 권한에서 카메라를 허용한 뒤 돌아와 주십시오."
+            AlertDialog.Builder(this)
+                .setTitle("허락이 꺼져 있습니다")
+                .setMessage(mal)
+                .setPositiveButton("설정 열기") { _, _ -> Girok.namgi("seoljeong_yeolgi", mapOf("mu" to "alrim")); seoljeongYeolgi() }
+                .setNegativeButton("그대로 쓰기", null)
+                .show()
+        }
     }
 
     /** 녹화가 실수로 끊기지 않게 한 번 더 물음 */
