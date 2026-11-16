@@ -494,7 +494,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
                 ap = "그 현장영상해설 방송이 끝났습니다. "
             }
             if l.isEmpty {
-                s.gorgi = []
+                if !s.gorgi.isEmpty { s.gorgi = [] }   // 2.12.2 10초마다 같은 빈 목록을 다시 넣어 화면을 다시 그리던 것(보이스오버 방해)을 막음
                 s.inetDaegiKyeogi()   // 2.12.1
                 s.bakkum(ap + "지금 나가는 현장영상해설이 없습니다. 방송이 열리거나 행사장에 들어서시면 저절로 들려 드립니다." + ((s.waeNatmal.isEmpty || s.waeNatmal == "wifi_eopseum") ? "" : " 행사장이시면, " + s.waeMal), malhal: true)
             } else if l.count == 1 {
@@ -584,12 +584,21 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
         p.playImmediately(atRate: 1)
     }
 
-    /// 2.12.1 받아 둔 소리가 지금 들리는 곳보다 6초 넘게 앞서 있으면(그만큼 늦게 듣는 중) 받아 둔 끝 1.5초 앞으로 당김
+    /// 2.12.2 (261116, 이사장님 11-16 0시 45분 시험: 10~15초마다 소리가 잠깐씩 끊김) — 앞으로 당기기를 고침
+    ///   2.12.1 은 6초 넘게 늦으면 곧바로 「앞으로 감기」를 했는데, 중계는 감기를 받지 않아 재생기가 그때마다 새로 붙어 소리가 끊겼음
+    ///   (보내는 쪽이 조각을 묶어 보내 소리가 몰려 들어오면 늦은 것처럼 보여 10초마다 되풀이됨)
+    ///   이제는 감지 않고, 15초 넘게 늦은 것이 20초(두 번) 이어질 때만 한 번 새로 붙어 지금 나가는 곳부터 들음. 새로 붙은 뒤 2분은 다시 하지 않음
+    private var neujeumSu = 0
+    private var danggin = Date.distantPast
     private func avpDanggigi() {
-        guard let p = avp, let it = p.currentItem, let r = it.loadedTimeRanges.last?.timeRangeValue else { return }
+        guard let p = avp, let it = p.currentItem, let r = it.loadedTimeRanges.last?.timeRangeValue,
+              case .inteonet(let sid) = gil else { neujeumSu = 0; return }
         let kkeut = CMTimeGetSeconds(CMTimeRangeGetEnd(r)), jigeum = CMTimeGetSeconds(p.currentTime())
-        guard kkeut.isFinite, jigeum.isFinite, kkeut - jigeum > 6 else { return }
-        p.seek(to: CMTime(seconds: kkeut - 1.5, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: CMTime(seconds: 0.5, preferredTimescale: 600)) { _ in }
+        guard kkeut.isFinite, jigeum.isFinite, kkeut - jigeum > 15 else { neujeumSu = 0; return }
+        neujeumSu += 1
+        guard neujeumSu >= 2, Date().timeIntervalSince(danggin) > 120 else { return }
+        neujeumSu = 0; danggin = Date()
+        avpTeulgi(sid)
     }
 
     /// 2.12.1 인터넷으로 들을 때 지금 나가는 방송이 없으면 대기 음악 — 방송이 열리면 끔

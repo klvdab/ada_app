@@ -54,7 +54,7 @@ struct WebPan: UIViewRepresentable {
         w.isOpaque = false
         w.navigationDelegate = context.coordinator
         context.coordinator.web = w
-        BangsongsaMakgi.butigi(w) { if let u = URL(string: juso) { w.load(URLRequest(url: u)) } }   // 261109 방송사 채널 막기
+        BangsongsaMakgi.butigi(w) { if let u = URL(string: juso) { w.load(URLRequest(url: u, cachePolicy: .reloadIgnoringLocalCacheData)) } }   // 2.12.2 (261116) 폰 저장본 말고 늘 새 화면   // 261109 방송사 채널 막기
         return w
     }
     func updateUIView(_ uiView: WKWebView, context: Context) {}
