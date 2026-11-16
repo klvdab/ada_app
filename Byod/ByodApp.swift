@@ -110,7 +110,7 @@ struct RootView: View {
             case .haengsa: HaengsaView(dwiro: { hwamyeon = .cheot })   // 1.3.0
             case .gyoyuk: GyoyukView(dwiro: { hwamyeon = .cheot })   // 1.4.0
             case .live: GyoyukView(jemok: "인터넷 방송", juso: GyoyukPan.LIVE, dwiro: { hwamyeon = .cheot })   // 1.4.0, 1.5.0 이름
-            case .tv: GyoyukView(jemok: "TV해설방송", juso: GyoyukPan.TV, dwiro: { hwamyeon = .cheot })   // 1.5.0
+            case .tv: GyoyukView(jemok: "TV해설방송", juso: GyoyukPan.TV, kamera: false, dwiro: { hwamyeon = .cheot })   // 1.5.0
             case .gwanQr: GwanQrView(dwiro: { hwamyeon = .cheot })   // 1.9.0
             case .flintJunbi: FlintJunbiView(dwiro: { hwamyeon = .cheot })   // 1.16.0
             case .pdQr: PdQrView(dwiro: { hwamyeon = .cheot })   // 1.11.0
@@ -229,7 +229,8 @@ struct CheotView: View {
     @State private var hamkkeOn = InteonetBonaegi.hamkke   // 1.5.0
     @State private var keugiOn = JadongKeugi.on   // 1.9.2 소리 자동 맞춤
     @State private var opusOn = OpusSori.on   // 1.10.0 소리 방식 오푸스(시험)
-    @State private var tikSu = 0
+    // 1.17.1 (261116, 이사장님 「보이스오버가 이 앱에서는 유난히 말을 안 들어」) 1초 셈은 화면 상태가 아니게 — @State 로 두어 1초마다 첫 화면 전체를 다시 그려 보이스오버 손놀림을 방해했음
+    private static var tikSu = 0
     @State private var damgim = Jaryo.damgimMal
     @State private var jeomgeomGeul = ""
     @State private var jeomgeomBoim = false
@@ -371,8 +372,8 @@ struct CheotView: View {
             if meomchumMal && Date().timeIntervalSince(meomchumDaegi) > 5 { meomchumMal = false }
             st.gochigi(baro: false)
             // 1.3.0 배프에 아직 못 올린 행사가 있으면 1분마다 다시 올려 봄
-            tikSu += 1
-            if tikSu % 60 == 0 && !bang.kyeojim && (HaengsaOlligi.nameum || !GamchumDaegi.mokrok.isEmpty) { HaengsaOlligi.shared.sijak(maegam: false) }   // 1.5.0 감출 인터넷 녹음도
+            Self.tikSu += 1
+            if Self.tikSu % 60 == 0 && !bang.kyeojim && (HaengsaOlligi.nameum || !GamchumDaegi.mokrok.isEmpty) { HaengsaOlligi.shared.sijak(maegam: false) }   // 1.5.0 감출 인터넷 녹음도
             // 1.9.0 (261024-BI11) 무대 영상 녹화 — 한 줄은 바뀔 때만 고침(읽어 주지는 않음, 문제는 녹화 쪽이 한 번 알림), 못 올린 영상은 1분마다 다시
             let yj = YeongsangNokhwa.shared.sangtaeMal
             if yj != yeongsangJul { yeongsangJul = yj }
@@ -380,7 +381,7 @@ struct CheotView: View {
             if bp !== bogiPan { bogiPan = bp }
             let bb = YeongsangNokhwa.shared.bogiBanghyang
             if bb != bogiBanghyang { bogiBanghyang = bb }
-            if tikSu % 60 == 30 && !bang.kyeojim && YeongsangOlligi.nameum { YeongsangOlligi.shared.sijak() }
+            if Self.tikSu % 60 == 30 && !bang.kyeojim && YeongsangOlligi.nameum { YeongsangOlligi.shared.sijak() }
         }
         .alert("현장 점검", isPresented: $jeomgeomBoim) {
             Button("닫기", role: .cancel) { }

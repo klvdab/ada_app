@@ -61,20 +61,67 @@ final class GyoyukGirok: NSObject, WKScriptMessageHandler, WKNavigationDelegate 
     }
 }
 
+/// 1.17.1 (261116, 새방클, 대표님 지시 「막히면 알려 주고 그 자리에서 바로 고치러 갈 수 있게」) 화면의 「설정 열기」 단추 → 이 앱의 설정 화면을 곧장 엶(카메라·마이크 켜기)
+final class SeoljeongYeolgi: NSObject, WKScriptMessageHandler {
+    static let shared = SeoljeongYeolgi()
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        ByodGirok.shared.namgi("seoljeong_yeolgi", ["mu": (message.body as? String) ?? ""])
+        if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) }
+    }
+}
+
+/// 1.17.1 (261116) 카메라·마이크 허락 살피기 — 처음이면 앱이 먼저 묻고, 꺼져 있으면 무엇이 꺼졌는지 알리고 「설정 열기」를 내놓음.
+/// 11-14·11-16 센터용 아이폰에서 교육 녹화가 「허락 없음」으로 막혔는데 무엇을 켜야 하는지 아무 안내가 없었음.
+enum HeorakSalpim {
+    static func ireum(_ s: AVAuthorizationStatus) -> String {
+        switch s { case .authorized: return "heorak"; case .denied: return "geojeol"; case .restricted: return "jehan"; case .notDetermined: return "anmureum"; @unknown default: return "moreum" }
+    }
+    /// 다 묻고 난 뒤 꺼진 것 목록(마이크·카메라)을 돌려줌
+    static func salpigi(kamera: Bool = true, _ kkeut: @escaping (_ kkeojin: [String]) -> Void) {
+        let a = AVCaptureDevice.authorizationStatus(for: .audio)
+        if a == .notDetermined { AVCaptureDevice.requestAccess(for: .audio) { _ in DispatchQueue.main.async { salpigi(kamera: kamera, kkeut) } }; return }
+        let v = AVCaptureDevice.authorizationStatus(for: .video)
+        if kamera && v == .notDetermined { AVCaptureDevice.requestAccess(for: .video) { _ in DispatchQueue.main.async { salpigi(kamera: kamera, kkeut) } }; return }
+        ByodGirok.shared.namgi("gyoyuk_heorak", ["mic": ireum(a), "cam": ireum(v)])
+        var k: [String] = []
+        if a != .authorized { k.append("마이크") }
+        if kamera && v != .authorized { k.append("카메라") }
+        kkeut(k)
+    }
+}
+
 struct GyoyukView: View {
     var jemok = "현장영상해설교육 녹화"
     var juso = GyoyukPan.JUSO
+    var kamera = true   // 1.17.1 TV해설방송은 소리만이라 카메라를 묻지 않음
     let dwiro: () -> Void
     @State private var mutgi = false
+    @State private var heorakBoim = false
+    @State private var heorakGeul = ""
     var body: some View {
         VStack(spacing: 10) {
             Danchu(geul: "뒤로") { mutgi = true }
             GyoyukPan(juso: juso)
+                .alert("허락이 꺼져 있습니다", isPresented: $heorakBoim) {   // 1.17.1
+                    Button("설정 열기") { ByodGirok.shared.namgi("seoljeong_yeolgi", ["mu": "alrim"]); if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) } }
+                    Button("그대로 쓰기", role: .cancel) { }
+                } message: { Text(heorakGeul) }
             Danchu(geul: "뒤로") { mutgi = true }
         }
         .padding(12)
         .accessibilityAction(.escape) { mutgi = true }
-        .onAppear { UIApplication.shared.isIdleTimerDisabled = true; ByodGirok.shared.namgi("gyoyuk_yeolgi", ["hwamyeon": jemok]) }    // 녹화하는 동안 화면이 꺼지지 않게
+        .onAppear {
+            UIApplication.shared.isIdleTimerDisabled = true; ByodGirok.shared.namgi("gyoyuk_yeolgi", ["hwamyeon": jemok])    // 녹화하는 동안 화면이 꺼지지 않게
+            HeorakSalpim.salpigi(kamera: kamera) { k in   // 1.17.1 마이크·카메라 허락 살피기
+                guard !k.isEmpty else { return }
+                if k.contains("마이크") {
+                    heorakGeul = "이 폰에서 LVD 송출의 " + k.joined(separator: "와 ") + " 허락이 꺼져 있어 소리를 받을 수 없습니다. 설정 열기를 누르고 " + k.joined(separator: "와 ") + "를 켠 뒤 돌아와 주십시오."
+                } else {
+                    heorakGeul = "이 폰에서 LVD 송출의 카메라 허락이 꺼져 있어 영상은 담기지 않고 소리만 녹음됩니다. 영상도 담으시려면 설정 열기를 누르고 카메라를 켠 뒤 돌아와 주십시오."
+                }
+                heorakBoim = true
+            }
+        }
         .onDisappear { UIApplication.shared.isIdleTimerDisabled = false; ByodGirok.shared.namgi("gyoyuk_datgi", ["hwamyeon": jemok]) }
         .alert(jemok + "에서 나가기", isPresented: $mutgi) {
             Button("나가기", role: .destructive) { dwiro() }
@@ -107,12 +154,13 @@ struct GyoyukPan: UIViewRepresentable {
         c.userContentController.addUserScript(WKUserScript(source: gamchugi, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         c.userContentController.add(NokhwaJikim.shared, name: "lvdNokhwa")   // 1.6.0 녹화 지킴이
         c.userContentController.add(GyoyukGirok.shared, name: "lvdGirok")    // 1.16.5 녹화 화면 이용 기록
+        c.userContentController.add(SeoljeongYeolgi.shared, name: "lvdSeoljeong")   // 1.17.1 화면의 「설정 열기」 단추
         c.userContentController.addUserScript(WKUserScript(source: GyoyukGirok.JS, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         let w = WKWebView(frame: .zero, configuration: c)
         w.uiDelegate = context.coordinator
         w.navigationDelegate = GyoyukGirok.shared
         w.isOpaque = false
-        BangsongsaMakgi.butigi(w) { if let u = URL(string: juso) { w.load(URLRequest(url: u)) } }   // 261109 방송사 채널 막기
+        BangsongsaMakgi.butigi(w) { if let u = URL(string: juso) { w.load(URLRequest(url: u, cachePolicy: .reloadIgnoringLocalCacheData)) } }   // 1.17.1 (261116) 폰이 담아 둔 옛 화면 말고 늘 새 화면을 받음 — 11-16 고친 화면이 폰에 안 보이던 일   // 261109 방송사 채널 막기
         return w
     }
     func updateUIView(_ uiView: WKWebView, context: Context) {}
