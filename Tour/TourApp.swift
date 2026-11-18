@@ -31,6 +31,12 @@ struct TourApp: App {
             }
             .environmentObject(store)
             .task {
+                #if DEBUG
+                // 사용법 동영상 화면 찍기(tour-dongyeong.yml, 261117 새방클, 이사장님 승인 「1,2」) — 시험 기계에서만. 정식 판(Release)에는 들어가지 않음
+                let hwan0 = ProcessInfo.processInfo.environment
+                if hwan0["SAJIN_NAGAGI"] == "1" { TourAPI.token = "" }
+                else if let tk = hwan0["SAJIN_TK"], !tk.isEmpty, TourAPI.token.isEmpty { TourAPI.token = tk }
+                #endif
                 await store.sijak()
                 #if DEBUG
                 // 앱스토어 사진 찍기(tour-sajin.yml, 261107 대클, 이사장님 「1」) — 시험 기계에서만. 정식 판(Release)에는 들어가지 않음
