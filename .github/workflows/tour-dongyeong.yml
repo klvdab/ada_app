@@ -1,0 +1,149 @@
+# LVD투어스튜디오 사용법 동영상 화면 찍기 1.0 (빌드 261117-DY1, 새방클 — 이사장님 승인 2026-11-17 「1,2」, 대클 형님 의견대로)
+# 맥 일꾼의 아이폰 흉내 기계에서 UI 시험(TourUITests/DongyeongJjikgi.swift)이 단추 이름으로 차례로 눌러 가며 화면을 찍습니다.
+#   - 설계도는 seolgye_tour_dongyeong.yml(정식 설계도 seolgye_tour.yml 을 불러와 시험만 더함). 정식 짓기와 앱스토어에는 손대지 않습니다.
+#   - 시험 계정(sgtest1) 비밀번호와 통행증은 tour-sajin 과 같은 길로 읽고 가립니다.
+#   - 찍은 사진(장면번호_이름.png)과 막힌 장면 기록은 tour-dongyeong 갈래에 올립니다. 새방클이 받아 동영상을 만듭니다.
+name: tour-dongyeong
+on:
+  workflow_dispatch:
+    inputs:
+      kos:
+        description: "띄울 코스 번호(sgtest1 의 예시 코스)"
+        default: "C001"
+permissions:
+  contents: write
+jobs:
+  jjikgi:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode 26 고르기
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1)
+          sudo xcode-select -s "$X/Contents/Developer"
+          xcodebuild -version
+
+      - name: 도구 준비
+        run: |
+          brew install xcodegen
+          python3 -m venv /tmp/py
+          /tmp/py/bin/pip install --quiet pillow pyjwt cryptography
+          /tmp/py/bin/python tools/make_icon.py
+
+      - name: 열쇠 풀어 놓기
+        env:
+          ASC_BUNDLE: ${{ secrets.ASC_BUNDLE }}
+        run: |
+          umask 077
+          B="$RUNNER_TEMP/bundle.txt"
+          printf '%s\n' "$ASC_BUNDLE" | tr -d '\r' > "$B"
+          KID=$(grep -m1 '^KEY_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          IID=$(grep -m1 '^ISSUER_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          mkdir -p "$HOME/private_keys"
+          sed -n '/BEGIN PRIVATE KEY/,/END PRIVATE KEY/p' "$B" > "$HOME/private_keys/AuthKey_$KID.p8"
+          rm -f "$B"
+          echo "::add-mask::$IID"
+          echo "ASC_KEY_ID=$KID" >> "$GITHUB_ENV"
+          echo "ASC_ISSUER_ID=$IID" >> "$GITHUB_ENV"
+
+      - name: 시험 계정 비밀번호 읽기(가림)
+        run: |
+          cat > /tmp/demo.py <<'PY'
+          import os, time, json, urllib.request, urllib.parse, jwt
+          kid = os.environ["ASC_KEY_ID"]; iss = os.environ["ASC_ISSUER_ID"]
+          key = open(os.path.expanduser("~/private_keys/AuthKey_%s.p8" % kid)).read()
+          def mal(gil, q=None):
+              t = jwt.encode({"iss": iss, "iat": int(time.time()), "exp": int(time.time()) + 600, "aud": "appstoreconnect-v1"}, key, algorithm="ES256", headers={"kid": kid, "typ": "JWT"})
+              u = "https://api.appstoreconnect.apple.com/v1/" + gil + (("?" + urllib.parse.urlencode(q)) if q else "")
+              return json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"Authorization": "Bearer " + t}), timeout=60).read())
+          ap = mal("apps", {"filter[bundleId]": "kr.or.ada.tourstudio"})["data"][0]
+          vs = mal("apps/%s/appStoreVersions" % ap["id"])["data"]   # 261117 새방클: 판 상태와 관계없이 심사 정보가 있는 판을 씀
+          rd = {}
+          for v0 in vs:
+              try:
+                  rd = mal("appStoreVersions/%s/appStoreReviewDetail" % v0["id"])["data"]["attributes"]
+                  if rd.get("demoAccountPassword"): break
+              except Exception as e:
+                  print("심사 정보 없음:", v0["attributes"].get("versionString"))
+          pw = rd.get("demoAccountPassword") or ""
+          print("::add-mask::" + pw)
+          open(os.environ["GITHUB_ENV"], "a").write("SAJIN_ID=%s\nSAJIN_PWX=%s\n" % (rd.get("demoAccountName") or "sgtest1", pw))
+          print("시험 계정 비밀번호를 읽었습니다(%s)" % ("있음" if pw else "없음"))
+          PY
+          /tmp/py/bin/python /tmp/demo.py
+
+      - name: 투어스튜디오 통행증 받기(가림) — 1.2
+        run: |
+          cat > /tmp/tk.py <<'PY'
+          import os, json, urllib.request
+          b = json.dumps({"action": "login", "id": os.environ.get("SAJIN_ID", "sgtest1"), "pw": os.environ.get("SAJIN_PWX", "")}).encode()
+          r = urllib.request.Request("https://lvd.ada.or.kr/lvdts/lvdts_api.php", data=b, method="POST",
+              headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) LVDTourStudio/1.0"})
+          try:
+              t = urllib.request.urlopen(r, timeout=40).read().decode("utf-8", "replace")
+          except Exception as e:
+              print("서버에 닿지 못함:", str(e)[:200]); raise SystemExit(0)
+          try:
+              j = json.loads(t)
+          except Exception:
+              print("서버 대답이 JSON 이 아님(앞 200자):", t[:200].replace("\n", " ")); raise SystemExit(0)
+          tk = j.get("token") or ""
+          if tk:
+              print("::add-mask::" + tk)
+              open(os.environ["GITHUB_ENV"], "a").write("SAJIN_TK=%s\n" % tk)
+          print("로그인 결과: ok=%s, 통행증 %s, 까닭=%s" % (j.get("ok"), "받음" if tk else "없음", j.get("error", "")))
+          PY
+          /tmp/py/bin/python /tmp/tk.py
+
+      - name: 흉내 기계 고르기
+        run: |
+          U=$(xcrun simctl list devices available -j | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];c=[(k,x) for k,v in d.items() if 'iOS' in k for x in v if 'Pro Max' in x['name']];c.sort(key=lambda a:[int(n) for n in a[0].split('iOS-')[1].split('-')]);k,x=c[-1];print(x['udid']);print('기계',k,x['name'],file=sys.stderr)")
+          echo "SIM_U=$U" >> "$GITHUB_ENV"
+          xcrun simctl boot "$U" || true
+          for i in $(seq 1 72); do xcrun simctl list devices | grep "$U" | grep -q Booted && break; sleep 5; done
+          sleep 15
+          xcrun simctl status_bar "$U" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
+          xcrun simctl location "$U" set 37.2955,127.6156
+
+      - name: 짓고 UI 시험으로 화면 찍기
+        env:
+          KOS: ${{ github.event.inputs.kos || 'C001' }}
+        run: |
+          xcodegen generate --spec seolgye_tour_dongyeong.yml
+          for k in location microphone photos-add motion speech-recognition camera; do xcrun simctl privacy "$SIM_U" grant $k kr.or.ada.tourstudio 2>/dev/null || true; done
+          set +e
+          TEST_RUNNER_SAJIN_ID="$SAJIN_ID" TEST_RUNNER_SAJIN_PW="$SAJIN_PWX" TEST_RUNNER_SAJIN_KOS="$KOS" TEST_RUNNER_SAJIN_TK="$SAJIN_TK" \
+          xcodebuild -project AdaApp.xcodeproj -scheme TourDongyeong -configuration Debug -sdk iphonesimulator \
+            -destination "id=$SIM_U" -derivedDataPath dd -resultBundlePath R.xcresult CODE_SIGNING_ALLOWED=NO test 2>&1 | tail -n 60
+          echo "시험 끝(실패가 있어도 찍은 사진은 꺼냄)"
+
+      - name: 사진 꺼내기
+        run: |
+          mkdir -p dy
+          xcrun xcresulttool export attachments --path R.xcresult --output-path dy || echo "xcresulttool 새 꼴 실패"
+          ls -la dy | head -80
+          python3 - <<'PY'
+          import json, os, shutil
+          m = os.path.join("dy", "manifest.json")
+          if os.path.exists(m):
+              for t in json.load(open(m)):
+                  for a in t.get("attachments", []):
+                      src = os.path.join("dy", a.get("exportedFileName", ""))
+                      nm = a.get("suggestedHumanReadableName") or a.get("exportedFileName")
+                      if os.path.exists(src):
+                          base = nm.split("_0_")[0] if "_0_" in nm else os.path.splitext(nm)[0]
+                          ext = os.path.splitext(src)[1] or ".png"
+                          shutil.copy(src, os.path.join("dy", "out_" + base + ext))
+          print(sorted(f for f in os.listdir("dy") if f.startswith("out_")))
+          PY
+
+      - name: tour-dongyeong 갈래에 올리기
+        run: |
+          mkdir -p /tmp/dy && cp dy/out_* /tmp/dy/ 2>/dev/null || cp -R dy/* /tmp/dy/
+          cd /tmp/dy
+          git init -q && git checkout -q -b tour-dongyeong
+          git config user.name "github-actions" && git config user.email "actions@github.com"
+          git add . && git commit -qm "투어스튜디오 사용법 동영상 화면 $(TZ=Asia/Seoul date +%y%m%d-%H%M)"
+          git push -fq "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" tour-dongyeong

@@ -1,0 +1,105 @@
+# LVD투어스튜디오 안드로이드 1.4.0판 사용법 동영상 화면 찍기 1.0 (빌드 261118-DA1, 새방클 — 대표님 승인 2026-11-18 「1,2,3 모두 꼼꼼하게」)
+# 리눅스 일꾼의 안드로이드 흉내 기계(API 34, 폰 크기)에서 투어스튜디오 디버그 판을 띄워 장면마다 찍습니다.
+#   - 아이폰 DY1(tour-dongyeong)과 같은 장면 번호·이름. 도구는 tools/tour_dongyeong_android/jjikgi.py
+#   - 시험 계정(sgtest1) 비밀번호는 tour-sajin 처럼 앱스토어 커넥트 심사 정보(열쇠 ASC_BUNDLE)에서 읽고 가립니다.
+#   - 앱 코드는 고치지 않습니다. 정식 판·플레이 스토어에는 아무것도 바뀌지 않습니다.
+#   - 찍은 그림은 tour-dongyeong-android 갈래에 올립니다.
+name: tour-dongyeong-android
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  jjikgi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 흉내 기계 가속 켜기
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: "8.11.1" }
+
+      - name: 디버그 판 짓기
+        working-directory: android
+        run: |
+          set -o pipefail
+          gradle :app:assembleTourDebug --no-daemon 2>&1 | tail -n 40
+          ls -l app/build/outputs/apk/tour/debug/
+
+      - name: 시험 계정 비밀번호와 통행증 받기(가림)
+        env:
+          ASC_BUNDLE: ${{ secrets.ASC_BUNDLE }}
+        run: |
+          python3 -m venv /tmp/py && /tmp/py/bin/pip install --quiet pyjwt cryptography
+          umask 077
+          B="$RUNNER_TEMP/bundle.txt"; printf '%s\n' "$ASC_BUNDLE" | tr -d '\r' > "$B"
+          KID=$(grep -m1 '^KEY_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          IID=$(grep -m1 '^ISSUER_ID=' "$B" | cut -d= -f2- | tr -d ' ')
+          sed -n '/BEGIN PRIVATE KEY/,/END PRIVATE KEY/p' "$B" > "$RUNNER_TEMP/k.p8"; rm -f "$B"
+          echo "::add-mask::$IID"
+          cat > /tmp/tk.py <<'PY'
+          import os, sys, time, json, urllib.request, urllib.parse, jwt
+          kid, iss = sys.argv[1], sys.argv[2]; key = open(sys.argv[3]).read()
+          def mal(gil, q=None):
+              t = jwt.encode({"iss": iss, "iat": int(time.time()), "exp": int(time.time()) + 600, "aud": "appstoreconnect-v1"}, key, algorithm="ES256", headers={"kid": kid, "typ": "JWT"})
+              u = "https://api.appstoreconnect.apple.com/v1/" + gil + (("?" + urllib.parse.urlencode(q)) if q else "")
+              return json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"Authorization": "Bearer " + t}), timeout=60).read())
+          ap = mal("apps", {"filter[bundleId]": "kr.or.ada.tourstudio"})["data"][0]
+          idn, pw = "sgtest1", ""
+          for v in mal("apps/%s/appStoreVersions" % ap["id"], {"limit": "10"})["data"]:
+              try:
+                  rd = mal("appStoreVersions/%s/appStoreReviewDetail" % v["id"])["data"]["attributes"]
+              except Exception:
+                  continue
+              if rd.get("demoAccountPassword"):
+                  idn, pw = rd.get("demoAccountName") or idn, rd["demoAccountPassword"]; break
+          print("::add-mask::" + pw) if pw else None
+          print("시험 계정 비밀번호", "있음" if pw else "없음")
+          b = json.dumps({"action": "login", "id": idn, "pw": pw}).encode()
+          r = urllib.request.Request("https://lvd.ada.or.kr/lvdts/lvdts_api.php", data=b, method="POST",
+              headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0 (Linux; Android 14) LVDTourStudio/1.4.0"})
+          try:
+              j = json.loads(urllib.request.urlopen(r, timeout=40).read().decode("utf-8", "replace"))
+          except Exception as e:
+              print("통행증 못 받음:", str(e)[:150]); raise SystemExit(0)
+          tk = j.get("token") or ""
+          if tk:
+              print("::add-mask::" + tk)
+              open(os.environ["GITHUB_ENV"], "a").write("SAJIN_TK=%s\n" % tk)
+          print("로그인 결과 ok=%s 통행증 %s" % (j.get("ok"), "받음" if tk else "없음"))
+          PY
+          /tmp/py/bin/python /tmp/tk.py "$KID" "$IID" "$RUNNER_TEMP/k.p8"
+          rm -f "$RUNNER_TEMP/k.p8"
+
+      - name: 안드로이드 흉내 기계에서 찍기
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            adb install -r -g android/app/build/outputs/apk/tour/debug/*.apk
+            adb shell settings put secure location_mode 3 || true
+            adb emu geo fix 127.6195 37.2988 || true
+            python3 tools/tour_dongyeong_android/jjikgi.py jjik
+
+      - name: 그림을 tour-dongyeong-android 갈래에 올리기
+        if: always()
+        run: |
+          [ -d jjik ] || { echo "찍은 것 없음"; exit 1; }
+          ls -l jjik; cat jjik/막힌장면.txt || true
+          cp -R jjik /tmp/jjik && cd /tmp/jjik
+          git init -q && git checkout -q -b tour-dongyeong-android
+          git config user.name "github-actions" && git config user.email "actions@github.com"
+          git add -A && git commit -q -m "투어스튜디오 안드로이드 1.4.0판 사용법 화면 $(TZ=Asia/Seoul date +%y%m%d-%H%M)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" tour-dongyeong-android
