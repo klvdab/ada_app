@@ -1,4 +1,4 @@
-// LVD투어스튜디오 사용법 동영상 화면 찍기 (빌드 261117-DY1, 새방클 — 이사장님 승인 2026-11-17 「1,2」, 대클 형님 의견대로)
+// LVD투어스튜디오 사용법 동영상 화면 찍기 (빌드 261118-DY2 — 모든 종류에서 이름으로 찾음(글 칸이 Other 로 잡혀 시험이 멈추던 것), 아이디 칸은 「아이디」로도 찾음) (빌드 261117-DY1, 새방클 — 이사장님 승인 2026-11-17 「1,2」, 대클 형님 의견대로)
 // 맥 일꾼(tour-dongyeong.yml)에서만 돌립니다. 단추 이름으로 차례로 눌러 가며 화면마다 사진을 남깁니다.
 // 한 장면이 막혀도 시험을 멈추지 않고 다음 장면으로 갑니다(찍은 것만이라도 남기게).
 // 사진 이름: 장면 번호_설명 — 새방클이 동영상 대본의 장면과 맞춥니다.
@@ -36,10 +36,15 @@ final class DongyeongJjikgi: XCTestCase {
     /// 이름이 이 글로 시작하는 것(단추·칸·글)을 찾음
     func chatgi(_ geul: String) -> XCUIElement? {
         let p = NSPredicate(format: "label BEGINSWITH %@", geul)
-        for q in [app.buttons, app.cells, app.staticTexts, app.links, app.switches, app.otherElements] {
+        for q in [app.buttons, app.cells, app.links, app.switches] {
             let el = q.matching(p).firstMatch
             if el.exists { return el }
         }
+        // DY2: 글은 종류를 묻지 않고 찾음 — StaticText 로 물으면 「Other 로 잡힘」 오류로 시험 전체가 멈췄음
+        let el = app.descendants(matching: .any).matching(p).firstMatch
+        if el.exists { return el }
+        let t = app.textFields.matching(NSPredicate(format: "placeholderValue BEGINSWITH %@", geul)).firstMatch
+        if t.exists { return t }
         return nil
     }
 
@@ -85,7 +90,7 @@ final class DongyeongJjikgi: XCTestCase {
     func test1_Deureogagi() {
         ttuiugi(nagagi: true)
         jjik("101_들어오기화면")
-        if let id = chatgi("전화번호") { id.tap(); sleep(1); jjik("102_아이디칸") }
+        if let id = chatgi("전화번호") ?? chatgi("아이디") ?? (app.textFields.firstMatch.exists ? app.textFields.firstMatch : nil) { id.tap(); sleep(1); jjik("102_아이디칸") }
         if chatgi("가입 신청하기") != nil { jjik("103_가입신청하기") }
     }
 
