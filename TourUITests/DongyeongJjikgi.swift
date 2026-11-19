@@ -52,7 +52,11 @@ final class DongyeongJjikgi: XCTestCase {
     @discardableResult
     func boyeo(_ geul: String, mil: Int = 12) -> XCUIElement? {
         for _ in 0...mil {
-            if let el = chatgi(geul), el.isHittable { return el }
+            // DY3: 머리말(Other)에 isHittable 을 물으면 시험 전체가 멈춤 — 화면 안에 있는지만 자리로 봄
+            if let el = chatgi(geul) {
+                let f = el.frame, a = app.frame
+                if !f.isEmpty && f.midY > a.minY + 60 && f.midY < a.maxY - 100 { return el }
+            }
             app.swipeUp(velocity: .slow)
             usleep(400_000)
         }
