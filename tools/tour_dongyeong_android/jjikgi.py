@@ -1,4 +1,4 @@
-# LVD투어스튜디오 안드로이드 1.4.0판 사용법 동영상 화면 찍기 1.0 (빌드 261118-DA1, 새방클 — 대표님 승인 2026-11-18 「1,2,3 모두 꼼꼼하게」)
+# LVD투어스튜디오 안드로이드 1.4.0판 사용법 동영상 화면 찍기 1.1 (빌드 261118-DA2 — 교본이 아닌 코스를 열고, 화면 읽기를 더 끈질기게) 1.0 (빌드 261118-DA1, 새방클 — 대표님 승인 2026-11-18 「1,2,3 모두 꼼꼼하게」)
 # 안드로이드 흉내 기계에서 앱을 띄워, 화면에 적힌 단추·제목 글자 그대로를 찾아 누르고 장면마다 찍습니다.
 # 아이폰 DY1(TourUITests/DongyeongJjikgi.swift)과 같은 장면 번호·이름을 씁니다. 못 찾은 장면은 막힌장면.txt 에 적고 다음으로 갑니다.
 # 앱 코드는 고치지 않습니다. 통행증은 디버그 판의 run-as 로 앱 설정(tour.xml)에 넣습니다.
@@ -22,13 +22,14 @@ def keugi():
     if m: W, H = int(m.group(1)), int(m.group(2))
 
 def dump():
-    for _ in range(4):
-        sh("uiautomator dump /sdcard/u.xml >/dev/null 2>&1")
+    for _ in range(10):
+        sh("rm -f /sdcard/u.xml; uiautomator dump /sdcard/u.xml >/dev/null 2>&1")
         x = adb("exec-out", "cat", "/sdcard/u.xml")
         if "<hierarchy" in x:
             try: return ET.fromstring(x[x.index("<hierarchy"):])
             except Exception: pass
-        time.sleep(1)
+        time.sleep(0.7)
+    print("화면 읽기 실패")
     return None
 
 def bounds(n):
@@ -138,7 +139,8 @@ def kos_yeolgi():
     r = dump(); hd = chatgi("코스 목록")
     if r is None or hd is None: return
     y0 = bounds(hd)[3]
-    hu = [n for n in r.iter("node") if n.get("clickable") == "true" and bounds(n)[1] > y0 and (n.get("text") or n.get("content-desc"))]
+    hu = [n for n in r.iter("node") if n.get("clickable") == "true" and bounds(n)[1] > y0 and (n.get("text") or n.get("content-desc"))
+          and "교본" not in (n.get("text") or "") + (n.get("content-desc") or "")]   # DA2: 교본은 읽기만 되어 답사·대본 칸이 숨음 — 내 코스를 엶
     hu.sort(key=lambda n: bounds(n)[1])
     if hu: nureugi_n(hu[0]); time.sleep(3)
     else: GIL.append("코스 목록에 코스 없음")
