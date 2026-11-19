@@ -978,21 +978,35 @@ internal fun TourActivity.pyeongmyeon(k: Kos) {
     }
     if (!k.isGyobon) {
         danchu("장소 자리 찾기 (장소 이름으로)") {
-            var q = k.s("jisikQ").ifEmpty { k.s("place").ifEmpty { k.name } }
-            q = q.replace(Regex("\\([^)]*\\)"), " ").replace("코스", " ").trim()
+            // 261119 장소 칸에 주소와 이름이 함께 적혀 있으면 지도 찾기가 비어 돌아오던 것 — 끝 낱말을 덜어 가며 몇 번 더, 그래도 없으면 코스 이름으로
+            fun cl(s: String) = s.replace(Regex("\\([^)]*\\)"), " ").replace("코스", " ").replace(Regex("\\s+"), " ").trim()
+            val hb = mutableListOf<String>()
+            fun add(s: String) { val c = cl(s); if (c.isNotEmpty() && c !in hb) hb.add(c) }
+            for (b0 in listOf(k.s("jisikQ"), k.s("place"), k.name)) {
+                val b = cl(b0); if (b.isEmpty()) continue
+                add(b); val w = b.split(" ")
+                if (w.size > 2) add(w.dropLast(1).joinToString(" "))
+                if (w.size > 1) add(w.last())
+            }
+            val hubo = hb.take(5)
             val sp = Wonchik.spotPts(k)
-            if (q.isEmpty() && sp.isEmpty()) { malhagi("장소 이름을 먼저 적어 주십시오."); return@danchu }
+            if (hubo.isEmpty() && sp.isEmpty()) { malhagi("장소 이름을 먼저 적어 주십시오."); return@danchu }
             malhagi("자리를 찾고 있습니다.")
             pool.execute {
-                val t = httpGet("https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=ko&q=" + URLEncoder.encode(q, "UTF-8"))
-                val a = try { JSONArray(t ?: "[]") } catch (e: Exception) { JSONArray() }
-                val f = a.optJSONObject(0)
+                var f: JSONObject? = null
+                for ((n, q) in hubo.withIndex()) {
+                    if (n > 0) Thread.sleep(1100)
+                    val t = httpGet("https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=ko&q=" + URLEncoder.encode(q, "UTF-8"))
+                    val a = try { JSONArray(t ?: "[]") } catch (e: Exception) { JSONArray() }
+                    val o = a.optJSONObject(0)
+                    if (o?.su("lat") != null && o.su("lon") != null) { f = o; break }
+                }
                 main.post {
                     val la = f?.su("lat"); val lo = f?.su("lon")
                     when {
-                        la != null && lo != null -> set(la, lo, f.geul("display_name").split(",").first().trim().ifEmpty { q })
+                        la != null && lo != null -> set(la, lo, f!!.geul("display_name").split(",").first().trim().ifEmpty { hubo.firstOrNull() ?: "" })
                         sp.isNotEmpty() -> set(sp[0].p.first, sp[0].p.second, sp[0].s.name)
-                        else -> malhagi("\"$q\"의 자리를 찾지 못했습니다. 장소를 더 알려진 이름으로 적거나, 현장에서 지금 자리로 잡기를 눌러 주십시오.")
+                        else -> malhagi("\"${hubo.firstOrNull() ?: ""}\"의 자리를 찾지 못했습니다. 장소를 더 알려진 이름으로 적거나, 현장에서 지금 자리로 잡기를 눌러 주십시오.")
                     }
                 }
             }
