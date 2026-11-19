@@ -191,7 +191,7 @@ def p2():
     tab("코스")
     if nureugi("기능 찾기"): jjik("206_기능찾기"); dwiro()
     tab("설정"); jjik("207_설정탭")
-    if nureugi("무엇이 바뀌었나"): jjik("208_무엇이바뀌었나"); dwiro()
+    if nureugi("무엇이 바뀌었나"): maemwi(); jjik("208_무엇이바뀌었나"); dwiro()   # DA4: 새 화면도 맨 위(1.4.1판 줄)부터
     tab("설정")
     if wiro("도움말 찾기"): jjik("209_도움말찾기")
 jangmyeon("2편", p2)
@@ -247,7 +247,9 @@ def p6():
     if wiro("지점 차례"): jjik("602_지점차례")
     n = naeryeo_chatgi("현장에서", 4)   # DA4: 승인본이 열려 있으면 「현장에서 쓰는 단추」, 아니면 승인본 고르는 화면을 찍음
     if n is not None: wiro("현장에서"); jjik("603_현장에서_승인본")
-    elif nureugi("현장영상해설 화면 (협회 승인본)", 8): jjik("603_현장에서_승인본"); dwiro()
+    else:
+        tab("현장영상해설")   # DA4: 탭 맨 위 「협회 승인본 현장영상해설 화면」 단추
+        if nureugi("협회 승인본 현장영상해설 화면", 4): maemwi(); jjik("603_현장에서_승인본"); dwiro()
     tab("코스")
     if nureugi("내보내기"):
         if wiro("협회 최종 승인"): jjik("604_협회최종승인요청"); ollyeo(int(H * 0.5)); jjik("605_승인요청_아래")
