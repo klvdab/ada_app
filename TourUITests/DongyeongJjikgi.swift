@@ -1,4 +1,4 @@
-// LVD투어스튜디오 사용법 동영상 화면 찍기 (빌드 261118-DY2 — 모든 종류에서 이름으로 찾음(글 칸이 Other 로 잡혀 시험이 멈추던 것), 아이디 칸은 「아이디」로도 찾음) (빌드 261117-DY1, 새방클 — 이사장님 승인 2026-11-17 「1,2」, 대클 형님 의견대로)
+// LVD투어스튜디오 사용법 동영상 화면 찍기 (빌드 261120-DY4, 대클 — 밀고 난 뒤 옛 요소 자리를 물어 시험이 멈추던 것: 밀 때마다 새로 찾고 조금씩 밂) (빌드 261118-DY2 — 모든 종류에서 이름으로 찾음(글 칸이 Other 로 잡혀 시험이 멈추던 것), 아이디 칸은 「아이디」로도 찾음) (빌드 261117-DY1, 새방클 — 이사장님 승인 2026-11-17 「1,2」, 대클 형님 의견대로)
 // 맥 일꾼(tour-dongyeong.yml)에서만 돌립니다. 단추 이름으로 차례로 눌러 가며 화면마다 사진을 남깁니다.
 // 한 장면이 막혀도 시험을 멈추지 않고 다음 장면으로 갑니다(찍은 것만이라도 남기게).
 // 사진 이름: 장면 번호_설명 — 새방클이 동영상 대본의 장면과 맞춥니다.
@@ -84,10 +84,23 @@ final class DongyeongJjikgi: XCTestCase {
     }
 
     /// 제목 글이 화면 위쪽에 오게 밀어 올림
+    /// DY4(대클 261120): 밀고 나서 예전 요소의 자리를 물으면 「일치하는 스냅샷 없음」으로 시험 전체가 멈췄음 —
+    /// 밀 때마다 새로 찾고, 있을 때만 자리를 보며, 조금씩만 밀어 지나치지 않게 함
+    func jogeum() {
+        let s = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.70))
+        let e = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
+        s.press(forDuration: 0.05, thenDragTo: e)
+        usleep(600_000)
+    }
+
     func wiro(_ geul: String) {
-        if let el = boyeo(geul) {
-            var n = 0
-            while el.frame.minY > app.frame.height * 0.35 && n < 4 { app.swipeUp(velocity: .slow); usleep(400_000); n += 1 }
+        guard boyeo(geul) != nil else { return }
+        var n = 0
+        while n < 6 {
+            guard let el = chatgi(geul), el.exists else { break }
+            let f = el.frame
+            if f.isEmpty || f.minY <= app.frame.height * 0.35 { break }
+            jogeum(); n += 1
         }
     }
 
