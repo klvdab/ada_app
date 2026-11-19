@@ -274,15 +274,32 @@ struct PyeongmyeonSection: View {
         k.d["pos"] = ["la": TourStore.r6(la), "lo": TourStore.r6(lo)]; k.d["posName"] = nm
         store.bakkwim(); store.say(Wonchik.pmText(k))
     }
+    /// 261119 장소 칸에 주소와 이름이 함께 적혀 있으면 지도 찾기가 비어 돌아오던 것 — 끝 낱말을 덜어 가며 몇 번 더, 그래도 없으면 코스 이름으로
+    private func hubo() -> [String] {
+        func cl(_ s: String) -> String {
+            s.replacingOccurrences(of: "\\([^)]*\\)", with: " ", options: .regularExpression).replacingOccurrences(of: "코스", with: " ")
+                .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression).trimmingCharacters(in: .whitespaces)
+        }
+        var out: [String] = []
+        func add(_ s: String) { let c = cl(s); if !c.isEmpty && !out.contains(c) { out.append(c) } }
+        for b0 in [k.s("jisikQ"), k.s("place"), k.name] {
+            let b = cl(b0); if b.isEmpty { continue }
+            add(b); let w = b.split(separator: " ").map(String.init)
+            if w.count > 2 { add(w.dropLast().joined(separator: " ")) }
+            if w.count > 1, let l = w.last { add(l) }
+        }
+        return Array(out.prefix(5))
+    }
     private func chatgi() async {
-        var q = (k.s("jisikQ").isEmpty ? (k.s("place").isEmpty ? k.name : k.s("place")) : k.s("jisikQ"))
-        q = q.replacingOccurrences(of: "\\([^)]*\\)", with: " ", options: .regularExpression).replacingOccurrences(of: "코스", with: " ").trimmingCharacters(in: .whitespaces)
+        let hb = hubo()
         let sp = Wonchik.spotPts(k)
-        if q.isEmpty && sp.isEmpty { store.say("장소 이름을 먼저 적어 주십시오."); return }
+        if hb.isEmpty && sp.isEmpty { store.say("장소 이름을 먼저 적어 주십시오."); return }
         store.say("자리를 찾고 있습니다.")
-        var c = URLComponents(string: "https://nominatim.openstreetmap.org/search")
-        c?.queryItems = [URLQueryItem(name: "format", value: "json"), URLQueryItem(name: "limit", value: "1"), URLQueryItem(name: "accept-language", value: "ko"), URLQueryItem(name: "q", value: q)]
-        if let u = c?.url {
+        for (n, q) in hb.enumerated() {
+            if n > 0 { try? await Task.sleep(nanoseconds: 1_100_000_000) }
+            var c = URLComponents(string: "https://nominatim.openstreetmap.org/search")
+            c?.queryItems = [URLQueryItem(name: "format", value: "json"), URLQueryItem(name: "limit", value: "1"), URLQueryItem(name: "accept-language", value: "ko"), URLQueryItem(name: "q", value: q)]
+            guard let u = c?.url else { continue }
             var r = URLRequest(url: u); r.setValue("LVDTourStudio/1.2 (lvd.ada.or.kr)", forHTTPHeaderField: "User-Agent")
             if let rd = try? await URLSession.shared.data(for: r), let a = try? JSONSerialization.jsonObject(with: rd.0) as? [[String: Any]], let f = a.first,
                let la = sutja(f["lat"]), let lo = sutja(f["lon"]) {
@@ -290,7 +307,7 @@ struct PyeongmyeonSection: View {
             }
         }
         if let f = sp.first { set(f.p.0, f.p.1, f.s.name); return }
-        store.say("\"" + q + "\"의 자리를 찾지 못했습니다. 장소를 더 알려진 이름으로 적거나, 현장에서 지금 자리로 잡기를 눌러 주십시오.")
+        store.say("\"" + (hb.first ?? "") + "\"의 자리를 찾지 못했습니다. 장소를 더 알려진 이름으로 적거나, 현장에서 지금 자리로 잡기를 눌러 주십시오.")
     }
 }
 
