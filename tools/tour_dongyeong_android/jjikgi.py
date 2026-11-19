@@ -245,7 +245,9 @@ jangmyeon("5편", p5)
 def p6():
     tab("현장영상해설"); jjik("601_현장영상해설탭")
     if wiro("지점 차례"): jjik("602_지점차례")
-    if wiro("현장에서"): jjik("603_현장에서_승인본")
+    n = naeryeo_chatgi("현장에서", 4)   # DA4: 승인본이 열려 있으면 「현장에서 쓰는 단추」, 아니면 승인본 고르는 화면을 찍음
+    if n is not None: wiro("현장에서"); jjik("603_현장에서_승인본")
+    elif nureugi("현장영상해설 화면 (협회 승인본)", 8): jjik("603_현장에서_승인본"); dwiro()
     tab("코스")
     if nureugi("내보내기"):
         if wiro("협회 최종 승인"): jjik("604_협회최종승인요청"); ollyeo(int(H * 0.5)); jjik("605_승인요청_아래")
