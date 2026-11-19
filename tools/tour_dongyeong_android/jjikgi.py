@@ -1,4 +1,4 @@
-# LVD투어스튜디오 안드로이드 1.4.0판 사용법 동영상 화면 찍기 1.1 (빌드 261118-DA2 — 교본이 아닌 코스를 열고, 화면 읽기를 더 끈질기게) 1.0 (빌드 261118-DA1, 새방클 — 대표님 승인 2026-11-18 「1,2,3 모두 꼼꼼하게」)
+# LVD투어스튜디오 안드로이드 1.4.1판 사용법 동영상 화면 찍기 1.2 (빌드 261119-DA4, 대클 — 안드로이드는 같은 탭을 다시 눌러도 맨 위로 가지 않아 아래로만 찾다 19곳을 놓침: 탭마다 맨 위로 밀고, 못 찾으면 맨 위에서 한 번 더 찾음) 1.1 (빌드 261118-DA2 — 교본이 아닌 코스를 열고, 화면 읽기를 더 끈질기게) 1.0 (빌드 261118-DA1, 새방클 — 대표님 승인 2026-11-18 「1,2,3 모두 꼼꼼하게」)
 # 안드로이드 흉내 기계에서 앱을 띄워, 화면에 적힌 단추·제목 글자 그대로를 찾아 누르고 장면마다 찍습니다.
 # 아이폰 DY1(TourUITests/DongyeongJjikgi.swift)과 같은 장면 번호·이름을 씁니다. 못 찾은 장면은 막힌장면.txt 에 적고 다음으로 갑니다.
 # 앱 코드는 고치지 않습니다. 통행증은 디버그 판의 run-as 로 앱 설정(tour.xml)에 넣습니다.
@@ -84,29 +84,42 @@ def jjik(ireum):
     open(os.path.join(NAE, ireum + ".png"), "wb").write(png)
     print("찍음", ireum, len(png))
 
+def maemwi(beon=10):   # DA4: 화면 맨 위로 — 손가락을 위에서 아래로 빠르게 여러 번 밈
+    x = W // 2
+    for _ in range(beon):
+        sh("input swipe %d %d %d %d 120" % (x, int(H * 0.22), x, int(H * 0.86)))
+    time.sleep(1.5)
+
 def tab(ireum):
     n = chatgi(ireum + " 탭")
     if n is None: GIL.append("탭 없음: " + ireum); return False
     nureugi_n(n); n = chatgi(ireum + " 탭")
-    if n is not None: nureugi_n(n)       # 같은 탭 한 번 더 = 첫 화면 맨 위
+    if n is not None: nureugi_n(n)       # 같은 탭 한 번 더
+    maemwi()                             # DA4: 안드로이드는 다시 눌러도 맨 위로 안 가므로 밀어서 맨 위로
     return True
+
+def naeryeo_chatgi(geul, beon):
+    """DA4: 지금 자리에서 내려 가며 찾고, 없으면 맨 위로 가서 한 번 더 내려 가며 찾음"""
+    for dol in range(2):
+        if dol == 1: maemwi()
+        for _ in range(beon):
+            n = chatgi(geul)
+            if n is not None: return n
+            ollyeo(int(H * 0.45))
+    return None
 
 def wiro(geul, beon=14):
     """글자를 찾을 때까지 내려 가며, 찾으면 화면 위쪽 1/6 자리로 올려 둠"""
-    for _ in range(beon):
-        n = chatgi(geul)
-        if n is not None:
-            b = bounds(n); mok = int(H * 0.16)
-            if b[1] > mok + 40: ollyeo(b[1] - mok)
-            return True
-        ollyeo(int(H * 0.45))
+    n = naeryeo_chatgi(geul, beon)
+    if n is not None:
+        b = bounds(n); mok = int(H * 0.16)
+        if b[1] > mok + 40: ollyeo(b[1] - mok)
+        return True
     GIL.append("못 찾음: " + geul); return False
 
 def nureugi(geul, beon=14):
-    for _ in range(beon):
-        n = chatgi(geul)
-        if n is not None: nureugi_n(n); return True
-        ollyeo(int(H * 0.45))
+    n = naeryeo_chatgi(geul, beon)
+    if n is not None: nureugi_n(n); return True
     GIL.append("못 누름: " + geul); return False
 
 def dwiro(): sh("input keyevent 4"); time.sleep(2)
@@ -216,8 +229,8 @@ jangmyeon("4편", p4)
 def p5():
     tab("지점"); jjik("501_지점탭_첫화면")
     if wiro("지점 목록"): jjik("502_지점목록")
-    n = chatgi("오프닝")
-    if n is not None: nureugi_n(n); time.sleep(2)
+    n = naeryeo_chatgi("오프닝", 6)   # DA4: 목록 아래쪽에 있으면 내려 가며 찾음
+    if n is not None: nureugi_n(n); time.sleep(2); maemwi()
     else: GIL.append("첫 지점 못 엶")
     jjik("503_지점한화면")
     if wiro("경계와 시간"): jjik("504_경계와시간")
