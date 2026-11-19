@@ -79,7 +79,7 @@ sealed class Hw {
 
 class TourActivity : Activity() {
     companion object {
-        const val PAN = "1.4.0"; const val BILDEU = "261018-T6"
+        const val PAN = "1.4.1"; const val BILDEU = "261119-T7"
         const val PAN_IREUM = "LVD투어스튜디오 ${PAN}판 (빌드 ${BILDEU})"
         const val SAJIN = 71; const val HEORAK_KAMERA = 72; const val HEORAK_JARI = 73; const val HEORAK_MIC = 74; const val SAJIN_GAJYEO = 75; const val HEORAK_GEOLEUM = 76
         val BUNYA = listOf("", "문화유산 분야", "박물관·전시 분야", "자연·경관 분야", "공연·행사 분야", "스포츠 관람 분야", "교육·체험 분야", "실시간 퍼포먼스 분야", "테마투어 분야")
@@ -789,6 +789,11 @@ class TourActivity : Activity() {
     internal fun doum(i: Int) { val d = DOUM.getOrNull(i) ?: return; geul(d.first, jemok = true); geul(d.second) }
     internal fun bakkwin() {
         geul("무엇이 바뀌었나", jemok = true)
+        geul("1.4.1판 (빌드 261119-T7, 2026-11-19)", jemok = true)
+        listOf(
+            "장소 자리 찾기: 장소 칸에 주소와 이름이 함께 적혀 있으면 지도에서 자리를 찾지 못하던 것을 고쳤습니다. 낱말을 덜어 가며 몇 번 더 찾고, 그래도 없으면 코스 이름으로 찾습니다.",
+            "아이폰과 안드로이드의 판 번호를 1.4.1로 맞췄습니다."
+        ).forEach { geul(it) }
         geul("1.4.0판 (빌드 261018-T6, 2026-10-18)", jemok = true)
         listOf(
             "말로 대본 쓰기: 지점 한 화면에서 말하는 대로 글이 되어 고른 칸 끝에 붙음. 마침표·쉼표·물음표·느낌표·줄 바꿔는 말로, 열두 시 방향은 12시 방향으로 적음. 아이폰 1.4.0판과 같습니다.",
