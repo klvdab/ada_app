@@ -21,12 +21,25 @@ def keugi():
     m = re.search(r"(\d+)x(\d+)", sh("wm size"))
     if m: W, H = int(m.group(1)), int(m.group(2))
 
+ANR = ("isn't responding", "응답하지 않습니다", "응답 없음")
+def anr_geotgi(t):
+    """DA3: 「Pixel Launcher isn't responding」 같은 시스템 창이 덮으면 「Wait/기다리기」를 눌러 걷음. 걷었으면 True"""
+    if t is None: return False
+    if not any(any(a in (n.get("text") or "") for a in ANR) for n in t.iter("node")): return False
+    for n in t.iter("node"):
+        if (n.get("text") or "").strip() in ("Wait", "기다리기", "대기"):
+            nureugi_n(n); time.sleep(2); return True
+    sh("input keyevent 4"); time.sleep(2); return True
+
 def dump():
     for _ in range(10):
         sh("rm -f /sdcard/u.xml; uiautomator dump /sdcard/u.xml >/dev/null 2>&1")
         x = adb("exec-out", "cat", "/sdcard/u.xml")
         if "<hierarchy" in x:
-            try: return ET.fromstring(x[x.index("<hierarchy"):])
+            try:
+                t = ET.fromstring(x[x.index("<hierarchy"):])
+                if anr_geotgi(t): continue
+                return t
             except Exception: pass
         time.sleep(0.7)
     print("화면 읽기 실패")
@@ -66,6 +79,7 @@ def ollyeo(dy):   # 화면을 위로 dy 만큼 천천히 밀기(관성 없이)
 
 def jjik(ireum):
     time.sleep(1.5)
+    dump()   # DA3: 찍기 전에 응답 없음 창이 있으면 걷음
     png = adb("exec-out", "screencap", "-p", raw=True)
     open(os.path.join(NAE, ireum + ".png"), "wb").write(png)
     print("찍음", ireum, len(png))
@@ -107,6 +121,13 @@ def jangmyeon(ireum, il):
     try: il()
     except Exception as e: GIL.append("%s 오류: %s" % (ireum, str(e)[:120]))
 
+# DA3: 시스템 오류 창을 숨기고, 켠 뒤 런처가 가라앉을 때까지 기다림
+sh("settings put global hide_error_dialogs 1")
+for _ in range(60):
+    if sh("getprop sys.boot_completed").strip() == "1": break
+    time.sleep(2)
+time.sleep(40)
+sh("input keyevent 3"); time.sleep(5)
 keugi()
 print("화면 크기", W, H)
 for k in ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "CAMERA", "RECORD_AUDIO", "ACTIVITY_RECOGNITION", "POST_NOTIFICATIONS", "READ_MEDIA_IMAGES"]:
