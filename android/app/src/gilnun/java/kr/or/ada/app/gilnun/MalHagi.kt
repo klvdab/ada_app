@@ -663,13 +663,32 @@ object MalHagi {
     }
 
     /** 대답하고, 묻는 말이면 마이크를 한 번만 저절로 엶 */
+    /** 2.94.0 (261120-A82, 이사장님 승인 2026-11-20 「1」) 길눈이 일하는 중인가 — 길 안내(도착 전)·점지도 걷기·되짚어 나가기·말로 그린 길·신호기 찾기·카메라 눈(문 찾기·글자 읽기 등) */
+    val ilhaneunJung: Boolean get() {
+        val y = YeojeongEngine.jigeum
+        if (y != null && y.danggye != Danggye.DOCHAK) return true
+        if (JeomEngine.georeoJung || JeomEngine.tagoGaneunJung) return true
+        if (DoeEngine.sangtae == DoeEngine.Sangtae.ANNAE || MalgilEngine.geotneun || SinhogiEngine.chatneunJung) return true
+        if (Kamera.juin != null) return true
+        return false
+    }
+
+    /** 2.94.0 「지금 ○○로 가는 중입니다. △△로 바꿀까요?」를 여쭌 곳과 때 — 같은 곳은 5분 안에 다시 여쭙지 않음 */
+    private val bakkumMureum = HashMap<String, Long>()
+    /** 2.94.0 「목적지 바꿔」라고 하신 때 — 이때 말씀하신 곳은 5분 안이라도 여쭘 */
+    private var bakkumCheongTtae = 0L
+
     private fun dapHagi(sd: Int, t: String, mutneun: Boolean) {
         if (sd != sedae) return
         bakkum(MalSangtae.SWIM)
         if (t.isNotEmpty()) { dapMal = t; byeonhwa?.invoke() }
         if (t.isEmpty()) { jadongYeolim = 0; Girok.namgi("dap_kkeut"); return }
         // 2.17.0 묻는 말이든 아니든 대답 뒤에는 하이 길눈 없이 10초 이어 들음(딩동). 말씀이 없으면 조용히 닫음
-        if (!ieoGeumman && ieoSu < 20 && GinGeup.sangtae == GinGeupSangtae.EOPSEUM) {
+        // 2.94.0 (261120-A82, 이사장님 승인 2026-11-20 「1」, 아이폰 2.129.0과 같음) 길눈이 일하는 중(안내·걷기·찾기)이면 길눈이 여쭌 때만 한 번 이어 듣고,
+        //   묻지 않은 대답 뒤에는 이어 듣지 않고 바로 부름말 기다림으로 — 옆에서 하는 말을 알아듣고 「바꿀까요?」를 거듭 여쭈다 하던 일을 잊던 일
+        val ilJung = ilhaneunJung
+        if (ilJung && !mutneun) Girok.namgi("ieo_an", mapOf("kkadak" to "iljung"))
+        if (!ieoGeumman && ieoSu < 20 && GinGeup.sangtae == GinGeupSangtae.EOPSEUM && (mutneun || !ilJung)) {
             malHuHagi(t) {
                 if (sd == sedae && sangtae == MalSangtae.SWIM && !pyeonjipJung && !JeonhwaGamsi.jeonhwaJung) {   // 2.31.0 편집 중에는 저절로 이어 듣지 않음, 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 전화 중에도
                     ieoSu += 1
@@ -1056,6 +1075,7 @@ object MalHagi {
         }
         // 5-2. 2.31.0 "변경", "목적지 변경", "목적지 바꿔" — 곳 이름이 아니라 목적지를 바꾸자는 명령
         if (byeongyeongMal(z)) {
+            bakkumCheongTtae = System.currentTimeMillis()   // 2.94.0
             val yy = YeojeongEngine.jigeum
             dap(if (yy != null) "지금 ${yy.mokjeok.ireum}${roTo(yy.mokjeok.ireum)} 가시는 중입니다. 어디로 바꿀까요?" else "$ho, 어디로 가실까요?", true)
             return
@@ -2064,7 +2084,18 @@ object MalHagi {
         mokjeokDaegiTtae = System.currentTimeMillis()
         val yy = YeojeongEngine.jigeum
         if (yy != null && MalSajeon.ttuk(yy.mokjeok.ireum) != MalSajeon.ttuk(j.ireum)) {
-            dap(apMal + "지금은 ${yy.mokjeok.ireum}${roTo(yy.mokjeok.ireum)} 가시는 중입니다. 목적지를 ${j.ireum}${roTo(j.ireum)} 변경하실 건가요?", true)
+            // 2.94.0 (261120-A82, 이사장님 승인 2026-11-20 「1」) 한 번만 여쭘 — 같은 곳을 5분 안에 또 들으면 여쭙지 않고 지금 길을 그대로(「목적지 바꿔」 뒤에는 여쭘)
+            val ki = MalSajeon.ttuk(j.ireum)
+            val jigeumT = System.currentTimeMillis()
+            val t0 = bakkumMureum[ki]
+            if (t0 != null && jigeumT - t0 < 300_000L && jigeumT - bakkumCheongTtae > 60_000L) {
+                Girok.namgi("bakkum_an_mureum", mapOf("mok" to j.ireum.take(20)))
+                mokjeokDaegi = null
+                dap("${yy.mokjeok.ireum}${roTo(yy.mokjeok.ireum)} 그대로 안내합니다. 바꾸시려면 목적지 바꿔라고 말씀해 주십시오.", false)
+                return
+            }
+            bakkumMureum[ki] = jigeumT
+            dap(apMal + "지금 ${yy.mokjeok.ireum}${roTo(yy.mokjeok.ireum)} 가는 중입니다. ${j.ireum}${roTo(j.ireum)} 바꿀까요?", true)
         } else {
             dap(apMal + "여기로 안내할까요?", true)
         }

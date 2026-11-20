@@ -696,6 +696,21 @@ final class MalHagi: ObservableObject {
         }
     }
 
+    /// 2.129.0 (261120-I83, 이사장님 승인 2026-11-20 「1」) 길눈이 일하는 중인가 — 길 안내(도착 전)·점지도 걷기·되짚어 나가기·말로 그린 길·신호기 찾기·문 찾기·카메라로 읽기
+    static var ilhaneunJung: Bool {
+        if let y = YeojeongEngine.shared.jigeum, y.danggye != .dochak { return true }
+        if JeomEngine.shared.georeoJung || JeomEngine.shared.tagoGaneunJung { return true }
+        if DoeEngine.shared.sangtae == .annae || MalgilEngine.shared.geotneun || SinhogiEngine.shared.chatneunJung { return true }
+        if MunChatgi.shared.kyeojim || GeulIlgi.shared.kyeojim || GarikiIlgi.shared.kyeojim || SaramGamji.shared.kyeojim { return true }
+        if SangpumIlgi.shared.kyeojim || JipyeSaek.shared.kyeojim || BitAlgi.shared.kyeojim || Hanmadi.shared.kyeojim || TeokAllim.shared.kyeojim { return true }
+        return false
+    }
+
+    /// 2.129.0 「지금 ○○로 가는 중입니다. △△로 바꿀까요?」를 여쭌 곳과 때 — 같은 곳은 5분 안에 다시 여쭙지 않음
+    private var bakkumMureum: [String: Date] = [:]
+    /// 2.129.0 「목적지 바꿔」라고 하신 때 — 이때 말씀하신 곳은 5분 안이라도 여쭘
+    private var bakkumCheongTtae = Date.distantPast
+
     /// 대답하고, 묻는 말이면 마이크를 한 번만 저절로 엶. 아니면 땡 소리로 마침
     private func dapHagi(_ t: String, _ mutneun: Bool) {
         sangtae = .swim
@@ -716,7 +731,14 @@ final class MalHagi: ObservableObject {
             // 2.49.0 묻는 말이든 아니든 대답 뒤에는 하이 길눈 없이 10초 이어 들음(딩동으로 알림). 말씀이 없으면 조용히 닫음
             // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 편집 중이거나 전화 중이면 이어 듣지 않음(안드로이드와 같이 이 자리에서 바로 봄)
             // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 전화를 거는 중(통화 확인 창)이면 이어 듣지 않음
+            // 2.129.0 (261120-I83, 이사장님 승인 2026-11-20 「1」) 길눈이 일하는 중(안내·걷기·찾기)이면 길눈이 여쭌 때만 한 번 이어 듣고,
+            //   묻지 않은 대답 뒤에는 이어 듣지 않고 바로 부름말 기다림으로 — 옆에서 하는 말을 알아듣고 「바꿀까요?」를 거듭 여쭈다 하던 일을 잊던 일
+            let ilJung = MalHagi.ilhaneunJung
+            if ilJung && !mutneun {
+                Girok.shared.namgi("ieo_an", ["kkadak": "iljung"])
+            }
             if GinGeup.shared.sangtae == .eopseum && !self.ieoGeumman && !self.watchMal && self.ieoSu < 20
+                && (mutneun || !ilJung)
                 && !self.pyeonjipJung && !JeonhwaGamsi.shared.jeonhwaJung && !ChaBureugi.shared.geoneunJung {
                 self.ieoSu += 1
                 self.jadongYeolim += 1
@@ -1388,6 +1410,7 @@ final class MalHagi: ObservableObject {
         if MalHagi.byeongyeongMal(z) {
             mureum = .mokjeok
             mureumTtae = Date()
+            bakkumCheongTtae = Date()   // 2.129.0
             if let yy = y {
                 dap("지금 \(yy.mokjeok.ireum)\(MalHagi.ro(yy.mokjeok.ireum)) 가시는 중입니다. 어디로 바꿀까요?", true)
             } else {
@@ -2253,7 +2276,17 @@ final class MalHagi: ObservableObject {
         if hwagin {
             // 2.60.0 (이사장님 승인 2026-10-09) 이미 가시는 곳이 있으면 바꿀지를 분명히 여쭘
             if let yy = YeojeongEngine.shared.jigeum, MalSajeon.ttuk(yy.mokjeok.ireum) != MalSajeon.ttuk(h.ireum) {
-                dap(m + " 지금은 \(yy.mokjeok.ireum)\(MalHagi.ro(yy.mokjeok.ireum)) 가시는 중입니다. 목적지를 \(h.ireum)\(MalHagi.ro(h.ireum)) 변경하실 건가요?", true)
+                // 2.129.0 (261120-I83, 이사장님 승인 2026-11-20 「1」) 한 번만 여쭘 — 같은 곳을 5분 안에 또 들으면 여쭙지 않고 지금 길을 그대로(「목적지 바꿔」 뒤에는 여쭘)
+                let ki = MalSajeon.ttuk(h.ireum)
+                if let t0 = bakkumMureum[ki], Date().timeIntervalSince(t0) < 300, Date().timeIntervalSince(bakkumCheongTtae) > 60 {
+                    Girok.shared.namgi("bakkum_an_mureum", ["mok": String(h.ireum.prefix(20))])
+                    mureum = .eopseum
+                    huboHwagin = false
+                    dap("\(yy.mokjeok.ireum)\(MalHagi.ro(yy.mokjeok.ireum)) 그대로 안내합니다. 바꾸시려면 목적지 바꿔라고 말씀해 주십시오.", false)
+                    return
+                }
+                bakkumMureum[ki] = Date()
+                dap(m + " 지금 \(yy.mokjeok.ireum)\(MalHagi.ro(yy.mokjeok.ireum)) 가는 중입니다. \(h.ireum)\(MalHagi.ro(h.ireum)) 바꿀까요?", true)
             } else {
                 dap(m + " 여기로 안내할까요?", true)
             }

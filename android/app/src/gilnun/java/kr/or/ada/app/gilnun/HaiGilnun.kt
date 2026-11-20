@@ -45,11 +45,93 @@ object HaiGilnun {
         if (!apE) datgi()
     }
 
-    /** 2.26.0 「하이 길눈」으로 들리는 말인가(아이폰 bureumMal 과 같은 뜻) */
-    fun bureumMal(t0: String): Boolean {
+    /** 2.26.0 부름말인가(아이폰 bureumMal 과 같은 뜻) — 받아 적은 말 하나를 통째로 볼 때
+     *  2.94.0 (261120-A82, 이사장님 승인 2026-11-20 「1」, 아이폰 2.129.0과 같음) 「하이 길눈」은 어디서든, 「길눈아」는 말머리에서만, 「길눈」 한 마디는 말머리에서 토씨 없이 */
+    fun bureumMal(t0: String): Boolean = haiMal(t0) || meoriMal(t0) != null || gilnunHanmadi(t0)
+
+    /** 「하이 길눈」 — 말 어디에 있어도 부름(전과 같음) */
+    fun haiMal(t0: String): Boolean {
         val t = t0.replace(" ", "").lowercase()
-        return t.contains("하이길눈") || t.contains("하이길") || t.contains("길눈아") || t.contains("hi길눈") ||
+        return t.contains("하이길눈") || t.contains("하이길") || t.contains("hi길눈") ||
             t.contains("하이기른") || t.contains("아이길눈") || t.contains("하이글눈")
+    }
+
+    /** 2.94.0 「길눈」 뒤에 붙으면 부름이 아닌 토씨(길눈이·길눈은·길눈을·길눈에서 …) */
+    private val gilnunTossi = listOf("이", "은", "을", "에", "의", "도", "과", "으로", "하고", "한테", "보다", "만", "처럼", "앱", "어플")
+    /** 2.94.0 「길눈」 한 마디 바로 뒤에 이어지면 부름으로 받는 명령 머리말(아이폰과 같음) */
+    private val gilnunDwiMal = listOf("어디", "지금", "다음", "다시", "소리", "말소리", "멈춰", "그만", "가자", "안내", "여기", "날씨", "몇시",
+        "전화", "도와", "도움", "목적지", "바꿔", "변경", "뉴스", "라디오", "음악", "찾아", "읽어", "얼마", "됐어",
+        "하던일", "긴급", "신호", "집으로", "길기억", "되짚어", "문찾아", "글자")
+    private val gilnunPyogi = listOf("길눈", "길는", "기룬")
+
+    /** 2.94.0 말머리 부름 — 「길눈아」(비슷하게 들린 말 포함, 길눈이·길눈은 등은 아님) 또는 「길눈」 바로 뒤 명령. 무엇으로 불렀는지(gilnuna·gilnun) */
+    fun meoriMal(u: String): String? {
+        val z = MalSajeon.ttuk(u)
+        if (z.length < 3) return null
+        val ap3 = z.take(3)
+        if (ap3 == "길눈아" || ap3 == "길는아" || ap3 == "기루나" || ap3 == "길누나") return "gilnuna"
+        val p = gilnunPyogi.firstOrNull { z.startsWith(it) }
+        if (p != null) {
+            val dwi = z.drop(p.length)
+            if (gilnunDwiMal.any { dwi.startsWith(it) }) return "gilnun"
+            return null
+        }
+        if (ap3 in listOf("길눈이", "길눈은", "길눈을", "길눈에", "길눈의", "길눈도")) return null
+        if (MalSajeon.geori(MalSajeon.jamo(ap3), MalSajeon.jamo("길눈아")) <= 1) return "gilnuna"
+        return null
+    }
+
+    /** 2.94.0 말머리의 「길눈」 한 마디뿐인가 — 뒤에 토씨가 붙는지 쉬는지 보아야 함 */
+    fun gilnunHanmadi(u: String): Boolean = MalSajeon.ttuk(u) in gilnunPyogi
+
+    // 2.94.0 말머리 — 0.7초 넘게 쉰 뒤 새로 시작한 말(아이폰 malMeori 와 같음)
+    private var meoriJeon = ""
+    private var meoriJigeum = ""
+    private var meoriT = 0L
+    private var beorimJari = -1
+    private var beorimT = 0L
+    private var beorimMal = ""
+    private var swimR: Runnable? = null
+
+    private fun malMeori(f: String): String {
+        if (f != meoriJigeum) {
+            if (System.currentTimeMillis() - meoriT >= 700) meoriJeon = meoriJigeum
+            meoriJigeum = f
+            meoriT = System.currentTimeMillis()
+        }
+        if (f.startsWith(meoriJeon)) return f.drop(meoriJeon.length)
+        return if (f.length > meoriJeon.length) f.drop(meoriJeon.length) else ""
+    }
+
+    private fun meoriChoGihwa() {
+        meoriJeon = ""; meoriJigeum = ""; meoriT = 0L; beorimJari = -1
+        swimR?.let { main.removeCallbacks(it) }; swimR = null
+    }
+
+    /** 「길눈」이 들렸는데 부름으로 받지 않은 말 — 말머리가 아니거나 토씨가 붙음(같은 자리는 한 번만 남김) */
+    private fun beorimGirok() {
+        val f = meoriJigeum
+        val jari = f.lastIndexOf("길눈")
+        if (jari < 0) return
+        val dwi = f.length - jari - 2
+        if (dwi < 2 || f.length - jari > 12 || jari == beorimJari) return
+        beorimJari = jari
+        beorimT = System.currentTimeMillis()
+        beorimMal = f.substring(jari).take(5)
+        Girok.namgi("bureum_beorim", mapOf("mal" to beorimMal, "kkadak" to (if (jari == meoriJeon.length) "tossi" else "meori_ani")))
+    }
+
+    /** 부름을 알아들음 — 무엇으로 불렀는지(hai·gilnuna·gilnun) 남김. 버린 부름 뒤 8초 안이면 「다시 부름」(놓친 부름)으로도 남김 */
+    private fun bureumBadeum(kind: String) {
+        swimR?.let { main.removeCallbacks(it) }; swimR = null
+        val g = HashMap<String, Any>()
+        g["mal"] = kind
+        if (System.currentTimeMillis() - beorimT < 8000) { g["dasi"] = true; Girok.namgi("bureum_nochim", mapOf("mal" to beorimMal)) }
+        beorimT = 0L
+        datgi()
+        dasiTtae = System.currentTimeMillis() + 3000
+        Girok.namgi("hai_deureum", g)
+        MalHagi.dudeurim()   // 말로 하기 단추를 누른 것처럼 — 「네」 하고 명령을 들음
     }
 
     private val salpim = object : Runnable {
@@ -77,6 +159,7 @@ object HaiGilnun {
         if (!sseulSuItda(c)) return
         val r = try { SpeechRecognizer.createOnDeviceSpeechRecognizer(c) } catch (e: Exception) { null } ?: return
         sr = r
+        meoriChoGihwa()   // 2.94.0 새로 열 때마다 말머리를 처음부터
         r.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) { silpae = 0 }
             override fun onBeginningOfSpeech() {}
@@ -119,13 +202,23 @@ object HaiGilnun {
     private fun salpyeo(r: SpeechRecognizer, b: Bundle?, kkeut: Boolean) {
         if (sr !== r) return
         val ls = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION) ?: arrayListOf()
-        if (ls.any { bureumMal(it) }) {
-            datgi()
-            dasiTtae = System.currentTimeMillis() + 3000
-            Girok.namgi("hai_deureum", emptyMap())
-            MalHagi.dudeurim()   // 말로 하기 단추를 누른 것처럼 — 「네」 하고 명령을 들음
-            return
+        // 2.94.0 (261120-A82, 이사장님 승인 2026-11-20 「1」) 「하이 길눈」은 어디서든, 「길눈아」·「길눈」은 말머리에서만
+        val u = malMeori(MalSajeon.ttuk(ls.firstOrNull() ?: ""))
+        var kind: String? = if (ls.any { haiMal(it) }) "hai" else meoriMal(u)
+        if (kind == null && gilnunHanmadi(u)) {
+            if (kkeut) {
+                kind = "gilnun"
+            } else {
+                // 「길눈」 한 마디 — 0.7초 동안 뒤에 말(토씨)이 붙지 않으면 부름
+                swimR?.let { main.removeCallbacks(it) }
+                val f0 = meoriJigeum
+                val rr = Runnable { if (sr === r && meoriJigeum == f0) bureumBadeum("gilnun") }
+                swimR = rr
+                main.postDelayed(rr, 700)
+            }
         }
+        if (kind != null) { bureumBadeum(kind); return }
+        beorimGirok()
         if (kkeut) { datgi(); dasiTtae = System.currentTimeMillis() + 300 }
     }
 

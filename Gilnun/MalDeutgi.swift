@@ -186,7 +186,7 @@ final class MalDeutgi: NSObject {
         let kc = Array(ch[k0...])
         var kkeut = -1
         if !kc.isEmpty {
-            for k in 1...min(kc.count, 14) where MalDeutgi.bureumMal(String(kc[0..<k])) { kkeut = k; break }
+            for k in 1...min(kc.count, 14) where MalDeutgi.bureumKkeut(String(kc[0..<k])) { kkeut = k; break }   // 2.129.0
         }
         var nam: String
         if kkeut > 0 {
@@ -621,21 +621,26 @@ final class MalDeutgi: NSObject {
         if bangsik == .bureum {
             // 2.12.2 길눈이 제 입으로 "길눈"을 말하는 중이면 부름으로 치지 않음
             let jegaMalham = SoriEngine.shared.malhaneunJung && SoriEngine.shared.hanunMal.contains("길눈")   // 2.12.6 실제로 말하는 동안만
-            if !jegaMalham, ls.contains(where: { MalDeutgi.bureumMal($0) }) {
-                if MalDeutgi.gwiHana && sae != nil {
-                    // 2.30.0 귀를 하나로 — 이 귀를 끄지 않고 명령 듣기로 이어 씀(「네」를 말하는 동안은 닫아 둠)
-                    jamjamSigye?.invalidate(); jamjamSigye = nil
-                    handoSigye?.invalidate(); handoSigye = nil
-                    saeIeum = true
-                    bangsik = .myeongryeong
-                    myeongryeongKkeut = nil
-                    gwiDatgi(true)
-                    Girok.shared.namgi("hai_gilnun", ["gwi": "hana"])
+            // 2.129.0 (261120-I83, 이사장님 승인 2026-11-20 「1」) 쉼 뒤 새로 시작한 말(말머리)을 봄 — 「길눈아」·「길눈」은 말머리에서만
+            let u = malMeori(b0, MalSajeon.ttuk(sae != nil ? saeModu : (ls.first ?? "")))
+            var kind: String? = nil
+            if ls.contains(where: { MalDeutgi.haiMal($0) }) { kind = "hai" } else if let k = MalDeutgi.meoriMal(u) { kind = k }
+            if !jegaMalham, kind == nil, MalDeutgi.gilnunHanmadi(u) {
+                if final {
+                    kind = "gilnun"
                 } else {
-                    swigi()
-                    Girok.shared.namgi("hai_gilnun", [:])
+                    // 「길눈」 한 마디 — 0.7초 동안 뒤에 말(토씨)이 붙지 않으면 부름
+                    swimSigye?.invalidate()
+                    let f0 = meoriJigeum
+                    swimSigye = Timer.scheduledTimer(withTimeInterval: 0.7, repeats: false) { [weak self] _ in
+                        guard let s = self, b0 == s.beon, s.bangsik == .bureum, s.meoriJigeum == f0 else { return }
+                        s.bureumBadeum("gilnun")
+                    }
                 }
-                bureumDeureum?()
+            }
+            if !jegaMalham, kind == nil { beorimGirok(u) }
+            if !jegaMalham, let kind = kind {
+                bureumBadeum(kind)
                 return
             }
             // 2.12.1 "하이"·"헤이"로 시작했는데 못 알아들은 짧은 말만 남김(알아듣는 말을 키우려고)
@@ -675,6 +680,73 @@ final class MalDeutgi: NSObject {
         if final || oryu { myeongryeongMaechim() }
     }
 
+    // MARK: 2.129.0 부름말 말머리 (261120-I83, 이사장님 승인 2026-11-20 「1」)
+
+    private var swimSigye: Timer?
+    private var meoriBeon = -1
+    private var meoriJeon = ""          // 쉼 앞까지 쌓인 말(뚝)
+    private(set) var meoriJigeum = ""   // 지금까지 받아 적은 말(뚝)
+    private var meoriT = Date.distantPast
+    private var beorimT = Date.distantPast
+    private var beorimMal = ""
+
+    /// 0.7초 넘게 쉰 뒤 새로 시작한 말 — 받아쓰기가 앞말을 고쳐 쓰면 길이로 어림
+    private func malMeori(_ b0: Int, _ f: String) -> String {
+        if b0 != meoriBeon { meoriBeon = b0; meoriJeon = ""; meoriJigeum = ""; meoriT = .distantPast; beorimJari = -1 }
+        if f != meoriJigeum {
+            if Date().timeIntervalSince(meoriT) >= 0.7 { meoriJeon = meoriJigeum }
+            meoriJigeum = f
+            meoriT = Date()
+        }
+        if f.hasPrefix(meoriJeon) { return String(f.dropFirst(meoriJeon.count)) }
+        return f.count > meoriJeon.count ? String(f.dropFirst(meoriJeon.count)) : ""
+    }
+
+    /// 부름을 알아들음 — 무엇으로 불렀는지(hai·gilnuna·gilnun) 남김. 버린 부름 뒤 8초 안이면 「다시 부름」(놓친 부름)으로도 남김
+    private func bureumBadeum(_ kind: String) {
+        swimSigye?.invalidate(); swimSigye = nil
+        var g: [String: Any] = ["mal": kind]
+        if Date().timeIntervalSince(beorimT) < 8 { g["dasi"] = true; Girok.shared.namgi("bureum_nochim", ["mal": beorimMal]) }
+        beorimT = .distantPast
+        if MalDeutgi.gwiHana && sae != nil {
+            // 2.30.0 귀를 하나로 — 이 귀를 끄지 않고 명령 듣기로 이어 씀(「네」를 말하는 동안은 닫아 둠)
+            jamjamSigye?.invalidate(); jamjamSigye = nil
+            handoSigye?.invalidate(); handoSigye = nil
+            saeIeum = true
+            bangsik = .myeongryeong
+            myeongryeongKkeut = nil
+            gwiDatgi(true)
+            g["gwi"] = "hana"
+            Girok.shared.namgi("hai_gilnun", g)
+        } else {
+            swigi()
+            Girok.shared.namgi("hai_gilnun", g)
+        }
+        bureumDeureum?()
+    }
+
+    /// 「길눈」이 들렸는데 부름으로 받지 않은 말 — 말머리가 아니거나 토씨가 붙음(같은 자리는 한 번만 남김)
+    private var beorimJari = -1
+    private func beorimGirok(_ u: String) {
+        let f = meoriJigeum
+        guard let r = f.range(of: "길눈", options: .backwards) else { return }
+        let jari = f.distance(from: f.startIndex, to: r.lowerBound)
+        let dwi = f[r.upperBound...]
+        // 뒷말이 두 자 넘게 붙은 뒤에만(받아쓰기가 아직 고쳐 쓰는 중일 수 있어), 최근 12자 안에서, 같은 자리는 한 번
+        guard dwi.count >= 2, f.count - jari <= 12, jari != beorimJari else { return }
+        beorimJari = jari
+        beorimT = Date()
+        beorimMal = String(f[r.lowerBound...].prefix(5))
+        let kkadak = jari == meoriJeon.count ? "tossi" : "meori_ani"
+        Girok.shared.namgi("bureum_beorim", ["mal": beorimMal, "kkadak": kkadak])
+    }
+
+    /// 명령 앞에 붙은 부름말이 여기서 끝나나 — 명령 부분만 떼어 내려고
+    static func bureumKkeut(_ t: String) -> Bool {
+        let z = MalSajeon.ttuk(t)
+        return haiMal(z) || z.hasSuffix("길눈아") || z.hasSuffix("길눈") || z.hasSuffix("기루나") || z.hasSuffix("길누나")
+    }
+
     private func myeongryeongMaechim() {
         guard bangsik == .myeongryeong, let f = myeongryeongKkeut else { return }
         myeongryeongKkeut = nil
@@ -700,26 +772,64 @@ final class MalDeutgi: NSObject {
         f(a)
     }
 
-    /// "하이 길눈"(또는 "길눈아")을 들었는가 — 끝부분만 보고, 발음이 조금 달라도 알아들음
-    /// 2.12.1 아이폰이 잘못 적는 말(하이론 등)도 받아들임
+    /// 부름말인가 — 받아 적은 말 하나(명령으로 들은 말 등)를 통째로 볼 때
+    /// 2.129.0 (261120-I83, 이사장님 승인 2026-11-20 「1」) 「하이 길눈」은 어디서든, 「길눈아」는 말머리에서만, 「길눈」 한 마디는 말머리에서 토씨 없이
     static func bureumMal(_ t: String) -> Bool {
+        let z = MalSajeon.ttuk(t)
+        if z.isEmpty { return false }
+        return haiMal(z) || meoriMal(z) != nil || gilnunHanmadi(z)
+    }
+
+    /// 「하이 길눈」 — 말 어디에 있어도 부름(전과 같음). 끝부분만 보고, 발음이 조금 달라도 알아들음
+    /// 2.12.1 아이폰이 잘못 적는 말(하이론 등)도 받아들임
+    static func haiMal(_ t: String) -> Bool {
         let z = MalSajeon.ttuk(t)
         if z.isEmpty { return false }
         // 2.12.5 "하이길"까지만 들려도 곧바로(기록상 0.3~0.5초 빨라짐)
         if z.hasSuffix("하이길") || z.hasSuffix("헤이길") { return true }
-        for m in ["하이길눈", "하이길는", "하이기룬", "하이길론", "헤이길눈", "길눈아",
+        for m in ["하이길눈", "하이길는", "하이기룬", "하이길론", "헤이길눈",
                   "하이론", "하이기론", "하이기눈", "하이길룬", "하이길문", "하이길운", "아이길눈", "하이킬눈", "헤이기룬", "헤이론"] where z.contains(m) { return true }
         let kkori = MalSajeon.jamo(String(z.suffix(8)))
-        for (bon, heo) in [(MalSajeon.jamo("하이길눈"), 2), (MalSajeon.jamo("길눈아"), 1)] {
-            let n = bon.count
-            if kkori.count < n - 1 { continue }
-            var s = 0
-            while s + n - 1 <= kkori.count {
-                let e = min(kkori.count, s + n)
-                if MalSajeon.geori(Array(kkori[s..<e]), bon) <= heo { return true }
-                s += 1
-            }
+        let bon = MalSajeon.jamo("하이길눈")
+        let n = bon.count
+        if kkori.count < n - 1 { return false }
+        var s = 0
+        while s + n - 1 <= kkori.count {
+            let e = min(kkori.count, s + n)
+            if MalSajeon.geori(Array(kkori[s..<e]), bon) <= 2 { return true }
+            s += 1
         }
         return false
+    }
+
+    /// 2.129.0 「길눈」 뒤에 붙으면 부름이 아닌 토씨(길눈이·길눈은·길눈을·길눈에서 …)
+    static let gilnunTossi = ["이", "은", "을", "에", "의", "도", "과", "으로", "하고", "한테", "보다", "만", "처럼", "앱", "어플"]
+    /// 2.129.0 「길눈」 한 마디 바로 뒤에 이어지면 부름으로 받는 명령 머리말
+    static let gilnunDwiMal = ["어디", "지금", "다음", "다시", "소리", "말소리", "멈춰", "그만", "가자", "안내", "여기", "날씨", "몇시",
+                               "전화", "도와", "도움", "목적지", "바꿔", "변경", "뉴스", "라디오", "음악", "찾아", "읽어", "얼마", "됐어",
+                               "하던일", "긴급", "신호", "집으로", "길기억", "되짚어", "문찾아", "글자"]
+    private static let gilnunPyogi = ["길눈", "길는", "기룬"]
+
+    /// 2.129.0 말머리 부름 — 「길눈아」(비슷하게 들린 말 포함, 길눈이·길눈은 등은 아님) 또는 「길눈」 바로 뒤 명령. 무엇으로 불렀는지(gilnuna·gilnun)
+    static func meoriMal(_ u: String) -> String? {
+        let z = MalSajeon.ttuk(u)
+        if z.count < 3 { return nil }
+        let ap3 = String(z.prefix(3))
+        if ap3 == "길눈아" || ap3 == "길는아" || ap3 == "기루나" || ap3 == "길누나" { return "gilnuna" }
+        if let p = gilnunPyogi.first(where: { z.hasPrefix($0) }) {
+            let dwi = String(z.dropFirst(p.count))
+            if gilnunTossi.contains(where: { dwi.hasPrefix($0) }) && !gilnunDwiMal.contains(where: { dwi.hasPrefix($0) }) { return nil }
+            if gilnunDwiMal.contains(where: { dwi.hasPrefix($0) }) { return "gilnun" }
+            return nil
+        }
+        // 비슷하게 들린 「길눈아」 — 자모 하나까지(길눈이처럼 토씨로 끝나면 아님)
+        if ["길눈이", "길눈은", "길눈을", "길눈에", "길눈의", "길눈도"].contains(ap3) { return nil }
+        if MalSajeon.geori(MalSajeon.jamo(ap3), MalSajeon.jamo("길눈아")) <= 1 { return "gilnuna" }
+        return nil
+    }
+
+    /// 2.129.0 말머리의 「길눈」 한 마디뿐인가 — 뒤에 토씨가 붙는지 쉬는지 보아야 함
+    static func gilnunHanmadi(_ u: String) -> Bool {
+        gilnunPyogi.contains(MalSajeon.ttuk(u))
     }
 }
