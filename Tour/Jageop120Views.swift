@@ -522,6 +522,13 @@ struct JisikView: View {
                         if let m = g["mujangae"] as? [String], !m.isEmpty { Text("무장애 정보 \(m.count)가지 — " + m.joined(separator: " / ")) } else { Text("이곳은 무장애 정보가 아직 등록되어 있지 않습니다.").font(.footnote) }
                     }
                 }
+                if let os = j["osineun"] as? [String: Any], let jl = os["jul"] as? [String], !jl.isEmpty {
+                    // 261120 오시는 길 저절로 채우기(새방클, 이사장님 승인 261120 「1」)
+                    Section("오시는 길 (지도로 어림)") {
+                        ForEach(jl, id: \.self) { Text($0) }
+                        Text(geulja(os["balk"])).font(.footnote)
+                    }
+                }
                 Section("들를 만한 곳 \(list.count)곳 — 가실 차례대로 누르십시오. 누르는 차례가 곧 코스 번호입니다") {
                     ForEach(Array(list.enumerated()), id: \.offset) { i, r in
                         let od = order.firstIndex(of: i)
@@ -667,7 +674,12 @@ struct JisikView: View {
             if let u = g["uri"] as? [String], !u.isEmpty { acc += "\n[협회가 확인한 것]\n" + u.map { "· " + $0 + "\n" }.joined() }
             if let m = g["mujangae"] as? [String], !m.isEmpty { acc += "\n[무장애 정보 — 한국관광공사]\n" + m.map { "· " + $0 + "\n" }.joined() }
         }
-        acc += "\n[실측 확인] 오시는 길, 대중교통, 매표소까지의 동선, 계단 칸 수는 현장에서 채워 주십시오.\n"
+        if let os = j["osineun"] as? [String: Any], let jl = os["jul"] as? [String], !jl.isEmpty {
+            acc += "\n[오시는 길 — 지도로 어림한 것]\n" + jl.map { "· " + $0 + "\n" }.joined() + "(" + geulja(os["balk"]) + ")\n"
+            acc += "\n[실측 확인] 위 오시는 길은 지도로 어림한 것입니다. 실제로 걷는 길, 매표소까지의 동선, 계단 칸 수는 현장에서 확인해 채워 주십시오.\n"
+        } else {
+            acc += "\n[실측 확인] 오시는 길, 대중교통, 매표소까지의 동선, 계단 칸 수는 현장에서 채워 주십시오.\n"
+        }
         c["access"] = acc
         var his = ""
         for (k, r) in golf.enumerated() {
@@ -1085,6 +1097,65 @@ struct GineungView: View {
         case GineungView.L[21].id: FinalsView()
         case GineungView.L[25].id: PanGirokView()
         default: ReviewsView()
+        }
+    }
+}
+
+// MARK: - 고르기로 채우기 (261120 새방클, 이사장님 승인 261120 「1」)
+/// 계단·경사·바닥·손잡이·턱·점자블록을 골라 문장을 만들어 고른 칸 끝에 붙입니다(안드로이드 Goreugi 와 같은 문장).
+struct GoreugiSection: View {
+    @EnvironmentObject var store: TourStore
+    let s: Spot
+    @State private var kan = "access"
+    @State private var bang = ""
+    @State private var gyedan = 0
+    @State private var oreum = true
+    @State private var gyeongsa = "평지"
+    @State private var badak = ""
+    @State private var sonjabi = ""
+    @State private var teok = "없음"
+    @State private var jeomja = ""
+    static let KAN: [(String, String)] = [("access", "이동 구간 안내"), ("safe", "조심할 것")]
+    static let BANG = [""] + (1...12).map { "\($0)시 방향" }
+    static let GYEONGSA = ["평지", "완만한 오르막", "가파른 오르막", "완만한 내리막", "가파른 내리막"]
+    static let BADAK = ["", "흙", "돌", "나무 데크", "포장된 길", "자갈", "잔디", "마루"]
+    static let SONJABI = ["", "없음", "3시 쪽(오른쪽)", "9시 쪽(왼쪽)", "양쪽"]
+    static let TEOK = ["없음", "낮은 턱", "한 뼘 높이 문턱"]
+    static let JEOMJA = ["", "있음", "없음"]
+    static func munjang(bang: String, gyedan: Int, oreum: Bool, gyeongsa: String, badak: String, sonjabi: String, teok: String, jeomja: String) -> String {
+        let b = bang.isEmpty ? "" : bang + "으로 "
+        var L: [String] = []
+        if gyedan > 0 { L.append(b + "계단 \(gyedan)칸을 " + (oreum ? "올라갑니다." : "내려갑니다.")) }
+        else if gyeongsa != "평지" { L.append(b + gyeongsa + "입니다.") }
+        else if !bang.isEmpty { L.append(b + "평평한 길입니다.") }
+        if !sonjabi.isEmpty { L.append(sonjabi == "없음" ? "손잡이는 없습니다." : "손잡이는 " + sonjabi + "에 있습니다.") }
+        if !badak.isEmpty { L.append("바닥은 " + badak + "입니다.") }
+        if teok == "낮은 턱" { L.append("발밑에 낮은 턱이 있습니다.") } else if teok == "한 뼘 높이 문턱" { L.append("발밑에 한 뼘 높이 문턱이 있습니다.") }
+        if jeomja == "있음" { L.append("점자블록이 있습니다.") } else if jeomja == "없음" { L.append("점자블록은 없습니다.") }
+        return L.joined(separator: " ")
+    }
+    var m: String { GoreugiSection.munjang(bang: bang, gyedan: gyedan, oreum: oreum, gyeongsa: gyeongsa, badak: badak, sonjabi: sonjabi, teok: teok, jeomja: jeomja) }
+    func pyo(_ x: String) -> String { x.isEmpty ? "고르지 않음" : x }
+    var body: some View {
+        Section("고르기로 채우기 (손으로 치지 않고 골라서 문장 만들기)") {
+            Picker("붙일 칸", selection: $kan) { ForEach(GoreugiSection.KAN, id: \.0) { Text($0.1).tag($0.0) } }
+            Picker("방향", selection: $bang) { ForEach(GoreugiSection.BANG, id: \.self) { Text(pyo($0)).tag($0) } }
+            Stepper(value: $gyedan, in: 0...60) { Text(gyedan == 0 ? "계단 없음" : "계단 \(gyedan)칸") }
+            if gyedan > 0 { Picker("계단 오르내림", selection: $oreum) { Text("올라감").tag(true); Text("내려감").tag(false) } }
+            else { Picker("경사", selection: $gyeongsa) { ForEach(GoreugiSection.GYEONGSA, id: \.self) { Text($0).tag($0) } } }
+            Picker("손잡이", selection: $sonjabi) { ForEach(GoreugiSection.SONJABI, id: \.self) { Text(pyo($0)).tag($0) } }
+            Picker("바닥", selection: $badak) { ForEach(GoreugiSection.BADAK, id: \.self) { Text(pyo($0)).tag($0) } }
+            Picker("턱", selection: $teok) { ForEach(GoreugiSection.TEOK, id: \.self) { Text($0).tag($0) } }
+            Picker("점자블록", selection: $jeomja) { ForEach(GoreugiSection.JEOMJA, id: \.self) { Text(pyo($0)).tag($0) } }
+            Text(m.isEmpty ? "만들 문장: 아직 고른 것이 없습니다." : "만들 문장: " + m)
+            Button("이 문장을 " + (GoreugiSection.KAN.first { $0.0 == kan }?.1 ?? "") + " 칸 끝에 붙이기") {
+                let mm = m
+                if mm.isEmpty { store.say("아직 고른 것이 없습니다."); return }
+                let x = s.s(kan)
+                s.d[kan] = x.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? mm : x.trimmingCharacters(in: .whitespacesAndNewlines) + "\n" + mm
+                store.bakkwim(); store.say("붙였습니다. " + mm)
+                bang = ""; gyedan = 0; oreum = true; gyeongsa = "평지"; badak = ""; sonjabi = ""; teok = "없음"; jeomja = ""
+            }
         }
     }
 }

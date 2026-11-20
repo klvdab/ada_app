@@ -1148,6 +1148,12 @@ internal fun TourActivity.jisikHwamyeon() {
         val m = g.optJSONArray("mujangae")
         if (m != null && m.length() > 0) geul("무장애 정보 ${m.length()}가지 — " + (0 until m.length()).joinToString(" / ") { m.optString(it) }) else geul("이곳은 무장애 정보가 아직 등록되어 있지 않습니다.", jakge = true)
     } }
+    // 261120 오시는 길 저절로 채우기(새방클, 이사장님 승인 261120 「1」)
+    j.optJSONObject("osineun")?.let { os -> os.optJSONArray("jul")?.let { jl -> if (jl.length() > 0) {
+        geul("오시는 길 (지도로 어림)", jemok = true)
+        for (i in 0 until jl.length()) geul(jl.optString(i))
+        geul(os.optString("balk"), jakge = true)
+    } } }
     geul("들를 만한 곳 ${list.size}곳 — 가실 차례대로 누르십시오. 누르는 차례가 곧 코스 번호입니다", jemok = true)
     jangMok("js", list.withIndex().toList()) { (i, r) ->
         val od = order.indexOf(i).takeIf { it >= 0 }
@@ -1260,7 +1266,12 @@ internal fun TourActivity.jisikMandeulgi(into: Boolean) {
             g.optJSONArray("uri")?.let { u -> if (u.length() > 0) { acc.append("\n[협회가 확인한 것]\n"); for (i in 0 until u.length()) acc.append("· " + u.optString(i) + "\n") } }
             g.optJSONArray("mujangae")?.let { m -> if (m.length() > 0) { acc.append("\n[무장애 정보 — 한국관광공사]\n"); for (i in 0 until m.length()) acc.append("· " + m.optString(i) + "\n") } }
         } }
-        acc.append("\n[실측 확인] 오시는 길, 대중교통, 매표소까지의 동선, 계단 칸 수는 현장에서 채워 주십시오.\n")
+        val osJul = j.optJSONObject("osineun")?.optJSONArray("jul")
+        if (osJul != null && osJul.length() > 0) {
+            acc.append("\n[오시는 길 — 지도로 어림한 것]\n"); for (i in 0 until osJul.length()) acc.append("· " + osJul.optString(i) + "\n")
+            acc.append("(" + (j.optJSONObject("osineun")?.optString("balk") ?: "") + ")\n")
+            acc.append("\n[실측 확인] 위 오시는 길은 지도로 어림한 것입니다. 실제로 걷는 길, 매표소까지의 동선, 계단 칸 수는 현장에서 확인해 채워 주십시오.\n")
+        } else acc.append("\n[실측 확인] 오시는 길, 대중교통, 매표소까지의 동선, 계단 칸 수는 현장에서 채워 주십시오.\n")
         c.put("access", acc.toString())
         val his = StringBuilder()
         golf.forEachIndexed { k, r ->
@@ -1910,5 +1921,56 @@ internal fun TourActivity.sae120(h: Hw) {
         Hw.Jeoljeoro -> jeoljeoroHwamyeon()
         Hw.PanGirok -> panGirokHwamyeon()
         else -> {}
+    }
+}
+
+// ================= 고르기로 채우기 (261120 새방클, 이사장님 승인 261120 「1」) =================
+// 계단·경사·바닥·손잡이·턱·점자블록을 단추로 고르면 문장을 만들어 고른 칸 끝에 붙입니다. 손으로 치는 글을 줄이려는 것.
+internal object Goreugi {
+    var kan = "access"; var bang = ""; var gyedan = 0; var oreum = true; var gyeongsa = "평지"; var badak = ""; var sonjabi = ""; var teok = "없음"; var jeomja = ""
+    val KAN = listOf("access" to "이동 구간 안내", "safe" to "조심할 것")
+    val BANG = listOf("") + (1..12).map { "${it}시 방향" }
+    val GYEONGSA = listOf("평지", "완만한 오르막", "가파른 오르막", "완만한 내리막", "가파른 내리막")
+    val BADAK = listOf("", "흙", "돌", "나무 데크", "포장된 길", "자갈", "잔디", "마루")
+    val SONJABI = listOf("", "없음", "3시 쪽(오른쪽)", "9시 쪽(왼쪽)", "양쪽")
+    val TEOK = listOf("없음", "낮은 턱", "한 뼘 높이 문턱")
+    val JEOMJA = listOf("", "있음", "없음")
+    fun munjang(): String {
+        val b = if (bang.isEmpty()) "" else "$bang 으로 ".replace(" 으로", "으로")
+        val L = mutableListOf<String>()
+        if (gyedan > 0) L.add(b + "계단 ${gyedan}칸을 " + (if (oreum) "올라갑니다." else "내려갑니다."))
+        else if (gyeongsa != "평지") L.add(b + gyeongsa + "입니다.")
+        else if (bang.isNotEmpty()) L.add(b + "평평한 길입니다.")
+        if (sonjabi.isNotEmpty()) L.add(if (sonjabi == "없음") "손잡이는 없습니다." else "손잡이는 $sonjabi 에 있습니다.".replace(" 에", "에"))
+        if (badak.isNotEmpty()) L.add("바닥은 " + badak + "입니다.")
+        if (teok == "낮은 턱") L.add("발밑에 낮은 턱이 있습니다.") else if (teok == "한 뼘 높이 문턱") L.add("발밑에 한 뼘 높이 문턱이 있습니다.")
+        if (jeomja == "있음") L.add("점자블록이 있습니다.") else if (jeomja == "없음") L.add("점자블록은 없습니다.")
+        return L.joinToString(" ")
+    }
+}
+internal fun TourActivity.goreugiSection(s: Spot) {
+    geul("고르기로 채우기 (손으로 치지 않고 골라서 문장 만들기)", jemok = true)
+    fun gorigi(jemok: String, mok: List<String>, now: String, pyo: (String) -> String = { if (it.isEmpty()) "고르지 않음" else it }, set: (String) -> Unit) {
+        danchu("$jemok — ${pyo(now)}. 누르면 고릅니다") {
+            android.app.AlertDialog.Builder(this).setTitle(jemok).setItems(mok.map(pyo).toTypedArray()) { _, i -> set(mok[i]); malhagi(jemok + " " + pyo(mok[i]) + "."); draw() }.setNegativeButton("그만두기", null).show()
+        }
+    }
+    gorigi("붙일 칸", Goreugi.KAN.map { it.first }, Goreugi.kan, { id -> Goreugi.KAN.first { it.first == id }.second }) { Goreugi.kan = it }
+    gorigi("방향", Goreugi.BANG, Goreugi.bang) { Goreugi.bang = it }
+    gorigi("계단 칸 수", (0..40).map { it.toString() }, Goreugi.gyedan.toString(), { if (it == "0") "계단 없음" else "${it}칸" }) { Goreugi.gyedan = it.toInt() }
+    if (Goreugi.gyedan > 0) gorigi("계단 오르내림", listOf("올라감", "내려감"), if (Goreugi.oreum) "올라감" else "내려감") { Goreugi.oreum = it == "올라감" }
+    else gorigi("경사", Goreugi.GYEONGSA, Goreugi.gyeongsa) { Goreugi.gyeongsa = it }
+    gorigi("손잡이", Goreugi.SONJABI, Goreugi.sonjabi) { Goreugi.sonjabi = it }
+    gorigi("바닥", Goreugi.BADAK, Goreugi.badak) { Goreugi.badak = it }
+    gorigi("턱", Goreugi.TEOK, Goreugi.teok) { Goreugi.teok = it }
+    gorigi("점자블록", Goreugi.JEOMJA, Goreugi.jeomja) { Goreugi.jeomja = it }
+    val m = Goreugi.munjang()
+    geul(if (m.isEmpty()) "만들 문장: 아직 고른 것이 없습니다." else "만들 문장: $m")
+    danchu("이 문장을 " + (Goreugi.KAN.first { it.first == Goreugi.kan }.second) + " 칸 끝에 붙이기") {
+        if (m.isEmpty()) { malhagi("아직 고른 것이 없습니다."); return@danchu }
+        val x = s.s(Goreugi.kan); s.d.put(Goreugi.kan, if (x.isBlank()) m else x.trimEnd() + "\n" + m); bakkwim()
+        malhagi("붙였습니다. " + m)
+        Goreugi.bang = ""; Goreugi.gyedan = 0; Goreugi.oreum = true; Goreugi.gyeongsa = "평지"; Goreugi.badak = ""; Goreugi.sonjabi = ""; Goreugi.teok = "없음"; Goreugi.jeomja = ""
+        draw()
     }
 }

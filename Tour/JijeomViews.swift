@@ -82,6 +82,7 @@ struct SpotView: View {
                     kan(s, "safe", "조심할 것 · 화장실 · 쉼터", true)
                     kan(s, "gpos", "현장영상해설사 위치·현장영상해설 순서 (8번)", true)
                 }
+                if !k.isGyobon { GoreugiSection(s: s) }
                 Section(s.kind == "open" ? "오프닝 지점 대본" : (s.kind == "close" ? "클로징 지점 대본" : "이 지점 현장영상해설 글 (대본)")) {
                     TextField("대본", text: Binding(get: { k.spotText(s) }, set: { k.setSpotText(s, $0); store.bakkwim() }), axis: .vertical)
                         .lineLimit(6...30)
