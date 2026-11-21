@@ -36,6 +36,7 @@ object Dokseo {
     var bakkwim: (() -> Unit)? = null      // 화면 다시 그리기
     var allim: ((String) -> Unit)? = null  // 톡백 알림
     @Volatile var jamgeum: String? = null  // 0.8.3 일반 회원에게 잠긴 책이면 알릴 말(장애 확인 뒤 들음)
+    private val chehumAllim = java.util.Collections.synchronizedSet(mutableSetOf<Int>())   // 0.8.7 체험 몇 권째인지 책마다 한 번만 알림
     private val paras = HashMap<Int, String>()
     private val wons = HashMap<Int, String>()   // 0.6.1 (261012) 한자음 읽기 — 문단 원문
     var hjgal = false                           // 0.6.1 이 책이 한자음 읽기 대상인가
@@ -238,6 +239,7 @@ object Dokseo {
                 pageLoading.remove(pg)
                 if (book != i || r == null) { if (r == null) { allim?.invoke("글자를 가져오지 못했습니다. 인터넷을 확인해 주십시오."); LibGirok.namgi("lib_geulja_silpae") }; return@post }   // 0.6.3 이용 기록
                 Api.jamMal.remove("$book")?.let { m -> jamgeum = m; allim?.invoke(m) }   // 0.8.3 잠긴 글자책
+                Api.chehumN.remove("$book")?.let { c -> if (chehumAllim.add(book)) allim?.invoke("복지카드 확인 전 체험으로 여는 ${c}번째 책입니다. 세 권까지 체험으로 들으실 수 있고, 네 번째 책부터는 장애인 복지카드 확인이 필요합니다.") }   // 0.8.7 (261121, 이사장님 결정)
                 modu = r.first
                 r.second.forEachIndexed { k, s -> paras[pg + k] = s }
                 Api.hjWon.remove("$book:$pg")?.forEachIndexed { k, s -> wons[pg + k] = s }; Api.hjGal.remove("$book:$pg")?.let { hjgal = it }   // 0.6.1

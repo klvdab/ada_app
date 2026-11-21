@@ -1,4 +1,5 @@
 // AI점자도서관 앱 — 회원 등록과 회원 열쇠 (판 0.1.0, 빌드 260930-2)
+// 0.8.7 (261121) 복지카드 바로 찍기·저작권 까닭과 체험 세 권 안내(이사장님 결정)
 // 0.8.3 (261019-L22) 회원 등급 — 설정에 내 등급, 장애 확인 서류 사진 올리기, 잠긴 책 알림(이사장님 승인 2026-10-19 11시 50분 「1」)
 // 0.8.2 (261019-L21) 실적용 회원 정보 보강 — 장애 유형·지역·연령대·이용 약관 동의(등록 때, 이미 등록한 분은 켤 때 한 번 여쭘. 이사장님 승인 2026-10-18 「1」)
 // 앱 코드에는 나스 열쇠를 적지 않는다. 처음 켤 때 이름과 휴대전화 번호로 회원 등록을 하면
@@ -6,6 +7,7 @@
 import Foundation
 import SwiftUI
 import PhotosUI
+import AVFoundation
 import UIKit
 
 final class Hoewon: ObservableObject {
@@ -35,7 +37,8 @@ final class Hoewon: ObservableObject {
     var ilban: Bool { deung == "ilban" }
     /// 0.8.6 엔터테인먼트 탭을 보일까 — 서버(hw_injeung)와 같이 인증 회원·운영자·최고관리자에게만
     var entBoim: Bool { ["injeung", "unyeong", "choego"].contains(deung) }
-    static let jeungMal = "장애인 복지카드나 장애인증명서를 사진으로 찍어 올려 주십시오. 협회가 확인하면 인증 회원이 되어 모든 책과 엔터테인먼트 작품을 들으실 수 있습니다. 올리신 사진은 장애 확인에만 쓰고, 운영하는 사람만 봅니다."
+    static let jeungMal = "우리 도서관의 책은 저작권법에 따라 시각장애인만 무료로 이용할 수 있어서, 장애인 복지카드로 시각장애를 확인해야 합니다. 복지카드를 내지 않아도 책 세 권까지는 체험으로 들으실 수 있고, 네 번째 책부터는 복지카드를 확인받아야 계속 이용하실 수 있습니다. 아래 「복지카드 바로 찍기」를 누르면 카메라가 열립니다. 협회가 확인하면 인증 회원이 되어 모든 책과 엔터테인먼트 작품을 들으실 수 있습니다. 올리신 사진은 장애 확인에만 쓰고, 확인이 끝나면 바로 지웁니다."   // 0.8.7 (261121) 저작권 까닭·체험 세 권·바로 찍기(이사장님 결정)
+    static let jjikgiMal = "복지카드를 탁자처럼 평평한 곳에 놓고, 폰을 카드 위 한 뼘 높이에서 화면이 아래를 보게 들어 주십시오. 카메라가 열리면 화면 아래 가운데 「사진 찍기」 단추를 두 번 누르고, 「사진 사용」을 누르시면 올라갑니다."
     static func jeungIreum(_ j: String) -> String {
         switch j { case "daegi": return "올리신 서류를 협회가 확인하고 있습니다"; case "seungin": return "장애 확인을 마쳤습니다"; case "georeo": return "서류를 다시 올려 주셔야 합니다"; default: return "아직 서류를 올리지 않으셨습니다" }
     }
@@ -305,6 +308,9 @@ struct JeungView: View {
     @State private var gidarim = false
     @AccessibilityFocusState private var cheot: Bool
     @AccessibilityFocusState private var malFocus: Bool
+    @AccessibilityFocusState private var jjikFocus: Bool   // 0.8.7
+    @State private var kamera = false        // 0.8.7 카메라 창
+    @State private var kameraMakim = false   // 0.8.7 카메라 허락이 꺼짐
     var body: some View {
         NavigationStack {
             List {
@@ -315,8 +321,16 @@ struct JeungView: View {
                 if hw.ilban {
                     Section {
                         Text(Hoewon.jeungMal)
+                        // 0.8.7 (261121, 이사장님 결정) 복지카드 바로 찍기 — 사진첩에서 찾지 않고 그 자리에서 카메라로 찍어 곧바로 올림
+                        Button(gidarim ? "올리는 중입니다" : "복지카드 바로 찍기") { jjikgiSijak() }
+                            .disabled(gidarim)
+                            .accessibilityFocused($jjikFocus)
+                        if kameraMakim {
+                            Text("카메라 사용이 꺼져 있어 찍을 수 없습니다. 아래 「설정 열기」를 눌러 카메라를 켜 주십시오.")
+                            Button("설정 열기") { if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) } }
+                        }
                         PhotosPicker(selection: $gorum, matching: .images) {
-                            Text(gidarim ? "올리는 중입니다" : "사진 골라 올리기")
+                            Text(gidarim ? "올리는 중입니다" : "찍어 둔 사진 골라 올리기")
                         }
                         .disabled(gidarim)
                     }
@@ -332,23 +346,61 @@ struct JeungView: View {
             .toolbar { ToolbarItem(placement: .topBarLeading) { Button("닫기") { dismiss() } } }
             .accessibilityAction(.escape) { dismiss() }
             .task { await hw.deungHwakin() }
-            .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { cheot = true } }
+            .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { if hw.ilban { jjikFocus = true } else { cheot = true } } }   // 0.8.7 일반 회원이면 「복지카드 바로 찍기」에 커서
+            .fullScreenCover(isPresented: $kamera) {
+                KameraJjikgi { img in kamera = false; if let img { ollim(img) } else { mal = "찍지 않고 닫았습니다. 다시 찍으려면 「복지카드 바로 찍기」를 누르십시오."; malFocus = true } }
+                    .ignoresSafeArea()
+            }
             .onChange(of: gorum) { it in
                 guard let it else { return }
                 gidarim = true; mal = ""
                 Task {
-                    defer { gidarim = false; gorum = nil }
+                    defer { gorum = nil }
                     guard let raw = try? await it.loadTransferable(type: Data.self), let img = UIImage(data: raw) else {
-                        mal = "사진을 읽지 못했습니다. 다른 사진을 골라 주십시오."; malFocus = true; return
+                        gidarim = false; mal = "사진을 읽지 못했습니다. 다른 사진을 골라 주십시오."; malFocus = true; return
                     }
-                    let k = min(1.0, 2000.0 / max(img.size.width, img.size.height))   // 너무 크면 줄여 8메가바이트를 넘지 않게
-                    let im = k < 1 ? UIGraphicsImageRenderer(size: CGSize(width: img.size.width * k, height: img.size.height * k)).image { _ in img.draw(in: CGRect(x: 0, y: 0, width: img.size.width * k, height: img.size.height * k)) } : img
-                    guard let jd = im.jpegData(compressionQuality: 0.8) else { mal = "사진을 바꾸지 못했습니다."; malFocus = true; return }
-                    let (e, ok) = await hw.jeungOllim(jd)
-                    mal = e ?? ok ?? ""; malFocus = true
-                    if e == nil { Store.shared.say(mal) }
+                    ollim(img)
                 }
             }
         }
+    }
+    // 0.8.7 카메라를 열기 전에 허락을 살피고, 찍는 법을 소리로 먼저 알림
+    func jjikgiSijak() {
+        guard UIImagePickerController.isSourceTypeAvailable(.camera) else { mal = "이 기기에서는 카메라를 쓸 수 없습니다. 「찍어 둔 사진 골라 올리기」를 써 주십시오."; malFocus = true; return }
+        let go = { kameraMakim = false; Store.shared.say(Hoewon.jjikgiMal); DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { kamera = true } }
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized: go()
+        case .notDetermined: AVCaptureDevice.requestAccess(for: .video) { ok in DispatchQueue.main.async { if ok { go() } else { kameraMakim = true; mal = "카메라 사용을 허락하지 않으셨습니다. 「설정 열기」에서 켜실 수 있습니다."; malFocus = true } } }
+        default: kameraMakim = true; mal = "카메라 사용이 꺼져 있습니다. 「설정 열기」를 눌러 카메라를 켜 주십시오."; malFocus = true
+        }
+    }
+    // 0.8.7 찍거나 고른 사진을 줄여 올림
+    func ollim(_ img: UIImage) {
+        gidarim = true; mal = ""
+        Task {
+            defer { gidarim = false }
+            let k = min(1.0, 2000.0 / max(img.size.width, img.size.height))   // 너무 크면 줄여 8메가바이트를 넘지 않게
+            let im = k < 1 ? UIGraphicsImageRenderer(size: CGSize(width: img.size.width * k, height: img.size.height * k)).image { _ in img.draw(in: CGRect(x: 0, y: 0, width: img.size.width * k, height: img.size.height * k)) } : img
+            guard let jd = im.jpegData(compressionQuality: 0.8) else { mal = "사진을 바꾸지 못했습니다."; malFocus = true; return }
+            let (e, ok) = await hw.jeungOllim(jd)
+            mal = e ?? ((ok ?? "") + " 협회가 확인하면 모든 책을 열어 드립니다. 확인됐는지는 「확인됐는지 다시 보기」로 아실 수 있습니다."); malFocus = true
+            if e == nil { Store.shared.say(mal) }
+        }
+    }
+}
+
+// 0.8.7 카메라로 바로 찍기(UIImagePickerController) — 찍은 사진을 돌려줌, 닫으면 nil
+struct KameraJjikgi: UIViewControllerRepresentable {
+    let ggeut: (UIImage?) -> Void
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let p = UIImagePickerController(); p.sourceType = .camera; p.cameraCaptureMode = .photo; p.delegate = context.coordinator; return p
+    }
+    func updateUIViewController(_ vc: UIImagePickerController, context: Context) {}
+    func makeCoordinator() -> Co { Co(ggeut) }
+    final class Co: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let ggeut: (UIImage?) -> Void
+        init(_ g: @escaping (UIImage?) -> Void) { ggeut = g }
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) { ggeut(info[.originalImage] as? UIImage) }
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) { ggeut(nil) }
     }
 }

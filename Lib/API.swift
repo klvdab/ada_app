@@ -108,5 +108,5 @@ struct DaeumResp: Decodable { let ok: Bool; let i: Int?; let t: String?; let k: 
 struct JariResp: Decodable { let ok: Bool; let jari: [Int]? }   // 0.5.2
 struct ListResp: Decodable { let ok: Bool; let modu: Int?; let o: Int?; let items: [Item]?; let ttl: String?; let msg: String? }
 struct BookResp: Decodable { let ok: Bool; let i: Int?; let t: String?; let g: String?; let meg: Double?; let nal: String?; let kind: String?; let sogae: String?; let jieun: String?; let chulpan: String?; let msg: String? }
-struct GulResp: Decodable { let ok: Bool; let ttl: String?; let modu: Int?; let o: Int?; let mun: [String]?; let msg: String?; let won: [String]?; let hjgal: Bool?; let hj: Int?; let jamgeum: Int? }   // 0.8.3 jamgeum 잠긴 책   // 0.6.1 한자음 읽기(won 원문, hjgal 대상 책, hj 지금 방식)
+struct GulResp: Decodable { let ok: Bool; let ttl: String?; let modu: Int?; let o: Int?; let mun: [String]?; let msg: String?; let won: [String]?; let hjgal: Bool?; let hj: Int?; let jamgeum: Int?; let chehum: Int?; let chehumModu: Int?; let eoreun: Int? }   // 0.8.7 (261121) 체험 몇 권째(chehum)·어른용 책(eoreun)   // 0.8.3 jamgeum 잠긴 책   // 0.6.1 한자음 읽기(won 원문, hjgal 대상 책, hj 지금 방식)
 struct YoResp: Decodable { let ok: Bool; let h: String?; let msg: String?; let ap: Int? }   // 0.6.3 ap — 이 문단 앞에 기다리는 문단 수

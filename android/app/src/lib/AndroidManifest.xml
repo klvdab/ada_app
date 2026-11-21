@@ -47,5 +47,15 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+        <!-- 0.8.7 (261121) 복지카드 바로 찍기 — 카메라 앱이 찍은 사진을 앱 안 임시 자리에 담게 함 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.jeung"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/jeung_paths" />
+        </provider>
     </application>
 </manifest>

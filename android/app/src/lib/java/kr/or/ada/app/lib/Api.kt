@@ -75,6 +75,7 @@ object Api {
         val a = j.optJSONArray("mun")
         val mun = if (a == null) emptyList() else (0 until a.length()).map { a.optString(it) }
         if (j.optInt("jamgeum", 0) == 1) jamMal["$i"] = j.optString("msg").ifEmpty { "인증 회원만 들을 수 있는 책입니다." }   // 0.8.3 잠긴 책
+        if (j.has("chehum")) chehumN["$i"] = j.optInt("chehum")   // 0.8.7 체험 몇 권째
         val w = j.optJSONArray("won"); hjWon["$i:$o"] = if (w == null) emptyList() else (0 until w.length()).map { w.optString(it) }; hjGal["$i:$o"] = j.optBoolean("hjgal", false)   // 0.6.1
         return Triple(j.optInt("modu", 0), mun, j.optString("ttl"))
     }
@@ -100,6 +101,7 @@ object Api {
     @Volatile var apSu = 0
     /** 0.8.3 잠긴 글자책 — 책 번호마다 서버가 준 알림 말 */
     val jamMal = java.util.concurrent.ConcurrentHashMap<String, String>()
+    val chehumN = java.util.concurrent.ConcurrentHashMap<String, Int>()   // 0.8.7 (261121) 복지카드 확인 전 체험 몇 권째
     /** 0.8.3 소리책·영상이 이 회원에게 잠겼는지 미리 물음. 잠겼으면 알릴 말, 아니면 null. 403 이어도 회원 등록을 지우지 않음 */
     fun jamgeumBogi(i: Int): String? = runCatching {
         val c = open(mediaUrl(i), 15000)
@@ -198,7 +200,8 @@ object Hoewon {
     fun jeung(c: Context) = p(c).getString("jeung", "") ?: ""
     /** 일반 회원은 외국 도서(저작권이 끝난 책)만 듣고, 장애 확인을 받으면 모든 책을 들음 */
     fun ilban(c: Context) = deung(c) == "ilban"
-    const val JEUNG_MAL = "장애인 복지카드나 장애인증명서를 사진으로 찍어 올려 주십시오. 협회가 확인하면 인증 회원이 되어 모든 책과 엔터테인먼트 작품을 들으실 수 있습니다. 올리신 사진은 장애 확인에만 쓰고, 운영하는 사람만 봅니다."
+    const val JEUNG_MAL = "우리 도서관의 책은 저작권법에 따라 시각장애인만 무료로 이용할 수 있어서, 장애인 복지카드로 시각장애를 확인해야 합니다. 복지카드를 내지 않아도 책 세 권까지는 체험으로 들으실 수 있고, 네 번째 책부터는 복지카드를 확인받아야 계속 이용하실 수 있습니다. 아래 「복지카드 바로 찍기」를 누르면 카메라가 열립니다. 협회가 확인하면 인증 회원이 되어 모든 책과 엔터테인먼트 작품을 들으실 수 있습니다. 올리신 사진은 장애 확인에만 쓰고, 확인이 끝나면 바로 지웁니다."   // 0.8.7 (261121) 저작권 까닭·체험 세 권·바로 찍기(이사장님 결정)
+    const val JJIKGI_MAL = "복지카드를 탁자처럼 평평한 곳에 놓고, 폰을 카드 위 한 뼘 높이에서 화면이 아래를 보게 들어 주십시오. 카메라가 열리면 셔터 단추를 두 번 누르고, 확인 단추를 누르시면 올라갑니다."
     fun jeungIreum(j: String) = when (j) { "daegi" -> "올리신 서류를 협회가 확인하고 있습니다"; "seungin" -> "장애 확인을 마쳤습니다"; "georeo" -> "서류를 다시 올려 주셔야 합니다"; else -> "아직 서류를 올리지 않으셨습니다" }
     /** 내 회원 등급을 서버에 물음(켤 때, 설정을 열 때). 다른 스레드에서 부를 것 */
     fun deungHwakin(c: Context) {

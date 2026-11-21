@@ -26,6 +26,7 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published var waiting = false
     @Published var status: String = ""
     @Published var jamgeum = false        // 0.8.3 일반 회원에게 잠긴 책(장애 확인 뒤 들음)
+    private var chehumAllim = Set<Int>()  // 0.8.7 체험 몇 권째인지 책마다 한 번만 알림
 
     // 소리책·동영상
     @Published var player: AVPlayer?
@@ -294,6 +295,10 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 for (k, v) in (r.won ?? []).enumerated() { self.wons[pg + k] = v }   // 0.6.1
                 if let g = r.hjgal { self.hjgal = g }
                 if r.jamgeum == 1 { self.jamgeum = true }   // 0.8.3
+                if let c = r.chehum, !self.chehumAllim.contains(book) {   // 0.8.7 (261121, 이사장님 결정) 복지카드 확인 전 체험 세 권
+                    self.chehumAllim.insert(book)
+                    self.store.say("복지카드 확인 전 체험으로 여는 \(c)번째 책입니다. 세 권까지 체험으로 들으실 수 있고, 네 번째 책부터는 장애인 복지카드 확인이 필요합니다.")
+                }
                 if r.ok == false { self.status = r.msg ?? "이 책의 글자를 가져오지 못했습니다."; LibGirok.shared.namgi("lib_geulja_silpae", ["msg": String((r.msg ?? "").prefix(60))]) }   // 0.6.3 이용 기록
             } catch {
                 self.status = "글자를 가져오지 못했습니다. 인터넷을 확인해 주십시오."

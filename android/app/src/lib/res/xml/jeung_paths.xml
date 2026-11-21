@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 0.8.7 (261121) 복지카드 바로 찍기 — 찍은 사진을 잠깐 담는 자리(올린 뒤 지움) -->
+<paths>
+    <cache-path name="jeung" path="jeung/" />
+</paths>
