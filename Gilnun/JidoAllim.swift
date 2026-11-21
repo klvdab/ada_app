@@ -22,6 +22,10 @@ final class JidoAllim {
     private var batTtae = Date.distantPast
     private var han: [String: Date] = [:]          // 이미 알린 것(다시 말하지 않음)
     private var deun: (key: String, d: Dari, ttae: Date)?
+    // 2.131.0 (261121-I85, 이사장님 승인 2026-11-21 「1」) 다리 위에 오른 것을 확실히 — 다리 끝에서 들어서 연이어 따라가고, 반대쪽 끝까지 실제로 건넜을 때만 「건넜습니다」
+    private var deunIp: (Double, Double)?          // 다리 위로 친 첫 자리
+    private var deunKkeut: (Double, Double)?       // 다리 위에서 마지막 자리
+    private var deunSu = 0                         // 다리 위로 친 횟수(연이어)
     private var head: Double?
     private var headFrom: (Double, Double)?
     private var gogang = ""
@@ -80,6 +84,7 @@ final class JidoAllim {
                     return Dari(ireum: (r["n"] as? String) ?? "", gil: (r["g"] as? String) ?? "", cheol: (r["k"] as? String) == "cheol",
                                 m: max(Chatgi.su(r["m"]) ?? 0, Chatgi.su(r["mm"]) ?? 0), mul: (r["mul"] as? String) ?? "", goga: Chatgi.su(r["v"]) == 1, pt: pt)
                 }
+                self.dari = Self.ireumIeum(self.dari)   // 2.131.0 (261121-I85, 이사장님 승인 2026-11-21 「1」)
                 self.sim = ((o["sim"] as? [[String: Any]]) ?? []).compactMap { s in
                     guard let la = Chatgi.su(s["a"]), let lo = Chatgi.su(s["o"]) else { return nil }
                     return Sim(t: (s["t"] as? String) ?? "", n: (s["n"] as? String) ?? "", la: la, lo: lo)
@@ -122,11 +127,29 @@ final class JidoAllim {
         guard let c = s.unicodeScalars.last, c.value >= 0xAC00, c.value <= 0xD7A3 else { return s + "을" }
         return s + ((c.value - 0xAC00) % 28 == 0 ? "를" : "을")
     }
-    /// 말할 만한 다리인지 — 이름이 있거나, 물길을 건너거나, 300미터 넘는 긴 다리
+    /// 말할 만한 다리인지 — 이름이 있거나 물길을 건너는 다리
+    /// 2.131.0 (261121-I85, 이사장님 승인 2026-11-21 「1」) 물길을 건너지 않는 이름 없는 고가(강변북로·올림픽대로 자체의 고가 구간, 나들목 고가)는 말하지 않음 — 「곧 긴 다리입니다」가 거듭 나오던 일
     private func malHalMan(_ d: Dari) -> Bool {
         if !d.ireum.isEmpty { return d.m >= 30 }
         if !d.mul.isEmpty { return d.m >= 20 }
-        return d.m >= 300
+        return false
+    }
+
+    /// 2.131.0 (261121-I85, 이사장님 승인 2026-11-21 「1」) 물길을 건너는 이름 없는 다리 토막(진입부 등)은 끝이 맞닿은 이름 있는 다리의 이름을 이어 받음 — 동호대교 진입부가 「긴 다리」로 따로 나오던 일
+    private static func ireumIeum(_ ds: [Dari]) -> [Dari] {
+        var r = ds
+        func ggeut(_ d: Dari) -> [(Double, Double)] { [d.pt[0], d.pt[d.pt.count - 1]] }
+        for i in r.indices where r[i].ireum.isEmpty && !r[i].mul.isEmpty {
+            var best: (String, Double)?
+            for j in ds.indices where j != i && !ds[j].ireum.isEmpty && ds[j].cheol == r[i].cheol {
+                for a in ggeut(r[i]) { for b in ggeut(ds[j]) {
+                    let g = WichiEngine.geori(a.0, a.1, b.0, b.1)
+                    if g < 150 && (best == nil || g < best!.1) { best = (ds[j].ireum, g) }
+                } }
+            }
+            if let b = best { let d = r[i]; r[i] = Dari(ireum: b.0, gil: d.gil, cheol: d.cheol, m: d.m, mul: d.mul, goga: d.goga, pt: d.pt) }
+        }
+        return r
     }
 
     private func dariSalpigi(_ w: Wichi, cheol: Bool) {
@@ -143,7 +166,12 @@ final class JidoAllim {
             if jul < 20 {
                 // 다리 길과 같은 쪽으로 갈 때만 다리 위로 침 — 다리 밑·옆을 가로지를 때는 아님
                 if let h = head, gakCha(h, jb) > 40 && gakCha(h, jb + 180) > 40 { continue }
-                if deun == nil || (deun!.key != key && (r.ireum.isEmpty || deun!.d.ireum != r.ireum)) { deun = (key, r, Date()) }
+                if deun == nil || (deun!.key != key && (r.ireum.isEmpty || deun!.d.ireum != r.ireum)) {
+                    // 2.131.0 (261121-I85, 이사장님 승인 2026-11-21 「1」) 다리 끝(120미터 안)에서 들어설 때만 — 옆길에서 다리 가운데로 끼어들어 보이는 것은 치지 않음
+                    if de > 120 { continue }
+                    deun = (key, r, Date()); deunIp = (w.lat, w.lon); deunSu = 0
+                }
+                if deun?.key == key { deunSu += 1; deunKkeut = (w.lat, w.lon) }
                 continue
             }
             guard let h = head else { continue }
@@ -160,8 +188,18 @@ final class JidoAllim {
             let (jul, _) = julBang(w.lat, w.lon, dn.d.pt)
             if jul > 60 {
                 deun = nil
-                if Date().timeIntervalSince(dn.ttae) > 4 && dn.d.m >= 60 {
-                    mal(dn.d.mul.isEmpty ? "다리를 건넜습니다." : "\(Self.eul(dn.d.mul)) 건넜습니다.")
+                // 2.131.0 (261121-I85, 이사장님 승인 2026-11-21 「1」) 정말 건넜을 때만 — 다리 위로 연이어 세 번 넘게 쳤고, 들어선 끝의 반대쪽 끝(80미터 안)에서 내려섰고, 다리 길이의 반 넘게 지났을 때
+                var geonneom = false
+                if let ip = deunIp, let kk = deunKkeut, deunSu >= 3 {
+                    let a = dn.d.pt[0], b = dn.d.pt[dn.d.pt.count - 1]
+                    let ipA = geori(ip.0, ip.1, a.0, a.1) <= geori(ip.0, ip.1, b.0, b.1)
+                    let ban = ipA ? b : a
+                    geonneom = geori(kk.0, kk.1, ban.0, ban.1) <= 80 && geori(ip.0, ip.1, kk.0, kk.1) >= dn.d.m * 0.5
+                }
+                Girok.shared.namgi("dari_naeryeom", ["geonneom": geonneom, "su": deunSu, "m": Int(dn.d.m)])
+                deunIp = nil; deunKkeut = nil; deunSu = 0
+                if geonneom && Date().timeIntervalSince(dn.ttae) > 4 && dn.d.m >= 60 {
+                    mal(!dn.d.mul.isEmpty ? "\(Self.eul(dn.d.mul)) 건넜습니다." : (!dn.d.ireum.isEmpty ? "\(Self.eul(dn.d.ireum)) 건넜습니다." : "다리를 건넜습니다."))
                 }
             }
         }
@@ -180,9 +218,9 @@ final class JidoAllim {
     static func dariMal(ireum: String, mul: String, m: Double, cheol: Bool, goga: Bool) -> String {
         var t: String
         if !ireum.isEmpty { t = "곧 \(ireum)입니다." }
-        else if !mul.isEmpty { t = cheol ? "곧 철교입니다." : "곧 다리입니다." }
+        else if !mul.isEmpty { t = cheol ? "곧 \(eul(mul)) 건너는 철교입니다." : "곧 \(eul(mul)) 건너는 다리입니다." }   // 2.131.0 (261121-I85, 이사장님 승인 2026-11-21 「1」)
         else { t = goga ? "곧 긴 고가 다리입니다." : (cheol ? "곧 긴 철교입니다." : "곧 긴 다리입니다.") }
-        if !mul.isEmpty { t += " \(eul(mul)) 건넙니다." }
+        if !mul.isEmpty && !ireum.isEmpty { t += " \(eul(mul)) 건넙니다." }
         return t + " " + giriMal(m)
     }
     private static func dariMal(_ d: Dari, cheol: Bool) -> String { dariMal(ireum: d.ireum, mul: d.mul, m: d.m, cheol: cheol, goga: d.goga) }
@@ -222,7 +260,7 @@ final class JidoAllim {
             if de > ap || de < 60 { continue }
             if gakCha(h, WichiEngine.bangwi(w.lat, w.lon, p.la, p.lo)) > 25 { continue }
             let ireum = Self.simIreum(p.t, p.n)
-            let key = p.t + "|" + ireum
+            let key = p.t + "|" + ireum.replacingOccurrences(of: " ", with: "")   // 2.131.0 (261121-I85, 이사장님 승인 2026-11-21 「1」) 띄어쓰기만 다른 같은 이름은 하나로
             if let t = han[key], Date().timeIntervalSince(t) < 900 { continue }
             if gaJang == nil || de < gaJang!.1 { gaJang = (p, de, key) }
         }

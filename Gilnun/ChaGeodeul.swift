@@ -16,7 +16,7 @@ final class ChaGeodeul {
     func kkeut() {
         guard kyeojim else { return }
         kyeojim = false
-        tDat = []; tJari = nil; tHan = []; tDeun = nil; tWiseongMal = false; tGose = [:]
+        tDat = []; tJari = nil; tHan = []; tDeun = nil; tWiseongMal = false; tGose = [:]; tIbgu = [:]; tHwakjeong = false; tHanIreum = [:]
         pFrom = nil; head = nil; hSaem = []; anjeongBang = nil
         mJul = []; mum = false; mBunMal = []
         if let t = tJikimi { t.invalidate(); tJikimi = nil }
@@ -28,7 +28,7 @@ final class ChaGeodeul {
         gyoJinam(w)
         jinaGyo(w)
         let meomchum = mumchumBogo(w, y)
-        if meomchum { return }   // 멈춘 동안은 위성 흔들림을 움직임으로 치지 않음
+        if meomchum { tMajimak = Date(); return }   // 멈춘 동안은 위성 흔들림을 움직임으로 치지 않음(2.131.0 위성이 오는 동안이니 끊김으로 치지 않게 때를 새로 둠)
         doramBoda(w, y)
         teoneolSalpigi(w)
     }
@@ -55,6 +55,12 @@ final class ChaGeodeul {
     private var tMajimak = Date()
     private var tJikimi: Timer?
     private var tGose: [String: String] = [:]
+    // 2.131.0 (261121-I85, 이사장님 승인 2026-11-21 「1」) 터널 안은 확실할 때만 — 입구로 들어선 굴(tIbgu)에서 위성이 실제로 흐려지거나 끊겼을 때(tHwakjeong).
+    //   지하차도 옆·위의 땅 위 찻길을 같은 방향으로 달릴 때 「터널을 지났습니다」·「터널 안이라 위성이 …」를 잘못 말하던 일
+    private var tIbgu: [String: Date] = [:]
+    private var tHwakjeong = false
+    private var tHanIreum: [String: Date] = [:]
+    private var tOchae0: Double = 0
     private var ijeonMal = ""
     private var ijeonTtae = Date.distantPast
 
@@ -116,15 +122,21 @@ final class ChaGeodeul {
     private func tJikimiSijak() {
         guard tJikimi == nil else { return }
         tJikimi = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
-            guard let self = self, self.tDeun != nil, !self.tWiseongMal else { return }
+            guard let self = self, let dn = self.tDeun, !self.tWiseongMal else { return }
             if Date().timeIntervalSince(self.tMajimak) > 10 && Date().timeIntervalSince(self.tDeunTtae) < 600 {
+                // 2.131.0 (261121-I85, 이사장님 승인 2026-11-21 「1」) 입구로 들어선 굴일 때만 — 위성이 끊긴 것 자체가 터널 안이라는 증거
+                guard let t = self.tIbgu[self.tId(dn.t)], Date().timeIntervalSince(t) < 120 else { return }
+                self.tHwakjeong = true
                 self.tWiseongMal = true
                 self.mal("터널 안이라 위성이 잠시 끊깁니다.")
             }
         }
     }
 
+    private func tId(_ t: Teoneol) -> String { "\(t.ireum)_\(String(format: "%.4f,%.4f", t.pt[0].0, t.pt[0].1))" }
+
     private func teoneolSalpigi(_ w: Wichi) {
+        let kkeunTeum = Date().timeIntervalSince(tMajimak)   // 2.131.0 (261121-I85, 이사장님 승인 2026-11-21 「1」) 위성이 끊겼다 이어졌는지
         tMajimak = Date(); tJikimiSijak()
         if tDat.isEmpty || tJari == nil || geori(tJari!.0, tJari!.1, w.lat, w.lon) > 1500 { teoneolBatgi(w.lat, w.lon) }
         guard !tDat.isEmpty else { return }
@@ -143,7 +155,10 @@ final class ChaGeodeul {
             if jul < 25 {
                 // 2.113.0 (261026-I67) 터널 길과 같은 쪽으로 달릴 때만 터널 안으로 침 — 위나 옆을 가로지를 때는 아님
                 if let h = head, gakCha(h, julBang) > 40 && gakCha(h, julBang + 180) > 40 { continue }
-                if tDeun?.key != key { tDeun = (key, r); tDeunTtae = Date(); tWiseongMal = false }
+                if tDeun.map({ tId($0.t) }) != tId(r) { tDeun = (key, r); tDeunTtae = Date(); tWiseongMal = false; tHwakjeong = false; tOchae0 = w.ochae }
+                // 2.131.0 (261121-I85, 이사장님 승인 2026-11-21 「1」) 입구로 들어선 굴에서 위성이 4초 넘게 끊겼다 이어지거나 오차가 크게 늘면 터널 안으로 확정
+                if !tHwakjeong, let t = tIbgu[tId(r)], Date().timeIntervalSince(t) < 120,
+                   kkeunTeum > 4 || w.ochae > max(30, tOchae0 * 2) { tHwakjeong = true }
                 continue
             }
             // 2.113.0 (261026-I67, 이사장님 승인 2026-10-26 「1」) 차가 그 터널 길 위를 터널 쪽으로 달릴 때만 미리 알림 —
@@ -156,17 +171,23 @@ final class ChaGeodeul {
             if gakCha(h, anjjok) > 40 { continue }
             let yeop = de * sin(gakCha(WichiEngine.bangwi(w.lat, w.lon, mun.0, mun.1), anjjok) * .pi / 180)
             if yeop > 40 { continue }
+            if de <= 150 { tIbgu[tId(r)] = Date() }   // 2.131.0 (261121-I85, 이사장님 승인 2026-11-21 「1」) 입구 앞 150미터 안에서 굴 쪽으로 들어섬
             if de > munteok { continue }
             ap.append((r, de, key))
         }
         if let dn = tDeun, julGeori(w.lat, w.lon, dn.t.pt) > 80 {
-            tDeun = nil; tWiseongMal = false
-            if Date().timeIntervalSince(tDeunTtae) > 3 { mal("터널을 지났습니다.") }
+            let hw = tHwakjeong
+            Girok.shared.namgi("teoneol_naom", ["hwakjeong": hw])
+            tDeun = nil; tWiseongMal = false; tHwakjeong = false
+            if hw && Date().timeIntervalSince(tDeunTtae) > 3 { mal("터널을 지났습니다.") }
         }
         guard !ap.isEmpty else { return }
         ap.sort { $0.de < $1.de }
         let ga = ap[0]
         if tHan.contains(ga.key) { return }
+        // 2.131.0 (261121-I85, 이사장님 승인 2026-11-21 「1」) 같은 이름의 굴(오가는 두 굴·입구 둘)은 3분 안에 다시 알리지 않음 — 「곧 한강대교 동측 지하차도」가 22초 사이에 두 번 나오던 일
+        if !ga.t.ireum.isEmpty, let t0 = tHanIreum[ga.t.ireum], Date().timeIntervalSince(t0) < 180 { tHan.insert(ga.key); return }
+        if !ga.t.ireum.isEmpty { tHanIreum[ga.t.ireum] = Date() }
         var iut = 0
         for k in ap.dropFirst() {
             let teum = k.de - ga.de

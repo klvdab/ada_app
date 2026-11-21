@@ -25,6 +25,10 @@ object JidoAllim {
     private var deunKey: String? = null
     private var deunD: Dari? = null
     private var deunTtae = 0L
+    // 2.96.0 (261121-A84, 이사장님 승인 2026-11-21 「1」, 아이폰 2.131.0과 같음) 다리 끝에서 들어서 연이어 따라가고, 반대쪽 끝까지 실제로 건넜을 때만 「건넜습니다」
+    private var deunIp: Pair<Double, Double>? = null
+    private var deunKkeut: Pair<Double, Double>? = null
+    private var deunSu = 0
     private var head: Double? = null
     private var headFrom: Pair<Double, Double>? = null
     private var gogang = ""
@@ -90,7 +94,7 @@ object JidoAllim {
                 if (!r.has("a") || !r.has("o")) continue
                 s.add(Sim(r.optString("t"), r.optString("n"), r.optDouble("a"), r.optDouble("o")))
             }
-            dari = l; sim = s; jari = Pair(la, lo)
+            dari = ireumIeum(l); sim = s; jari = Pair(la, lo)   // 2.96.0 (261121-A84, 이사장님 승인 2026-11-21 「1」, 아이폰 2.131.0과 같음)
         }
     }
 
@@ -129,10 +133,26 @@ object JidoAllim {
         if (c.code < 0xAC00 || c.code > 0xD7A3) return s + "을"
         return s + if ((c.code - 0xAC00) % 28 == 0) "를" else "을"
     }
+    /** 2.96.0 (261121-A84, 이사장님 승인 2026-11-21 「1」, 아이폰 2.131.0과 같음) 물길을 건너지 않는 이름 없는 고가는 말하지 않음 — 「곧 긴 다리입니다」가 거듭 나오던 일 */
     private fun malHalMan(d: Dari): Boolean = when {
         d.ireum.isNotEmpty() -> d.m >= 30
         d.mul.isNotEmpty() -> d.m >= 20
-        else -> d.m >= 300
+        else -> false
+    }
+
+    /** 2.96.0 (261121-A84, 이사장님 승인 2026-11-21 「1」, 아이폰 2.131.0과 같음) 물길을 건너는 이름 없는 다리 토막은 끝이 맞닿은 이름 있는 다리의 이름을 이어 받음 */
+    private fun ireumIeum(ds: List<Dari>): List<Dari> = ds.map { d ->
+        if (d.ireum.isNotEmpty() || d.mul.isEmpty()) return@map d
+        var best: Pair<String, Double>? = null
+        for (o in ds) {
+            if (o === d || o.ireum.isEmpty() || o.cheol != d.cheol) continue
+            for (a in listOf(d.pt.first(), d.pt.last())) for (b in listOf(o.pt.first(), o.pt.last())) {
+                val g = geori(a.first, a.second, b.first, b.second)
+                if (g < 150 && (best == null || g < best!!.second)) best = Pair(o.ireum, g)
+            }
+        }
+        val bb = best
+        if (bb == null) d else Dari(bb.first, d.gil, d.cheol, d.m, d.mul, d.goga, d.pt)
     }
 
     private fun dariSalpigi(w: Jari, cheol: Boolean) {
@@ -152,7 +172,11 @@ object JidoAllim {
                 val h = head
                 if (h != null && gakCha(h, jb) > 40 && gakCha(h, jb + 180) > 40) continue
                 val dk = deunKey; val dd = deunD
-                if (dk == null || dd == null || (dk != key && (r.ireum.isEmpty() || dd.ireum != r.ireum))) { deunKey = key; deunD = r; deunTtae = System.currentTimeMillis() }
+                if (dk == null || dd == null || (dk != key && (r.ireum.isEmpty() || dd.ireum != r.ireum))) {
+                    if (de > 120) continue   // 2.96.0 (261121-A84, 이사장님 승인 2026-11-21 「1」, 아이폰 2.131.0과 같음) 다리 끝(120미터 안)에서 들어설 때만
+                    deunKey = key; deunD = r; deunTtae = System.currentTimeMillis(); deunIp = Pair(w.lat, w.lon); deunSu = 0
+                }
+                if (deunKey == key) { deunSu += 1; deunKkeut = Pair(w.lat, w.lon) }
                 continue
             }
             val h = head ?: continue
@@ -170,8 +194,18 @@ object JidoAllim {
             val (jul, _) = julBang(w.lat, w.lon, dd.pt)
             if (jul > 60) {
                 deunKey = null; deunD = null
-                if (System.currentTimeMillis() - deunTtae > 4000 && dd.m >= 60) {
-                    mal(if (dd.mul.isEmpty()) "다리를 건넜습니다." else "${eul(dd.mul)} 건넜습니다.")
+                // 2.96.0 (261121-A84, 이사장님 승인 2026-11-21 「1」, 아이폰 2.131.0과 같음) 정말 건넜을 때만 — 연이어 세 번 넘게, 들어선 끝의 반대쪽 끝(80미터 안)에서 내려섰고, 길이의 반 넘게 지났을 때
+                val ip = deunIp; val kk = deunKkeut
+                var geonneom = false
+                if (ip != null && kk != null && deunSu >= 3) {
+                    val a = dd.pt.first(); val b = dd.pt.last()
+                    val ban = if (geori(ip.first, ip.second, a.first, a.second) <= geori(ip.first, ip.second, b.first, b.second)) b else a
+                    geonneom = geori(kk.first, kk.second, ban.first, ban.second) <= 80 && geori(ip.first, ip.second, kk.first, kk.second) >= dd.m * 0.5
+                }
+                Girok.namgi("dari_naeryeom", mapOf("geonneom" to geonneom, "su" to deunSu, "m" to dd.m.toInt()))
+                deunIp = null; deunKkeut = null; deunSu = 0
+                if (geonneom && System.currentTimeMillis() - deunTtae > 4000 && dd.m >= 60) {
+                    mal(if (dd.mul.isNotEmpty()) "${eul(dd.mul)} 건넜습니다." else if (dd.ireum.isNotEmpty()) "${eul(dd.ireum)} 건넜습니다." else "다리를 건넜습니다.")
                 }
             }
         }
@@ -192,10 +226,10 @@ object JidoAllim {
     fun dariMal(ireum: String, mul: String, m: Double, cheol: Boolean, goga: Boolean): String {
         var t = when {
             ireum.isNotEmpty() -> "곧 ${ireum}입니다."
-            mul.isNotEmpty() -> if (cheol) "곧 철교입니다." else "곧 다리입니다."
+            mul.isNotEmpty() -> if (cheol) "곧 ${eul(mul)} 건너는 철교입니다." else "곧 ${eul(mul)} 건너는 다리입니다."   // 2.96.0 (261121-A84, 이사장님 승인 2026-11-21 「1」, 아이폰 2.131.0과 같음)
             else -> if (goga) "곧 긴 고가 다리입니다." else if (cheol) "곧 긴 철교입니다." else "곧 긴 다리입니다."
         }
-        if (mul.isNotEmpty()) t += " ${eul(mul)} 건넙니다."
+        if (mul.isNotEmpty() && ireum.isNotEmpty()) t += " ${eul(mul)} 건넙니다."
         return t + " " + giriMal(m)
     }
 
@@ -230,7 +264,7 @@ object JidoAllim {
             val apm = if (p.t == "hyu" || p.t == "swim") Math.min(2000.0, Math.max(1000.0, s * 60)) else Math.min(1500.0, Math.max(600.0, s * 30))
             if (de > apm || de < 60) continue
             if (gakCha(h, bangwi(w.lat, w.lon, p.la, p.lo)) > 25) continue
-            val key = p.t + "|" + simIreum(p.t, p.n)
+            val key = p.t + "|" + simIreum(p.t, p.n).replace(" ", "")   // 2.96.0 (261121-A84, 이사장님 승인 2026-11-21 「1」, 아이폰 2.131.0과 같음) 띄어쓰기만 다른 같은 이름은 하나로
             val t = han[key]
             if (t != null && now - t < 900_000) continue
             if (ga == null || de < gaDe) { ga = p; gaDe = de; gaKey = key }

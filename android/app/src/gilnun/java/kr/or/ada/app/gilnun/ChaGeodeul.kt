@@ -18,7 +18,7 @@ object ChaGeodeul {
     fun kkeut() {
         if (!kyeojim) return
         kyeojim = false
-        tDat = emptyList(); tJari = null; tHan.clear(); tDeun = null; tWiseongMal = false; tGose.clear()
+        tDat = emptyList(); tJari = null; tHan.clear(); tDeun = null; tWiseongMal = false; tGose.clear(); tIbgu.clear(); tHwakjeong = false; tHanIreum.clear()
         pFrom = null; head = null; hSaem.clear(); anjeongBang = null
         mJul.clear(); mum = false; mBunMal.clear()
         main.removeCallbacks(tJikimi); tJikimiDolgo = false
@@ -29,7 +29,7 @@ object ChaGeodeul {
         kyeojim = true
         gyoJinam(w)
         jinaGyo(w)
-        if (mumchumBogo(w, y)) return   // 멈춘 동안은 위성 흔들림을 움직임으로 치지 않음
+        if (mumchumBogo(w, y)) { tMajimak = System.currentTimeMillis(); return }   // 멈춘 동안은 위성 흔들림을 움직임으로 치지 않음(2.96.0 끊김으로 치지 않게 때를 새로 둠)
         doramBoda(w, y)
         teoneolSalpigi(w)
     }
@@ -58,15 +58,27 @@ object ChaGeodeul {
     private var tMajimak = 0L
     private var tJikimiDolgo = false
     private val tGose = HashMap<String, String>()
+    // 2.96.0 (261121-A84, 이사장님 승인 2026-11-21 「1」, 아이폰 2.131.0과 같음) 터널 안은 확실할 때만 — 입구로 들어선 굴에서 위성이 실제로 흐려지거나 끊겼을 때
+    private val tIbgu = HashMap<String, Long>()
+    private var tHwakjeong = false
+    private val tHanIreum = HashMap<String, Long>()
+    private var tOchae0 = 0.0
+    private fun tId(t: Teoneol) = "${t.ireum}_${String.format(Locale.US, "%.4f,%.4f", t.pt[0].first, t.pt[0].second)}"
     private var ijeonMal = ""
     private var ijeonTtae = 0L
 
     private val tJikimi: Runnable = object : Runnable {
         override fun run() {
             val now = System.currentTimeMillis()
-            if (tDeun != null && !tWiseongMal && now - tMajimak > 10_000 && now - tDeunTtae < 600_000) {
-                tWiseongMal = true
-                mal("터널 안이라 위성이 잠시 끊깁니다.")
+            val dn = tDeun
+            if (dn != null && !tWiseongMal && now - tMajimak > 10_000 && now - tDeunTtae < 600_000) {
+                // 2.96.0 (261121-A84, 이사장님 승인 2026-11-21 「1」, 아이폰 2.131.0과 같음) 입구로 들어선 굴일 때만
+                val ib = tIbgu[tId(dn.second)]
+                if (ib != null && now - ib < 120_000) {
+                    tHwakjeong = true
+                    tWiseongMal = true
+                    mal("터널 안이라 위성이 잠시 끊깁니다.")
+                }
             }
             if (tJikimiDolgo) main.postDelayed(this, 3000)
         }
@@ -121,6 +133,7 @@ object ChaGeodeul {
     }
 
     private fun teoneolSalpigi(w: Jari) {
+        val kkeunTeum = System.currentTimeMillis() - tMajimak   // 2.96.0 (261121-A84, 이사장님 승인 2026-11-21 「1」, 아이폰 2.131.0과 같음) 위성이 끊겼다 이어졌는지
         tMajimak = System.currentTimeMillis()
         if (!tJikimiDolgo) { tJikimiDolgo = true; main.postDelayed(tJikimi, 3000) }
         val tj = tJari
@@ -145,7 +158,11 @@ object ChaGeodeul {
                 // 2.78.0 (261026-A66) 터널 길과 같은 쪽으로 달릴 때만 터널 안으로 침 — 위나 옆을 가로지를 때는 아님
                 val hh = head
                 if (hh != null && gakCha(hh, julBang) > 40 && gakCha(hh, julBang + 180) > 40) continue
-                if (tDeun?.first != key) { tDeun = Pair(key, r); tDeunTtae = System.currentTimeMillis(); tWiseongMal = false }
+                val dn0 = tDeun
+                if (dn0 == null || tId(dn0.second) != tId(r)) { tDeun = Pair(key, r); tDeunTtae = System.currentTimeMillis(); tWiseongMal = false; tHwakjeong = false; tOchae0 = w.ochae }
+                // 2.96.0 (261121-A84, 이사장님 승인 2026-11-21 「1」, 아이폰 2.131.0과 같음) 입구로 들어선 굴에서 위성이 4초 넘게 끊겼다 이어지거나 오차가 크게 늘면 터널 안으로 확정
+                val ib = tIbgu[tId(r)]
+                if (!tHwakjeong && ib != null && System.currentTimeMillis() - ib < 120_000 && (kkeunTeum > 4000 || w.ochae > Math.max(30.0, tOchae0 * 2))) tHwakjeong = true
                 continue
             }
             // 2.78.0 (261026-A66, 이사장님 승인 2026-10-26 「1」, 아이폰 2.113.0과 같음) 차가 그 터널 길 위를 터널 쪽으로 달릴 때만 미리 알림 —
@@ -157,18 +174,25 @@ object ChaGeodeul {
             if (gakCha(h, anjjok) > 40) continue
             val yeop = de * Math.sin(gakCha(Jeomjido.bangwi(w.lat, w.lon, mun.first, mun.second), anjjok) * Math.PI / 180)
             if (yeop > 40) continue
+            if (de <= 150) tIbgu[tId(r)] = System.currentTimeMillis()   // 2.96.0 (261121-A84, 이사장님 승인 2026-11-21 「1」, 아이폰 2.131.0과 같음) 입구 앞 150미터 안에서 굴 쪽으로 들어섬
             if (de > munteok) continue
             ap.add(Ap(r, de, key))
         }
         val dn = tDeun
         if (dn != null && julGeori(w.lat, w.lon, dn.second.pt) > 80) {
-            tDeun = null; tWiseongMal = false
-            if (System.currentTimeMillis() - tDeunTtae > 3000) mal("터널을 지났습니다.")
+            val hw = tHwakjeong
+            Girok.namgi("teoneol_naom", mapOf("hwakjeong" to hw))
+            tDeun = null; tWiseongMal = false; tHwakjeong = false
+            if (hw && System.currentTimeMillis() - tDeunTtae > 3000) mal("터널을 지났습니다.")
         }
         if (ap.isEmpty()) return
         ap.sortBy { it.de }
         val ga = ap[0]
         if (tHan.contains(ga.key)) return
+        // 2.96.0 (261121-A84, 이사장님 승인 2026-11-21 「1」, 아이폰 2.131.0과 같음) 같은 이름의 굴은 3분 안에 다시 알리지 않음
+        val ti = tHanIreum[ga.t.ireum]
+        if (ga.t.ireum.isNotEmpty() && ti != null && System.currentTimeMillis() - ti < 180_000) { tHan.add(ga.key); return }
+        if (ga.t.ireum.isNotEmpty()) tHanIreum[ga.t.ireum] = System.currentTimeMillis()
         var iut = 0
         for (k in ap.drop(1)) {
             val teum = k.de - ga.de
