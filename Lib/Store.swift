@@ -138,6 +138,7 @@ final class Store: ObservableObject {
 }
 
 enum Pan {
+    static let jeomMal = "이 기능은 웹버전에서 가능합니다. 컴퓨터에서 ailib.ada.or.kr 로 들어가 주십시오."   // 0.8.7 (261122) 점역 코너는 웹판에서만
     static var ver: String { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.0" }
     static var build: String { Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1" }
     static var mal: String { "AI점자도서관 \(ver)판, 빌드 \(build)" }

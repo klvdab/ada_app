@@ -20,6 +20,7 @@ struct HomeView: View {
     @State private var more = false
     @AccessibilityFocusState private var focusFirst: Bool
     @AccessibilityFocusState private var chatgiFocus: Bool   // 0.7.1 이어 들을 책이 없으면 찾기 칸이 첫 줄
+    @State private var jeomAllim = false   // 0.8.7 (261122) 점역 코너 안내
 
     var body: some View {
         List {
@@ -56,6 +57,9 @@ struct HomeView: View {
                     .listRowBackground(Saek.kadeu)
                 }
             }
+            Section {   // 0.8.7 (261122) 점역 코너 — 점역은 웹판에서만, 앱은 안내만(이사장님 결정 2026-11-22)
+                Button { jeomAllim = true } label: { Text("점역 코너").foregroundStyle(.primary) }
+            }
             MunSection()   // 0.3.0 — 세 겹의 문(0.5.0 고른 문의 서가 목록)
             Section {   // 0.8.4 게시판
                 Button { nav.lib.append(Route.gesipan) } label: { Text("게시판, 공지와 묻고 답하기, 후기, 제작 요청, 불편 신고").foregroundStyle(.primary) }
@@ -67,6 +71,7 @@ struct HomeView: View {
                 }
             }
         }
+        .alert("점역 코너", isPresented: $jeomAllim) { Button("확인", role: .cancel) {} } message: { Text(Pan.jeomMal) }
         .scrollContentBackground(.hidden)
         .background(Saek.bada)
         .tint(Saek.ganjo)
@@ -753,6 +758,7 @@ enum Doum {
         ("회원 등록", "처음 켤 때 이름과 휴대전화 번호로 한 번만 등록합니다. 등록하면 이 폰만의 회원 열쇠가 담겨 도서관과 독서기가 열립니다. 폰을 바꾸면 새 폰에서 같은 번호로 다시 등록합니다. 열쇠가 막히면 등록 화면이 다시 나옵니다."),
         ("회원 정보 여쭙기", "처음 등록할 때, 이미 등록하신 분은 앱을 켤 때 한 번, 장애 유형, 사시는 지역, 연령대 세 가지를 여쭙고 이용 약관에 동의를 받습니다. 도서관 실적을 숫자로만 내는 데 씁니다. 셋 가운데 밝히고 싶지 않은 것은 「밝히지 않음」을 고르시면 됩니다. 「다음에 하기」를 누르면 그날은 다시 묻지 않습니다."),   // 0.8.2
         ("소리가 멈추면", "음악이나 소리책이 듣는 중에 6초 넘게 멈추면 앱이 스스로 그 자리부터 다시 이어 틉니다. 그래도 안 되면 그 곡을 새로 열어 멈춘 자리부터 틉니다."),   // 0.8.2
+        ("점역 코너", "도서관 첫 화면의 점역 코너를 누르면 이 기능은 웹버전에서 가능하다고 알려 드립니다. 글을 점자 파일로 바꾸는 점역, 도서관 책 점자로 받기, 점자책 서가는 컴퓨터에서 ailib.ada.or.kr 로 들어가 웹판 점역 코너에서 쓰십시오."),   // 0.8.7 (261122)
         ("게시판", "도서관 첫 화면 아래쪽의 게시판 줄을 누르면 공지, 묻고 답하기, 후기, 제작 요청, 불편 신고 다섯 가지가 나옵니다. 목록은 설정의 목록 줄 수만큼(처음 15줄) 나오고 최근 글이 맨 위입니다. 다음 목록과 앞 목록 단추로 넘깁니다."),   // 0.8.4
         ("게시판 글쓰기", "게시판에 들어가 글쓰기를 누르고 제목과 내용을 적은 뒤 올리기를 누릅니다. 공지는 운영자만 씁니다. 쓰던 글은 폰에 저절로 남아 창을 닫아도 다시 이어 쓸 수 있습니다. 내가 쓴 글은 열어서 이 글 지우기를 누르고 지우기를 한 번 더 고르면 지워집니다."),   // 0.8.4
         ("비밀글", "묻고 답하기에서 글을 쓸 때 비밀글을 켜면 나와 운영자만 봅니다."),   // 0.8.4
