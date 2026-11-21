@@ -256,7 +256,9 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         } else if jong == .gisa {
             if gisaSynth.isSpeaking && !gisaSynth.isPaused { gisaSynth.pauseSpeaking(at: .word) }
         } else {
-            player.volume = 0.2
+            // 2.130.0 (261121-I84, 이사장님 승인 2026-11-21 「1」) 방송은 길눈 말에 지장이 없을 만큼만 줄임(전에는 0.2로 크게 줄여 줄었다 커짐이 거슬렸음)
+            ramp?.invalidate(); ramp = nil
+            player.volume = BangsongEngine.JAGEUN
             malSijakTtae = Date()
             Girok.shared.namgi("bangsong_jageum", ["jong": jong.rawValue])   // 2.126.0 방송을 작게 한 때를 기록
         }
@@ -268,9 +270,26 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         malJung = false
         naebu("gyeonggo", false)
         if player.volume < 0.99 { Girok.shared.namgi("bangsong_doedollim", ["jong": jong.rawValue, "cho": Int(Date().timeIntervalSince(malSijakTtae))]) }   // 2.126.0
-        player.volume = 1.0
+        sseurukDollim()   // 2.130.0 (261121-I84, 이사장님 승인 2026-11-21 「1」) 0.6초에 걸쳐 부드럽게 되돌림
         if jong == .gisa && gisaIlkneun && !meomchum && naebuMeomchum.isEmpty && gisaSynth.isPaused {
             gisaSynth.continueSpeaking()
+        }
+    }
+
+    /// 2.130.0 (261121-I84, 이사장님 승인 2026-11-21 「1」) 길눈 말 동안의 방송 크기(1.0이 정한 크기)
+    static let JAGEUN: Float = 0.45
+    private var ramp: Timer?
+    /// 0.6초에 걸쳐 정한 크기로 부드럽게 되돌림
+    private func sseurukDollim() {
+        ramp?.invalidate()
+        let v0 = player.volume
+        var i = 0
+        ramp = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] t in
+            guard let self = self else { t.invalidate(); return }
+            i += 1
+            if self.malJung { t.invalidate(); return }
+            self.player.volume = i >= 6 ? 1.0 : v0 + (1.0 - v0) * Float(i) / 6
+            if i >= 6 { t.invalidate(); self.ramp = nil }
         }
     }
 
@@ -472,7 +491,7 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
             }
         }
         if naebuMeomchum.isEmpty { player.play() }
-        player.volume = malJung ? 0.2 : 1.0
+        player.volume = malJung ? BangsongEngine.JAGEUN : 1.0   // 2.130.0
         pyosiGaengsin()
         RemoteDanchu.shared.matchugi()
     }

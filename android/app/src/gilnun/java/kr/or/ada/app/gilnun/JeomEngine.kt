@@ -1608,7 +1608,7 @@ object JeomEngine {
         if (nm == "길 폭 좁음") return "길 폭이 좁아집니다"
         if (nm == "길 폭 보통") return "길 폭이 보통이 됩니다"
         if (nm == "길 폭 넓음") return "길 폭이 넓어집니다"
-        if (nm == "되돌아가는 곳") return "6시 방향으로 돌아서는 곳입니다"
+        if (nm == "되돌아가는 곳") return "뒤로, 6시 방향으로 돌아서는 곳입니다"   // 2.95.0 (261121-A83, 이사장님 승인 2026-11-21 「1」, 아이폰 2.130.0과 같음)
         return nm + "입니다"
     }
 
@@ -1660,7 +1660,7 @@ object JeomEngine {
             return "다 건넜습니다. " + daeumMalGil()
         }
         if (nm.contains("계단 끝")) return "계단 끝입니다. " + daeumMalGil()
-        if (nm == "되돌아가는 곳") { dolgi(8.0); return "지금 6시 방향으로 돌아서십시오. " + daeumMalGil() }   // 2.35.0
+        if (nm == "되돌아가는 곳") { dolgi(8.0); return "지금 뒤로, 6시 방향으로 돌아서십시오. " + daeumMalGil() }   // 2.35.0
         if (nm == "길 폭 좁음") return "여기부터 길 폭이 좁습니다."
         if (nm == "길 폭 보통") return "여기부터 길 폭이 보통입니다."
         if (nm == "길 폭 넓음") return "여기부터 길 폭이 넓습니다."

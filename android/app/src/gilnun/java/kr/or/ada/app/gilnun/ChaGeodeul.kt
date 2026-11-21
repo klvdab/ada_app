@@ -267,7 +267,9 @@ object ChaGeodeul {
         val d = geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
         Girok.namgi("cha_doram", mapOf("jeon" to jeon.toInt(), "hu" to pyeong.toInt(), "deul" to deul.toInt(), "si" to sh,
             "ochae" to w.ochae.toInt(), "sokdo" to (w.sokdo * 3.6).toInt(), "bangsik" to bangsik))
-        mal("방금 " + (if (Math.abs(deul) > 120) "크게 돌아 " else "") + "${sh}시 방향으로 돌았습니다. ${y.mokjeok.ireum}까지 ${Annae.geoMal(d)} 남았습니다.")
+        // 2.95.0 (261121-A83, 이사장님 승인 2026-11-21 「1」, 아이폰 2.130.0과 같음) 6시 방향으로 돈 것은 평소 말로 「유턴」
+        val dolMal = if (sh == 6) "유턴했습니다." else (if (Math.abs(deul) > 120) "크게 돌아 " else "") + "${sh}시 방향으로 돌았습니다."
+        mal("방금 " + dolMal + " ${y.mokjeok.ireum}까지 ${Annae.geoMal(d)} 남았습니다.")
         Tongsin.json("jarimal.php", mapOf("lat" to f6(w.lat), "lon" to f6(w.lon))) { o ->
             val m = o?.optString("mal") ?: ""
             if (m.isNotEmpty()) mal("여기는 " + m + (if (m.endsWith("다.") || m.endsWith("다")) "" else "입니다."))

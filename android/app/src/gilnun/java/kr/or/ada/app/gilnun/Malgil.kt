@@ -251,7 +251,7 @@ object MalgilEngine : SensorEventListener {
                 bangMal = System.currentTimeMillis()
                 // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 어느 쪽으로 돌아 서실지 시계 방향으로 덧붙임(되짚어 나가기와 같은 셈)
                 val s = Jeomjido.sigyeBanghyang(h, gd)
-                mal("방향이 다릅니다. 멈추십시오. 가실 쪽을 다시 잡아 주십시오. ${s}시 방향으로 돌아 서십시오.")
+                mal("방향이 다릅니다. 멈추십시오. 가실 쪽을 다시 잡아 주십시오. " + (if (s == 6) "뒤로, 6시 방향으로 돌아서십시오." else "${s}시 방향으로 돌아 서십시오."))   // 2.95.0 (261121-A83, 이사장님 승인 2026-11-21 「1」, 아이폰 2.130.0과 같음)
             }
             if (geol >= k.n) {
                 if (k.jong == "georeum_dochak") { kkeutnaegi(); return }

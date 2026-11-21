@@ -267,7 +267,9 @@ final class ChaGeodeul {
         let d = geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
         Girok.shared.namgi("cha_doram", ["jeon": Int(jeon), "hu": Int(pyeong), "deul": Int(deul), "si": sh,
                                          "ochae": Int(w.ochae), "sokdo": Int(w.sokdo * 3.6), "bangsik": bangsik])
-        mal("방금 " + (abs(deul) > 120 ? "크게 돌아 " : "") + "\(sh)시 방향으로 돌았습니다. \(y.mokjeok.ireum)까지 \(Annae.geoMal(d)) 남았습니다.")
+        // 2.130.0 (261121-I84, 이사장님 승인 2026-11-21 「1」) 6시 방향으로 돈 것은 평소 말로 「유턴」
+        let dolMal = sh == 6 ? "유턴했습니다." : (abs(deul) > 120 ? "크게 돌아 " : "") + "\(sh)시 방향으로 돌았습니다."
+        mal("방금 " + dolMal + " \(y.mokjeok.ireum)까지 \(Annae.geoMal(d)) 남았습니다.")
         let la = w.lat, lo = w.lon
         Task { [weak self] in
             guard let m = await Chatgi.jarimal(la, lo) else { return }

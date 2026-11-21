@@ -14,7 +14,9 @@ final class Seoljeong: ObservableObject {
     /// 보폭(미터) — 위성이 흐릴 때 걸음으로 이어 셈하는 데 씀
     @Published var bopok: Double { didSet { d.set(bopok, forKey: "gn.bopok") } }
     /// 말로 하기 — "하이 길눈"으로 부르기(마이크를 계속 열어 둠, 처음에는 꺼 둠)
-    @Published var haiGilnun: Bool { didSet { if Seoljeong.jabongApp && haiGilnun { haiGilnun = false; return }; d.set(haiGilnun, forKey: "gn.haiGilnun") } }
+    @Published var haiGilnun: Bool { didSet { if Seoljeong.jabongApp && haiGilnun { haiGilnun = false; return }; d.set(haiGilnun, forKey: "gn.haiGilnun")
+        // 2.130.0 (261121-I84, 이사장님 승인 2026-11-21 「1」) 켤 때 새 말 시작은 부름말로 한다는 것을 한 번 알려 드림
+        if haiGilnun && !oldValue { DispatchQueue.main.async { SoriEngine.shared.mal("하이 길눈을 켰습니다. 새로 말씀을 꺼내실 때는 길눈아, 또는 하이 길눈으로 시작해 주십시오. 길눈이 여쭌 것에는 부르지 않고 바로 대답하시면 됩니다.") } } } }
     /// 2.52.1 지금 도는 앱이 자봉 앱인가(자봉 앱은 길눈 부품을 함께 실음)
     static let jabongApp = Bundle.main.bundleIdentifier == "kr.or.ada.jabong"
     /// 2.27.0 새 알아듣기 부품(애플 SpeechAnalyzer, iOS 26) 쓰기 — 처음부터 켜짐

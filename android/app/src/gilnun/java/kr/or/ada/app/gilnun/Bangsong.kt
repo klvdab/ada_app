@@ -440,7 +440,9 @@ object Bangsong {
         } else if (jong == BangsongJong.GISA) {
             gisaSwigi()
         } else {
-            exo?.volume = 0.2f
+            // 2.95.0 (261121-A83, 이사장님 승인 2026-11-21 「1」, 아이폰 2.130.0과 같음) 방송은 길눈 말에 지장이 없을 만큼만 줄임(전에는 0.2로 크게 줄임)
+            rampR?.let { main.removeCallbacks(it) }; rampR = null
+            exo?.volume = JAGEUN
             Girok.namgi("bangsong_jageum", mapOf("jong" to jong.ireum))   // 2.91.0 방송을 작게 한 때를 기록(아이폰 2.126.0과 같음)
         }
     }
@@ -462,8 +464,27 @@ object Bangsong {
         malJung = false
         naebu("gyeonggo", false)
         if ((exo?.volume ?: 1f) < 0.99f) Girok.namgi("bangsong_doedollim", mapOf("jong" to jong.ireum, "cho" to ((System.currentTimeMillis() - malSijakTtae) / 1000)))   // 2.91.0
-        exo?.volume = 1f
+        sseurukDollim()   // 2.95.0 (261121-A83, 이사장님 승인 2026-11-21 「1」, 아이폰 2.130.0과 같음) 0.6초에 걸쳐 부드럽게 되돌림
         if (jong == BangsongJong.GISA && gisaIlkneun && !meomchum && naebuMeomchum.isEmpty()) gisaIeoIlkgi()
+    }
+
+    /** 2.95.0 (261121-A83, 이사장님 승인 2026-11-21 「1」, 아이폰 2.130.0과 같음) 길눈 말 동안의 방송 크기(1이 정한 크기) */
+    const val JAGEUN = 0.45f
+    private var rampR: Runnable? = null
+    private fun sseurukDollim() {
+        rampR?.let { main.removeCallbacks(it) }
+        val v0 = exo?.volume ?: 1f
+        var i = 0
+        val r = object : Runnable {
+            override fun run() {
+                if (malJung) { rampR = null; return }
+                i += 1
+                exo?.volume = if (i >= 6) 1f else v0 + (1f - v0) * i / 6f
+                if (i >= 6) rampR = null else main.postDelayed(this, 100)
+            }
+        }
+        rampR = r
+        main.postDelayed(r, 100)
     }
 
     /** 말로 하기가 명령을 듣는 동안 멈춤 */
@@ -656,7 +677,7 @@ object Bangsong {
         Girok.namgi("bangsong_teulgi", mapOf("jong" to j.ireum, "beon" to teulgiBeon))   // 2.91.0 곡·채널이 바뀔 때마다(아이폰 2.126.0과 같음)
         hwajilMatchugi()
         p.prepare()
-        p.volume = if (malJung) 0.2f else 1f
+        p.volume = if (malJung) JAGEUN else 1f
         p.playWhenReady = naebuMeomchum.isEmpty()
         allim()
     }

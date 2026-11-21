@@ -686,9 +686,9 @@ object MalHagi {
         // 2.17.0 묻는 말이든 아니든 대답 뒤에는 하이 길눈 없이 10초 이어 들음(딩동). 말씀이 없으면 조용히 닫음
         // 2.94.0 (261120-A82, 이사장님 승인 2026-11-20 「1」, 아이폰 2.129.0과 같음) 길눈이 일하는 중(안내·걷기·찾기)이면 길눈이 여쭌 때만 한 번 이어 듣고,
         //   묻지 않은 대답 뒤에는 이어 듣지 않고 바로 부름말 기다림으로 — 옆에서 하는 말을 알아듣고 「바꿀까요?」를 거듭 여쭈다 하던 일을 잊던 일
-        val ilJung = ilhaneunJung
-        if (ilJung && !mutneun) Girok.namgi("ieo_an", mapOf("kkadak" to "iljung"))
-        if (!ieoGeumman && ieoSu < 20 && GinGeup.sangtae == GinGeupSangtae.EOPSEUM && (mutneun || !ilJung)) {
+        // 2.95.0 (261121-A83, 이사장님 승인 2026-11-21 「1」, 아이폰 2.130.0과 같음) 새 말은 언제나 부름말(길눈아·하이 길눈)로 시작 — 길눈이 여쭌 대화 안에서만 부름말 없이 이어 들음(첫 화면도 같음)
+        if (!mutneun) Girok.namgi("ieo_an", mapOf("kkadak" to (if (ilhaneunJung) "iljung" else "bureum_pilyo")))
+        if (!ieoGeumman && ieoSu < 20 && GinGeup.sangtae == GinGeupSangtae.EOPSEUM && mutneun) {
             malHuHagi(t) {
                 if (sd == sedae && sangtae == MalSangtae.SWIM && !pyeonjipJung && !JeonhwaGamsi.jeonhwaJung) {   // 2.31.0 편집 중에는 저절로 이어 듣지 않음, 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 전화 중에도
                     ieoSu += 1
@@ -1021,6 +1021,13 @@ object MalHagi {
             z.contains("가까운길") || z.contains("근처길")) {
             dap("가까운 점지도를 엽니다. 골라서 누르시면 따라 걷습니다.", false)
             hwalseong?.get()?.cheotHwamyeonEuro(JeomMokrokHwamyeon())
+            return
+        }
+        // 4-0. 2.95.0 (261121-A83, 이사장님 승인 2026-11-21 「1」, 아이폰 2.130.0과 같음) 「길눈아 꺼」 — 방송·음악이 나오는 중에 꺼·꺼 줘·끄기 한 마디면 되묻지 않고 끔
+        if (Bangsong.itda && z in listOf("꺼", "꺼줘", "꺼요", "끄기", "끄자", "꺼주세요", "소리꺼")) {
+            Girok.namgi("kkeo_hanmadi")
+            dap("", false)
+            Bangsong.geuman()
             return
         }
         // 4. 그만 — 어디서나(따라 걷기는 "그만 걷기"로)

@@ -184,7 +184,7 @@ final class DoeEngine: ObservableObject {
         let h = WichiEngine.shared.nachimban
         if h >= 0 {
             let s = WichiEngine.sigyeBanghyang(jeongmyeon: h, mokpyo: cheot.bang)
-            m += s == 12 ? "앞으로 " : "\(s)시 방향으로 돌아 서신 뒤 "
+            m += s == 12 ? "앞으로 " : (s == 6 ? "뒤로, 6시 방향으로 돌아서신 뒤 " : "\(s)시 방향으로 돌아 서신 뒤 ")   // 2.130.0 (261121-I84, 이사장님 승인 2026-11-21 「1」)
         } else {
             m += "들어오신 쪽으로 돌아 서신 뒤 "
         }
@@ -262,7 +262,7 @@ final class DoeEngine: ObservableObject {
         if h >= 0, geoleun >= 2, abs(DoeEngine.chai(h, gil[gi].bang)) > 50, Date().timeIntervalSince(majimakBangMal) > 6 {
             majimakBangMal = Date()
             let s = WichiEngine.sigyeBanghyang(jeongmyeon: h, mokpyo: gil[gi].bang)
-            mal("방향이 어긋났습니다. \(s)시 방향으로 돌아 서십시오.")
+            mal("방향이 어긋났습니다. " + (s == 6 ? "뒤로, 6시 방향으로 돌아서십시오." : "\(s)시 방향으로 돌아 서십시오."))   // 2.130.0 (261121-I84, 이사장님 승인 2026-11-21 「1」)
         }
     }
 

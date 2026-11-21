@@ -718,7 +718,7 @@ class MalHagiSeolHwamyeon : Hwamyeon("말로 하기 설정") {
                     t.maikHeorak { ok ->
                         if (ok) {
                             Seoljeong.hiGilnun = true; hgeul()
-                            Sori.mal("하이 길눈 부르기를 켭니다. 길눈 화면이 켜져 있는 동안 하이 길눈이라고 불러 주십시오.")
+                            Sori.mal("하이 길눈 부르기를 켭니다. 길눈 화면이 켜져 있는 동안 새로 말씀을 꺼내실 때는 길눈아, 또는 하이 길눈으로 시작해 주십시오. 길눈이 여쭌 것에는 부르지 않고 바로 대답하시면 됩니다.")   // 2.95.0 (261121-A83, 이사장님 승인 2026-11-21 「1」, 아이폰 2.130.0과 같음)
                             t.dasiGeurigi()
                         } else Sori.mal("마이크 허락이 없어 켜지 못했습니다.")
                     }

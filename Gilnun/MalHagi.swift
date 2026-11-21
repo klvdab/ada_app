@@ -733,12 +733,12 @@ final class MalHagi: ObservableObject {
             // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 전화를 거는 중(통화 확인 창)이면 이어 듣지 않음
             // 2.129.0 (261120-I83, 이사장님 승인 2026-11-20 「1」) 길눈이 일하는 중(안내·걷기·찾기)이면 길눈이 여쭌 때만 한 번 이어 듣고,
             //   묻지 않은 대답 뒤에는 이어 듣지 않고 바로 부름말 기다림으로 — 옆에서 하는 말을 알아듣고 「바꿀까요?」를 거듭 여쭈다 하던 일을 잊던 일
-            let ilJung = MalHagi.ilhaneunJung
-            if ilJung && !mutneun {
-                Girok.shared.namgi("ieo_an", ["kkadak": "iljung"])
+            // 2.130.0 (261121-I84, 이사장님 승인 2026-11-21 「1」) 새 말은 언제나 부름말(길눈아·하이 길눈)로 시작 — 길눈이 여쭌 대화 안에서만 부름말 없이 이어 들음(첫 화면도 같음)
+            if !mutneun {
+                Girok.shared.namgi("ieo_an", ["kkadak": MalHagi.ilhaneunJung ? "iljung" : "bureum_pilyo"])
             }
             if GinGeup.shared.sangtae == .eopseum && !self.ieoGeumman && !self.watchMal && self.ieoSu < 20
-                && (mutneun || !ilJung)
+                && mutneun
                 && !self.pyeonjipJung && !JeonhwaGamsi.shared.jeonhwaJung && !ChaBureugi.shared.geoneunJung {
                 self.ieoSu += 1
                 self.jadongYeolim += 1
@@ -1199,6 +1199,13 @@ final class MalHagi: ObservableObject {
             TabGil.shared.tab = 0
             GilGil.shared.cheotHwamyeon()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { GilGil.shared.path.append(GilHwamyeon.jeomMok) }
+            return
+        }
+        // 3-0. 2.130.0 (261121-I84, 이사장님 승인 2026-11-21 「1」) 「길눈아 꺼」 — 방송·음악이 나오는 중에 꺼·꺼 줘·끄기 한 마디면 되묻지 않고 끔
+        if BangsongEngine.shared.itda && ["꺼", "꺼줘", "꺼요", "끄기", "끄자", "꺼주세요", "소리꺼"].contains(z) {
+            Girok.shared.namgi("kkeo_hanmadi", [:])
+            dap("", false)
+            BangsongEngine.shared.geuman()
             return
         }
         // 3. 그만 — 어디서나

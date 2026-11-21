@@ -234,7 +234,7 @@ object DoeEngine {
         val h = nachimban
         m += if (h >= 0) {
             val s = Jeomjido.sigyeBanghyang(h, cheot.bang)
-            if (s == 12) "앞으로 " else "${s}시 방향으로 돌아 서신 뒤 "
+            if (s == 12) "앞으로 " else if (s == 6) "뒤로, 6시 방향으로 돌아서신 뒤 " else "${s}시 방향으로 돌아 서신 뒤 "
         } else "들어오신 쪽으로 돌아 서신 뒤 "
         m += "${cheot.georeum}걸음 걸으십시오."
         jul = "되짚어 나가는 중입니다. 첫 토막 ${cheot.georeum}걸음."
@@ -311,7 +311,7 @@ object DoeEngine {
         if (h >= 0 && geoleun >= 2 && abs(chai(h, gil[gi].bang)) > 50 && System.currentTimeMillis() - majimakBangMal > 6000) {
             majimakBangMal = System.currentTimeMillis()
             val s = Jeomjido.sigyeBanghyang(h, gil[gi].bang)
-            mal("방향이 어긋났습니다. ${s}시 방향으로 돌아 서십시오.")
+            mal("방향이 어긋났습니다. " + (if (s == 6) "뒤로, 6시 방향으로 돌아서십시오." else "${s}시 방향으로 돌아 서십시오."))   // 2.95.0 (261121-A83, 이사장님 승인 2026-11-21 「1」, 아이폰 2.130.0과 같음)
         }
     }
 
