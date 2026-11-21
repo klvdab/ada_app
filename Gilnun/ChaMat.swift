@@ -40,6 +40,12 @@ final class ChaMat {
     var hacha30Ham: Bool { itda && hacha30 }
     private var batneunJung = false
     private var chaBang = -1.0   // 차가 마지막으로 달리던 쪽(멈춰도 이 쪽을 12시로)
+    // 2.133.0 (261121-I87, 이사장님 승인 2026-11-21 「1,2,3」) 드라이빙 모드 ③ 다음 큰길 알림 ④ 돌아가는 길 알림
+    private var deulGil: Set<String> = []      // 이미 알린(또는 달리고 있는) 길 이름
+    private var gilNam: Double?               // 길 위에 있을 때 마지막으로 셈한 남은 길
+    private var ihalNam: Double?              // 길에서 벗어날 때의 남은 길
+    private var ihalTime = Date.distantPast
+    private var dolMal: String?               // 새 길을 받은 뒤 들려 드릴 돌아가는 길 말
 
     static let ireum = ["", "간단", "보통", "자세히"]
     /// 안내 정도 1 간단 · 2 보통 · 3 자세히
@@ -54,6 +60,7 @@ final class ChaMat {
         mokLat = lat; mokLon = lon; mokIreum = ir; itda = true
         gil = nil; bulTime = .distantPast; bulMal = .distantPast; bulSijak = nil; hacha500 = false; hacha100 = false; hacha30 = false
         gdMal = [:]; meolSijak = nil; seoSijak = nil; batneunJung = false
+        deulGil = []; gilNam = nil; ihalNam = nil; dolMal = nil
     }
 
     func kkeut() { itda = false; gil = nil; chaBang = -1 }
@@ -153,8 +160,59 @@ final class ChaMat {
                                mokGil: self.str(o["mokGil"]), mokGeonmul: self.str(o["mokGeonmul"]))
                 self.gdMal = [:]
                 Girok.shared.namgi("chamat_gil", ["m": Int(self.dbl(o["meter"]))])
+                // 2.133.0 ④ 돌아가는 길 — 길에서 벗어나 새로 받은 길이면 처음 길과 견주어 한 번
+                if Seoljeong.shared.deuraibing, let old = self.ihalNam, Date().timeIntervalSince(self.ihalTime) < 180 {
+                    self.ihalNam = nil
+                    self.dolMal = self.dolaMal(self.gil!, newM: self.dbl(o["meter"]), oldM: old)
+                }
             }
         }
+    }
+
+    /// 2.133.0 다리·터널·지하차도는 지도 알림과 터널 알림이 따로 말하므로 큰길 알림에서 뺌
+    private func teukGil(_ n: String) -> Bool {
+        n.contains("대교") || n.contains("터널") || n.contains("지하차도") || n.contains("고가") || n.hasSuffix("교")
+    }
+
+    /// 2.133.0 ④ 돌아가는 길 말 — 새 길의 남은 거리와 지나는 큰길, 처음 길과의 차이
+    private func dolaMal(_ g: Gil, newM: Double, oldM: Double) -> String {
+        var s = "미리 알아본 길과 다른 길로 가고 있어, 지금 자리에서 길을 다시 알아보았습니다. \(eun(mokNm)) 이 길로 약 \(mMal(newM)) 남았습니다."
+        let cha = newM - oldM
+        if cha >= 1000 { s += " 처음 길보다 약 \(mMal(cha)) 더 돌아갑니다." }
+        else if cha <= -1000 { s += " 처음 길보다 약 \(mMal(-cha)) 짧습니다." }
+        else { s += " 처음 길과 거리는 비슷합니다." }
+        var ir: [String] = []
+        for n in g.gil where !n.isEmpty && !teukGil(n) && !ir.contains(n) { ir.append(n); if ir.count >= 3 { break } }
+        if !ir.isEmpty { s += " " + ir.dropLast().map { $0 + ", " }.joined() + eul(ir.last!) + " 지나 갑니다." }
+        Girok.shared.namgi("deuraibing_dol", ["cha": Int(cha)])
+        return s
+    }
+
+    /// 2.133.0 ③ 다음 큰길 알림 — 지금 길과 다른 이름의 큰길(300미터 넘게 이어짐)이 앞에 다가오면 한 번
+    private func daeumGil(_ g: Gil, _ gi: Int, _ la: Double, _ lo: Double, _ sok: Double) -> String? {
+        let p = g.pts
+        guard gi + 1 < p.count, gi < g.gil.count else { return nil }
+        let cur = g.gil[gi]
+        if !cur.isEmpty { deulGil.insert(cur) }
+        let ap = max(300, min(800, sok * 25))
+        var s = dist(la, lo, p[gi + 1].0, p[gi + 1].1)
+        var k = gi + 1
+        while k + 1 < p.count && k < g.gil.count && s <= ap {
+            let nm = g.gil[k]
+            if !nm.isEmpty && nm != cur && !teukGil(nm) && !deulGil.contains(nm) {
+                var c = 0.0, j = k
+                while j + 1 < p.count && j < g.gil.count && (g.gil[j] == nm || g.gil[j].isEmpty) && c < 300 { c += dist(p[j].0, p[j].1, p[j + 1].0, p[j + 1].1); j += 1 }
+                if c >= 300 {
+                    deulGil.insert(nm)
+                    if s < 100 { return nil }   // 너무 가까우면 늦은 말이 되므로 조용히
+                    Girok.shared.namgi("deuraibing_daeum", ["gil": nm])
+                    return "곧 \(ro(nm)) 들어섭니다. 약 \(mMal(s)) 앞입니다."
+                }
+            }
+            s += dist(p[k].0, p[k].1, p[k + 1].0, p[k + 1].1)
+            k += 1
+        }
+        return nil
     }
 
     /// 꺾는 곳에서 몇 시 방향으로 꺾는지 — 길 모양(들어오는 쪽과 나가는 쪽)으로 셈
@@ -240,9 +298,12 @@ final class ChaMat {
         let gosok = sokM * 3.6 > 120 || gicha
         if gosok { bulSijak = nil; meolSijak = nil }
 
+        // 2.133.0 ④ 새 길을 받았으면 돌아가는 길 말을 먼저
+        if let dm = dolMal { dolMal = nil; mal(dm, true, malHagi); return true }
         if let g = g {
             let (gd0, gi) = gilGeori(g, la, lo)
             let namM = namGil(g, gi, la, lo)
+            if gd0 <= 100 { gilNam = namM }
             // 내리는 곳 안내 — 모든 단계
             if !hacha500 && namM <= 600 && dMok > 120 { hacha500 = true; mal(hachaMal(g, la, lo, head, gi), true, malHagi); return true }
             if !hacha100 && !gicha && (namM <= 100 || dMok <= 80) {
@@ -265,10 +326,14 @@ final class ChaMat {
                     bulMal = t
                     bulSijak = nil
                     mal("길에서 벗어났습니다. \(eun(mokNm)) 지금 \(wichi(head, la, lo, mokLat, mokLon, dMok))입니다.", true, malHagi)
+                    if Seoljeong.shared.deuraibing, let gn = gilNam { ihalNam = gn; ihalTime = t }   // 2.133.0 ④
                     gilBatgi(la, lo, saero: true)
                     return true
                 }
             } else { bulSijak = nil }
+            // 2.133.0 ③ 드라이빙 모드 — 다음 큰길 미리 알림(길 위에 있을 때만, 기차 빼고)
+            if Seoljeong.shared.deuraibing && !gicha && gd0 <= 60 && t.timeIntervalSince(banEum) >= 6,
+               let x = daeumGil(g, gi, la, lo, sokM) { mal(x, false, malHagi); return true }
             // 꺾을 곳 미리 알림 — 보통은 마지막 꺾는 곳만, 자세히는 꺾는 곳마다
             let gds = g.guides
             for k in gds.indices {

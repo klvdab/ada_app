@@ -49,6 +49,12 @@ object ChaMat {
     val hacha30Ham: Boolean get() = itda && hacha30
     private var batneunJung = false
     private var chaBang = -1.0   // 차가 마지막으로 달리던 쪽(멈춰도 이 쪽을 12시로)
+    // 2.98.0 (261121-A86, 이사장님 승인 2026-11-21 「1,2,3」, 아이폰 2.133.0과 같음) 드라이빙 모드 ③ 다음 큰길 알림 ④ 돌아가는 길 알림
+    private val deulGil = HashSet<String>()     // 이미 알린(또는 달리고 있는) 길 이름
+    private var gilNam: Double? = null          // 길 위에 있을 때 마지막으로 셈한 남은 길
+    private var ihalNam: Double? = null         // 길에서 벗어날 때의 남은 길
+    private var ihalTime = 0L
+    private var dolMal: String? = null          // 새 길을 받은 뒤 들려 드릴 돌아가는 길 말
 
     /** 안내 정도 1 간단 · 2 보통 · 3 자세히 */
     var jeongdo: Int
@@ -62,6 +68,7 @@ object ChaMat {
         mokLat = lat; mokLon = lon; mokIreum = ir; itda = true
         gil = null; bulTime = 0L; bulMal = 0L; bulSijak = 0L; hacha500 = false; hacha100 = false; hacha30 = false
         gdMal.clear(); meolSijak = 0L; seoSijak = 0L; batneunJung = false
+        deulGil.clear(); gilNam = null; ihalNam = null; dolMal = null
     }
 
     fun kkeut() { itda = false; gil = null; chaBang = -1.0 }
@@ -151,10 +158,58 @@ object ChaMat {
                 o.optString("mokGil", ""), o.optString("mokGeonmul", ""))
             gdMal.clear()
             Girok.namgi("chamat_gil", mapOf("m" to o.optInt("meter")))
+            // 2.98.0 ④ 돌아가는 길 — 길에서 벗어나 새로 받은 길이면 처음 길과 견주어 한 번
+            val old = ihalNam
+            if (AnnaeSeoljeong.deuraibing && old != null && System.currentTimeMillis() - ihalTime < 180000) {
+                ihalNam = null
+                dolMal = dolaMal(gil!!, o.optDouble("meter", 0.0), old)
+            }
         }
     }
     private fun strs(a: JSONArray?): List<String> { val l = ArrayList<String>(); if (a != null) for (i in 0 until a.length()) l.add(a.optString(i, "")); return l }
     private fun objs(a: JSONArray?): List<JSONObject> { val l = ArrayList<JSONObject>(); if (a != null) for (i in 0 until a.length()) a.optJSONObject(i)?.let { l.add(it) }; return l }
+
+    /** 2.98.0 다리·터널·지하차도는 지도 알림과 터널 알림이 따로 말하므로 큰길 알림에서 뺌 */
+    private fun teukGil(n: String) = n.contains("대교") || n.contains("터널") || n.contains("지하차도") || n.contains("고가") || n.endsWith("교")
+
+    /** 2.98.0 ④ 돌아가는 길 말 — 새 길의 남은 거리와 지나는 큰길, 처음 길과의 차이 */
+    private fun dolaMal(g: Gil, newM: Double, oldM: Double): String {
+        var s = "미리 알아본 길과 다른 길로 가고 있어, 지금 자리에서 길을 다시 알아보았습니다. ${eun(mokNm())} 이 길로 약 ${mMal(newM)} 남았습니다."
+        val cha = newM - oldM
+        s += if (cha >= 1000) " 처음 길보다 약 ${mMal(cha)} 더 돌아갑니다." else if (cha <= -1000) " 처음 길보다 약 ${mMal(-cha)} 짧습니다." else " 처음 길과 거리는 비슷합니다."
+        val ir = ArrayList<String>()
+        for (n in g.gil) { if (n.isNotEmpty() && !teukGil(n) && !ir.contains(n)) { ir.add(n); if (ir.size >= 3) break } }
+        if (ir.isNotEmpty()) s += " " + ir.dropLast(1).joinToString("") { "$it, " } + eul(ir.last()) + " 지나 갑니다."
+        Girok.namgi("deuraibing_dol", mapOf("cha" to cha.toInt()))
+        return s
+    }
+
+    /** 2.98.0 ③ 다음 큰길 알림 — 지금 길과 다른 이름의 큰길(300미터 넘게 이어짐)이 앞에 다가오면 한 번 */
+    private fun daeumGil(g: Gil, gi: Int, la: Double, lo: Double, sok: Double): String? {
+        val p = g.pts
+        if (gi + 1 >= p.size || gi >= g.gil.size) return null
+        val cur = g.gil[gi]
+        if (cur.isNotEmpty()) deulGil.add(cur)
+        val ap = max(300.0, min(800.0, sok * 25))
+        var s = dist(la, lo, p[gi + 1][0], p[gi + 1][1])
+        var k = gi + 1
+        while (k + 1 < p.size && k < g.gil.size && s <= ap) {
+            val nm = g.gil[k]
+            if (nm.isNotEmpty() && nm != cur && !teukGil(nm) && !deulGil.contains(nm)) {
+                var c = 0.0; var j = k
+                while (j + 1 < p.size && j < g.gil.size && (g.gil[j] == nm || g.gil[j].isEmpty()) && c < 300) { c += dist(p[j][0], p[j][1], p[j + 1][0], p[j + 1][1]); j++ }
+                if (c >= 300) {
+                    deulGil.add(nm)
+                    if (s < 100) return null   // 너무 가까우면 늦은 말이 되므로 조용히
+                    Girok.namgi("deuraibing_daeum", mapOf("gil" to nm))
+                    return "곧 ${ro(nm)} 들어섭니다. 약 ${mMal(s)} 앞입니다."
+                }
+            }
+            s += dist(p[k][0], p[k][1], p[k + 1][0], p[k + 1][1])
+            k++
+        }
+        return null
+    }
 
     /** 꺾는 곳에서 몇 시 방향으로 꺾는지 — 길 모양(들어오는 쪽과 나가는 쪽)으로 셈 */
     private fun kkeokBang(g: Gil, ga: Double, go: Double): String {
@@ -241,9 +296,12 @@ object ChaMat {
         val gosok = sokM * 3.6 > 120 || gicha
         if (gosok) { bulSijak = 0L; meolSijak = 0L }
 
+        // 2.98.0 ④ 새 길을 받았으면 돌아가는 길 말을 먼저
+        dolMal?.let { dolMal = null; mal(it, true, malHagi); return true }
         if (g != null) {
             val (gd0, gi) = gilGeori(g, la, lo)
             val namM = namGil(g, gi, la, lo)
+            if (gd0 <= 100) gilNam = namM
             // 내리는 곳 안내 — 모든 단계
             if (!hacha500 && namM <= 600 && dMok > 120) { hacha500 = true; mal(hachaMal(g, la, lo, head, gi), true, malHagi); return true }
             if (!hacha100 && !gicha && (namM <= 100 || dMok <= 80)) {
@@ -266,10 +324,15 @@ object ChaMat {
                     bulMal = t
                     bulSijak = 0L
                     mal("길에서 벗어났습니다. ${eun(mokNm())} 지금 ${wichi(head, la, lo, mokLat, mokLon, dMok)}입니다.", true, malHagi)
+                    if (AnnaeSeoljeong.deuraibing) gilNam?.let { ihalNam = it; ihalTime = t }   // 2.98.0 ④
                     gilBatgi(la, lo, true)
                     return true
                 }
             } else bulSijak = 0L
+            // 2.98.0 ③ 드라이빙 모드 — 다음 큰길 미리 알림(길 위에 있을 때만, 기차 빼고)
+            if (AnnaeSeoljeong.deuraibing && !gicha && gd0 <= 60 && t - banEum >= 6000) {
+                daeumGil(g, gi, la, lo, sokM)?.let { mal(it, false, malHagi); return true }
+            }
             // 꺾을 곳 미리 알림 — 보통은 마지막 꺾는 곳만, 자세히는 꺾는 곳마다
             val gds = g.guides
             for (k in gds.indices) {

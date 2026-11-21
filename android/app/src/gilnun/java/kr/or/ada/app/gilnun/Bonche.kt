@@ -23,12 +23,16 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.97.0"
-    const val bild = "261121-A85"
+    const val pan = "2.98.0"
+    const val bild = "261121-A86"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.98.0", "261121-A86", "2026-11-21", listOf(
+            "★드라이빙 모드 ③ 다음 큰길 알림 — 차로 가는 길 안내 중 지금 길과 다른 이름의 큰길(300미터 넘게 이어지는 길)이 앞에 다가오면 「곧 올림픽대로로 들어섭니다. 약 400미터 앞입니다」처럼 한 번. 다리·터널은 지도 알림과 터널 알림이 따로 말하므로 뺌",
+            "★드라이빙 모드 ④ 돌아가는 길 알림 — 차가 미리 알아본 길에서 벗어나 길을 다시 받으면, 새 길로 남은 거리와 처음 길보다 얼마나 더 돌아가는지(또는 짧은지), 지나는 큰길을 한 번 알려 드림"
+        )),
         Gochim("2.97.0", "261121-A85", "2026-11-21", listOf(
             "★드라이빙 모드 — 「길 미리 들려 줘」로 차로 걸리는 시간·거리와 지나는 큰길·다리·터널을 미리, 「다른 길 알려 줘」로 가장 빠른 길·가장 짧은 길과 견주어(카카오 길찾기). 설정의 드라이빙 모드를 켜면 차로 가는 길 안내가 시작될 때 한 번 저절로. 운전을 시키는 말은 하지 않음(이사장님 승인 2026-11-21 「1,2,3」) — 아이폰 2.132.0과 같음",
             "관리자 폰(이사장님 폰)에서만 차 안·지도 알림 기록에 그때 자리·빠르기·위성 오차를 함께 남김 — 다니신 길로 길눈을 고치고 그 길 그대로 다시 시험하려고. 나스 아침 기록에만, 앱에는 담지 않음"
@@ -965,7 +969,7 @@ object Girok {
     /** 2.97.0 (261121-A85, 이사장님 승인 2026-11-21 「1」, 아이폰 2.132.0과 같음) 관리자 폰인가(나스 음악 열쇠) — GilnunActivity.onResume 이 맞춰 둠 */
     @Volatile var gwanrija = false
     private val JARI_GIROK = setOf("chageodeul_mal", "jido_mal", "teoneol_naom", "dari_naeryeom", "cha_doram", "ganpan", "chamat_mal",
-        "deuraibing_mal", "malhagi", "yeojeong_sijak", "yeojeong_danggye", "dochak", "bangsong_jageum", "maik_makhim", "maldeutgi_makhim")
+        "deuraibing_mal", "deuraibing_daeum", "deuraibing_dol", "malhagi", "yeojeong_sijak", "yeojeong_danggye", "dochak", "bangsong_jageum", "maik_makhim", "maldeutgi_makhim")
 
     fun namgi(e: String, d: Map<String, Any?> = emptyMap()) {
         val o = JSONObject()

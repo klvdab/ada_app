@@ -69,7 +69,7 @@ final class Girok {
 
     /// 2.132.0 (261121-I86, 이사장님 승인 2026-11-21 「1」) 관리자 폰에서 자리를 함께 남기는 기록
     static let jariGirok: Set<String> = ["chageodeul_mal", "jido_mal", "teoneol_naom", "dari_naeryeom", "cha_doram", "ganpan", "chamat_mal",
-                                         "deuraibing_mal", "malhagi", "yeojeong_sijak", "yeojeong_danggye", "dochak", "bangsong_jageum", "maik_makhim", "maldeutgi_makhim"]
+                                         "deuraibing_mal", "deuraibing_daeum", "deuraibing_dol", "malhagi", "yeojeong_sijak", "yeojeong_danggye", "dochak", "bangsong_jageum", "maik_makhim", "maldeutgi_makhim"]
 
     func namgi(_ e: String, _ d: [String: Any] = [:]) {
         var row: [String: Any] = ["t": Date().timeIntervalSince1970, "e": e]
