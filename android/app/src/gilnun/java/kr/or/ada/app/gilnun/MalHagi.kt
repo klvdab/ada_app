@@ -1222,6 +1222,15 @@ object MalHagi {
             KameraNun.dulreoYeolgi(a, GeulIlgiHwamyeon())
             return true
         }
+        // 2.97.0 (261121-A85, 이사장님 승인 2026-11-21 「1,2,3」, 아이폰 2.132.0과 같음) 드라이빙 모드 — 「길 미리 들려 줘」, 「다른 길 알려 줘」(가시는 곳이 정해져 있을 때)
+        if (Deuraibing.miriMal(z) || Deuraibing.gyeonMal(z)) {
+            val yy = YeojeongEngine.jigeum
+            if (yy == null) { dap("먼저 가실 곳을 정해 주십시오. 집으로 가자처럼 말씀하시면 그곳까지 차로 가는 길을 들려 드립니다.", false); return true }
+            val gyeon = Deuraibing.gyeonMal(z) && !Deuraibing.miriMal(z)
+            malHam("길을 알아보는 중입니다.")
+            Deuraibing.mal(yy.mokjeok.lat, yy.mokjeok.lon, yy.mokjeok.ireum, gyeon) { t -> main.post { dap(t, false) } }
+            return true
+        }
         if (YeojeongMal.myeongryeong(alts, z, dap)) return true   // 2.7.0 묶음 b1 — 내렸어·탔어·얼마나 걸려·지금 가는 길·즐겨찾기·탈것만 말씀하심·어떻게 가실지의 대답
         // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 배리어프리방송국은 따로 앱으로 키우기로 함(이사장님 결정) — 모르는 척하지 않고 그렇다고 말씀드림(아이폰 MalHagi 2.13.0과 같은 말)
         if (z.contains("배프") || z.contains("배리어프리")) {

@@ -1910,6 +1910,17 @@ final class MalHagi: ObservableObject {
             }
             return true
         }
+        // 2.132.0 (261121-I86, 이사장님 승인 2026-11-21 「1,2,3」) 드라이빙 모드 — 「길 미리 들려 줘」, 「다른 길 알려 줘」(가시는 곳이 정해져 있을 때)
+        if Deuraibing.miriMal(z) || Deuraibing.gyeonMal(z) {
+            guard let yy = y else { dap("먼저 가실 곳을 정해 주십시오. 집으로 가자처럼 말씀하시면 그곳까지 차로 가는 길을 들려 드립니다.", false); return true }
+            let gyeon = Deuraibing.gyeonMal(z) && !Deuraibing.miriMal(z)
+            malHamMan("길을 알아보는 중입니다.")
+            Task { @MainActor in
+                let t = await Deuraibing.mal(mokLat: yy.mokjeok.lat, mokLon: yy.mokjeok.lon, mok: yy.mokjeok.ireum, gyeon: gyeon)
+                dap(t, false)
+            }
+            return true
+        }
         // 2.119.0 (261027-I73, 이사장님 승인 2026-10-27 「1」) 「얼마나 걸릴까」, 「시간이 얼마나」도 걸리는 시간 물음으로. 「○○까지」가 있으면 가실 곳을 정하지 않으셨어도 그곳을 찾아 답함
         if s.itda(alts, "sigan") || MalHagi.siganMal(z) {
             let t = alts.first ?? ""

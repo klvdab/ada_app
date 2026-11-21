@@ -83,6 +83,8 @@ object AnnaeSeoljeong {
     var gilGap: Int get() = i("gilGap", 60); set(v) = si("gilGap", v)
     /** 2.88.0 (261101-A76, 이사장님 지시 2026-11-01) 지도 알림 — 다리·건너는 강·휴게소·나들목·요금소·고장 경계(오픈스트리트맵) */
     var jidoOn: Boolean get() = b("jidoOn", true); set(v) = sb("jidoOn", v)
+    /** 2.97.0 (261121-A85, 이사장님 승인 2026-11-21 「1,2,3」, 아이폰 2.132.0과 같음) 드라이빙 모드 — 차로 가는 길 안내가 시작될 때 갈 길과 다른 길을 한 번(처음은 꺼짐) */
+    var deuraibing: Boolean get() = b("deuraibing", false); set(v) = sb("deuraibing", v)
     /** 2.88.0 걸을 때 지도 알림(시험 중, 처음 꺼짐) */
     var jidoGeotOn: Boolean get() = b("jidoGeotOn", false); set(v) = sb("jidoGeotOn", v)
     /** 2.88.0 (261102, 이사장님 승인 「1」) 차 안에서 지나는 교차로 이름 — 국토교통부 표준노드링크 공식 이름 */
@@ -1613,7 +1615,11 @@ object AnnaeEngine {
         // 승용차·택시에서만(버스·기차는 세워 달라 할 수 없음). 이 차례에 말했으면 남은 거리 눈금은 다음 차례로 미룸
         var mat = false
         if (y.talgeot == Talgeot.CHA && !w.georeumChu) {
-            if (!ChaMat.gatEun(y.mokjeok.lat, y.mokjeok.lon)) ChaMat.sijak(y.mokjeok.lat, y.mokjeok.lon, mok)
+            if (!ChaMat.gatEun(y.mokjeok.lat, y.mokjeok.lon)) {
+                ChaMat.sijak(y.mokjeok.lat, y.mokjeok.lon, mok)
+                // 2.97.0 (261121-A85, 이사장님 승인 2026-11-21 「1,2,3」, 아이폰 2.132.0과 같음) 드라이빙 모드 — 차로 가는 길 안내가 시작될 때 갈 길과 다른 길을 한 번
+                if (AnnaeSeoljeong.deuraibing) Deuraibing.mal(y.mokjeok.lat, y.mokjeok.lon, mok, false) { t -> main.post { Sori.mal(t, MalGeup.ANNAE) } }
+            }
             mat = ChaMat.salpim(w) { malHagi(it) }
         }
         // 2.48.0 (261015-A36, 이사장님 승인 2026-10-15 「1」) 승용차·택시·콜은 100미터에서 내릴 준비, 30미터에서 내리셔도 좋다고(300·150미터는 너무 멀었음).

@@ -67,10 +67,21 @@ final class Girok {
             .store(in: &ssak)
     }
 
+    /// 2.132.0 (261121-I86, 이사장님 승인 2026-11-21 「1」) 관리자 폰에서 자리를 함께 남기는 기록
+    static let jariGirok: Set<String> = ["chageodeul_mal", "jido_mal", "teoneol_naom", "dari_naeryeom", "cha_doram", "ganpan", "chamat_mal",
+                                         "deuraibing_mal", "malhagi", "yeojeong_sijak", "yeojeong_danggye", "dochak", "bangsong_jageum", "maik_makhim", "maldeutgi_makhim"]
+
     func namgi(_ e: String, _ d: [String: Any] = [:]) {
         var row: [String: Any] = ["t": Date().timeIntervalSince1970, "e": e]
         // 2.64.0 (261011-I18) 칸 이름 "t"·"e" 가 기록 시각·이름을 덮어써 지우던 것 — 그런 칸은 이름 뒤에 _ 를 붙여 남김
         for (k, v) in d where JSONSerialization.isValidJSONObject([k: v]) { row[(k == "t" || k == "e") ? k + "_" : k] = v }
+        // 2.132.0 (261121-I86, 이사장님 승인 2026-11-21 「1」) 관리자 폰(이사장님 폰)에서만 차 안·지도 알림 기록에 그때 자리·빠르기·위성 오차를 함께 남김 —
+        //   이사장님이 다니신 길로 길눈을 고치고 그 길 그대로 다시 시험하려고(이사장님 말씀 「내가 움직이는 모든 정보는 길눈에 적용해서 테스트하고 현실화하는데 사용해도 좋아」).
+        //   나스 아침 기록(applog)에만 가고 앱에는 담지 않음. 다른 분 폰은 전과 같이 자리를 남기지 않음
+        if Girok.jariGirok.contains(e), TeokAllim.boim, let w = WichiEngine.shared.jigeum {
+            row["la"] = (w.lat * 1e6).rounded() / 1e6; row["lo"] = (w.lon * 1e6).rounded() / 1e6
+            row["oc"] = Int(w.ochae); row["sd"] = Int(w.sokdo * 3.6); row["bg"] = Int(w.banghyang)
+        }
         q.async {
             self.jul.append(row)
             if self.jul.count > 2000 { self.jul.removeFirst(self.jul.count - 2000) }

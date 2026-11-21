@@ -63,6 +63,8 @@ object SeoljeongDeo {
     var gilGap: Int get() = i("gilGap", 60); set(v) = si("gilGap", v)
     /** 2.88.0 지도 알림(AnnaeSeoljeong.jidoOn 과 같은 값) */
     var jidoOn: Boolean get() = b("jidoOn", true); set(v) = sb("jidoOn", v)
+    /** 2.97.0 드라이빙 모드(AnnaeSeoljeong.deuraibing 과 같은 값) */
+    var deuraibing: Boolean get() = b("deuraibing", false); set(v) = sb("deuraibing", v)
     var jidoGeotOn: Boolean get() = b("jidoGeotOn", false); set(v) = sb("jidoGeotOn", v)
     var gyoJinaOn: Boolean get() = b("gyoJinaOn", true); set(v) = sb("gyoJinaOn", v)
     var ganpanOn: Boolean get() = b("ganpanOn", true); set(v) = sb("ganpanOn", v)
@@ -215,6 +217,7 @@ class MalSeolHwamyeon : Hwamyeon("말하기 설정") {
         }
         kyeogi(t, "지나는 곳 안내", { s.gilOn }, { s.gilOn = it }) { if (it) "지나는 길을 알려 드립니다." else "지나는 길을 알리지 않습니다." }
         // 2.88.0 (261101-A76, 이사장님 지시 2026-11-01) 지도 알림(아이폰과 같은 자리·같은 이름)
+        kyeogi(t, "드라이빙 모드", { s.deuraibing }, { s.deuraibing = it }) { if (it) "드라이빙 모드를 켭니다. 차로 가는 길 안내가 시작되면 지나는 큰길과 다리, 걸리는 시간을 미리 들려 드리고, 더 빠르거나 짧은 길이 있으면 함께 알려 드립니다." else "드라이빙 모드를 끕니다. 길 미리 들려 줘, 다른 길 알려 줘라고 말씀하시면 언제든 들려 드립니다." }   // 2.97.0 (261121-A85, 이사장님 승인 2026-11-21 「1,2,3」, 아이폰 2.132.0과 같음)
         kyeogi(t, "지도 알림", { s.jidoOn }, { s.jidoOn = it; if (!it) JidoAllim.kkeut() }) { if (it) "차나 기차를 타고 가실 때 다리, 건너는 강, 휴게소, 나들목, 요금소, 들어서는 고장을 알려 드립니다." else "지도 알림을 하지 않습니다. 터널 알림은 그대로 나옵니다." }
         kyeogi(t, "지나는 교차로 알림", { s.gyoJinaOn }, { s.gyoJinaOn = it }) { if (it) "차 안에서 이름 있는 교차로를 지나면 그 이름과 다음 교차로를 알려 드립니다. 지도 알림이 켜져 있어야 합니다." else "지나는 교차로를 알리지 않습니다. 멈췄을 때 교차로 이름은 그대로 알려 드립니다." }
         kyeogi(t, "걸을 때 지도 알림(시험 중)", { s.jidoGeotOn }, { s.jidoGeotOn = it; if (!it) JidoGeot.kkeut() }) { if (it) "걸으실 때 계단, 육교, 지하도, 경사로, 보도 없는 길, 횡단보도, 엘리베이터, 지하철 출입구, 화장실, 버스 정류장, 건물 출입구를 알려 드립니다. 시험 중이라 틀린 곳이 있을 수 있습니다." else "걸을 때 지도 알림을 하지 않습니다." }

@@ -1601,7 +1601,17 @@ final class AnnaeEngine: ObservableObject {
         var mat = false
         if y.talgeot == .cha && !w.georeumChu {
             let cm = ChaMat.shared
-            if !cm.gatEun(y.mokjeok.lat, y.mokjeok.lon) { cm.sijak(y.mokjeok.lat, y.mokjeok.lon, mok) }
+            if !cm.gatEun(y.mokjeok.lat, y.mokjeok.lon) {
+                cm.sijak(y.mokjeok.lat, y.mokjeok.lon, mok)
+                // 2.132.0 (261121-I86, 이사장님 승인 2026-11-21 「1,2,3」) 드라이빙 모드 — 차로 가는 길 안내가 시작될 때 갈 길과 다른 길을 한 번
+                if Seoljeong.shared.deuraibing {
+                    let la = y.mokjeok.lat, lo = y.mokjeok.lon
+                    Task { @MainActor [weak self] in
+                        let t = await Deuraibing.mal(mokLat: la, mokLon: lo, mok: mok, gyeon: false)
+                        self?.malHagi(t)
+                    }
+                }
+            }
             mat = cm.salpim(w) { self.malHagi($0) }
         }
         // 2.77.0 (261015-I31, 이사장님 승인 2026-10-15 「1」) 승용차·택시·콜은 100미터에서 내릴 준비, 30미터에서 내리셔도 좋다고(300·150미터는 너무 멀었음).

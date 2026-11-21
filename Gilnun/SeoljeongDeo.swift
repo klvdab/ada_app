@@ -146,6 +146,12 @@ struct MalSeolDeoView: View {
                 if !s.jidoOn { JidoAllim.shared.kkeut() }
             }
             .buttonStyle(KeunDanchu())
+            // 2.132.0 (261121-I86, 이사장님 승인 2026-11-21 「1,2,3」) 드라이빙 모드 — 차로 가실 때 갈 길을 미리, 다른 길과 견주어
+            Button("드라이빙 모드 — " + (s.deuraibing ? "켜져 있음 (누르면 끕니다)" : "꺼져 있음 (누르면 켭니다)")) {
+                s.deuraibing.toggle()
+                SoriEngine.shared.mal(s.deuraibing ? "드라이빙 모드를 켭니다. 차로 가는 길 안내가 시작되면 지나는 큰길과 다리, 걸리는 시간을 미리 들려 드리고, 더 빠르거나 짧은 길이 있으면 함께 알려 드립니다." : "드라이빙 모드를 끕니다. 길 미리 들려 줘, 다른 길 알려 줘라고 말씀하시면 언제든 들려 드립니다.")
+            }
+            .buttonStyle(KeunDanchu())
             // 2.123.0 (261102, 이사장님 승인 「1」) 지나는 교차로 이름 — 공식 이름이 있는 교차로만
             Button("지나는 교차로 알림 — " + (s.gyoJinaOn ? "켜져 있음 (누르면 끕니다)" : "꺼져 있음 (누르면 켭니다)")) {
                 s.gyoJinaOn.toggle()

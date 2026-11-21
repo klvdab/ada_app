@@ -23,12 +23,16 @@ import java.util.concurrent.Executors
 
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
-    const val pan = "2.96.0"
-    const val bild = "261121-A84"
+    const val pan = "2.97.0"
+    const val bild = "261121-A85"
 
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.97.0", "261121-A85", "2026-11-21", listOf(
+            "★드라이빙 모드 — 「길 미리 들려 줘」로 차로 걸리는 시간·거리와 지나는 큰길·다리·터널을 미리, 「다른 길 알려 줘」로 가장 빠른 길·가장 짧은 길과 견주어(카카오 길찾기). 설정의 드라이빙 모드를 켜면 차로 가는 길 안내가 시작될 때 한 번 저절로. 운전을 시키는 말은 하지 않음(이사장님 승인 2026-11-21 「1,2,3」) — 아이폰 2.132.0과 같음",
+            "관리자 폰(이사장님 폰)에서만 차 안·지도 알림 기록에 그때 자리·빠르기·위성 오차를 함께 남김 — 다니신 길로 길눈을 고치고 그 길 그대로 다시 시험하려고. 나스 아침 기록에만, 앱에는 담지 않음"
+        )),
         Gochim("2.96.0", "261121-A84", "2026-11-21", listOf(
             "★터널은 입구로 들어가 위성이 실제로 끊기거나 흐려졌을 때만 터널 안으로 침 — 지하차도 옆·위 땅 위 찻길에서 「터널을 지났습니다」·「터널 안이라 위성이 …」를 잘못 말하던 일(이사장님 11-21 양천구 오가며 겪으심, 승인 「1」). 같은 이름의 굴은 3분 안에 다시 알리지 않음 — 아이폰 2.131.0과 같음",
             "★다리 — 물길을 건너지 않는 이름 없는 고가(강변북로·올림픽대로 고가 구간, 나들목 고가)는 알리지 않음. 물길을 건너는 이름 없는 토막은 맞닿은 다리 이름으로, 못 찾으면 「곧 ○○을 건너는 다리입니다」. 「건넜습니다」는 끝에서 들어서 반대쪽 끝까지 실제로 건넜을 때만 — 나란한 옆 다리를 지금 길로 착각하던 일",
@@ -958,12 +962,22 @@ object Girok {
         main.postDelayed(r, 5000)
     }
 
+    /** 2.97.0 (261121-A85, 이사장님 승인 2026-11-21 「1」, 아이폰 2.132.0과 같음) 관리자 폰인가(나스 음악 열쇠) — GilnunActivity.onResume 이 맞춰 둠 */
+    @Volatile var gwanrija = false
+    private val JARI_GIROK = setOf("chageodeul_mal", "jido_mal", "teoneol_naom", "dari_naeryeom", "cha_doram", "ganpan", "chamat_mal",
+        "deuraibing_mal", "malhagi", "yeojeong_sijak", "yeojeong_danggye", "dochak", "bangsong_jageum", "maik_makhim", "maldeutgi_makhim")
+
     fun namgi(e: String, d: Map<String, Any?> = emptyMap()) {
         val o = JSONObject()
         o.put("t", System.currentTimeMillis() / 1000.0)
         o.put("e", e)
         // 2.36.0 (261011-A1) 칸 이름 "t"·"e" 가 기록 시각·이름을 덮어쓰던 것 — 그런 칸은 이름 뒤에 _ 를 붙여 남김(아이폰과 같음)
         for ((k, v) in d) o.put(if (k == "t" || k == "e") k + "_" else k, v ?: JSONObject.NULL)
+        // 2.97.0 (261121-A85, 이사장님 승인 2026-11-21 「1」, 아이폰 2.132.0과 같음) 관리자 폰(이사장님 폰)에서만 차 안·지도 알림 기록에 그때 자리·빠르기·위성 오차를 함께 — 나스 아침 기록에만, 앱에는 담지 않음
+        if (gwanrija && e in JARI_GIROK) Wichi.jigeum?.let { w ->
+            o.put("la", Math.round(w.lat * 1e6) / 1e6); o.put("lo", Math.round(w.lon * 1e6) / 1e6)
+            o.put("oc", w.ochae.toInt()); o.put("sd", (w.sokdo * 3.6).toInt())
+        }
         synchronized(jamgeum) {
             jul.put(o)
             while (jul.length() > 2000) jul.remove(0)
