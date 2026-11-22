@@ -1095,7 +1095,7 @@ class LibActivity : Activity() {
         if (jeungMal.isNotEmpty()) geul(jeungMal, jakge = true)
         geul("회원: ${Hoewon.ireum(this)}", jakge = true)   // 0.4.4 아이폰과 같게
         geul("AI점자도서관 안드로이드 ${PAN}판, 빌드 $BILDEU", jakge = true)
-        geul("주관 사단법인 한국시각장애인현장영상해설협회. 전화 02-363-4455, 메일 ada015@naver.com", jakge = true)
+        geul("사단법인 한국시각장애인현장영상해설협회. 문의 서울시각장애인현장영상해설센터, 서울 동대문구 약령중앙로10길 17, 202호(제기동), 전화 02-966-4569, 메일 ada015@naver.com", jakge = true)   // 0.8.7 (261122) 문의처를 제기동 서울센터로(이사장님 지시), 「주관」은 아이폰처럼 뺌
         cheotJul(t)
     }
 
