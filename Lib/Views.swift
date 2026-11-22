@@ -679,8 +679,8 @@ struct SettingsView: View {
             }
             Section { Text("회원: \(Hoewon.shared.ireum)"); Text(Pan.mal) }
             Section("개인정보와 탈퇴") {   // 0.8.6 (261109-L25) 개인정보 처리방침·문의·회원 탈퇴(이사장님 승인 2026-11-09 「1」)
-                Link("개인정보 처리방침 보기", destination: URL(string: "https://lvd.ada.or.kr/ada_lib/privacy.html")!)
-                Link("문의하기(도움 받는 곳)", destination: URL(string: "https://lvd.ada.or.kr/ada_lib/support.html")!)
+                Link("개인정보 처리방침 보기", destination: URL(string: "https://ailib.ada.or.kr/ada_lib/privacy.html")!)
+                Link("문의하기(도움 받는 곳)", destination: URL(string: "https://ailib.ada.or.kr/ada_lib/support.html")!)
                 Button("회원 탈퇴하기", role: .destructive) { talteChang = true }
             }
         }

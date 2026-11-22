@@ -15,7 +15,7 @@ final class LibGirok {
     private var bonaeneunJung = false
     private var sigye: Timer?
     private let pail: URL
-    private let url = URL(string: "https://lvd.ada.or.kr/jeom/applog.php")!
+    private let url = URL(string: "https://ailib.ada.or.kr/jeom/applog.php")!
     private let ios = UIDevice.current.systemVersion
     let dev: String = {
         let k = "libGirokDev"
@@ -108,7 +108,7 @@ final class LibIyong {
     private var jul: [[String: Any]] = []
     private var bonaeneunJung = false
     private let pail: URL
-    private let url = URL(string: "https://lvd.ada.or.kr/nas/iyong.php")!
+    private let url = URL(string: "https://ailib.ada.or.kr/nas/iyong.php")!
 
     init() {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]

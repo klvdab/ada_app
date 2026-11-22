@@ -3,7 +3,7 @@
 // AI점자도서관 갈래 사본 — 길눈 부품(src/gilnun/.../Ollim.kt)과 같은 것을 lib 패키지에 옮김(이사장님 지시 「차별하지 말고 모두」). 기록은 안드로이드 로그로, 말은 앱이 채운 malhagi 로.
 // 하는 일:
 //   1. 앱을 켤 때와 앱으로 돌아올 때(1시간에 한 번까지), 그리고 앱이 닫혀 있어도 하루 두 번쯤(안드로이드 일꾼)
-//      협회 판 번호 한 장(https://lvd.ada.or.kr/sihum/pan.json)을 받아 이 앱의 지금 판과 견줌
+//      협회 판 번호 한 장(https://ailib.ada.or.kr/sihum/pan.json)을 받아 이 앱의 지금 판과 견줌
 //   2. 새 판이 있으면 폰 알림 「길눈 새 판이 나왔습니다. 두드리면 업데이트합니다」(같은 판은 한 번만 알림)
 //   3. 알림을 두드리거나 앱 안의 업데이트 단추를 누르면 새 판을 스스로 받아 안드로이드 설치 화면을 엶 — 이용자는 설치 한 번
 //      (앱이 한 번 스스로 업데이트한 뒤로는 안드로이드 12 이상에서 설치 확인 없이 깔릴 수 있음 — 안드로이드가 정함)
@@ -47,7 +47,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 object Ollim {
-    const val JULI = "https://lvd.ada.or.kr/sihum/pan.json"
+    const val JULI = "https://ailib.ada.or.kr/sihum/pan.json"
     const val YEOLGI = "kr.or.ada.ollim.YEOLGI"          // 알림을 두드려 앱이 열리면 곧바로 업데이트
     private const val CHANNEL = "ada_ollim"
     private const val IL_IREUM = "ada_ollim"

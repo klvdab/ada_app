@@ -1,10 +1,10 @@
 // 0.8.3 (261019-L22) 잠긴 책 — 일반 회원이 인증 회원만 듣는 책을 열면 서버가 jamgeum 을 알려 줌, 소리책·영상은 미리 물어봄
 // AI점자도서관 앱 — 나스 창구 부르기 (판 0.5.2, 빌드 261012-L11 — 글 판 4: 강제 줄바꿈 바로잡은 글, 옛 자리 옮기기) (판 0.3.0, 빌드 261006-1) — 목록 줄 수, 책 전체 글 받기
-// 앱은 나스(lvd.ada.or.kr)로 요청만 넣고, 목소리 굽기는 서버 일꾼이 맡는다.
+// 앱은 나스(ailib.ada.or.kr)로 요청만 넣고, 목소리 굽기는 서버 일꾼이 맡는다.
 import Foundation
 
 enum API {
-    static let base = "https://lvd.ada.or.kr/nas/"
+    static let base = "https://ailib.ada.or.kr/nas/"   // 0.8.7 (261122) 도서관 주소를 ailib.ada.or.kr 로(이사장님 지시 — 옛 주소 lvd.ada.or.kr 도 같은 자리라 옛 앱은 그대로 돎)
     static var key: String { Hoewon.shared.yeolsoe }   // 회원 열쇠 — 앱 코드에 나스 열쇠를 적지 않음
     static let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AIJeomjaLib/0.1"
     static var perPage: Int { let n = UserDefaults.standard.integer(forKey: "julsu"); return [5, 10, 15, 20, 30].contains(n) ? n : 15 }   // 0.3.0 — 목록 줄 수(기본 15, 설정에서 고름)

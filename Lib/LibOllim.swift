@@ -1,12 +1,12 @@
 // AI점자도서관 아이폰 — 새 판 알림(0.4.3판, 빌드 261007-L7, 대장클, 이사장님 지시 「AI도서관과 BYOD도 차별하지 말고」)
-// 길눈·자봉의 Gilnun/Ollim.swift 와 같은 일을 도서관 앱 부품(Store.say·Saek)으로 함. 판 번호 한 장: https://lvd.ada.or.kr/sihum/pan.json 의 lib.ios
+// 길눈·자봉의 Gilnun/Ollim.swift 와 같은 일을 도서관 앱 부품(Store.say·Saek)으로 함. 판 번호 한 장: https://ailib.ada.or.kr/sihum/pan.json 의 lib.ios
 // 애플은 앱이 스스로 자기를 설치하는 것을 허락하지 않음 — 새 판이 있으면 도서관 첫 화면 맨 위와 설정에 테스트플라이트로 가는 단추를 띄움.
 import SwiftUI
 import UIKit
 
 final class LibOllim: ObservableObject {
     static let shared = LibOllim()
-    static let juli = "https://lvd.ada.or.kr/sihum/pan.json"
+    static let juli = "https://ailib.ada.or.kr/sihum/pan.json"
 
     @Published private(set) var saePan: String?
     @Published private(set) var testflight = ""

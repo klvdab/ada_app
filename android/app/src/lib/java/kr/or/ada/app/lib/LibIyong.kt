@@ -13,7 +13,7 @@ import java.net.URL
 import java.util.concurrent.Executors
 
 object LibIyong {
-    private const val URL_ = "https://lvd.ada.or.kr/nas/iyong.php"
+    private const val URL_ = "https://ailib.ada.or.kr/nas/iyong.php"
     private val jamgeum = Any()
     private var jul = JSONArray()
     private var bonaeneun = false

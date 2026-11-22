@@ -20,7 +20,7 @@ data class BookResp(val i: Int, val t: String, val g: String, val meg: Double, v
 class Makhim : Exception()   // 403 — 회원 열쇠가 막힘
 
 object Api {
-    const val BASE = "https://lvd.ada.or.kr/nas/"
+    const val BASE = "https://ailib.ada.or.kr/nas/"   // 0.8.7 (261122) 도서관 주소를 ailib.ada.or.kr 로(이사장님 지시 — 옛 주소 lvd.ada.or.kr 도 같은 자리라 옛 앱은 그대로 돎)
     const val UA = "Mozilla/5.0 (Linux; Android) AIJeomjaLib/0.2"
     var PER = 15   // 0.3.0 — 설정의 목록 줄 수(5~30)
     lateinit var ctx: Context

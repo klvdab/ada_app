@@ -18,7 +18,7 @@ import java.util.UUID
 import java.util.concurrent.Executors
 
 object LibGirok {
-    private const val URL_ = "https://lvd.ada.or.kr/jeom/applog.php"
+    private const val URL_ = "https://ailib.ada.or.kr/jeom/applog.php"
     private val jamgeum = Any()
     private var jul = JSONArray()
     private var bonaeneun = false
