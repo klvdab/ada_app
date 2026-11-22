@@ -3,6 +3,7 @@
 // ① 안드로이드는 정한 시각에 폰이 길눈을 깨워 손대지 않아도 라디오를 틂(정확한 알람 — 정기 호출과 같은 방식)
 // ② 예약마다 「틀고 나서 몇 분 뒤 끄기」, 따로 「몇 분 뒤 끄기」
 // ③ 통화·긴급통화 중이면 틀지 않음(통화가 걸리면 하던 소리는 멈춘다는 원칙 그대로)
+// 2.99.0 (빌드 261123-A89, 대클, 이사장님 승인 2026-11-23 「그래 수정하자」) 길눈이 꺼져 있어도 — 알람으로 깨어나면 방송을 포그라운드 서비스로 틀어 끊기지 않게, 정확한 알람 허락이 꺼져 있으면 예약 화면 맨 위와 예약할 때 바로 알려 드리고 설정 열기
 package kr.or.ada.app.gilnun
 
 import android.app.AlarmManager
@@ -74,6 +75,9 @@ object DeutgiYeyak {
     var kkeulTtae = 0L
         private set
     private var han: MutableList<String> = ArrayList()
+    /** 2.99.0 알람으로 깨어나 틀고 있는 동안(90초) — 방송 서비스를 포그라운드로 켬 */
+    @Volatile var allimJung = false
+        private set
 
     fun junbi(c: Context) {
         if (d != null) return
@@ -243,7 +247,11 @@ object DeutgiYeyak {
         val now = System.currentTimeMillis()
         val ttae = mok.filter { it.kyeojim }.mapNotNull { h -> geunalTtae(h, now)?.let { t -> if (now >= t - 30_000L && now - t < 120_000L) h to t else null } }
         val h = ttae.firstOrNull()
-        if (h != null) teulgi(c, h.first, h.second)
+        if (h != null) {
+            allimJung = true
+            main.postDelayed({ allimJung = false }, 90_000L)
+            teulgi(c, h.first, h.second)
+        }
         jaeYeyak()
     }
 
@@ -459,6 +467,18 @@ class DeutgiYeyakHwamyeon : Hwamyeon("듣기 예약") {
         if (Bangsong.chaeneolDeul.isEmpty()) Bangsong.chaeneolBatgi { if (t.wiHwamyeon === this) t.dasiGeurigi() }
         if (chaeneolId.isEmpty()) chaeneolId = BangsongSeol.majimakRadio.ifEmpty { "mbcsfm" }
         t.chojeomJul(t.geul(y.daeumMal))
+        // 2.99.0 길눈이 꺼져 있어도 울리는지 맨 위에 알림 — 허락이 꺼져 있으면 바로 고치러 가는 단추
+        if (JeonggiHochul.jeonghwakHeorak(t)) {
+            t.geul("길눈이 꺼져 있어도 정한 시각에 폰이 길눈을 깨워 방송을 틉니다.")
+        } else {
+            t.geul("알람 및 리마인더 허락이 꺼져 있어, 길눈이 꺼져 있으면 몇 분 늦게 틀 수 있습니다. 아래 단추로 허락을 켜 주십시오.")
+            t.danchu("정확한 시각에 틀게 허락하기 — 설정 열기") {
+                try {
+                    if (Build.VERSION.SDK_INT >= 31) t.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + t.packageName)))
+                    Sori.mal("알람 및 리마인더 허용을 켜신 뒤 뒤로 돌아오십시오.")
+                } catch (e: Exception) { Sori.mal("설정 화면을 열지 못했습니다.") }
+            }
+        }
         if (y.kkeulTtae != 0L) {
             t.geul(y.kkeugiMal)
             t.danchu("끄기 예약 거두기") { y.kkeugiChwiso(); Sori.mal("끄기 예약을 거두었습니다."); t.dasiGeurigi() }
@@ -510,14 +530,6 @@ class DeutgiYeyakHwamyeon : Hwamyeon("듣기 예약") {
                 y.kkeugiYeyak(n)
                 Sori.mal("${DeutgiYeyak.bunMal(n)} 뒤에 방송을 끕니다." + (if (Bangsong.itda) "" else " 지금은 틀고 있는 방송이 없습니다."))
                 t.dasiGeurigi()
-            }
-        }
-        if (y.mok.any { it.kyeojim } && !JeonggiHochul.jeonghwakHeorak(t)) {
-            t.danchu("정확한 시각에 틀게 허락하기 — 허락 전에는 몇 분 늦을 수 있습니다") {
-                try {
-                    if (Build.VERSION.SDK_INT >= 31) t.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + t.packageName)))
-                    Sori.mal("알람 및 리마인더 허용을 켜신 뒤 뒤로 돌아오십시오.")
-                } catch (e: Exception) { Sori.mal("설정 화면을 열지 못했습니다.") }
             }
         }
         t.geul("말로도 됩니다. 매일 7시에 MBC 표준FM 틀어 줘. 평일 아침 6시 반 KBS 1라디오 예약. 30분 뒤에 라디오 꺼 줘. 듣기 예약 알려 줘.")

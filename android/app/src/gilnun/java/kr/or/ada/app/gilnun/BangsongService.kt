@@ -6,7 +6,12 @@
 //   ③ 알림을 누르시면 길눈 화면으로
 package kr.or.ada.app.gilnun
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.pm.ServiceInfo
+import android.os.Build
+import androidx.core.app.NotificationCompat
 import android.content.Context
 import android.content.Intent
 import androidx.annotation.OptIn
@@ -36,6 +41,30 @@ class BangsongService : MediaSessionService() {
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
+
+    /** 2.99.0 (261123-A89) 듣기 예약 알람으로 길눈이 꺼진 채 깨어났을 때 — 곧바로 앞(포그라운드)으로 올라와 방송이 끊기지 않게.
+     *  미디어3 알림과 같은 번호(1001)·같은 칸을 써서, 방송이 시작되면 미디어3 알림이 이 자리를 그대로 이어받음 */
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.getBooleanExtra("allam", false) == true) {
+            try { apseoGi() } catch (e: Exception) { Girok.namgi("bangsong_oryu", mapOf("dan" to "allam_ap", "e" to (e.message ?: "").take(80))) }
+        }
+        return super.onStartCommand(intent, flags, startId)
+    }
+
+    private fun apseoGi() {
+        val nm = getSystemService(NotificationManager::class.java)
+        if (Build.VERSION.SDK_INT >= 26 && nm?.getNotificationChannel("default_channel_id") == null)
+            nm?.createNotificationChannel(NotificationChannel("default_channel_id", "길눈 방송", NotificationManager.IMPORTANCE_LOW))
+        val n = NotificationCompat.Builder(this, "default_channel_id")
+            .setSmallIcon(applicationInfo.icon)
+            .setContentTitle("길눈 듣기 예약")
+            .setContentText("예약하신 방송을 틉니다")
+            .setOngoing(true)
+            .build()
+        if (Build.VERSION.SDK_INT >= 29) startForeground(1001, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        else startForeground(1001, n)
+        Girok.namgi("bangsong_service", mapOf("allam" to true))
+    }
 
     /** 방송이 있는 동안은 멈춰 두셔도 포그라운드로 머묾(기사 읽기는 길눈 말소리로 하므로 빼고) */
     override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
@@ -68,7 +97,11 @@ class BangsongService : MediaSessionService() {
         fun kyeogi(c: Context) {
             if (jigeum != null) return
             try {
-                c.startService(Intent(c, BangsongService::class.java))
+                // 2.99.0 듣기 예약 알람으로 깨어난 때(길눈이 뒤에 있음)는 포그라운드 서비스로 — 그냥 켜기는 뒤에서 막힘
+                if (DeutgiYeyak.allimJung && Build.VERSION.SDK_INT >= 26)
+                    c.startForegroundService(Intent(c, BangsongService::class.java).putExtra("allam", true))
+                else
+                    c.startService(Intent(c, BangsongService::class.java))
             } catch (e: Exception) {
                 Girok.namgi("bangsong_oryu", mapOf("dan" to "service", "e" to (e.message ?: "")))
             }

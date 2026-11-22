@@ -5,6 +5,7 @@
 // ③ 손대지 않고 틀고 싶으시면 단축어 「개인 자동화」에 「길눈 라디오 틀기」를 넣으시면 됨(RadioTeulgiIntent)
 // ④ 끄기 예약 — 몇 분 뒤 끄기, 예약마다 「틀고 나서 몇 분 뒤 끄기」
 // ⑤ 통화·긴급통화 중에는 방송 엔진이 멈춤을 맡음(통화가 걸리면 하던 소리는 멈춘다는 원칙 그대로)
+// 2.134.0 (빌드 261123-I88, 대클, 이사장님 승인 2026-11-23 「그래 수정하자」) iOS 26 이상은 알림 대신 시계 알람(DeutgiAllam) — 길눈이 꺼져 있어도 울리고 「라디오 틀기」로 바로 틂
 import Foundation
 import SwiftUI
 import UIKit
@@ -70,6 +71,7 @@ final class DeutgiYeyak: ObservableObject {
         }
         jaeAllim()
         salpigi()
+        DeutgiAllam.jikimi()   // 2.134.0
     }
 
     // MARK: 정하기
@@ -77,8 +79,19 @@ final class DeutgiYeyak: ObservableObject {
     func deohagi(_ h: DeutgiYeyakHang) {
         mok.append(h)
         jeojang()
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in
-            DispatchQueue.main.async { self.jaeAllim() }
+        if DeutgiAllam.ssulSuItda && DeutgiAllam.heorak == nil {
+            // 2.134.0 처음 한 번 알람 허락을 여쭘 — 허락하시면 시계 알람, 아니면 알림
+            DeutgiAllam.heorakYeojjugi { ok in
+                if !ok {
+                    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in
+                        DispatchQueue.main.async { self.jaeAllim() }
+                    }
+                } else { self.jaeAllim() }
+            }
+        } else {
+            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in
+                DispatchQueue.main.async { self.jaeAllim() }
+            }
         }
         Girok.shared.namgi("deutgi_yeyak", ["si": h.si, "bun": h.bun, "banbok": h.banbok, "ch": h.chaeneolId, "kkeul": h.kkeulBun])
     }
@@ -171,6 +184,8 @@ final class DeutgiYeyak: ObservableObject {
             jeojang()
         }
         let b = BangsongEngine.shared
+        // 2.134.0 길눈이 켜져 있어 먼저 틀면 울리는 시계 알람은 거둠
+        if jadong { DeutgiAllam.meomchugi(h.id) }
         // 이미 그 채널이 나오고 있으면 그대로(알림을 늦게 누르셔도 두 번 틀지 않음)
         if b.jong == .radio && b.jigeumChaeneolId == h.chaeneolId && !b.meomchum {
             if !jadong { SoriEngine.shared.mal("\(h.chaeneolIreum)이 이미 나오고 있습니다.", .jeongbo) }
@@ -208,6 +223,8 @@ final class DeutgiYeyak: ObservableObject {
     }
 
     private func allimGeolgi() {
+        // 2.134.0 시계 알람을 걸었으면 알림은 걸지 않음(두 번 울리지 않게)
+        if DeutgiAllam.dasiGeolgi(mok) { return }
         let c = UNUserNotificationCenter.current()
         let now = Date()
         for h in mok where h.kyeojim {
@@ -251,6 +268,28 @@ final class DeutgiYeyak: ObservableObject {
     func allimNureum(_ n: UNNotification) {
         guard let id = n.request.content.userInfo["deutgi"] as? String, let h = mok.first(where: { $0.id == id }) else { return }
         teulgi(h, t: DeutgiYeyak.allimTtae(h, n.date), jadong: false)
+    }
+
+    /// 2.134.0 시계 알람의 「라디오 틀기」를 누르셨을 때
+    func allamNureum(_ id: String) {
+        guard let h = mok.first(where: { $0.id == id }) else {
+            SoriEngine.shared.mal("예약을 찾지 못했습니다. 듣기 예약 화면에서 확인해 주십시오.")
+            return
+        }
+        Girok.shared.namgi("deutgi_allam_nureum", ["ch": h.chaeneolId])
+        teulgi(h, t: DeutgiYeyak.oneulTtae(h, Date()) ?? Date(), jadong: false)
+    }
+
+    /// 지금 예약이 어떻게 울리는지 — 화면과 말로 하기에서 알림
+    var ullimMal: String {
+        if DeutgiAllam.ssulSuItda {
+            switch DeutgiAllam.heorak {
+            case .some(true): return "길눈이 꺼져 있어도 정한 시각에 시계 알람이 울립니다. 알람의 라디오 틀기를 누르시면 바로 틉니다."
+            case .some(false): return DeutgiAllam.kkeojimMal
+            default: return "예약을 처음 만드실 때 알람 허락을 여쭙습니다. 허락하시면 길눈이 꺼져 있어도 시계 알람이 울립니다."
+            }
+        }
+        return "이 아이폰은 시계 알람을 쓸 수 없는 판이라, 길눈이 꺼져 있으면 알림을 울립니다. 알림을 누르시면 틉니다."
     }
 
     /// 알림이 온 날의 예약 시각(같은 때를 두 번 틀지 않게 묶는 열쇠)
@@ -382,7 +421,10 @@ final class DeutgiYeyak: ObservableObject {
                 let h = DeutgiYeyakHang(id: DeutgiYeyak.saeId(), si: t.0, bun: t.1, banbok: banbok, nal: nal,
                                         chaeneolId: c.id, chaeneolIreum: c.name, kkeulBun: kkeulBun, kyeojim: true)
                 self.deohagi(h)
-                dap("\(h.julMal)로 예약했습니다. 그 시각에 길눈이 켜져 있으면 저절로 틀고, 꺼져 있으면 알림을 울립니다. 알림을 누르시면 틉니다.", false)
+                let ullim = (DeutgiAllam.ssulSuItda && DeutgiAllam.heorak != false)
+                    ? "그 시각에 길눈이 켜져 있으면 저절로 틀고, 꺼져 있으면 시계 알람이 울립니다. 알람의 라디오 틀기를 누르시면 틉니다."
+                    : "그 시각에 길눈이 켜져 있으면 저절로 틀고, 꺼져 있으면 알림을 울립니다. 알림을 누르시면 틉니다."
+                dap("\(h.julMal)로 예약했습니다. " + ullim, false)
             }
         }
         return true
@@ -466,6 +508,10 @@ struct DeutgiYeyakView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 Text(y.daeumMal).font(.title3)
+                Text(y.ullimMal).font(.body).fixedSize(horizontal: false, vertical: true)
+                if DeutgiAllam.heorak == false {
+                    Button("알람 허락 켜러 설정 열기") { DeutgiAllam.seoljeongYeolgi() }.buttonStyle(KeunDanchu())
+                }
                 if y.kkeulTtae != nil {
                     Text(y.kkeugiMal).font(.title3)
                     Button("끄기 예약 거두기") { y.kkeugiChwiso(); SoriEngine.shared.mal("끄기 예약을 거두었습니다.") }.buttonStyle(KeunDanchu())
@@ -497,7 +543,7 @@ struct DeutgiYeyakView: View {
         .sheet(item: $goreun) { h in DeutgiYeyakHangView(h: h) }
     }
 
-    static let danchugeoMal = "아이폰은 앱이 정한 시각에 스스로 깨어날 수 없어서, 길눈이 꺼져 있으면 알림을 한 번 누르셔야 라디오가 나옵니다. 손대지 않고 틀고 싶으시면 아이폰의 단축어 앱에서 한 번만 정해 두시면 됩니다. 단축어 앱을 열고 아래쪽 자동화 탭에서 새로운 자동화를 고르고, 특정 시간을 골라 시각과 매일을 정한 뒤, 즉시 실행을 고르고 다음을 누릅니다. 동작 찾기 칸에 길눈을 넣어 길눈 라디오 틀기를 고르고, 채널 칸에 MBC 표준FM처럼 듣고 싶은 방송 이름을 넣은 뒤 완료를 누르시면 됩니다. 그 뒤로는 정한 시각에 손대지 않아도 길눈이 라디오를 틉니다. 끌 때는 같은 방법으로 길눈 라디오 끄기를 넣으시면 됩니다."
+    static let danchugeoMal = "iOS 26 이상에서 알람을 허락하셨으면 길눈이 꺼져 있어도 시계 알람이 울리고, 알람의 라디오 틀기를 한 번 누르시면 나옵니다. 그 한 번도 누르지 않고 틀고 싶으시거나, iOS 26을 쓸 수 없는 아이폰이면 단축어로 정해 두시면 됩니다. 손대지 않고 틀고 싶으시면 아이폰의 단축어 앱에서 한 번만 정해 두시면 됩니다. 단축어 앱을 열고 아래쪽 자동화 탭에서 새로운 자동화를 고르고, 특정 시간을 골라 시각과 매일을 정한 뒤, 즉시 실행을 고르고 다음을 누릅니다. 동작 찾기 칸에 길눈을 넣어 길눈 라디오 틀기를 고르고, 채널 칸에 MBC 표준FM처럼 듣고 싶은 방송 이름을 넣은 뒤 완료를 누르시면 됩니다. 그 뒤로는 정한 시각에 손대지 않아도 길눈이 라디오를 틉니다. 끌 때는 같은 방법으로 길눈 라디오 끄기를 넣으시면 됩니다."
 }
 
 /// 새 예약 — 시각, 되풀이, 채널, 끌 때
