@@ -157,7 +157,10 @@ dependencies {
     "byodImplementation"("com.google.zxing:core:3.5.3")
     "byodImplementation"("com.github.mwiede:jsch:0.2.20")   // 261014-B9 플린트 2 준비하기 — 공유기에 방송 서버를 넣음(SSH)
     listOf("libImplementation", "byodImplementation", "tourImplementation", "bfbImplementation", "sueopImplementation").forEach { add(it, "androidx.work:work-runtime-ktx:2.9.1") }   // 261012-T1 투어스튜디오 새 판 알림 뒤 일꾼도   // 261007 새 판 알림 뒤 일꾼(OllimWorker) — 도서관·BYOD에도   // 261006-B2 BYOD 접속 도구 — 큐알코드 만들기
-    "libImplementation"("androidx.media3:media3-ui:1.4.1")          // 261002-L1 도서관 동영상 보기
+    "libImplementation"("androidx.media3:media3-ui:1.4.1")
+    // 0.8.7 (261121-L26) 도서관 소리로 이끄는 카메라 — 복지카드 찍기·보이는 것 읽기(길눈과 같은 CameraX·앱 안에 실은 ML Kit)
+    listOf("androidx.camera:camera-core:1.4.2", "androidx.camera:camera-camera2:1.4.2", "androidx.camera:camera-lifecycle:1.4.2", "androidx.camera:camera-view:1.4.2",
+        "com.google.mlkit:text-recognition-korean:16.0.1", "com.google.mlkit:image-labeling:17.0.9", "androidx.activity:activity-ktx:1.9.3").forEach { add("libImplementation", it) }          // 261002-L1 도서관 동영상 보기
     "libImplementation"("androidx.media3:media3-session:1.4.1")     // 261008-L8 도서관 화면 꺼도 읽기·이어폰 단추·잠금 화면(DokseoService)
     gj.forEach { add(it, "com.google.android.gms:play-services-wearable:18.1.0") }   // 261002-A8 갤럭시 워치 길눈과 잇기
     gj.forEach { add(it, "io.getstream:stream-webrtc-android:1.3.8") }   // 261002-A9 길눈 긴급통화서비스 화상통화(org.webrtc)

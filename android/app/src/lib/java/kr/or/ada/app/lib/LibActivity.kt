@@ -121,12 +121,12 @@ class LibActivity : Activity() {
     }
     @Deprecated("") override fun onActivityResult(rq: Int, rs: Int, d: android.content.Intent?) {
         @Suppress("DEPRECATION") super.onActivityResult(rq, rs, d)
-        if (rq == 7303) {   // 0.8.7 카메라로 찍은 복지카드
-            val f = jjikPail; jjikPail = null
+        if (rq == 7304) {   // 0.8.7 소리로 이끄는 카메라로 찍은 복지카드
+            val f = d?.getStringExtra(KameraAnnaeActivity.PAIL)?.let { java.io.File(it) }
             if (rs != RESULT_OK || f == null || !f.exists() || f.length() == 0L) { jeungMal = "찍지 않고 닫았습니다. 다시 찍으려면 「복지카드 바로 찍기」를 누르십시오."; malhagi(jeungMal); runCatching { f?.delete() }; return }
             val raw = runCatching { f.readBytes() }.getOrNull(); runCatching { f.delete() }   // 올리면 폰에 남기지 않음
             if (raw == null) { malhagi("찍은 사진을 읽지 못했습니다. 다시 찍어 주십시오."); return }
-            ollimRaw(raw); return
+            ollimRaw(raw, booleanArrayOf(d?.getBooleanExtra(KameraAnnaeActivity.BOKJI, false) == true, d?.getBooleanExtra(KameraAnnaeActivity.SIGAK, false) == true, d?.getBooleanExtra(KameraAnnaeActivity.IREUM_OK, false) == true)); return
         }
         if (rq != 7301) return
         val u = d?.data
@@ -137,21 +137,14 @@ class LibActivity : Activity() {
     }
     // ── 0.8.7 (261121, 이사장님 결정) 복지카드 바로 찍기 — 사진첩에서 찾지 않고 그 자리에서 카메라로 찍어 곧바로 올림
     private var kameraMakim = false
-    private var jjikPail: java.io.File? = null
     private fun jjikgiSijak() {
         if (checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) { requestPermissions(arrayOf(android.Manifest.permission.CAMERA), 7302); return }
         kameraYeolgi()
     }
-    private fun kameraYeolgi() {
+    private fun kameraYeolgi() {   // 소리로 이끄는 카메라(KameraAnnaeActivity) — 카드가 가운데 오면 저절로 찍고, 폰 안에서 글자를 살핀 결과만 돌려줌
         kameraMakim = false
-        malhagi(Hoewon.JJIKGI_MAL)
-        val f = runCatching { java.io.File(cacheDir, "jeung").apply { mkdirs() }.let { java.io.File(it, "jjik_${System.currentTimeMillis()}.jpg") } }.getOrNull()
-        if (f == null) { malhagi("사진을 담을 자리를 만들지 못했습니다. 「찍어 둔 사진 골라 올리기」를 써 주십시오."); return }
-        jjikPail = f
-        val u = runCatching { androidx.core.content.FileProvider.getUriForFile(this, "$packageName.jeung", f) }.getOrNull()
-        if (u == null) { malhagi("카메라를 열지 못했습니다. 「찍어 둔 사진 골라 올리기」를 써 주십시오."); return }
-        val ig = android.content.Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE).apply { putExtra(android.provider.MediaStore.EXTRA_OUTPUT, u); addFlags(android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION or android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-        main.postDelayed({ try { @Suppress("DEPRECATION") startActivityForResult(ig, 7303) } catch (e: Exception) { malhagi("카메라 앱을 열지 못했습니다. 「찍어 둔 사진 골라 올리기」를 써 주십시오.") } }, 6000)   // 찍는 법을 다 듣고 나서 카메라를 엶
+        try { @Suppress("DEPRECATION") startActivityForResult(android.content.Intent(this, KameraAnnaeActivity::class.java).putExtra(KameraAnnaeActivity.IREUM, Hoewon.ireum(this)), 7304) }
+        catch (e: Exception) { malhagi("카메라를 열지 못했습니다. 「찍어 둔 사진 골라 올리기」를 써 주십시오.") }
     }
     override fun onRequestPermissionsResult(rq: Int, perms: Array<out String>, res: IntArray) {
         super.onRequestPermissionsResult(rq, perms, res)
@@ -159,7 +152,7 @@ class LibActivity : Activity() {
         if (res.isNotEmpty() && res[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) kameraYeolgi()
         else { kameraMakim = true; jeungMal = "카메라 사용을 허락하지 않으셨습니다. 설정·도움말 탭의 「설정 열기」에서 켜실 수 있습니다."; malhagi(jeungMal); draw() }
     }
-    private fun ollimRaw(raw: ByteArray) {
+    private fun ollimRaw(raw: ByteArray, gy: BooleanArray? = null) {   // gy: 폰 안에서 살핀 결과(복지카드·시각·이름)
         malhagi("올리는 중입니다.")
         pool.execute {
             val jpg = runCatching {
@@ -168,8 +161,9 @@ class LibActivity : Activity() {
                 val sb = if (k < 1f) android.graphics.Bitmap.createScaledBitmap(bm, (bm.width * k).toInt(), (bm.height * k).toInt(), true) else bm
                 java.io.ByteArrayOutputStream().also { sb.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, it) }.toByteArray()
             }.getOrNull()
-            val (e, ok) = if (jpg == null) ("사진을 읽지 못했습니다. 다시 찍거나 다른 사진을 골라 주십시오." to null) else Hoewon.jeungOllim(this, jpg)
-            main.post { jeungMal = e ?: ((ok ?: "") + " 협회가 확인하면 모든 책을 열어 드립니다. 확인됐는지는 「확인됐는지 다시 보기」로 아실 수 있습니다."); malhagi(jeungMal); draw() }
+            val (e, ok) = if (jpg == null) ("사진을 읽지 못했습니다. 다시 찍거나 다른 사진을 골라 주십시오." to null) else Hoewon.jeungOllim(this, jpg, gy)
+            val jadong = gy != null && gy.all { it } && Hoewon.jeung(this) == "seungin"
+            main.post { jeungMal = e ?: (if (jadong) (ok ?: "장애인 복지카드를 확인했습니다. 지금부터 모든 책을 들으실 수 있습니다.") else ((ok ?: "") + " 협회가 확인하면 모든 책을 열어 드립니다. 확인됐는지는 「확인됐는지 다시 보기」로 아실 수 있습니다.")); malhagi(jeungMal); draw() }
         }
     }
     private var jeungMal = ""
@@ -1155,7 +1149,7 @@ class LibActivity : Activity() {
         "게시판 글쓰기" to "게시판에 들어가 글쓰기를 누르고 제목과 내용을 적은 뒤 올리기를 누릅니다. 공지는 운영자만 씁니다. 쓰던 글은 폰에 저절로 남아 화면을 닫아도 다시 이어 쓸 수 있습니다. 내가 쓴 글은 열어서 이 글 지우기를 누르고 지우기를 한 번 더 고르면 지워집니다.",   // 0.8.4
         "비밀글" to "묻고 답하기에서 글을 쓸 때 비밀글 단추를 눌러 켜면 나와 운영자만 봅니다.",   // 0.8.4
         "제작 요청" to "읽고 싶은 책을 도서관에 만들어 달라고 청하는 곳입니다. 인증 회원부터 한 달에 다섯 권까지 청하실 수 있고, 목록에서 접수, 제작 중, 완료, 제작할 수 없음 단계를 들으실 수 있습니다.",   // 0.8.4
-        "회원 등급" to "회원은 일반 회원, 인증 회원, 봉사 회원, 운영자, 최고관리자로 나뉩니다. 우리 도서관의 책은 저작권법에 따라 시각장애인만 무료로 이용할 수 있어서, 장애인 복지카드로 시각장애를 확인해야 합니다. 처음 등록하면 일반 회원이고, 외국 도서(저작권이 끝난 책)와 체험으로 책 세 권까지 들으실 수 있습니다. 네 번째 책부터는 복지카드를 확인받아야 계속 이용하실 수 있습니다. 설정·도움말 탭의 내 회원 등급에서 「장애 확인하기, 복지카드 바로 찍기」를 누르면, 찍는 법을 소리로 알려 드린 뒤 카메라가 열립니다. 복지카드를 평평한 곳에 놓고 폰을 한 뼘 위에서 들고 찍으시면 곧바로 올라가고, 협회가 확인해 인증 회원으로 바꿔 드립니다. 찍어 둔 사진이 있으면 「찍어 둔 사진 골라 올리기」를 쓰셔도 됩니다. 카메라 사용이 꺼져 있으면 「설정 열기」 단추가 나옵니다. 잠긴 책을 열면 까닭을 알려 드리고 커서가 「장애 확인하기」로 갑니다. 어른용 책은 인증 회원 가운데 어른만 들으실 수 있습니다. 확인됐는지 다시 보기를 누르면 지금 등급을 다시 알려 드립니다.",   // 0.8.7 (261121)   // 0.8.3
+        "회원 등급" to "회원은 일반 회원, 인증 회원, 봉사 회원, 운영자, 최고관리자로 나뉩니다. 우리 도서관의 책은 저작권법에 따라 시각장애인만 무료로 이용할 수 있어서, 장애인 복지카드로 시각장애를 확인해야 합니다. 처음 등록하면 일반 회원이고, 외국 도서(저작권이 끝난 책)와 체험으로 책 세 권까지 들으실 수 있습니다. 네 번째 책부터는 복지카드를 확인받아야 계속 이용하실 수 있습니다. 설정·도움말 탭의 내 회원 등급에서 「장애 확인하기, 복지카드 바로 찍기」를 누르면 카메라가 열립니다. 복지카드를 평평한 곳에 놓고 폰을 한 뼘 위에서 들면, 카드가 가운데 오도록 「폰을 9시 방향으로 조금 옮겨 주십시오」, 「폰을 조금 내려 주십시오」처럼 소리로 이끌고, 가운데 오면 저절로 찍습니다. 찍은 카드에서 복지카드, 시각장애, 회원님 이름이 읽히면 그 자리에서 바로 인증 회원이 되고, 그렇지 않으면 협회가 사진을 보고 확인합니다. 카메라 화면의 「보이는 것 읽어 주기」를 누르면 지금 비추는 글자나 물건을 소리로 알려 드리고, 「지금 바로 찍기」로 직접 찍을 수도 있습니다. 읽은 카드 글자는 폰 밖으로 보내지 않습니다. 찍어 둔 사진이 있으면 「찍어 둔 사진 골라 올리기」를 쓰셔도 됩니다. 카메라 사용이 꺼져 있으면 「설정 열기」 단추가 나옵니다. 잠긴 책을 열면 까닭을 알려 드리고 커서가 「장애 확인하기」로 갑니다. 어른용 책은 인증 회원 가운데 어른만 들으실 수 있습니다. 확인됐는지 다시 보기를 누르면 지금 등급을 다시 알려 드립니다.",   // 0.8.7 (261121)   // 0.8.3
         "회원 정보 여쭙기" to "처음 등록한 뒤, 이미 등록하신 분은 앱을 켤 때 한 번, 장애 유형, 사시는 지역, 연령대 세 가지를 한 가지씩 여쭙고 이용 약관에 동의를 받습니다. 도서관 실적을 숫자로만 내는 데 씁니다. 밝히고 싶지 않은 것은 「밝히지 않음」을 고르시면 됩니다. 「다음에 하기」를 누르면 앱을 다시 켤 때까지 묻지 않습니다.",   // 0.8.2
         "소리가 멈추면" to "음악이나 소리책이 듣는 중에 8초 넘게 멈추면 앱이 스스로 그 자리부터 다시 이어 틉니다.",   // 0.8.2
         "회원 등록" to "처음 켤 때 이름과 휴대전화 번호로 한 번만 등록합니다. 등록하면 이 폰만의 회원 열쇠가 담겨 도서관과 독서기가 열립니다. 폰을 바꾸면 새 폰에서 같은 번호로 다시 등록합니다. 설정 아래에 회원 이름이 나옵니다.",

@@ -200,8 +200,8 @@ object Hoewon {
     fun jeung(c: Context) = p(c).getString("jeung", "") ?: ""
     /** 일반 회원은 외국 도서(저작권이 끝난 책)만 듣고, 장애 확인을 받으면 모든 책을 들음 */
     fun ilban(c: Context) = deung(c) == "ilban"
-    const val JEUNG_MAL = "우리 도서관의 책은 저작권법에 따라 시각장애인만 무료로 이용할 수 있어서, 장애인 복지카드로 시각장애를 확인해야 합니다. 복지카드를 내지 않아도 책 세 권까지는 체험으로 들으실 수 있고, 네 번째 책부터는 복지카드를 확인받아야 계속 이용하실 수 있습니다. 아래 「복지카드 바로 찍기」를 누르면 카메라가 열립니다. 협회가 확인하면 인증 회원이 되어 모든 책과 엔터테인먼트 작품을 들으실 수 있습니다. 올리신 사진은 장애 확인에만 쓰고, 확인이 끝나면 바로 지웁니다."   // 0.8.7 (261121) 저작권 까닭·체험 세 권·바로 찍기(이사장님 결정)
-    const val JJIKGI_MAL = "복지카드를 탁자처럼 평평한 곳에 놓고, 폰을 카드 위 한 뼘 높이에서 화면이 아래를 보게 들어 주십시오. 카메라가 열리면 셔터 단추를 두 번 누르고, 확인 단추를 누르시면 올라갑니다."
+    const val JEUNG_MAL = "우리 도서관의 책은 저작권법에 따라 시각장애인만 무료로 이용할 수 있어서, 장애인 복지카드로 시각장애를 확인해야 합니다. 복지카드를 내지 않아도 책 세 권까지는 체험으로 들으실 수 있고, 네 번째 책부터는 복지카드를 확인받아야 계속 이용하실 수 있습니다. 아래 「복지카드 바로 찍기」를 누르면 카메라가 열리고, 카드가 가운데 오도록 소리로 이끌어 저절로 찍습니다. 찍은 카드에서 복지카드, 시각장애, 회원님 이름이 읽히면 그 자리에서 바로 통과되고, 그렇지 않으면 협회가 사진을 보고 확인합니다. 확인되면 인증 회원이 되어 모든 책과 엔터테인먼트 작품을 들으실 수 있습니다. 올리신 사진은 장애 확인에만 쓰고, 확인이 끝나면 바로 지웁니다."   // 0.8.7 (261121) 저작권 까닭·체험 세 권·바로 찍기(이사장님 결정)
+    const val JJIKGI_MAL = "복지카드를 탁자처럼 평평한 곳에 놓고, 폰을 카드 위 한 뼘 높이에서 화면이 아래를 보게 들어 주십시오. 카메라가 열리면 카드가 화면 가운데 오도록 「9시 방향으로 조금」처럼 소리로 알려 드리고, 가운데 오면 저절로 찍습니다."
     fun jeungIreum(j: String) = when (j) { "daegi" -> "올리신 서류를 협회가 확인하고 있습니다"; "seungin" -> "장애 확인을 마쳤습니다"; "georeo" -> "서류를 다시 올려 주셔야 합니다"; else -> "아직 서류를 올리지 않으셨습니다" }
     /** 내 회원 등급을 서버에 물음(켤 때, 설정을 열 때). 다른 스레드에서 부를 것 */
     fun deungHwakin(c: Context) {
@@ -215,7 +215,7 @@ object Hoewon {
         } catch (e: Exception) {}
     }
     /** 장애 확인 서류(사진) 올리기. 첫째가 null 이면 성공이고 둘째가 알릴 말 */
-    fun jeungOllim(c: Context, jpg: ByteArray): Pair<String?, String?> = try {
+    fun jeungOllim(c: Context, jpg: ByteArray, gy: BooleanArray? = null): Pair<String?, String?> = try {   // 0.8.7 gy: 폰 안에서 살핀 결과(맞다·아니다만 보냄)
         val con = URL(Api.BASE + "hoewon.php?a=jeungmyeong").openConnection() as HttpURLConnection
         val b = "hw" + UUID.randomUUID()
         con.requestMethod = "POST"; con.doOutput = true; con.connectTimeout = 15000; con.readTimeout = 90000
@@ -223,6 +223,7 @@ object Hoewon {
         con.setRequestProperty("Content-Type", "multipart/form-data; boundary=$b")
         val body = ByteArrayOutputStream()
         body.write("--$b\r\nContent-Disposition: form-data; name=\"tk\"\r\n\r\n${yeolsoe(c)}\r\n".toByteArray(Charsets.UTF_8))
+        if (gy != null && gy.size == 3) listOf("jadong" to true, "jd_bokji" to gy[0], "jd_sigak" to gy[1], "jd_ireum" to gy[2]).forEach { (k, v) -> body.write("--$b\r\nContent-Disposition: form-data; name=\"$k\"\r\n\r\n${if (v) "1" else "0"}\r\n".toByteArray(Charsets.UTF_8)) }   // 0.8.7 셋이 다 맞으면 서버가 바로 통과
         body.write("--$b\r\nContent-Disposition: form-data; name=\"f\"; filename=\"jeung.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n".toByteArray(Charsets.UTF_8))
         body.write(jpg)
         body.write("\r\n--$b--\r\n".toByteArray(Charsets.UTF_8))

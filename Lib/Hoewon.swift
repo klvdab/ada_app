@@ -37,8 +37,8 @@ final class Hoewon: ObservableObject {
     var ilban: Bool { deung == "ilban" }
     /// 0.8.6 엔터테인먼트 탭을 보일까 — 서버(hw_injeung)와 같이 인증 회원·운영자·최고관리자에게만
     var entBoim: Bool { ["injeung", "unyeong", "choego"].contains(deung) }
-    static let jeungMal = "우리 도서관의 책은 저작권법에 따라 시각장애인만 무료로 이용할 수 있어서, 장애인 복지카드로 시각장애를 확인해야 합니다. 복지카드를 내지 않아도 책 세 권까지는 체험으로 들으실 수 있고, 네 번째 책부터는 복지카드를 확인받아야 계속 이용하실 수 있습니다. 아래 「복지카드 바로 찍기」를 누르면 카메라가 열립니다. 협회가 확인하면 인증 회원이 되어 모든 책과 엔터테인먼트 작품을 들으실 수 있습니다. 올리신 사진은 장애 확인에만 쓰고, 확인이 끝나면 바로 지웁니다."   // 0.8.7 (261121) 저작권 까닭·체험 세 권·바로 찍기(이사장님 결정)
-    static let jjikgiMal = "복지카드를 탁자처럼 평평한 곳에 놓고, 폰을 카드 위 한 뼘 높이에서 화면이 아래를 보게 들어 주십시오. 카메라가 열리면 화면 아래 가운데 「사진 찍기」 단추를 두 번 누르고, 「사진 사용」을 누르시면 올라갑니다."
+    static let jeungMal = "우리 도서관의 책은 저작권법에 따라 시각장애인만 무료로 이용할 수 있어서, 장애인 복지카드로 시각장애를 확인해야 합니다. 복지카드를 내지 않아도 책 세 권까지는 체험으로 들으실 수 있고, 네 번째 책부터는 복지카드를 확인받아야 계속 이용하실 수 있습니다. 아래 「복지카드 바로 찍기」를 누르면 카메라가 열리고, 카드가 가운데 오도록 소리로 이끌어 저절로 찍습니다. 찍은 카드에서 복지카드, 시각장애, 회원님 이름이 읽히면 그 자리에서 바로 통과되고, 그렇지 않으면 협회가 사진을 보고 확인합니다. 확인되면 인증 회원이 되어 모든 책과 엔터테인먼트 작품을 들으실 수 있습니다. 올리신 사진은 장애 확인에만 쓰고, 확인이 끝나면 바로 지웁니다."   // 0.8.7 (261121) 저작권 까닭·체험 세 권·바로 찍기(이사장님 결정)
+    static let jjikgiMal = "복지카드를 탁자처럼 평평한 곳에 놓고, 폰을 카드 위 한 뼘 높이에서 화면이 아래를 보게 들어 주십시오. 카메라가 열리면 카드가 화면 가운데 오도록 「9시 방향으로 조금」처럼 소리로 알려 드리고, 가운데 오면 저절로 찍습니다."
     static func jeungIreum(_ j: String) -> String {
         switch j { case "daegi": return "올리신 서류를 협회가 확인하고 있습니다"; case "seungin": return "장애 확인을 마쳤습니다"; case "georeo": return "서류를 다시 올려 주셔야 합니다"; default: return "아직 서류를 올리지 않으셨습니다" }
     }
@@ -58,13 +58,14 @@ final class Hoewon: ObservableObject {
 
     struct JeungDap: Decodable { let ok: Bool; let error: String?; let mal: String?; let jeung: String?; let heo: Bool? }
     /// 0.8.3 장애 확인 서류 올리기(사진). 성공하면 (nil, 알릴 말), 실패하면 (알릴 말, nil)
-    func jeungOllim(_ d: Data) async -> (String?, String?) {
+    func jeungOllim(_ d: Data, _ g: KameraGyeolgwa? = nil) async -> (String?, String?) {   // 0.8.7 g: 폰 안에서 살핀 결과(맞다·아니다만 보냄)
         var r = API.request(URL(string: API.base + "hoewon.php?a=jeungmyeong")!, timeout: 90)
         r.httpMethod = "POST"
         let b = "hw\(UUID().uuidString)"
         r.setValue("multipart/form-data; boundary=\(b)", forHTTPHeaderField: "Content-Type")
         var body = Data()
         body.append("--\(b)\r\nContent-Disposition: form-data; name=\"tk\"\r\n\r\n\(yeolsoe)\r\n".data(using: .utf8)!)
+        if let g { for (k, v) in [("jadong", true), ("jd_bokji", g.bokji), ("jd_sigak", g.sigak), ("jd_ireum", g.ireum)] { body.append("--\(b)\r\nContent-Disposition: form-data; name=\"\(k)\"\r\n\r\n\(v ? "1" : "0")\r\n".data(using: .utf8)!) } }   // 0.8.7 셋이 다 맞으면 서버가 바로 통과
         body.append("--\(b)\r\nContent-Disposition: form-data; name=\"f\"; filename=\"jeung.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
         body.append(d)
         body.append("\r\n--\(b)--\r\n".data(using: .utf8)!)
@@ -348,7 +349,7 @@ struct JeungView: View {
             .task { await hw.deungHwakin() }
             .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { if hw.ilban { jjikFocus = true } else { cheot = true } } }   // 0.8.7 일반 회원이면 「복지카드 바로 찍기」에 커서
             .fullScreenCover(isPresented: $kamera) {
-                KameraJjikgi { img in kamera = false; if let img { ollim(img) } else { mal = "찍지 않고 닫았습니다. 다시 찍으려면 「복지카드 바로 찍기」를 누르십시오."; malFocus = true } }
+                KameraAnnaeView(ireum: Hoewon.shared.ireum) { g in kamera = false; if let g { ollim(g.img, g) } else { mal = "찍지 않고 닫았습니다. 다시 찍으려면 「복지카드 바로 찍기」를 누르십시오."; malFocus = true } }   // 0.8.7 소리로 이끄는 카메라(KameraAnnae.swift)
                     .ignoresSafeArea()
             }
             .onChange(of: gorum) { it in
@@ -367,7 +368,7 @@ struct JeungView: View {
     // 0.8.7 카메라를 열기 전에 허락을 살피고, 찍는 법을 소리로 먼저 알림
     func jjikgiSijak() {
         guard UIImagePickerController.isSourceTypeAvailable(.camera) else { mal = "이 기기에서는 카메라를 쓸 수 없습니다. 「찍어 둔 사진 골라 올리기」를 써 주십시오."; malFocus = true; return }
-        let go = { kameraMakim = false; Store.shared.say(Hoewon.jjikgiMal); DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { kamera = true } }
+        let go = { kameraMakim = false; kamera = true }   // 찍는 법은 카메라가 열리며 소리로 이끔
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized: go()
         case .notDetermined: AVCaptureDevice.requestAccess(for: .video) { ok in DispatchQueue.main.async { if ok { go() } else { kameraMakim = true; mal = "카메라 사용을 허락하지 않으셨습니다. 「설정 열기」에서 켜실 수 있습니다."; malFocus = true } } }
@@ -375,32 +376,18 @@ struct JeungView: View {
         }
     }
     // 0.8.7 찍거나 고른 사진을 줄여 올림
-    func ollim(_ img: UIImage) {
+    func ollim(_ img: UIImage, _ g: KameraGyeolgwa? = nil) {
         gidarim = true; mal = ""
         Task {
             defer { gidarim = false }
             let k = min(1.0, 2000.0 / max(img.size.width, img.size.height))   // 너무 크면 줄여 8메가바이트를 넘지 않게
             let im = k < 1 ? UIGraphicsImageRenderer(size: CGSize(width: img.size.width * k, height: img.size.height * k)).image { _ in img.draw(in: CGRect(x: 0, y: 0, width: img.size.width * k, height: img.size.height * k)) } : img
             guard let jd = im.jpegData(compressionQuality: 0.8) else { mal = "사진을 바꾸지 못했습니다."; malFocus = true; return }
-            let (e, ok) = await hw.jeungOllim(jd)
-            mal = e ?? ((ok ?? "") + " 협회가 확인하면 모든 책을 열어 드립니다. 확인됐는지는 「확인됐는지 다시 보기」로 아실 수 있습니다."); malFocus = true
+            let (e, ok) = await hw.jeungOllim(jd, g)
+            let jadong = g?.modu == true && hw.jeung == "seungin"
+            mal = e ?? (jadong ? (ok ?? "장애인 복지카드를 확인했습니다. 지금부터 모든 책을 들으실 수 있습니다.") : ((ok ?? "") + " 협회가 확인하면 모든 책을 열어 드립니다. 확인됐는지는 「확인됐는지 다시 보기」로 아실 수 있습니다.")); malFocus = true
             if e == nil { Store.shared.say(mal) }
         }
     }
 }
 
-// 0.8.7 카메라로 바로 찍기(UIImagePickerController) — 찍은 사진을 돌려줌, 닫으면 nil
-struct KameraJjikgi: UIViewControllerRepresentable {
-    let ggeut: (UIImage?) -> Void
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let p = UIImagePickerController(); p.sourceType = .camera; p.cameraCaptureMode = .photo; p.delegate = context.coordinator; return p
-    }
-    func updateUIViewController(_ vc: UIImagePickerController, context: Context) {}
-    func makeCoordinator() -> Co { Co(ggeut) }
-    final class Co: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        let ggeut: (UIImage?) -> Void
-        init(_ g: @escaping (UIImage?) -> Void) { ggeut = g }
-        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) { ggeut(info[.originalImage] as? UIImage) }
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) { ggeut(nil) }
-    }
-}
