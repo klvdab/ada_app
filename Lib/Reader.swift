@@ -112,7 +112,9 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
         meomSijak = nil; meomDasi += 1
         let t = p.currentTime()
         LibGirok.shared.namgi("lib_sori_dasi", ["beon": meomDasi, "ent": API.isEnt(i), "cho": Int(t.seconds.isFinite ? t.seconds : 0)])
-        if meomDasi >= 4 && API.isEnt(i) && store.ieo != "han" && store.ieo != "ban" {   // 0.8.6 세 번 해도 안 되면 다음 곡으로
+        // 0.8.8 (261123) 인터넷이 느려 멈춘 것은 다음 회로 넘기지 않고 그 자리에서 계속 다시 이음 — 파일을 아예 받지 못할 때(실패)만 여덟 번째에 다음 곡으로
+        if meomDasi == 3 { store.say("인터넷이 느려 잠시 기다렸다가 이어서 틉니다.") }
+        if meomDasi >= 8 && p.currentItem?.status == .failed && API.isEnt(i) && store.ieo != "han" && store.ieo != "ban" {   // 0.8.6 → 0.8.8
             store.say("이 곡을 받지 못해 다음 곡으로 넘어갑니다."); ieoGa(1); return
         }
         if meomDasi <= 1 && p.currentItem?.status != .failed {
@@ -167,6 +169,8 @@ final class Reader: NSObject, ObservableObject, AVAudioPlayerDelegate {
             }
             let p = AVPlayer(playerItem: AVPlayerItem(asset: Offline.asset(i) ?? mAsset ?? AVURLAsset(url: API.mediaURL(i), options: ["AVURLAssetHTTPHeaderFieldsKey": ["User-Agent": API.userAgent]])))
             p.automaticallyWaitsToMinimizeStalling = true
+            // 0.8.8 (261123, 이사장님 승인 「1」) 큰 영상이 받는 속도가 떨어질 때 멈추던 것 — 앞으로 넉넉히 받아 둠(엔터테인먼트 2분, 소리책 1분)
+            p.currentItem?.preferredForwardBufferDuration = API.isEnt(i) ? 120 : 60
             player = p
             let start = cheoum ? 0 : (saved?.pos ?? 0)
             if start > 1 { await p.seek(to: CMTime(seconds: start, preferredTimescale: 600)) }

@@ -71,6 +71,7 @@ object Dokseo {
                 if (meomSijak == 0L) meomSijak = System.currentTimeMillis()
                 if (System.currentTimeMillis() - meomSijak >= 8000) {
                     meomSijak = 0; meomDasi += 1
+                    if (meomDasi == 3) Ollim.malhagi?.invoke("인터넷이 느려 잠시 기다렸다가 이어서 틉니다.")   // 0.8.8
                     LibGirok.namgi("lib_sori_dasi", mapOf("beon" to meomDasi, "ent" to Api.isEnt(i), "cho" to (p.currentPosition / 1000).toInt()))
                     val at = p.currentPosition; p.prepare(); p.seekTo(at); p.play()
                 }
@@ -135,8 +136,10 @@ object Dokseo {
 
     private fun ensurePlayer(service: Boolean = true): ExoPlayer {
         player?.let { if (service) DokseoService.kyeogi(ctx); return it }
-        val ds = DefaultHttpDataSource.Factory().setUserAgent(Api.UA)
-        val p = ExoPlayer.Builder(ctx).setMediaSourceFactory(DefaultMediaSourceFactory(ds))
+        // 0.8.8 (261123, 이사장님 승인 「1」) 큰 영상이 받는 속도가 떨어질 때 멈추던 것 — 기다리는 시간을 늘리고 앞으로 3분까지 넉넉히 받아 둠
+        val ds = DefaultHttpDataSource.Factory().setUserAgent(Api.UA).setConnectTimeoutMs(15000).setReadTimeoutMs(30000)
+        val lc = androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(30000, 180000, 2500, 5000).build()
+        val p = ExoPlayer.Builder(ctx).setMediaSourceFactory(DefaultMediaSourceFactory(ds)).setLoadControl(lc)
             .setAudioAttributes(androidx.media3.common.AudioAttributes.Builder().setUsage(androidx.media3.common.C.USAGE_MEDIA)
                 .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_SPEECH).build(), true)   // 0.4.4 전화가 오면 멈췄다가 끝나면 이어 읽음
             .setHandleAudioBecomingNoisy(true)   // 0.4.4 이어폰을 뽑으면 멈춤(소리가 스피커로 새지 않게)
