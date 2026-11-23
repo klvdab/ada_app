@@ -65,6 +65,7 @@ struct SpotView: View {
                     Text("어디서부터: " + k.spotFrom(s)).fixedSize(horizontal: false, vertical: true)
                     Text("어디까지: " + (s.s("to").trimmingCharacters(in: .whitespaces).isEmpty ? "아직 적지 않음 (아래 어디까지 칸에 적으십시오)" : s.s("to")))
                     Text("시간: " + k.spotMinTxt(s))
+                    NavigationLink("웹에서 이 지점 이어서 고치기 (컴퓨터로)") { WebIeoseoView(spotId: s.id).dwiro() }   // 1.4.3
                 }
                 Section("경계와 시간") {
                     if s.kind.isEmpty { kan(s, "name", "지점 이름", false) }

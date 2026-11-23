@@ -153,6 +153,9 @@ struct KosJeongbo: View {
     var body: some View {
         Form {
             if let k = store.kos {
+                Section {
+                    NavigationLink("웹에서 이 코스 이어서 고치기 (컴퓨터로)") { WebIeoseoView(spotId: nil).dwiro() }   // 1.4.3
+                }
                 Section("코스") {
                     kan(k, "name", "코스 이름")
                     kan(k, "place", "장소")

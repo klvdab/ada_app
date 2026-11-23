@@ -172,6 +172,21 @@ class TourActivity : Activity() {
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 44)
     }
+    /** 1.4.3 (261123 새방클, 이사장님 승인 「1」) 앱에서 하던 코스·지점을 웹 투어스튜디오에서 바로 이어 열기 — 많은 글은 컴퓨터로 */
+    internal fun webIeoseo(k: Kos, spotId: String?) {
+        save(true)
+        val ju = WEB_JUSO + "?open=" + Uri.encode(k.id) + (if (spotId.isNullOrEmpty()) "" else "&spot=" + Uri.encode(spotId))
+        AlertDialog.Builder(this)
+            .setTitle(if (spotId == null) "웹에서 이 코스 이어서 고치기" else "웹에서 이 지점 이어서 고치기")
+            .setMessage("아래 주소를 열면 웹 투어스튜디오에서 " + (if (spotId == null) "이 코스가" else "이 코스의 이 지점이") + " 바로 열립니다. 같은 아이디로 들어오십시오. 컴퓨터에서 여시려면 주소 복사를 눌러 문자나 메일로 보내십시오.\n\n주소: $ju")
+            .setPositiveButton("열기") { _, _ -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ju))) }
+            .setNeutralButton("주소 복사") { _, _ ->
+                (getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("웹 투어스튜디오 주소", ju))
+                malhagi("주소를 복사했습니다. 문자나 메일에 붙여 컴퓨터로 보내십시오.")
+            }
+            .setNegativeButton("닫기", null)
+            .show()
+    }
     /** 1.4.3 지금 누른 글 칸이 자판 위에 보이게 끌어올림 */
     internal fun geulKanBoigi() {
         scroll.postDelayed({
@@ -180,7 +195,26 @@ class TourActivity : Activity() {
             f.requestRectangleOnScreen(r, false)
         }, 150)
     }
-    override fun onResume() { super.onResume(); Ollim.dorawatda(this) }
+    override fun onResume() { super.onResume(); Ollim.dorawatda(this); saeroBatgi() }
+    /** 1.4.3 (261123 새방클, 이사장님 승인 「1」) 앱에 돌아오면 — 폰에 안 올린 것이 없을 때만 서버 최신 코스를 받아 옴(웹에서 고친 것을 바로 보게) */
+    internal fun saeroBatgi() {
+        val k = kos ?: return
+        if (k.isGyobon || saving || Nokeumgi.jung) return
+        if (k.json().toString() != lastSaved || draft(k.id) != null) return
+        val id = k.id; val b0 = base
+        pool.execute {
+            val j = Api.call("get_course", JSONObject().put("id", id))
+            val c = j.optJSONObject("course") ?: return@execute
+            if (!Api.ok(j) || c.geul("updated").isEmpty() || c.geul("updated") == b0) return@execute
+            main.post {
+                val n = kos ?: return@post
+                if (n.id != id || saving || n.json().toString() != lastSaved) return@post
+                kos = Kos(c); base = c.geul("updated"); lastSaved = kos!!.json().toString()
+                malhagi("다른 곳(웹이나 다른 폰)에서 고친 것을 받아 왔습니다.")
+                draw()
+            }
+        }
+    }
     override fun onPause() { super.onPause(); if (kos != null) { main.removeCallbacks(saveRun); save(true) } }
     override fun onNewIntent(i: Intent) { super.onNewIntent(i); setIntent(i); Ollim.intentBoda(this, i) }
     override fun onDestroy() { try { s14.sr?.destroy() } catch (e: Exception) { }; s14.namgiRun?.let { main.removeCallbacks(it) }; danchuTteigi(); s13.jaegiSensor?.let { (getSystemService(SENSOR_SERVICE) as android.hardware.SensorManager).unregisterListener(it) }; Ollim.byeonhwa = null; Ollim.malhagi = null; Api.naga = null; tts?.shutdown(); deutgiMeomchum(); super.onDestroy() }
@@ -457,6 +491,7 @@ class TourActivity : Activity() {
     internal fun kosJeongbo() {
         val k = kos ?: return kosEopseum()
         geul("코스 정보", jemok = true)
+        danchu("웹에서 이 코스 이어서 고치기 (컴퓨터로)") { webIeoseo(k, null) }
         val ro = k.isGyobon
         fun kk(key: String, nm: String) { kan(nm, k.s(key)) { k.d.put(key, it) }.isEnabled = !ro }
         kk("name", "코스 이름"); kk("place", "장소"); kk("meet", "집합 장소 (첫 만남 자리 — 오프닝 지점이 여기서 시작)"); kk("rain", "비 올 때"); kk("note", "메모")
@@ -517,6 +552,7 @@ class TourActivity : Activity() {
         geul("어디까지: " + s.s("to").trim().ifEmpty { "아직 적지 않음 (아래 어디까지 칸에 적으십시오)" })
         val sigan = geul("시간: " + k.spotMinTxt(s))
         allimJul()
+        danchu("웹에서 이 지점 이어서 고치기 (컴퓨터로)") { webIeoseo(k, s.id) }
         geul("경계와 시간", jemok = true)
         if (s.kind.isEmpty()) kan("지점 이름", s.name, yeoreo = false) { s.name = it }.isEnabled = !ro
         kan(k.spotToName(s), s.s("to")) { s.d.put("to", it) }.isEnabled = !ro
@@ -822,7 +858,10 @@ class TourActivity : Activity() {
             "아래 탭이 폰 맨 아래 내비게이션 바에 가려 눌리지 않던 것을 고쳤습니다. 화면 맨 위도 상태 표시줄에 가리지 않습니다.",
             "글 칸을 누르면 자판이 올라와도 그 칸이 자판 위로 올라와 보입니다. 자판이 떠 있는 동안은 아래 탭이 잠시 숨고, 자판이 내려가면 다시 나옵니다.",
             "담긴 메모마다 이 메모 고치기와 이 메모 복사가 생겼습니다. 메모 글을 길게 눌러 골라 복사할 수도 있습니다. 고친 메모는 웹에도 그대로 보입니다.",
-            "설정에 웹 투어스튜디오 주소가 글로 보이고, 웹 주소 복사 단추가 생겼습니다."
+            "설정에 웹 투어스튜디오 주소가 글로 보이고, 웹 주소 복사 단추가 생겼습니다.",
+            "코스 정보와 지점 한 화면에 웹에서 이어서 고치기가 생겼습니다. 누르면 웹 투어스튜디오에서 그 코스, 그 지점이 바로 열립니다. 주소를 복사해 컴퓨터로 보낼 수도 있습니다.",
+            "웹과 앱에서 같은 코스를 함께 고치다 저장이 겹쳐도, 이제는 통째로 덮지 않고 합칩니다. 다른 곳에서 고친 칸은 그대로 살리고, 같은 칸을 양쪽에서 고쳤을 때만 지금 것으로 맞춥니다.",
+            "앱으로 돌아오면, 폰에 아직 올리지 않은 것이 없을 때 웹에서 고친 최신 코스를 저절로 받아 옵니다."
         ).forEach { geul(it) }
         geul("1.4.2판 (빌드 261120-T8, 2026-11-20)", jemok = true)
         listOf(
@@ -1342,15 +1381,39 @@ class TourActivity : Activity() {
         if (saving) { saveAgain = true; return }
         saving = true
         val b0 = base
+        val gijun = lastSaved   // 1.4.3 마지막으로 서버와 맞춘 것 — 겹치면 이것과 비교해 고친 칸만 얹음
         pool.execute {
             var j = Api.call("save_course", JSONObject().put("course", JSONObject(snap)).put("base", b0))
             var b = b0
+            var hapchin: String? = null; var gyeop = 0
             if (j.optBoolean("conflict", false)) {
                 b = j.geul("updated").ifEmpty { b0 }
-                j = Api.call("save_course", JSONObject().put("course", JSONObject(snap)).put("base", b).put("force", true))
+                // 1.4.3 (261123 새방클, 이사장님 승인 「1」) 통째로 덮지 않고 합침 — 웹·아이폰과 같은 규칙(Hapchigi.kt)
+                var olli = JSONObject(snap)
+                val sv = Api.call("get_course", JSONObject().put("id", k.id))
+                val svc = sv.optJSONObject("course")
+                if (Api.ok(sv) && svc != null && gijun.isNotEmpty()) {
+                    b = svc.geul("updated").ifEmpty { b }
+                    olli = Hapchigi.kos(gijun, JSONObject(snap), svc); gyeop = Hapchigi.gyeopchim
+                    hapchin = olli.toString()
+                }
+                j = Api.call("save_course", JSONObject().put("course", olli).put("base", b).put("force", true))
             }
             main.post {
                 saving = false
+                if (Api.ok(j) && hapchin != null && kos?.id == k.id) {
+                    // 저장하는 동안 더 고친 것이 있으면 그것도 살려 얹음
+                    val jigeum = kos!!.json().toString()
+                    var sae = JSONObject(hapchin)
+                    if (jigeum != snap) sae = Hapchigi.kos(snap, JSONObject(jigeum), sae)
+                    kos = Kos(sae)
+                    base = j.geul("updated"); lastSaved = hapchin; draftDrop(k.id)
+                    saveMark = "저장함 " + base.replace("T", " ").drop(11).take(5)
+                    malhagi("다른 곳에서 먼저 저장한 것이 있어 합쳤습니다. 다른 곳에서 고친 것은 그대로 살렸습니다." + if (gyeop > 0) " 같은 칸을 양쪽에서 고친 ${gyeop}곳은 지금 것으로 맞췄고, 앞 것은 판 되돌리기에 남아 있습니다." else "")
+                    draw()
+                    if (saveAgain || jigeum != snap) { saveAgain = false; save(true) }
+                    return@post
+                }
                 if (Api.ok(j)) {
                     base = j.geul("updated"); lastSaved = snap; draftDrop(k.id)
                     saveMark = "저장함 " + base.replace("T", " ").drop(11).take(5)
@@ -1402,6 +1465,8 @@ val DOUM: List<Pair<String, String>> = listOf(
     "현장 메모 글로 적기" to "답사 탭의 현장 메모에서 어디에 담을지를 고르고, 글로 적기 칸에 적은 뒤 글로 담기를 누릅니다. 고른 칸에 붙고 메모 기록에도 남습니다.",
     "담긴 메모 보기와 듣기" to "답사 탭이나 지점 한 화면의 담긴 메모 보기와 듣기를 누르면 새것부터 다섯 개씩 나옵니다. 말로 담은 메모는 이 메모 듣기로 들을 수 있습니다.",
     "메모 고치기와 복사" to "담긴 메모 보기와 듣기에서 메모마다 이 메모 고치기와 이 메모 복사가 있습니다. 이 메모 고치기를 누르면 글 칸이 열립니다. 고친 뒤 고친 메모 담기를 누르면 저장됩니다. 그 메모가 처음 들어간 칸에 같은 글이 그대로 남아 있으면 그 칸의 글도 함께 고칩니다. 그만두려면 고치기 그만을 누르십시오. 이 메모 복사는 메모 글을 복사합니다. 메모 글을 길게 눌러 골라 복사할 수도 있습니다. 고친 메모는 웹 투어스튜디오에도 그대로 보입니다.",
+    "웹에서 이어서 고치기" to "많은 글을 고치실 때는 컴퓨터의 웹 투어스튜디오가 편합니다. 코스 정보 화면 맨 위의 웹에서 이 코스 이어서 고치기, 또는 지점 한 화면의 웹에서 이 지점 이어서 고치기를 누르십시오. 창이 뜨면 열기를 누르면 폰 브라우저로 열리고, 주소 복사를 누르면 주소가 복사됩니다. 복사한 주소를 문자나 메일로 컴퓨터에 보내 여시면, 같은 아이디로 들어온 뒤 그 코스와 그 지점이 바로 열립니다. 웹에는 대본 통째로 고치기와 현장 메모 모아 정리도 있습니다.",
+    "웹과 앱을 함께 쓸 때 저장" to "웹과 앱은 같은 코스를 씁니다. 양쪽에서 고치다 저장이 겹치면 통째로 덮지 않고 합칩니다. 다른 곳에서 고친 칸은 그대로 살리고, 같은 칸을 양쪽에서 고쳤을 때만 지금 고친 것으로 맞춥니다. 그때 앞 것은 설정의 판 되돌리기에 남아 있습니다. 앱으로 돌아오면, 폰에 아직 올리지 않은 것이 없을 때 웹에서 고친 최신 코스를 저절로 받아 옵니다.",
     "자판이 올라올 때" to "글 칸을 누르면 자판이 올라오고, 누른 칸은 저절로 자판 위로 올라와 적는 글을 보실 수 있습니다. 자판이 떠 있는 동안 아래 탭 다섯은 잠시 숨습니다. 자판을 내리면 탭이 다시 나옵니다. 폰의 뒤로 동작을 한 번 하면 자판이 내려갑니다.",
     "읽으며 녹음 (연습)" to "현장영상해설 탭의 연습에서 읽으며 녹음 시작을 누르고 대본을 실제처럼 읽은 뒤 다 읽었습니다를 누릅니다. 걸린 시간, 머무는 시간보다 긴지, 1분에 몇 자 빠르기인지, 말씀 가운데 시각 전제 표현이 있었는지를 되돌아보기로 알려 드립니다. 연습 녹음 듣기로 다시 들을 수 있습니다. 녹음은 mp3로 올라갑니다.",
     "못 올린 사진과 소리" to "인터넷이 끊겨 사진이나 소리를 올리지 못하면 폰에 남겨 두고, 코스에는 아직 못 올림으로 적어 둡니다. 설정의 못 올린 것 지금 올리기를 누르거나 그 코스를 다시 열면 저절로 올립니다.",

@@ -86,6 +86,17 @@ final class TourStore: NSObject, ObservableObject, CLLocationManagerDelegate {
         return true
     }
     private func setKos(_ k: Kos) { kos = k; curId = "sOpen"; gen += 1 }
+    /// 1.4.3 (261123 새방클, 이사장님 승인 「1」) 앱에 돌아오면 — 폰에 안 올린 것이 없을 때만 서버 최신 코스를 받아 옴(웹에서 고친 것을 바로 보게)
+    func saeroBatgi() async {
+        guard let k = kos, !k.isGyobon, !saving, snap() == lastSaved, draft(k.id) == nil else { return }
+        let id = k.id, b0 = base
+        let j = await TourAPI.call("get_course", ["id": id])
+        guard TourAPI.ok(j), let c = j["course"] as? [String: Any] else { return }
+        let u = geulja(c["updated"])
+        guard !u.isEmpty, u != b0, kos?.id == id, !saving, snap() == lastSaved else { return }
+        kos = Kos(c); gen += 1; base = u; lastSaved = snap()
+        say("다른 곳(웹이나 다른 폰)에서 고친 것을 받아 왔습니다.")
+    }
 
     func newCourse(name: String, place: String) async -> Bool {
         let j = await TourAPI.call("new_course", ["name": name, "place": place])
@@ -130,14 +141,35 @@ final class TourStore: NSObject, ObservableObject, CLLocationManagerDelegate {
         if quiet && s == lastSaved { return true }
         if saving { saveAgain = true; return true }
         saving = true
+        let gijun = lastSaved   // 1.4.3 마지막으로 서버와 맞춘 것
         var j = await TourAPI.call("save_course", ["course": k.json(), "base": base])
+        var hapchin: [String: Any]? = nil, gyeop = 0
         if (j["conflict"] as? Bool) == true {
-            // 다른 기기에서 먼저 저장된 경우 — 웹과 같이 지금 고친 것으로 맞춤(앞 것은 판으로 남아 판 되돌리기로 꺼낼 수 있음)
+            // 다른 기기에서 먼저 저장된 경우 — 1.4.3 (261123 새방클, 이사장님 승인 「1」) 통째로 덮지 않고 합침(Hapchigi.swift, 웹·안드로이드와 같은 규칙)
             base = geulja(j["updated"]).isEmpty ? base : geulja(j["updated"])
-            j = await TourAPI.call("save_course", ["course": k.json(), "base": base, "force": true])
+            var olli = k.json()
+            let sv = await TourAPI.call("get_course", ["id": k.id])
+            if TourAPI.ok(sv), let svc = sv["course"] as? [String: Any], !gijun.isEmpty,
+               let sd = s.data(using: .utf8), let mine = (try? JSONSerialization.jsonObject(with: sd)) as? [String: Any] {
+                if !geulja(svc["updated"]).isEmpty { base = geulja(svc["updated"]) }
+                var m2 = Hapchigi.kos(gijun: gijun, ijjok: mine, seobeo: svc); gyeop = Hapchigi.gyeopchim
+                let now = snap()   // 받아 오는 동안 더 고친 것
+                if now != s, let nd = now.data(using: .utf8), let n = (try? JSONSerialization.jsonObject(with: nd)) as? [String: Any] {
+                    m2 = Hapchigi.kos(gijun: s, ijjok: n, seobeo: m2); gyeop += Hapchigi.gyeopchim
+                }
+                olli = m2; hapchin = m2
+            }
+            j = await TourAPI.call("save_course", ["course": olli, "base": base, "force": true])
         }
         saving = false
-        if TourAPI.ok(j) {
+        if TourAPI.ok(j), let hp = hapchin, kos?.id == k.id {
+            kos = Kos(hp); gen += 1
+            base = geulja(j["updated"])
+            lastSaved = snap()
+            dropDraft(k.id)
+            saveMark = "저장함 " + String(base.replacingOccurrences(of: "T", with: " ").dropFirst(11).prefix(5))
+            say("다른 곳에서 먼저 저장한 것이 있어 합쳤습니다. 다른 곳에서 고친 것은 그대로 살렸습니다." + (gyeop > 0 ? " 같은 칸을 양쪽에서 고친 \(gyeop)곳은 지금 것으로 맞췄고, 앞 것은 판 되돌리기에 남아 있습니다." : ""))
+        } else if TourAPI.ok(j) {
             base = geulja(j["updated"])
             lastSaved = s
             dropDraft(k.id)

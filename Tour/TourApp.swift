@@ -19,6 +19,7 @@ enum Pan {
 struct TourApp: App {
     @StateObject private var store = TourStore.shared
     @State private var sijakham = false
+    @Environment(\.scenePhase) private var scenePhase
     var body: some Scene {
         WindowGroup {
             Group {
@@ -31,6 +32,10 @@ struct TourApp: App {
                 }
             }
             .environmentObject(store)
+            // 1.4.3 (261123 새방클, 이사장님 승인 「1」) 앱에 돌아오면 웹에서 고친 최신 코스를 받아 옴(폰에 안 올린 것이 없을 때만)
+            .onChange(of: scenePhase) { _, ph in
+                if ph == .active && store.loggedIn && !Nokeumgi.shared.jung { Task { await store.saeroBatgi() } }
+            }
             .task {
                 #if DEBUG
                 // 사용법 동영상 화면 찍기(tour-dongyeong.yml, 261117 새방클, 이사장님 승인 「1,2」) — 시험 기계에서만. 정식 판(Release)에는 들어가지 않음
