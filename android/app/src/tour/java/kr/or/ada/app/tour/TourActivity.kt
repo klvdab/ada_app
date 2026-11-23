@@ -79,7 +79,8 @@ sealed class Hw {
 
 class TourActivity : Activity() {
     companion object {
-        const val PAN = "1.4.2"; const val BILDEU = "261120-T8"
+        const val PAN = "1.4.3"; const val BILDEU = "261123-T9"
+        const val WEB_JUSO = "https://lvd.ada.or.kr/lvdts/lvdts.html"
         const val PAN_IREUM = "LVD투어스튜디오 ${PAN}판 (빌드 ${BILDEU})"
         const val SAJIN = 71; const val HEORAK_KAMERA = 72; const val HEORAK_JARI = 73; const val HEORAK_MIC = 74; const val SAJIN_GAJYEO = 75; const val HEORAK_GEOLEUM = 76
         val BUNYA = listOf("", "문화유산 분야", "박물관·전시 분야", "자연·경관 분야", "공연·행사 분야", "스포츠 관람 분야", "교육·체험 분야", "실시간 퍼포먼스 분야", "테마투어 분야")
@@ -137,6 +138,18 @@ class TourActivity : Activity() {
         tabbar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setBackgroundColor(Saek.namsaek) }
         root.addView(tabbar, LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
         setContentView(root)
+        // 1.4.3 (261123 새방클, 이사장님 승인 「1」) 아래 탭이 폰 내비게이션 바에 가리지 않게, 글 칸이 자판에 가리지 않게.
+        //   안드로이드 15부터 앱 화면이 내비게이션 바·상태 표시줄 밑까지 깔려(목표 SDK 35) 그만큼 비켜 줌 — 자봉 2.22.0과 같은 방법.
+        //   자판이 떠 있는 동안은 탭 바를 잠시 숨겨 쓸 자리를 넓히고, 누른 글 칸을 자판 위로 끌어올림.
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, ins ->
+            val b = ins.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or androidx.core.view.WindowInsetsCompat.Type.displayCutout())
+            val geulpan = ins.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom
+            val jaPan = ins.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) && geulpan > b.bottom
+            v.setPadding(b.left, b.top, b.right, if (jaPan) geulpan else b.bottom)
+            tabbar.visibility = if (jaPan) View.GONE else View.VISIBLE
+            if (jaPan) geulKanBoigi()
+            androidx.core.view.WindowInsetsCompat.CONSUMED
+        }
         draw()
         Ollim.malhagi = { m -> main.post { scroll.announceForAccessibility(m) } }
         Ollim.byeonhwa = { main.post { if (cur() is Hw.Kos || cur() is Hw.Seoljeong) draw() } }
@@ -158,6 +171,14 @@ class TourActivity : Activity() {
         pingSijak()
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 44)
+    }
+    /** 1.4.3 지금 누른 글 칸이 자판 위에 보이게 끌어올림 */
+    internal fun geulKanBoigi() {
+        scroll.postDelayed({
+            val f = currentFocus as? EditText ?: return@postDelayed
+            val r = android.graphics.Rect(0, 0, f.width, minOf(f.height, dp(160)))
+            f.requestRectangleOnScreen(r, false)
+        }, 150)
     }
     override fun onResume() { super.onResume(); Ollim.dorawatda(this) }
     override fun onPause() { super.onPause(); if (kos != null) { main.removeCallbacks(saveRun); save(true) } }
@@ -780,7 +801,13 @@ class TourActivity : Activity() {
         geul("이 앱", jemok = true)
         val nm = me?.geul("name") ?: ""
         geul(if (nm.isEmpty()) "들어온 사람 없음" else "$nm 님이 들어와 있습니다" + if (me?.geul("role") == "master") " (최고관리자)" else "")
-        danchu("웹 투어스튜디오 열기") { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://lvd.ada.or.kr/lvdts/lvdts.html"))) }
+        // 1.4.3 (261123 새방클, 이사장님 승인 「1」) 웹 주소를 글로 보이고 복사할 수 있게
+        geul("웹 투어스튜디오 주소: $WEB_JUSO").setTextIsSelectable(true)
+        danchu("웹 투어스튜디오 열기") { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(WEB_JUSO))) }
+        danchu("웹 주소 복사") {
+            (getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("웹 투어스튜디오 주소", WEB_JUSO))
+            malhagi("웹 투어스튜디오 주소를 복사했습니다. 컴퓨터로 보내 여실 수 있습니다.")
+        }
         danchu("무엇이 바뀌었나") { go(Hw.Bakkwin) }
         geul(PAN_IREUM, jakge = true)
         danchu("나가기") { naga("나갔습니다.") }
@@ -790,6 +817,13 @@ class TourActivity : Activity() {
     internal fun doum(i: Int) { val d = DOUM.getOrNull(i) ?: return; geul(d.first, jemok = true); geul(d.second) }
     internal fun bakkwin() {
         geul("무엇이 바뀌었나", jemok = true)
+        geul("1.4.3판 (빌드 261123-T9, 2026-11-23)", jemok = true)
+        listOf(
+            "아래 탭이 폰 맨 아래 내비게이션 바에 가려 눌리지 않던 것을 고쳤습니다. 화면 맨 위도 상태 표시줄에 가리지 않습니다.",
+            "글 칸을 누르면 자판이 올라와도 그 칸이 자판 위로 올라와 보입니다. 자판이 떠 있는 동안은 아래 탭이 잠시 숨고, 자판이 내려가면 다시 나옵니다.",
+            "담긴 메모마다 이 메모 고치기와 이 메모 복사가 생겼습니다. 메모 글을 길게 눌러 골라 복사할 수도 있습니다. 고친 메모는 웹에도 그대로 보입니다.",
+            "설정에 웹 투어스튜디오 주소가 글로 보이고, 웹 주소 복사 단추가 생겼습니다."
+        ).forEach { geul(it) }
         geul("1.4.2판 (빌드 261120-T8, 2026-11-20)", jemok = true)
         listOf(
             "장소 지식 들이기: 오시는 길(가까운 지하철역·버스터미널·주차장을 기준 자리에서 시계 방향과 거리로)을 지도로 어림해 채웁니다. 장소 이름으로 관람 안내를 못 찾으면 띄어 쓴 이름으로 한 번 더 찾습니다(예: 명성황후생가 → 명성황후 생가).",
@@ -1057,12 +1091,51 @@ class TourActivity : Activity() {
         jangMok("mm", m.reversed()) { one ->
             val f = one.geul("f"); val sec = (one.su("sec") ?: 0.0).toInt(); val tx = one.geul("text")
             val at = one.geul("at").replace("T", " ").drop(5).take(11)
-            val v = geul(MemoKan.ireum(one.geul("where")) + ", " + at + (if (sec > 0) ", ${sec}초 녹음" else ", 글로 담음") + "\n" + tx.ifEmpty { "(받아쓰지 못함 — 소리로만 남음)" })
+            val v = geul(MemoKan.ireum(one.geul("where")) + ", " + at + (if (sec > 0) ", ${sec}초 녹음" else ", 글로 담음") + (if (one.geul("fixed").isNotEmpty()) ", 고침" else "") + "\n" + tx.ifEmpty { "(받아쓰지 못함 — 소리로만 남음)" })
+            v.setTextIsSelectable(true)   // 1.4.3 길게 눌러 골라 복사
             if (f.isNotEmpty()) danchu(if (deunneun == f) "듣기 멈춤" else "이 메모 듣기") { deutgi(k.id, f) }
             else if (sec > 0) geul("소리는 아직 나스에 올리지 못해 폰에 남아 있습니다.", jakge = true)
+            memoGochimDanchu(k, s, one)
             v
         }
         t0.tag = "meori"
+    }
+    /** 1.4.3 (261123 새방클, 이사장님 승인 「1」) 현장 메모 고치기·복사 — 웹 투어스튜디오와 같은 자료(memos[].text)를 고침 */
+    internal var memoGochim: JSONObject? = null
+    internal fun memoGochimDanchu(k: Kos, s: Spot, one: JSONObject) {
+        val tx = one.geul("text")
+        if (tx.isNotEmpty()) danchu("이 메모 복사") {
+            (getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("현장 메모", tx))
+            malhagi("복사했습니다. 붙여 넣을 곳에서 붙여 넣기를 하십시오.")
+        }
+        if (k.isGyobon) return
+        if (memoGochim !== one) { danchu("이 메모 고치기") { memoGochim = one; draw(); geulKanBoigi() }; return }
+        val e = EditText(this).apply {
+            setText(tx); hint = "고칠 메모"; contentDescription = null
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE; minLines = 3; isSingleLine = false
+            background = kadeuBg(); setPadding(dp(14), dp(12), dp(14), dp(12)); setTextColor(Saek.geulja(this@TourActivity))
+        }
+        body.addView(e, lp(4))
+        danchu("고친 메모 담기", keun = true) {
+            val sae = e.text.toString().trim()
+            if (sae.isEmpty()) { malhagi("메모 글이 비었습니다. 글을 적고 다시 누르십시오."); return@danchu }
+            val where_ = one.geul("where")
+            // 그 메모가 처음 들어간 칸에 같은 글이 그대로 있으면 그 칸의 글도 함께 고침
+            var kanDo = false
+            if (tx.isNotEmpty() && where_.isNotEmpty()) {
+                val o = if (where_ == "text") k.spotText(s) else s.s(where_)
+                if (o.contains(tx)) {
+                    val n = o.replaceFirst(tx, sae)
+                    if (where_ == "text") k.setSpotText(s, n) else s.d.put(where_, n)
+                    kanDo = true
+                }
+            }
+            one.put("text", sae).put("fixed", nowIso())
+            memoGochim = null; bakkwim(); draw()
+            malhagi("메모를 고쳐 담았습니다." + if (kanDo) " " + MemoKan.ireum(where_) + " 칸의 같은 글도 함께 고쳤습니다." else "")
+        }
+        danchu("고치기 그만") { memoGochim = null; draw() }
+        e.post { e.requestFocus(); e.setSelection(e.text.length); (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(e, 0) }
     }
     /** 연습 — 읽으며 녹음 (현장영상해설 탭) */
     internal fun yeonseupSection(k: Kos, s: Spot) {
@@ -1320,7 +1393,7 @@ val DOUM: List<Pair<String, String>> = listOf(
     "협회 최종 승인 요청" to "코스 탭의 내보내기·협회 최종 승인 요청에서 협회에 최종 승인 요청하기를 누릅니다. 대본이 한 곳도 없으면 요청할 수 없고, 대본 없는 지점이나 살펴볼 것이 남아 있으면 그 수를 먼저 알려 드리고 한 번 묻습니다. 보내기를 누르면 시나리오 전체와 답사 사진·소리가 협회 DB에 원본으로 저장되고, 협회 DB에 전송 완료라는 알림과 판 번호·사진 수·소리 수가 나옵니다. 코스 목록에는 승인 기다리는 중, 승인 완료와 승인번호, 돌려보냄과 까닭이 표시됩니다.",
     "새로고침과 업데이트" to "설정 맨 위의 새로고침은 코스 목록과 지금 코스를 서버에서 다시 받습니다. 그 아래 업데이트는 새 판이 있는지 살피고, 있으면 받아서 설치 화면을 엽니다.",
     "말소리" to "설정의 앱 안내 말소리를 끄면 앱이 스스로 말하는 안내가 꺼지고, 안내는 화면에 글로 남습니다.",
-    "웹 투어스튜디오와 함께 쓰기" to "앱과 웹은 같은 서버의 같은 코스를 씁니다. 1.2.0판부터 웹에 있는 기능은 앱에도 모두 있습니다. 어느 쪽에서 고쳐도 같습니다. 설정에 웹 투어스튜디오 열기가 있습니다.",
+    "웹 투어스튜디오와 함께 쓰기" to "앱과 웹은 같은 서버의 같은 코스를 씁니다. 1.2.0판부터 웹에 있는 기능은 앱에도 모두 있습니다. 어느 쪽에서 고쳐도 같습니다. 설정에 웹 투어스튜디오 주소가 글로 보이고, 웹 투어스튜디오 열기와 웹 주소 복사가 있습니다. 주소는 lvd.ada.or.kr/lvdts/lvdts.html 입니다. 많은 글을 고치실 때는 주소를 복사해 컴퓨터로 보내 웹에서 하시면 편합니다.",
     "사진 크게 보기" to "답사 탭의 방금 찍은 사진 크게 보기, 또는 답사 탭과 지점 한 화면의 담긴 사진 목록에서 사진을 두드리면 크게 봅니다. 사진 위에 지점, 몇째 사진인지, 방향, 밝기와 또렷함이 글로 적혀 있습니다. 앞 사진과 다음 사진으로 넘겨 봅니다.",
     "사진 지우기" to "사진 크게 보기 화면의 이 사진 지우기, 또는 답사 탭의 방금 찍은 사진 아래 이 사진 지우기를 누릅니다. 사진을 지웁니다, 되돌릴 수 없습니다, 지울까요 하고 한 번 묻습니다. 지우기를 누르면 지워집니다. 교본의 사진은 지울 수 없습니다.",
     "같은 방향 다시 찍기" to "사진 크게 보기 화면이나 답사 탭의 방금 찍은 사진 아래 이 방향 다시 찍기를 누르면 그 사진을 지우고 같은 방향으로 카메라가 열립니다. 같은 방향을 바라보고 다시 찍으십시오.",
@@ -1328,6 +1401,8 @@ val DOUM: List<Pair<String, String>> = listOf(
     "현장 메모 말로 적기" to "답사 탭의 현장 메모에서 어디에 담을지(이동 구간 안내, 만져 볼 것, 조심할 것, 현장영상해설 밑글)를 고르고 말로 적기 시작을 누릅니다. 말씀하신 뒤 다 말했습니다를 누르면 소리를 mp3로 바꿔 올리고, 받아쓴 말을 고른 칸에 붙입니다. 받아쓰기는 안드로이드 13 이상에서 되며, 안 되면 소리로만 남깁니다. 처음 한 번 마이크를 허락해 주십시오.",
     "현장 메모 글로 적기" to "답사 탭의 현장 메모에서 어디에 담을지를 고르고, 글로 적기 칸에 적은 뒤 글로 담기를 누릅니다. 고른 칸에 붙고 메모 기록에도 남습니다.",
     "담긴 메모 보기와 듣기" to "답사 탭이나 지점 한 화면의 담긴 메모 보기와 듣기를 누르면 새것부터 다섯 개씩 나옵니다. 말로 담은 메모는 이 메모 듣기로 들을 수 있습니다.",
+    "메모 고치기와 복사" to "담긴 메모 보기와 듣기에서 메모마다 이 메모 고치기와 이 메모 복사가 있습니다. 이 메모 고치기를 누르면 글 칸이 열립니다. 고친 뒤 고친 메모 담기를 누르면 저장됩니다. 그 메모가 처음 들어간 칸에 같은 글이 그대로 남아 있으면 그 칸의 글도 함께 고칩니다. 그만두려면 고치기 그만을 누르십시오. 이 메모 복사는 메모 글을 복사합니다. 메모 글을 길게 눌러 골라 복사할 수도 있습니다. 고친 메모는 웹 투어스튜디오에도 그대로 보입니다.",
+    "자판이 올라올 때" to "글 칸을 누르면 자판이 올라오고, 누른 칸은 저절로 자판 위로 올라와 적는 글을 보실 수 있습니다. 자판이 떠 있는 동안 아래 탭 다섯은 잠시 숨습니다. 자판을 내리면 탭이 다시 나옵니다. 폰의 뒤로 동작을 한 번 하면 자판이 내려갑니다.",
     "읽으며 녹음 (연습)" to "현장영상해설 탭의 연습에서 읽으며 녹음 시작을 누르고 대본을 실제처럼 읽은 뒤 다 읽었습니다를 누릅니다. 걸린 시간, 머무는 시간보다 긴지, 1분에 몇 자 빠르기인지, 말씀 가운데 시각 전제 표현이 있었는지를 되돌아보기로 알려 드립니다. 연습 녹음 듣기로 다시 들을 수 있습니다. 녹음은 mp3로 올라갑니다.",
     "못 올린 사진과 소리" to "인터넷이 끊겨 사진이나 소리를 올리지 못하면 폰에 남겨 두고, 코스에는 아직 못 올림으로 적어 둡니다. 설정의 못 올린 것 지금 올리기를 누르거나 그 코스를 다시 열면 저절로 올립니다.",
     "판 되돌리기" to "코스 탭의 판 되돌리기에서 예전에 저장된 판이 새것부터 나옵니다. 고르면 이 판으로 되돌립니다, 지금 것도 판으로 남습니다 하고 묻습니다. 되돌려도 지금 것이 판으로 남으므로 잃지 않습니다.",

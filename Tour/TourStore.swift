@@ -418,6 +418,30 @@ final class TourStore: NSObject, ObservableObject, CLLocationManagerDelegate {
         say("글로 담았습니다. " + MemoKan.ireum(where_) + " 칸에 넣었습니다.")
         bakkwim()
     }
+    /// 1.4.3 (261123 새방클, 이사장님 승인 「1」) 현장 메모 고치기 — 웹과 같은 자료(memos[].text). 처음 들어간 칸에 같은 글이 그대로 있으면 그 칸도 함께 고침
+    func memoGochigi(_ s: Spot, i: Int, sae: String) {
+        guard let k = kos, !k.isGyobon else { return }
+        var m = (s.d["memos"] as? [[String: Any]]) ?? []
+        guard i >= 0, i < m.count else { return }
+        let tx = sae.trimmingCharacters(in: .whitespacesAndNewlines)
+        if tx.isEmpty { say("메모 글이 비었습니다. 글을 적고 다시 누르십시오."); return }
+        let yet = geulja(m[i]["text"]), where_ = geulja(m[i]["where"])
+        var kanDo = false
+        if !yet.isEmpty && !where_.isEmpty {
+            let o = where_ == "text" ? k.spotText(s) : s.s(where_)
+            if let r = o.range(of: yet) {
+                let n = o.replacingCharacters(in: r, with: tx)
+                if where_ == "text" { k.setSpotText(s, n) } else { s.d[where_] = n }
+                kanDo = true
+            }
+        }
+        m[i]["text"] = tx
+        m[i]["fixed"] = ISO8601DateFormatter().string(from: Date())
+        s.d["memos"] = m
+        say("메모를 고쳐 담았습니다." + (kanDo ? " " + MemoKan.ireum(where_) + " 칸의 같은 글도 함께 고쳤습니다." : ""))
+        bakkwim()
+        objectWillChange.send()
+    }
     private func kanBuchigi(_ k: Kos, _ s: Spot, _ where_: String, _ t: String) {
         if where_ == "text" {
             let o = k.spotText(s); k.setSpotText(s, o.isEmpty ? t : o + " " + t)

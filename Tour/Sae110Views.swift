@@ -222,6 +222,9 @@ struct MemoMokrokView: View {
     @EnvironmentObject var store: TourStore
     @ObservedObject private var deut = Deutgi.shared
     let spotId: String
+    @State private var gochim: Int? = nil      // 1.4.3 고치는 메모 번호
+    @State private var saeGeul = ""
+    @FocusState private var kanNune: Bool
     var body: some View {
         List {
             AllimJul()
@@ -236,15 +239,31 @@ struct MemoMokrokView: View {
                         let tx = geulja(one["text"])
                         let at = geulja(one["at"]).replacingOccurrences(of: "T", with: " ").dropFirst(5).prefix(11)
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(MemoKan.ireum(geulja(one["where"])) + ", " + at + (sec > 0 ? ", \(sec)초 녹음" : ", 글로 담음"))
+                            Text(MemoKan.ireum(geulja(one["where"])) + ", " + at + (sec > 0 ? ", \(sec)초 녹음" : ", 글로 담음") + (geulja(one["fixed"]).isEmpty ? "" : ", 고침"))
                                 .font(.footnote)
                             Text(tx.isEmpty ? "(받아쓰지 못함 — 소리로만 남음)" : tx)
+                                .textSelection(.enabled)   // 1.4.3 길게 눌러 복사
                             if !f.isEmpty {
                                 Button(deut.jigeum == f ? "듣기 멈춤" : "이 메모 듣기") { Task { await deut.deutgi(kosId: k.id, f: f) } }
                             } else if sec > 0 {
                                 Text("소리는 아직 나스에 올리지 못해 폰에 남아 있습니다.").font(.footnote)
                             }
+                            // 1.4.3 (261123 새방클, 이사장님 승인 「1」) 메모 복사·고치기 — 웹과 같은 자료
+                            if !tx.isEmpty {
+                                Button("이 메모 복사") { UIPasteboard.general.string = tx; store.say("복사했습니다. 붙여 넣을 곳에서 붙여 넣기를 하십시오.") }
+                            }
+                            if !k.isGyobon {
+                                if gochim == i {
+                                    TextField("고칠 메모", text: $saeGeul, axis: .vertical)
+                                        .lineLimit(3...10).textFieldStyle(.roundedBorder).focused($kanNune)
+                                    Button("고친 메모 담기") { store.memoGochigi(s, i: i, sae: saeGeul); gochim = nil; kanNune = false }
+                                    Button("고치기 그만") { gochim = nil; kanNune = false }
+                                } else {
+                                    Button("이 메모 고치기") { saeGeul = tx; gochim = i; DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { kanNune = true } }
+                                }
+                            }
                         }
+                        .buttonStyle(.borderless)
                     }
                 }
             }
