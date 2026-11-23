@@ -130,7 +130,7 @@ final class Seoljeong: ObservableObject {
         gilOn = (ud.object(forKey: "gn.gilOn") as? Bool) ?? true
         gilGap = (ud.object(forKey: "gn.gilGap") as? Int) ?? 60
         jidoOn = (ud.object(forKey: "gn.jidoOn") as? Bool) ?? true
-        deuraibing = (ud.object(forKey: "gn.deuraibing") as? Bool) ?? false
+        deuraibing = (ud.object(forKey: "gn.deuraibing") as? Bool) ?? true   // 2.134.0 (261123) 처음부터 켜짐 — 꺼져 있어 차 안에서 들리지 않던 일(이사장님 11-23)
         jidoGeotOn = (ud.object(forKey: "gn.jidoGeotOn") as? Bool) ?? false
         gyoJinaOn = (ud.object(forKey: "gn.gyoJinaOn") as? Bool) ?? true
         chaJeongdo = (ud.object(forKey: "gn.chaJeongdo") as? Int) ?? 2

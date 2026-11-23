@@ -1223,6 +1223,15 @@ object MalHagi {
             return true
         }
         // 2.97.0 (261121-A85, 이사장님 승인 2026-11-21 「1,2,3」, 아이폰 2.132.0과 같음) 드라이빙 모드 — 「길 미리 들려 줘」, 「다른 길 알려 줘」(가시는 곳이 정해져 있을 때)
+        // 2.99.0 (261123) 「드라이빙 모드 켜 줘」, 「드라이빙 모드 꺼 줘」(아이폰 2.134.0과 같음)
+        if (z.contains("드라이빙") && (z.contains("켜") || z.contains("꺼") || z.contains("끄"))) {
+            val on = z.contains("켜")
+            AnnaeSeoljeong.deuraibing = on
+            Girok.namgi("deuraibing_kyeogi", mapOf("on" to on))
+            dap(if (on) "드라이빙 모드를 켭니다. 차로 가는 길 안내가 시작되면 지나는 큰길과 다리, 걸리는 시간을 미리 들려 드리고, 더 빠르거나 짧은 길이 있으면 함께 알려 드립니다."
+                else "드라이빙 모드를 끕니다. 길 미리 들려 줘, 다른 길 알려 줘라고 말씀하시면 언제든 들려 드립니다.", false)
+            return true
+        }
         if (Deuraibing.miriMal(z) || Deuraibing.gyeonMal(z)) {
             val yy = YeojeongEngine.jigeum
             if (yy == null) { dap("먼저 가실 곳을 정해 주십시오. 집으로 가자처럼 말씀하시면 그곳까지 차로 가는 길을 들려 드립니다.", false); return true }

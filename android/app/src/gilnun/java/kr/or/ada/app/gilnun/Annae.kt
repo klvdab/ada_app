@@ -84,7 +84,7 @@ object AnnaeSeoljeong {
     /** 2.88.0 (261101-A76, 이사장님 지시 2026-11-01) 지도 알림 — 다리·건너는 강·휴게소·나들목·요금소·고장 경계(오픈스트리트맵) */
     var jidoOn: Boolean get() = b("jidoOn", true); set(v) = sb("jidoOn", v)
     /** 2.97.0 (261121-A85, 이사장님 승인 2026-11-21 「1,2,3」, 아이폰 2.132.0과 같음) 드라이빙 모드 — 차로 가는 길 안내가 시작될 때 갈 길과 다른 길을 한 번(처음은 꺼짐) */
-    var deuraibing: Boolean get() = b("deuraibing", false); set(v) = sb("deuraibing", v)
+    var deuraibing: Boolean get() = b("deuraibing", true)   /* 2.99.0 (261123) 처음부터 켜짐 */ ; set(v) = sb("deuraibing", v)
     /** 2.88.0 걸을 때 지도 알림(시험 중, 처음 꺼짐) */
     var jidoGeotOn: Boolean get() = b("jidoGeotOn", false); set(v) = sb("jidoGeotOn", v)
     /** 2.88.0 (261102, 이사장님 승인 「1」) 차 안에서 지나는 교차로 이름 — 국토교통부 표준노드링크 공식 이름 */

@@ -64,7 +64,7 @@ object SeoljeongDeo {
     /** 2.88.0 지도 알림(AnnaeSeoljeong.jidoOn 과 같은 값) */
     var jidoOn: Boolean get() = b("jidoOn", true); set(v) = sb("jidoOn", v)
     /** 2.97.0 드라이빙 모드(AnnaeSeoljeong.deuraibing 과 같은 값) */
-    var deuraibing: Boolean get() = b("deuraibing", false); set(v) = sb("deuraibing", v)
+    var deuraibing: Boolean get() = b("deuraibing", true)   /* 2.99.0 (261123) 처음부터 켜짐 */ ; set(v) = sb("deuraibing", v)
     var jidoGeotOn: Boolean get() = b("jidoGeotOn", false); set(v) = sb("jidoGeotOn", v)
     var gyoJinaOn: Boolean get() = b("gyoJinaOn", true); set(v) = sb("gyoJinaOn", v)
     var ganpanOn: Boolean get() = b("ganpanOn", true); set(v) = sb("ganpanOn", v)
