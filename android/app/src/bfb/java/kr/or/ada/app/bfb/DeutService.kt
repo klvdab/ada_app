@@ -60,6 +60,7 @@ object Deut {
     @Volatile var goreun = ""                                // 2.2.0 화면에서 고른 방 번호
     @Volatile var bogiBang: InteonetBang? = null             // 2.5.0 지금 듣는 인터넷 방송이 영상으로도 볼 수 있으면 그 방송
     @Volatile var bogiJung = false                           // 2.5.0 영상으로 보는 중 — 듣기 일꾼은 소리를 쉼
+    @Volatile var deunneunSid = ""                           // 2.13.0 지금 소리로 듣는 인터넷 방송(첫 화면 목록 「듣는 중」)
     // 2.11.0 (261105-L15) 웹 듣기 화면과 맞춤 — 소리 크기 나누어 조절, 해설 고르기, 만족도
     val KG = doubleArrayOf(0.0, 0.1, 0.2, 0.3, 0.4, 0.55, 0.7, 0.85, 1.0, 1.25, 1.6)
     @Volatile var kgH = 8; @Volatile var kgM = 8
@@ -653,6 +654,7 @@ class DeutService : Service() {
             if (!l.await(15, java.util.concurrent.TimeUnit.SECONDS) || jalmot.get()) { swigi(2000); return }
             mp.start()
             Deut.deullim = true
+            Deut.deunneunSid = sid; Deut.allyeo()   // 2.13.0
             tongjiGochigi()
             var cho = 0
             var meomchum = 0
@@ -694,6 +696,7 @@ class DeutService : Service() {
             swigi(2000)
         } finally {
             Deut.deullim = false
+            Deut.deunneunSid = ""   // 2.13.0
             if (!Deut.bogiJung) bogiDugi(null)   // 2.5.0 이 방송을 그만 들으면 영상으로 보기도 거둠(영상으로 넘어간 때는 그대로)
             try { mp.stop() } catch (_: Exception) { }
             try { mp.release() } catch (_: Exception) { }

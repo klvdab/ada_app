@@ -39,7 +39,7 @@ import java.util.Locale
 class BangsongActivity : Activity() {
 
     companion object {
-        const val PAN = "2.12.0"   // 2.12.0(261123-L19) 해설 소리 따로 줄기를 들음 — 영상이 밀려도 해설은 안 끊김(새방클, 이사장님 승인 261123 「1」). 2.11.3(261116-L18) 영상이 준비되면 영상 화면을 저절로 엶(새방클, 대표님 지시 261116). 2.11.2(261116-L17) 인터넷 방송이 짧은 끊김으로 8초 넘게 늦어지면 같은 방송에 다시 붙어 앞으로 당김(새방클, 대표님 지시 261116 「모든 기능 점검」). 2.11.1(261115-L16) 플 와이파이에 붙어 있어도 플에 송출이 10초 넘게 없고 인터넷 방송이 나가고 있으면 인터넷 방송을 들려 드리고, 행사장 해설이 시작되면 현장 방송으로 돌아감(새방클, 이사장님 승인 261115 「1」). 2.11.0(261105-L15) 대기 안내와 대기 음악. 2.10.0(261104-L14) 알림 소리에 끊기지 않게, 점검 듣기, 방해 금지 단추 / 2.9.0: 2.9.0(261104-L13) 플이 바쁠 때도 현장 방송을 놓치지 않게 3초까지 기다림 / 2.8.0: 2.8.0(261028-L12) 입장 번호와 행운권 추첨 — 첫 화면 「내 입장 번호」, 행사장에서 듣는 동안 번호를 알리고 당첨되면 진동·알림·말로(새방클, 이사장님 승인 2026-10-28 「1」). 2.7.0(261026-L11) 오푸스(시험) — 송출이 오푸스도 내보내면 저절로 오푸스로 듣고, 없으면 지금 방식(새방클, 이사장님 승인 2026-10-26). 2.6.1(261026-L10) 현장영상해설 소리 더 크게(보통·두 배·네 배, 새방클, 이사장님 지시 2026-10-26). 2.6.0(261025-L9) 한 번에 듣기 — 송출 앱이 만든 엔에프시 태그·큐알로 앱이 열리고 행사장 와이파이에 붙어 곧바로 들림(새방클, 이사장님 승인 2026-10-25). 2.5.1(261025-L8) 인터넷 없는 행사장 와이파이 붙잡기 — 모바일 데이터를 끄지 않아도 BYOD 방송이 이어짐(새방클, 이사장님 승인 2026-10-25). 2.5.0(261024-L7) 대조표 미진한 부분 고치기(새방송클, 이사장님 지시 2026-10-24) — 인터넷 방송 영상으로 보기(늦게 들어와도). 2.4.1(261023-L6) 이용 기록 — 듣기 상태가 바뀔 때마다 협회 서버에 남김(새방클, 이사장님 지시 2026-10-22). 2.4.0(261023-L5) 아이피타임 방식 BYOD 방송도 저절로 찾아 들음(와이파이 안에서 8080번 문을 연 LVD 송출 폰 찾기, 찾은 자리 기억), 도움말 두 항목(새방클, 이사장님 지시 2026-10-23). 2.3.0(261019-L4) 다시 듣기 내려받기를 앱 안에서(소리 mp3 두 가지·받아쓰기 글, 와이파이가 아니면 데이터 크기를 먼저 여쭘), 다시 듣기도 화면 잠가도 이어지고 전화 오면 멈춤, BYOD 방송 이름, 도움말 네 항목 더함(방클, 이사장님 결정 2026-10-19). 2.2.0(261018-L3) LVD 방송 정리 — 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기 첫 화면, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 2.1.0(261016-L2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 「인터넷 생방송 듣기」로 이름 줄임, 앱 안 누리집 화면의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-L1) LVD 방송 첫 판(배프 웹 껍데기 1.2.1의 뒤를 이음) — 배프 웹 껍데기를 속까지 앱으로: 행사장 와이파이 저절로 붙기와 저절로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 같은 폰 LVD 송출과 부딪치지 않기, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
+        const val PAN = "2.12.0"   // 2.12.0(261123-L19) 해설 소리 따로 줄기를 들음 — 영상이 밀려도 해설은 안 끊김, 첫 화면에 지금 나가는 인터넷 방송 목록을 늘 두고 누르면 곧바로(영상은 영상 화면으로), 더 보기 인터넷 방송 목록도 첫 화면 목록으로(새방클, 이사장님 승인 261123 「1」). 2.11.3(261116-L18) 영상이 준비되면 영상 화면을 저절로 엶(새방클, 대표님 지시 261116). 2.11.2(261116-L17) 인터넷 방송이 짧은 끊김으로 8초 넘게 늦어지면 같은 방송에 다시 붙어 앞으로 당김(새방클, 대표님 지시 261116 「모든 기능 점검」). 2.11.1(261115-L16) 플 와이파이에 붙어 있어도 플에 송출이 10초 넘게 없고 인터넷 방송이 나가고 있으면 인터넷 방송을 들려 드리고, 행사장 해설이 시작되면 현장 방송으로 돌아감(새방클, 이사장님 승인 261115 「1」). 2.11.0(261105-L15) 대기 안내와 대기 음악. 2.10.0(261104-L14) 알림 소리에 끊기지 않게, 점검 듣기, 방해 금지 단추 / 2.9.0: 2.9.0(261104-L13) 플이 바쁠 때도 현장 방송을 놓치지 않게 3초까지 기다림 / 2.8.0: 2.8.0(261028-L12) 입장 번호와 행운권 추첨 — 첫 화면 「내 입장 번호」, 행사장에서 듣는 동안 번호를 알리고 당첨되면 진동·알림·말로(새방클, 이사장님 승인 2026-10-28 「1」). 2.7.0(261026-L11) 오푸스(시험) — 송출이 오푸스도 내보내면 저절로 오푸스로 듣고, 없으면 지금 방식(새방클, 이사장님 승인 2026-10-26). 2.6.1(261026-L10) 현장영상해설 소리 더 크게(보통·두 배·네 배, 새방클, 이사장님 지시 2026-10-26). 2.6.0(261025-L9) 한 번에 듣기 — 송출 앱이 만든 엔에프시 태그·큐알로 앱이 열리고 행사장 와이파이에 붙어 곧바로 들림(새방클, 이사장님 승인 2026-10-25). 2.5.1(261025-L8) 인터넷 없는 행사장 와이파이 붙잡기 — 모바일 데이터를 끄지 않아도 BYOD 방송이 이어짐(새방클, 이사장님 승인 2026-10-25). 2.5.0(261024-L7) 대조표 미진한 부분 고치기(새방송클, 이사장님 지시 2026-10-24) — 인터넷 방송 영상으로 보기(늦게 들어와도). 2.4.1(261023-L6) 이용 기록 — 듣기 상태가 바뀔 때마다 협회 서버에 남김(새방클, 이사장님 지시 2026-10-22). 2.4.0(261023-L5) 아이피타임 방식 BYOD 방송도 저절로 찾아 들음(와이파이 안에서 8080번 문을 연 LVD 송출 폰 찾기, 찾은 자리 기억), 도움말 두 항목(새방클, 이사장님 지시 2026-10-23). 2.3.0(261019-L4) 다시 듣기 내려받기를 앱 안에서(소리 mp3 두 가지·받아쓰기 글, 와이파이가 아니면 데이터 크기를 먼저 여쭘), 다시 듣기도 화면 잠가도 이어지고 전화 오면 멈춤, BYOD 방송 이름, 도움말 네 항목 더함(방클, 이사장님 결정 2026-10-19). 2.2.0(261018-L3) LVD 방송 정리 — 지금 현장영상해설 듣기 하나로(행사장이면 현장 방송, 아니면 인터넷 방송을 앱 안에서), TV해설방송 듣기·다시 듣기 첫 화면, 방송 알림 받기, 그 밖에 들을 거리(방클, 이사장님 승인 「1」). 2.1.0(261016-L2) 더 보기에 TV해설방송 듣기·TV방송·라디오방송, 「인터넷 생방송 듣기」로 이름 줄임, 앱 안 누리집 화면의 겹친 뒤로 감춤(방클, 이사장님 승인 「1」). 2.0.0(261015-L1) LVD 방송 첫 판(배프 웹 껍데기 1.2.1의 뒤를 이음) — 배프 웹 껍데기를 속까지 앱으로: 행사장 와이파이 저절로 붙기와 저절로 듣기, 도움 요청, 화면 잠가도 듣기, 통화 때 멈춤, 벗어나면 알림, 같은 폰 LVD 송출과 부딪치지 않기, 인터넷 생방송·다시 듣기, 도움말, 새 판 알림(방송클, 이사장님 승인 「1」)
         const val BILD = "261116-L17"
         const val BAEP = "https://lvd.ada.or.kr/bfblive/"
     }
@@ -74,6 +74,9 @@ class BangsongActivity : Activity() {
     private lateinit var gorgiAn: LinearLayout   // 2.2.0 인터넷 방송 고르기
     private lateinit var gitaAn: LinearLayout    // 2.2.0 그 밖에 들을 거리
     private var boyeojunGorgi = ""
+    @Volatile private var jigeumMok: List<Deut.InteonetBang> = emptyList()   // 2.13.0 (261123 새방클, 이사장님 승인 「1」) 듣기를 켜지 않아도 늘 보이는 지금 나가는 인터넷 방송
+    private var mokBatneunJung = false
+    private var mokCheot = true
     private lateinit var bogiDanchu: Button      // 2.5.0 영상으로 보기
     private var boyeojunBogi = ""
     private var jeoljeoloBon = ""   // 2.11.3 영상 화면을 저절로 연 방송(같은 방송에서는 한 번만)
@@ -98,6 +101,7 @@ class BangsongActivity : Activity() {
         override fun run() {
             // 앱이 열려 있는 동안 3초마다 — 행사장에 들어섰는데 듣기가 꺼져 있으면 저절로 켬
             if (!Deut.kyeojim && jeoljeoloOn && !salpimJung && !doumalYeollim) hyeonjangSalpigi(false)
+            if (apeul && !doumalYeollim) mokBatgi()   // 2.13.0 지금 나가는 인터넷 방송 목록을 늘 새로
             h.postDelayed(this, 3000)
         }
     }
@@ -322,7 +326,11 @@ class BangsongActivity : Activity() {
         mom.addView(deoDanchu)
         deoAn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
         deoAn.addView(danchu("방송 알림 받기") { webYeolgi("방송 알림 받기", BAEP + "deutgi2.html#allim") })   // 2.2.0
-        deoAn.addView(danchu("인터넷 방송 목록 (누리집 화면)") { webYeolgi("인터넷 방송 목록", BAEP + "deutgi2.html") })
+        deoAn.addView(danchu("인터넷 방송 목록") { mokBatgi { n ->   // 2.13.0 누리집 화면을 띄우지 않고 첫 화면 목록으로(두 소리가 부딪혀 멈추던 것 고침)
+            if (deoAn.visibility == View.VISIBLE) deoBogi(false)
+            allim(if (n == 0) "지금 나가는 인터넷 방송이 없습니다. 방송이 열리면 첫 화면 목록에 저절로 나옵니다." else "지금 나가는 인터넷 방송이 " + n + "개 있습니다. 첫 화면 목록에서 누르시면 곧바로 나옵니다.")
+            if (n > 0) h.postDelayed({ gyeorugi(gorgiAn.getChildAt(0)) }, 500)
+        } })
         gitaAn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }   // 2.2.0 그 밖에 들을 거리
         var gitaDanchu: Button? = null
         gitaDanchu = danchu("그 밖에 들을 거리 — TV방송과 라디오방송") {
@@ -473,20 +481,82 @@ class BangsongActivity : Activity() {
                 }
             }
         }
-        // 2.2.0 인터넷 방송 고르기 — 목록이 바뀔 때만 다시 그림
-        val g = Deut.gorgi
-        val gk = g.joinToString(",") { it.sid + (if (it.yeongsang) "v" else "") }   // 2.5.0 영상 여부가 바뀌어도 다시 그림
+        // 2.13.0 (261123 새방클, 이사장님 승인 「1」) 지금 나가는 인터넷 방송 — 듣기를 켜지 않아도 늘 보이고, 누르면 곧바로(영상이 있으면 영상 화면으로)
+        //   목록·듣는 방송이 바뀔 때만 다시 그림(낭독기 방해 막기)
+        val g = if (jigeumMok.isNotEmpty()) jigeumMok else Deut.gorgi
+        val ds = if (Deut.kyeojim) Deut.deunneunSid else ""
+        val gk = g.joinToString(",") { it.sid + (if (it.yeongsang) "v" else "") } + "|" + ds
         if (::gorgiAn.isInitialized && gk != boyeojunGorgi) {
             boyeojunGorgi = gk
             gorgiAn.removeAllViews()
+            if (g.isNotEmpty()) gorgiAn.addView(geul("지금 나가는 인터넷 방송 " + g.size + "개 — 누르시면 곧바로 나옵니다", 20f, true))
             for (b in g) {
-                gorgiAn.addView(danchu((if (b.jemok.isEmpty()) "제목 없는 방송" else b.jemok) + (if (b.who.isEmpty()) "" else ", 현장영상해설사 " + b.who) + ", " + maxOf(1, b.cho / 60) + "분째") {
-                    Deut.goreun = b.sid
-                    allim("고르셨습니다. 곧 들려 드립니다.")
-                })
-                if (b.yeongsang) gorgiAn.addView(danchu("영상으로 보기 — " + (if (b.jemok.isEmpty()) "제목 없는 방송" else b.jemok)) { bogiYeolgi(b) })   // 2.5.0
+                val ireum = (if (b.jemok.isEmpty()) "제목 없는 방송" else b.jemok) + (if (b.who.isEmpty()) "" else ", 현장영상해설사 " + b.who) + ", " + maxOf(1, b.cho / 60) + "분째"
+                val dwi = if (b.sid == ds) " — 듣는 중" + (if (b.yeongsang) ". 누르면 영상 화면" else "") else if (b.yeongsang) " — 누르면 영상과 함께" else " — 누르면 듣기"
+                gorgiAn.addView(danchu(ireum + dwi) { mokGoreum(b) })
             }
         }
+    }
+
+    /** 2.13.0 지금 나가는 인터넷 방송 목록 받기 — 새 방송이 생기면 한 번만 알림(듣는 중이 아닐 때) */
+    private fun mokBatgi(kkeut: ((Int) -> Unit)? = null) {
+        if (mokBatneunJung && kkeut == null) return
+        mokBatneunJung = true
+        Thread {
+            var l: List<Deut.InteonetBang>? = null
+            try {
+                val k = java.net.URL(Deut.JUNGYE + "/moklok").openConnection() as java.net.HttpURLConnection
+                k.connectTimeout = 6000; k.readTimeout = 8000; k.useCaches = false
+                k.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) LVDbangsong")
+                val t = if (k.responseCode == 200) k.inputStream.bufferedReader().readText() else null
+                k.disconnect()
+                val a = t?.let { org.json.JSONObject(it).optJSONArray("rows") }
+                if (a != null) {
+                    val m = mutableListOf<Deut.InteonetBang>(); val sb = Deut.soriBang.toMutableSet()
+                    for (i in 0 until a.length()) {
+                        val o = a.optJSONObject(i) ?: continue
+                        if (o.optString("jong") != "live" && o.optString("jong") != "bangsong") continue
+                        if (o.optString("sid").isEmpty() || o.optInt("maji", 0) > 30) continue
+                        if (o.optBoolean("sori", false)) sb.add(o.optString("sid"))
+                        m.add(Deut.InteonetBang(o.optString("sid"), o.optString("title"), o.optString("who"), o.optInt("cho"), o.optBoolean("hls", false) || o.optBoolean("yeongsang", false)))
+                    }
+                    Deut.soriBang = sb; l = m
+                }
+            } catch (_: Exception) { }
+            h.post {
+                mokBatneunJung = false
+                val sae = l
+                if (sae != null) {
+                    val yet = jigeumMok.map { it.sid }.toSet()
+                    jigeumMok = sae
+                    sangtaeGochigi()
+                    val saero = sae.filter { it.sid !in yet }
+                    if (saero.isNotEmpty() && !Deut.kyeojim && apeul && kkeut == null)
+                        allim("지금 나가는 인터넷 방송이 있습니다. " + (if (saero[0].jemok.isEmpty()) "" else saero[0].jemok + ". ") + "화면 목록에서 누르시면 곧바로 나옵니다.")
+                    mokCheot = false
+                }
+                kkeut?.invoke(jigeumMok.size)
+            }
+        }.start()
+    }
+
+    /** 2.13.0 목록에서 고른 방송 — 영상이 있으면 영상 화면을 곧바로, 소리만이면 곧바로 듣기 */
+    private fun mokGoreum(b: Deut.InteonetBang) {
+        if (b.yeongsang) {
+            jeoljeoloBon = b.sid   // 저절로 한 번 더 열지 않게
+            if (Deut.kyeojim && Deut.deunneunSid != b.sid) Deut.goreun = b.sid   // 영상을 닫으면 이 방송을 소리로 이어 듣게
+            bogiYeolgi(b)
+            return
+        }
+        if (Deut.kyeojim && Deut.deunneunSid == b.sid) { allim("이 방송을 듣고 있습니다."); return }
+        Deut.goreun = b.sid
+        if (!Deut.kyeojim) {
+            Deut.sonMeomchum = false
+            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 3)
+            DeutService.kyeogi(this)
+        }
+        allim("고르셨습니다. 곧 들려 드립니다.")
     }
 
     // ───── 듣기 ─────

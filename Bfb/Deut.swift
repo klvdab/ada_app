@@ -64,6 +64,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
     @Published private(set) var sangtae = "듣기가 꺼져 있습니다."
     @Published private(set) var gorgi: [InteonetBang] = []   // 2.2.0 인터넷 방송이 여럿일 때 고를 것
     @Published private(set) var bogiBang: InteonetBang? = nil  // 2.5.0 듣는 인터넷 방송이 영상으로도 볼 수 있으면 그 방송
+    @Published private(set) var jigeumMok: [InteonetBang] = []  // 2.13.0 (261123 새방클, 이사장님 승인 「1」) 듣기를 켜지 않아도 첫 화면에 늘 보이는 지금 나가는 인터넷 방송
     private(set) var bogiJung = false                           // 2.5.0 영상으로 보는 중 — 소리(mp3)는 쉼
     var mal: ((String) -> Void)?
     /// 2.6.1 (261026-LI9) 현장영상해설 소리 더 크게 — 1 보통, 2 두 배, 4 네 배(BYOD 방송에 적용), 기억함
@@ -505,6 +506,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
                 s.inteonetGoreum(l[0], apMal: ap)
             } else if !ap.isEmpty || s.gorgi.map({ $0.id + ($0.yeongsang ? "v" : "") }) != l.map({ $0.id + ($0.yeongsang ? "v" : "") }) {
                 s.gorgi = l
+                s.jigeumMok = l   // 2.13.0 첫 화면 목록도 곧바로
                 s.inetDaegiKkeugi()   // 2.12.1
                 s.bakkum(ap + "지금 나가는 현장영상해설이 \(l.count)개 있습니다. 아래에서 들으실 것을 고르십시오.", malhal: true)
             }
@@ -535,6 +537,38 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
             let rows = ((j?["rows"] as? [[String: Any]]) ?? []).filter { ["live", "bangsong"].contains($0["jong"] as? String ?? "") && Deut.majiCho($0) <= 30 && !($0["sid"] as? String ?? "").isEmpty }
             kkeut(!rows.isEmpty)
         }
+    }
+
+    /// 2.13.0 (261123 새방클, 이사장님 승인 「1」 — 앱을 열면 방송 목록이 나오고 고르면 곧바로) 듣기와 상관없이 지금 나가는 인터넷 방송 목록을 받아 둠
+    ///   첫 화면이 3초마다 부름. 목록이 바뀔 때만 고쳐 화면을 다시 그리지 않음(보이스오버 방해 막기). 바뀐 방송이 새로 생기면 그 방송들을 돌려줌
+    func mokSalpigi(_ kkeut: @escaping ([InteonetBang]) -> Void = { _ in }) {
+        mutgi("/moklok") { [weak self] j in
+            guard let s = self, let j = j else { return }
+            let rows = ((j["rows"] as? [[String: Any]]) ?? []).filter { ["live", "bangsong"].contains($0["jong"] as? String ?? "") && Deut.majiCho($0) <= 30 }
+            for r in rows where r["sori"] as? Bool ?? false { if let id = r["sid"] as? String { Deut.soriBang.insert(id) } }
+            let l = rows.map { InteonetBang(id: $0["sid"] as? String ?? "", jemok: $0["title"] as? String ?? "", who: $0["who"] as? String ?? "", cho: $0["cho"] as? Int ?? 0,
+                                            yeongsang: ($0["hls"] as? Bool ?? false) || ($0["yeongsang"] as? Bool ?? false)) }.filter { !$0.id.isEmpty }
+            let yet = Set(s.jigeumMok.map { $0.id })
+            if l.map({ $0.id + ($0.yeongsang ? "v" : "") }) != s.jigeumMok.map({ $0.id + ($0.yeongsang ? "v" : "") }) { s.jigeumMok = l }
+            kkeut(l.filter { !yet.contains($0.id) })
+        }
+    }
+
+    /// 2.13.0 지금 이 방송을 듣는 중인가(목록 단추 글)
+    func deunneun(_ sid: String) -> Bool { if kyeojim, case .inteonet(let s) = gil { return s == sid }; return false }
+
+    /// 2.13.0 목록에서 고른 방송을 곧바로 — 듣기가 꺼져 있으면 켜고 그 방송을 틂(행사장 방송을 듣던 중이어도 고른 방송으로)
+    ///   영상이 있는 방송은 영상 화면이 소리까지 맡으므로, 듣기가 꺼져 있으면 켜지 않음(행사장 소리와 겹치지 않게). 듣던 중이면 그 방송으로 바꿔 두어 영상을 닫으면 이어 들음
+    func baroDeutgi(_ b: InteonetBang) {
+        if deunneun(b.id) { return }
+        if b.yeongsang {
+            guard kyeojim else { return }
+            bogiJung = true
+            inteonetGoreum(b)
+            return
+        }
+        if !kyeojim { kyeogi() }
+        inteonetGoreum(b)
     }
 
     /// 인터넷 방송 하나를 골라 틂(여럿일 때 화면 단추가 부름)
