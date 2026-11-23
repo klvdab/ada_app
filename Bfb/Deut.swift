@@ -31,6 +31,8 @@ struct InteonetBang: Identifiable, Equatable {
 final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
     static let shared = Deut()
     static let JUNGYE = "https://lvd.ada.or.kr:2053"
+    /// 2.13.0 (261123 새방클, 이사장님 승인 「1」) 해설 소리를 영상과 따로 보내는 방송(중계 1.7.0 소리 따로 줄기) — 이 방송은 소리 줄기로 들음(영상이 밀려도 해설은 안 끊김)
+    static var soriBang = Set<String>()
 
     // 2.11.0 (261105-LI14, 새방클, 이사장님 승인 2026-11-05) 웹 듣기 화면과 맞춤 — 소리 크기 나누어 조절, 해설 고르기, 만족도
     struct Gal: Equatable, Identifiable { let n: Int; let nm: String; let on: Bool; var id: Int { n } }
@@ -478,6 +480,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
             }
             // 2.12.0 마지막 자료가 30초 넘게 끊긴 방송(끝난 방송)은 목록에서 뺌 — 남은 것이 하나면 곧바로 틂
             let rows = ((j["rows"] as? [[String: Any]]) ?? []).filter { ["live", "bangsong"].contains($0["jong"] as? String ?? "") && Deut.majiCho($0) <= 30 }
+            Deut.soriBang = Set(rows.filter { $0["sori"] as? Bool ?? false }.compactMap { $0["sid"] as? String })   // 2.13.0
             let l = rows.map { InteonetBang(id: $0["sid"] as? String ?? "", jemok: $0["title"] as? String ?? "", who: $0["who"] as? String ?? "", cho: $0["cho"] as? Int ?? 0,
                                             yeongsang: ($0["hls"] as? Bool ?? false) || ($0["yeongsang"] as? Bool ?? false)) }.filter { !$0.id.isEmpty }
             // 2.12.1 듣던 방송이 새 방으로 이어졌으면(같은 현장영상해설사·같은 제목) 곧바로 붙음. 15초 기다려도 없으면 그제야 끝났다고 알림
@@ -572,7 +575,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
 
     private func avpTeulgi(_ sid: String) {
         avp?.pause()
-        guard let u = URL(string: Deut.JUNGYE + "/mp3?sid=\(sid)&_c=\(Int(Date().timeIntervalSince1970))") else { return }
+        guard let u = URL(string: Deut.JUNGYE + "/mp3?sid=\(sid)" + (Deut.soriBang.contains(sid) ? "&gil=sori" : "") + "&_c=\(Int(Date().timeIntervalSince1970))") else { return }   // 2.13.0 소리 줄기가 있으면 그것을
         // 2.12.1 (11-15 밤 시험: 인터넷 방송이 20~30초 늦게 들림 — 서버까지는 제 속도였고, 재생기가 끊기지 않으려고 소리를 길게 모았다가 틂)
         //   모아 두는 양을 2초로 줄이고, 들어온 대로 곧바로 틂. 늦어지면 avpDanggigi 가 앞으로 당김
         let it = AVPlayerItem(url: u)

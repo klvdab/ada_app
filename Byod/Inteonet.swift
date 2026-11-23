@@ -53,6 +53,12 @@ final class InteonetBonaegi {
     private var yeongsangWonham = false   // 이번 방송에서 영상을 싣기로 함(무대 영상 녹화가 꺼져 있을 때)
     private var yeongsang = false         // 지금 연 방(또는 열 방)이 영상인가
     private var jogak = Data()            // 보낼 조각 mp4
+    // 1.18.0 (261123 새방클, 이사장님 승인 「1」) 해설 소리 따로 줄기 — 영상 방에서도 해설 소리를 영상과 따로 작게 먼저 보냄(중계 1.7.0 이상).
+    //   보내는 쪽 인터넷이 느려 영상 조각이 밀려도 듣는 분의 해설은 끊기지 않음
+    private var j17 = false
+    private var soriMoum = Data()
+    private var soriCheot = true
+    private var soriBonaeneun = false
     private var bomyeon: NSObjectProtocol?
 
     // MARK: 켜고 끄기 — 방송 일(BangIl)이 부름
@@ -90,6 +96,12 @@ final class InteonetBonaegi {
             t.resume()
             self.timer = t
             self.allim("인터넷 방송: 중계에 방을 열고 있습니다.")
+            self.j17 = false; self.soriMoum = Data(); self.soriCheot = true; self.soriBonaeneun = false
+            self.yocheong("GET", "/sal", nil) { code, d in   // 1.18.0 중계 판 보기 — 1.7.0 이상이면 소리 따로 줄기
+                guard code == 200, let d = d, let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any], let pan = j["pan"] as? String else { return }
+                let p = pan.split(separator: ".").compactMap { Int($0) }
+                self.j17 = (p.first ?? 0) > 1 || ((p.first ?? 0) == 1 && (p.count > 1 ? p[1] : 0) >= 7)
+            }
             self.yeolgi()
         }
     }
@@ -100,6 +112,11 @@ final class InteonetBonaegi {
             guard self.dolgo, !self.geobu else { return }
             if self.yeongsang {   // 1.17.0 영상 방은 조각 mp4 에 소리를 실음
                 if self.yeollim { InteonetYeongsang.shared.soriNeoki(d) }
+                if self.yeollim && self.j17 {   // 1.18.0 소리 따로 줄기에도 담음(10초 넘게 밀리면 오래된 것을 버림)
+                    self.soriMoum.append(d)
+                    let mak = InteonetBonaegi.RATE * 10
+                    if self.soriMoum.count > mak { self.soriMoum = self.soriMoum.suffix(mak) }
+                }
                 return
             }
             self.moum.append(d)
@@ -155,6 +172,7 @@ final class InteonetBonaegi {
                 self.sid = j?["sid"] as? String ?? s
                 self.tok = j?["tok"] as? String ?? tk
                 self.yeollim = true; self.cheot = true; self.silpae = 0; self.yeollinTtae = Date()
+                self.soriMoum = Data(); self.soriCheot = true   // 1.18.0 새 방에는 소리 줄기도 머리부터
                 self.moum = self.moum.suffix(InteonetBonaegi.RATE)   // 밀린 것은 1초만 남김
                 if ys {   // 1.17.0 머리 조각부터 새로. 1.17.2 무대 녹화 중이면 카메라를 먼저 넘겨받음
                     self.moum = Data(); self.jogak = Data()
@@ -175,8 +193,23 @@ final class InteonetBonaegi {
         }
     }
 
+    /// 1.18.0 해설 소리 따로 줄기 보내기 — 2초마다, 한 번에 하나만. 첫 덩이에는 웨이브 머리
+    private func soriBonae() {
+        guard j17, yeongsang, yeollim, !soriBonaeneun, !soriMoum.isEmpty else { return }
+        let meori = soriCheot
+        let body = meori ? InteonetBonaegi.wavMeori() + soriMoum : soriMoum
+        soriMoum = Data(); soriBonaeneun = true
+        let s = sid
+        yocheong("POST", "/jogak?sid=\(sid)&tok=\(tok)&gil=sori&mime=audio%2Fwav", body) { code, _ in
+            self.soriBonaeneun = false
+            guard s == self.sid else { return }
+            if code == 200 { if meori { self.soriCheot = false } }   // 못 보낸 소리는 버림(생방송이라 늦은 소리보다 지금 소리가 중요). 머리를 못 보냈으면 다음에 다시 머리부터
+        }
+    }
+
     private func dolgi() {
         guard dolgo, !geobu else { return }
+        soriBonae()
         if !yeollim { yeolgi(); return }
         let ys = yeongsang
         guard !(ys ? jogak : moum).isEmpty, !bonaeneun else { return }

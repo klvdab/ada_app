@@ -78,6 +78,8 @@ object Deut {
     @Volatile var flintBium = false      // 플에 송출이 없어 인터넷 방송을 듣는 중 — 플에 송출이 들어오면 현장으로 돌아감
     @Volatile var hyeonjangJung = false                      // 2.8.0 (261028-L12) 지금 행사장(BYOD 방송)에 붙어 있는가 — 추첨 일꾼이 봄
     const val JUNGYE = "https://lvd.ada.or.kr:2053"
+    /** 2.13.0 (261123 새방클, 이사장님 승인 「1」) 해설 소리를 영상과 따로 보내는 방송(중계 1.7.0 소리 따로 줄기) — 이 방송은 소리 줄기로 들음 */
+    @Volatile var soriBang: Set<String> = emptySet()
     val gwanchal = mutableListOf<() -> Unit>()
     var mal: ((String) -> Unit)? = null   // 한 번만 알릴 말(화면이 있으면 화면이, 없으면 알림 줄이)
     fun allyeo() { for (f in gwanchal.toList()) try { f() } catch (_: Exception) { } }
@@ -587,6 +589,9 @@ class DeutService : Service() {
         if (j == null) { Deut.bakkum("인터넷에 닿지 않습니다. " + Deut.waeMal.ifEmpty { "행사장에서는 행사장 와이파이에 붙으면 저절로 들립니다." }, false); return null }
         val a = j.optJSONArray("rows")
         val l = mutableListOf<Deut.InteonetBang>()
+        val sb = mutableSetOf<String>()   // 2.13.0
+        if (a != null) for (i in 0 until a.length()) { a.optJSONObject(i)?.let { o0 -> if (o0.optBoolean("sori", false)) sb.add(o0.optString("sid")) } }
+        Deut.soriBang = sb
         if (a != null) for (i in 0 until a.length()) {
             val o = a.optJSONObject(i) ?: continue
             if (o.optString("jong") != "live" && o.optString("jong") != "bangsong") continue
@@ -641,7 +646,7 @@ class DeutService : Service() {
         try {
             mp.setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
             mp.setOnErrorListener { _, _, _ -> jalmot.set(true); true }
-            mp.setDataSource(Deut.JUNGYE + "/mp3?sid=" + sid + "&_c=" + System.currentTimeMillis())
+            mp.setDataSource(Deut.JUNGYE + "/mp3?sid=" + sid + (if (Deut.soriBang.contains(sid)) "&gil=sori" else "") + "&_c=" + System.currentTimeMillis())   // 2.13.0 소리 줄기가 있으면 그것을
             val l = java.util.concurrent.CountDownLatch(1)
             mp.setOnPreparedListener { l.countDown() }
             mp.prepareAsync()

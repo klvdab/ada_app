@@ -47,7 +47,10 @@ final class BogiTeulgae: ObservableObject {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback, options: [])
         try? AVAudioSession.sharedInstance().setActive(true)
         let it = AVPlayerItem(url: u)
-        it.preferredForwardBufferDuration = 4
+        it.preferredForwardBufferDuration = 10
+        // 2.13.0 (261123 새방클) 방송보다 10초쯤 늦게 틀어 여유를 둠 — 보내는 쪽 인터넷이 출렁여도 끊기지 않게(끊김보다 늦음이 나음)
+        it.configuredTimeOffsetFromLive = CMTime(seconds: 10, preferredTimescale: 1)
+        it.automaticallyPreservesTimeOffsetFromLive = true
         gamsi = it.publisher(for: \.status).receive(on: DispatchQueue.main).sink { [weak self] st in
             guard let s = self else { return }
             if st == .readyToPlay {
