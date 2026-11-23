@@ -18,6 +18,7 @@
 //   명령 글자가 0이면 마이크 막힘(maik_makhim)을 따로 남김.
 import Foundation
 import UIKit
+import UserNotifications
 import AVFoundation
 import Combine
 import SwiftUI   // 2.7.0 둘러보기 화면 길(NavigationPath)
@@ -149,6 +150,10 @@ final class MalHagi: ObservableObject {
             self.bureumDasi(0.8)
         }
         nc.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            if (self?.bureumSilpae ?? 0) >= 3 {   // 2.134.0 쉬던 하이 길눈을 다시 엶 — 남긴 알림은 거둠
+                UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["bureum-swim"])
+                Girok.shared.namgi("bureum_kkaeum", ["silpae": self?.bureumSilpae ?? 0])
+            }
             self?.bureumSilpae = 0
             self?.bureumDasi(1.0)
         }
@@ -823,8 +828,19 @@ final class MalHagi: ObservableObject {
             Girok.shared.namgi("bureum_yeolgi", ["ok": ok])
             if ok { self.bureumSilpae = 0; return }
             self.bureumSilpae += 1
+            // 2.134.0 (261123) 통화를 마친 뒤 앱이 뒤에 있으면 마이크가 열리지 않아 하이 길눈이 다섯 시간 가까이 쉬던 일(11-23 9시 27분~) —
+            //   세 번 못 열면 쉬지 않고 1분·2분·5분 간격으로 계속 다시 열어 보고, 처음 쉴 때 한 번 「길눈을 한 번 열어 주십시오」 알림을 남김
             if UIApplication.shared.applicationState == .background && self.bureumSilpae >= 3 {
-                Girok.shared.namgi("bureum_swim", [:])   // 앱으로 돌아오시면 다시 엶
+                if self.bureumSilpae == 3 {
+                    Girok.shared.namgi("bureum_swim", [:])
+                    let c = UNMutableNotificationContent()
+                    c.title = "하이 길눈이 쉬고 있습니다"
+                    c.body = "통화가 끝난 뒤 마이크를 다시 열지 못했습니다. 이 알림을 두드려 길눈을 한 번 열어 주시면 다시 듣습니다."
+                    c.threadIdentifier = "bureum-swim"
+                    UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "bureum-swim", content: c,
+                        trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)), withCompletionHandler: nil)
+                }
+                self.bureumDasi(self.bureumSilpae < 6 ? 60 : (self.bureumSilpae < 9 ? 120 : 300))
                 return
             }
             self.bureumDasi(10)
@@ -1194,7 +1210,9 @@ final class MalHagi: ObservableObject {
                 return
             }
         }
-        if z.contains("점지도") && (z.contains("가까운") || z.contains("근처") || z.contains("목록") || z.contains("찾아")) {
+        // 2.134.0 (261123) 「잠 지도 찾아」처럼 점지도를 잘못 알아들은 말도 점지도로(11-23 8시 58분)
+        if (z.contains("점지도") || ["잠지도", "좀지도", "짐지도", "젬지도", "점찌도"].contains(where: { z.contains($0) }))
+            && (z.contains("가까운") || z.contains("근처") || z.contains("목록") || z.contains("찾아")) {
             dap("가까운 점지도를 엽니다. 골라서 누르시면 따라 걷습니다.", false)
             TabGil.shared.tab = 0
             GilGil.shared.cheotHwamyeon()
@@ -1275,6 +1293,11 @@ final class MalHagi: ObservableObject {
                 return
             }
         case .chaYocheong:
+            if MalHagi.chaGidarimMal(z) && kolJong(alts) == nil {   // 2.134.0 「차를 요청할까요?」에 「차 불렀어」
+                mureum = .eopseum
+                dap(MalHagi.chaGidarimDap(y?.mokjeok.ireum), false)
+                return
+            }
             if let jong = kolJong(alts) {
                 mureum = .eopseum
                 kolGeolgi(jong, dap)
@@ -1781,7 +1804,7 @@ final class MalHagi: ObservableObject {
             return true
         }
         // 2.14.0 말로 그린 길, 음성유도기와 승강기, 현장영상해설 받기
-        if z.contains("말로그린") {
+        if z.contains("말로그린") || z.contains("말로하는지도") || z.contains("말로하는길") {   // 2.134.0 「말로 하는 지도 찾아」도(11-23)
             dap("말로 그린 길을 엽니다.", false)
             TabGil.shared.tab = 0
             GilGil.shared.cheotHwamyeon()
@@ -1839,6 +1862,12 @@ final class MalHagi: ObservableObject {
             let l = s.kolDeul().map { "\($0.ireum) \(MalSajeon.beonhoMal($0.jeonhwa))" }
             if l.isEmpty { dap(s.kolJiyeokMal(), false); return true }
             dap(s.kolJiyeokMal() + " 콜 번호입니다. " + l.joined(separator: ". ") + ".", false)
+            return true
+        }
+        // 2.134.0 (261123) 「차 불렀어」·「차 기다리는 중」·「차 타면 알려 줄게」를 알아듣지 못하던 일(11-23 14시 58분, 15시 36분)
+        if MalHagi.chaGidarimMal(z) && kolJong(alts) == nil {
+            mureum = .eopseum
+            dap(MalHagi.chaGidarimDap(y?.mokjeok.ireum), false)
             return true
         }
         if let jong = kolJong(alts) {
@@ -3036,6 +3065,21 @@ final class MalHagi: ObservableObject {
 
     // MARK: 탈것 말
 
+    /// 2.134.0 (261123) 차를 이미 부르셨거나 기다리시는 중이라는 말 — 「차 불렀어」, 「택시 기다리는 중」, 「차 타면 알려 줄게」
+    static func chaGidarimMal(_ z0: String) -> Bool {
+        let z = MalSajeon.ttuk(z0)
+        let cha = ["차", "택시", "콜", "카카오", "기사"].contains { z.contains($0) } && !z.contains("차례")
+        if z.contains("타면알려") || z.contains("타면말") || z.contains("타면얘기") || z.contains("타면이야기") { return true }
+        if cha && z.hasSuffix("타면") && z.count <= 6 { return true }   // 「차 타면」
+        if cha && (z.contains("불렀") || z.contains("잡았") || z.contains("오고있") || z.contains("온대") || z.contains("온다고")) { return true }
+        if cha && (z.contains("기다리는중") || z.contains("기다리고있") || z.contains("기다려") || z.contains("기다릴")) && !z.contains("기다려줘") { return true }
+        return false
+    }
+    static func chaGidarimDap(_ mok: String?) -> String {
+        Girok.shared.namgi("cha_gidarim", [:])
+        let m = (mok ?? "").isEmpty ? "" : "\(mok!)까지 "
+        return "알겠습니다. 차를 기다리시는 것으로 알겠습니다. 차에 타시면 길눈이 저절로 알아채 \(m)차 안 안내를 시작합니다. 차에 탔어라고 말씀하셔도 됩니다."
+    }
     private static let talgeotMal: Set<String> = ["걸어서", "걸어", "도보로", "도보", "차로", "차", "택시로", "택시", "콜택시로",
                                                   "지하철로", "지하철", "전철로", "전철", "버스로", "버스", "타고", "차타고", "대중교통으로"]
 

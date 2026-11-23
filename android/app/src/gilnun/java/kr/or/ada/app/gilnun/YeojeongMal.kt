@@ -60,6 +60,18 @@ object YeojeongMal {
 
     private fun hwalseong(): GilnunActivity? = MalHagi.hwalseong?.get()
 
+    /** 2.99.0 (261123) 차를 이미 부르셨거나 기다리시는 중이라는 말(콜 이름이 든 말은 뺌) */
+    fun chaGidarimMal(z0: String): Boolean {
+        val z = z0.filter { !" \t\n.,!?~·'\"".contains(it) }
+        if (z.contains("콜")) return false
+        val cha = listOf("차", "택시", "카카오", "기사").any { z.contains(it) } && !z.contains("차례")
+        if (listOf("타면알려", "타면말", "타면얘기", "타면이야기").any { z.contains(it) }) return true
+        if (cha && z.endsWith("타면") && z.length <= 6) return true
+        if (cha && listOf("불렀", "잡았", "오고있", "온대", "온다고").any { z.contains(it) }) return true
+        if (cha && listOf("기다리는중", "기다리고있", "기다려", "기다릴").any { z.contains(it) } && !z.contains("기다려줘")) return true
+        return false
+    }
+
     /** 여정 끝·도착, 점지도로 걸을까요의 대답 — 하면 참 */
     fun meonjeo(alts: List<String>, z: String, dap: (String, Boolean) -> Unit, jeomDap: Boolean = true, chaDap: Boolean = false): Boolean {
         // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 묻던 말을 잊는 때를 아이폰과 맞춤 — 점지도로 걸을까요는 1분, 어떻게 가실까요는 2분
@@ -67,6 +79,14 @@ object YeojeongMal {
         if (System.currentTimeMillis() - mureumTtae > sumyeong) mureum = Mureum.EOPSEUM
         val s = MalSajeon
         val y = YeojeongEngine.jigeum
+        // 2.99.0 (261123) 「차 불렀어」·「차 기다리는 중」·「차 타면 알려 줄게」 — 아이폰 2.134.0과 같음(콜 이름이 든 말은 아래 콜 형편 알림으로)
+        if (chaGidarimMal(z)) {
+            mureum = Mureum.EOPSEUM
+            Girok.namgi("cha_gidarim")
+            val mk = y?.mokjeok?.ireum ?: ""
+            dap("알겠습니다. 차를 기다리시는 것으로 알겠습니다. 차에 타시면 길눈이 저절로 알아채 " + (if (mk.isEmpty()) "" else "${mk}까지 ") + "차 안 안내를 시작합니다. 차에 탔어라고 말씀하셔도 됩니다.", false)
+            return true
+        }
         // 2.53.0 (261016-A41, 이사장님 승인 2026-10-16 「2」) 「차를 요청할까요」·「어디에 전화할까요」의 대답 — 콜 이름이면 곧장 걸고, 네면 어디에 걸지 여쭘(아이폰과 같음)
         if (mureum == Mureum.CHA || mureum == Mureum.KOL) {
             val o = NnKol.jaryo

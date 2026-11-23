@@ -1017,7 +1017,7 @@ object MalHagi {
             if (z.contains("다른문")) { dap("", false); jm.dareunMun(); return }
             if (z.contains("여기걸렸")) { dap("", false); jm.geollimNamgigi(); return }
         }
-        if ((z.contains("점지도") && (z.contains("가까운") || z.contains("근처") || z.contains("목록") || z.contains("찾아"))) ||
+        if (((z.contains("점지도") || listOf("잠지도", "좀지도", "짐지도", "젬지도", "점찌도").any { z.contains(it) }) && (z.contains("가까운") || z.contains("근처") || z.contains("목록") || z.contains("찾아"))) ||
             z.contains("가까운길") || z.contains("근처길")) {
             dap("가까운 점지도를 엽니다. 골라서 누르시면 따라 걷습니다.", false)
             hwalseong?.get()?.cheotHwamyeonEuro(JeomMokrokHwamyeon())
@@ -1320,7 +1320,7 @@ object MalHagi {
         }
         if (doeMal(z, dap)) return true
         // 2.7.0 묶음 b2 말로 그린 길, 음성유도기와 승강기
-        if (z.contains("말로그린")) {
+        if (z.contains("말로그린") || z.contains("말로하는지도") || z.contains("말로하는길")) {   // 2.99.0 (261123) 「말로 하는 지도 찾아」도
             dap("말로 그린 길을 엽니다.", false)
             hwalseong?.get()?.cheotHwamyeonEuro(MalgilHwamyeon())
             return true
