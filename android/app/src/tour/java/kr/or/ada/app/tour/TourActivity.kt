@@ -356,6 +356,28 @@ class TourActivity : Activity() {
         box.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         body.addView(box, lp(0))
     }
+    /** 1.4.4 (261124, 대클, 이사장님 지시 「그래」) 시험판으로 받은 앱 — 플레이 스토어 정식 앱으로 옮기는 안내.
+     *  시험판과 플레이 앱은 서명이 달라 덮어 설치가 안 되므로, 못 올린 것을 먼저 올리고 이 앱을 지운 뒤 플레이에서 받게 함.
+     *  코스·시나리오는 서버에 있어 같은 아이디로 로그인하면 그대로 나옴. 말소리는 앱을 켤 때 한 번만. */
+    private var peulleiMalHam = false
+    internal fun peulleiOmgigi() {
+        if (BuildConfig.PLAY) return
+        geul("플레이 스토어에 정식 앱이 나왔습니다", jemok = true)
+        geul("코스와 시나리오는 서버에 있어, 플레이 스토어 앱에서 같은 아이디로 로그인하면 그대로 나옵니다. 이 앱과 플레이 스토어 앱은 서로 덮어 설치되지 않으니 순서대로 해 주십시오. 첫째, 못 올린 것을 올립니다. 둘째, 이 앱을 지웁니다. 셋째, 플레이 스토어에서 투어스튜디오를 받아 로그인합니다.")
+        val ds = Daegi.su(this)
+        danchu(if (ds > 0) "첫째 — 못 올린 것 ${ds}개 지금 올리기" else "첫째 — 못 올린 것이 없습니다. 바로 다음으로 가셔도 됩니다") { daegiOllim(false) }
+        danchu("둘째 — 이 앱 지우기 화면 열기") {
+            try { startActivity(android.content.Intent(android.content.Intent.ACTION_DELETE, android.net.Uri.parse("package:$packageName"))) }
+            catch (e: Exception) { try { startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:$packageName"))) } catch (e2: Exception) { } }
+        }
+        danchu("셋째 — 플레이 스토어에서 투어스튜디오 열기") { Ollim.peulleiYeolgi(this) }
+        if (!peulleiMalHam) {
+            peulleiMalHam = true
+            val ds2 = ds
+            main.postDelayed({ malhagi("플레이 스토어에 정식 앱이 나왔습니다. " + (if (ds2 > 0) "먼저 못 올린 것 ${ds2}개를 올려 주십시오. " else "") + "첫 화면 맨 위의 순서대로 옮겨 주십시오.") }, 1500)
+        }
+    }
+
     internal fun allimJul() { if (allim.isNotEmpty()) geul(allim, jakge = true) }
     internal fun gyeonggye() { geul(RULE_TXT).apply { setTypeface(typeface, Typeface.BOLD); setTextColor(Saek.ganjo(this@TourActivity)) } }
     internal fun kosEopseum() {
@@ -437,6 +459,7 @@ class TourActivity : Activity() {
     internal fun kosHwamyeon() {
         meori()
         Ollim.julMal(this)?.let { m -> danchu(m, keun = true) { Ollim.olligi(this) } }
+        peulleiOmgigi()
         allimJul()
         val k = kos
         if (k != null) {
@@ -1465,6 +1488,7 @@ val DOUM: List<Pair<String, String>> = listOf(
     "현장 메모 글로 적기" to "답사 탭의 현장 메모에서 어디에 담을지를 고르고, 글로 적기 칸에 적은 뒤 글로 담기를 누릅니다. 고른 칸에 붙고 메모 기록에도 남습니다.",
     "담긴 메모 보기와 듣기" to "답사 탭이나 지점 한 화면의 담긴 메모 보기와 듣기를 누르면 새것부터 다섯 개씩 나옵니다. 말로 담은 메모는 이 메모 듣기로 들을 수 있습니다.",
     "메모 고치기와 복사" to "담긴 메모 보기와 듣기에서 메모마다 이 메모 고치기와 이 메모 복사가 있습니다. 이 메모 고치기를 누르면 글 칸이 열립니다. 고친 뒤 고친 메모 담기를 누르면 저장됩니다. 그 메모가 처음 들어간 칸에 같은 글이 그대로 남아 있으면 그 칸의 글도 함께 고칩니다. 그만두려면 고치기 그만을 누르십시오. 이 메모 복사는 메모 글을 복사합니다. 메모 글을 길게 눌러 골라 복사할 수도 있습니다. 고친 메모는 웹 투어스튜디오에도 그대로 보입니다.",
+    "플레이 스토어로 옮기기" to "시험판 받기 화면에서 받은 투어스튜디오는 첫 화면 맨 위에 플레이 스토어로 옮기는 순서가 나옵니다. 시험판 앱과 플레이 스토어 앱은 서로 덮어 설치되지 않으므로 세 단계로 옮깁니다. 첫째, 못 올린 것 지금 올리기로 폰에만 남은 사진과 소리를 올립니다. 이 앱을 지우면 폰에만 남은 것도 함께 사라지기 때문입니다. 둘째, 이 앱 지우기 화면 열기를 눌러 이 앱을 지웁니다. 셋째, 플레이 스토어에서 투어스튜디오를 받아 같은 아이디로 로그인합니다. 코스와 시나리오, 올린 사진과 녹음은 서버에 있어 그대로 나오고, 웹 투어스튜디오에서도 똑같이 보입니다. 앞으로 새 판은 플레이 스토어가 알아서 업데이트합니다.",
     "웹에서 이어서 고치기" to "많은 글을 고치실 때는 컴퓨터의 웹 투어스튜디오가 편합니다. 코스 정보 화면 맨 위의 웹에서 이 코스 이어서 고치기, 또는 지점 한 화면의 웹에서 이 지점 이어서 고치기를 누르십시오. 창이 뜨면 열기를 누르면 폰 브라우저로 열리고, 주소 복사를 누르면 주소가 복사됩니다. 복사한 주소를 문자나 메일로 컴퓨터에 보내 여시면, 같은 아이디로 들어온 뒤 그 코스와 그 지점이 바로 열립니다. 웹에는 대본 통째로 고치기와 현장 메모 모아 정리도 있습니다.",
     "웹과 앱을 함께 쓸 때 저장" to "웹과 앱은 같은 코스를 씁니다. 양쪽에서 고치다 저장이 겹치면 통째로 덮지 않고 합칩니다. 다른 곳에서 고친 칸은 그대로 살리고, 같은 칸을 양쪽에서 고쳤을 때만 지금 고친 것으로 맞춥니다. 그때 앞 것은 설정의 판 되돌리기에 남아 있습니다. 앱으로 돌아오면, 폰에 아직 올리지 않은 것이 없을 때 웹에서 고친 최신 코스를 저절로 받아 옵니다.",
     "자판이 올라올 때" to "글 칸을 누르면 자판이 올라오고, 누른 칸은 저절로 자판 위로 올라와 적는 글을 보실 수 있습니다. 자판이 떠 있는 동안 아래 탭 다섯은 잠시 숨습니다. 자판을 내리면 탭이 다시 나옵니다. 폰의 뒤로 동작을 한 번 하면 자판이 내려갑니다.",

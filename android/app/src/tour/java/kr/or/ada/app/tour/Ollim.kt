@@ -213,8 +213,8 @@ object Ollim {
     // MARK: 받아서 설치
 
     /** 261019-P1 플레이 판 — 플레이 스토어의 이 앱 쪽을 엶(플레이 앱이 없으면 누리집으로) */
-    private fun peulleiYeolgi(a: Activity) {
-        mal("플레이 스토어를 엽니다. 업데이트 단추가 있으면 눌러 주십시오.")
+    internal fun peulleiYeolgi(a: Activity) {
+        mal(if (BuildConfig.PLAY) "플레이 스토어를 엽니다. 업데이트 단추가 있으면 눌러 주십시오." else "플레이 스토어를 엽니다. 이 앱을 지운 뒤 설치 단추를 눌러 주십시오.")
         try {
             a.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + a.packageName)).setPackage("com.android.vending"))
         } catch (e: Exception) {
