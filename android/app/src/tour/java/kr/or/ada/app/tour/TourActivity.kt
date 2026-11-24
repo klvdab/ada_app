@@ -361,7 +361,7 @@ class TourActivity : Activity() {
      *  코스·시나리오는 서버에 있어 같은 아이디로 로그인하면 그대로 나옴. 말소리는 앱을 켤 때 한 번만. */
     private var peulleiMalHam = false
     internal fun peulleiOmgigi() {
-        if (BuildConfig.PLAY) return
+        if (kr.or.ada.app.BuildConfig.PLAY) return
         geul("플레이 스토어에 정식 앱이 나왔습니다", jemok = true)
         geul("코스와 시나리오는 서버에 있어, 플레이 스토어 앱에서 같은 아이디로 로그인하면 그대로 나옵니다. 이 앱과 플레이 스토어 앱은 서로 덮어 설치되지 않으니 순서대로 해 주십시오. 첫째, 못 올린 것을 올립니다. 둘째, 이 앱을 지웁니다. 셋째, 플레이 스토어에서 투어스튜디오를 받아 로그인합니다.")
         val ds = Daegi.su(this)
