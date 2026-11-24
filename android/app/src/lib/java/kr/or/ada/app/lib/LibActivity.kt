@@ -532,7 +532,7 @@ class LibActivity : Activity() {
         danchu(if (entDeo) "더 보기 접기" else "더 보기") { entDeo = !entDeo; dasi("더 보기") }
         if (entDeo) {
             geul("엔터테인먼트는 협회가 모아 온 영화, 드라마, 다큐 같은 자료를 모은 곳입니다. 영화, 드라마, 다큐·시사·교양, 애니메이션, 라디오·오디오 드라마, 음악, 화면해설 작품, 교육 여덟 갈래가 있습니다. 작품을 한 번 두드리면 바로 틀고, 영상은 화면도 함께 나오며, 듣던 자리를 기억합니다.")
-            geul("AI점자도서관 ${PAN}판, 빌드 $BILDEU", jakge = true)
+            geul("AI점자도서관 ${Ollim.jigeumPan(this)}판", jakge = true)   // 0.8.9 판 번호는 설치된 앱에서 읽음(글자로 박아 두니 0.8.8에서 0.8.7로 나왔음)
         }
         pool.execute {
             val r = runCatching { Api.entGal() }
@@ -1094,7 +1094,7 @@ class LibActivity : Activity() {
         danchu("확인됐는지 다시 보기") { pool.execute { Hoewon.deungHwakin(this); main.post { jeungMal = "내 회원 등급, " + Hoewon.deungT(this) + ". " + Hoewon.jeungIreum(Hoewon.jeung(this)); malhagi(jeungMal); dasi("확인됐는지 다시 보기") } } }
         if (jeungMal.isNotEmpty()) geul(jeungMal, jakge = true)
         geul("회원: ${Hoewon.ireum(this)}", jakge = true)   // 0.4.4 아이폰과 같게
-        geul("AI점자도서관 안드로이드 ${PAN}판, 빌드 $BILDEU", jakge = true)
+        geul("AI점자도서관 안드로이드 ${Ollim.jigeumPan(this)}판", jakge = true)
         geul("사단법인 한국시각장애인현장영상해설협회. 문의 서울시각장애인현장영상해설센터, 서울 동대문구 약령중앙로10길 17, 202호(제기동), 전화 02-966-4569, 메일 ailib@ada.or.kr", jakge = true)   // 0.8.7 (261122) 문의처를 제기동 서울센터로(이사장님 지시), 「주관」은 아이폰처럼 뺌 · 문의 메일을 도서관 메일 ailib@ada.or.kr 로(이사장님 승인 261122)
         cheotJul(t)
     }
