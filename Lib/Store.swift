@@ -139,7 +139,7 @@ final class Store: ObservableObject {
         save(); return (r, mk)
     }
     func doedollrigi(_ r: ReadRec, _ mk: [Mark]) {
-        delR[r.i] = nil; var r = r; r.at = Date()   // 0.8.9 되돌린 것이 지운 표시보다 나중이 되게
+        var r = r; delR[r.i] = nil; r.at = Date()   // 0.8.9 되돌린 것이 지운 표시보다 나중이 되게
         if !reads.contains(where: { $0.i == r.i }) { reads.append(r) }
         for var m in mk where !marks.contains(where: { $0.id == m.id }) { delM[Store.markKey(m.i, m.pos)] = nil; m.at = Date(); marks.append(m) }
         save()

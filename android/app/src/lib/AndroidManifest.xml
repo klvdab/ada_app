@@ -14,6 +14,9 @@
     <!-- 261019-P2 걸음 센서 허락은 길눈 부품(main) 몫 — 도서관은 쓰지 않으므로 뺌(플레이 건강 선언 대상에서 빠짐, 대장클) -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" tools:node="remove" />
 
+    <!-- 0.8.9(261124-L32) 플레이 「세로 화면만」 경고 — 태블릿·크롬북에서도 설치되게 세로 화면을 필수로 하지 않음(대클) -->
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
+
     <application>
         <activity android:name="kr.or.ada.app.MainActivity" tools:node="remove" />
         <activity
