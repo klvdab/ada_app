@@ -168,7 +168,7 @@ class LibActivity : Activity() {
     }
     private var jeungMal = ""
 
-    override fun onResume() { super.onResume(); Ollim.dorawatda(this) }   // 0.4.3 돌아오면 새 판 살피기(1시간에 한 번까지)
+    override fun onResume() { super.onResume(); Ollim.dorawatda(this); Dongi.matchugi() }   // 0.8.9 켤 때·돌아올 때 폰과 컴퓨터 기록 맞추기   // 0.4.3 돌아오면 새 판 살피기(1시간에 한 번까지)
     override fun onNewIntent(i: android.content.Intent) { super.onNewIntent(i); setIntent(i); Ollim.intentBoda(this, i) }   // 0.4.3 새 판 알림을 두드렸을 때
     override fun onStop() { LibGirok.jeojang(); LibGirok.bonaegi(); super.onStop() }   // 0.6.3 이용 기록 — 앱이 뒤로 갈 때 폰에 저장하고 보냄
     override fun onDestroy() { Dokseo.bakkwim = null; Dokseo.ieoBakkwim = null; Ollim.byeonhwa = null; Ollim.malhagi = null; super.onDestroy() }
@@ -1049,6 +1049,9 @@ class LibActivity : Activity() {
         danchu("곡이 넘어갈 때 제목 읽기: ${if (Store.gogmal) "켜짐" else "꺼짐"}") {   // 0.8.1 (261018-L20) 듣는 화면에서 설정으로 옮김(이사장님 승인 「3」)
             Store.gogmal = !Store.gogmal; malhagi(if (Store.gogmal) "곡이 넘어갈 때 제목을 읽습니다." else "곡이 넘어갈 때 제목을 읽지 않습니다."); dasi("곡이 넘어갈 때 제목 읽기")
         }
+        danchu("폰과 컴퓨터 기록 함께 쓰기: ${if (Store.dongi) "켜짐" else "꺼짐"}") {   // 0.8.9 (261124-L32)
+            Store.dongi = !Store.dongi; malhagi(if (Store.dongi) "폰과 컴퓨터 기록을 함께 씁니다." else "기록을 이 폰에만 둡니다."); if (Store.dongi) Dongi.matchugi(); dasi("폰과 컴퓨터 기록 함께 쓰기")
+        }
         danchu("첫 화면 목록: ${MUN.first { it.first == cheotMun() }.second}") {   // 0.5.0 누를 때마다 주제별 → 장르별 → 테마별
             val n = MUN[(MUN.indexOfFirst { it.first == cheotMun() } + 1) % MUN.size]
             getSharedPreferences("naeryeo", MODE_PRIVATE).edit().putString("cheotMun", n.first).apply(); malhagi("첫 화면 목록, ${n.second}"); dasi("첫 화면 목록")
@@ -1101,6 +1104,7 @@ class LibActivity : Activity() {
 
     // 0.4.4 도움말 — 아이폰 도움말과 같은 가짓수로 맞춤(안드로이드 말로)
     private val DOUM = listOf(
+        "폰과 컴퓨터 기록 함께 쓰기" to "같은 아이디(같은 전화번호)로 들어가면 폰에서 읽던 곳을 컴퓨터에서 이어 읽을 수 있습니다. 거꾸로 컴퓨터(ailib.ada.or.kr)에서 읽던 곳도 폰의 이어 듣기에 나옵니다. 이어 읽기, 다 읽은 책, 책갈피가 도서관 서버에 모여 폰과 컴퓨터가 함께 씁니다. 폰에서 내 서재의 책이나 책갈피를 지우면 컴퓨터에서도 지워집니다. 설정·도움말 탭의 「폰과 컴퓨터 기록 함께 쓰기」 단추로 켜고 끕니다. 처음에는 켜져 있습니다. 끄면 기록은 이 폰에만 남습니다. 인터넷이 안 될 때도 폰에는 그대로 남고, 다시 연결되면 맞춥니다.",   // 0.8.9 (261124-L32)
         "탭 고르기" to "아래 탭(도서관, 엔터테인먼트, 내 서재, 설정·도움말)을 고르면 커서가 그 화면 목록의 첫 줄에 놓입니다. 도서관과 엔터테인먼트는 이어 듣기, 이어 들을 것이 없으면 찾기 칸입니다. 내 서재는 읽던 책 첫 권입니다. 지금 탭을 다시 누르면 그 탭 첫 화면으로 돌아가 첫 줄에 놓입니다.",   // 0.7.1
         "이어 듣기" to "읽던 책이 있으면 도서관 첫 화면 찾기 칸 아래에 이어 듣기가 나옵니다. 누르면 독서기가 열리면서 읽던 자리부터 바로 읽고, 커서는 멈춤 단추에 놓입니다.",
         "책 고르면 바로 읽기" to "목록에서 책 이름을 한 번 두드리면 독서기가 열리면서 바로 읽습니다. 읽던 책이면 읽던 자리부터 읽습니다. 소리책과 동영상도 바로 틉니다. 커서는 멈춤 단추에 놓이니 잘못 고르셨으면 바로 멈추십시오. 책 소개, 지은이, 출판사, 내려받기는 독서기 더 보기 안의 책 정보에 있습니다.",

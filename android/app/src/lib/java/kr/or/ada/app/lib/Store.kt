@@ -8,6 +8,8 @@ import org.json.JSONObject
 data class ReadRec(val i: Int, var t: String, val kind: String, var pos: Double, var modu: Int, var at: Long, var done: Boolean) {
     val wichiMal: String get() = if (kind == "geul") "${pos.toInt() + 1}번째 문단" else { val s = pos.toInt(); "${s / 60}분 ${s % 60}초" }
 }
+/** 0.8.9 지운 책갈피 표시 — 서버에 닿을 때까지 폰에 둠 */
+data class DelMark(val i: Int, val pos: Double, val at: Long)
 data class Mark(val i: Int, val t: String, val kind: String, val pos: Double, val at: Long) {
     val id: String get() = "$i-$pos"
     val wichiMal: String get() = if (kind == "geul") "${pos.toInt() + 1}번째 문단" else { val s = pos.toInt(); "${s / 60}분 ${s % 60}초" }
@@ -20,6 +22,11 @@ object Store {
     private val p get() = ctx.getSharedPreferences("lib_store", Context.MODE_PRIVATE)
     val reads = mutableListOf<ReadRec>()
     val marks = mutableListOf<Mark>()
+    /** 0.8.9 (261124-L32, 도클) 폰과 컴퓨터 기록 함께 쓰기 — 켜고 끄기(처음 켜짐)와 지운 책·책갈피 표시 */
+    var dongi: Boolean get() = p.getBoolean("dongi", true); set(v) { p.edit().putBoolean("dongi", v).apply() }
+    val delR = HashMap<Int, Long>()
+    val delM = HashMap<String, DelMark>()
+    fun markKey(i: Int, pos: Double) = "$i|${Math.round(pos)}"
     val rates = floatArrayOf(0.8f, 1.0f, 1.2f, 1.4f, 1.7f)
     val rateNames = arrayOf("아주 느리게", "보통", "조금 빠르게", "빠르게", "아주 빠르게")
     var rateIndex: Int get() = p.getInt("rate", 1); set(v) { p.edit().putInt("rate", v).apply() }
@@ -45,11 +52,19 @@ object Store {
             val m = JSONArray(p.getString("marks", "[]"))
             for (k in 0 until m.length()) { val o = m.getJSONObject(k); marks += Mark(o.getInt("i"), o.optString("t"), o.optString("kind", "geul"), o.optDouble("pos"), o.optLong("at")) }
         }
+        delR.clear(); delM.clear()
+        runCatching {   // 0.8.9
+            val a = JSONArray(p.getString("delR", "[]")); for (k in 0 until a.length()) { val o = a.getJSONObject(k); delR[o.getInt("i")] = o.getLong("at") }
+            val m = JSONArray(p.getString("delM", "[]")); for (k in 0 until m.length()) { val o = m.getJSONObject(k); val d = DelMark(o.getInt("i"), o.optDouble("pos"), o.getLong("at")); delM[markKey(d.i, d.pos)] = d }
+        }
     }
-    fun save() {
+    fun save(dongiDo: Boolean = true) {
         val a = JSONArray(); for (r in reads) a.put(JSONObject().put("i", r.i).put("t", r.t).put("kind", r.kind).put("pos", r.pos).put("modu", r.modu).put("at", r.at).put("done", r.done))
         val m = JSONArray(); for (k in marks) m.put(JSONObject().put("i", k.i).put("t", k.t).put("kind", k.kind).put("pos", k.pos).put("at", k.at))
-        p.edit().putString("reads", a.toString()).putString("marks", m.toString()).apply()
+        val dr = JSONArray(); for ((i, at) in delR) dr.put(JSONObject().put("i", i).put("at", at))
+        val dm = JSONArray(); for (d in delM.values) dm.put(JSONObject().put("i", d.i).put("pos", d.pos).put("at", d.at))
+        p.edit().putString("reads", a.toString()).putString("marks", m.toString()).putString("delR", dr.toString()).putString("delM", dm.toString()).apply()
+        if (dongiDo) Dongi.moeum()   // 0.8.9
     }
     val last: ReadRec? get() = reading.firstOrNull()
     val reading: List<ReadRec> get() = reads.filter { !it.done }.sortedByDescending { it.at }
@@ -81,18 +96,22 @@ object Store {
         if (marks.none { it.i == i && kotlin.math.abs(it.pos - pos) < 0.5 }) { marks += Mark(i, t, kind, pos, System.currentTimeMillis()); save() }
     }
     /** 0.4.4 책갈피 지우기 */
-    fun removeMark(m: Mark) { marks.removeAll { it.id == m.id }; save() }
+    fun removeMark(m: Mark) { delM[markKey(m.i, m.pos)] = DelMark(m.i, m.pos, System.currentTimeMillis()); marks.removeAll { it.id == m.id }; save() }
     fun marksOf(i: Int) = marks.filter { it.i == i }.sortedBy { it.pos }
     /** 내 서재에서 지우기 — 되돌리기를 위해 돌려줌 */
     fun jiugi(i: Int): Pair<ReadRec, List<Mark>>? {
         val r = rec(i) ?: return null
         val mk = marks.filter { it.i == i }
-        reads.removeAll { it.i == i }; marks.removeAll { it.i == i }; save()
+        reads.removeAll { it.i == i }; marks.removeAll { it.i == i }
+        val now = System.currentTimeMillis(); delR[i] = now   // 0.8.9 다른 기기에서도 지워지게
+        for (m in mk) delM[markKey(m.i, m.pos)] = DelMark(m.i, m.pos, now)
+        save()
         return r to mk
     }
     fun doedollrigi(r: ReadRec, mk: List<Mark>) {
+        val now = System.currentTimeMillis(); delR.remove(r.i); r.at = now   // 0.8.9 되돌린 것이 지운 표시보다 나중이 되게
         if (reads.none { it.i == r.i }) reads += r
-        for (m in mk) if (marks.none { it.id == m.id }) marks += m
+        for (m in mk) if (marks.none { it.id == m.id }) { delM.remove(markKey(m.i, m.pos)); marks += m.copy(at = now) }
         save()
     }
 }
