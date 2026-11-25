@@ -12,13 +12,18 @@ struct Gochim: Identifiable {
 enum Pan {
     /// 2.135.0 (261125, 대클) 판 번호는 앱에 새겨진 번호(설계도 MARKETING_VERSION)를 그대로 읽음 —
     ///   2.134.0 때 이 글자를 고치지 않아 설정 화면·기록에 2.133.0으로 나왔던 일(이사장님 11-25 「테스트플라이트에서 받았는데 왜 이전 버전이라 하는지」)
-    static var pan: String { (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "2.135.0" }
-    static let bild = "261125-I89"
+    static var pan: String { (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "2.136.0" }
+    static let bild = "261125-I90"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.136.0", bild: "261125-I90", nal: "2026-11-25", naeyong: [
+            "★길눈이 말하는 중에도 「하이 길눈」·「길눈아」를 들음 — 부르시면 하던 말을 곧바로 끊고 「네」 하고 명령을 들음(전에는 말을 다 마친 뒤에야 들어 끝까지 떠들었음, 이사장님 11-25 퇴근길)",
+            "★화면을 만지시면(보이스오버 커서가 옮겨 가면) 길눈이 하던 말과 줄에 선 말을 곧바로 멈춤. 경고는 남김",
+            "길눈이 제 입으로 「길눈」·「하이」를 말한 소리는 부름으로 듣지 않게 거름(말을 마친 뒤 1.5초까지)"
+        ]),
         Gochim(pan: "2.135.0", bild: "261125-I89", nal: "2026-11-25", naeyong: [
             "★하이 길눈을 「아이결론」·「아이결」처럼 잘못 들은 말도 하이 길눈으로 알아들음(이사장님 11-25 아침 출근길 세 번 놓침)",
             "★차를 기다리는 동안에는 차 안 안내를 하지 않음 — 차가 실제로 달리기 시작한 것(시속 15킬로미터 넘게 15초, 또는 300미터 넘게 옮김)을 확인한 뒤 시작",

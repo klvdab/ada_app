@@ -813,10 +813,7 @@ final class MalHagi: ObservableObject {
                 }
                 return
             }
-            if SoriEngine.shared.bappeum {
-                SoriEngine.shared.kkeutnamyeon { [weak self] in self?.bureumDasi(0.6) }
-                return
-            }
+            // 2.136.0 (261125, 이사장님 말씀 「말하는 중에도 길눈아·하이 길눈을 반드시 지키도록」) 길눈이 말하는 중이어도 기다리지 않고 곧바로 부름을 엶
             SoriEngine.shared.deutgiKyeojim = true
             let ok = MalDeutgi.shared.bureum(deureum: { [weak self] in
                 self?.bureumDeureum()
@@ -857,19 +854,14 @@ final class MalHagi: ObservableObject {
         MalDeutgi.shared.dareunSori(jurim: false)
     }
 
-    /// 길눈이 막 말하려 함 — 부름 기다리기를 잠시 닫고 다 말한 뒤 다시 엶. 명령 듣는 중 경고가 오면 경고부터
+    /// 길눈이 막 말하려 함 — 명령 듣는 중 경고가 오면 경고부터(2.136.0 부름 기다리기는 닫지 않음)
     private func malSijakham() {
         if sangtae == .deutneun {
             myeongryeongChwiso()
             return
         }
-        // 2.12.2 걸러 듣기 중이면 길눈이 말하는 동안에도 부름을 들음(말에 "길눈"이 들면 그때만 쉼)
-        if bureumDolgo && MalDeutgi.shared.georeunda && !SoriEngine.shared.hanunMal.contains("길눈") { return }
-        if bureumDolgo {
-            MalDeutgi.shared.swigi()   // 2.12.1 마이크는 열어 둔 채 쉼 — 잠긴 폰에서도 다시 듣게
-            bureumDolgo = false
-            bureumDasi(0.6)
-        }
+        // 2.136.0 (261125, 이사장님 말씀) 길눈이 말하는 동안에도 부름 듣기를 닫지 않음 — 말하는 중에 「하이 길눈」·「길눈아」를 하시면
+        //   곧바로 말을 끊고 명령을 들음. 길눈이 제 입으로 「길눈」·「하이」를 말한 것은 받아쓰기 쪽(jegaBureumMal)에서 거름
     }
 
     /// "하이 길눈"을 들음 — "네" 하고 명령을 들음

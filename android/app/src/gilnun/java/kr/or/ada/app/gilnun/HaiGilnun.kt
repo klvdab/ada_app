@@ -1,7 +1,7 @@
 // 안드로이드 길눈 2.26.0(빌드 261007-A14, 대장클, 이사장님 승인 1 「설정에서 켜는 방식, 처음은 끔」) — 하이 길눈 부르기
 // 아이폰 MalDeutgi 의 부름 듣기를 안드로이드로 옮김. 안드로이드 12 이상의 「폰 안 받아쓰기」만 씀(통신 없이, 돈 들지 않음).
 //   설정의 말하기 설정에서 켜고 끔(처음은 꺼짐) — 갤럭시는 받아쓰기를 다시 열 때 소리가 날 수 있어 이사장님이 들어 보신 뒤 정하기로 함.
-//   길눈 화면이 앞에 있을 때만 들음(안드로이드가 뒤에서 마이크 열기를 막음). 길눈이 말하는 동안·말로 하기·긴급통화 중에는 쉼.
+//   길눈 화면이 앞에 있을 때만 들음(안드로이드가 뒤에서 마이크 열기를 막음). 말로 하기·긴급통화 중에는 쉼(2.101.0 길눈이 말하는 동안에도 들음).
 //   "하이 길눈"(하이 길, 길눈아도)을 알아들으면 말로 하기 단추를 누른 것처럼 명령을 들음.
 package kr.or.ada.app.gilnun
 
@@ -150,7 +150,8 @@ object HaiGilnun {
         val dwi = Seoljeong.hiJamgeum && WichiService.maikJabeum
         val deureoya = Seoljeong.hiGilnun && (apE || dwi) &&
             ContextCompat.checkSelfPermission(c, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED &&
-            !Sori.malhaneunJung && !Sori.deutneunJung && MalHagi.sangtae == MalSangtae.SWIM &&
+            // 2.101.0 (261125, 이사장님 말씀, 아이폰 2.136.0과 같음) 길눈이 말하는 중에도 들음 — 부르시면 곧바로 말을 끊고 명령을 들음
+            !Sori.deutneunJung && MalHagi.sangtae == MalSangtae.SWIM &&
             GinGeup.sangtae == GinGeupSangtae.EOPSEUM && !MalDeutgi.dolgoItda &&
             !JeonhwaGamsi.jeonhwaJung &&   // 2.30.0 전화 중에는 듣지 않음(통화 말을 명령으로 알아듣지 않게)
             !MalHagi.pyeonjipJung          // 2.31.0 길 찾기 편집창에 글자를 넣으시는 중에는 듣지 않음
@@ -216,11 +217,13 @@ object HaiGilnun {
                 // 「길눈」 한 마디 — 0.7초 동안 뒤에 말(토씨)이 붙지 않으면 부름
                 swimR?.let { main.removeCallbacks(it) }
                 val f0 = meoriJigeum
-                val rr = Runnable { if (sr === r && meoriJigeum == f0) bureumBadeum("gilnun") }
+                val rr = Runnable { if (sr === r && meoriJigeum == f0 && !Sori.jegaBureumMal) bureumBadeum("gilnun") }
                 swimR = rr
                 main.postDelayed(rr, 700)
             }
         }
+        // 2.101.0 길눈이 제 입으로 「길눈」·「하이」를 말한 소리는 부름으로 듣지 않음
+        if (kind != null && Sori.jegaBureumMal) kind = null
         if (kind != null) { bureumBadeum(kind); return }
         beorimGirok()
         if (kkeut) { datgi(); dasiTtae = System.currentTimeMillis() + 300 }

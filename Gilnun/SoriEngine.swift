@@ -54,6 +54,8 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
     /// 2.96.0 (261017-I50, 이사장님 KTX에서 겪으심 2026-10-17) 소리 자리를 빼앗긴 때와 지금 말을 시작한 때 — 막힘 풀기에 씀
     private var meomchumTtae = Date.distantPast
     private var malSijakTtae = Date.distantPast
+    /// 2.136.0 마지막으로 말이 들어온 때 — 앱이 결과를 말하며 커서를 옮긴 것을 화면 만짐으로 잘못 보지 않게
+    private var malDeureonTtae = Date.distantPast
     private var malGilyi = 0
     private var jikimTimer: Timer?
     /// 2.103.0 (261021-I57, 이사장님 승인 2026-10-21 「그래」) 보이스오버가 줄을 읽는 동안에는 길눈 안내가 기다렸다가 말함(경고는 기다리지 않음).
@@ -107,6 +109,13 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
     var bappeum: Bool { malJung || !jul.isEmpty }
     /// 2.12.6 지금 입으로 말하는 중인가(줄에 남은 말은 셈하지 않음 — 멈춘 줄이 남아 부름을 버리던 것)
     var malhaneunJung: Bool { malJung }
+    /// 2.136.0 (261125) 말을 마친 때 — 받아쓰기가 조금 늦게 적는 길눈 제 말소리를 부름으로 듣지 않게 1.5초 더 봄
+    private(set) var malKkeutTtae = Date.distantPast
+    /// 2.136.0 길눈이 제 입으로 「길눈」·「하이」를 말하는 중이거나 막 마쳤는가
+    var jegaBureumMal: Bool {
+        guard malJung || Date().timeIntervalSince(malKkeutTtae) < 1.5 else { return false }
+        return hanunMal.contains("길눈") || hanunMal.contains("하이")
+    }
 
     /// 지금 줄에 선 말까지 다 하고 나면 한 번 부름(말이 없으면 곧바로)
     func kkeutnamyeon(_ f: @escaping () -> Void) {
@@ -141,6 +150,13 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
                 gil = (el.accessibilityLabel ?? "").count + (el.accessibilityValue ?? "").count + (el.accessibilityHint ?? "").count
             }
             self.voKkaji = Date().addingTimeInterval(min(7, 0.8 + Double(gil) * 0.075))
+            // 2.136.0 (261125, 이사장님 말씀 「화면을 터치하면 그 신호를 반드시 지키도록」) 화면을 만지시면 길눈이 하던 말과 줄에 선 말을 곧바로 멈춤(경고는 남김)
+            // 앱이 새 화면·결과를 보이며 커서를 옮긴 것(말이 막 들어오거나 막 시작한 1.5초 안)은 만짐으로 치지 않음
+            let gakkai = min(Date().timeIntervalSince(self.malDeureonTtae), Date().timeIntervalSince(self.malSijakTtae))
+            if (self.malJung || !self.jul.isEmpty) && gakkai > 1.5 {
+                Girok.shared.namgi("teochi_meomchum", ["mal": String(self.hanunMal.prefix(20)), "jul": self.jul.count])
+                self.modu_geodugi()
+            }
         }
         // 2.96.0 (261017-I50) 5초마다 막힘 살피기 — 끊김이 끝났다는 알림이 오지 않거나, 말이 끝났다는 신호가 오지 않아도 줄이 멈추지 않게
         DispatchQueue.main.async {
@@ -162,6 +178,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
         let t = t.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty else { return }
         DispatchQueue.main.async {
+            self.malDeureonTtae = Date()   // 2.136.0
             if self.malAnham {   // 2.59.0 전화 중에도
                 self.majimak = t
                 if geup == .gyeonggo { Jindong.hagi("long") }   // 2.12.0 통화 중 경고는 진동으로
@@ -551,6 +568,7 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
 
     private func daeum() {
         jigeumGeup = nil
+        malKkeutTtae = Date()   // 2.136.0
         if jul.isEmpty {
             sesyeonNaerigi(1.0)
             bangsongDoedollim()

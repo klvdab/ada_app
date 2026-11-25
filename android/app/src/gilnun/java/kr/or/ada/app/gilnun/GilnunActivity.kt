@@ -158,6 +158,15 @@ class GilnunActivity : AppCompatActivity() {
         }
         bburi.addView(tabJul, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         setContentView(bburi)
+        // 2.101.0 (261125, 이사장님 말씀 「화면을 터치하면 그 신호를 반드시 지키도록」, 아이폰 2.136.0과 같음)
+        //   화면을 만지시면(톡백 커서가 옮겨 가면) 길눈이 하던 말을 곧바로 멈춤 — 앱이 스스로 커서를 옮긴 1초 안은 빼고, 경고는 끊지 않음
+        bburi.accessibilityDelegate = object : View.AccessibilityDelegate() {
+            override fun onRequestSendAccessibilityEvent(host: ViewGroup, child: View, event: AccessibilityEvent): Boolean {
+                if (event.eventType == AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED &&
+                    System.currentTimeMillis() - jaChojeomTtae > 1000) Sori.teochiMeomchum()
+                return super.onRequestSendAccessibilityEvent(host, child, event)
+            }
+        }
 
         Sori.tokbaek = { t -> bburi.announceForAccessibility(t) }
 
@@ -485,10 +494,14 @@ class GilnunActivity : AppCompatActivity() {
     /** 2.6.0 화면을 그린 뒤 커서가 갈 첫 줄을 이 줄로(뒤로 단추 대신 — 통화 끊기 단추 등) */
     fun chojeomJul(v: View) { cheotJul = v }
 
+    /** 2.101.0 앱이 스스로 커서를 옮긴 때 — 화면 만짐으로 치지 않으려고 */
+    private var jaChojeomTtae = 0L
+
     /** 이 줄로 커서를 옮김(2.2.0 — 결과 목록이 나오면 첫 결과 줄로) */
     fun chojeomOmgigi(v: View) {
         v.post {
             if (!v.isAttachedToWindow) return@post
+            jaChojeomTtae = System.currentTimeMillis()
             v.requestFocus()
             v.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null)
             v.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED)
@@ -522,6 +535,7 @@ class GilnunActivity : AppCompatActivity() {
         if (chojeom) {
             val c = cheotJul
             c?.post {
+                jaChojeomTtae = System.currentTimeMillis()
                 c.requestFocus()
                 c.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null)
                 c.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED)
@@ -1075,6 +1089,8 @@ class DoumalHwamyeon : Hwamyeon("도움말") {
             "하던 일 멈추기" to "길 찾기 탭 첫 화면 맨 위에는 하던 일 멈추기 단추가 늘 있습니다. 누르시면 걷는 안내와 차 안 안내, 점지도 따라 걷기, 지하철 안내, 되짚어 나가기의 나가는 길 안내, 말로 그린 길 따라 걷기, 묻던 말, 음향신호기 찾기, 차 안 간판 알림, 문 찾기와 문까지 이끌기, 카메라로 하는 기능, 길눈의 말을 모두 멈추고, 콜 차를 탄 것으로 정해 둔 것과 지금 탄 것에 대한 판단도 처음부터 다시 살핍니다. 되짚어 나가기에 기억해 둔 길은 지우지 않습니다. 그리고 하던 일을 멈췄습니다, 어디로 가실까요 하고 한 번 말씀드린 뒤 커서를 어디로 가실까요 칸으로 옮깁니다. 음악과 방송은 멈추지 않습니다. 말로 하기에서는 하던 일 멈춰, 다 멈춰, 모두 멈춰라고 말씀하십시오. 새 목적지를 고르시거나 말씀하시면 하던 안내는 저절로 멈추고 새 목적지로 바뀝니다.",
             "즐겨찾기 — 담기와 지우기" to "목적지를 고른 화면에서 즐겨찾기에 담기를 누르시면 담깁니다. 지금 계신 자리를 담으시려면 즐겨찾기 화면의 펼치기에서 이름을 적고 담기를 누르십시오. 주소와 함께 담기고, 폰 안에만 있습니다. 지우실 때는 그 줄에서 톡백 동작 메뉴(위로 쓸었다 오른쪽, 또는 세 손가락 두드리기)를 열어 즐겨찾기에서 지우기를 고르시거나, 그 줄을 길게 누르십시오. 요즘 가신 곳이 맨 위로 옵니다.",
             "걷는 안내" to "걸어가기를 누르시면 목적지까지 남은 거리와 시계 방향을 말씀드립니다. 가까워질수록 더 자주 말하고, 방향이 틀어지면 바로 알려 드리며 폰과 워치가 돌 쪽으로 떨립니다. 제대로 가고 계시면 25초마다 짧은 확신음이 납니다. 사거리와 갈림길에 닿으면 어느 길과 어느 길이 만나는 곳인지 알려 드립니다. 40미터 안에 들면 곧 도착을, 닿으면 도착 소리와 함께 도착했습니다를 말씀드립니다. 맞는 점지도가 있으면 점지도로 걸을지 먼저 여쭙고, 20초 안에 고르지 않으시면 점지도로 걷습니다.",
+            // 2.101.0 (261125, 이사장님 말씀 퇴근길, 아이폰 2.136.0과 같음)
+            "길눈이 말하는 중에 멈추게 하기" to "길눈이 안내를 말하는 중이어도 하이 길눈, 또는 길눈아라고 부르시면 하던 말을 곧바로 끊고 네 하고 말씀을 기다립니다. 라디오나 음악이 나오는 중이어도 같습니다. 화면을 만지셔도(톡백 커서가 다른 줄로 옮겨 가면) 길눈이 하던 말을 곧바로 멈추고, 톡백이 읽는 것을 먼저 들으시게 합니다. 다만 차 조심 같은 경고는 멈추지 않습니다. 길눈이 제 입으로 길눈이나 하이라는 말을 할 때는 그 소리를 부름으로 듣지 않습니다. 방금 끊긴 말을 다시 들으시려면 길눈아 다시 말해라고 말씀하십시오. 하이 길눈은 길눈 화면이 앞에 있을 때 듣습니다.",
             // 2.100.0 (261125, 이사장님 승인 2026-11-25, 아이폰 2.135.0과 같음)
             "차를 기다리는 동안과 차 안 멈춤 안내" to "콜이나 택시를 부르신 뒤 차를 기다리시는 동안에는 차 안 안내를 하지 않습니다. 차가 실제로 달리기 시작한 것을 길눈이 확인하면(시속 15킬로미터 넘게 15초쯤, 또는 300미터 넘게 옮김) 그때부터 차 안 안내를 시작합니다. 기다리시는 중이면 하이 길눈을 부르신 뒤 차 기다리는 중, 기다리라고 했어처럼 말씀하셔도 됩니다. 차가 막혀 서면 2분 넘게 섰을 때만 어디에 멈춰 있는지 알려 드리고, 그렇게 알려 드린 뒤에만 다시 움직입니다라고 말씀드립니다. 방향을 틀면 방금 몇 시 방향으로 돌았는지와 지금 자리, 남은 거리를 한 마디로 알려 드립니다. 지나는 간판 알림은 그대로입니다.",
             "라디오 소리 크기만 따로 조절하기" to "라디오나 TV가 나오는 동안 하이 길눈을 부르신 뒤 라디오 소리 줄여, 라디오 소리 키워라고 말씀하시면 길눈 말소리는 그대로 두고 라디오 크기만 20퍼센트씩 바뀝니다. 정한 크기는 기억했다가 다음에 틀 때도 씁니다. 길눈이 안내하는 동안에는 라디오를 조금 줄였다가, 안내가 끝나고 1.5초 조용하면 정한 크기로 되돌립니다. 안내가 잇달아 나오면 그동안은 줄인 채로 두어 라디오가 자꾸 커졌다 작아지지 않습니다. 길눈아 꺼라고 하시면 라디오를 끄고 라디오를 껐습니다라고 알려 드립니다. 폰 옆의 음량 단추는 길눈 말소리와 라디오를 함께 바꿉니다.",

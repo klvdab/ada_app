@@ -24,9 +24,9 @@ import java.util.concurrent.Executors
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
     /** 2.100.0 (261125, 대클) 판 번호는 설치된 앱의 versionName 을 읽음(panIlgi) — 2.99.0 때 이 글자를 고치지 않아 2.98.0으로 나오던 일 */
-    var pan = "2.100.0"
+    var pan = "2.101.0"
         private set
-    const val bild = "261125-A90"
+    const val bild = "261125-A91"
     fun panIlgi(c: android.content.Context) {
         try { c.packageManager.getPackageInfo(c.packageName, 0).versionName?.let { if (it.isNotEmpty()) pan = it } } catch (e: Exception) {}
     }
@@ -34,6 +34,11 @@ object Pan {
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.101.0", "261125-A91", "2026-11-25", listOf(
+            "★길눈이 말하는 중에도 「하이 길눈」·「길눈아」를 들음 — 부르시면 하던 말을 곧바로 끊고 「네」 하고 명령을 들음(이사장님 11-25 퇴근길, 아이폰 2.136.0과 같음)",
+            "★화면을 만지시면(톡백 커서가 옮겨 가면) 길눈이 하던 말을 곧바로 멈춤. 경고는 남김",
+            "길눈이 제 입으로 「길눈」·「하이」를 말한 소리는 부름으로 듣지 않게 거름(말을 마친 뒤 1.5초까지)"
+        )),
         Gochim("2.100.0", "261125-A90", "2026-11-25", listOf(
             "★하이 길눈을 「아이결론」·「아이결」처럼 잘못 들은 말도 하이 길눈으로 알아들음(이사장님 11-25 아침 출근길 세 번 놓침, 아이폰 2.135.0과 같음)",
             "★차를 기다리는 동안에는 차 안 안내를 하지 않음 — 차가 실제로 달리기 시작한 것(시속 15킬로미터 넘게 15초, 또는 300미터 넘게 옮김)을 확인한 뒤 시작",

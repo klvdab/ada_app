@@ -89,6 +89,7 @@ object Sori {
     private fun kkeut(id: String?) {
         main.post {
             ttsMalhaneun = tts?.isSpeaking == true
+            if (!malhaneunJung) malKkeutTtae = System.currentTimeMillis()   // 2.101.0
             if (!malhaneunJung) BangsongDuck.malKkeut()   // 2.7.0 b5 0.35초 뒤에도 조용하면 방송을 되돌림
             val f = id?.let { kkeutJul.remove(it) }
             f?.invoke()
@@ -102,6 +103,7 @@ object Sori {
         val t = t0.trim()
         if (t.isEmpty()) { kkeutnamyeon?.let { main.post(it) }; return }
         main.post {
+            malDeureonTtae = System.currentTimeMillis()   // 2.101.0
             // 2.6.0 긴급통화 중 — 말하지 않고, 경고는 길게 진동
             if (malAnham) {   // 2.30.0 전화 중에도
                 majimak = t
@@ -197,6 +199,27 @@ object Sori {
 
     /** 방금 한 말 다시 */
     fun dasiDeutgi() { if (majimak.isNotEmpty()) { dunmal.remove(majimak); mal(majimak) } }
+
+    /** 2.101.0 (261125, 아이폰 2.136.0과 같음) 말을 마친 때 — 받아쓰기가 조금 늦게 적는 길눈 제 말소리를 부름으로 듣지 않게 1.5초 더 봄 */
+    @Volatile var malKkeutTtae = 0L
+        private set
+    /** 2.101.0 길눈이 제 입으로 「길눈」·「하이」를 말하는 중이거나 막 마쳤는가 */
+    val jegaBureumMal: Boolean get() =
+        (malhaneunJung || System.currentTimeMillis() - malKkeutTtae < 1500) && (majimak.contains("길눈") || majimak.contains("하이"))
+
+    /** 2.101.0 (261125, 이사장님 말씀 「화면을 터치하면 그 신호를 반드시 지키도록」) 화면을 만지시면 하던 말을 곧바로 멈춤 — 경고는 끊지 않음 */
+    private var malDeureonTtae = 0L
+    fun teochiMeomchum() {
+        main.post {
+            if (!malhaneunJung) return@post
+            // 앱이 새 화면·결과를 보이며 커서를 옮긴 것(말이 막 들어온 1.5초 안)은 만짐으로 치지 않음
+            if (System.currentTimeMillis() - malDeureonTtae < 1500) return@post
+            if (System.currentTimeMillis() - gyeonggoTtae < 6000) return@post
+            Girok.namgi("teochi_meomchum", mapOf("mal" to majimak.take(20)))
+            tts?.stop(); ttsMalhaneun = false; NasMoksori.meomchugiBaro(); BangsongDuck.malKkeut()
+            malKkeutTtae = System.currentTimeMillis()
+        }
+    }
 
     /** 하던 말을 멈춤 */
     fun meomchugi() { main.post { tts?.stop(); ttsMalhaneun = false; NasMoksori.meomchugi(); BangsongDuck.malKkeut() } }   // 2.7.0 b5·b6

@@ -620,7 +620,8 @@ final class MalDeutgi: NSObject {
         }
         if bangsik == .bureum {
             // 2.12.2 길눈이 제 입으로 "길눈"을 말하는 중이면 부름으로 치지 않음
-            let jegaMalham = SoriEngine.shared.malhaneunJung && SoriEngine.shared.hanunMal.contains("길눈")   // 2.12.6 실제로 말하는 동안만
+            // 2.136.0 (261125) 길눈이 말하는 동안에도 부름을 들으므로 「하이」가 든 제 말과 막 마친 말(1.5초)도 거름
+            let jegaMalham = SoriEngine.shared.jegaBureumMal
             // 2.129.0 (261120-I83, 이사장님 승인 2026-11-20 「1」) 쉼 뒤 새로 시작한 말(말머리)을 봄 — 「길눈아」·「길눈」은 말머리에서만
             let u = malMeori(b0, MalSajeon.ttuk(sae != nil ? saeModu : (ls.first ?? "")))
             var kind: String? = nil
