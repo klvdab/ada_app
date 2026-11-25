@@ -12,13 +12,18 @@ struct Gochim: Identifiable {
 enum Pan {
     /// 2.135.0 (261125, 대클) 판 번호는 앱에 새겨진 번호(설계도 MARKETING_VERSION)를 그대로 읽음 —
     ///   2.134.0 때 이 글자를 고치지 않아 설정 화면·기록에 2.133.0으로 나왔던 일(이사장님 11-25 「테스트플라이트에서 받았는데 왜 이전 버전이라 하는지」)
-    static var pan: String { (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "2.137.0" }
-    static let bild = "261125-I91"
+    static var pan: String { (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "2.138.0" }
+    static let bild = "261125-I92"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.138.0", bild: "261125-I92", nal: "2026-11-25", naeyong: [
+            "★라디오·음악이 나오는 중에 화면을 만지시면 그 소리를 정한 크기의 10퍼센트로 줄여 보이스오버가 또렷이 들리게, 보이스오버가 다 읽고 2초 뒤 되돌림(이사장님 11-25 저녁 말씀)",
+            "★라디오가 나오는 중에 「하이」·「아이」·「길눈」으로 부르기 시작하시면 곧바로 라디오를 10퍼센트로 줄여 뒤따르는 부름말이 묻히지 않게(11-25 18시 36분~53분 「하이에나」·「하이힐」·「아이디」로 들려 다섯 번 놓침)",
+            "라디오에 묻혀 말머리가 「하이에나」·「하이힐」·「하이에」로 들린 것도 하이 길눈으로 받음"
+        ]),
         Gochim(pan: "2.137.0", bild: "261125-I91", nal: "2026-11-25", naeyong: [
             "★문까지 이어 안내 — 서 계시는 동안 문 방향을 5초마다 되풀이하지 않고 세 걸음 넘게 걸으실 때마다만. 위성 오차가 15미터를 넘으면 틀린 방향을 말하지 않고 한 번만 알림(이사장님 11-25 9시 18분 사무실 앞에서 1분 반 동안 문 방향이 11시·5시·8시·2시로 뒤집힘)",
             "문을 찾는 동안에는 「제자리에 계십니다」를 되풀이하지 않음"

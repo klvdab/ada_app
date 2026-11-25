@@ -24,9 +24,9 @@ import java.util.concurrent.Executors
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
     /** 2.100.0 (261125, 대클) 판 번호는 설치된 앱의 versionName 을 읽음(panIlgi) — 2.99.0 때 이 글자를 고치지 않아 2.98.0으로 나오던 일 */
-    var pan = "2.102.0"
+    var pan = "2.103.0"
         private set
-    const val bild = "261125-A92"
+    const val bild = "261125-A93"
     fun panIlgi(c: android.content.Context) {
         try { c.packageManager.getPackageInfo(c.packageName, 0).versionName?.let { if (it.isNotEmpty()) pan = it } } catch (e: Exception) {}
     }
@@ -34,6 +34,11 @@ object Pan {
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.103.0", "261125-A93", "2026-11-25", listOf(
+            "★라디오·음악이 나오는 중에 화면을 만지시면 그 소리를 정한 크기의 10퍼센트로 줄여 톡백이 또렷이 들리게, 다 읽고 2초 뒤 되돌림(아이폰 2.138.0과 같음)",
+            "★라디오가 나오는 중에 「하이」·「아이」·「길눈」으로 부르기 시작하시면 곧바로 라디오를 10퍼센트로 줄여 뒤따르는 부름말이 묻히지 않게",
+            "라디오에 묻혀 말머리가 「하이에나」·「하이힐」·「하이에」로 들린 것도 하이 길눈으로 받음"
+        )),
         Gochim("2.102.0", "261125-A92", "2026-11-25", listOf(
             "★문까지 이어 안내 — 서 계시는 동안 문 방향을 되풀이하지 않고 세 걸음 넘게 걸으실 때마다만. 위성 오차가 15미터를 넘으면 틀린 방향을 말하지 않고 한 번만 알림(아이폰 2.137.0과 같음)",
             "문을 찾는 동안에는 「제자리에 계십니다」를 되풀이하지 않음"

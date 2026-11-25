@@ -209,7 +209,14 @@ object HaiGilnun {
         val ls = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION) ?: arrayListOf()
         // 2.94.0 (261120-A82, 이사장님 승인 2026-11-20 「1」) 「하이 길눈」은 어디서든, 「길눈아」·「길눈」은 말머리에서만
         val u = malMeori(MalSajeon.ttuk(ls.firstOrNull() ?: ""))
+        // 2.103.0 (261125, 아이폰 2.138.0과 같음) 방송이 나오는 중에 말머리가 「하이」·「헤이」·「아이」·「길눈」으로 들리기 시작하면 곧바로 방송을 10퍼센트로 줄여 뒤따르는 부름말이 묻히지 않게
+        if (!Sori.jegaBureumMal && Bangsong.itda) {
+            val m = if (u.isEmpty()) MalSajeon.ttuk(ls.firstOrNull() ?: "") else u
+            if (m.length <= 4 && listOf("하이", "헤이", "아이", "길눈", "기룬", "길누").any { m.startsWith(it) }) Bangsong.jamkkanJurim(4.0, "hai_meori")
+        }
         var kind: String? = if (ls.any { haiMal(it) }) "hai" else meoriMal(u)
+        // 2.103.0 라디오에 묻혀 「하이에나」·「하이힐」·「하이에」로 들린 부름 — 말머리에서만
+        if (kind == null && !Sori.jegaBureumMal && u.length <= 5 && listOf("하이에나", "하이힐", "하이에", "헤이에").any { u.startsWith(it) }) kind = "hai"
         if (kind == null && gilnunHanmadi(u)) {
             if (kkeut) {
                 kind = "gilnun"

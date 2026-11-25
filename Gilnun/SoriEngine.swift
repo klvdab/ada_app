@@ -150,6 +150,8 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
                 gil = (el.accessibilityLabel ?? "").count + (el.accessibilityValue ?? "").count + (el.accessibilityHint ?? "").count
             }
             self.voKkaji = Date().addingTimeInterval(min(7, 0.8 + Double(gil) * 0.075))
+            // 2.138.0 (261125, 이사장님 말씀) 화면을 만지시면 라디오·음악을 정한 크기의 10퍼센트로 줄여 보이스오버가 또렷이 들리게 — 보이스오버가 다 읽고 2초 뒤 되돌림
+            BangsongEngine.shared.jamkkanJurim(min(7, 0.8 + Double(gil) * 0.075) + 2, "manjim")
             // 2.136.0 (261125, 이사장님 말씀 「화면을 터치하면 그 신호를 반드시 지키도록」) 화면을 만지시면 길눈이 하던 말과 줄에 선 말을 곧바로 멈춤(경고는 남김)
             // 앱이 새 화면·결과를 보이며 커서를 옮긴 것(말이 막 들어오거나 막 시작한 1.5초 안)은 만짐으로 치지 않음
             let gakkai = min(Date().timeIntervalSince(self.malDeureonTtae), Date().timeIntervalSince(self.malSijakTtae))

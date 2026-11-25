@@ -447,7 +447,7 @@ object Bangsong {
             // 2.95.0 (261121-A83, 이사장님 승인 2026-11-21 「1」, 아이폰 2.130.0과 같음) 방송은 길눈 말에 지장이 없을 만큼만 줄임(전에는 0.2로 크게 줄임)
             rampR?.let { main.removeCallbacks(it) }; rampR = null
             val jeon = exo?.volume ?: 1f
-            exo?.volume = JAGEUN * jeongKeugi
+            exo?.volume = mokpyoKeugi   // 2.103.0 만짐으로 줄인 동안은 10퍼센트 그대로
             if (jeon > JAGEUN * jeongKeugi + 0.01f) Girok.namgi("bangsong_jageum", mapOf("jong" to jong.ireum))   // 2.91.0 방송을 작게 한 때를 기록(2.100.0 실제로 줄였을 때만)
         }
     }
@@ -482,10 +482,30 @@ object Bangsong {
     fun keugiBakkugi(deo: Boolean): Int {
         val k = (jeongKeugi + (if (deo) 0.2f else -0.2f)).coerceIn(0.2f, 1f)
         BangsongSeol.radioKeugi = k
-        main.post { if (!malJung) { rampR?.let { main.removeCallbacks(it) }; rampR = null; exo?.volume = k } }
+        main.post { if (!malJung) { rampR?.let { main.removeCallbacks(it) }; rampR = null; exo?.volume = mokpyoKeugi } }
         val p = Math.round(k * 100)
         Girok.namgi("bangsong_keugi_bakkum", mapOf("keugi" to p))
         return p
+    }
+    /** 2.103.0 (261125, 이사장님 말씀 「라디오가 나오는 중에 화면을 만지면 라디오·음악 소리를 지금의 10퍼센트만 남기고 작게」, 아이폰 2.138.0과 같음)
+     *  화면을 만지시거나(톡백 커서가 옮겨 감) 「하이」로 부르기 시작하시면 방송을 정한 크기의 10퍼센트로 줄였다가, 잠잠해지면 되돌림 */
+    const val MANJIM = 0.1f
+    private var jurimKkaji = 0L
+    private var jurimR: Runnable? = null
+    private val mokpyoKeugi: Float get() =
+        if (System.currentTimeMillis() < jurimKkaji) jeongKeugi * MANJIM else if (malJung) JAGEUN * jeongKeugi else jeongKeugi
+    fun jamkkanJurim(cho: Double, iyu: String) = main.post {
+        if (!itda || jong == BangsongJong.GISA || meomchum || naebuMeomchum.isNotEmpty()) return@post
+        val now = System.currentTimeMillis()
+        val cheot = now >= jurimKkaji
+        jurimKkaji = maxOf(jurimKkaji, now + (cho * 1000).toLong())
+        rampR?.let { main.removeCallbacks(it) }; rampR = null
+        exo?.volume = mokpyoKeugi
+        if (cheot) Girok.namgi("bangsong_manjim_jurim", mapOf("iyu" to iyu, "jong" to jong.ireum))
+        jurimR?.let { main.removeCallbacks(it) }
+        val r = Runnable { jurimR = null; if (System.currentTimeMillis() >= jurimKkaji && !malJung) sseurukDollim() }
+        jurimR = r
+        main.postDelayed(r, maxOf(200L, jurimKkaji - now + 50))
     }
     private var rampR: Runnable? = null
     private fun sseurukDollim() {
@@ -496,7 +516,7 @@ object Bangsong {
             override fun run() {
                 if (malJung) { rampR = null; return }
                 i += 1
-                val k = jeongKeugi
+                val k = mokpyoKeugi   // 2.103.0 만짐으로 줄인 동안은 10퍼센트에서 멈춤
                 exo?.volume = if (i >= 6) k else v0 + (k - v0) * i / 6f
                 if (i >= 6) rampR = null else main.postDelayed(this, 100)
             }
@@ -695,7 +715,7 @@ object Bangsong {
         Girok.namgi("bangsong_teulgi", mapOf("jong" to j.ireum, "beon" to teulgiBeon))   // 2.91.0 곡·채널이 바뀔 때마다(아이폰 2.126.0과 같음)
         hwajilMatchugi()
         p.prepare()
-        p.volume = if (malJung) JAGEUN * jeongKeugi else jeongKeugi   // 2.100.0 이용자가 정한 크기
+        p.volume = mokpyoKeugi   // 2.100.0 이용자가 정한 크기(2.103.0 만짐으로 줄인 동안은 10퍼센트)
         p.playWhenReady = naebuMeomchum.isEmpty()
         allim()
     }

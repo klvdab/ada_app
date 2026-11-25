@@ -107,9 +107,34 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
     func keugiBakkugi(_ deo: Bool) -> Int {
         jeongKeugi = min(1.0, max(0.2, jeongKeugi + (deo ? 0.2 : -0.2)))
         UserDefaults.standard.set(Double(jeongKeugi), forKey: "gn.bangsongKeugi")
-        if !malJung { ramp?.invalidate(); ramp = nil; player.volume = jeongKeugi }
+        if !malJung { ramp?.invalidate(); ramp = nil; player.volume = mokpyoKeugi }
         Girok.shared.namgi("bangsong_keugi_bakkum", ["keugi": Int((jeongKeugi * 100).rounded())])
         return Int((jeongKeugi * 100).rounded())
+    }
+    /// 2.138.0 (261125, 이사장님 말씀 「라디오가 나오는 중에 화면을 만지면 라디오·음악 소리를 지금의 10퍼센트만 남기고 작게」)
+    ///   화면을 만지시거나(보이스오버 커서가 옮겨 감) 「하이」로 부르기 시작하시면 방송을 정한 크기의 10퍼센트로 줄여 두었다가, 잠잠해지면 되돌림
+    static let MANJIM: Float = 0.1
+    private var jurimKkaji = Date.distantPast
+    private var jurimSigye: Timer?
+    /// 지금 있어야 할 방송 크기 — 만짐·부름으로 줄인 동안은 10퍼센트, 길눈이 말하는 동안은 45퍼센트, 그 밖에는 정한 크기
+    private var mokpyoKeugi: Float {
+        if Date() < jurimKkaji { return jeongKeugi * BangsongEngine.MANJIM }
+        return malJung ? BangsongEngine.JAGEUN * jeongKeugi : jeongKeugi
+    }
+    /// cho 초 동안 방송을 10퍼센트로 줄임(거듭 부르면 늘림) — 끝나면 부드럽게 되돌림
+    func jamkkanJurim(_ cho: Double, _ iyu: String) {
+        guard itda, jong != .gisa, naebuMeomchum.isEmpty, !meomchum else { return }
+        let cheot = Date() >= jurimKkaji
+        jurimKkaji = max(jurimKkaji, Date().addingTimeInterval(cho))
+        ramp?.invalidate(); ramp = nil
+        player.volume = mokpyoKeugi
+        if cheot { Girok.shared.namgi("bangsong_manjim_jurim", ["iyu": iyu, "jong": jong.rawValue]) }
+        jurimSigye?.invalidate()
+        jurimSigye = Timer.scheduledTimer(withTimeInterval: max(0.2, jurimKkaji.timeIntervalSinceNow + 0.05), repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            self.jurimSigye = nil
+            if Date() >= self.jurimKkaji && !self.malJung { self.sseurukDollim() }
+        }
     }
     /// 2.135.0 말이 끝난 뒤 되돌리기를 잠깐 기다림 — 안내가 이어지면 줄인 채로 둠(오르내림 줄임)
     private var dollimSigye: Timer?
@@ -275,7 +300,7 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
             // 2.130.0 (261121-I84, 이사장님 승인 2026-11-21 「1」) 방송은 길눈 말에 지장이 없을 만큼만 줄임(전에는 0.2로 크게 줄여 줄었다 커짐이 거슬렸음)
             ramp?.invalidate(); ramp = nil
             let jeon = player.volume
-            player.volume = BangsongEngine.JAGEUN * jeongKeugi
+            player.volume = mokpyoKeugi   // 2.138.0 만짐으로 줄인 동안은 10퍼센트 그대로
             malSijakTtae = Date()
             if jeon > player.volume + 0.01 { Girok.shared.namgi("bangsong_jageum", ["jong": jong.rawValue]) }   // 2.126.0 방송을 작게 한 때를 기록(2.135.0 실제로 줄였을 때만)
         }
@@ -311,7 +336,7 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
             guard let self = self else { t.invalidate(); return }
             i += 1
             if self.malJung { t.invalidate(); return }
-            let k = self.jeongKeugi
+            let k = self.mokpyoKeugi   // 2.138.0 만짐으로 줄인 동안은 10퍼센트에서 멈춤
             self.player.volume = i >= 6 ? k : v0 + (k - v0) * Float(i) / 6
             if i >= 6 { t.invalidate(); self.ramp = nil }
         }
@@ -515,7 +540,7 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
             }
         }
         if naebuMeomchum.isEmpty { player.play() }
-        player.volume = malJung ? BangsongEngine.JAGEUN * jeongKeugi : jeongKeugi   // 2.130.0 (2.135.0 이용자가 정한 크기)
+        player.volume = mokpyoKeugi   // 2.130.0 (2.135.0 이용자가 정한 크기, 2.138.0 만짐으로 줄인 동안은 10퍼센트)
         pyosiGaengsin()
         RemoteDanchu.shared.matchugi()
     }

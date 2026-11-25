@@ -624,8 +624,18 @@ final class MalDeutgi: NSObject {
             let jegaMalham = SoriEngine.shared.jegaBureumMal
             // 2.129.0 (261120-I83, 이사장님 승인 2026-11-20 「1」) 쉼 뒤 새로 시작한 말(말머리)을 봄 — 「길눈아」·「길눈」은 말머리에서만
             let u = malMeori(b0, MalSajeon.ttuk(sae != nil ? saeModu : (ls.first ?? "")))
+            // 2.138.0 (261125, 이사장님 「길눈아·하이 길눈이 아직 잘 먹히지 않는다」 — 18시 36분~53분 라디오가 나오는 동안 「하이에」·「하이에나」·「하이힐」·「아이디」·「아이거」로 들려 다섯 번 놓침)
+            //   방송이 나오는 중에 말머리가 「하이」·「헤이」·「아이」·「길눈」으로 들리기 시작하면 곧바로 방송을 10퍼센트로 줄여, 뒤따르는 부름말이 라디오에 묻히지 않게 함
+            if !jegaMalham, BangsongEngine.shared.itda {
+                let m = u.isEmpty ? MalSajeon.ttuk(ls.first ?? "") : u
+                if m.count <= 4, ["하이", "헤이", "아이", "길눈", "기룬", "길누"].contains(where: { m.hasPrefix($0) }) {
+                    BangsongEngine.shared.jamkkanJurim(4, "hai_meori")
+                }
+            }
             var kind: String? = nil
             if ls.contains(where: { MalDeutgi.haiMal($0) }) { kind = "hai" } else if let k = MalDeutgi.meoriMal(u) { kind = k }
+            // 2.138.0 라디오에 묻혀 「하이에나」·「하이힐」·「하이에」로 들린 부름 — 말머리에서만(라디오 말 가운데 섞인 것은 받지 않음)
+            if kind == nil, !jegaMalham, ["하이에나", "하이힐", "하이에", "헤이에"].contains(where: { u.hasPrefix($0) }), u.count <= 5 { kind = "hai" }
             if !jegaMalham, kind == nil, MalDeutgi.gilnunHanmadi(u) {
                 if final {
                     kind = "gilnun"
