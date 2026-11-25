@@ -6,6 +6,9 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- 0.8.9(261125-L32) 봉사자 방 카카오 손끝편지 — 목소리 녹음 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <!-- 0.4.3(261007-L7) 새 판 업데이트 — 받은 새 판을 스스로 설치 화면에 넘김 -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- 0.4.4(261008-L8) 화면을 꺼도 계속 읽기 — 독서기 미디어 세션 서비스(포그라운드) -->
@@ -50,6 +53,20 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+        <!-- 0.8.9 (261125-L32) 봉사자 방·카카오 손끝편지 — 앱 안 웹 화면. 받은 손끝편지 「앱으로 열기」 adalib://pyeonji?p=편지번호 -->
+        <activity
+            android:name="kr.or.ada.app.lib.BongsaActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:label="봉사자 방">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="adalib" android:host="pyeonji" />
+            </intent-filter>
+        </activity>
         <!-- 0.8.7 (261121) 소리로 이끄는 카메라 — 복지카드를 가운데로 이끌어 저절로 찍음 -->
         <activity
             android:name="kr.or.ada.app.lib.KameraAnnaeActivity"

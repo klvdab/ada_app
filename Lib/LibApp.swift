@@ -48,6 +48,7 @@ enum Route: Hashable {
     case gesipan                          // 0.8.4 게시판
     case gsMok(String, String, Bool)      // 0.8.4 게시판 목록(판, 이름, 쓸 수 있나)
     case gsBogi(String, String, String)   // 0.8.4 글 보기(판, 이름, 글 번호)
+    case bongsa(String)                   // 0.8.9 봉사자 방·손끝편지(도서관 웹 화면 안 길)
 }
 
 final class Nav: ObservableObject {
@@ -102,6 +103,7 @@ struct RootView: View {
         }
         .environmentObject(nav)
         .onChange(of: hw.entBoim) { _, boim in if !boim && nav.tab == 3 { nav.tab = 0 } }   // 0.8.6
+        .onOpenURL { u in if let g = BongsaJuso.deulgil(u) { nav.tab = 0; nav.lib.append(Route.bongsa(g)) } }   // 0.8.9 받은 손끝편지를 앱으로 열기(adalib://pyeonji?p=…)
         .onAppear { LibOllim.shared.sijak(); LibGirok.shared.sijak(); Dongi.shared.sijak() }   // 0.8.9 폰과 컴퓨터 기록 함께 쓰기
         #if DEBUG
         .onAppear {   // 0.8.6 앱스토어 사진 찍기용(시험 짓기에만 들어감, 도클 261110 — 이사장님 승인 「1」): SAJIN_TAB 탭을 열고, SAJIN_CHAEK 책 정보 화면을 띄움
@@ -136,6 +138,7 @@ extension View {
             case .gesipan: GesipanView().dwiro()
             case .gsMok(let b, let t, let w): GsMokView(b: b, ttl: t, sseugi: w).dwiro()
             case .gsBogi(let b, let t, let id): GsBogiView(b: b, ttl: t, gid: id).dwiro()
+            case .bongsa(let g): BongsaView(gil: g).dwiro()
             }
         }
     }
