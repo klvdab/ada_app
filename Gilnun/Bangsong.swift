@@ -98,6 +98,21 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
     private var gisaMajimak: AVSpeechUtterance?
     private var naebuMeomchum = Set<String>()   // gyeonggo, deutgi, tonghwa
     private var malJung = false
+    /// 2.135.0 (261125, 이사장님 승인 2026-11-25 「라디오 소리도 조절이 안 되고」) 이용자가 정한 라디오 크기(0.2~1.0) — 길눈 말소리와 따로, 기억함
+    var jeongKeugi: Float = {
+        let v = UserDefaults.standard.object(forKey: "gn.bangsongKeugi") as? Double ?? 1.0
+        return Float(min(1.0, max(0.2, v)))
+    }()
+    /// 라디오 크기만 바꿈 — 한 번에 20퍼센트, 바꾼 크기(퍼센트)를 돌려줌
+    func keugiBakkugi(_ deo: Bool) -> Int {
+        jeongKeugi = min(1.0, max(0.2, jeongKeugi + (deo ? 0.2 : -0.2)))
+        UserDefaults.standard.set(Double(jeongKeugi), forKey: "gn.bangsongKeugi")
+        if !malJung { ramp?.invalidate(); ramp = nil; player.volume = jeongKeugi }
+        Girok.shared.namgi("bangsong_keugi_bakkum", ["keugi": Int((jeongKeugi * 100).rounded())])
+        return Int((jeongKeugi * 100).rounded())
+    }
+    /// 2.135.0 말이 끝난 뒤 되돌리기를 잠깐 기다림 — 안내가 이어지면 줄인 채로 둠(오르내림 줄임)
+    private var dollimSigye: Timer?
     /// 2.126.0 (261109-I80) 길눈 말 때문에 방송을 작게 한 때 — 말 끝 신호를 놓쳐 작은 채로 남는 일을 풀려고
     private var malSijakTtae = Date.distantPast
     private var jigeumChaeneol: Chaeneol?
@@ -251,6 +266,7 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
     func malSijak(_ geup: MalGeup) {
         guard itda else { return }
         malJung = true
+        dollimSigye?.invalidate(); dollimSigye = nil   // 2.135.0 되돌리기 전에 다음 말이 오면 줄인 채로 이어 감
         if geup == .gyeonggo {
             naebu("gyeonggo", true)
         } else if jong == .gisa {
@@ -258,9 +274,10 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         } else {
             // 2.130.0 (261121-I84, 이사장님 승인 2026-11-21 「1」) 방송은 길눈 말에 지장이 없을 만큼만 줄임(전에는 0.2로 크게 줄여 줄었다 커짐이 거슬렸음)
             ramp?.invalidate(); ramp = nil
-            player.volume = BangsongEngine.JAGEUN
+            let jeon = player.volume
+            player.volume = BangsongEngine.JAGEUN * jeongKeugi
             malSijakTtae = Date()
-            Girok.shared.namgi("bangsong_jageum", ["jong": jong.rawValue])   // 2.126.0 방송을 작게 한 때를 기록
+            if jeon > player.volume + 0.01 { Girok.shared.namgi("bangsong_jageum", ["jong": jong.rawValue]) }   // 2.126.0 방송을 작게 한 때를 기록(2.135.0 실제로 줄였을 때만)
         }
     }
 
@@ -269,8 +286,14 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         guard malJung else { return }
         malJung = false
         naebu("gyeonggo", false)
-        if player.volume < 0.99 { Girok.shared.namgi("bangsong_doedollim", ["jong": jong.rawValue, "cho": Int(Date().timeIntervalSince(malSijakTtae))]) }   // 2.126.0
-        sseurukDollim()   // 2.130.0 (261121-I84, 이사장님 승인 2026-11-21 「1」) 0.6초에 걸쳐 부드럽게 되돌림
+        // 2.135.0 (261125) 1.5초 조용하면 되돌림 — 안내가 잇달면 줄인 채로 두어 라디오가 오르내리지 않게(11-25 아침 20분에 140번 오르내림)
+        dollimSigye?.invalidate()
+        dollimSigye = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
+            guard let self = self, !self.malJung else { return }
+            self.dollimSigye = nil
+            if self.player.volume < self.jeongKeugi - 0.01 { Girok.shared.namgi("bangsong_doedollim", ["jong": self.jong.rawValue, "cho": Int(Date().timeIntervalSince(self.malSijakTtae))]) }   // 2.126.0
+            self.sseurukDollim()   // 2.130.0 (261121-I84, 이사장님 승인 2026-11-21 「1」) 0.6초에 걸쳐 부드럽게 되돌림
+        }
         if jong == .gisa && gisaIlkneun && !meomchum && naebuMeomchum.isEmpty && gisaSynth.isPaused {
             gisaSynth.continueSpeaking()
         }
@@ -288,7 +311,8 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
             guard let self = self else { t.invalidate(); return }
             i += 1
             if self.malJung { t.invalidate(); return }
-            self.player.volume = i >= 6 ? 1.0 : v0 + (1.0 - v0) * Float(i) / 6
+            let k = self.jeongKeugi
+            self.player.volume = i >= 6 ? k : v0 + (k - v0) * Float(i) / 6
             if i >= 6 { t.invalidate(); self.ramp = nil }
         }
     }
@@ -491,7 +515,7 @@ final class BangsongEngine: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
             }
         }
         if naebuMeomchum.isEmpty { player.play() }
-        player.volume = malJung ? BangsongEngine.JAGEUN : 1.0   // 2.130.0
+        player.volume = malJung ? BangsongEngine.JAGEUN * jeongKeugi : jeongKeugi   // 2.130.0 (2.135.0 이용자가 정한 크기)
         pyosiGaengsin()
         RemoteDanchu.shared.matchugi()
     }

@@ -53,7 +53,11 @@ object HaiGilnun {
     fun haiMal(t0: String): Boolean {
         val t = t0.replace(" ", "").lowercase()
         return t.contains("하이길눈") || t.contains("하이길") || t.contains("hi길눈") ||
-            t.contains("하이기른") || t.contains("아이길눈") || t.contains("하이글눈")
+            t.contains("하이기른") || t.contains("아이길눈") || t.contains("하이글눈") ||
+            // 2.100.0 (261125, 아이폰 2.135.0과 같음) 이사장님 11-25 출근길 「아이결론」·「아이결」로 들려 놓친 말과 아이폰 목록의 비슷한 말
+            listOf("하이기룬", "하이길론", "하이론", "하이기론", "하이기눈", "하이길룬", "하이길문", "하이길운", "하이킬눈", "헤이길눈", "헤이기룬",
+                "아이결론", "하이결론", "아이걸론", "하이걸론", "아이결눈", "하이결눈", "아이기룬", "아이길론", "아이길룬", "아이기른").any { t.contains(it) } ||
+            t.endsWith("아이결") || t.endsWith("하이결")
     }
 
     /** 2.94.0 「길눈」 뒤에 붙으면 부름이 아닌 토씨(길눈이·길눈은·길눈을·길눈에서 …) */

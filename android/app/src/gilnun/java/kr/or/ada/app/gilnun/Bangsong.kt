@@ -74,6 +74,10 @@ enum class BangsongGibun(val danchu: String, val apMal: String) {
 object BangsongSeol {
     private var d: SharedPreferences? = null
     private var gilnunD: SharedPreferences? = null   // 길눈 설정 꾸러미 "gilnun" — 다른 묶음(카메라 관리자·말로 그린 길)도 eumakTk 를 여기서 봄
+    /** 2.100.0 (261125) 이용자가 정한 라디오 크기(0.2~1.0) */
+    var radioKeugi: Float
+        get() = (d?.getFloat("keugi", 1f) ?: 1f).coerceIn(0.2f, 1f)
+        set(v) { d?.edit()?.putFloat("keugi", v.coerceIn(0.2f, 1f))?.apply() }
     fun sijak(ctx: Context) {
         if (d == null) d = ctx.applicationContext.getSharedPreferences("gilnun_bangsong", Context.MODE_PRIVATE)
         if (gilnunD == null) gilnunD = ctx.applicationContext.getSharedPreferences("gilnun", Context.MODE_PRIVATE)
@@ -442,8 +446,9 @@ object Bangsong {
         } else {
             // 2.95.0 (261121-A83, 이사장님 승인 2026-11-21 「1」, 아이폰 2.130.0과 같음) 방송은 길눈 말에 지장이 없을 만큼만 줄임(전에는 0.2로 크게 줄임)
             rampR?.let { main.removeCallbacks(it) }; rampR = null
-            exo?.volume = JAGEUN
-            Girok.namgi("bangsong_jageum", mapOf("jong" to jong.ireum))   // 2.91.0 방송을 작게 한 때를 기록(아이폰 2.126.0과 같음)
+            val jeon = exo?.volume ?: 1f
+            exo?.volume = JAGEUN * jeongKeugi
+            if (jeon > JAGEUN * jeongKeugi + 0.01f) Girok.namgi("bangsong_jageum", mapOf("jong" to jong.ireum))   // 2.91.0 방송을 작게 한 때를 기록(2.100.0 실제로 줄였을 때만)
         }
     }
 
@@ -456,20 +461,32 @@ object Bangsong {
             malKkeut()
         }
         malKkeutR = r
-        main.postDelayed(r, 350)
+        // 2.100.0 (261125, 이사장님 승인, 아이폰 2.135.0과 같음) 1.5초 조용하면 되돌림 — 안내가 잇달면 줄인 채로 두어 라디오가 오르내리지 않게(전에는 0.35초)
+        main.postDelayed(r, 1500)
     }
 
     private fun malKkeut() {
         if (!malJung) return
         malJung = false
         naebu("gyeonggo", false)
-        if ((exo?.volume ?: 1f) < 0.99f) Girok.namgi("bangsong_doedollim", mapOf("jong" to jong.ireum, "cho" to ((System.currentTimeMillis() - malSijakTtae) / 1000)))   // 2.91.0
+        if ((exo?.volume ?: 1f) < jeongKeugi - 0.01f) Girok.namgi("bangsong_doedollim", mapOf("jong" to jong.ireum, "cho" to ((System.currentTimeMillis() - malSijakTtae) / 1000)))   // 2.91.0
         sseurukDollim()   // 2.95.0 (261121-A83, 이사장님 승인 2026-11-21 「1」, 아이폰 2.130.0과 같음) 0.6초에 걸쳐 부드럽게 되돌림
         if (jong == BangsongJong.GISA && gisaIlkneun && !meomchum && naebuMeomchum.isEmpty()) gisaIeoIlkgi()
     }
 
     /** 2.95.0 (261121-A83, 이사장님 승인 2026-11-21 「1」, 아이폰 2.130.0과 같음) 길눈 말 동안의 방송 크기(1이 정한 크기) */
     const val JAGEUN = 0.45f
+    /** 2.100.0 (261125, 이사장님 승인 「라디오 소리도 조절이 안 되고」, 아이폰 2.135.0과 같음) 이용자가 정한 라디오 크기(0.2~1.0) — 길눈 말소리와 따로, 기억함 */
+    val jeongKeugi: Float get() = BangsongSeol.radioKeugi
+    /** 라디오 크기만 바꿈 — 한 번에 20퍼센트, 바꾼 크기(퍼센트)를 돌려줌 */
+    fun keugiBakkugi(deo: Boolean): Int {
+        val k = (jeongKeugi + (if (deo) 0.2f else -0.2f)).coerceIn(0.2f, 1f)
+        BangsongSeol.radioKeugi = k
+        main.post { if (!malJung) { rampR?.let { main.removeCallbacks(it) }; rampR = null; exo?.volume = k } }
+        val p = Math.round(k * 100)
+        Girok.namgi("bangsong_keugi_bakkum", mapOf("keugi" to p))
+        return p
+    }
     private var rampR: Runnable? = null
     private fun sseurukDollim() {
         rampR?.let { main.removeCallbacks(it) }
@@ -479,7 +496,8 @@ object Bangsong {
             override fun run() {
                 if (malJung) { rampR = null; return }
                 i += 1
-                exo?.volume = if (i >= 6) 1f else v0 + (1f - v0) * i / 6f
+                val k = jeongKeugi
+                exo?.volume = if (i >= 6) k else v0 + (k - v0) * i / 6f
                 if (i >= 6) rampR = null else main.postDelayed(this, 100)
             }
         }
@@ -677,7 +695,7 @@ object Bangsong {
         Girok.namgi("bangsong_teulgi", mapOf("jong" to j.ireum, "beon" to teulgiBeon))   // 2.91.0 곡·채널이 바뀔 때마다(아이폰 2.126.0과 같음)
         hwajilMatchugi()
         p.prepare()
-        p.volume = if (malJung) JAGEUN else 1f
+        p.volume = if (malJung) JAGEUN * jeongKeugi else jeongKeugi   // 2.100.0 이용자가 정한 크기
         p.playWhenReady = naebuMeomchum.isEmpty()
         allim()
     }

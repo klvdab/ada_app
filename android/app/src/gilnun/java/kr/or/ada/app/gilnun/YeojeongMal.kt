@@ -63,6 +63,8 @@ object YeojeongMal {
     /** 2.99.0 (261123) 차를 이미 부르셨거나 기다리시는 중이라는 말(콜 이름이 든 말은 뺌) */
     fun chaGidarimMal(z0: String): Boolean {
         val z = z0.filter { !" \t\n.,!?~·'\"".contains(it) }
+        // 2.100.0 (261125, 아이폰 2.135.0과 같음) 「기다리라고 했다」 — 차 낱말이 없어도 차 기다림으로
+        if (z.contains("기다리라고") || z.contains("기다리라니까") || z.contains("기다리래")) return true
         if (z.contains("콜")) return false
         val cha = listOf("차", "택시", "카카오", "기사").any { z.contains(it) } && !z.contains("차례")
         if (listOf("타면알려", "타면말", "타면얘기", "타면이야기").any { z.contains(it) }) return true

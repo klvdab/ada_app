@@ -1018,7 +1018,7 @@ final class MalHagi: ObservableObject {
     }
 
     private func cheoriSok(_ alts0: [String], _ dap: @escaping (String, Bool) -> Void) {
-        let alts = alts0.map { MalHagi.beonhoSutja($0.trimmingCharacters(in: .whitespacesAndNewlines)) }.filter { !$0.isEmpty }
+        let alts = alts0.map { MalHagi.ledLvd(MalHagi.beonhoSutja($0.trimmingCharacters(in: .whitespacesAndNewlines))) }.filter { !$0.isEmpty }
         guard let t = alts.first else { dap("말씀이 들리지 않았습니다.", false); return }
         Girok.shared.namgi("malhagi", ["mal": String(t.prefix(60))])
         let z = MalSajeon.ttuk(t)
@@ -1222,9 +1222,21 @@ final class MalHagi: ObservableObject {
         // 3-0. 2.130.0 (261121-I84, 이사장님 승인 2026-11-21 「1」) 「길눈아 꺼」 — 방송·음악이 나오는 중에 꺼·꺼 줘·끄기 한 마디면 되묻지 않고 끔
         if BangsongEngine.shared.itda && ["꺼", "꺼줘", "꺼요", "끄기", "끄자", "꺼주세요", "소리꺼"].contains(z) {
             Girok.shared.namgi("kkeo_hanmadi", [:])
-            dap("", false)
+            // 2.135.0 (261125) 조용히 끄면 꺼진 줄 모르심(11-25 아침 「꺼」 뒤 「말로 하기가 잘 안 되고 있어」) — 짧게 알려 드림
+            let mueot = BangsongEngine.shared.jong == .radio ? "라디오를" : (BangsongEngine.shared.jong == .tv ? "텔레비전을" : "방송을")
             BangsongEngine.shared.geuman()
+            dap("\(mueot) 껐습니다.", false)
             return
+        }
+        // 3-0b. 2.135.0 (261125, 이사장님 승인 「라디오 소리도 조절이 안 되고」) 라디오 크기만 따로 — 「라디오 소리 줄여」·「소리 키워」(방송이 나올 때)
+        if BangsongEngine.shared.itda, !["말소리", "목소리", "길눈소리", "안내소리"].contains(where: { z.contains($0) }) {
+            let julim = ["줄여", "작게", "낮춰", "줄이", "작아", "낮게"].contains { z.contains($0) }
+            let kium = ["키워", "크게", "높여", "키우", "높게", "올려"].contains { z.contains($0) }
+            if (julim != kium) && (["라디오", "방송", "음악", "티비", "소리", "볼륨"].contains { z.contains($0) }) && z.count <= 14 {
+                let p = BangsongEngine.shared.keugiBakkugi(kium)
+                dap(p >= 100 ? "라디오 소리를 가장 크게 했습니다." : (p <= 20 ? "라디오 소리를 가장 작게 했습니다." : "라디오 소리를 \(kium ? "키웠" : "줄였")습니다. 지금 \(p)퍼센트입니다."), false)
+                return
+            }
         }
         // 3. 그만 — 어디서나
         if sajeon.itda(alts, "geuman") && z.count <= 8 {
@@ -3065,9 +3077,15 @@ final class MalHagi: ObservableObject {
 
     // MARK: 탈것 말
 
+    /// 2.135.0 (261125) 「제기동 LED 센터」처럼 LVD를 LED로 들은 말을 바로잡음
+    static func ledLvd(_ t: String) -> String {
+        t.replacingOccurrences(of: "(?i)(LED|엘이디|엘디|엘브디|엘비디)\\s*센터", with: "LVD 센터", options: .regularExpression)
+    }
     /// 2.134.0 (261123) 차를 이미 부르셨거나 기다리시는 중이라는 말 — 「차 불렀어」, 「택시 기다리는 중」, 「차 타면 알려 줄게」
     static func chaGidarimMal(_ z0: String) -> Bool {
         let z = MalSajeon.ttuk(z0)
+        // 2.135.0 (261125) 「기다리라고 했다」(11-25 아침 콜을 기다리며) — 차 낱말이 없어도 차 기다림으로
+        if z.contains("기다리라고") || z.contains("기다리라니까") || z.contains("기다리래") { return true }
         let cha = ["차", "택시", "콜", "카카오", "기사"].contains { z.contains($0) } && !z.contains("차례")
         if z.contains("타면알려") || z.contains("타면말") || z.contains("타면얘기") || z.contains("타면이야기") { return true }
         if cha && z.hasSuffix("타면") && z.count <= 6 { return true }   // 「차 타면」

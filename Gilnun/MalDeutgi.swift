@@ -788,7 +788,10 @@ final class MalDeutgi: NSObject {
         // 2.12.5 "하이길"까지만 들려도 곧바로(기록상 0.3~0.5초 빨라짐)
         if z.hasSuffix("하이길") || z.hasSuffix("헤이길") { return true }
         for m in ["하이길눈", "하이길는", "하이기룬", "하이길론", "헤이길눈",
-                  "하이론", "하이기론", "하이기눈", "하이길룬", "하이길문", "하이길운", "아이길눈", "하이킬눈", "헤이기룬", "헤이론"] where z.contains(m) { return true }
+                  "하이론", "하이기론", "하이기눈", "하이길룬", "하이길문", "하이길운", "아이길눈", "하이킬눈", "헤이기룬", "헤이론",
+                  // 2.135.0 (261125, 이사장님 11-25 출근길 차 안에서 세 번 놓침 — 「아이결론」·「아이결」로 들림)
+                  "아이결론", "하이결론", "아이걸론", "하이걸론", "아이결눈", "하이결눈", "아이기룬", "아이길론", "아이길룬", "아이기른", "하이기른"] where z.contains(m) { return true }
+        if z.hasSuffix("아이결") || z.hasSuffix("하이결") { return true }
         let kkori = MalSajeon.jamo(String(z.suffix(8)))
         let bon = MalSajeon.jamo("하이길눈")
         let n = bon.count

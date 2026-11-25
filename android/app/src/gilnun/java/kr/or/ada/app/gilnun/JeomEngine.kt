@@ -142,6 +142,8 @@ object JeomEngine {
     private var gilRaw = ""
     private var wonGil: JeomGil? = null      // 되돌아가기 때 다시 받지 않고 쓰는 원래 길(통신이 끊긴 곳에서도 되돌아가게)
     private var sijakT = 0L
+    /** 2.100.0 (261125, 이사장님 승인, 아이폰 2.135.0과 같음) 시작 안내를 마쳤나 — 그 전(길게는 6초)에는 걷는 안내를 쉼(11-25 시작 때 열 마디가 쏟아지던 일) */
+    private var sijakMalHam = true
     /** 2.71.0 (261021-A59, 이사장님 승인 2026-10-21 「그래」, 아이폰 2.103.0과 같음) 걸어 보신 뒤에야 도착 — 여섯 걸음을 걸으셨거나(걸음 센서), 걸음 센서가 없으면 20초가 지난 뒤(차에서 내리자마자 위성 오차로 도착하던 일) */
     private val georeoBoatda: Boolean get() = S.stepSu >= 6 || System.currentTimeMillis() - sijakT >= 20_000L
 
@@ -499,6 +501,7 @@ object JeomEngine {
         juwiRows = emptyList(); juwiHan.clear(); juwiEonje = 0L; juwiJari = null; juwiCenter = null; juwiBatT = 0L
         val now = System.currentTimeMillis()
         sijakT = now
+        sijakMalHam = false
         jariTtae = now; wiseongTtae = now
         S = HS()
         gil = g
@@ -525,6 +528,7 @@ object JeomEngine {
             m += if (Seoljeong.bopokJaem) " 걸음 수는 ${Seoljeong.bopokModeIreum()} 보폭으로 알려 드립니다." else " 보폭을 아직 재지 않으셔서 걸음 수 대신 미터로 알려 드립니다."   // 2.18.0
             if (Seoljeong.bopokJaem && georeumGil) m += " 그린 분 보폭 ${Jeomjido.bannol(gilBopok * 100).toInt()}센티, 내 보폭 ${Jeomjido.bannol(bocok * 100).toInt()}센티로 맞춰 셉니다."   // 2.35.0 보폭 상대 비교
             if (kkeoks.isNotEmpty()) m += " 이 길에 꺾이는 자리가 ${kkeoks.size}곳 있습니다. 미리 알려 드리겠습니다."
+            sijakMalHam = true
             mal(m)
         }
         ieogaJeojang(g0.id, dw, mok)
@@ -2223,6 +2227,10 @@ object JeomEngine {
     // MARK: 셈과 말
 
     private fun mal(t: String, g: MalGeup = MalGeup.ANNAE) {
+        if (gil != null && !sijakMalHam && g != MalGeup.GYEONGGO) {
+            if (System.currentTimeMillis() - sijakT < 6000) { Girok.namgi("jeom_mal_swim", mapOf("m" to t.take(40))); return }
+            sijakMalHam = true
+        }
         Sori.mal(t, g)
         malT = System.currentTimeMillis()
         if (gil != null) Girok.namgi("jeom_mal", mapOf("m" to t.take(60), "su" to S.stepSu, "jin" to (S.jin ?: -1.0).toInt()))   // 2.35.0 들려 드린 말

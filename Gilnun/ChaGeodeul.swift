@@ -12,10 +12,15 @@ final class ChaGeodeul {
     static let shared = ChaGeodeul()
 
     private(set) var kyeojim = false
+    /// 2.135.0 (261125, 이사장님 승인 2026-11-25) 차가 실제로 달리기 시작한 것을 확인했나 — 그 전(콜을 부르고 기다리는 동안)에는 차 안 안내를 하지 않음
+    private var tamHwakin = false
+    private var tamSijak: Date?
+    private var tamJari: (Double, Double)?
 
     func kkeut() {
         guard kyeojim else { return }
         kyeojim = false
+        tamHwakin = false; tamSijak = nil; tamJari = nil
         tDat = []; tJari = nil; tHan = []; tDeun = nil; tWiseongMal = false; tGose = [:]; tIbgu = [:]; tHwakjeong = false; tHanIreum = [:]
         pFrom = nil; head = nil; hSaem = []; anjeongBang = nil
         mJul = []; mum = false; mBunMal = []
@@ -25,6 +30,18 @@ final class ChaGeodeul {
     /// AnnaeEngine.chaAnnae 가 자리마다 부름
     func wichi(_ w: Wichi, _ y: Yeojeong) {
         kyeojim = true
+        // 2.135.0 차에 타셨는지 — 시속 15킬로미터 넘게 15초, 또는 처음 자리에서 300미터 넘게 옮겼을 때부터 안내
+        //   (11-25 아침 복지콜을 부르고 사무실 앞에서 기다리는 20분 동안 「교차로 앞에 멈춰 있습니다」·「다시 움직입니다」를 말하던 일)
+        if !tamHwakin {
+            let ije = Date()
+            if tamJari == nil { tamJari = (w.lat, w.lon) }
+            let kmh = w.sokdo >= 0 ? w.sokdo * 3.6 : -1
+            if kmh >= 15 { if tamSijak == nil { tamSijak = ije } } else if kmh >= 0 { tamSijak = nil }
+            let olgim = tamJari.map { geori(w.lat, w.lon, $0.0, $0.1) } ?? 0
+            if let s = tamSijak, ije.timeIntervalSince(s) >= 15 { tamHwakin = true } else if olgim >= 300 { tamHwakin = true }
+            if !tamHwakin { return }
+            Girok.shared.namgi("cha_tam_hwakin", ["olgim": Int(olgim), "sokdo": Int(max(0, kmh))])
+        }
         gyoJinam(w)
         jinaGyo(w)
         let meomchum = mumchumBogo(w, y)
@@ -290,11 +307,15 @@ final class ChaGeodeul {
                                          "ochae": Int(w.ochae), "sokdo": Int(w.sokdo * 3.6), "bangsik": bangsik])
         // 2.130.0 (261121-I84, 이사장님 승인 2026-11-21 「1」) 6시 방향으로 돈 것은 평소 말로 「유턴」
         let dolMal = sh == 6 ? "유턴했습니다." : (abs(deul) > 120 ? "크게 돌아 " : "") + "\(sh)시 방향으로 돌았습니다."
-        mal("방금 " + dolMal + " \(y.mokjeok.ireum)까지 \(Annae.geoMal(d)) 남았습니다.")
+        let namMal = " \(y.mokjeok.ireum)까지 \(Annae.geoMal(d)) 남았습니다."
         let la = w.lat, lo = w.lon
+        // 2.135.0 (261125, 이사장님 승인) 「방금 ○시 방향으로 돌았습니다」와 「여기는 ○○입니다」를 한 마디로 — 라디오가 두 번 줄었다 커지지 않게
         Task { [weak self] in
-            guard let m = await Chatgi.jarimal(la, lo) else { return }
-            await MainActor.run { self?.mal("여기는 " + m + (m.hasSuffix("다.") || m.hasSuffix("다") ? "" : "입니다.")) }
+            let m = await Chatgi.jarimal(la, lo)
+            await MainActor.run {
+                let yeogi = m.map { " 여기는 " + $0 + ($0.hasSuffix("다.") || $0.hasSuffix("다") ? "" : "입니다.") } ?? ""
+                self?.mal("방금 " + dolMal + yeogi + namMal)
+            }
         }
     }
 
@@ -339,16 +360,18 @@ final class ChaGeodeul {
         if dasiSu >= 2 {
             let gil = ije.timeIntervalSince(mumT)
             mum = false; mJul = []
-            if gil >= 20 { mal("다시 움직입니다.") }
+            // 2.135.0 「다시 움직입니다」는 멈췄다고 말씀드린 뒤에만
+            if gil >= 20 && (kkadakMal || !mBunMal.isEmpty || oraeMal) { mal("다시 움직입니다.") }
             sinhoMum = false
             return false
         }
-        if ije.timeIntervalSince(mumT) >= 10 { kkadakChatgi(w.lat, w.lon, beoseu: y.talgeot == .beoseu) }
+        // 2.135.0 (261125, 이사장님 승인) 멈춘 까닭은 2분 넘게 섰을 때만(전에는 10초) — 막히는 길에서 「멈춰 있습니다」·「다시 움직입니다」가 되풀이되던 일
+        if ije.timeIntervalSince(mumT) >= 120 { kkadakChatgi(w.lat, w.lon, beoseu: y.talgeot == .beoseu) }
         if sinhoMum && !oraeMal && ije.timeIntervalSince(mumT) >= 180 { oraeMal = true; mal("신호보다 오래 서 있습니다. 차가 밀리는 것 같습니다.") }
         let bun = Int(ije.timeIntervalSince(mumT) / 60)
         // 자세히(차 길 맞춤)에서는 차 길 맞춤이 「○분째 서 있습니다」를 말하므로 까닭만 말함
         let chaMatMal = y.talgeot == .cha && Seoljeong.shared.chaJeongdo >= 3
-        if !chaMatMal, !kkadakMal, bun >= 1, bun <= 3 || bun % 5 == 0, !mBunMal.contains(bun) {
+        if !chaMatMal, !kkadakMal, bun >= 2, bun <= 3 || bun % 5 == 0, !mBunMal.contains(bun) {   // 2.135.0 2분부터
             mBunMal.insert(bun)
             mal("\(bun)분째 멈춰 있습니다.")
         }

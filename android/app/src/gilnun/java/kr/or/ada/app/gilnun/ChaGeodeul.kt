@@ -14,10 +14,17 @@ object ChaGeodeul {
     private val main = Handler(Looper.getMainLooper())
     var kyeojim = false
         private set
+    /** 2.100.0 (261125, 이사장님 승인 2026-11-25, 아이폰 2.135.0과 같음) 차가 실제로 달리기 시작한 것을 확인했나 — 그 전(콜을 부르고 기다리는 동안)에는 차 안 안내를 하지 않음 */
+    private var tamHwakin = false
+    private var tamSijak = 0L
+    private var tamLat = 0.0
+    private var tamLon = 0.0
+    private var tamJari = false
 
     fun kkeut() {
         if (!kyeojim) return
         kyeojim = false
+        tamHwakin = false; tamSijak = 0L; tamJari = false
         tDat = emptyList(); tJari = null; tHan.clear(); tDeun = null; tWiseongMal = false; tGose.clear(); tIbgu.clear(); tHwakjeong = false; tHanIreum.clear()
         pFrom = null; head = null; hSaem.clear(); anjeongBang = null
         mJul.clear(); mum = false; mBunMal.clear()
@@ -27,6 +34,18 @@ object ChaGeodeul {
     /** AnnaeEngine.chaAnnae 가 자리마다 부름 */
     fun wichi(w: Jari, y: Yeojeong) {
         kyeojim = true
+        // 2.100.0 차에 타셨는지 — 시속 15킬로미터 넘게 15초, 또는 처음 자리에서 300미터 넘게 옮겼을 때부터 안내
+        //   (11-25 아침 복지콜을 부르고 기다리는 동안 「교차로 앞에 멈춰 있습니다」·「다시 움직입니다」를 말하던 일)
+        if (!tamHwakin) {
+            val ije = System.currentTimeMillis()
+            if (!tamJari) { tamJari = true; tamLat = w.lat; tamLon = w.lon }
+            val kmh = if (w.sokdo >= 0) w.sokdo * 3.6 else -1.0
+            if (kmh >= 15) { if (tamSijak == 0L) tamSijak = ije } else if (kmh >= 0) tamSijak = 0L
+            val olgim = geori(w.lat, w.lon, tamLat, tamLon)
+            if ((tamSijak != 0L && ije - tamSijak >= 15_000) || olgim >= 300) tamHwakin = true
+            if (!tamHwakin) return
+            Girok.namgi("cha_tam_hwakin", mapOf("olgim" to olgim.toInt(), "sokdo" to Math.max(0.0, kmh).toInt()))
+        }
         gyoJinam(w)
         jinaGyo(w)
         if (mumchumBogo(w, y)) { tMajimak = System.currentTimeMillis(); return }   // 멈춘 동안은 위성 흔들림을 움직임으로 치지 않음(2.96.0 끊김으로 치지 않게 때를 새로 둠)
@@ -293,10 +312,12 @@ object ChaGeodeul {
             "ochae" to w.ochae.toInt(), "sokdo" to (w.sokdo * 3.6).toInt(), "bangsik" to bangsik))
         // 2.95.0 (261121-A83, 이사장님 승인 2026-11-21 「1」, 아이폰 2.130.0과 같음) 6시 방향으로 돈 것은 평소 말로 「유턴」
         val dolMal = if (sh == 6) "유턴했습니다." else (if (Math.abs(deul) > 120) "크게 돌아 " else "") + "${sh}시 방향으로 돌았습니다."
-        mal("방금 " + dolMal + " ${y.mokjeok.ireum}까지 ${Annae.geoMal(d)} 남았습니다.")
+        // 2.100.0 (261125, 이사장님 승인) 「방금 ○시 방향으로 돌았습니다」와 「여기는 ○○입니다」를 한 마디로 — 라디오가 두 번 줄었다 커지지 않게
+        val namMal = " ${y.mokjeok.ireum}까지 ${Annae.geoMal(d)} 남았습니다."
         Tongsin.json("jarimal.php", mapOf("lat" to f6(w.lat), "lon" to f6(w.lon))) { o ->
             val m = o?.optString("mal") ?: ""
-            if (m.isNotEmpty()) mal("여기는 " + m + (if (m.endsWith("다.") || m.endsWith("다")) "" else "입니다."))
+            val yeogi = if (m.isNotEmpty()) " 여기는 " + m + (if (m.endsWith("다.") || m.endsWith("다")) "" else "입니다.") else ""
+            mal("방금 " + dolMal + yeogi + namMal)
         }
     }
 
@@ -342,16 +363,18 @@ object ChaGeodeul {
         if (dasiSu >= 2) {
             val gil = ije - mumT
             mum = false; mJul.clear()
-            if (gil >= 20_000) mal("다시 움직입니다.")
+            // 2.100.0 「다시 움직입니다」는 멈췄다고 말씀드린 뒤에만
+            if (gil >= 20_000 && (kkadakMal || mBunMal.isNotEmpty() || oraeMal)) mal("다시 움직입니다.")
             sinhoMum = false
             return false
         }
-        if (ije - mumT >= 10_000) kkadakChatgi(w.lat, w.lon, y.talgeot == Talgeot.BEOSEU)
+        // 2.100.0 (261125, 이사장님 승인) 멈춘 까닭은 2분 넘게 섰을 때만(전에는 10초)
+        if (ije - mumT >= 120_000) kkadakChatgi(w.lat, w.lon, y.talgeot == Talgeot.BEOSEU)
         if (sinhoMum && !oraeMal && ije - mumT >= 180_000) { oraeMal = true; mal("신호보다 오래 서 있습니다. 차가 밀리는 것 같습니다.") }
         val bun = ((ije - mumT) / 60_000).toInt()
         // 자세히(차 길 맞춤)에서는 차 길 맞춤이 「○분째 서 있습니다」를 말하므로 까닭만 말함
         val chaMatMal = y.talgeot == Talgeot.CHA && ChaMat.jeongdo >= 3
-        if (!chaMatMal && !kkadakMal && bun >= 1 && (bun <= 3 || bun % 5 == 0) && !mBunMal.contains(bun)) {
+        if (!chaMatMal && !kkadakMal && bun >= 2 && (bun <= 3 || bun % 5 == 0) && !mBunMal.contains(bun)) {
             mBunMal.add(bun)
             mal("${bun}분째 멈춰 있습니다.")
         }

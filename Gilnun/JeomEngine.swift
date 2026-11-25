@@ -138,6 +138,9 @@ final class JeomEngine: ObservableObject {
     private var geollimHan = Set<String>()
     private var geollimT = Date.distantPast
     private var malT = Date.distantPast
+    /// 2.135.0 (261125, 이사장님 승인) 시작 안내(안전 경고·「따라 걷기를 시작합니다」)를 마쳤나 — 그 전에는 걷는 안내를 쉼
+    ///   (11-25 9시 18분 LVD서울센터 앞에서 1초 사이에 열 마디가 쏟아지던 일)
+    private var sijakMalHam = true
     private var ssak = Set<AnyCancellable>()
     private var sigye: Timer?
     private var tikT = Date()
@@ -439,6 +442,7 @@ final class JeomEngine: ObservableObject {
         munOn = false; mun = nil; munList = []; munSu = 0; munIdx = 0; munDasi = false; munGakkaum = nil; munKamera = false; munGeoreumMan = false
         juwiRows = []; juwiHan = []; juwiEonje = .distantPast; juwiJari = nil; juwiCenter = nil; juwiBatT = .distantPast
         sijakT = Date()
+        sijakMalHam = false
         jariTtae = Date(); wiseongTtae = Date()
         S = HS()
         gil = g
@@ -475,6 +479,7 @@ final class JeomEngine: ObservableObject {
                     m += " 그린 분 보폭 \(Int((self.gilBopok * 100).rounded()))센티, 내 보폭 \(Int((self.bocok * 100).rounded()))센티로 맞춰 셉니다."
                 }
                 if !self.kkeoks.isEmpty { m += " 이 길에 꺾이는 자리가 \(self.kkeoks.count)곳 있습니다. 미리 알려 드리겠습니다." }
+                self.sijakMalHam = true
                 self.mal(m)
             }
         }
@@ -2080,6 +2085,11 @@ final class JeomEngine: ObservableObject {
     // MARK: 셈과 말
 
     private func mal(_ t: String, _ g: MalGeup = .annae) {
+        // 2.135.0 시작 안내 전(길게는 6초)에는 걷는 안내를 쉼 — 경고는 늘
+        if gil != nil, !sijakMalHam, g != .gyeonggo {
+            if Date().timeIntervalSince(sijakT) < 6 { Girok.shared.namgi("jeom_mal_swim", ["m": String(t.prefix(40))]); return }
+            sijakMalHam = true
+        }
         SoriEngine.shared.mal(t, g)
         malT = Date()
         if gil != nil { Girok.shared.namgi("jeom_mal", ["m": String(t.prefix(60)), "su": S.stepSu, "jin": Int(S.jin ?? -1)]) }   // 2.63.0 들려 드린 말

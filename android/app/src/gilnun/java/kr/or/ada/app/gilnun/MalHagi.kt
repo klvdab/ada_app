@@ -740,8 +740,12 @@ object MalHagi {
         }
     }
 
+    /** 2.100.0 (261125, 아이폰 2.135.0과 같음) 「제기동 LED 센터」처럼 LVD를 LED로 들은 말을 바로잡음 */
+    private val ledLvdRe = Regex("(?i)(LED|엘이디|엘디|엘브디|엘비디)\\s*센터")
+    fun ledLvd(t: String): String = ledLvdRe.replace(t, "LVD 센터")
+
     private fun cheoriSok(alts0: List<String>, dap: (String, Boolean) -> Unit) {
-        val alts = alts0.map { beonhoSutja(it.trim()) }.filter { it.isNotEmpty() }
+        val alts = alts0.map { ledLvd(beonhoSutja(it.trim())) }.filter { it.isNotEmpty() }
         val t = alts.firstOrNull()
         if (t == null) { dap("말씀이 들리지 않았습니다.", false); return }
         val s = MalSajeon
@@ -1026,9 +1030,21 @@ object MalHagi {
         // 4-0. 2.95.0 (261121-A83, 이사장님 승인 2026-11-21 「1」, 아이폰 2.130.0과 같음) 「길눈아 꺼」 — 방송·음악이 나오는 중에 꺼·꺼 줘·끄기 한 마디면 되묻지 않고 끔
         if (Bangsong.itda && z in listOf("꺼", "꺼줘", "꺼요", "끄기", "끄자", "꺼주세요", "소리꺼")) {
             Girok.namgi("kkeo_hanmadi")
-            dap("", false)
+            // 2.100.0 (261125, 아이폰 2.135.0과 같음) 조용히 끄면 꺼진 줄 모르심 — 짧게 알려 드림
+            val mueot = when (Bangsong.jong) { BangsongJong.RADIO -> "라디오를"; BangsongJong.TV -> "텔레비전을"; else -> "방송을" }
             Bangsong.geuman()
+            dap("$mueot 껐습니다.", false)
             return
+        }
+        // 4-0b. 2.100.0 (261125, 이사장님 승인 「라디오 소리도 조절이 안 되고」, 아이폰 2.135.0과 같음) 라디오 크기만 따로
+        if (Bangsong.itda && listOf("말소리", "목소리", "길눈소리", "안내소리").none { z.contains(it) }) {
+            val julim = listOf("줄여", "작게", "낮춰", "줄이", "작아", "낮게").any { z.contains(it) }
+            val kium = listOf("키워", "크게", "높여", "키우", "높게", "올려").any { z.contains(it) }
+            if (julim != kium && listOf("라디오", "방송", "음악", "티비", "소리", "볼륨").any { z.contains(it) } && z.length <= 14) {
+                val p = Bangsong.keugiBakkugi(kium)
+                dap(if (p >= 100) "라디오 소리를 가장 크게 했습니다." else if (p <= 20) "라디오 소리를 가장 작게 했습니다." else "라디오 소리를 ${if (kium) "키웠" else "줄였"}습니다. 지금 ${p}퍼센트입니다.", false)
+                return
+            }
         }
         // 4. 그만 — 어디서나(따라 걷기는 "그만 걷기"로)
         if (s.itda(alts, "geuman") && z.length <= 8) {
