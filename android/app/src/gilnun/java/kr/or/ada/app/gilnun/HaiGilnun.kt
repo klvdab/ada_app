@@ -47,6 +47,16 @@ object HaiGilnun {
 
     /** 2.26.0 부름말인가(아이폰 bureumMal 과 같은 뜻) — 받아 적은 말 하나를 통째로 볼 때
      *  2.94.0 (261120-A82, 이사장님 승인 2026-11-20 「1」, 아이폰 2.129.0과 같음) 「하이 길눈」은 어디서든, 「길눈아」는 말머리에서만, 「길눈」 한 마디는 말머리에서 토씨 없이 */
+    /** 2.104.0 라디오 중 말머리 부름 — 하이·아이·헤이 + 첫소리 ㄱ·ㅋ·ㄴ·ㄹ 글자(3~5자), 흔한 말(아이고·아이구·아이가) 뺌 */
+    fun radioBureum(u: String): Boolean {
+        if (u.length < 3 || u.length > 5) return false
+        if (u.substring(0, 2) !in listOf("하이", "아이", "헤이")) return false
+        val c = u[2]
+        if (c in listOf('고', '구', '가', '거')) return false
+        if (c.code < 0xAC00 || c.code > 0xD7A3) return false
+        return (c.code - 0xAC00) / 588 in listOf(0, 2, 5, 15)
+    }
+
     fun bureumMal(t0: String): Boolean = haiMal(t0) || meoriMal(t0) != null || gilnunHanmadi(t0)
 
     /** 「하이 길눈」 — 말 어디에 있어도 부름(전과 같음) */
@@ -217,6 +227,8 @@ object HaiGilnun {
         var kind: String? = if (ls.any { haiMal(it) }) "hai" else meoriMal(u)
         // 2.103.0 라디오에 묻혀 「하이에나」·「하이힐」·「하이에」로 들린 부름 — 말머리에서만
         if (kind == null && !Sori.jegaBureumMal && u.length <= 5 && listOf("하이에나", "하이힐", "하이에", "헤이에").any { u.startsWith(it) }) kind = "hai"
+        // 2.104.0 (261125 20시 48분 시험, 아이폰 2.139.0과 같음) 라디오가 나오는 동안에만 말머리 「하이」·「아이」·「헤이」 + ㄱ·ㅋ·ㄴ·ㄹ 첫소리 글자면 부름
+        if (kind == null && !Sori.jegaBureumMal && Bangsong.itda && radioBureum(u)) kind = "hai"
         if (kind == null && gilnunHanmadi(u)) {
             if (kkeut) {
                 kind = "gilnun"

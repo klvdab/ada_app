@@ -636,6 +636,10 @@ final class MalDeutgi: NSObject {
             if ls.contains(where: { MalDeutgi.haiMal($0) }) { kind = "hai" } else if let k = MalDeutgi.meoriMal(u) { kind = k }
             // 2.138.0 라디오에 묻혀 「하이에나」·「하이힐」·「하이에」로 들린 부름 — 말머리에서만(라디오 말 가운데 섞인 것은 받지 않음)
             if kind == nil, !jegaMalham, ["하이에나", "하이힐", "하이에", "헤이에"].contains(where: { u.hasPrefix($0) }), u.count <= 5 { kind = "hai" }
+            // 2.139.0 (261125 20시 48분 시험 — 라디오 중 「아이클」·「하이클론」·「아이론」으로 들려 세 번 놓침)
+            //   라디오가 나오는 동안에만, 말머리가 「하이」·「아이」·「헤이」 + ㄱ·ㅋ·ㄴ·ㄹ로 시작하는 한두 글자(길·클·론·니 …)면 부름으로 받음.
+            //   아이고·아이구처럼 흔한 말은 뺌
+            if kind == nil, !jegaMalham, BangsongEngine.shared.itda, MalDeutgi.radioBureum(u) { kind = "hai" }
             if !jegaMalham, kind == nil, MalDeutgi.gilnunHanmadi(u) {
                 if final {
                     kind = "gilnun"
@@ -793,6 +797,19 @@ final class MalDeutgi: NSObject {
 
     /// 「하이 길눈」 — 말 어디에 있어도 부름(전과 같음). 끝부분만 보고, 발음이 조금 달라도 알아들음
     /// 2.12.1 아이폰이 잘못 적는 말(하이론 등)도 받아들임
+    /// 2.139.0 라디오 중 말머리 부름 — 하이·아이·헤이 + 첫소리 ㄱ·ㅋ·ㄴ·ㄹ 글자(3~5자), 흔한 말(아이고·아이구·아이가) 뺌
+    static func radioBureum(_ u: String) -> Bool {
+        let z = Array(u)
+        guard z.count >= 3, z.count <= 5 else { return false }
+        let meori = String(z[0..<2])
+        guard ["하이", "아이", "헤이"].contains(meori) else { return false }
+        let set = z[2]
+        if ["고", "구", "가", "거"].contains(set) { return false }
+        guard let v = String(set).unicodeScalars.first?.value, v >= 0xAC00, v <= 0xD7A3 else { return false }
+        let cho = (Int(v) - 0xAC00) / 588
+        return [0, 2, 5, 15].contains(cho)   // ㄱ ㄴ ㄹ ㅋ
+    }
+
     static func haiMal(_ t: String) -> Bool {
         let z = MalSajeon.ttuk(t)
         if z.isEmpty { return false }
