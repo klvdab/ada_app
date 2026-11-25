@@ -110,6 +110,9 @@ object JeomEngine {
     private var munIdx = 0
     private var munDasi = false
     private var munT = 0L
+    /** 2.102.0 문 방향을 마지막으로 말씀드린 때의 걸음 수, 위치 오차가 커서 문 방향을 쉰다고 알렸는가 */
+    private var munMalGeoreum = -100
+    private var munOchaMal = false
     private var munGakkaum: Double? = null
     private var munBeon = 0
     private var munSijakT = 0L
@@ -791,6 +794,7 @@ object JeomEngine {
             val dm = Wichi.geori(la, lo, MU.lat, MU.lon)
             if (!munOn && rest < 30) {
                 munOn = true; munT = now; munSijakT = now; munGakkaum = dm
+                munMalGeoreum = S.stepSu; munOchaMal = false   // 2.102.0
                 S.gyeol = ""; S.yeop = 0.0
                 // 2.71.0 (261021-A59, 이사장님 승인 2026-10-21, 아이폰 2.103.0과 같음) 문 생김새를 문에 닿기 전에 미리 말씀드림(찾을 것을 알고 가시게)
                 mal("문까지 이어 안내합니다. 여기서부터 위성 안내입니다. " + munMal(MU)
@@ -816,7 +820,13 @@ object JeomEngine {
                     dochak(t)
                     return
                 }
-                if (now - munT > 2500 && !JeomMunKamera.munBoim()) { munT = now; mal(munMal(MU)) }   // 카메라가 문을 보고 있으면 카메라 말에 맡김
+                // 2.102.0 (261125, 아이폰 2.137.0과 같음) 위성 오차가 15미터를 넘으면 문 방향을 말하지 않고 한 번만 알림. 서 계시는 동안(새 걸음 3걸음 미만)은 되풀이하지 않음
+                if (acc > 15.0) {
+                    if (!munOchaMal) { munOchaMal = true; mal("위치 오차가 커서 문 방향을 정확히 알려 드릴 수 없습니다. 흰지팡이로 주변을 확인하십시오.") }
+                } else if (now - munT > 2500 && !JeomMunKamera.munBoim() && S.stepSu - munMalGeoreum >= 3) {   // 카메라가 문을 보고 있으면 카메라 말에 맡김
+                    munT = now; munMalGeoreum = S.stepSu; munOchaMal = false
+                    mal(munMal(MU))
+                }
                 return
             }
         }
@@ -907,6 +917,8 @@ object JeomEngine {
         if (S.gidarim) return
         if (now < S.dolgiKkaji) return
         if (now - malT < 5000) { S.sinho = max(S.sinho, malT); return }
+        // 2.102.0 문을 찾는 동안에는 「제자리에 계십니다」를 5초마다 되풀이하지 않음(문 안내가 맡음)
+        if (munOn) return
         if (now - S.sinho >= 5000 && now - S.wdMal >= 5000) {
             S.wdMal = now; S.sinho = now
             val r = S.rest

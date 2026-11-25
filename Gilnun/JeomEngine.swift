@@ -69,6 +69,9 @@ final class JeomEngine: ObservableObject {
     private var munIdx = 0
     private var munDasi = false
     private var munT = Date.distantPast
+    /// 2.137.0 문 방향을 마지막으로 말씀드린 때의 걸음 수, 위치 오차가 커서 문 방향을 쉰다고 알렸는가
+    private var munMalGeoreum = -100
+    private var munOchaMal = false
     private var munGakkaum: Double?
     private var munBeon = 0
     // 2.11.1 지나는 곳 안내(웹 juwi.js — 걸을 때 25미터 둘레, 뒤쪽은 말하지 않음)
@@ -732,6 +735,7 @@ final class JeomEngine: ObservableObject {
             let dm = WichiEngine.geori(la, lo, MU.lat, MU.lon)
             if !munOn && rest < 30 {
                 munOn = true; munT = now; munSijakT = now; munGakkaum = dm
+                munMalGeoreum = S.stepSu; munOchaMal = false   // 2.137.0
                 S.gyeol = ""; S.yeop = 0
                 // 2.103.0 (261021-I57, 이사장님 승인 2026-10-21) 문 생김새를 문에 닿기 전에 미리 말씀드림(찾을 것을 알고 가시게)
                 mal("문까지 이어 안내합니다. 여기서부터 위성 안내입니다. " + munMal(MU)
@@ -764,7 +768,14 @@ final class JeomEngine: ObservableObject {
                     dochak(munAp: t)
                     return
                 }
-                if now.timeIntervalSince(munT) > 2.5 && !MunChatgi.shared.munBoim { munT = now; mal(munMal(MU)) }   // 2.15.0 카메라가 문을 보고 있으면 카메라 말에 맡김
+                // 2.137.0 (261125, 이사장님 「다시 살펴 봐」 — 11-25 9시 18분 사무실 앞 1분 반 동안 서 계신데 문 방향이 11시·5시·8시·2시로 뒤집히며 5초마다 되풀이)
+                //   위성 오차가 15미터를 넘으면 문 방향을 말하지 않고 한 번만 알림. 서 계시는 동안(새 걸음 3걸음 미만)은 같은 말을 되풀이하지 않음
+                if acc > 15 {
+                    if !munOchaMal { munOchaMal = true; mal("위치 오차가 커서 문 방향을 정확히 알려 드릴 수 없습니다. 흰지팡이로 주변을 확인하십시오.") }
+                } else if now.timeIntervalSince(munT) > 2.5 && !MunChatgi.shared.munBoim && S.stepSu - munMalGeoreum >= 3 {   // 2.15.0 카메라가 문을 보고 있으면 카메라 말에 맡김
+                    munT = now; munMalGeoreum = S.stepSu; munOchaMal = false
+                    mal(munMal(MU))
+                }
                 return
             }
         }
@@ -853,6 +864,8 @@ final class JeomEngine: ObservableObject {
         if S.gidarim { return }
         if now < S.dolgiKkaji { return }
         if now.timeIntervalSince(malT) < 5 { S.sinho = max(S.sinho, malT); return }
+        // 2.137.0 문을 찾는 동안에는 「제자리에 계십니다」를 5초마다 되풀이하지 않음(문 안내가 맡음)
+        if munOn { return }
         if now.timeIntervalSince(S.sinho) >= 5 && now.timeIntervalSince(S.wdMal) >= 5 {
             S.wdMal = now; S.sinho = now
             let t = S.rest.map { "남은 거리 \(georiMal($0))." } ?? sangMal

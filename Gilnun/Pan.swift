@@ -12,13 +12,17 @@ struct Gochim: Identifiable {
 enum Pan {
     /// 2.135.0 (261125, 대클) 판 번호는 앱에 새겨진 번호(설계도 MARKETING_VERSION)를 그대로 읽음 —
     ///   2.134.0 때 이 글자를 고치지 않아 설정 화면·기록에 2.133.0으로 나왔던 일(이사장님 11-25 「테스트플라이트에서 받았는데 왜 이전 버전이라 하는지」)
-    static var pan: String { (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "2.136.0" }
-    static let bild = "261125-I90"
+    static var pan: String { (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "2.137.0" }
+    static let bild = "261125-I91"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.137.0", bild: "261125-I91", nal: "2026-11-25", naeyong: [
+            "★문까지 이어 안내 — 서 계시는 동안 문 방향을 5초마다 되풀이하지 않고 세 걸음 넘게 걸으실 때마다만. 위성 오차가 15미터를 넘으면 틀린 방향을 말하지 않고 한 번만 알림(이사장님 11-25 9시 18분 사무실 앞에서 1분 반 동안 문 방향이 11시·5시·8시·2시로 뒤집힘)",
+            "문을 찾는 동안에는 「제자리에 계십니다」를 되풀이하지 않음"
+        ]),
         Gochim(pan: "2.136.0", bild: "261125-I90", nal: "2026-11-25", naeyong: [
             "★길눈이 말하는 중에도 「하이 길눈」·「길눈아」를 들음 — 부르시면 하던 말을 곧바로 끊고 「네」 하고 명령을 들음(전에는 말을 다 마친 뒤에야 들어 끝까지 떠들었음, 이사장님 11-25 퇴근길)",
             "★화면을 만지시면(보이스오버 커서가 옮겨 가면) 길눈이 하던 말과 줄에 선 말을 곧바로 멈춤. 경고는 남김",

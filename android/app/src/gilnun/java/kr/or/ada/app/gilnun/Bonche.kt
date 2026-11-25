@@ -24,9 +24,9 @@ import java.util.concurrent.Executors
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
     /** 2.100.0 (261125, 대클) 판 번호는 설치된 앱의 versionName 을 읽음(panIlgi) — 2.99.0 때 이 글자를 고치지 않아 2.98.0으로 나오던 일 */
-    var pan = "2.101.0"
+    var pan = "2.102.0"
         private set
-    const val bild = "261125-A91"
+    const val bild = "261125-A92"
     fun panIlgi(c: android.content.Context) {
         try { c.packageManager.getPackageInfo(c.packageName, 0).versionName?.let { if (it.isNotEmpty()) pan = it } } catch (e: Exception) {}
     }
@@ -34,6 +34,10 @@ object Pan {
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.102.0", "261125-A92", "2026-11-25", listOf(
+            "★문까지 이어 안내 — 서 계시는 동안 문 방향을 되풀이하지 않고 세 걸음 넘게 걸으실 때마다만. 위성 오차가 15미터를 넘으면 틀린 방향을 말하지 않고 한 번만 알림(아이폰 2.137.0과 같음)",
+            "문을 찾는 동안에는 「제자리에 계십니다」를 되풀이하지 않음"
+        )),
         Gochim("2.101.0", "261125-A91", "2026-11-25", listOf(
             "★길눈이 말하는 중에도 「하이 길눈」·「길눈아」를 들음 — 부르시면 하던 말을 곧바로 끊고 「네」 하고 명령을 들음(이사장님 11-25 퇴근길, 아이폰 2.136.0과 같음)",
             "★화면을 만지시면(톡백 커서가 옮겨 가면) 길눈이 하던 말을 곧바로 멈춤. 경고는 남김",
