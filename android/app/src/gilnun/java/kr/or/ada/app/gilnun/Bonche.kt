@@ -24,9 +24,9 @@ import java.util.concurrent.Executors
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
     /** 2.100.0 (261125, 대클) 판 번호는 설치된 앱의 versionName 을 읽음(panIlgi) — 2.99.0 때 이 글자를 고치지 않아 2.98.0으로 나오던 일 */
-    var pan = "2.104.0"
+    var pan = "2.105.0"
         private set
-    const val bild = "261125-A94"
+    const val bild = "261125-A95"
     fun panIlgi(c: android.content.Context) {
         try { c.packageManager.getPackageInfo(c.packageName, 0).versionName?.let { if (it.isNotEmpty()) pan = it } } catch (e: Exception) {}
     }
@@ -34,6 +34,11 @@ object Pan {
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.105.0", "261125-A95", "2026-11-25", listOf(
+            "★말벗 대답을 6초까지만 기다림 — 6초가 지나면 「지금은 대답이 늦습니다. 다시 물어 주십시오」 하고 기다리기를 끝냄(이사장님 11-25 「1」 승인, 아이폰 2.140.0과 같음). 서버 말벗도 한두 문장으로 짧게",
+            "★대답을 기다리는 동안 화면을 만지시거나 길눈아·하이 길눈으로 다시 부르시면 기다리던 대답은 버리고 새 말씀을 따름. 늦게 온 대답이 다른 말을 끊지 않음",
+            "말벗 대답의 ** # 같은 기호를 걷어 냄. 말소리를 켜 두셨으면 3초 「알아보는 중입니다」는 하지 않음"
+        )),
         Gochim("2.104.0", "261125-A94", "2026-11-25", listOf(
             "★라디오가 나오는 동안 말머리가 하이·아이 뒤에 ㄱ·ㅋ·ㄴ·ㄹ 소리로 들린 것(아이클·하이클론·아이론)도 하이 길눈으로 받음(아이폰 2.139.0과 같음). 아이고·아이구는 뺌"
         )),

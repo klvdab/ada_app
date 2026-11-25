@@ -161,7 +161,7 @@ object HaiGilnun {
         val deureoya = Seoljeong.hiGilnun && (apE || dwi) &&
             ContextCompat.checkSelfPermission(c, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED &&
             // 2.101.0 (261125, 이사장님 말씀, 아이폰 2.136.0과 같음) 길눈이 말하는 중에도 들음 — 부르시면 곧바로 말을 끊고 명령을 들음
-            !Sori.deutneunJung && MalHagi.sangtae == MalSangtae.SWIM &&
+            !Sori.deutneunJung && (MalHagi.sangtae == MalSangtae.SWIM || MalHagi.gidarimJung) &&   // 2.105.0 대답을 기다리는 중에도 들음(아이폰 2.140.0과 같음)
             GinGeup.sangtae == GinGeupSangtae.EOPSEUM && !MalDeutgi.dolgoItda &&
             !JeonhwaGamsi.jeonhwaJung &&   // 2.30.0 전화 중에는 듣지 않음(통화 말을 명령으로 알아듣지 않게)
             !MalHagi.pyeonjipJung          // 2.31.0 길 찾기 편집창에 글자를 넣으시는 중에는 듣지 않음

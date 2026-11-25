@@ -139,6 +139,12 @@ object MalHagi {
     private var geunyangTtae = 0L
     /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 「알아보는 중입니다」를 기다리는 명령 차례(대답이 나오면 0) */
     private var araboGidarim = 0
+    /** 2.105.0 (261125, 이사장님 승인 2026-11-25 「1」, 아이폰 2.140.0과 같음) 말씀을 다 들은 때 — 말벗 대답은 이때부터 6초까지만 기다림 */
+    private var deureunTtae = 0L
+    /** 2.105.0 말벗 대답이 6초를 넘겨 그만둔 것인가(「지금은 대답이 늦습니다」로 말씀드림) */
+    private var malbeotNeujeum = false
+    /** 2.105.0 대답을 기다리는 중인가(말씀을 마치신 뒤 0.6초부터) — 이때도 하이 길눈이 들음 */
+    val gidarimJung: Boolean get() = sangtae == MalSangtae.ARABONEUN && System.currentTimeMillis() - deureunTtae > 600
     private val ho: String get() = Seoljeong.ho
     /** 2.73.0 (261024-A61, 이사장님 지시 2026-10-24, 아이폰 2.105.0과 같음) 타신 역을 여쭌 때(0이면 없음, 아이폰 mureum = .tanYeok) */
     private var tanYeokTtae = 0L
@@ -401,6 +407,7 @@ object MalHagi {
                 Eum.naegi(EumJong.TTAENG)
                 return@post
             }
+            gidarimBeorigi("bureum")   // 2.105.0 (아이폰 2.140.0과 같음) 대답을 기다리는 중에 부르시거나 단추를 누르시면 기다리던 대답은 버리고 새 말씀을 따름
             jadongYeolim = 0
             dasiHanbeon = false
             makhimYeonsok = 0; jadongSwim = false   // 2.71.0 (261021-A59, 이사장님 승인 2026-10-21, 아이폰 2.103.0과 같음) 단추를 직접 누르시면 쉬던 저절로 듣기를 풂
@@ -619,12 +626,14 @@ object MalHagi {
         }
         deureunMal = alts[0]
         bakkum(MalSangtae.ARABONEUN)
+        deureunTtae = System.currentTimeMillis()
         // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 「알아보는 중입니다」는 말씀을 마치신 때부터 3초 — 그 사이 어떤 대답이든 나오면 하지 않음(아이폰과 같음)
         araboGidarim = sd
         main.postDelayed({
             if (sd == sedae && araboGidarim == sd && sangtae == MalSangtae.ARABONEUN) {
                 araboGidarim = 0
-                Sori.mal("알아보는 중입니다.", MalGeup.JEONGBO)
+                // 2.105.0 (아이폰 2.140.0과 같음) 말소리를 켜 두셨으면 1초에 「잠깐만 기다려 주세요」를 이미 했으므로 하지 않음(말이 겹치지 않게)
+                if (!Seoljeong.malKyeojim) Sori.mal("알아보는 중입니다.", MalGeup.JEONGBO)
             }
         }, 3000)
         if (Seoljeong.malKyeojim) {
@@ -1913,6 +1922,7 @@ object MalHagi {
             // 2.17.0 명령도 곳 이름도 아니면 말벗(서버 인공지능)에게 물어 끝까지 대답함
             malbeotMutgi(t) { d ->
                 if (d != null) dap(d, false)
+                else if (malbeotNeujeum) dap("지금은 대답이 늦습니다. 다시 물어 주십시오.", true)   // 2.105.0 6초가 지나면 기다리기를 끝냄
                 else {
                     val now = System.currentTimeMillis()
                     motBeon = if (now - motTtae < 120000) motBeon + 1 else 1
@@ -1937,20 +1947,24 @@ object MalHagi {
         //   3초가 지나도 대답이 없으면 "알아보는 중입니다"를 한 번, 10초가 넘으면 그만두고 다시 여쭘(아이폰과 같음)
         // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 「알아보는 중입니다」는 말씀을 마치신 때부터 셈(deureum 에서). 통신 기다림과 따로,
         //   부른 때부터 10초가 넘으면 꼭 그만두는 마감을 둠(아이폰과 같음)
+        // 2.105.0 (261125, 이사장님 승인 「1」 「10초 이상은 나도 못기다려」, 아이폰 2.140.0과 같음) 마감을 10초에서 6초로 — 말씀을 마치신 때부터 셈
+        val nameun = maxOf(1500L, 6000L - (System.currentTimeMillis() - deureunTtae))
         malbeotBeon += 1
         val beon = malbeotBeon
         malbeotGidarim = beon
+        malbeotNeujeum = false
         main.postDelayed({
             if (malbeotGidarim == beon) {
                 malbeotGidarim = 0
+                malbeotNeujeum = true
                 Girok.namgi("malbeot_mot", mapOf("magam" to true))
                 kkeut(null)
             }
-        }, 10000)
-        Tongsin.json("malbeot.php", q, 10000) { o ->
+        }, nameun)
+        Tongsin.json("malbeot.php", q, (nameun + 1000).toInt()) { o ->
             if (malbeotGidarim != beon) return@json   // 마감이 이미 대답했거나, 전화로 거둔 물음
             malbeotGidarim = 0
-            val d = o?.optString("dap", "") ?: ""
+            val d = malbeotSsitgi(o?.optString("dap", "") ?: "")
             if (o != null && o.optBoolean("ok", false) && d.isNotEmpty()) {
                 daehwaGirok.add(Pair(t, d))
                 if (daehwaGirok.size > 6) daehwaGirok.removeAt(0)
@@ -1960,6 +1974,29 @@ object MalHagi {
                 Girok.namgi("malbeot_mot")
                 kkeut(null)
             }
+        }
+    }
+
+    /** 2.105.0 (아이폰 2.140.0과 같음) 말벗 대답의 ** # 같은 기호를 걷어 냄(소리로 「별표」를 읽지 않게) */
+    private fun malbeotSsitgi(d: String): String =
+        d.replace(Regex("[*#`_>|~\\[\\]]+"), "")
+            .replace(Regex("(?m)^\\s*([-•]|\\d+\\.)\\s+"), "")
+            .replace(Regex("\\s+"), " ").trim()
+
+    /** 2.105.0 (261125, 이사장님 승인 「1」, 아이폰 2.140.0과 같음) 기다리던 대답을 버림 — 화면을 만지셨거나 새로 부르심. 늦게 온 대답은 다른 말을 끊지 않고 조용히 버려짐 */
+    private fun gidarimBeorigi(iyu: String) {
+        if (sangtae != MalSangtae.ARABONEUN) return
+        sedae += 1
+        araboGidarim = 0
+        malbeotGidarim = 0
+        bakkum(MalSangtae.SWIM)
+        Girok.namgi("gidarim_beorim", mapOf("iyu" to iyu, "cho" to (System.currentTimeMillis() - deureunTtae) / 100 / 10.0))
+    }
+
+    /** 2.105.0 화면을 만지심(톡백 커서가 옮겨 감) — 말씀을 마치신 뒤 1.5초가 지나 만지셨으면 기다리던 대답을 버림 */
+    fun manjimGeodugi() {
+        main.post {
+            if (sangtae == MalSangtae.ARABONEUN && System.currentTimeMillis() - deureunTtae > 1500) gidarimBeorigi("teochi")
         }
     }
 

@@ -12,13 +12,18 @@ struct Gochim: Identifiable {
 enum Pan {
     /// 2.135.0 (261125, 대클) 판 번호는 앱에 새겨진 번호(설계도 MARKETING_VERSION)를 그대로 읽음 —
     ///   2.134.0 때 이 글자를 고치지 않아 설정 화면·기록에 2.133.0으로 나왔던 일(이사장님 11-25 「테스트플라이트에서 받았는데 왜 이전 버전이라 하는지」)
-    static var pan: String { (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "2.139.0" }
-    static let bild = "261125-I93"
+    static var pan: String { (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "2.140.0" }
+    static let bild = "261125-I94"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.140.0", bild: "261125-I94", nal: "2026-11-25", naeyong: [
+            "★말벗 대답을 6초까지만 기다림 — 6초가 지나면 「지금은 대답이 늦습니다. 다시 물어 주십시오」 하고 기다리기를 끝냄(이사장님 「10초 이상은 나도 못기다려」, 11-25 「1」 승인). 서버 말벗도 한두 문장으로 짧게, 모델을 늘 올려 둠(서버 150번 묶음)",
+            "★대답을 기다리는 동안 화면을 만지시거나 길눈아·하이 길눈으로 다시 부르시면 기다리던 대답은 버리고 새 말씀을 따름. 늦게 온 대답이 다른 말을 끊지 않음",
+            "말벗 대답의 ** # 같은 기호를 걷어 냄. 말소리를 켜 두셨으면 1초 「잠깐만 기다려 주세요」 뒤 3초 「알아보는 중입니다」는 하지 않음(말이 겹치지 않게)"
+        ]),
         Gochim(pan: "2.139.0", bild: "261125-I93", nal: "2026-11-25", naeyong: [
             "★라디오가 나오는 동안 말머리가 「아이클」·「하이클론」·「아이론」처럼 하이·아이 뒤에 ㄱ·ㅋ·ㄴ·ㄹ 소리로 들린 것도 하이 길눈으로 받음(이사장님 11-25 20시 48분 시험에서 라디오 중 세 번 놓침). 아이고·아이구는 뺌"
         ]),

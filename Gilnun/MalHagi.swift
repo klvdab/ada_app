@@ -75,6 +75,10 @@ final class MalHagi: ObservableObject {
     private var myeongBeon = 0
     /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 「알아보는 중입니다」를 기다리는 명령 번호(대답이 나오면 0)
     private var araboGidarim = 0
+    /// 2.140.0 (261125, 이사장님 승인 2026-11-25 「1」) 말씀을 다 들은 때 — 말벗 대답은 이때부터 6초까지만 기다림
+    private var deureunTtae = Date.distantPast
+    /// 2.140.0 말벗 대답이 6초를 넘겨 그만둔 것인가(「지금은 대답이 늦습니다」로 말씀드림)
+    private var malbeotNeujeum = false
     /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 한 마디(맞장구)에 마지막으로 대답한 때 — 20초 안에 또 오면 조용히 물러남
     private var geunyangTtae = Date.distantPast
     /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 기억해 둔 가실 곳(mok)을 정한 때 — 여정이 없으면 3분 안의 것만 씀
@@ -641,15 +645,22 @@ final class MalHagi: ObservableObject {
         }
         deureunMal = alts[0]
         sangtae = .araboneun
+        deureunTtae = Date()
         // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 명령 차례 번호 — 전화·편집으로 거둔 뒤 늦게 온 대답은 조용히 버림.
         //   말씀을 마치신 때부터 3초가 지나도 대답이 없으면 「알아보는 중입니다」를 한 번(어떤 대답이든 나오면 그만)
+        // 2.140.0 (261125, 이사장님 승인 「1」) 말소리를 켜 두셨으면 1초에 「잠깐만 기다려 주세요」를 이미 했으므로 3초 알림은 하지 않음(말이 겹치지 않게)
         myeongBeon += 1
         let mb = myeongBeon
         araboGidarim = mb
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
             guard let self = self, self.araboGidarim == mb, self.myeongBeon == mb else { return }
             self.araboGidarim = 0
-            self.malHamMan("알아보는 중입니다.")
+            if !Seoljeong.shared.malKyeojim { self.malHamMan("알아보는 중입니다.") }
+        }
+        // 2.140.0 (261125, 이사장님 승인 「1」) 기다리는 동안에도 「길눈아」·「하이 길눈」을 들음 — 부르시면 기다리던 대답은 버리고 새 말씀을 따름
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            guard let self = self, self.myeongBeon == mb, self.sangtae == .araboneun else { return }
+            self.araboBureumYeolgi()
         }
         if Seoljeong.shared.malKyeojim {
             // 2.30.0 (대표님 지시) 땡 대신 「잠깐만 기다려 주세요」 — 귀는 이미 닫음
@@ -864,9 +875,43 @@ final class MalHagi: ObservableObject {
         //   곧바로 말을 끊고 명령을 들음. 길눈이 제 입으로 「길눈」·「하이」를 말한 것은 받아쓰기 쪽(jegaBureumMal)에서 거름
     }
 
+    /// 2.140.0 (261125, 이사장님 승인 「1」) 대답을 기다리는 동안 부름 듣기를 엶 — 「길눈아」·「하이 길눈」을 하시면 기다리던 대답을 버림
+    private func araboBureumYeolgi() {
+        guard Seoljeong.shared.haiGilnun, sangtae == .araboneun, !bureumDolgo, !pyeonjipJung, MalDeutgi.heorakItda,
+              !JeonhwaGamsi.shared.jeonhwaJung, GinGeup.shared.sangtae == .eopseum, !watchMal else { return }
+        SoriEngine.shared.deutgiKyeojim = true
+        let ok = MalDeutgi.shared.bureum(deureum: { [weak self] in
+            self?.bureumDeureum()
+        }, kkeunkim: { [weak self] in
+            self?.bureumDolgo = false
+            self?.bureumDasi(0.3)
+        })
+        bureumDolgo = ok
+        Girok.shared.namgi("bureum_yeolgi", ["ok": ok, "arabo": true])
+    }
+
+    /// 2.140.0 (261125, 이사장님 승인 「1」) 기다리던 대답을 버림 — 화면을 만지셨거나 새로 부르심. 늦게 온 대답은 다른 말을 끊지 않고 조용히 버려짐
+    private func gidarimBeorigi(_ iyu: String) {
+        guard sangtae == .araboneun else { return }
+        myeongBeon += 1
+        araboGidarim = 0
+        malbeotGidarim = 0
+        SoriEngine.shared.daehwaGeuman()
+        sangtae = .swim
+        Girok.shared.namgi("gidarim_beorim", ["iyu": iyu, "cho": (Date().timeIntervalSince(deureunTtae) * 10).rounded() / 10])
+    }
+
+    /// 2.140.0 화면을 만지심(보이스오버 커서가 옮겨 감) — 말씀을 마치신 뒤 1.5초가 지나 만지셨으면 기다리던 대답을 버림
+    func manjimGeodugi() {
+        guard sangtae == .araboneun, Date().timeIntervalSince(deureunTtae) > 1.5 else { return }
+        gidarimBeorigi("teochi")
+        bureumDasi(0.5)
+    }
+
     /// "하이 길눈"을 들음 — "네" 하고 명령을 들음
     private func bureumDeureum() {
         bureumDolgo = false
+        if sangtae == .araboneun { gidarimBeorigi("bureum") }   // 2.140.0 기다리던 대답을 버리고 새 말씀을 따름
         guard sangtae == .swim, GinGeup.shared.sangtae == .eopseum else { return }
         guard !JeonhwaGamsi.shared.jeonhwaJung else { return }   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 전화 중에 들린 부름은 버림
         jadongYeolim = 0
@@ -2931,6 +2976,9 @@ final class MalHagi: ObservableObject {
                 if let d = d {
                     self.mureum = .eopseum
                     dap(d, false)
+                } else if self.malbeotNeujeum {
+                    // 2.140.0 (261125, 이사장님 승인 「1」) 6초가 지나도 대답이 없으면 기다리기를 끝냄
+                    dap("지금은 대답이 늦습니다. 다시 물어 주십시오.", true)
                 } else {
                     dap(self.sagwa() + "다시 말씀해 주십시오.", true)
                 }
@@ -2958,19 +3006,23 @@ final class MalHagi: ObservableObject {
         // 2.60.0 (261009-I14, 이사장님 승인 2026-10-09 남산) 대답이 20초 넘게 걸리는 동안 아무 말이 없던 일 — 10초가 넘으면 그만두고 다시 여쭘
         // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 「알아보는 중입니다」는 말씀을 마치신 때부터 셈(deureum 에서).
         //   URLRequest 의 기다림은 「소식이 끊긴 동안」만 세므로, 부른 때부터 10초가 넘으면 꼭 그만두는 마감을 따로 둠
+        // 2.140.0 (261125, 이사장님 승인 2026-11-25 「1」 「10초 이상은 나도 못기다려」) 마감을 10초에서 6초로 — 말씀을 마치신 때부터 셈
+        let nameun = max(1.5, 6.0 - Date().timeIntervalSince(deureunTtae))
         var r = URLRequest(url: u)
-        r.timeoutInterval = 10
+        r.timeoutInterval = nameun + 1
         r.cachePolicy = .reloadIgnoringLocalCacheData
         malbeotBeon += 1
         let beon = malbeotBeon
         malbeotGidarim = beon
+        malbeotNeujeum = false
         let magam = DispatchWorkItem { [weak self] in
             guard let self = self, self.malbeotGidarim == beon else { return }
             self.malbeotGidarim = 0
+            self.malbeotNeujeum = true
             Girok.shared.namgi("malbeot_mot", ["magam": true])
             kkeut(nil)
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 10, execute: magam)
+        DispatchQueue.main.asyncAfter(deadline: .now() + nameun, execute: magam)
         Task {
             let dr = try? await URLSession.shared.data(for: r)
             let o = dr.flatMap { (try? JSONSerialization.jsonObject(with: $0.0)) as? [String: Any] }
@@ -2978,7 +3030,7 @@ final class MalHagi: ObservableObject {
                 magam.cancel()
                 guard self.malbeotGidarim == beon else { return }   // 마감이 이미 대답했거나, 전화로 거둔 물음
                 self.malbeotGidarim = 0
-                if let o = o, (o["ok"] as? Bool) == true, let d = o["dap"] as? String, !d.isEmpty {
+                if let o = o, (o["ok"] as? Bool) == true, let d0 = o["dap"] as? String, case let d = MalHagi.malbeotSsitgi(d0), !d.isEmpty {
                     self.daehwaGirok.append([t, d])
                     if self.daehwaGirok.count > 6 { self.daehwaGirok.removeFirst() }
                     Girok.shared.namgi("malbeot", ["cho": Chatgi.su(o["cho"]) ?? 0])
@@ -2989,6 +3041,14 @@ final class MalHagi: ObservableObject {
                 }
             }
         }
+    }
+
+    /// 2.140.0 (261125, 이사장님 승인 「1」) 말벗 대답의 ** # 같은 기호를 걷어 냄(소리로 「별표」를 읽지 않게)
+    static func malbeotSsitgi(_ d: String) -> String {
+        var s = d.replacingOccurrences(of: "[*#`_>|~\\[\\]]+", with: "", options: .regularExpression)
+        s = s.replacingOccurrences(of: "(?m)^\\s*([-•]|\\d+\\.)\\s+", with: "", options: .regularExpression)
+        s = s.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        return s.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// 2.119.0 (261027-I73, 이사장님 승인 2026-10-27 「1」) 사진 읽어 주기로 받을 말 — 「찍어서 알려」, 「찍어 줘」, 「사진 찍어」, 「찍어서 읽어」(띄어쓰기를 뺀 말로 봄)

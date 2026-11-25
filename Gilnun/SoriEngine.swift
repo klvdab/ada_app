@@ -159,6 +159,8 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
                 Girok.shared.namgi("teochi_meomchum", ["mal": String(self.hanunMal.prefix(20)), "jul": self.jul.count])
                 self.modu_geodugi()
             }
+            // 2.140.0 (261125, 이사장님 승인 「1」) 말벗 같은 대답을 기다리는 중에 화면을 만지시면 기다리던 대답을 버림(늦게 와도 말하지 않음)
+            MalHagi.shared.manjimGeodugi()
         }
         // 2.96.0 (261017-I50) 5초마다 막힘 살피기 — 끊김이 끝났다는 알림이 오지 않거나, 말이 끝났다는 신호가 오지 않아도 줄이 멈추지 않게
         DispatchQueue.main.async {
