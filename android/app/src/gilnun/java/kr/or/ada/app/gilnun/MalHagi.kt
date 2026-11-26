@@ -1834,10 +1834,17 @@ object MalHagi {
         YeojeongEngine.jeonghagi(Mokjeok(j.ireum, j.lat, j.lon, j.juso))
         hwalseong?.get()?.cheotHwamyeonEuro(null)
         // 2차(261126 「1 진행하고」): 기차·배·비행기 차례는 협회 서버에서 오늘 실제 시각을 받아 채운 뒤 말함(6초 안)
-        GilGyehoek.sigakChaeugi(cheot) { c2 ->
+        // 3차: 안전(날씨 예보·특보·재난문자)도 함께. 배가 모두 통제된 길이면 통제 없는 다른 길을 먼저 말씀드림
+        val malhagi = { c2: Gyehoek, ap2: String ->
             GilGyehoek.huboGochigi(c2)
-            Girok.namgi("gyehoek_sigak", mapOf("chaeum" to c2.gugan.count { it.sigak.isNotEmpty() }, "dochak" to (c2.dochakTtae != null)))
-            dap(apMal + GilGyehoek.jeanMal(c2, true) + "이 길로 안내할까요?" + (if (l.size > 1) " 다른 길을 원하시면 다른 길이라고 말씀해 주십시오." else ""), true)
+            Girok.namgi("gyehoek_sigak", mapOf("chaeum" to c2.gugan.count { it.sigak.isNotEmpty() }, "dochak" to (c2.dochakTtae != null), "anjeon" to c2.anjeon.isNotEmpty()))
+            dap(ap2 + GilGyehoek.jeanMal(c2, true) + "이 길로 안내할까요?" + (if (l.size > 1) " 다른 길을 원하시면 다른 길이라고 말씀해 주십시오." else ""), true)
+        }
+        GilGyehoek.junbiHagi(cheot) { c2 ->
+            GilGyehoek.huboGochigi(c2)
+            val n = if (GilGyehoek.tongjeIna(c2)) GilGyehoek.tongjeDwiro() else null
+            if (n != null) GilGyehoek.junbiHagi(n) { c3 -> malhagi(c3, apMal + "오늘 남은 배가 모두 운항이 통제되어, 배를 타지 않는 길을 먼저 말씀드립니다. ") }
+            else malhagi(c2, apMal)
         }
         return true
     }
@@ -1853,7 +1860,7 @@ object MalHagi {
         }
         if (z.contains("다른길") || z.contains("다른방법") || z.contains("다른거") || z.contains("다른코스")) {
             val g2 = GilGyehoek.dareunGil()
-            if (g2 != null) GilGyehoek.sigakChaeugi(g2) { c2 -> GilGyehoek.huboGochigi(c2); dap(GilGyehoek.jeanMal(c2, false) + "이 길로 안내할까요?", true) }
+            if (g2 != null) GilGyehoek.junbiHagi(g2) { c2 -> GilGyehoek.huboGochigi(c2); dap(GilGyehoek.jeanMal(c2, false) + "이 길로 안내할까요?", true) }
             else {
                 GilGyehoek.geuman("hubo_eopseum")
                 YeojeongMal.bangsikDasiYeojjum()
@@ -1865,7 +1872,7 @@ object MalHagi {
         val tm = if (z.length <= 14) talMal.firstOrNull { z.lowercase().contains(it.first) } else null
         if (tm != null) {
             val g2 = GilGyehoek.talgeotGil(tm.second)
-            if (g2 != null) GilGyehoek.sigakChaeugi(g2) { c2 -> GilGyehoek.huboGochigi(c2); dap(GilGyehoek.jeanMal(c2, false) + "이 길로 안내할까요?", true) }
+            if (g2 != null) GilGyehoek.junbiHagi(g2) { c2 -> GilGyehoek.huboGochigi(c2); dap(GilGyehoek.jeanMal(c2, false) + "이 길로 안내할까요?", true) }
             else dap("${GilGyehoek.talMal(tm.second)} 가는 길은 짜지 못했습니다. 이 길로 안내할까요? 다른 길을 원하시면 다른 길이라고 말씀해 주십시오.", true)
             return true
         }

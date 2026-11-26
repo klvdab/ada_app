@@ -38,6 +38,8 @@ struct Gyehoek: Codable, Equatable {
     var sijak: Date = Date()
     /// 2차 실제 시각으로 셈한 닿는 때(못 셈하면 nil)
     var dochakTtae: Date? = nil
+    /// 3차(2.142.0) 안전 알림 — 차례마다 닿을 때의 날씨 예보·기상특보·긴급재난문자(없으면 빈 글). 계획을 여쭐 때 맨 앞에 말함
+    var anjeon: String = ""
     var chong: Int { gugan.reduce(0) { $0 + $1.bun + $1.gidarim } }
 }
 
@@ -139,6 +141,7 @@ final class GilGyehoek: ObservableObject {
     }
 
     private func boda() {
+        anjeonBoda()
         guard let g = jigeum, g.i < g.gugan.count, let w = WichiEngine.shared.jigeum else { return }
         let gu = g.gugan[g.i]
         let d = WichiEngine.geori(w.lat, w.lon, gu.lat, gu.lon)
@@ -200,6 +203,7 @@ final class GilGyehoek: ObservableObject {
     /// 여쭐 때 말 — 모든 차례를 짧게
     static func jeanMal(_ g: Gyehoek, cheot: Bool) -> String {
         var t = cheot ? "\(g.mokjeok)까지 가장 알맞은 길을 짰습니다. " : "다른 길입니다. "
+        if !g.anjeon.isEmpty { t += "먼저 안전 알림입니다. " + g.anjeon }
         t += g.gugan.count == 1 ? "한 차례로, 대략 \(bunMal(g.chong)) 걸립니다. " : "모두 \(g.gugan.count)차례, 대략 \(bunMal(g.chong)) 걸립니다. "
         for (k, gu) in g.gugan.enumerated() {
             let c = k < chasu.count ? chasu[k] : "\(k + 1)번째"
@@ -306,7 +310,10 @@ final class GilGyehoek: ObservableObject {
                 guard let tt = x["ttae"] as? String, let tb = hmBun(tt) else { return nil }
                 return (tb, (x["bae"] as? String) ?? "배", (x["unhang"] as? String) ?? "")
             }.filter { $0.0 >= bun0 }.sorted { $0.0 < $1.0 }
-            guard let c = l.first else { return ("오늘은 더 남은 배가 없습니다. 내일 첫 배를 확인하십시오.", nil) }
+            // 3차: 통제·결항된 배는 빼고 고름 — 남은 배가 모두 통제면 그렇게 알림(계획에서 이 길을 뒤로 돌림)
+            let gal = l.filter { !$0.2.contains("통제") && !$0.2.contains("결항") }
+            if gal.isEmpty && !l.isEmpty { return (GilGyehoek.TONGJE_MAL, nil) }
+            guard let c = gal.first else { return ("오늘은 더 남은 배가 없습니다. 내일 첫 배를 확인하십시오.", nil) }
             let hd = String(format: "%02d%02d", c.0 / 60, c.0 % 60)
             let tongje = (!c.2.isEmpty && c.2 != "정상") ? " 다만 지금 운항 형편이 \(c.2)으로 나옵니다. 꼭 확인하십시오." : ""
             return ("오늘 남은 배 가운데 가장 빠른 것은 \(hmMal(hd)) \(c.1)입니다.\(tongje)", jajeong.addingTimeInterval(Double(c.0 + gu.bun - 15) * 60))
@@ -348,6 +355,147 @@ final class GilGyehoek: ObservableObject {
 
     /// 여쭙는 계획들에 실제 시각을 채워 둠
     func huboGochigi(_ l: [Gyehoek]) { hubo = l }
+    /// 지금 여쭙는 후보 하나만 시각·안전을 채운 것으로 바꿈(「다른 길」·「배로」 뒤)
+    func jigeumHuboGochigi(_ g: Gyehoek) { if huboI < hubo.count, hubo[huboI].gugan == g.gugan { hubo[huboI] = g } }
+
+    // MARK: 3차(2.142.0, 이사장님 승인 2026-11-26 「3차작업으로 다른 키 받을걸 예상해서 잡아 놓는것도 좋겠지」) 안전 — 날씨 예보·여객선 통제·기상특보·긴급재난문자
+    // 날씨 예보는 열쇠가 필요 없는 오픈메테오에서 차례마다 그곳에 닿을 시각의 예보를 봄. 여객선 통제는 gyotong.php 운항 형편.
+    // 기상특보·긴급재난문자는 협회 서버 anjeon.php — 공공데이터 신청이 끝나기 전에는 junbi:false 로 오고 조용히 넘어감.
+
+    static let TONGJE_MAL = "오늘 남은 배는 모두 운항이 통제되었습니다."
+    /// 이 계획에 통제된 배가 있는가
+    static func tongjeIna(_ g: Gyehoek) -> Bool { g.gugan.contains { $0.sigak == TONGJE_MAL } }
+
+    /// 배가 통제된 계획을 뒤로 — 통제 없는 다른 길이 있으면 그것을 맨 앞으로 올리고 true
+    func tongjeDwiro() -> Bool {
+        guard huboI < hubo.count, GilGyehoek.tongjeIna(hubo[huboI]) else { return false }
+        guard let k = hubo.indices.first(where: { $0 > huboI && !hubo[$0].gugan.contains { $0.tal == "bae" } }) else { return false }
+        let n = hubo.remove(at: k)
+        hubo.insert(n, at: huboI)
+        Girok.shared.namgi("gyehoek_tongje", ["gil": GilGyehoek.galraeMal(n)])
+        return true
+    }
+
+    /// 시각과 안전을 함께 채움 — 여쭙기·다른 길·탈것 고르기 모두 이것을 씀
+    static func junbiHagi(_ g0: Gyehoek) async -> Gyehoek {
+        var g = await sigakChaeugi(g0)
+        g.anjeon = await anjeonSalpigi(g, buteo: 0)
+        return g
+    }
+
+    private static let sido: [(String, Double, Double, String)] = [
+        ("서울", 37.566, 126.978, "서울"), ("인천", 37.456, 126.705, "인천"), ("경기도", 37.275, 127.009, "경기"), ("강원도", 37.885, 127.730, "강원"),
+        ("충청북도", 36.635, 127.491, "충청북|충북"), ("충청남도", 36.659, 126.673, "충청남|충남"), ("대전", 36.350, 127.385, "대전"), ("세종", 36.480, 127.289, "세종"),
+        ("전라북도", 35.820, 127.108, "전라북|전북"), ("전라남도", 34.816, 126.463, "전라남|전남"), ("광주", 35.160, 126.851, "광주"),
+        ("경상북도", 36.576, 128.506, "경상북|경북"), ("경상남도", 35.238, 128.692, "경상남|경남"), ("대구", 35.871, 128.601, "대구"),
+        ("울산", 35.539, 129.311, "울산"), ("부산", 35.180, 129.076, "부산"), ("제주도", 33.489, 126.498, "제주"), ("울릉도", 37.484, 130.906, "울릉")]
+    /// 자리에서 가장 가까운 시·도(어림) — (부르는 이름, 특보·재난문자에서 찾을 낱말들)
+    static func sidoChatgi(_ la: Double, _ lo: Double) -> (String, [String]) {
+        if la < 33.7 { return ("제주도", ["제주"]) }
+        let c = sido.min { WichiEngine.geori(la, lo, $0.1, $0.2) < WichiEngine.geori(la, lo, $1.1, $1.2) }!
+        return (c.0, c.3.components(separatedBy: "|"))
+    }
+
+    private static func jsonBatgi(_ s: String) async -> [String: Any]? {
+        guard let u = URL(string: s) else { return nil }
+        var r = URLRequest(url: u)
+        r.timeoutInterval = 5
+        guard let dr = try? await URLSession.shared.data(for: r), (dr.1 as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return (try? JSONSerialization.jsonObject(with: dr.0)) as? [String: Any]
+    }
+
+    /// 한 곳·한 때의 날씨 예보에서 걸음과 배에 영향을 주는 것만 한 줄로(없으면 빈 글)
+    private static func yeboMal(_ la: Double, _ lo: Double, _ ttae: Date, bae: Bool) async -> String {
+        let u = String(format: "https://api.open-meteo.com/v1/forecast?latitude=%.3f&longitude=%.3f", la, lo)
+            + "&hourly=temperature_2m,precipitation,weather_code,wind_gusts_10m&wind_speed_unit=ms&timezone=Asia%2FSeoul&forecast_days=3"
+        guard let o = await jsonBatgi(u), let h = o["hourly"] as? [String: Any], let tl = h["time"] as? [String] else { return "" }
+        let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.timeZone = TimeZone(identifier: "Asia/Seoul"); f.dateFormat = "yyyy-MM-dd'T'HH:00"
+        guard let k = tl.firstIndex(of: f.string(from: ttae)) else { return "" }
+        func su(_ n: String) -> Double? { (h[n] as? [Any]).flatMap { k < $0.count ? Chatgi.su($0[k]) : nil } }
+        var l: [String] = []
+        let code = su("weather_code").map { Int($0) } ?? 0
+        let bi = su("precipitation") ?? 0
+        if code >= 95 { l.append("천둥 번개가 칩니다") }
+        if [71, 73, 75, 77, 85, 86].contains(code) { l.append("눈이 옵니다") }
+        else if bi >= 5 { l.append("비가 많이 옵니다") }
+        else if bi >= 1 { l.append("비가 옵니다") }
+        if let b = su("wind_gusts_10m") {
+            if b >= 14 { l.append("바람이 매우 셉니다(순간 초속 \(Int(b))미터)" + (bae ? ", 배가 뜨지 않을 수 있습니다" : "")) }
+            else if b >= 10 { l.append("바람이 셉니다") }
+        }
+        if let t = su("temperature_2m") {
+            if t <= -10 { l.append("영하 \(Int(-t))도로 몹시 춥습니다") }
+            else if t >= 33 { l.append("\(Int(t))도로 몹시 덥습니다") }
+        }
+        return l.joined(separator: ", ")
+    }
+
+    /// 계획의 k번째 차례부터 안전을 살펴 한 덩이 말로(전체 6초 안). 아무 일 없으면 빈 글
+    static func anjeonSalpigi(_ g: Gyehoek, buteo k0: Int) async -> String {
+        guard k0 < g.gugan.count else { return "" }
+        // 차례마다 끝나는 곳과 때(어림) — 지하철 차례는 땅속이라 뺌
+        var t = Date()
+        var jeom: [(String, Double, Double, Date, Bool)] = []
+        for k in k0..<g.gugan.count {
+            let gu = g.gugan[k]
+            t = t.addingTimeInterval(Double(gu.bun + gu.gidarim) * 60)
+            if gu.tal == "jihacheol" { continue }
+            if jeom.contains(where: { WichiEngine.geori($0.1, $0.2, gu.lat, gu.lon) < 15000 && gu.tal != "bae" }) { continue }
+            jeom.append((gu.mok, gu.lat, gu.lon, t, gu.tal == "bae"))
+        }
+        jeom = Array(jeom.suffix(4))
+        var sidoL: [(String, [String])] = []
+        for j in jeom { let s = sidoChatgi(j.1, j.2); if !sidoL.contains(where: { $0.0 == s.0 }) { sidoL.append(s) } }
+        let jeomC = jeom, sidoC = sidoL
+        return await withTaskGroup(of: (Int, String).self) { gr -> String in
+            for (n, j) in jeomC.enumerated() {
+                gr.addTask {
+                    let y = await yeboMal(j.1, j.2, j.3, bae: j.4)
+                    let f = DateFormatter(); f.locale = Locale(identifier: "ko_KR"); f.dateFormat = "H시"
+                    return (10 + n, y.isEmpty ? "" : "\(f.string(from: j.3))쯤 \(j.0) 쪽은 \(y). ")
+                }
+            }
+            gr.addTask {
+                guard let o = await jsonBatgi("https://lvd.ada.or.kr/jeom/anjeon.php?a=teukbo"), (o["junbi"] as? Bool) == true,
+                      let tb = o["teukbo"] as? [[String: Any]] else { return (0, "") }
+                var m: [String] = []
+                for s in sidoC {
+                    let jong = tb.filter { x in s.1.contains { w in ((x["got"] as? String) ?? "").contains(w) } }.compactMap { $0["jong"] as? String }
+                    if !jong.isEmpty { m.append("\(s.0)에 \(jong.joined(separator: ", "))") }
+                }
+                return (0, m.isEmpty ? "" : "지금 " + m.joined(separator: ", ") + "가 내려져 있습니다. ")
+            }
+            gr.addTask {
+                let gu = sidoC.flatMap { $0.1 }.joined(separator: ",")
+                guard !gu.isEmpty, let e = gu.addingPercentEncoding(withAllowedCharacters: .alphanumerics),
+                      let o = await jsonBatgi("https://lvd.ada.or.kr/jeom/anjeon.php?a=jaenan&gu=" + e), (o["junbi"] as? Bool) == true,
+                      let r = o["rows"] as? [[String: Any]], let x = r.first, let mal = x["mal"] as? String, !mal.isEmpty else { return (1, "") }
+                return (1, "오늘 \((x["got"] as? String) ?? "그 지역")에 긴급재난문자가 왔습니다. \(String(mal.prefix(90))) ")
+            }
+            var l: [(Int, String)] = []
+            for await r in gr { l.append(r) }
+            return l.sorted { $0.0 < $1.0 }.map { $0.1 }.joined()
+        }
+    }
+
+    // MARK: 따라가시는 중 안전 살피기(10분마다) — 새로 생긴 특보·재난문자·궂은 날씨를 한 번만 알림
+    private var anjeonTtae = Date.distantPast
+    private var anjeonMalHan = ""
+    private func anjeonBoda() {
+        guard let g = jigeum, Date().timeIntervalSince(anjeonTtae) > 600 else { return }
+        anjeonTtae = Date()
+        Task {
+            let a = await GilGyehoek.anjeonSalpigi(g, buteo: g.i)
+            await MainActor.run {
+                guard !a.isEmpty, a != self.anjeonMalHan, self.jigeum != nil else { return }
+                let cheot = self.anjeonMalHan.isEmpty && a == g.anjeon
+                self.anjeonMalHan = a
+                if cheot { return }   // 여쭐 때 이미 말씀드린 것과 같으면 다시 말하지 않음
+                Girok.shared.namgi("gyehoek_anjeon", ["mal": String(a.prefix(60))])
+                SoriEngine.shared.mal("여정 안전 알림입니다. " + a, .gyeonggo)
+            }
+        }
+    }
 
     // MARK: 길 묻는 말 알아듣기
 

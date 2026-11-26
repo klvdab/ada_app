@@ -17,7 +17,7 @@ data class Gugan(val tal: String, val buteo: String, val mok: String, val lat: D
 
 /** 짠 길 하나 */
 data class Gyehoek(val mokjeok: String, val mlat: Double, val mlon: Double, val gugan: List<Gugan>, val i: Int = 0, val sijak: Long = System.currentTimeMillis(),
-                   val dochakTtae: Long? = null) {
+                   val dochakTtae: Long? = null, val anjeon: String = "") {
     val chong: Int get() = gugan.sumOf { it.bun + it.gidarim }
 }
 
@@ -125,6 +125,7 @@ object GilGyehoek {
             }) }
         })
         g.dochakTtae?.let { put("dochakTtae", it) }
+        put("anjeon", g.anjeon)
     }
     private fun gyehoekPulgi(o: JSONObject): Gyehoek {
         val a = o.getJSONArray("gugan")
@@ -134,7 +135,7 @@ object GilGyehoek {
                 u.optString("deo", ""), u.optInt("gidarim", 0), u.optBoolean("majimak", false), u.optString("sigak", ""))
         }
         return Gyehoek(o.getString("mokjeok"), o.getDouble("mlat"), o.getDouble("mlon"), l, o.optInt("i", 0), o.optLong("sijak", System.currentTimeMillis()),
-            if (o.has("dochakTtae")) o.optLong("dochakTtae") else null)
+            if (o.has("dochakTtae")) o.optLong("dochakTtae") else null, o.optString("anjeon", ""))
     }
 
     // MARK: 차례가 끝났는지 보기(15초마다)
@@ -152,6 +153,7 @@ object GilGyehoek {
     }
 
     private fun boda() {
+        anjeonBoda()
         val g = jigeum ?: return
         if (g.i >= g.gugan.size) return
         val w = Wichi.jigeum ?: return
@@ -193,6 +195,7 @@ object GilGyehoek {
 
     fun jeanMal(g: Gyehoek, cheot: Boolean): String {
         val b = StringBuilder(if (cheot) "${g.mokjeok}까지 가장 알맞은 길을 짰습니다. " else "다른 길입니다. ")
+        if (g.anjeon.isNotEmpty()) b.append("먼저 안전 알림입니다. ").append(g.anjeon)
         b.append(if (g.gugan.size == 1) "한 차례로, 대략 ${bunMal(g.chong)} 걸립니다. " else "모두 ${g.gugan.size}차례, 대략 ${bunMal(g.chong)} 걸립니다. ")
         g.gugan.forEachIndexed { k, u ->
             b.append("${cha(k)}, ${talMal(u.tal)} ${u.mok}까지 대략 ${bunMal(u.bun)}. ")
@@ -282,8 +285,11 @@ object GilGyehoek {
                 Tongsin.json("gyotong.php", mapOf("a" to "pyeon", "gal" to "bae", "chul" to a, "do" to b, "nal" to nal)) { o ->
                     val r = rowsOf(o)
                     if (r.isEmpty()) { kkeut(null); return@json }
-                    val l = r.mapNotNull { x -> hmBun(x.optString("ttae"))?.let { Triple(it, x.optString("bae", "배"), x.optString("unhang")) } }
+                    val l0 = r.mapNotNull { x -> hmBun(x.optString("ttae"))?.let { Triple(it, x.optString("bae", "배"), x.optString("unhang")) } }
                         .filter { it.first >= bun0 }.sortedBy { it.first }
+                    // 3차: 통제·결항된 배는 빼고 고름 — 남은 배가 모두 통제면 그렇게 알림
+                    val l = l0.filter { !it.third.contains("통제") && !it.third.contains("결항") }
+                    if (l.isEmpty() && l0.isNotEmpty()) { kkeut(TONGJE_MAL to null); return@json }
                     val f = l.firstOrNull()
                     if (f == null) kkeut("오늘은 더 남은 배가 없습니다. 내일 첫 배를 확인하십시오." to null)
                     else {
@@ -339,6 +345,142 @@ object GilGyehoek {
     /** 시각을 채운 계획으로 지금 여쭙는 후보를 바꿈(정할 때 시각이 함께 남도록) */
     fun huboGochigi(g: Gyehoek) {
         if (huboI < hubo.size && hubo[huboI].mokjeok == g.mokjeok) hubo = hubo.toMutableList().also { it[huboI] = g }
+    }
+
+    // MARK: 3차(2.107.0, 이사장님 승인 2026-11-26 「3차작업으로 다른 키 받을걸 예상해서 잡아 놓는것도 좋겠지」, 아이폰 2.142.0과 같음)
+    // 안전 — 차례마다 닿을 때의 날씨 예보(오픈메테오, 열쇠 없음)·여객선 통제(gyotong.php)·기상특보·긴급재난문자(anjeon.php — 신청 전에는 junbi:false 로 조용히 넘어감)
+
+    const val TONGJE_MAL = "오늘 남은 배는 모두 운항이 통제되었습니다."
+    fun tongjeIna(g: Gyehoek) = g.gugan.any { it.sigak == TONGJE_MAL }
+
+    /** 배가 통제된 계획을 뒤로 — 통제 없는 다른 길이 있으면 맨 앞으로 올리고 그 길을 돌려줌 */
+    fun tongjeDwiro(): Gyehoek? {
+        if (huboI >= hubo.size || !tongjeIna(hubo[huboI])) return null
+        val k = hubo.indices.firstOrNull { it > huboI && hubo[it].gugan.none { u -> u.tal == "bae" } } ?: return null
+        val l = hubo.toMutableList(); val n = l.removeAt(k); l.add(huboI, n); hubo = l
+        jeanTtae = System.currentTimeMillis()
+        Girok.namgi("gyehoek_tongje", mapOf("gil" to galraeMal(n)))
+        return n
+    }
+
+    /** 시각과 안전을 함께 채움(메인에서 kkeut) */
+    fun junbiHagi(g0: Gyehoek, kkeut: (Gyehoek) -> Unit) {
+        sigakChaeugi(g0) { g1 -> anjeonSalpigi(g1, 0) { a -> main.post { kkeut(g1.copy(anjeon = a)) } } }
+    }
+
+    private class Sido(val ireum: String, val lat: Double, val lon: Double, val mal: List<String>)
+    private val sidoL = listOf(
+        Sido("서울", 37.566, 126.978, listOf("서울")), Sido("인천", 37.456, 126.705, listOf("인천")), Sido("경기도", 37.275, 127.009, listOf("경기")),
+        Sido("강원도", 37.885, 127.730, listOf("강원")), Sido("충청북도", 36.635, 127.491, listOf("충청북", "충북")), Sido("충청남도", 36.659, 126.673, listOf("충청남", "충남")),
+        Sido("대전", 36.350, 127.385, listOf("대전")), Sido("세종", 36.480, 127.289, listOf("세종")), Sido("전라북도", 35.820, 127.108, listOf("전라북", "전북")),
+        Sido("전라남도", 34.816, 126.463, listOf("전라남", "전남")), Sido("광주", 35.160, 126.851, listOf("광주")), Sido("경상북도", 36.576, 128.506, listOf("경상북", "경북")),
+        Sido("경상남도", 35.238, 128.692, listOf("경상남", "경남")), Sido("대구", 35.871, 128.601, listOf("대구")), Sido("울산", 35.539, 129.311, listOf("울산")),
+        Sido("부산", 35.180, 129.076, listOf("부산")), Sido("제주도", 33.489, 126.498, listOf("제주")), Sido("울릉도", 37.484, 130.906, listOf("울릉")))
+    private fun sidoChatgi(la: Double, lo: Double): Pair<String, List<String>> {
+        if (la < 33.7) return "제주도" to listOf("제주")
+        val c = sidoL.minByOrNull { Wichi.geori(la, lo, it.lat, it.lon) }!!
+        return c.ireum to c.mal
+    }
+
+    private val anjeonIl = java.util.concurrent.Executors.newCachedThreadPool()
+    private fun jsonBatgi(s: String): JSONObject? = try {
+        val c = java.net.URL(s).openConnection() as java.net.HttpURLConnection
+        c.connectTimeout = 5000; c.readTimeout = 5000
+        val r = if (c.responseCode == 200) JSONObject(c.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }) else null
+        c.disconnect(); r
+    } catch (e: Exception) { null }
+
+    /** 한 곳·한 때의 날씨 예보에서 걸음과 배에 영향을 주는 것만(없으면 빈 글) — 바탕 줄에서 부름 */
+    private fun yeboMal(la: Double, lo: Double, ttae: Long, bae: Boolean): String {
+        val u = "https://api.open-meteo.com/v1/forecast?latitude=" + String.format(java.util.Locale.US, "%.3f", la) +
+            "&longitude=" + String.format(java.util.Locale.US, "%.3f", lo) +
+            "&hourly=temperature_2m,precipitation,weather_code,wind_gusts_10m&wind_speed_unit=ms&timezone=Asia%2FSeoul&forecast_days=3"
+        val h = jsonBatgi(u)?.optJSONObject("hourly") ?: return ""
+        val tl = h.optJSONArray("time") ?: return ""
+        val f = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:00", java.util.Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("Asia/Seoul") }
+        val want = f.format(java.util.Date(ttae))
+        val k = (0 until tl.length()).firstOrNull { tl.optString(it) == want } ?: return ""
+        fun su(n: String): Double? { val a = h.optJSONArray(n) ?: return null; return if (k < a.length() && !a.isNull(k)) a.optDouble(k) else null }
+        val l = ArrayList<String>()
+        val code = su("weather_code")?.toInt() ?: 0
+        val bi = su("precipitation") ?: 0.0
+        if (code >= 95) l.add("천둥 번개가 칩니다")
+        if (code in listOf(71, 73, 75, 77, 85, 86)) l.add("눈이 옵니다")
+        else if (bi >= 5) l.add("비가 많이 옵니다")
+        else if (bi >= 1) l.add("비가 옵니다")
+        su("wind_gusts_10m")?.let { b ->
+            if (b >= 14) l.add("바람이 매우 셉니다(순간 초속 ${b.toInt()}미터)" + (if (bae) ", 배가 뜨지 않을 수 있습니다" else ""))
+            else if (b >= 10) l.add("바람이 셉니다")
+        }
+        su("temperature_2m")?.let { t -> if (t <= -10) l.add("영하 ${(-t).toInt()}도로 몹시 춥습니다") else if (t >= 33) l.add("${t.toInt()}도로 몹시 덥습니다") }
+        return l.joinToString(", ")
+    }
+
+    /** 계획의 k0번째 차례부터 안전을 살펴 한 덩이 말로(6초 안). 아무 일 없으면 빈 글. kkeut 는 바탕 줄에서 부름 */
+    fun anjeonSalpigi(g: Gyehoek, k0: Int, kkeut: (String) -> Unit) {
+        if (k0 >= g.gugan.size) { kkeut(""); return }
+        var t = System.currentTimeMillis()
+        val jeom = ArrayList<Pair<Gugan, Long>>()
+        for (k in k0 until g.gugan.size) {
+            val gu = g.gugan[k]
+            t += (gu.bun + gu.gidarim) * 60_000L
+            if (gu.tal == "jihacheol") continue
+            if (gu.tal != "bae" && jeom.any { Wichi.geori(it.first.lat, it.first.lon, gu.lat, gu.lon) < 15000 }) continue
+            jeom.add(gu to t)
+        }
+        val jl = jeom.takeLast(4)
+        val sl = jl.map { sidoChatgi(it.first.lat, it.first.lon) }.distinctBy { it.first }
+        val hf = java.text.SimpleDateFormat("H시", java.util.Locale.KOREA)
+        val il = ArrayList<java.util.concurrent.Future<Pair<Int, String>>>()
+        jl.forEachIndexed { n, (gu, tt) ->
+            il.add(anjeonIl.submit<Pair<Int, String>> {
+                val y = yeboMal(gu.lat, gu.lon, tt, gu.tal == "bae")
+                (10 + n) to (if (y.isEmpty()) "" else "${hf.format(java.util.Date(tt))}쯤 ${gu.mok} 쪽은 $y. ")
+            })
+        }
+        il.add(anjeonIl.submit<Pair<Int, String>> {
+            val o = jsonBatgi("https://lvd.ada.or.kr/jeom/anjeon.php?a=teukbo")
+            val tb = o?.optJSONArray("teukbo")
+            if (o == null || !o.optBoolean("junbi") || tb == null) return@submit 0 to ""
+            val m = ArrayList<String>()
+            for (s in sl) {
+                val jong = (0 until tb.length()).mapNotNull { tb.optJSONObject(it) }.filter { x -> s.second.any { w -> x.optString("got").contains(w) } }.map { it.optString("jong") }
+                if (jong.isNotEmpty()) m.add("${s.first}에 ${jong.joinToString(", ")}")
+            }
+            0 to (if (m.isEmpty()) "" else "지금 " + m.joinToString(", ") + "가 내려져 있습니다. ")
+        })
+        il.add(anjeonIl.submit<Pair<Int, String>> {
+            val gu = sl.flatMap { it.second }.joinToString(",")
+            if (gu.isEmpty()) return@submit 1 to ""
+            val o = jsonBatgi("https://lvd.ada.or.kr/jeom/anjeon.php?a=jaenan&gu=" + java.net.URLEncoder.encode(gu, "UTF-8"))
+            val x = o?.optJSONArray("rows")?.optJSONObject(0)
+            if (o == null || !o.optBoolean("junbi") || x == null || x.optString("mal").isEmpty()) return@submit 1 to ""
+            1 to "오늘 ${x.optString("got", "그 지역")}에 긴급재난문자가 왔습니다. ${x.optString("mal").take(90)} "
+        })
+        anjeonIl.execute {
+            val kkeutTtae = System.currentTimeMillis() + 6000
+            val l = il.mapNotNull { fu -> try { fu.get(maxOf(1L, kkeutTtae - System.currentTimeMillis()), java.util.concurrent.TimeUnit.MILLISECONDS) } catch (e: Exception) { null } }
+            kkeut(l.sortedBy { it.first }.joinToString("") { it.second })
+        }
+    }
+
+    // 따라가시는 중 안전 살피기(10분마다) — 새로 생긴 특보·재난문자·궂은 날씨를 한 번만 알림
+    private var anjeonTtae = 0L
+    private var anjeonMalHan = ""
+    private fun anjeonBoda() {
+        val g = jigeum ?: return
+        if (System.currentTimeMillis() - anjeonTtae < 600_000L) return
+        anjeonTtae = System.currentTimeMillis()
+        anjeonSalpigi(g, g.i) { a ->
+            main.post {
+                if (a.isEmpty() || a == anjeonMalHan || jigeum == null) return@post
+                val cheot = anjeonMalHan.isEmpty() && a == g.anjeon
+                anjeonMalHan = a
+                if (cheot) return@post
+                Girok.namgi("gyehoek_anjeon", mapOf("mal" to a.take(60)))
+                Sori.mal("여정 안전 알림입니다. $a", MalGeup.GYEONGGO)
+            }
+        }
     }
 
     // MARK: 길 묻는 말 알아듣기

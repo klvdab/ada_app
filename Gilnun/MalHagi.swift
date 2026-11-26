@@ -1528,8 +1528,8 @@ final class MalHagi: ObservableObject {
                 if let g2 = gg.dareunGil() {
                     mureumTtae = Date()
                     Task {
-                        let g3 = await GilGyehoek.sigakChaeugi(g2)
-                        await MainActor.run { dap(GilGyehoek.jeanMal(g3, cheot: false) + "이 길로 안내할까요?", true) }
+                        let g3 = await GilGyehoek.junbiHagi(g2)
+                        await MainActor.run { GilGyehoek.shared.jigeumHuboGochigi(g3); dap(GilGyehoek.jeanMal(g3, cheot: false) + "이 길로 안내할까요?", true) }
                     }
                 } else {
                     mureum = .bangsik
@@ -1544,8 +1544,8 @@ final class MalHagi: ObservableObject {
                 if let g2 = gg.talgeotGil(tm.1) {
                     mureumTtae = Date()
                     Task {
-                        let g3 = await GilGyehoek.sigakChaeugi(g2)
-                        await MainActor.run { dap(GilGyehoek.jeanMal(g3, cheot: false) + "이 길로 안내할까요?", true) }
+                        let g3 = await GilGyehoek.junbiHagi(g2)
+                        await MainActor.run { GilGyehoek.shared.jigeumHuboGochigi(g3); dap(GilGyehoek.jeanMal(g3, cheot: false) + "이 길로 안내할까요?", true) }
                     }
                 } else {
                     dap("\(GilGyehoek.talMal(tm.1)) 가는 길은 짜지 못했습니다. 이 길로 안내할까요? 다른 길을 원하시면 다른 길이라고 말씀해 주십시오.", true)
@@ -2617,14 +2617,27 @@ final class MalHagi: ObservableObject {
         mureum = .gyehoek
         mureumTtae = Date()
         // 2차(2.142.0) 기차·배·비행기 차례는 오늘 실제 시각을 알아보고 말씀드림(6초 안)
+        // 3차: 안전(날씨 예보·특보·재난문자)도 함께. 배가 모두 통제된 길이면 통제 없는 다른 길을 먼저 말씀드림
         Task {
-            let c2 = await GilGyehoek.sigakChaeugi(cheot)
+            var c2 = await GilGyehoek.junbiHagi(cheot)
+            var ap2 = apMal
+            var l2 = l
+            l2[0] = c2
+            if GilGyehoek.tongjeIna(c2) {
+                let lc = l2
+                let ok = await MainActor.run { () -> Bool in GilGyehoek.shared.huboGochigi(lc); return GilGyehoek.shared.tongjeDwiro() }
+                if ok, let n = await MainActor.run(body: { GilGyehoek.shared.jeanJung }) {
+                    c2 = await GilGyehoek.junbiHagi(n)
+                    ap2 += "오늘 남은 배가 모두 운항이 통제되어, 배를 타지 않는 길을 먼저 말씀드립니다. "
+                    l2 = await MainActor.run { GilGyehoek.shared.hubo }
+                    if let k = l2.firstIndex(where: { $0.gugan == n.gugan }) { l2[k] = c2 }
+                }
+            }
+            let l3 = l2, c3 = c2, ap3 = ap2
             await MainActor.run {
-                var l2 = l
-                l2[0] = c2
-                GilGyehoek.shared.huboGochigi(l2)
-                Girok.shared.namgi("gyehoek_sigak", ["su": c2.gugan.filter { !$0.sigak.isEmpty }.count])
-                dap(apMal + GilGyehoek.jeanMal(c2, cheot: true) + "이 길로 안내할까요?" + (l.count > 1 ? " 다른 길을 원하시면 다른 길이라고 말씀해 주십시오." : ""), true)
+                GilGyehoek.shared.huboGochigi(l3)
+                Girok.shared.namgi("gyehoek_sigak", ["su": c3.gugan.filter { !$0.sigak.isEmpty }.count, "anjeon": !c3.anjeon.isEmpty])
+                dap(ap3 + GilGyehoek.jeanMal(c3, cheot: true) + "이 길로 안내할까요?" + (l.count > 1 ? " 다른 길을 원하시면 다른 길이라고 말씀해 주십시오." : ""), true)
             }
         }
         return true
