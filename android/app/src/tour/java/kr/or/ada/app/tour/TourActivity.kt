@@ -79,7 +79,7 @@ sealed class Hw {
 
 class TourActivity : Activity() {
     companion object {
-        const val PAN = "1.4.3"; const val BILDEU = "261123-T9"
+        const val PAN = "1.4.5"; const val BILDEU = "261126-T10"
         const val WEB_JUSO = "https://lvd.ada.or.kr/lvdts/lvdts.html"
         const val PAN_IREUM = "LVD투어스튜디오 ${PAN}판 (빌드 ${BILDEU})"
         const val SAJIN = 71; const val HEORAK_KAMERA = 72; const val HEORAK_JARI = 73; const val HEORAK_MIC = 74; const val SAJIN_GAJYEO = 75; const val HEORAK_GEOLEUM = 76
@@ -1463,6 +1463,7 @@ class TourActivity : Activity() {
 
 /** 도움말 — 아이폰 Tour/SeoljeongViews.swift 의 DoumMok 과 같은 글 */
 val DOUM: List<Pair<String, String>> = listOf(
+    "짧은 주소 — lvdtour.ada.or.kr" to "투어스튜디오 웹은 짧은 주소 lvdtour.ada.or.kr 로 들어올 수 있습니다. 컴퓨터 인터넷 창 주소 칸에 lvdtour.ada.or.kr 만 치고 들어가면 투어스튜디오 첫 화면이 열립니다. 긴 글은 웹에서 고치시면 편합니다. 이 앱을 받으려면 안드로이드는 lvdtour.ada.or.kr/a, 아이폰은 lvdtour.ada.or.kr/i 로 들어가십시오. 예전 주소 lvd.ada.or.kr/lvdts/ 도 그대로 열립니다.",   // 1.4.5 (261126-T10, 새방클)
     "지점 경계 규칙" to "$RULE_TXT 지점 사이를 걷는 이동 시간은 다음 지점의 몫입니다. 작성원칙 통합본 7번입니다.",
     "탭 다섯" to "아래 탭은 코스, 답사, 지점, 현장영상해설, 설정 다섯입니다. 지금 탭을 한 번 더 누르면 그 탭 첫 화면 맨 위로 갑니다. 뒤로 단추는 화면 맨 위에 있고, 폰의 뒤로 동작으로도 뒤로 갑니다.",
     "코스 열기와 새 코스" to "코스 탭의 코스 목록에서 코스 이름을 두드리면 열립니다. 목록은 다섯 줄씩 보이고 더 보기와 이전 보기로 넘깁니다. 새 코스는 맨 아래 새 코스 만들기에서 이름과 장소를 적고 만듭니다. 새 코스에는 오프닝 지점과 클로징 지점이 들어 있습니다.",

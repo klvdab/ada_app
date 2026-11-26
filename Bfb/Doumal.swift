@@ -6,6 +6,8 @@ enum Doumal {
     struct Hang: Identifiable { let jemok: String; let naeyong: String; var id: String { jemok } }
 
     static let modu: [Hang] = [
+        Hang(jemok: "짧은 주소 — lvdlive.ada.or.kr (2.13.1)",
+             naeyong: "LVD 방송 첫 화면은 짧은 주소 lvdlive.ada.or.kr 로 들어올 수 있습니다. 컴퓨터나 폰의 인터넷 창 주소 칸에 lvdlive.ada.or.kr 만 치고 들어가면 LVD 방송 첫 화면이 열리고, 「지금 현장영상해설 듣기」 단추로 방송을 듣습니다. 앱이 없는 분께 알려 드리기 좋습니다. 안드로이드 폰에 이 앱을 받으려면 lvdlive.ada.or.kr/a 로 들어가십시오. 예전 주소 lvd.ada.or.kr/bfb/bfb.html 도 그대로 열립니다."),
         Hang(jemok: "영상 화면이 저절로 열림 (2.12.3)",
              naeyong: "듣고 계신 인터넷 방송에 영상이 함께 나가고 영상이 준비되면, 영상으로 보기를 누르지 않아도 영상 화면이 저절로 열립니다. 열기 1.5초 전에 「영상 화면을 엽니다」라고 먼저 알려 드립니다. 같은 방송에서는 한 번만 엽니다. 영상 화면을 닫고 나오시면 다시 열지 않으니 소리로 들으시면 됩니다. 다시 보시려면 첫 화면의 영상으로 보기를 누르십시오. 다른 화면을 보고 계실 때는 열지 않습니다."),
         Hang(jemok: "인터넷 방송을 기다릴 때 대기 음악 (2.12.1)",
