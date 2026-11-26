@@ -13,10 +13,11 @@ import org.json.JSONObject
 
 /** 한 차례(구간) — tal: georeum·jihacheol·beoseu·cha·gicha·bihaenggi·bae */
 data class Gugan(val tal: String, val buteo: String, val mok: String, val lat: Double, val lon: Double, val bun: Int,
-                 val deo: String = "", val gidarim: Int = 0, val majimak: Boolean = false)
+                 val deo: String = "", val gidarim: Int = 0, val majimak: Boolean = false, val sigak: String = "")
 
 /** 짠 길 하나 */
-data class Gyehoek(val mokjeok: String, val mlat: Double, val mlon: Double, val gugan: List<Gugan>, val i: Int = 0, val sijak: Long = System.currentTimeMillis()) {
+data class Gyehoek(val mokjeok: String, val mlat: Double, val mlon: Double, val gugan: List<Gugan>, val i: Int = 0, val sijak: Long = System.currentTimeMillis(),
+                   val dochakTtae: Long? = null) {
     val chong: Int get() = gugan.sumOf { it.bun + it.gidarim }
 }
 
@@ -120,18 +121,20 @@ object GilGyehoek {
         put("gugan", JSONArray().apply {
             g.gugan.forEach { u -> put(JSONObject().apply {
                 put("tal", u.tal); put("buteo", u.buteo); put("mok", u.mok); put("lat", u.lat); put("lon", u.lon); put("bun", u.bun)
-                put("deo", u.deo); put("gidarim", u.gidarim); put("majimak", u.majimak)
+                put("deo", u.deo); put("gidarim", u.gidarim); put("majimak", u.majimak); put("sigak", u.sigak)
             }) }
         })
+        g.dochakTtae?.let { put("dochakTtae", it) }
     }
     private fun gyehoekPulgi(o: JSONObject): Gyehoek {
         val a = o.getJSONArray("gugan")
         val l = (0 until a.length()).map { k ->
             val u = a.getJSONObject(k)
             Gugan(u.getString("tal"), u.getString("buteo"), u.getString("mok"), u.getDouble("lat"), u.getDouble("lon"), u.getInt("bun"),
-                u.optString("deo", ""), u.optInt("gidarim", 0), u.optBoolean("majimak", false))
+                u.optString("deo", ""), u.optInt("gidarim", 0), u.optBoolean("majimak", false), u.optString("sigak", ""))
         }
-        return Gyehoek(o.getString("mokjeok"), o.getDouble("mlat"), o.getDouble("mlon"), l, o.optInt("i", 0), o.optLong("sijak", System.currentTimeMillis()))
+        return Gyehoek(o.getString("mokjeok"), o.getDouble("mlat"), o.getDouble("mlon"), l, o.optInt("i", 0), o.optLong("sijak", System.currentTimeMillis()),
+            if (o.has("dochakTtae")) o.optLong("dochakTtae") else null)
     }
 
     // MARK: 차례가 끝났는지 보기(15초마다)
@@ -191,10 +194,20 @@ object GilGyehoek {
     fun jeanMal(g: Gyehoek, cheot: Boolean): String {
         val b = StringBuilder(if (cheot) "${g.mokjeok}까지 가장 알맞은 길을 짰습니다. " else "다른 길입니다. ")
         b.append(if (g.gugan.size == 1) "한 차례로, 대략 ${bunMal(g.chong)} 걸립니다. " else "모두 ${g.gugan.size}차례, 대략 ${bunMal(g.chong)} 걸립니다. ")
-        g.gugan.forEachIndexed { k, u -> b.append("${cha(k)}, ${talMal(u.tal)} ${u.mok}까지 대략 ${bunMal(u.bun)}. ") }
+        g.gugan.forEachIndexed { k, u ->
+            b.append("${cha(k)}, ${talMal(u.tal)} ${u.mok}까지 대략 ${bunMal(u.bun)}. ")
+            if (u.sigak.isNotEmpty()) b.append(u.sigak).append(" ")
+        }
+        g.dochakTtae?.let { d ->
+            val c = java.util.Calendar.getInstance().apply { timeInMillis = d }
+            val oneul = java.util.Calendar.getInstance()
+            val nal = if (c.get(java.util.Calendar.DAY_OF_YEAR) == oneul.get(java.util.Calendar.DAY_OF_YEAR)) "" else "내일 "
+            val h = c.get(java.util.Calendar.HOUR_OF_DAY); val m = c.get(java.util.Calendar.MINUTE)
+            b.append("지금 떠나시면 $nal${h}시${if (m > 0) " ${m}분" else ""}쯤 닿으십니다. ")
+        }
         if (g.gugan.any { it.tal == "bihaenggi" }) b.append("비행기는 뜨기 한 시간 전까지 공항에 닿으셔야 합니다. ")
         if (g.gugan.any { it.tal == "bae" }) b.append("배를 타실 때는 신분증이 꼭 있어야 합니다. ")
-        b.append("걸리는 시간은 보통 때의 어림입니다. ")
+        b.append(if (g.gugan.any { it.sigak.isNotEmpty() }) "시각은 오늘 운행표이고, 나머지 걸리는 시간은 보통 때의 어림입니다. " else "걸리는 시간은 보통 때의 어림입니다. ")
         return b.toString()
     }
 
@@ -211,6 +224,121 @@ object GilGyehoek {
         val b = StringBuilder("${g.mokjeok}까지 ${g.gugan.size}차례 가운데 지금 ${cha(g.i)} 차례입니다. ")
         for (k in g.i until g.gugan.size) { val u = g.gugan[k]; b.append("${cha(k)}, ${talMal(u.tal)} ${u.mok}까지 대략 ${bunMal(u.bun)}. ") }
         return b.toString()
+    }
+
+    // MARK: 2차(2.107.0, 이사장님 승인 2026-11-26 「1 진행하고」, 아이폰 2.142.0과 같음) 실제 시각 — 협회 서버 gyotong.php(기차·여객선)·bihaeng.php(국내선)
+
+    private val moduGal = HashMap<String, List<JSONObject>>()
+    private fun modu(gal: String, kkeut: (List<JSONObject>) -> Unit) {
+        moduGal[gal]?.takeIf { it.isNotEmpty() }?.let { kkeut(it); return }
+        Tongsin.json("gyotong.php", mapOf("a" to "modu", "gal" to gal)) { o ->
+            val a = o?.optJSONArray("rows")
+            val l = if (a == null) emptyList() else (0 until a.length()).mapNotNull { a.optJSONObject(it) }
+            if (l.isNotEmpty()) moduGal[gal] = l
+            kkeut(l)
+        }
+    }
+    private fun idChatgi(rows: List<JSONObject>, n: String): String? {
+        rows.firstOrNull { it.optString("ireum") == n }?.let { return it.optString("id") }
+        return rows.firstOrNull { val r = it.optString("ireum"); r.isNotEmpty() && (n.startsWith(r) || r.startsWith(n)) }?.optString("id")
+    }
+    private val baeIreum = listOf("목포" to "목포", "완도" to "완도", "녹동" to "녹동", "여수" to "여수", "부산항" to "부산", "제주항" to "제주",
+        "운진항" to "모슬포", "포항" to "포항", "강릉" to "강릉", "묵호" to "묵호", "후포" to "후포", "인천" to "인천", "통영" to "통영", "격포" to "격포",
+        "군산" to "군산", "마라도" to "마라도 살레덕", "가파도" to "가파도", "도동" to "울릉(도동)", "울릉" to "울릉(사동)")
+    private fun baeKomsa(n: String) = baeIreum.firstOrNull { n.contains(it.first) }?.second
+    private val iata = mapOf("김포공항" to "GMP", "제주국제공항" to "CJU", "김해국제공항" to "PUS", "대구국제공항" to "TAE", "청주국제공항" to "CJJ",
+        "무안국제공항" to "MWX", "광주공항" to "KWJ", "여수공항" to "RSU", "사천공항" to "HIN", "울산공항" to "USN", "포항경주공항" to "KPO", "군산공항" to "KUV", "원주공항" to "WJU", "양양국제공항" to "YNY")
+    private fun hmBun(s: String): Int? = if (s.length >= 4) s.substring(0, 2).toIntOrNull()?.let { h -> s.substring(2, 4).toIntOrNull()?.let { m -> h * 60 + m } } else null
+    private fun bunHm(b: Int): String { val h = (b / 60) % 24; val m = b % 60; return if (m == 0) "${h}시" else "${h}시 ${m}분" }
+
+    /** 이 차례를 t0 뒤에 떠날 수 있을 때 가장 빠른 실제 편 — (말, 닿는 때). 못 받으면 null */
+    fun sigakChatgi(gu: Gugan, t0: Long, kkeut: (Pair<String, Long?>?) -> Unit) {
+        val c = java.util.Calendar.getInstance().apply { timeInMillis = t0 }
+        val nal = String.format(java.util.Locale.US, "%04d%02d%02d", c.get(java.util.Calendar.YEAR), c.get(java.util.Calendar.MONTH) + 1, c.get(java.util.Calendar.DAY_OF_MONTH))
+        val bun0 = c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE)
+        val jajeong = c.apply { set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0) }.timeInMillis
+        fun rowsOf(o: JSONObject?): List<JSONObject> { val a = o?.optJSONArray("rows") ?: return emptyList(); return (0 until a.length()).mapNotNull { a.optJSONObject(it) } }
+        when (gu.tal) {
+            "gicha" -> modu("gicha") { rows ->
+                val a = idChatgi(rows, gu.buteo.replace("역", "")); val b = idChatgi(rows, gu.mok.replace("역", ""))
+                if (a == null || b == null) { kkeut(null); return@modu }
+                Tongsin.json("gyotong.php", mapOf("a" to "pyeon", "gal" to "gicha", "chul" to a, "do" to b, "nal" to nal)) { o ->
+                    if (o == null) { kkeut(null); return@json }
+                    val r = rowsOf(o)
+                    val l = r.mapNotNull { x ->
+                        val d = x.optString("depplandtime"); val ar = x.optString("arrplandtime")
+                        val db = if (d.length >= 12) hmBun(d.substring(8)) else null; val ab = if (ar.length >= 12) hmBun(ar.substring(8)) else null
+                        if (db == null || ab == null) null else Triple(db, if (ab < db) ab + 1440 else ab, x.optString("traingradename", "기차"))
+                    }.filter { it.first >= bun0 }.sortedBy { it.first }
+                    val f = l.firstOrNull()
+                    if (f == null) kkeut(if (r.isEmpty()) null else ("오늘은 더 남은 기차가 없습니다." to null))
+                    else kkeut("가장 빠른 기차는 ${bunHm(f.first)} ${f.third}로, ${gu.mok}에 ${bunHm(f.second)}에 닿습니다." to (jajeong + f.second * 60_000L))
+                }
+            }
+            "bae" -> modu("bae") { rows ->
+                val ka = baeKomsa(gu.buteo); val kb = baeKomsa(gu.mok)
+                val a = ka?.let { idChatgi(rows, it) }; val b = kb?.let { idChatgi(rows, it) }
+                if (a == null || b == null) { kkeut(null); return@modu }
+                Tongsin.json("gyotong.php", mapOf("a" to "pyeon", "gal" to "bae", "chul" to a, "do" to b, "nal" to nal)) { o ->
+                    val r = rowsOf(o)
+                    if (r.isEmpty()) { kkeut(null); return@json }
+                    val l = r.mapNotNull { x -> hmBun(x.optString("ttae"))?.let { Triple(it, x.optString("bae", "배"), x.optString("unhang")) } }
+                        .filter { it.first >= bun0 }.sortedBy { it.first }
+                    val f = l.firstOrNull()
+                    if (f == null) kkeut("오늘은 더 남은 배가 없습니다. 내일 첫 배를 확인하십시오." to null)
+                    else {
+                        val tongje = if (f.third.isNotEmpty() && f.third != "정상") " 다만 지금 운항 형편이 ${f.third}으로 나옵니다. 꼭 확인하십시오." else ""
+                        kkeut("오늘 남은 배 가운데 가장 빠른 것은 ${bunHm(f.first)} ${f.second}입니다.$tongje" to (jajeong + (f.first + gu.bun - 15) * 60_000L))
+                    }
+                }
+            }
+            "bihaenggi" -> {
+                val a = iata[gu.buteo]; val b = iata[gu.mok]
+                if (a == null || b == null) { kkeut(null); return }
+                Tongsin.json("bihaeng.php", mapOf("chul" to a, "do" to b, "nal" to nal)) { o ->
+                    val r = rowsOf(o)
+                    if (r.isEmpty()) { kkeut(null); return@json }
+                    val l = r.mapNotNull { x ->
+                        val sb = hmBun(x.optString("chul")); val db = hmBun(x.optString("do"))
+                        if (sb == null || db == null) null else Triple(sb, if (db < sb) db + 1440 else db, "${x.optString("hang")} ${x.optString("pyeon")}편")
+                    }.filter { it.first >= bun0 + 60 }.sortedBy { it.first }
+                    val f = l.firstOrNull()
+                    if (f == null) kkeut("오늘은 타실 만한 비행기가 더 없습니다." to null)
+                    else kkeut("타실 만한 비행기는 ${bunHm(f.first)} ${f.third}으로, ${bunHm(f.second)}에 닿습니다." to (jajeong + f.second * 60_000L))
+                }
+            }
+            else -> kkeut(null)
+        }
+    }
+
+    /** 계획 전체에 실제 시각을 채움 — 차례마다 앞 차례가 끝나는 때부터(전체 6초 안). kkeut 는 메인에서 부름 */
+    fun sigakChaeugi(g0: Gyehoek, kkeut: (Gyehoek) -> Unit) {
+        val l = g0.gugan.toMutableList()
+        val majimakTtae = System.currentTimeMillis() + 6000
+        var ok = true
+        fun hana(k: Int, t: Long) {
+            if (k >= l.size) {
+                val g = g0.copy(gugan = l, dochakTtae = if (ok && l.any { it.sigak.isNotEmpty() }) t else null)
+                main.post { kkeut(g) }
+                return
+            }
+            val gu = l[k]
+            if (gu.tal in setOf("gicha", "bae", "bihaenggi") && System.currentTimeMillis() < majimakTtae) {
+                sigakChatgi(gu, t) { r ->
+                    if (r != null) {
+                        l[k] = gu.copy(sigak = r.first)
+                        val d = r.second
+                        if (d != null) hana(k + 1, d) else { ok = false; hana(k + 1, t + (gu.bun + gu.gidarim) * 60_000L) }
+                    } else hana(k + 1, t + (gu.bun + gu.gidarim) * 60_000L)
+                }
+            } else hana(k + 1, t + (gu.bun + (if (gu.tal == "bihaenggi") gu.gidarim else 0)) * 60_000L)
+        }
+        hana(0, System.currentTimeMillis())
+    }
+
+    /** 시각을 채운 계획으로 지금 여쭙는 후보를 바꿈(정할 때 시각이 함께 남도록) */
+    fun huboGochigi(g: Gyehoek) {
+        if (huboI < hubo.size && hubo[huboI].mokjeok == g.mokjeok) hubo = hubo.toMutableList().also { it[huboI] = g }
     }
 
     // MARK: 길 묻는 말 알아듣기

@@ -24,6 +24,8 @@ struct Gugan: Codable, Equatable {
     var gidarim: Int = 0
     /// 마지막 차례인가(사용자가 고르신 바로 그곳 — 이름으로 다시 찾지 않음)
     var majimak: Bool = false
+    /// 2차(2.142.0) 실제 시각 한 줄 — 「15시 30분 KTX, 부산역 18시 7분 도착」 (못 받았으면 빈 글)
+    var sigak: String = ""
 }
 
 /// 짠 길 하나
@@ -34,6 +36,8 @@ struct Gyehoek: Codable, Equatable {
     var gugan: [Gugan]
     var i: Int = 0
     var sijak: Date = Date()
+    /// 2차 실제 시각으로 셈한 닿는 때(못 셈하면 nil)
+    var dochakTtae: Date? = nil
     var chong: Int { gugan.reduce(0) { $0 + $1.bun + $1.gidarim } }
 }
 
@@ -200,10 +204,16 @@ final class GilGyehoek: ObservableObject {
         for (k, gu) in g.gugan.enumerated() {
             let c = k < chasu.count ? chasu[k] : "\(k + 1)번째"
             t += "\(c), \(talMal(gu.tal)) \(gu.mok)까지 대략 \(bunMal(gu.bun)). "
+            if !gu.sigak.isEmpty { t += gu.sigak + " " }
+        }
+        if let d = g.dochakTtae {
+            let f = DateFormatter(); f.locale = Locale(identifier: "ko_KR"); f.dateFormat = "H시 m분"
+            let nal = Calendar.current.isDateInToday(d) ? "" : (Calendar.current.isDateInTomorrow(d) ? "내일 " : "다음 날 이후 ")
+            t += "지금 떠나시면 \(nal)\(f.string(from: d).replacingOccurrences(of: " 0분", with: ""))쯤 닿으십니다. "
         }
         if g.gugan.contains(where: { $0.tal == "bihaenggi" }) { t += "비행기는 뜨기 한 시간 전까지 공항에 닿으셔야 합니다. " }
         if g.gugan.contains(where: { $0.tal == "bae" }) { t += "배를 타실 때는 신분증이 꼭 있어야 합니다. " }
-        t += "걸리는 시간은 보통 때의 어림입니다. "
+        t += g.gugan.contains(where: { !$0.sigak.isEmpty }) ? "시각은 오늘 운행표이고, 나머지 걸리는 시간은 보통 때의 어림입니다. " : "걸리는 시간은 보통 때의 어림입니다. "
         return t
     }
 
@@ -232,6 +242,112 @@ final class GilGyehoek: ObservableObject {
     }
 
     static func ieGa(_ s: String) -> String { "에" }
+
+    // MARK: 2차(2.142.0, 이사장님 승인 2026-11-26 「1 진행하고」) 실제 시각 — 협회 서버 gyotong.php(기차·여객선)·bihaeng.php(국내선)
+
+    private static var moduGal: [String: [[String: Any]]] = [:]
+    private static func modu(_ gal: String) async -> [[String: Any]] {
+        if let m = moduGal[gal], !m.isEmpty { return m }
+        guard let o = await Chatgi.json("gyotong.php", ["a": "modu", "gal": gal]), let r = o["rows"] as? [[String: Any]] else { return [] }
+        moduGal[gal] = r
+        return r
+    }
+    private static func idChatgi(_ rows: [[String: Any]], _ n: String) -> String? {
+        if let r = rows.first(where: { ($0["ireum"] as? String) == n }) { return r["id"] as? String }
+        return rows.first(where: { ($0["ireum"] as? String).map { !$0.isEmpty && (n.hasPrefix($0) || $0.hasPrefix(n)) } ?? false })?["id"] as? String
+    }
+    /// 우리 항구 이름 → 해양교통안전공단 이름
+    private static let baeIreum: [(String, String)] = [("목포", "목포"), ("완도", "완도"), ("녹동", "녹동"), ("여수", "여수"), ("부산항", "부산"), ("제주항", "제주"),
+        ("운진항", "모슬포"), ("포항", "포항"), ("강릉", "강릉"), ("묵호", "묵호"), ("후포", "후포"), ("인천", "인천"), ("통영", "통영"), ("격포", "격포"),
+        ("군산", "군산"), ("마라도", "마라도 살레덕"), ("가파도", "가파도"), ("도동", "울릉(도동)"), ("울릉", "울릉(사동)")]
+    private static func baeKomsa(_ n: String) -> String? { baeIreum.first { n.contains($0.0) }?.1 }
+    private static let iata: [String: String] = ["김포공항": "GMP", "제주국제공항": "CJU", "김해국제공항": "PUS", "대구국제공항": "TAE", "청주국제공항": "CJJ",
+        "무안국제공항": "MWX", "광주공항": "KWJ", "여수공항": "RSU", "사천공항": "HIN", "울산공항": "USN", "포항경주공항": "KPO", "군산공항": "KUV", "원주공항": "WJU", "양양국제공항": "YNY"]
+    private static func hmMal(_ s: String) -> String {
+        let c = Array(s)
+        guard c.count >= 4, let h = Int(String(c[0...1])), let m = Int(String(c[2...3])) else { return s }
+        return m == 0 ? "\(h)시" : "\(h)시 \(m)분"
+    }
+    private static func hmBun(_ s: String) -> Int? {
+        let c = Array(s)
+        guard c.count >= 4, let h = Int(String(c[0...1])), let m = Int(String(c[2...3])) else { return nil }
+        return h * 60 + m
+    }
+
+    /// 이 차례를 t0 뒤에 떠날 수 있을 때 가장 빠른 실제 편 — (말 한 줄, 닿는 때). 받지 못하면 nil, 오늘 남은 편이 없으면 (말, nil)
+    static func sigakChatgi(_ gu: Gugan, buteo t0: Date) async -> (String, Date?)? {
+        let cal = Calendar.current
+        let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyyMMdd"
+        let nal = f.string(from: t0)
+        let bun0 = cal.component(.hour, from: t0) * 60 + cal.component(.minute, from: t0)
+        let jajeong = cal.startOfDay(for: t0)
+        switch gu.tal {
+        case "gicha":
+            let rows = await modu("gicha")
+            guard let a = idChatgi(rows, gu.buteo.replacingOccurrences(of: "역", with: "")),
+                  let b = idChatgi(rows, gu.mok.replacingOccurrences(of: "역", with: "")),
+                  let o = await Chatgi.json("gyotong.php", ["a": "pyeon", "gal": "gicha", "chul": a, "do": b, "nal": nal]),
+                  let r = o["rows"] as? [[String: Any]] else { return nil }
+            let l = r.compactMap { x -> (Int, Int, String)? in
+                let d = "\(x["depplandtime"] ?? "")", ar = "\(x["arrplandtime"] ?? "")"
+                guard d.count >= 12, ar.count >= 12, let db = hmBun(String(d.dropFirst(8))), let ab = hmBun(String(ar.dropFirst(8))) else { return nil }
+                return (db, ab < db ? ab + 1440 : ab, "\(x["traingradename"] ?? "기차")")
+            }.filter { $0.0 >= bun0 }.sorted { $0.0 < $1.0 }
+            guard let c = l.first else { return r.isEmpty ? nil : ("오늘은 더 남은 기차가 없습니다.", nil) }
+            let hd = String(format: "%02d%02d", c.0 / 60, c.0 % 60), ha = String(format: "%02d%02d", (c.1 / 60) % 24, c.1 % 60)
+            return ("가장 빠른 기차는 \(hmMal(hd)) \(c.2)로, \(gu.mok)에 \(hmMal(ha))에 닿습니다.", jajeong.addingTimeInterval(Double(c.1) * 60))
+        case "bae":
+            let rows = await modu("bae")
+            guard let ka = baeKomsa(gu.buteo), let kb = baeKomsa(gu.mok), let a = idChatgi(rows, ka), let b = idChatgi(rows, kb),
+                  let o = await Chatgi.json("gyotong.php", ["a": "pyeon", "gal": "bae", "chul": a, "do": b, "nal": nal]),
+                  let r = o["rows"] as? [[String: Any]] else { return nil }
+            if r.isEmpty { return nil }
+            let l = r.compactMap { x -> (Int, String, String)? in
+                guard let tt = x["ttae"] as? String, let tb = hmBun(tt) else { return nil }
+                return (tb, (x["bae"] as? String) ?? "배", (x["unhang"] as? String) ?? "")
+            }.filter { $0.0 >= bun0 }.sorted { $0.0 < $1.0 }
+            guard let c = l.first else { return ("오늘은 더 남은 배가 없습니다. 내일 첫 배를 확인하십시오.", nil) }
+            let hd = String(format: "%02d%02d", c.0 / 60, c.0 % 60)
+            let tongje = (!c.2.isEmpty && c.2 != "정상") ? " 다만 지금 운항 형편이 \(c.2)으로 나옵니다. 꼭 확인하십시오." : ""
+            return ("오늘 남은 배 가운데 가장 빠른 것은 \(hmMal(hd)) \(c.1)입니다.\(tongje)", jajeong.addingTimeInterval(Double(c.0 + gu.bun - 15) * 60))
+        case "bihaenggi":
+            guard let a = iata[gu.buteo], let b = iata[gu.mok],
+                  let o = await Chatgi.json("bihaeng.php", ["chul": a, "do": b, "nal": nal]),
+                  let r = o["rows"] as? [[String: Any]], !r.isEmpty else { return nil }
+            let l = r.compactMap { x -> (Int, Int, String)? in
+                guard let s = x["chul"] as? String, let d = x["do"] as? String, let sb = hmBun(s), let db = hmBun(d) else { return nil }
+                return (sb, db < sb ? db + 1440 : db, "\((x["hang"] as? String) ?? "") \((x["pyeon"] as? String) ?? "")편")
+            }.filter { $0.0 >= bun0 + 60 }.sorted { $0.0 < $1.0 }
+            guard let c = l.first else { return ("오늘은 타실 만한 비행기가 더 없습니다.", nil) }
+            let hd = String(format: "%02d%02d", c.0 / 60, c.0 % 60), ha = String(format: "%02d%02d", (c.1 / 60) % 24, c.1 % 60)
+            return ("타실 만한 비행기는 \(hmMal(hd)) \(c.2)으로, \(hmMal(ha))에 닿습니다.", jajeong.addingTimeInterval(Double(c.1) * 60))
+        default:
+            return nil
+        }
+    }
+
+    /// 계획 전체에 실제 시각을 채움 — 차례마다 앞 차례가 끝나는 때부터 찾음(전체 6초 안, 넘으면 받은 데까지)
+    static func sigakChaeugi(_ g0: Gyehoek) async -> Gyehoek {
+        var g = g0
+        var t = Date()
+        var ok = true
+        let kkeut = Date().addingTimeInterval(6)
+        for k in g.gugan.indices {
+            let gu = g.gugan[k]
+            let r: (String, Date?)? = (["gicha", "bae", "bihaenggi"].contains(gu.tal) && Date() < kkeut) ? await sigakChatgi(gu, buteo: t) : nil
+            if let r = r {
+                g.gugan[k].sigak = r.0
+                if let d = r.1 { t = d } else { ok = false; t = t.addingTimeInterval(Double(gu.bun + gu.gidarim) * 60) }
+            } else {
+                t = t.addingTimeInterval(Double(gu.bun + (gu.tal == "bihaenggi" ? gu.gidarim : 0)) * 60)
+            }
+        }
+        if ok && g.gugan.contains(where: { !$0.sigak.isEmpty }) { g.dochakTtae = t }
+        return g
+    }
+
+    /// 여쭙는 계획들에 실제 시각을 채워 둠
+    func huboGochigi(_ l: [Gyehoek]) { hubo = l }
 
     // MARK: 길 묻는 말 알아듣기
 

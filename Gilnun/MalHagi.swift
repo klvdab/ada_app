@@ -1527,7 +1527,10 @@ final class MalHagi: ObservableObject {
             if z.contains("다른길") || z.contains("다른방법") || z.contains("다른거") || z.contains("다른코스") {
                 if let g2 = gg.dareunGil() {
                     mureumTtae = Date()
-                    dap(GilGyehoek.jeanMal(g2, cheot: false) + "이 길로 안내할까요?", true)
+                    Task {
+                        let g3 = await GilGyehoek.sigakChaeugi(g2)
+                        await MainActor.run { dap(GilGyehoek.jeanMal(g3, cheot: false) + "이 길로 안내할까요?", true) }
+                    }
                 } else {
                     mureum = .bangsik
                     mureumTtae = Date()
@@ -1540,7 +1543,10 @@ final class MalHagi: ObservableObject {
             if z.count <= 14, let tm = talMal.first(where: { z.contains($0.0) }) {
                 if let g2 = gg.talgeotGil(tm.1) {
                     mureumTtae = Date()
-                    dap(GilGyehoek.jeanMal(g2, cheot: false) + "이 길로 안내할까요?", true)
+                    Task {
+                        let g3 = await GilGyehoek.sigakChaeugi(g2)
+                        await MainActor.run { dap(GilGyehoek.jeanMal(g3, cheot: false) + "이 길로 안내할까요?", true) }
+                    }
                 } else {
                     dap("\(GilGyehoek.talMal(tm.1)) 가는 길은 짜지 못했습니다. 이 길로 안내할까요? 다른 길을 원하시면 다른 길이라고 말씀해 주십시오.", true)
                 }
@@ -2610,14 +2616,38 @@ final class MalHagi: ObservableObject {
         GilGil.shared.cheotHwamyeon()
         mureum = .gyehoek
         mureumTtae = Date()
-        dap(apMal + GilGyehoek.jeanMal(cheot, cheot: true) + "이 길로 안내할까요?" + (l.count > 1 ? " 다른 길을 원하시면 다른 길이라고 말씀해 주십시오." : ""), true)
+        // 2차(2.142.0) 기차·배·비행기 차례는 오늘 실제 시각을 알아보고 말씀드림(6초 안)
+        Task {
+            let c2 = await GilGyehoek.sigakChaeugi(cheot)
+            await MainActor.run {
+                var l2 = l
+                l2[0] = c2
+                GilGyehoek.shared.huboGochigi(l2)
+                Girok.shared.namgi("gyehoek_sigak", ["su": c2.gugan.filter { !$0.sigak.isEmpty }.count])
+                dap(apMal + GilGyehoek.jeanMal(c2, cheot: true) + "이 길로 안내할까요?" + (l.count > 1 ? " 다른 길을 원하시면 다른 길이라고 말씀해 주십시오." : ""), true)
+            }
+        }
         return true
     }
 
     /// 2.142.0 여정 계획의 한 차례를 시작 — 그 차례의 탈것 안내(걷기·지하철·버스·차·기차·배)를 그대로 씀. 비행기는 알리기만 함
     func guganSijak(_ gu: Gugan, ap: String) {
         guard let g = GilGyehoek.shared.jigeum else { return }
-        let mal = ap + GilGyehoek.guganMal(gu, g.i, g.gugan.count)
+        // 2차(2.142.0) 기차·배·비행기 차례는 시작할 때 오늘 실제 시각을 다시 알아보고 붙임
+        if ["gicha", "bae", "bihaenggi"].contains(gu.tal) && !ap.hasSuffix("[시각]") {
+            Task {
+                let r = await GilGyehoek.sigakChatgi(gu, buteo: Date())
+                await MainActor.run {
+                    var gu2 = gu
+                    gu2.sigak = r?.0 ?? ""
+                    self.guganSijak(gu2, ap: ap + "[시각]")
+                }
+            }
+            return
+        }
+        let ap = ap.replacingOccurrences(of: "[시각]", with: "")
+        var mal = ap + GilGyehoek.guganMal(gu, g.i, g.gugan.count)
+        if !gu.sigak.isEmpty { mal += gu.sigak + " " }
         let dap: (String, Bool) -> Void = { [weak self] t, m in self?.dapHagi(t, m) }
         if gu.tal == "bihaenggi" {
             AnnaeEngine.shared.gyehoekSwim()

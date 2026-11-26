@@ -1833,7 +1833,12 @@ object MalHagi {
         YeojeongMal.mureumBiugi()
         YeojeongEngine.jeonghagi(Mokjeok(j.ireum, j.lat, j.lon, j.juso))
         hwalseong?.get()?.cheotHwamyeonEuro(null)
-        dap(apMal + GilGyehoek.jeanMal(cheot, true) + "이 길로 안내할까요?" + (if (l.size > 1) " 다른 길을 원하시면 다른 길이라고 말씀해 주십시오." else ""), true)
+        // 2차(261126 「1 진행하고」): 기차·배·비행기 차례는 협회 서버에서 오늘 실제 시각을 받아 채운 뒤 말함(6초 안)
+        GilGyehoek.sigakChaeugi(cheot) { c2 ->
+            GilGyehoek.huboGochigi(c2)
+            Girok.namgi("gyehoek_sigak", mapOf("chaeum" to c2.gugan.count { it.sigak.isNotEmpty() }, "dochak" to (c2.dochakTtae != null)))
+            dap(apMal + GilGyehoek.jeanMal(c2, true) + "이 길로 안내할까요?" + (if (l.size > 1) " 다른 길을 원하시면 다른 길이라고 말씀해 주십시오." else ""), true)
+        }
         return true
     }
 
@@ -1848,7 +1853,7 @@ object MalHagi {
         }
         if (z.contains("다른길") || z.contains("다른방법") || z.contains("다른거") || z.contains("다른코스")) {
             val g2 = GilGyehoek.dareunGil()
-            if (g2 != null) dap(GilGyehoek.jeanMal(g2, false) + "이 길로 안내할까요?", true)
+            if (g2 != null) GilGyehoek.sigakChaeugi(g2) { c2 -> GilGyehoek.huboGochigi(c2); dap(GilGyehoek.jeanMal(c2, false) + "이 길로 안내할까요?", true) }
             else {
                 GilGyehoek.geuman("hubo_eopseum")
                 YeojeongMal.bangsikDasiYeojjum()
@@ -1860,7 +1865,7 @@ object MalHagi {
         val tm = if (z.length <= 14) talMal.firstOrNull { z.lowercase().contains(it.first) } else null
         if (tm != null) {
             val g2 = GilGyehoek.talgeotGil(tm.second)
-            if (g2 != null) dap(GilGyehoek.jeanMal(g2, false) + "이 길로 안내할까요?", true)
+            if (g2 != null) GilGyehoek.sigakChaeugi(g2) { c2 -> GilGyehoek.huboGochigi(c2); dap(GilGyehoek.jeanMal(c2, false) + "이 길로 안내할까요?", true) }
             else dap("${GilGyehoek.talMal(tm.second)} 가는 길은 짜지 못했습니다. 이 길로 안내할까요? 다른 길을 원하시면 다른 길이라고 말씀해 주십시오.", true)
             return true
         }
@@ -1874,10 +1879,17 @@ object MalHagi {
     }
 
     /** 2.107.0 여정 계획의 한 차례를 시작 — 그 차례의 탈것 안내를 그대로 씀. 비행기는 알리기만 함 */
-    fun gyehoekGuganSijak(gu: Gugan, ap: String) {
+    fun gyehoekGuganSijak(gu: Gugan, ap: String, sigakBadeum: Boolean = false) {
+        // 2차: 기차·배·비행기 차례를 시작할 때는 지금부터 탈 수 있는 실제 편을 먼저 받아 덧붙임
+        if (!sigakBadeum && gu.tal in setOf("gicha", "bae", "bihaenggi")) {
+            GilGyehoek.sigakChatgi(gu, System.currentTimeMillis()) { r ->
+                main.post { gyehoekGuganSijak(if (r != null) gu.copy(sigak = r.first) else gu, ap, true) }
+            }
+            return
+        }
         main.post {
             val g = GilGyehoek.jigeum ?: return@post
-            val mal = ap + GilGyehoek.guganMal(gu, g.i, g.gugan.size)
+            val mal = ap + GilGyehoek.guganMal(gu, g.i, g.gugan.size) + (if (gu.sigak.isNotEmpty()) gu.sigak + " " else "")
             val dap: (String, Boolean) -> Unit = { m, b -> main.post { sedae += 1; dapHagi(sedae, m, b) } }
             if (gu.tal == "bihaenggi") {
                 AnnaeEngine.gyehoekSwim()
