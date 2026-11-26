@@ -388,38 +388,80 @@ enum Gidarim {
 /// 1.9.2 (261026-BI13, 새방클, 이사장님 지시 2026-10-26 「소리가 너무 작아 현장에서 사용이 불가」) 소리 자동 맞춤 — 안드로이드 1.9.2와 같음.
 /// 들어오는 현장영상해설 소리가 작으면 가장 큰 소리가 -6dB쯤 되게 최대 8배까지 키움(커질 때 천천히, 줄일 때 곧바로, 잡음은 더 키우지 않음).
 /// 넘치는 큰 소리는 부드럽게 눌러 찢어지지 않게. 더 보기에서 끌 수 있음(처음값 켜짐)
+/// 1.19.0 (261126-BI30, 새방클, 이사장님 승인 261126 「1」 — 「마이크를 바꿔도 소리가 커지지 않는다」) 안드로이드 1.17.0과 같음.
+/// 예전에는 0.1초마다 가장 큰 순간만 보고 맞춰, 큰 마이크로 바꾸면 그만큼 덜 키워 결국 같은 크기였고 귀에는 작게 들렸음.
+/// 이제는 말소리 「평균 크기」를 목표에 맞추고(보통·크게·아주 크게, 처음값 크게), 최대 16배까지 키움.
+/// 넘치는 순간은 한 점 한 점 곧바로 눌러(풀림 약 0.05초) 찢어지지 않게 함. 아주 작은 소리(잡음)에서는 키우기를 더 올리지 않음.
+/// 더 보기에서 끄면 예전처럼 들어오는 그대로 나감(끄는 길·부르는 자리는 그대로).
 enum JadongKeugi {
     static var on: Bool {
         get { UserDefaults.standard.object(forKey: "jadong_keugi") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "jadong_keugi") }
     }
+    /// 1.19.0 나가는 소리 크기 0 보통, 1 크게(처음값), 2 아주 크게 — 소리 줄기에서는 아래 _dan 을 읽음
+    static var dan: Int {
+        get { jamgeum.lock(); defer { jamgeum.unlock() }; return _dan }
+        set { let d = max(0, min(2, newValue)); UserDefaults.standard.set(d, forKey: "sori_keugi_dan"); jamgeum.lock(); _dan = d; jamgeum.unlock() }
+    }
+    static func danMal(_ d: Int? = nil) -> String { switch d ?? dan { case 0: return "보통"; case 2: return "아주 크게"; default: return "크게" } }
+    /// 1.19.0 실제로 나가는 소리의 최근 3초 가장 큰 값(dB)과 잰 때 — 현장 점검
+    static func naganeunBogi() -> (Int, Date) { jamgeum.lock(); defer { jamgeum.unlock() }; return (_nagaDb, _nagaTtae) }
+    private static let jamgeum = NSLock()
+    private static var _dan: Int = {
+        let d = UserDefaults.standard.object(forKey: "sori_keugi_dan") as? Int ?? 1
+        return max(0, min(2, d))
+    }()
+    private static var _nagaDb = -99
+    private static var _nagaTtae = Date.distantPast
+    private static let MOKPYO: [Double] = [4100, 5800, 8200]   // 말소리 평균 목표 — 약 -18, -15, -12dB
+    private static let CHOEDAE = 16.0
+    private static let NUREUM = 30000.0
+    private static let PULLIM = 1.0 / 800.0
     private static var baesu = 1.0
-    static func cheoeum() { baesu = 1.0 }
+    private static var nureum16 = 1.0
+    private static var nureum48 = 1.0
+    private static var nagaJul = [Int](repeating: -99, count: 30)
+    private static var nagaJari = 0
+    static func cheoeum() { baesu = 1.0; nureum16 = 1.0; nureum48 = 1.0 }
+    private static func ssiugi(_ b: [Int16], _ g: Double, _ yeol: Bool) -> ([Int16], Double) {
+        var gl = yeol ? nureum16 : nureum48
+        var m = 0.0
+        let out = b.map { v -> Int16 in
+            let a = abs(Double(v))
+            let need = a * g <= NUREUM ? g : NUREUM / a
+            gl = need < gl ? need : gl + (g - gl) * PULLIM
+            if gl > g { gl = g }
+            let x = max(-32768, min(32767, Double(v) * gl))
+            if abs(x) > m { m = abs(x) }
+            return Int16(x)
+        }
+        if yeol { nureum16 = gl } else { nureum48 = gl }
+        return (out, m)
+    }
     /// 1.10.0 (261026-BI14) 지금 배수를 그대로 씌움(오푸스 줄기용, 배수는 바꾸지 않음)
     static func jeogyong(_ b: [Int16]) -> [Int16] {
         let g = baesu
-        if g <= 1.001 { return b }
-        return b.map { v -> Int16 in
-            var x = Double(v) * g
-            let ax = abs(x)
-            if ax > 28000 { x = (x < 0 ? -1 : 1) * min(32767, 28000 + (ax - 28000) * 0.2) }
-            return Int16(max(-32768, min(32767, x)))
-        }
+        if g <= 1.001 && nureum48 >= 0.999 { return b }
+        return ssiugi(b, g, false).0
     }
     static func matchugi(_ b: [Int16]) -> [Int16] {
         var m: Int32 = 0
-        for v in b { let a = v < 0 ? -Int32(v) : Int32(v); if a > m { m = a } }
-        if m >= 330 {
-            let baram = min(8.0, max(1.0, 16384.0 / Double(m)))
-            baesu = baram < baesu ? baram : baesu + (baram - baesu) * 0.05
+        var hap = 0.0
+        for v in b { let a = v < 0 ? -Int32(v) : Int32(v); if a > m { m = a }; hap += Double(v) * Double(v) }
+        let pyeong = b.isEmpty ? 0 : (hap / Double(b.count)).squareRoot()
+        jamgeum.lock(); let d = _dan; jamgeum.unlock()
+        if m >= 330 && pyeong >= 100 {
+            let baram = min(CHOEDAE, max(1.0, MOKPYO[d] / pyeong))
+            baesu += (baram - baesu) * (baram < baesu ? 0.3 : 0.05)
         }
         let g = baesu
-        if g <= 1.001 { return b }
-        return b.map { v -> Int16 in
-            var x = Double(v) * g
-            let ax = abs(x)
-            if ax > 28000 { x = (x < 0 ? -1 : 1) * min(32767, 28000 + (ax - 28000) * 0.2) }
-            return Int16(max(-32768, min(32767, x)))
-        }
+        var out = b
+        var nm = Double(m)
+        if !(g <= 1.001 && nureum16 >= 0.999) { (out, nm) = ssiugi(b, g, true) }
+        let db = nm < 1 ? -99 : Int(20 * log10(nm / 32768))
+        nagaJul[nagaJari] = db; nagaJari = (nagaJari + 1) % nagaJul.count
+        let mx = nagaJul.max() ?? -99
+        jamgeum.lock(); _nagaDb = mx; _nagaTtae = Date(); jamgeum.unlock()
+        return out
     }
 }

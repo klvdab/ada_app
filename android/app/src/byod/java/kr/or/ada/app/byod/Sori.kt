@@ -55,6 +55,7 @@ class Sori(private val ctx: Context, private val batgi: (ByteArray) -> Unit) {
         if (dolgo) return
         dolgo = true
         JadongKeugi.on = ctx.getSharedPreferences("byod", Context.MODE_PRIVATE).getBoolean("jadong_keugi", true)   // 1.9.2
+        JadongKeugi.dan = ctx.getSharedPreferences("byod", Context.MODE_PRIVATE).getInt("sori_keugi_dan", 1).coerceIn(0, 2)   // 1.17.0 나가는 소리 크기
         JadongKeugi.cheoeum()
         am.registerAudioDeviceCallback(gigiBaram, Handler(Looper.getMainLooper()))
         il = Thread({ dolligi() }, "byod-sori").also { it.priority = Thread.MAX_PRIORITY; it.start() }
@@ -288,39 +289,65 @@ object Gidarim {
 //   0.1초 조각마다 가장 큰 값을 보고, 가장 큰 소리가 꽉 찬 소리의 절반쯤(-6dB) 되게 최대 8배까지 키움.
 //   커질 때는 천천히(약 2초), 줄일 때는 곧바로. 아주 작은 소리(잡음, -40dB 아래)에서는 키우기를 더 올리지 않아 쉿 소리가 커지지 않게 함.
 //   그래도 넘치는 큰 소리는 찢어지지 않게 부드럽게 눌러 줌. 더 보기에서 끌 수 있음(처음값 켜짐)
+// 1.17.0 (261126-B32, 새방클, 이사장님 승인 261126 「1」 — 「마이크를 바꿔도 소리가 커지지 않는다」)
+//   예전에는 0.1초마다 가장 큰 순간만 보고 맞춰, 큰 마이크로 바꾸면 그만큼 덜 키워 결국 같은 크기였고 귀에는 작게 들렸음.
+//   이제는 말소리 「평균 크기」를 목표에 맞추고(보통·크게·아주 크게, 처음값 크게), 최대 16배까지 키움.
+//   넘치는 순간은 한 점 한 점 곧바로 눌러(풀림 약 0.05초) 찢어지지 않게 함. 아주 작은 소리(잡음)에서는 키우기를 더 올리지 않음.
+//   더 보기에서 끄면 예전처럼 들어오는 그대로 나감(끄는 길·부르는 자리는 그대로).
 object JadongKeugi {
     @Volatile var on = true
-    @Volatile var baesu = 1.0          // 지금 키우는 배수(현장 점검에 보임)
-    private const val MOKPYO = 16384.0  // 가장 큰 소리 목표(-6dB)
-    private const val CHOEDAE = 8.0
-    private const val JAPEUM = 330      // -40dB 아래는 잡음으로 봄
-    private const val MOK = 28000.0     // 이보다 크면 부드럽게 누름
-    fun cheoeum() { baesu = 1.0 }
+    @Volatile var baesu = 1.0          // 지금 키우는 배수(0.1초 조각 단위)
+    @Volatile var dan = 1              // 1.17.0 나가는 소리 크기 0 보통, 1 크게(처음값), 2 아주 크게
+    @Volatile var naganeunDb = -99     // 1.17.0 실제로 나가는 소리의 최근 3초 가장 큰 값(dB) — 현장 점검
+    @Volatile var naganeunTtae = 0L
+    private val MOKPYO = doubleArrayOf(4100.0, 5800.0, 8200.0)   // 말소리 평균 목표 — 약 -18, -15, -12dB
+    private const val CHOEDAE = 16.0
+    private const val JAPEUM = 330       // 가장 큰 값이 -40dB 아래면 잡음으로 봄
+    private const val JAPEUM_PYEONGGYUN = 100
+    private const val NUREUM = 30000.0   // 이보다 큰 순간은 곧바로 눌러 줌
+    private const val PULLIM = 1.0 / 800.0
+    private var nureum16 = 1.0           // 16000 줄기 누름 상태
+    private var nureum48 = 1.0           // 48000(오푸스) 줄기 누름 상태
+    private val nagaJul = IntArray(30) { -99 }
+    private var nagaJari = 0
+    fun danMal(d: Int = dan): String = when (d) { 0 -> "보통"; 2 -> "아주 크게"; else -> "크게" }
+    fun cheoeum() { baesu = 1.0; nureum16 = 1.0; nureum48 = 1.0 }
+    private fun ssiugi(b: ShortArray, n: Int, g: Double, yeol: Boolean): Double {
+        var gl = if (yeol) nureum16 else nureum48
+        var m = 0.0
+        for (i in 0 until n) {
+            val v = b[i].toDouble()
+            val a = Math.abs(v)
+            val need = if (a * g <= NUREUM) g else NUREUM / a
+            gl = if (need < gl) need else gl + (g - gl) * PULLIM
+            if (gl > g) gl = g
+            val x = (v * gl).coerceIn(-32768.0, 32767.0)
+            b[i] = x.toInt().toShort()
+            val ax = Math.abs(x); if (ax > m) m = ax
+        }
+        if (yeol) nureum16 = gl else nureum48 = gl
+        return m
+    }
     /** 1.10.0 지금 배수를 바꾸지 않고 그대로 씌움(오푸스 48000 줄기용) */
     fun jeogyong(b: ShortArray, n: Int) {
         val g = baesu
-        if (g <= 1.001) return
-        for (i in 0 until n) {
-            var x = b[i] * g
-            val ax = Math.abs(x)
-            if (ax > MOK) x = Math.signum(x) * minOf(32767.0, MOK + (ax - MOK) * 0.2)
-            b[i] = x.toInt().toShort()
-        }
+        if (g <= 1.001 && nureum48 >= 0.999) return
+        ssiugi(b, n, g, false)
     }
     fun matchugi(b: ShortArray, n: Int) {
         var m = 0
-        for (i in 0 until n) { val a = if (b[i] < 0) -b[i].toInt() else b[i].toInt(); if (a > m) m = a }
-        if (m >= JAPEUM) {
-            val baram = (MOKPYO / m).coerceIn(1.0, CHOEDAE)
-            baesu = if (baram < baesu) baram else baesu + (baram - baesu) * 0.05
+        var hap = 0.0
+        for (i in 0 until n) { val a = if (b[i] < 0) -b[i].toInt() else b[i].toInt(); if (a > m) m = a; hap += b[i].toDouble() * b[i] }
+        val pyeong = if (n > 0) Math.sqrt(hap / n) else 0.0
+        if (m >= JAPEUM && pyeong >= JAPEUM_PYEONGGYUN) {
+            val baram = (MOKPYO[dan.coerceIn(0, 2)] / pyeong).coerceIn(1.0, CHOEDAE)
+            baesu += (baram - baesu) * (if (baram < baesu) 0.3 else 0.05)
         }
         val g = baesu
-        if (g <= 1.001) return
-        for (i in 0 until n) {
-            var x = b[i] * g
-            val ax = Math.abs(x)
-            if (ax > MOK) x = Math.signum(x) * minOf(32767.0, MOK + (ax - MOK) * 0.2)
-            b[i] = x.toInt().toShort()
-        }
+        val nm = if (g <= 1.001 && nureum16 >= 0.999) m.toDouble() else ssiugi(b, n, g, true)
+        val db = if (nm < 1) -99 else (20 * Math.log10(nm / 32768.0)).toInt()
+        nagaJul[nagaJari] = db; nagaJari = (nagaJari + 1) % nagaJul.size
+        naganeunDb = nagaJul.maxOrNull() ?: -99
+        naganeunTtae = System.currentTimeMillis()
     }
 }

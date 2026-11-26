@@ -41,6 +41,12 @@ enum Hyeonjang {
         // 4. 소리 크기(방송 중, 최근 5초 안에 잰 것만)
         let (db, ttae) = b.sorikeugiBogi()
         if b.kyeojim && Date().timeIntervalSince(ttae) < 5 { l.append(keugiMal(db)) }
+        // 1.19.0 (261126-BI30) 실제로 나가는 소리 — 자동 맞춤이 켜져 있을 때만
+        let (nd, nt) = JadongKeugi.naganeunBogi()
+        if b.kyeojim && JadongKeugi.on && Date().timeIntervalSince(nt) < 5 {
+            l.append(nd <= -60 ? Jul(doem: false, mal: "나가는 소리: 아직 소리가 나가지 않습니다.")
+                               : Jul(doem: true, mal: "나가는 소리: 자동 맞춤 \(JadongKeugi.danMal()), 가장 큰 소리 \(nd)dB."))
+        }
         if Flint.flintInga {   // 1.2.0
             let f = FlintBonaegi.shared
             let butum = !Juso.deutgiJuso().isEmpty

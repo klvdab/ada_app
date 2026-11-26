@@ -228,6 +228,7 @@ struct CheotView: View {
     @AppStorage("haeseolsa_phone_jamgeum") private var phoneJamgeum = false   // 261106 번호를 한 번 넣으면 칸을 닫음(열린 숫자 자판에 손이 닿아 숫자가 붙던 일, 이사장님 승인)
     @State private var hamkkeOn = InteonetBonaegi.hamkke   // 1.5.0
     @State private var keugiOn = JadongKeugi.on   // 1.9.2 소리 자동 맞춤
+    @State private var keugiDan = JadongKeugi.dan   // 1.19.0 나가는 소리 크기
     @State private var opusOn = OpusSori.on   // 1.10.0 소리 방식 오푸스(시험)
     // 1.17.1 (261116, 이사장님 「보이스오버가 이 앱에서는 유난히 말을 안 들어」) 1초 셈은 화면 상태가 아니게 — @State 로 두어 1초마다 첫 화면 전체를 다시 그려 보이스오버 손놀림을 방해했음
     private static var tikSu = 0
@@ -321,6 +322,7 @@ struct CheotView: View {
                     Danchu(geul: "BYOD 방송 서버 확인하기") { flintHwagin() }   // 1.2.0
                     Danchu(geul: hamkkeOn ? "BYOD 방송과 함께 인터넷 방송: 켜짐. 누르면 끕니다" : "BYOD 방송과 함께 인터넷 방송: 꺼짐. 누르면 켭니다") { hamkkeBakkugi() }   // 1.5.0
                     Danchu(geul: keugiOn ? "소리 자동 맞춤(작은 해설 소리 키우기): 켜짐. 누르면 끕니다" : "소리 자동 맞춤(작은 해설 소리 키우기): 꺼짐. 누르면 켭니다") { keugiBakkugi() }   // 1.9.2
+                    Danchu(geul: "나가는 소리 크기: \(JadongKeugi.danMal(keugiDan)). 누르면 다음은 \(JadongKeugi.danMal((keugiDan + 1) % 3))") { keugiDanBakkugi() }   // 1.19.0 (261126-BI30)
                     Danchu(geul: opusOn ? "소리 방식 오푸스(시험): 켜짐. 누르면 끕니다" : "소리 방식 오푸스(시험): 꺼짐. 누르면 켭니다") { opusBakkugi() }   // 1.10.0
                     Danchu(geul: "기기 점검: 소리 장치와 연결 보기") { gigiGeul = Sori.gigiJeomgeom(); gigiBoim = true }
                     Danchu(geul: "새로고침") { saerogochim() }
@@ -738,13 +740,22 @@ struct CheotView: View {
         allyeo(t); malhagi(t)
     }
 
+    // 1.19.0 (261126-BI30) 나가는 소리 크기 — 보통, 크게(처음값), 아주 크게 차례로 돎. 방송 중에도 곧바로 적용
+    private func keugiDanBakkugi() {
+        let d = (keugiDan + 1) % 3
+        JadongKeugi.dan = d
+        keugiDan = d
+        let t = keugiOn ? "나가는 소리 크기를 바꿨습니다. 지금은 \(JadongKeugi.danMal(d))입니다."
+                        : "나가는 소리 크기를 바꿨습니다. 지금은 \(JadongKeugi.danMal(d))입니다. 소리 자동 맞춤이 꺼져 있어 지금은 들어오는 그대로 나갑니다. 자동 맞춤을 켜면 적용됩니다."
+        allyeo(t); malhagi(t)
+    }
     // 1.9.2 (261026-BI13) 소리 자동 맞춤 켜고 끄기 — 방송 중에도 곧바로 적용
     private func keugiBakkugi() {
         let on = !keugiOn
         JadongKeugi.on = on
         JadongKeugi.cheoeum()
         keugiOn = on
-        let t = on ? "소리 자동 맞춤을 켰습니다. 들어오는 해설 소리가 작으면 앱이 최대 8배까지 키워 내보냅니다." : "소리 자동 맞춤을 껐습니다. 들어오는 소리를 그대로 내보냅니다."
+        let t = on ? "소리 자동 맞춤을 켰습니다. 들어오는 해설 소리의 평균 크기를 맞춰 최대 16배까지 키워 내보냅니다." : "소리 자동 맞춤을 껐습니다. 들어오는 소리를 그대로 내보냅니다."
         allyeo(t); malhagi(t)
     }
 

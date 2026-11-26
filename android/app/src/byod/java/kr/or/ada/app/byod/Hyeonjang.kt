@@ -56,6 +56,11 @@ object Hyeonjang {
         if (Bang.kyeojim) l.add(Jul(Bang.sojae.startsWith("USB 사운드카드"), "소리 받는 곳: " + Bang.sojae + "."))
         // 4. 소리 크기(방송 중, 최근 5초 안에 잰 것만)
         if (Bang.kyeojim && System.currentTimeMillis() - Bang.sorikeugiTtae < 5000) l.add(keugiMal(Bang.sorikeugi))
+        // 1.17.0 (261126-B32) 실제로 나가는 소리 — 자동 맞춤이 켜져 있을 때만
+        if (Bang.kyeojim && JadongKeugi.on && System.currentTimeMillis() - JadongKeugi.naganeunTtae < 5000) {
+            val nd = JadongKeugi.naganeunDb
+            l.add(Jul(nd > -60, if (nd <= -60) "나가는 소리: 아직 소리가 나가지 않습니다." else "나가는 소리: 자동 맞춤 " + JadongKeugi.danMal() + ", 가장 큰 소리 " + nd + "dB."))
+        }
         // 1.2.0 플린트 2 방식 — 공유기 안 방송 서버(망에 묻지 않고, 방송 중 3초마다 물은 결과로 판단)
         if (Flint.flintInga(ctx)) {
             val mang = Flint.mang(ctx) != null

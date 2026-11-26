@@ -82,6 +82,7 @@ class ByodActivity : Activity() {
     private lateinit var inteonetGeul: TextView   // 1.5.0 함께 나가는 인터넷 방송 한 줄
     private lateinit var hamkkeDanchu: Button    // 1.5.0
     private lateinit var keugiDanchu: Button     // 1.9.2 소리 자동 맞춤
+    private lateinit var keugiDanDanchu: Button  // 1.17.0 나가는 소리 크기(보통·크게·아주 크게)
     private lateinit var opusDanchu: Button      // 1.10.0 소리 방식 오푸스(시험)
     private var boyeojunInteonet = ""
     // 1.9.0 (261024-B17) 무대 영상 녹화 — 켜고 끄는 단추 하나와 상태 한 줄
@@ -311,6 +312,8 @@ class ByodActivity : Activity() {
         deoAn.addView(hamkkeDanchu)
         keugiDanchu = danchu(keugiMal()) { keugiBakkugi() }   // 1.9.2
         deoAn.addView(keugiDanchu)
+        keugiDanDanchu = danchu(keugiDanMal()) { keugiDanBakkugi() }   // 1.17.0 (261126-B32)
+        deoAn.addView(keugiDanDanchu)
         opusDanchu = danchu(opusMal()) { opusBakkugi() }   // 1.10.0 (261026-B20)
         deoAn.addView(opusDanchu)
         deoAn.addView(danchu("기기 점검: 소리 장치와 연결 보기") { val t = gigiJeomgeom(this); android.app.AlertDialog.Builder(this).setTitle("기기 점검").setMessage(t).setPositiveButton("닫기", null).setNeutralButton("결과 복사") { _, _ -> try { (getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("기기 점검", t)); malhagi("기기 점검 결과를 복사했습니다.") } catch (_: Exception) { } }.show() })   // 1.1.3 (261007-B5), 1.1.4 결과 복사
@@ -469,12 +472,26 @@ class ByodActivity : Activity() {
     private fun hamkkeMal() = if (Inteonet.hamkke(this)) "BYOD 방송과 함께 인터넷 방송: 켜짐. 누르면 끕니다" else "BYOD 방송과 함께 인터넷 방송: 꺼짐. 누르면 켭니다"
     // 1.9.2 (261026-B19) 소리 자동 맞춤 켜고 끄기 — 방송 중에도 곧바로 적용
     private fun keugiMal() = if (pref.getBoolean("jadong_keugi", true)) "소리 자동 맞춤(작은 해설 소리 키우기): 켜짐. 누르면 끕니다" else "소리 자동 맞춤(작은 해설 소리 키우기): 꺼짐. 누르면 켭니다"
+    // 1.17.0 (261126-B32) 나가는 소리 크기 — 보통, 크게(처음값), 아주 크게 차례로 돎. 방송 중에도 곧바로 적용
+    private fun keugiDanMal(): String {
+        val d = pref.getInt("sori_keugi_dan", 1).coerceIn(0, 2)
+        return "나가는 소리 크기: " + JadongKeugi.danMal(d) + ". 누르면 다음은 " + JadongKeugi.danMal((d + 1) % 3)
+    }
+    private fun keugiDanBakkugi() {
+        val d = (pref.getInt("sori_keugi_dan", 1).coerceIn(0, 2) + 1) % 3
+        pref.edit().putInt("sori_keugi_dan", d).apply()
+        JadongKeugi.dan = d
+        keugiDanDanchu.text = keugiDanMal()
+        val t = if (pref.getBoolean("jadong_keugi", true)) "나가는 소리 크기를 바꿨습니다. 지금은 " + JadongKeugi.danMal(d) + "입니다."
+                else "나가는 소리 크기를 바꿨습니다. 지금은 " + JadongKeugi.danMal(d) + "입니다. 소리 자동 맞춤이 꺼져 있어 지금은 들어오는 그대로 나갑니다. 자동 맞춤을 켜면 적용됩니다."
+        keugiDanDanchu.announceForAccessibility(t); malhagi(t)
+    }
     private fun keugiBakkugi() {
         val on = !pref.getBoolean("jadong_keugi", true)
         pref.edit().putBoolean("jadong_keugi", on).apply()
         JadongKeugi.on = on; JadongKeugi.cheoeum()
         keugiDanchu.text = keugiMal()
-        val t = if (on) "소리 자동 맞춤을 켰습니다. 들어오는 해설 소리가 작으면 앱이 최대 8배까지 키워 내보냅니다." else "소리 자동 맞춤을 껐습니다. 들어오는 소리를 그대로 내보냅니다."
+        val t = if (on) "소리 자동 맞춤을 켰습니다. 들어오는 해설 소리의 평균 크기를 맞춰 최대 16배까지 키워 내보냅니다." else "소리 자동 맞춤을 껐습니다. 들어오는 소리를 그대로 내보냅니다."
         keugiDanchu.announceForAccessibility(t); malhagi(t)
     }
 
