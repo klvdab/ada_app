@@ -51,6 +51,22 @@ final class MalgilEngine: ObservableObject {
 
     /// 2.94.0 (261017-I48, 이사장님 승인 2026-10-17) 「집에 가자」·「사무실 가자」 — 말로 하기에서 곧바로 쓸 수 있게 목록을 폰에 남겨 둠(웹 길눈 malbuteugi.js 1.9·malgil_mok.js 0.1에서 옮김)
     private static let MOK_KI = "gilnunMalgilMok"
+    /// 2.141.0 (261126, 이사장님 「사무실에서 집으로 갔으면 자동으로 집에서 사무실이 되어야」) 마지막으로 끝까지 걸은 길과 방향 —
+    ///   다음에는 그 거꾸로(되돌아가는 길)를 먼저 내놓음. 폰에 남겨 앱을 껐다 켜도 이어짐
+    private static let MAJ_KI = "gilnunMalgilMajimak"
+    private var jigeumGil: (String, Bool)?
+    /// 이 길에서 먼저 내놓을 방향 — 마지막으로 끝까지 걸은 것이 이 길이면 그 거꾸로, 아니면 가는 길
+    func meonjeoOgi(_ m: MalgilMok) -> Bool {
+        guard m.ogiSu > 0, let d = UserDefaults.standard.dictionary(forKey: MalgilEngine.MAJ_KI),
+              (d["id"] as? String) == m.id, let o = d["ogi"] as? Bool else { return false }
+        return !o
+    }
+    /// 마지막으로 끝까지 걸은 길이 있는가(되돌아가는 길을 알 수 있는가)
+    func doraganeunGil() -> (MalgilMok, Bool)? {
+        guard let d = UserDefaults.standard.dictionary(forKey: MalgilEngine.MAJ_KI), let id = d["id"] as? String,
+              let m = mok.first(where: { $0.id == id }), m.ogiSu > 0 else { return nil }
+        return (m, meonjeoOgi(m))
+    }
     private init() {
         if let a = UserDefaults.standard.array(forKey: MalgilEngine.MOK_KI) as? [[String: Any]] {
             mok = a.compactMap { r in
@@ -59,6 +75,16 @@ final class MalgilEngine: ObservableObject {
             }
         }
         if yeolsoeItda { Task { await self.mokBatgi() } }
+    }
+
+    /// 2.141.0 (261126) 「사무실(지하 1층 105호) ↔ 집(11층 1111호)」 → 「사무실에서 집으로」(오는 길이면 거꾸로)
+    static func eodiseo(_ m: MalgilMok, ogi: Bool) -> String {
+        let nm = m.ireum.components(separatedBy: "↔").map {
+            String($0.split(separator: "(").first ?? "").trimmingCharacters(in: .whitespaces)
+        }
+        guard nm.count >= 2, !nm[0].isEmpty, !nm[1].isEmpty else { return ogi ? "오는 길" : "가는 길" }
+        let (a, b) = ogi ? (nm[1], nm[0]) : (nm[0], nm[1])
+        return "\(a)에서 \(b)\(MalgilEngine.ro(b))"
     }
 
     private static func ro(_ w: String) -> String {
@@ -119,10 +145,11 @@ final class MalgilEngine: ObservableObject {
             }
             await MainActor.run {
                 self.S = dan.map { self.pulgi($0) }
-                self.jemok = m.ireum + (ogi ? " — 오는 길" : " — 가는 길")
+                self.jemok = MalgilEngine.eodiseo(m, ogi: ogi)   // 2.141.0 (261126) 「사무실에서 집으로」처럼
                 self.geotneun = true
                 WichiEngine.shared.sijak()
                 self.umjikKyeogi()
+                self.jigeumGil = (m.id, ogi)
                 Girok.shared.namgi("malgil", ["id": m.id, "ogi": ogi])
                 SoriEngine.shared.mal("\(self.jemok), 모두 \(self.S.count)단계로 안내합니다. 이제 손대실 일이 없습니다. 다시라고 하시면 지금 안내를 다시 들려 드립니다.")
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { self.dangye(0) }
@@ -132,6 +159,7 @@ final class MalgilEngine: ObservableObject {
 
     func geuman(malHagi: Bool = true) {
         guard geotneun else { return }
+        Girok.shared.namgi("malgil_geuman", ["i": si + 1, "geol": geol])
         umjikKkeugi()
         geotneun = false
         si = -1
@@ -173,12 +201,15 @@ final class MalgilEngine: ObservableObject {
 
     private func dangye(_ i: Int) {
         guard geotneun, i < S.count else { return }
+        if si >= 0 && si < S.count { Girok.shared.namgi("malgil_neomeogam", ["i": si + 1, "geol": geol, "n": S[si].n]) }
         si = i; geol = 0; ddo = false
         let k = S[i]
         var tt = (k.juui.isEmpty ? "" : k.juui.trimmingCharacters(in: CharacterSet(charactersIn: ". ")) + ". ") + k.mal
         if k.jong == "elev" { tt += ". 엘리베이터에서 내리셔서 걷기 시작하시면 다음을 알려 드리겠습니다." }
         mal(tt)
         jul = "\(i + 1)단계 — \(k.mal)"
+        // 2.141.0 (261126) 단계마다 기록 — 어느 단계에서 몇 걸음째 넘어갔는지 보고 길을 바로잡으려고(11-26 기록에 시작과 끝만 남았던 일)
+        Girok.shared.namgi("malgil_dangye", ["i": i + 1, "n": k.n, "jong": k.jong, "geol": geol, "bang": WichiEngine.shared.nachimban])
         let h = WichiEngine.shared.nachimban
         if let g = k.gak, h >= 0 { gidaeHeading = (h + g + 360).truncatingRemainder(dividingBy: 360) }
         else if k.gak == nil { gidaeHeading = nil }
@@ -193,6 +224,9 @@ final class MalgilEngine: ObservableObject {
         geotneun = false
         jul = ""
         Girok.shared.namgi("malgil_kkeut", [:])
+        if let g = jigeumGil {   // 2.141.0 끝까지 걸은 길을 남김 — 다음에는 거꾸로를 먼저
+            UserDefaults.standard.set(["id": g.0, "ogi": g.1, "t": Date().timeIntervalSince1970], forKey: MalgilEngine.MAJ_KI)
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { SoriEngine.shared.mal("닿으셨습니다. 말로 그린 길 안내를 마칩니다.") }
     }
 
@@ -211,6 +245,7 @@ final class MalgilEngine: ObservableObject {
                 bangMal = Date()
                 // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 어느 쪽으로 돌아 서실지 시계 방향으로 덧붙임(되짚어 나가기와 같은 셈)
                 let s = WichiEngine.sigyeBanghyang(jeongmyeon: h, mokpyo: gd)
+                Girok.shared.namgi("malgil_banghyang", ["i": si + 1, "geol": geol, "sigye": s])
                 mal("방향이 다릅니다. 멈추십시오. 가실 쪽을 다시 잡아 주십시오. " + (s == 6 ? "뒤로, 6시 방향으로 돌아서십시오." : "\(s)시 방향으로 돌아 서십시오."))   // 2.130.0 (261121-I84, 이사장님 승인 2026-11-21 「1」) 6시는 뒤로
             }
             if geol >= k.n {
@@ -218,6 +253,7 @@ final class MalgilEngine: ObservableObject {
                 daeum()
             } else if Double(geol) > Double(k.n) * 1.5 + 3 && !ddo {
                 ddo = true
+                Girok.shared.namgi("malgil_neomchim", ["i": si + 1, "geol": geol, "n": k.n])
                 mal("예상보다 많이 걸으셨습니다. 멈추고 확인하십시오.")
             }
         } else if k.jong == "meomchum" {
@@ -229,7 +265,7 @@ final class MalgilEngine: ObservableObject {
     private func dolgi() {
         guard geotneun, si >= 0, si < S.count else { return }
         if S[si].jong == "elev" {
-            if !S[si].tan, let m = meomchumSijak, Date().timeIntervalSince(m) > 8 { S[si].tan = true; geol = 0 }
+            if !S[si].tan, let m = meomchumSijak, Date().timeIntervalSince(m) > 8 { S[si].tan = true; geol = 0; Girok.shared.namgi("malgil_elev_tam", ["i": si + 1]) }
             if S[si].tan && geol >= 2 { daeum() }
         }
     }
@@ -273,6 +309,7 @@ struct MalgilView: View {
     @ObservedObject private var e = MalgilEngine.shared
     @State private var sangtae = 0   // 0 받는 중, 1 받음, 2 못 받음
     @AccessibilityFocusState private var chojeom: Bool
+    @AccessibilityFocusState private var mokChojeom: String?   // 2.141.0 되돌아가는 길 단추에 커서
 
     var body: some View {
         ScrollView {
@@ -295,9 +332,15 @@ struct MalgilView: View {
                 } else {
                     ForEach(e.mok) { m in
                         Text(m.ireum).font(.title3.weight(.semibold))
-                        Button("가는 길 따라 걷기 — \(m.gagiSu)단계") { e.sijak(m, ogi: false) }.buttonStyle(KeunDanchu())
+                        // 2.141.0 (261126) 단추에 어디서 어디로인지 넣음 — 가는 길·오는 길만으로는 어느 쪽인지 알 수 없었던 일.
+                        //   마지막으로 끝까지 걸은 길의 거꾸로(되돌아가는 길)를 맨 위에 두고 커서도 거기 세움(이사장님 「자동으로 집에서 사무실이 되어야」)
+                        let a = e.meonjeoOgi(m)
+                        let doraga = e.doraganeunGil()?.0.id == m.id
+                        Button("\(MalgilEngine.eodiseo(m, ogi: a)) 걷기 — \(a ? m.ogiSu : m.gagiSu)단계" + (doraga ? ", 되돌아가는 길" : "")) { e.sijak(m, ogi: a) }
+                            .buttonStyle(KeunDanchu())
+                            .accessibilityFocused($mokChojeom, equals: m.id)
                         if m.ogiSu > 0 {
-                            Button("오는 길 따라 걷기 — \(m.ogiSu)단계") { e.sijak(m, ogi: true) }.buttonStyle(KeunDanchu())
+                            Button("\(MalgilEngine.eodiseo(m, ogi: !a)) 걷기 — \(!a ? m.ogiSu : m.gagiSu)단계") { e.sijak(m, ogi: !a) }.buttonStyle(KeunDanchu())
                         }
                     }
                 }
@@ -312,7 +355,9 @@ struct MalgilView: View {
         .sokHwamyeon("말로 그린 길")
         .onAppear {
             if e.yeolsoeItda && e.mok.isEmpty { batgi() } else { sangtae = 1 }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { chojeom = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                if !e.geotneun, e.yeolsoeItda, let m = e.mok.first { mokChojeom = m.id } else { chojeom = true }
+            }
         }
     }
 

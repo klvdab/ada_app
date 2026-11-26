@@ -310,8 +310,24 @@ final class AnnaeEngine: ObservableObject {
         }
     }
 
+    /// 2.141.0 (261126) 걸어서 가기에 너무 먼 곳(10킬로미터 넘게)은 한 번 여쭙고, 1분 안에 다시 걸어서 가자고 하셔야 시작함
+    ///   (11-26 새벽 「이따가 가자」를 251킬로미터 밖 곳으로 찾은 뒤 「걸어서」에 곧바로 걷기 안내를 시작했던 일)
+    private var meonGilMureun: Date?
     func georeoGagi() {
-        guard yj.jigeum != nil else { return }
+        guard let yy = yj.jigeum else { return }
+        var meon: Double = yy.yegeori ?? 0
+        if let w = WichiEngine.shared.jigeum { meon = WichiEngine.geori(w.lat, w.lon, yy.mokjeok.lat, yy.mokjeok.lon) }
+        if meon > 10_000 {
+            if let m = meonGilMureun, Date().timeIntervalSince(m) < 60 {
+                meonGilMureun = nil
+                Girok.shared.namgi("meon_georeum", ["km": Int(meon / 1000), "ne": true])
+            } else {
+                meonGilMureun = Date()
+                Girok.shared.namgi("meon_georeum", ["km": Int(meon / 1000), "ne": false])
+                malHagi("\(yy.mokjeok.ireum)까지는 \(Int((meon / 1000).rounded()))킬로미터입니다. 걸어서 가시기에는 너무 멉니다. 그래도 걸어서 가시려면 1분 안에 한 번 더 걸어서 가자라고 말씀해 주십시오.")
+                return
+            }
+        }
         if JeomEngine.shared.dochakHam { JeomEngine.shared.yeojeongKkeut() }   // 점지도로 닿은 뒤 다시 걸으시면 위성 안내로
         // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 걸어서 가시면 지하철 안내·열차 탐 살피기를 멈춤(뒤에 버스·차 흔들림을 "열차가 움직이는 것 같습니다"로 보지 않게)
         JihacheolEngine.shared.meomchugi()

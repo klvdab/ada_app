@@ -170,6 +170,7 @@ object MalHagi {
 
     fun sijak(c: Context) {
         ctx = c.applicationContext
+        GeonuiEngine.junbi(c)   // 2.106.0 (261126) 건의와 소감 말하기
         if (sijakham) return
         sijakham = true
         AnnaeEngine.meomchumHooks.add { mureumChoGihwa() }   // 2.7.0 묶음 b1 — 하던 일 멈추기 때 묻던 말도 비움
@@ -567,6 +568,13 @@ object MalHagi {
         } else if (alts.isNotEmpty()) {
             makhimYeonsok = 0; jadongSwim = false
         }
+        if (alts.isEmpty() && GeonuiEngine.jinhaengJung) {
+            // 2.106.0 (261126, 아이폰 2.141.0과 같음) 건의를 받아 적는 중에 말씀이 끊기면 — 받아 적은 것을 읽어 드리고 보낼지 여쭘
+            bakkum(MalSangtae.SWIM)
+            val (m, ieo) = GeonuiEngine.chimmuk()
+            dapHagi(sd, m, ieo)
+            return
+        }
         if (alts.isEmpty()) {
             // 2.38.0 소리 크기·말소리 길이·막힘으로 끝냈는지도 남김(아이폰 2.66.0과 같음)
             Girok.namgi("maik_makhim", mapOf("dan" to "myeongryeong", "dasi" to dasiHanbeon,
@@ -602,6 +610,14 @@ object MalHagi {
             Girok.namgi("hai_dasi")
             bakkum(MalSangtae.SWIM)
             yeolgi(true)
+            return
+        }
+        // 2.106.0 (261126, 아이폰 2.141.0과 같음) 건의와 소감 말하기 — 받아 적는 중이면 명령으로 풀지 않고 그대로 받아 적음
+        if (GeonuiEngine.jinhaengJung) {
+            bakkum(MalSangtae.SWIM)
+            val r = GeonuiEngine.deureum(alts)
+            if (r == null) { jadongYeolim += 1; yeolgi(true) }   // 소리 없이(딩동만) 다시 들어 이어 받아 적음
+            else dapHagi(sd, r.first, r.second)
             return
         }
         // 2.17.0 말씀이 있으면 이어 듣기를 새로 셈, 「됐어」면 그침, 같은 말 세 번이면 부드럽게 끊음
@@ -759,6 +775,12 @@ object MalHagi {
         if (t == null) { dap("말씀이 들리지 않았습니다.", false); return }
         val s = MalSajeon
         val z = MalSajeon.ttuk(t)
+        // 2.106.0 (261126, 이사장님 승인 「이번 판에 꼭 넣어서」, 아이폰 2.141.0과 같음) 「길눈아, 건의할게」·「소감 말할게」
+        if (GeonuiEngine.sijakMal(z)) {
+            val (m, ieo) = GeonuiEngine.sijak()
+            dap(m, ieo)
+            return
+        }
         val jm = JeomEngine
         val now = System.currentTimeMillis()
         if (now - mureumTtae > 60000) mutneunJung = false   // 여쭌 지 1분이 지나면 잊음(아니라고 듣고 걷기 시작하지 않게)
@@ -1131,6 +1153,24 @@ object MalHagi {
             return
         }
 
+        // 5-6. 2.106.0 (261126, 이사장님 「우선 길눈을 손보자」, 아이폰 2.141.0과 같음) 「버전」, 「몇 판이야」 — 지금 쓰시는 판을 말씀드림
+        if (panMal(z)) {
+            Girok.namgi("malhagi_pan")
+            dap("지금 쓰시는 길눈은 ${Pan.pan}판입니다.", false)
+            return
+        }
+        // 5-7. 2.106.0 (261126, 아이폰 2.141.0과 같음) 「이따가 가자」, 「조금 후에 갈게」 — 곳 이름으로 찾지 않음, 막 시작한 말로 그린 길은 멈춤
+        if (najungMal(z)) {
+            Girok.namgi("malhagi_najung", mapOf("mal" to (alts.firstOrNull() ?: "").take(40)))
+            if (MalgilEngine.geotneun) {
+                MalgilEngine.geuman(false)
+                dap("네, 말로 그린 길 안내를 멈춥니다. 가실 때 다시 불러 주십시오.", false)
+                return
+            }
+            dap("네, 가실 때 다시 불러 주십시오.", false)
+            return
+        }
+
         // 6. 가실 곳 말을 떼어 보고, 가자는 말이 없으면 명령부터 살핌
         val (q0, gagiMal, roTtem) = s.mokjeokMal(t)
         var q = talgeotTteokgi(q0)
@@ -1346,6 +1386,14 @@ object MalHagi {
         if (doeMal(z, dap)) return true
         // 2.7.0 묶음 b2 말로 그린 길, 음성유도기와 승강기
         if (z.contains("말로그린") || z.contains("말로하는지도") || z.contains("말로하는길")) {   // 2.99.0 (261123) 「말로 하는 지도 찾아」도
+            // 2.106.0 (261126, 아이폰 2.141.0과 같음) 끝까지 걸은 길이 있으면 그 되돌아가는 길을 바로 시작
+            val dg = if (!MalgilEngine.geotneun) MalgilEngine.doraganeunGil() else null
+            val cc = ctx
+            if (dg != null && cc != null) {
+                dap("${MalgilEngine.eodiseo(dg.first, dg.second)}, 되돌아가는 말로 그린 길 안내를 시작합니다.", false)
+                main.postDelayed({ MalgilEngine.sijak(cc, dg.first, dg.second) }, 1800)
+                return true
+            }
             dap("말로 그린 길을 엽니다.", false)
             hwalseong?.get()?.cheotHwamyeonEuro(MalgilHwamyeon())
             return true
@@ -2082,6 +2130,18 @@ object MalHagi {
     }
 
     fun kolChwisoMal(z: String) = (z.contains("콜") || z.contains("택시")) && z.contains("취소") && z.length <= 12
+
+    /** 2.106.0 (261126, 아이폰 2.141.0과 같음) 판 번호를 묻는 말 */
+    fun panMal(z: String): Boolean = z.length <= 16 && (z.contains("버전") || z.contains("몇판") || z.contains("판번호") || z.contains("몇번째판"))
+
+    /** 2.106.0 (261126, 아이폰 2.141.0과 같음) 지금 떠나지 않으신다는 말(이따가·조금 후에·나중에 + 가자·갈게) */
+    fun najungMal(z: String): Boolean {
+        if (z.length > 16) return false
+        val ttae = listOf("이따가", "이따", "조금후에", "조금후", "조금있다가", "조금있다", "좀있다가", "좀있다", "좀이따", "나중에", "잠시후에", "잠시후", "있다가", "이따가요")
+        val ga = setOf("가자", "갈게", "갈께", "갈래", "가요", "갈거야", "갈께요", "갈게요", "가께", "가")
+        for (a in ttae) if (z.startsWith(a)) { val r = z.removePrefix(a); if (r.isEmpty() || r in ga) return true }
+        return false
+    }
 
     /** 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 묻는 말인가 — 곳 이름으로 다시 찾지 않음 */
     fun mutneunMal(t: String): Boolean {

@@ -24,9 +24,9 @@ import java.util.concurrent.Executors
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
     /** 2.100.0 (261125, 대클) 판 번호는 설치된 앱의 versionName 을 읽음(panIlgi) — 2.99.0 때 이 글자를 고치지 않아 2.98.0으로 나오던 일 */
-    var pan = "2.105.0"
+    var pan = "2.106.0"
         private set
-    const val bild = "261125-A95"
+    const val bild = "261126-A96"
     fun panIlgi(c: android.content.Context) {
         try { c.packageManager.getPackageInfo(c.packageName, 0).versionName?.let { if (it.isNotEmpty()) pan = it } } catch (e: Exception) {}
     }
@@ -34,6 +34,14 @@ object Pan {
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.106.0", "261126-A96", "2026-11-26", listOf(
+            "★건의와 소감 말하기 — 「길눈아, 건의할게」·「소감 말할게」라고 하시고 그냥 말로 말씀하시면 받아 적어 읽어 드리고, 네 하시면 협회로 보냄. 누가(내 이름, 처음 한 번 여쭘)·어디서(시·구까지만)·어떤 폰·어떤 판·언제·하던 일과 바로 앞 기록을 함께 남김(이사장님 11-26 「이번 판에 꼭 넣어서 통과 받고 앱 공개하자」)",
+            "★「이따가 가자」, 「조금 후에 갈게」, 「나중에 가자」는 곳 이름으로 찾지 않고 「네, 가실 때 다시 불러 주십시오」로 대답함. 막 시작한 말로 그린 길이 돌고 있으면 멈춤(아이폰 2.141.0과 같음, 이사장님 「우선 길눈을 손보자」)",
+            "★걸어서 가시기에 10킬로미터가 넘게 먼 곳은 몇 킬로미터인지 알리고 1분 안에 한 번 더 걸어서 가자고 하셔야 걷기 안내를 시작함",
+            "「버전」, 「몇 판이야」라고 물으시면 지금 쓰시는 판 번호를 말씀드림",
+            "★말로 그린 길은 끝까지 걸은 길을 기억해 다음에는 되돌아가는 길을 맨 위에 내놓고 커서도 거기 세움. 「말로 그린 길」이라고만 하셔도 되돌아가는 길을 바로 시작(아이폰 2.141.0과 같음)",
+            "말로 그린 길 단추와 안내 첫마디를 「사무실에서 집으로」처럼 어디서 어디로인지로 바꿈. 단계마다 몇 걸음째 넘어갔는지, 방향 경고, 엘리베이터 알아챔, 예상보다 많이 걸음을 기록에 남김"
+        )),
         Gochim("2.105.0", "261125-A95", "2026-11-25", listOf(
             "★말벗 대답을 6초까지만 기다림 — 6초가 지나면 「지금은 대답이 늦습니다. 다시 물어 주십시오」 하고 기다리기를 끝냄(이사장님 11-25 「1」 승인, 아이폰 2.140.0과 같음). 서버 말벗도 한두 문장으로 짧게",
             "★대답을 기다리는 동안 화면을 만지시거나 길눈아·하이 길눈으로 다시 부르시면 기다리던 대답은 버리고 새 말씀을 따름. 늦게 온 대답이 다른 말을 끊지 않음",
@@ -1024,8 +1032,15 @@ object Girok {
         synchronized(jamgeum) {
             jul.put(o)
             while (jul.length() > 2000) jul.remove(0)
+            // 2.106.0 (261126, 아이폰 2.141.0과 같음) 건의할 때 바로 앞 상황을 함께 보내려고 마지막 기록 이름 열다섯 개를 따로 둠
+            choegeunJul.add(java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.KOREA).format(java.util.Date()) + " " + e)
+            while (choegeunJul.size > 15) choegeunJul.removeAt(0)
         }
     }
+
+    private val choegeunJul = ArrayList<String>()
+    /** 2.106.0 바로 앞 기록 이름(시각 붙임) — 건의에 함께 보냄 */
+    fun choegeun(): List<String> = synchronized(jamgeum) { ArrayList(choegeunJul) }
 
     fun jeojang() {
         val t = synchronized(jamgeum) { jul.toString() }

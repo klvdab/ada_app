@@ -82,11 +82,19 @@ final class Girok {
             row["la"] = (w.lat * 1e6).rounded() / 1e6; row["lo"] = (w.lon * 1e6).rounded() / 1e6
             row["oc"] = Int(w.ochae); row["sd"] = Int(w.sokdo * 3.6); row["bg"] = Int(w.banghyang)
         }
+        // 2.141.0 (261126) 건의할 때 바로 앞 상황을 함께 보내려고 마지막 기록 이름 열다섯 개를 따로 둠
+        let ttae = Date()
         q.async {
+            self.choegeunJul.append(GeonuiTtae.f.string(from: ttae) + " " + e)
+            if self.choegeunJul.count > 15 { self.choegeunJul.removeFirst() }
             self.jul.append(row)
             if self.jul.count > 2000 { self.jul.removeFirst(self.jul.count - 2000) }
         }
     }
+
+    private var choegeunJul: [String] = []
+    /// 2.141.0 (261126) 바로 앞 기록 이름(시각 붙임) — 건의에 함께 보냄
+    func choegeun() -> [String] { q.sync { choegeunJul } }
 
     var ssainSu: Int { q.sync { jul.count } }
 
@@ -132,4 +140,9 @@ final class Girok {
             }.resume()
         }
     }
+}
+
+/// 2.141.0 (261126) 기록 시각 꼴(시:분:초)
+enum GeonuiTtae {
+    static let f: DateFormatter = { let d = DateFormatter(); d.dateFormat = "HH:mm:ss"; return d }()
 }

@@ -571,6 +571,11 @@ final class MalHagi: ObservableObject {
             malHam(SoriGwanri.makhimMalBogi()) { [weak self] in self?.bureumDasi(1.0) }
             return
         }
+        if alts.isEmpty && GeonuiEngine.shared.jinhaengJung {
+            // 2.141.0 (261126) 건의를 받아 적는 중에 말씀이 끊기면 — 받아 적은 것을 읽어 드리고 보낼지 여쭘
+            geonuiBatgi(GeonuiEngine.shared.chimmuk())
+            return
+        }
         if alts.isEmpty {
             // 2.30.0 명령 글자가 0 — 마이크 막힘을 따로 남김(beopeo 0이면 마이크에 소리가 안 들어옴, 아니면 알아듣기가 못 적음)
             // 2.66.0 (261013-I20) 들어온 소리 크기(데시벨)·말소리 길이(초)·막힘으로 끝냈는지도 남김
@@ -618,6 +623,11 @@ final class MalHagi: ObservableObject {
             Girok.shared.namgi("hai_dasi", [:])
             sangtae = .swim
             bureumDeureum()
+            return
+        }
+        // 2.141.0 (261126, 이사장님 승인) 건의와 소감 말하기 — 받아 적는 중이면 명령으로 풀지 않고 그대로 받아 적음
+        if GeonuiEngine.shared.jinhaengJung {
+            geonuiBatgi(GeonuiEngine.shared.deureum(alts))
             return
         }
         // 2.49.0 말씀이 있으면 이어 듣기를 새로 셈, 「됐어」면 그침, 같은 말 세 번이면 부드럽게 끊음
@@ -728,6 +738,18 @@ final class MalHagi: ObservableObject {
     private var bakkumCheongTtae = Date.distantPast
 
     /// 대답하고, 묻는 말이면 마이크를 한 번만 저절로 엶. 아니면 땡 소리로 마침
+    /// 2.141.0 (261126) 건의 대답 — 말하고 이어 듣거나, 소리 없이(딩동만) 다시 들어 이어 받아 적음
+    private func geonuiBatgi(_ d: GeonuiEngine.Dap) {
+        sangtae = .swim
+        switch d {
+        case .deutgi:
+            jadongYeolim += 1
+            myeongryeongYeolgi(sori: true)
+        case .malHago(let m, let ieo):
+            dapHagi(m, ieo)
+        }
+    }
+
     private func dapHagi(_ t: String, _ mutneun: Bool) {
         sangtae = .swim
         if !t.isEmpty { dapMal = t }
@@ -1059,6 +1081,12 @@ final class MalHagi: ObservableObject {
         guard let t = alts.first else { dap("말씀이 들리지 않았습니다.", false); return }
         Girok.shared.namgi("malhagi", ["mal": String(t.prefix(60))])
         let z = MalSajeon.ttuk(t)
+        // 2.141.0 (261126, 이사장님 승인 「이번 판에 꼭 넣어서」) 「길눈아, 건의할게」·「소감 말할게」 — 말로 건의 받아 적기
+        if GeonuiEngine.sijakMal(z) {
+            let (m, ieo) = GeonuiEngine.shared.sijak(z)
+            dap(m, ieo)
+            return
+        }
         let y = YeojeongEngine.shared.jigeum
         // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 묻던 말을 잊는 때를 안드로이드와 맞춤 — 점지도로 걸을까요·호칭은 1분, 그 밖(목적지·콜 확인 등)은 2분
         let sumyeong: TimeInterval = (mureum == .jeom || mureum == .hoching) ? 60 : 120
@@ -1536,6 +1564,29 @@ final class MalHagi: ObservableObject {
             return
         }
 
+        // 5-2. 2.141.0 (261126, 이사장님 승인 「우선 길눈을 손보자」) 「버전」, 「몇 판이야」 — 지금 쓰시는 판을 말씀드림
+        //   (11-26 새벽 「니 버전이 어떻게 돼」, 「버전」을 곳 이름으로 찾거나 대답하지 못했던 일)
+        if MalHagi.panMal(z) {
+            mureum = .eopseum
+            Girok.shared.namgi("malhagi_pan", [:])
+            dap("지금 쓰시는 길눈은 \(Pan.pan)판입니다.", false)
+            return
+        }
+        // 5-3. 2.141.0 (261126) 「이따가 가자」, 「조금 후에 갈게」 — 지금 떠나지 않으신다는 말. 곳 이름으로 찾지 않음
+        //   (11-26 새벽 「이따가 가자」를 「이따가다」라는 251킬로미터 밖 곳으로 찾아 걷기 안내를 시작했던 일)
+        if MalHagi.najungMal(z) {
+            mureum = .eopseum
+            Girok.shared.namgi("malhagi_najung", ["mal": String((alts.first ?? "").prefix(40))])
+            //   「집에 가자」로 막 시작한 말로 그린 길이 돌고 있으면 멈춤(11-26 새벽 「집에 가자」 뒤 「조금 후에 갈게」)
+            if MalgilEngine.shared.geotneun {
+                MalgilEngine.shared.geuman(malHagi: false)
+                dap("네, 말로 그린 길 안내를 멈춥니다. 가실 때 다시 불러 주십시오.", false)
+                return
+            }
+            dap("네, 가실 때 다시 불러 주십시오.", false)
+            return
+        }
+
         // 6. 목적지 말을 떼어 보고, 가자는 말이 없으면 명령부터 살핌
         let (q0, gagiMal, roTtem) = sajeon.mokjeokMal(t)
         let tg = talgeotChatgi(alts)
@@ -1579,7 +1630,9 @@ final class MalHagi: ObservableObject {
         // 2.60.0 (이사장님 승인 2026-10-09) 목적지가 정해진 뒤에는 어떤 말이 들려도 "목적지를 변경하실 건가요?"라고 먼저 여쭘.
         //   목적지가 없을 때도 "가자"라는 말 없이 이름만 들렸으면(대답으로 말씀하신 이름 포함) 한 번 여쭘
         let hwagin = !(gagiMal || tg != nil) || y != nil
-        let malbeotGa = !(gagiMal || mureunJung || tg != nil)
+        // 2.141.0 (261126) 가실 곳을 여쭌 뒤라도 묻는 말(뭐야·어떻게 돼·니가·버전 등)이면 말벗에게 — 11-26 새벽 한 번 못 찾은 뒤
+        //   「니가 할 수 있는 게 뭐야」 같은 물음이 2분 동안 모두 곳 이름으로 찾아져 「찾지 못했습니다」만 나왔던 일
+        let malbeotGa = !(gagiMal || tg != nil) && (!mureunJung || MalHagi.malbeotMal(t))
         let taltgeot = tg ?? talgeotDaegi
         // 즐겨찾기 먼저
         let favs = Jeulgyeo.shared.mokrok.sorted { $0.ireum.count > $1.ireum.count }
@@ -1854,6 +1907,12 @@ final class MalHagi: ObservableObject {
         }
         // 2.14.0 말로 그린 길, 음성유도기와 승강기, 현장영상해설 받기
         if z.contains("말로그린") || z.contains("말로하는지도") || z.contains("말로하는길") {   // 2.134.0 「말로 하는 지도 찾아」도(11-23)
+            // 2.141.0 (261126, 이사장님 「사무실에서 집으로 갔으면 자동으로 집에서 사무실이 되어야」) 끝까지 걸은 길이 있으면 그 되돌아가는 길을 바로 시작
+            if !MalgilEngine.shared.geotneun, let (m, ogi) = MalgilEngine.shared.doraganeunGil() {
+                dap("\(MalgilEngine.eodiseo(m, ogi: ogi)), 되돌아가는 말로 그린 길 안내를 시작합니다.", false)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) { MalgilEngine.shared.sijak(m, ogi: ogi) }
+                return true
+            }
             dap("말로 그린 길을 엽니다.", false)
             TabGil.shared.tab = 0
             GilGil.shared.cheotHwamyeon()
@@ -2790,6 +2849,36 @@ final class MalHagi: ObservableObject {
         (z.contains("콜") || z.contains("택시")) && z.contains("취소") && z.count <= 12
     }
 
+    /// 2.141.0 (261126) 판 번호를 묻는 말
+    static func panMal(_ z: String) -> Bool {
+        guard z.count <= 16 else { return false }
+        return z.contains("버전") || z.contains("몇판") || z.contains("판번호") || z.contains("몇번째판")
+    }
+
+    /// 2.141.0 (261126) 지금 떠나지 않으신다는 말(이따가·조금 후에·나중에 + 가자·갈게)
+    static func najungMal(_ z: String) -> Bool {
+        guard z.count <= 16 else { return false }
+        let ttae = ["이따가", "이따", "조금후에", "조금후", "조금있다가", "조금있다", "좀있다가", "좀있다", "좀이따", "나중에", "잠시후에", "잠시후", "있다가", "이따가요"]
+        let ga = ["가자", "갈게", "갈께", "갈래", "가요", "갈거야", "갈께요", "갈게요", "가께", "가"]
+        for a in ttae where z.hasPrefix(a) {
+            let r = String(z.dropFirst(a.count))
+            if r.isEmpty || ga.contains(r) { return true }
+        }
+        return false
+    }
+
+    /// 2.141.0 (261126) 말벗에게 보낼 묻는 말인가 — 가실 곳을 여쭌 뒤에도 곳 이름이 아니라 말벗에게
+    static func malbeotMal(_ t: String) -> Bool {
+        let z = MalSajeon.ttuk(t)
+        if z.isEmpty { return false }
+        if MalHagi.jangsoGateunMal(t) { return false }   // 공원·센터·시장 같은 곳 이름은 곳으로
+        if MalHagi.mutneunMal(t) { return true }
+        let cheot = t.split(separator: " ").first.map(String.init) ?? ""
+        if ["너", "니", "넌", "네가", "니가", "너는", "너도", "니는", "너가"].contains(cheot) { return true }
+        if ["뭐야", "뭐니", "뭔데", "뭐냐", "누구", "무엇", "무슨", "왜", "언제", "할수있", "버전", "어떻게돼", "어때"].contains(where: { z.contains($0) }) { return true }
+        return ["냐", "냐고", "니", "나요", "까", "까요", "는데"].contains(where: { z.hasSuffix($0) })
+    }
+
     /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 묻는 말인가 — 곳 이름으로 다시 찾지 않음
     static func mutneunMal(_ t: String) -> Bool {
         let z = MalSajeon.ttuk(t)
@@ -2937,7 +3026,7 @@ final class MalHagi: ObservableObject {
     }
 
     // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 안드로이드 도움말과 같은 차례로 채움(아이폰이 알아듣는 말만)
-    static let doumalMal = "이렇게 말씀하시면 됩니다. 지금 어디야. 집으로 가자처럼 가실 곳. 가까운 점지도 찾아 줘. 점지도를 따라 걸을 때는 다음에 무엇, 다음 갈림길, 어디쯤이야, 그만 걷기, 도착하면 되돌아가자. 신호기 울려 줘. 신호 알려 줘. 신호기 찾아 줘. 주변에 신호기 있어. 도와줘, 긴급통화, 해설사 요청해 줘, 또는 가족 이름과 화상통화. 날씨 어때. 몇 시야. 말 빠르게, 말 느리게. 말소리 꺼, 말소리 켜. 다시 말해. 그만. 하던 일 멈춰. 여정 끝. 새로고침. 걸어서 가자, 차로 가자, 지하철로 가자, 버스로 가자. 차에 탔어, 내렸어. 복지콜에 전화해 줘, 콜 번호 알려 줘, 택시야, 콜 취소. 자세히 안내해, 간단히 안내해, 보통으로 안내해. 얼마나 걸려, 서울역까지 얼마나 걸려, 지금 가는 길. 도착했어. 목적지 바꿔. 즐겨찾기 목록, 즐겨찾기에 담아 줘. 점지도로, 위성으로. 점지도를 따라 걸을 때는 여기 문제 있어, 여기 걸렸어, 길목, 정류장, 다른 문. 길 기억해 줘. 되짚어 나가자. 말로 그린 길. 음성유도기 어디 있어. QR 찾아 줘. 문 찾아 줘. 글자 읽어 줘. 사람 있어. 빛 알려 줘. 바코드 읽어 줘. 무슨 색이야. 얼마짜리야. 이게 뭐야. 가리키는 거 읽어 줘. 근처 약국. 축제 알려 줘. 고장 이야기. 마실 가자. 사진 읽어 줘, 사진 찍어 줘. 안면인식. 음악 틀어 줘. 트롯 틀어 줘, 또는 가수나 곡 이름. 다음 곡, 이전 곡. 무슨 곡이야. 이어서 틀어. 고장 노래 틀어 줘. 라디오 틀어 줘. KBS 1라디오 틀어 줘. TV 틀어 줘. 뉴스 들려줘. 장애 소식, 속보, 경제 뉴스. 기분이 꿀꿀해. 날씨에 맞게 틀어 줘. 음악 꺼, 라디오 꺼. 목소리 바꿔. 호칭 바꿔. 현장영상해설 받고 싶어. 도움말."
+    static let doumalMal = "이렇게 말씀하시면 됩니다. 지금 어디야. 집으로 가자처럼 가실 곳. 가까운 점지도 찾아 줘. 점지도를 따라 걸을 때는 다음에 무엇, 다음 갈림길, 어디쯤이야, 그만 걷기, 도착하면 되돌아가자. 신호기 울려 줘. 신호 알려 줘. 신호기 찾아 줘. 주변에 신호기 있어. 도와줘, 긴급통화, 해설사 요청해 줘, 또는 가족 이름과 화상통화. 날씨 어때. 몇 시야. 말 빠르게, 말 느리게. 말소리 꺼, 말소리 켜. 다시 말해. 그만. 하던 일 멈춰. 여정 끝. 새로고침. 걸어서 가자, 차로 가자, 지하철로 가자, 버스로 가자. 차에 탔어, 내렸어. 복지콜에 전화해 줘, 콜 번호 알려 줘, 택시야, 콜 취소. 자세히 안내해, 간단히 안내해, 보통으로 안내해. 얼마나 걸려, 서울역까지 얼마나 걸려, 지금 가는 길. 도착했어. 목적지 바꿔. 즐겨찾기 목록, 즐겨찾기에 담아 줘. 점지도로, 위성으로. 점지도를 따라 걸을 때는 여기 문제 있어, 여기 걸렸어, 길목, 정류장, 다른 문. 길 기억해 줘. 되짚어 나가자. 말로 그린 길. 음성유도기 어디 있어. QR 찾아 줘. 문 찾아 줘. 글자 읽어 줘. 사람 있어. 빛 알려 줘. 바코드 읽어 줘. 무슨 색이야. 얼마짜리야. 이게 뭐야. 가리키는 거 읽어 줘. 근처 약국. 축제 알려 줘. 고장 이야기. 마실 가자. 사진 읽어 줘, 사진 찍어 줘. 안면인식. 음악 틀어 줘. 트롯 틀어 줘, 또는 가수나 곡 이름. 다음 곡, 이전 곡. 무슨 곡이야. 이어서 틀어. 고장 노래 틀어 줘. 라디오 틀어 줘. KBS 1라디오 틀어 줘. TV 틀어 줘. 뉴스 들려줘. 장애 소식, 속보, 경제 뉴스. 기분이 꿀꿀해. 날씨에 맞게 틀어 줘. 음악 꺼, 라디오 꺼. 목소리 바꿔. 호칭 바꿔. 현장영상해설 받고 싶어. 건의할게, 소감 말할게. 버전. 도움말."
 
     /// 2.29.0 인공지능이 풀어 본 때(거듭 묻지 않으려고)
     private var aiTtae = Date.distantPast

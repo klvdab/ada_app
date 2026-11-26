@@ -44,6 +44,26 @@ object MalgilEngine : SensorEventListener {
     private var majimak = ""
 
     private var ctx: Context? = null
+    /** 2.106.0 (261126, 이사장님 「사무실에서 집으로 갔으면 자동으로 집에서 사무실이 되어야」, 아이폰 2.141.0과 같음)
+     *  마지막으로 끝까지 걸은 길과 방향 — 다음에는 그 거꾸로(되돌아가는 길)를 먼저 */
+    private var jigeumGil: Pair<String, Boolean>? = null
+    private fun majimak(): Pair<String, Boolean>? {
+        val p = ctx?.getSharedPreferences("gilnun_malgil", Context.MODE_PRIVATE) ?: return null
+        val id = p.getString("majimak_id", null) ?: return null
+        return id to p.getBoolean("majimak_ogi", false)
+    }
+    /** 이 길에서 먼저 내놓을 방향 — 마지막으로 끝까지 걸은 것이 이 길이면 그 거꾸로, 아니면 가는 길 */
+    fun meonjeoOgi(m: MalgilMok): Boolean {
+        val mj = majimak() ?: return false
+        return m.ogiSu > 0 && mj.first == m.id && !mj.second
+    }
+    /** 되돌아가는 길(끝까지 걸은 길이 있을 때만) */
+    fun doraganeunGil(): Pair<MalgilMok, Boolean>? {
+        val mj = majimak() ?: return null
+        val m = mok.firstOrNull { it.id == mj.first } ?: return null
+        if (m.ogiSu <= 0) return null
+        return m to !mj.second
+    }
     private var smgr: SensorManager? = null
     private var sm = 9.8
     private var base = 9.8
@@ -91,6 +111,15 @@ object MalgilEngine : SensorEventListener {
             mok = l.filter { it.id.isNotEmpty() }
         } catch (x: Exception) {}
         if (yeolsoeItda) mokBatgi { }
+    }
+
+    /** 2.106.0 (261126, 아이폰 2.141.0과 같음) 「사무실(지하 1층 105호) ↔ 집(11층 1111호)」 → 「사무실에서 집으로」(오는 길이면 거꾸로) */
+    fun eodiseo(m: MalgilMok, ogi: Boolean): String {
+        val nm = m.ireum.split("↔").map { it.substringBefore("(").trim() }
+        if (nm.size < 2 || nm[0].isEmpty() || nm[1].isEmpty()) return if (ogi) "오는 길" else "가는 길"
+        val a = if (ogi) nm[1] else nm[0]
+        val b = if (ogi) nm[0] else nm[1]
+        return "${a}에서 $b${ro(b)}"
     }
 
     private fun ro(w: String): String {
@@ -151,10 +180,11 @@ object MalgilEngine : SensorEventListener {
             val l = ArrayList<Dangye>()
             for (i in 0 until dan.length()) l.add(pulgi(dan.optJSONObject(i) ?: JSONObject()))
             S = l
-            jemok = m.ireum + (if (ogi) " — 오는 길" else " — 가는 길")
+            jemok = eodiseo(m, ogi)   // 2.106.0 (261126, 아이폰 2.141.0과 같음) 「사무실에서 집으로」처럼
             geotneun = true
             Wichi.wiseongDolligi()
             umjikKyeogi()
+            jigeumGil = m.id to ogi
             Girok.namgi("malgil", mapOf("id" to m.id, "ogi" to ogi))
             Sori.mal("$jemok, 모두 ${S.size}단계로 안내합니다. 이제 손대실 일이 없습니다. 다시라고 하시면 지금 안내를 다시 들려 드립니다.")
             main.postDelayed({ dangye(0) }, 1500)
@@ -164,6 +194,7 @@ object MalgilEngine : SensorEventListener {
 
     fun geuman(malHagi: Boolean = true) {
         if (!geotneun) return
+        Girok.namgi("malgil_geuman", mapOf("i" to si + 1, "geol" to geol))
         umjikKkeugi()
         geotneun = false
         si = -1
@@ -209,6 +240,7 @@ object MalgilEngine : SensorEventListener {
 
     private fun dangye(i: Int) {
         if (!geotneun || i >= S.size) return
+        if (si >= 0 && si < S.size) Girok.namgi("malgil_neomeogam", mapOf("i" to si + 1, "geol" to geol, "n" to S[si].n))   // 2.106.0 (261126) 단계마다 기록
         si = i; geol = 0; ddo = false
         val k = S[i]
         var tt = (if (k.juui.isEmpty()) "" else k.juui.trim('.', ' ') + ". ") + k.mal
@@ -216,6 +248,7 @@ object MalgilEngine : SensorEventListener {
         mal(tt)
         jul = "${i + 1}단계 — ${k.mal}"
         val h = Wichi.hapBang
+        Girok.namgi("malgil_dangye", mapOf("i" to i + 1, "n" to k.n, "jong" to k.jong, "bang" to h))
         val g = k.gak
         if (g != null && h >= 0) gidaeHeading = (h + g + 360) % 360
         else if (g == null) gidaeHeading = null
@@ -231,6 +264,7 @@ object MalgilEngine : SensorEventListener {
         geotneun = false
         jul = ""
         Girok.namgi("malgil_kkeut")
+        jigeumGil?.let { g -> ctx?.getSharedPreferences("gilnun_malgil", Context.MODE_PRIVATE)?.edit()?.putString("majimak_id", g.first)?.putBoolean("majimak_ogi", g.second)?.apply() }
         main.postDelayed({ Sori.mal("닿으셨습니다. 말로 그린 길 안내를 마칩니다.") }, 2500)
         byeonhwa?.invoke()
     }
@@ -251,6 +285,7 @@ object MalgilEngine : SensorEventListener {
                 bangMal = System.currentTimeMillis()
                 // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 어느 쪽으로 돌아 서실지 시계 방향으로 덧붙임(되짚어 나가기와 같은 셈)
                 val s = Jeomjido.sigyeBanghyang(h, gd)
+                Girok.namgi("malgil_banghyang", mapOf("i" to si + 1, "geol" to geol, "sigye" to s))
                 mal("방향이 다릅니다. 멈추십시오. 가실 쪽을 다시 잡아 주십시오. " + (if (s == 6) "뒤로, 6시 방향으로 돌아서십시오." else "${s}시 방향으로 돌아 서십시오."))   // 2.95.0 (261121-A83, 이사장님 승인 2026-11-21 「1」, 아이폰 2.130.0과 같음)
             }
             if (geol >= k.n) {
@@ -258,6 +293,7 @@ object MalgilEngine : SensorEventListener {
                 daeum()
             } else if (geol.toDouble() > k.n * 1.5 + 3 && !ddo) {
                 ddo = true
+                Girok.namgi("malgil_neomchim", mapOf("i" to si + 1, "geol" to geol, "n" to k.n))
                 mal("예상보다 많이 걸으셨습니다. 멈추고 확인하십시오.")
             }
         } else if (k.jong == "meomchum") {
@@ -271,7 +307,7 @@ object MalgilEngine : SensorEventListener {
         val k = S[si]
         if (k.jong == "elev") {
             val m = meomchumSijak
-            if (!k.tan && m != null && System.currentTimeMillis() - m > 8000) { k.tan = true; geol = 0 }
+            if (!k.tan && m != null && System.currentTimeMillis() - m > 8000) { k.tan = true; geol = 0; Girok.namgi("malgil_elev_tam", mapOf("i" to si + 1)) }
             if (k.tan && geol >= 2) daeum()
         }
     }
@@ -345,9 +381,12 @@ class MalgilHwamyeon : Hwamyeon("말로 그린 길") {
             cheot = t.danchu("말로 그린 길을 받지 못했습니다 — 다시 받기") { sangtae = 0; batgi(t); t.dasiGeurigi() }
         } else {
             for (m in e.mok) {
-                val v = t.danchu("가는 길 따라 걷기 — ${m.ireum}, ${m.gagiSu}단계") { e.sijak(t, m, false) }
+                // 2.106.0 (261126) 어디서 어디로인지, 되돌아가는 길을 맨 위에(커서도 거기)
+                val a = e.meonjeoOgi(m)
+                val doraga = e.doraganeunGil()?.first?.id == m.id
+                val v = t.danchu("${MalgilEngine.eodiseo(m, a)} 걷기 — ${if (a) m.ogiSu else m.gagiSu}단계" + (if (doraga) ", 되돌아가는 길" else "")) { e.sijak(t, m, a) }
                 if (cheot == null) cheot = v
-                if (m.ogiSu > 0) t.danchu("오는 길 따라 걷기 — ${m.ireum}, ${m.ogiSu}단계") { e.sijak(t, m, true) }
+                if (m.ogiSu > 0) t.danchu("${MalgilEngine.eodiseo(m, !a)} 걷기 — ${if (!a) m.ogiSu else m.gagiSu}단계") { e.sijak(t, m, !a) }
             }
         }
         t.danchu(if (pyeol) "알아 두실 것 접기" else "알아 두실 것 펼치기") { pyeol = !pyeol; t.dasiGeurigi() }
