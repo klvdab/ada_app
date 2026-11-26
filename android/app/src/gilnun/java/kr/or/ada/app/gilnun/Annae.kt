@@ -210,12 +210,17 @@ object AnnaeEngine {
         Sori.mal("하던 일을 멈췄습니다. 어디로 가실까요?")
     }
 
-    /** 목적지를 정하고 걸어가기(위성 안내) */
-    fun georeoGagi(j: Jangso) {
+    /** 목적지를 정하고 걸어가기(위성 안내)
+     *  2.109.0 jeomHwakin: 점지도가 있는지 이미 살폈는가(점지도 엔진이 살핀 뒤 부를 때만 참) — 거짓이면 먼저 점지도를 살핌(아이폰 2.144.0과 같음) */
+    fun georeoGagi(j: Jangso, jeomHwakin: Boolean = false) {
         if (HeorakAllim.annaeMakgi()) return   // 2.77.0 위치 없이는 시작하지 않음
+        if (!jeomHwakin) {
+            georeoGagiBoda(j) { q -> if (q != null) YeojeongMal.jeomMureumAllim(q) }
+            return
+        }
         saeMokjeokJunbi()
         yj.jeonghagi(Mokjeok(j.ireum, j.lat, j.lon, j.juso))
-        georeoGagi()
+        georeoGagi(true)
     }
 
     /** 목적지를 정하고 차에 탐 */
@@ -355,8 +360,16 @@ object AnnaeEngine {
 
     /** 2.106.0 (261126, 아이폰 2.141.0과 같음) 걸어서 가기에 너무 먼 곳(10킬로미터 넘게)은 한 번 여쭙고, 1분 안에 다시 걸어서 가자고 하셔야 시작함 */
     private var meonGilMureun = 0L
-    fun georeoGagi() {
+    /** 2.109.0 (261126 이사장님 지시 「앞으로 어디서든 안내가 시작되면 점지도가 있는지를 먼저 확인하고 없을 때만 위성을 연결」, 아이폰 2.144.0과 같음)
+     *  걷는 안내는 어느 길로 시작하든 이 관문을 지남 — 점지도를 살피지 않고 왔으면 먼저 점지도 엔진에 넘김 */
+    fun georeoGagi(jeomHwakin: Boolean = false) {
         val yy = yj.jigeum ?: return
+        if (!jeomHwakin && !JeomEngine.georeoJung && JeomEngine.muleum == null && !JeomEngine.bulleoneun) {
+            val j = Jangso(yy.mokjeok.ireum, yy.mokjeok.juso, yy.mokjeok.lat, yy.mokjeok.lon)
+            Girok.namgi("jeom_gwanmun", mapOf("mok" to j.ireum))
+            georeoGagiBoda(j) { q -> if (q != null) YeojeongMal.jeomMureumAllim(q) }
+            return
+        }
         var meon = yy.yegeori ?: 0.0
         Wichi.jigeum?.let { w -> meon = Wichi.geori(w.lat, w.lon, yy.mokjeok.lat, yy.mokjeok.lon) }
         if (meon > 10_000) {
@@ -849,7 +862,7 @@ object AnnaeEngine {
     fun georeoGagiBoda(j: Jangso, mutgi: (String?) -> Unit) {
         JihacheolEngine.meomchugi()
         val c = ctx
-        if (c == null) { mutgi(null); georeoGagi(j); return }
+        if (c == null) { mutgi(null); georeoGagi(j, true); return }
         JeomEngine.georeoGagiBoda(c, JeomMokjeok(j.ireum, j.juso, j.lat, j.lon), mutgi)
     }
 
@@ -1151,7 +1164,8 @@ object AnnaeEngine {
         if (!(y.danggye == Danggye.TANEUN_JUNG && yj.talgeot == Talgeot.GICHA)) GichaAnnae.kkeut()   // 2.61.0
         if (!(y.danggye == Danggye.TANEUN_JUNG && yj.talgeot != Talgeot.SEONBAK && y.jiha == null)) JidoAllim.kkeut()   // 2.88.0 지도 알림은 탈것 안(배는 뺌)
         if (!(y.danggye == Danggye.TANEUN_JUNG && yj.talgeot != Talgeot.GICHA && yj.talgeot != Talgeot.SEONBAK && !(y.talgeot == Talgeot.JIHACHEOL && y.barojabeum) && y.jiha == null)) ChaGeodeul.kkeut()   // 2.62.0, 2.73.0 바로잡으신 지하철은 차 거들기 없음
-        yj.dochakBoda(w)   // 2.62.0 목적지 50미터 안 2분이면 도착을 여쭘
+        // 2.109.0 점지도를 따라 걷는 동안에는 위성으로 도착을 여쭙지 않음(위성과 이별)
+        if (!JeomEngine.georeoJung) yj.dochakBoda(w)   // 2.62.0 목적지 50미터 안 2분이면 도착을 여쭘
         val d = Wichi.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
         namEunGeori = d
         jeomChaBoda(w)   // 2.32.0 (261009-A20, 이사장님 승인 2026-10-09) 탈것 구간이 없는 점지도를 걷다 차를 타셨는가(아이폰과 같음)
@@ -1358,6 +1372,7 @@ object AnnaeEngine {
     private var ttMok: Pair<Double, Double>? = null
     private var ttBatneun = false
     private var ttMotTtae = 0L
+    private val ttDasiTtae = ArrayList<Long>()   // 2.109.0 다시 길을 찾은 때
     private var ttBeoseo = 0
     private var ttYego = -1
     private var ttMalTtae = 0L
@@ -1404,12 +1419,46 @@ object AnnaeEngine {
         if (ttI >= ttAn.size) return ""
         val a = ttAn[ttI]
         val d = Wichi.geori(w.lat, w.lon, a.lat, a.lon)
-        val s = sigye(w, a.lat, a.lon)
-        return "${gm(d)} 앞에서 ${dolgiMal(a.sign, false)}." + (if (s == 0) "" else " 그쪽은 ${s}시 방향입니다.")
+        // 2.109.0 꺾는 곳까지 곧은 방향이 아니라 길을 따라 15미터 앞 자리의 방향(아이폰 2.144.0)
+        val q = ttApJeom(w)
+        val s = sigye(w, q.first, q.second)
+        return "${gm(d)} 앞에서 ${dolgiMal(a.sign, false)}." + (if (s == 0 || s == 12) "" else " 지금 길은 ${s}시 방향입니다.")
+    }
+
+    /** 2.109.0 받은 길 위에서 지금 자리와 가장 가까운 곳을 찾아 길을 따라 15미터 앞 자리 */
+    private fun ttApJeom(w: Jari): Pair<Double, Double> {
+        if (ttPts.size < 2) return if (ttI < ttAn.size) Pair(ttAn[ttI].lat, ttAn[ttI].lon) else Pair(w.lat, w.lon)
+        val kx = 111320 * Math.cos(Math.toRadians(w.lat)); val ky = 110540.0
+        var bi = 0; var bt = 0.0; var bd = Double.MAX_VALUE
+        for (i in 0 until ttPts.size - 1) {
+            val ax = (ttPts[i].second - w.lon) * kx; val ay = (ttPts[i].first - w.lat) * ky
+            val bx = (ttPts[i + 1].second - w.lon) * kx; val by = (ttPts[i + 1].first - w.lat) * ky
+            val dx = bx - ax; val dy = by - ay; val l2 = dx * dx + dy * dy
+            var t = if (l2 > 0) -(ax * dx + ay * dy) / l2 else 0.0
+            t = max(0.0, min(1.0, t))
+            val px = ax + t * dx; val py = ay + t * dy
+            val dd = Math.sqrt(px * px + py * py)
+            if (dd < bd) { bd = dd; bi = i; bt = t }
+        }
+        var namEun = 15.0
+        var la = ttPts[bi].first + (ttPts[bi + 1].first - ttPts[bi].first) * bt
+        var lo = ttPts[bi].second + (ttPts[bi + 1].second - ttPts[bi].second) * bt
+        var k = bi + 1
+        while (k < ttPts.size) {
+            val g = Wichi.geori(la, lo, ttPts[k].first, ttPts[k].second)
+            if (g >= namEun) {
+                val r = if (g > 0) namEun / g else 0.0
+                return Pair(la + (ttPts[k].first - la) * r, lo + (ttPts[k].second - lo) * r)
+            }
+            namEun -= g
+            la = ttPts[k].first; lo = ttPts[k].second
+            k += 1
+        }
+        return Pair(la, lo)
     }
 
     private var ttTongsinMot = 0
-    private fun ttBatgi(w: Jari, lat: Double, lon: Double, apMal: String) {
+    private fun ttBatgi(w: Jari, lat: Double, lon: Double, apMal: String, joyong: Boolean = false) {
         if (ttBatneun || System.currentTimeMillis() - ttMotTtae < 20000) return
         ttBatneun = true
         val f = { v: Double -> String.format(java.util.Locale.US, "%.6f", v) }
@@ -1421,7 +1470,7 @@ object AnnaeEngine {
                 // 2.73.0 (261024-A61, 아이폰 2.105.0과 같음) 통신이 막혀 걷는 길을 잇달아 못 받으면 한 번 말씀드림(10-24 월드컵경기장 앞 20분 동안 21번 말없이 실패)
                 if (o == null) {
                     ttTongsinMot += 1
-                    if (ttTongsinMot == 3) malHagi("통신이 원활하지 않아 걸을 수 있는 길을 받지 못하고 있습니다. 목적지 방향으로 안내합니다.")
+                    if (ttTongsinMot == 3) malHagi("통신이 원활하지 않아 걸을 수 있는 길을 받지 못하고 있습니다. 곧은 방향은 사람이 다니는 길이 아니어서 알려 드리지 않습니다. 통신이 돌아오면 길로 안내하겠습니다.")
                 }
                 return@json
             }
@@ -1440,7 +1489,7 @@ object AnnaeEngine {
             ttMalTtae = System.currentTimeMillis()
             val jeon = o.optDouble("geori", 0.0)
             val w2 = Wichi.jigeum ?: return@json
-            malHagi(apMal + "걸을 수 있는 길로 안내합니다. 길 따라 ${gm(jeon)}. " + ttDaeumMal(w2))
+            if (!joyong) malHagi(apMal + "걸을 수 있는 길로 안내합니다. 길 따라 ${gm(jeon)}. " + ttDaeumMal(w2))
             Girok.namgi("gil_ttara", mapOf("m" to jeon.toInt(), "an" to l.size))
         }
     }
@@ -1451,13 +1500,33 @@ object AnnaeEngine {
         if (m != null && (abs(m.first - lat) > 0.000001 || abs(m.second - lon) > 0.000001)) ttJiugi()
         if (ttAn.isEmpty()) { ttBatgi(w, lat, lon, ""); return false }
         val now = System.currentTimeMillis()
-        if (ttGeori(w.lat, w.lon) > max(25.0, w.ochae * 1.5)) ttBeoseo += 1 else ttBeoseo = 0
+        // 2.109.0 (261126 남산) 길찾기 지도에 없는 산책로에서 30초마다 「다시 길을 찾았습니다」를 되풀이하던 일 —
+        //   3분 안에 두 번 넘게 다시 찾았으면 벗어남 잣대를 50미터로 넓히고 조용히 다시 찾음
+        ttDasiTtae.removeAll { now - it >= 180_000 }
+        val jaju = ttDasiTtae.size >= 2
+        if (ttGeori(w.lat, w.lon) > max(if (jaju) 50.0 else 25.0, w.ochae * 1.5)) ttBeoseo += 1 else ttBeoseo = 0
         if (ttBeoseo >= 3) {
             ttJiugi(); ttMotTtae = 0L
-            ttBatgi(w, lat, lon, "길에서 벗어나신 것 같아 지금 자리에서 다시 길을 찾았습니다. ")
+            ttDasiTtae.add(now)
+            Girok.namgi("gil_dasi_chajeum", mapOf("jaju" to jaju))
+            ttBatgi(w, lat, lon, if (jaju) "" else "길에서 벗어나신 것 같아 지금 자리에서 다시 길을 찾았습니다. ", jaju)
             return true
         }
-        if (ttI >= ttAn.size) return false
+        // 2.109.0 마지막 꺾는 곳을 지나도 목적지까지는 받은 길을 따라 이끎(곧은 방향으로 돌아가지 않음)
+        if (ttI >= ttAn.size) {
+            if (now - ttMalTtae >= 20000 && now - majimakMal >= 6000) {
+                ttMalTtae = now
+                val q = ttApJeom(w)
+                val s = sigye(w, q.first, q.second)
+                if (s == 12 || s == 11 || s == 1) {
+                    if (AnnaeSeoljeong.hwaksinEum) Eum.naegi(EumJong.HWAKSIN)
+                } else if (s != 0) {
+                    malHagi("길은 ${s}시 방향입니다.")
+                    Jindong.banghyang(s)
+                }
+            }
+            return true
+        }
         // 2.20.0 건널목·계단 미리 알림(꺾는 곳보다 먼저)
         val gm0 = guganAllim(w)
         if (gm0 != null) { ttMalTtae = now; malHagi(gm0); return true }
@@ -1476,7 +1545,8 @@ object AnnaeEngine {
         }
         if (now - ttMalTtae >= 20000 && now - majimakMal >= 6000) {
             ttMalTtae = now
-            val s = sigye(w, a.lat, a.lon)
+            val q = ttApJeom(w)   // 2.109.0 길을 따라 15미터 앞 자리
+            val s = sigye(w, q.first, q.second)
             if (s == 12 || s == 11 || s == 1) {
                 if (AnnaeSeoljeong.hwaksinEum) Eum.naegi(EumJong.HWAKSIN)
             } else if (s != 0) {
@@ -1506,59 +1576,39 @@ object AnnaeEngine {
         // 2.16.0 마지막 스무 미터는 걸음 수와 시 방향으로 좁혀 말함
         if (!jungan && magakAnnae(w, d, lat, lon, mok)) return
         // 2.15.0 걸을 수 있는 길을 받았으면 그 길로 이끎(다음 꺾는 곳을 겨눔)
+        // 2.109.0 위성으로 걷는 동안에도 1분마다 점지도를 다시 찾음 — 잡히면 곧바로 여쭘(점지도 먼저, 이사장님 11-26)
+        if (!jungan) jeomDasiChatgi(w, y)
         if (ttaraAnnae(w, lat, lon)) { neagoriBoda(w, true); return }
-        val s = sigye(w, lat, lon)
-        val now = System.currentTimeMillis()
-        val jinan = (now - majimakMal) / 1000.0
         neagoriBoda(w, true)
-        val mg = majimakGeoriMal
-        if (mg == null) {
-            malHagi("${mok}까지 ${gm(d)}${Annae.sigyeMal(s)}.")
-            Jindong.banghyang(s)
-            majimakGeoriMal = d
-            majimakSigye = s
-            return
+        // 2.109.0 (261126 이사장님 지시 「직선으로 거리를 재고 방향을 주장해서 사람이 다니는 길이 아니고 직선길만 주장」, 아이폰 2.144.0과 같음)
+        //   곧은 방향 안내를 없앰 — 길을 받기 전·못 받는 동안에는 길을 찾는 중이라는 것만 1분에 한 번. 목적지 20미터 안의 마지막 좁히기만 시 방향
+        val now = System.currentTimeMillis()
+        if (!ttBatneun && now - gilChatneunMalTtae >= 60_000 && now - majimakMal >= 8000) {
+            gilChatneunMalTtae = now
+            Girok.namgi("gil_chatneun_jung", mapOf("m" to Wichi.geori(w.lat, w.lon, lat, lon).toInt()))
+            malHagi("사람이 다닐 수 있는 길을 찾고 있습니다. 찾는 대로 그 길로 안내하겠습니다. 흰지팡이로 지금 길을 따라 천천히 가 주십시오.", MalGeup.JEONGBO)
         }
-        if (!gotMal && d <= 40) {
-            gotMal = true
-            malHagi("곧 도착합니다. ${mok}까지 ${gm(d)}${Annae.sigyeMal(s)}.")
-            majimakGeoriMal = d
-            majimakSigye = s
-            return
-        }
-        val st = AnnaeSeoljeong
-        // 얼마나 자세히 — 자세히 그대로, 보통 1.5배, 짧게 2배 간격으로 / 되풀이 사이 시간(기본 6초)
-        val bae = if (st.malSang >= 2) 1.0 else (if (st.malSang == 1) 1.5 else 2.0)
-        val gan = (if (d > 300) 100.0 else (if (d > 100) 50.0 else 20.0)) * bae
-        val doepul = st.doepul.toDouble()
-        if (mg - d >= gan && jinan >= doepul + 4) {
-            malHagi("${mok}까지 ${gm(d)}${Annae.sigyeMal(s)}.")
-            majimakGeoriMal = d
-            majimakSigye = s
-            return
-        }
-        if (d - mg >= 30 && jinan >= doepul + 4) {
-            malHagi("목적지에서 멀어지고 있습니다. $mok 쪽은${if (s == 0) "" else " ${s}시 방향"}, ${gm(d)}.", MalGeup.ANNAE)
-            Jindong.banghyang(s)
-            majimakGeoriMal = d
-            majimakSigye = s
-            return
-        }
-        if (s != 0 && majimakSigye != 0 && Annae.sigyeCha(s, majimakSigye) >= 2 && jinan >= doepul + 2) {
-            malHagi("$mok 쪽은 ${s}시 방향입니다.")
-            Jindong.banghyang(s)
-            majimakSigye = s
-            return
-        }
-        // 걷는 중 입 다물지 않기 — 제대로 가면 25초마다 확신음, 틀어졌으면 방향
-        if (jinan >= 25 && now - hwaksinTtae >= 25000) {
-            hwaksinTtae = now
-            if (s == 12 || s == 11 || s == 1) {
-                if (st.hwaksinEum) Eum.naegi(EumJong.HWAKSIN)
-            } else if (s != 0) {
-                malHagi("$mok 쪽은 ${s}시 방향입니다.")
-                Jindong.banghyang(s)
-                majimakSigye = s
+    }
+
+    /** 2.109.0 곧은 방향 대신 길을 찾는 중이라는 말 — 1분에 한 번 */
+    private var gilChatneunMalTtae = 0L
+    /** 2.109.0 위성으로 걷는 중 점지도 다시 찾기 — 1분마다, 위성으로 걷겠다 하신 목적지는 다시 여쭙지 않음 */
+    private var jeomDasiTtae = 0L
+    private var jeomDasiChatneun = false
+    var jeomGeojeolMok: String? = null
+
+    private fun jeomDasiChatgi(w: Jari, y: Yeojeong) {
+        val now = System.currentTimeMillis()
+        if (jeomDasiChatneun || now - jeomDasiTtae < 60_000 || w.ochae > 50) return
+        if (JeomEngine.georeoJung || JeomEngine.muleum != null || JeomEngine.bulleoneun || jeomGeojeolMok == y.mokjeok.ireum) return
+        jeomDasiTtae = now
+        jeomDasiChatneun = true
+        val mok = JeomMokjeok(y.mokjeok.ireum, y.mokjeok.juso, y.mokjeok.lat, y.mokjeok.lon)
+        Jeomjido.matneunGilDeul(w.lat, w.lon, mok) { hb ->
+            main.post {
+                jeomDasiChatneun = false
+                if (hb.isNullOrEmpty() || yj.jigeum?.mokjeok?.ireum != mok.ireum) return@post
+                JeomEngine.wiseongJungMutgi(mok, hb)
             }
         }
     }

@@ -254,8 +254,17 @@ object JeomPan {
     /** JeomEngine.georeoGagiBoda 로 여쭌 점지도(여러 점지도 이어 걷기까지) — 여쭌 것이 없으면 아무것도 넣지 않음. 첫 단추를 돌려줌 */
     fun muleumJul(t: GilnunActivity): View? {
         val m = JeomEngine.muleum ?: return null
-        val b = t.danchu("점지도로 걷기 — 권합니다. ${m.julMal}") { JeomEngine.muleumDap(true); t.dasiGeurigi() }
-        t.danchu("위성으로 걷기 — ${m.mok.ireum}까지 방향 따라") { JeomEngine.muleumDap(false); t.dasiGeurigi() }
+        // 2.109.0 맞는 점지도가 여럿이면 등급 높은 것부터 하나씩 단추로
+        var b: View? = null
+        if (m.hubo.size > 1) {
+            m.hubo.forEachIndexed { i, h ->
+                val bt = t.danchu("점지도로 걷기 — " + (if (i == 0) "권합니다. 첫째" else if (i == 1) "둘째" else "셋째") + ", ${h.deungMal}") { JeomEngine.muleumGoreugi(i); t.dasiGeurigi() }
+                if (i == 0) b = bt
+            }
+        } else {
+            b = t.danchu("점지도로 걷기 — 권합니다. ${m.julMal}") { JeomEngine.muleumDap(true); t.dasiGeurigi() }
+        }
+        t.danchu("위성으로 걷기 — 사람이 다니는 길을 찾아 ${m.mok.ireum}까지") { JeomEngine.muleumDap(false); t.dasiGeurigi() }
         return b
     }
 

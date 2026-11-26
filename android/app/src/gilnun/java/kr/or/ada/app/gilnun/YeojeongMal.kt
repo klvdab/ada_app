@@ -52,6 +52,12 @@ object YeojeongMal {
 
     fun jeomMureumTtae(): Long = if (mureum == Mureum.JEOM && JeomEngine.muleum != null) mureumTtae else 0L
 
+    /** 2.109.0 점지도 먼저 — 말로 하기 밖(걷기 관문·걷는 중 다시 찾기)에서 점지도를 여쭐 때도 「네」를 점지도로 알아듣게(아이폰 2.144.0) */
+    fun jeomMureumAllim(q: String) {
+        yeoJjum(Mureum.JEOM)
+        Sori.mal(q, MalGeup.ANNAE)
+    }
+
     private fun yeoJjum(m: Mureum) {
         mureum = m
         mureumTtae = System.currentTimeMillis()
@@ -146,6 +152,29 @@ object YeojeongMal {
                 dap("위성으로 걷습니다.", false)
                 JeomEngine.muleumDap(false)
                 return true
+            }
+            // 2.109.0 여러 점지도 가운데 고르기 — 「A급」「에이급」「둘째」「두 번째」「2번」
+            val hb = JeomEngine.muleum?.hubo ?: emptyList()
+            if (hb.size > 1) {
+                val zz = z.lowercase()
+                var k: Int? = null
+                val deung = listOf("A" to listOf("a급", "에이급"), "B" to listOf("b급", "비급"), "C" to listOf("c급", "씨급", "시급"))
+                for ((d, ms) in deung) if (ms.any { zz.contains(it) }) { val i = hb.indexOfFirst { it.deunggeup == d }; if (i >= 0) k = i }
+                if (k == null) {
+                    k = when {
+                        zz.contains("셋째") || zz.contains("세번째") || zz.contains("3번") -> 2
+                        zz.contains("둘째") || zz.contains("두번째") || zz.contains("2번") -> 1
+                        zz.contains("첫째") || zz.contains("첫번째") || zz.contains("1번") -> 0
+                        else -> null
+                    }
+                }
+                val kk = k
+                if (kk != null && kk < hb.size) {
+                    mureum = Mureum.EOPSEUM
+                    dap((if (hb[kk].deunggeup.isEmpty()) "" else hb[kk].deunggeup + "급 ") + "점지도로 걷습니다.", false)
+                    JeomEngine.muleumGoreugi(kk)
+                    return true
+                }
             }
             if (z.contains("점지도") || (mureum == Mureum.JEOM && ye0 && !ani0 && z.length <= 10)) {
                 mureum = Mureum.EOPSEUM

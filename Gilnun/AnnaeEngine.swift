@@ -167,11 +167,16 @@ final class AnnaeEngine: ObservableObject {
     }
 
     /// 목적지를 정하고 걸어가기
-    func georeoGagi(_ j: Jangso) {
+    /// 2.143.0 jeomHwakin: 점지도가 있는지 이미 살폈는가(점지도 엔진이 살핀 뒤 부를 때만 참) — 거짓이면 먼저 점지도를 살핌
+    func georeoGagi(_ j: Jangso, jeomHwakin: Bool = false) {
         if HeorakAllim.shared.annaeMakgi() { return }   // 2.110.0 위치 없이는 시작하지 않음
+        if !jeomHwakin {
+            JeomEngine.shared.georeoGagiBoda(j) { q in if let q = q { MalHagi.shared.jeomMureumAllim(q) } }
+            return
+        }
         saeMokjeokJunbi()
         yj.jeonghagi(Mokjeok(ireum: j.ireum, lat: j.lat, lon: j.lon, juso: j.juso))
-        georeoGagi()
+        georeoGagi(jeomHwakin: true)
     }
 
     /// 목적지를 정하고 차에 탐
@@ -314,8 +319,17 @@ final class AnnaeEngine: ObservableObject {
     /// 2.141.0 (261126) 걸어서 가기에 너무 먼 곳(10킬로미터 넘게)은 한 번 여쭙고, 1분 안에 다시 걸어서 가자고 하셔야 시작함
     ///   (11-26 새벽 「이따가 가자」를 251킬로미터 밖 곳으로 찾은 뒤 「걸어서」에 곧바로 걷기 안내를 시작했던 일)
     private var meonGilMureun: Date?
-    func georeoGagi() {
+    /// 2.143.0 (261126 이사장님 지시 「앞으로 어디서든 안내가 시작되면 점지도가 있는지를 먼저 확인하고 없을 때만 위성을 연결」)
+    ///   걷는 안내는 어느 길로 시작하든 이 관문을 지남 — 점지도를 살피지 않고 왔으면 먼저 점지도 엔진에 넘김
+    ///   (11-26 17시 46분 국립극장 다시 가기가 5미터 옆 C급 점지도를 살피지 않고 위성으로만 간 일)
+    func georeoGagi(jeomHwakin: Bool = false) {
         guard let yy = yj.jigeum else { return }
+        if !jeomHwakin && !JeomEngine.shared.georeoJung && JeomEngine.shared.muleum == nil && !JeomEngine.shared.bulleoneun {
+            let j = Jangso(ireum: yy.mokjeok.ireum, juso: yy.mokjeok.juso, lat: yy.mokjeok.lat, lon: yy.mokjeok.lon)
+            Girok.shared.namgi("jeom_gwanmun", ["mok": j.ireum])
+            JeomEngine.shared.georeoGagiBoda(j) { q in if let q = q { MalHagi.shared.jeomMureumAllim(q) } }
+            return
+        }
         var meon: Double = yy.yegeori ?? 0
         if let w = WichiEngine.shared.jigeum { meon = WichiEngine.geori(w.lat, w.lon, yy.mokjeok.lat, yy.mokjeok.lon) }
         if meon > 10_000 {
@@ -1096,7 +1110,8 @@ final class AnnaeEngine: ObservableObject {
         if !(y.danggye == .taneunJung && yj.talgeot != .gicha && yj.talgeot != .seonbak && !(y.talgeot == .jihacheol && y.barojabeum) && y.jiha == nil) { ChaGeodeul.shared.kkeut() }   // 2.92.0
         let d = WichiEngine.geori(w.lat, w.lon, y.mokjeok.lat, y.mokjeok.lon)
         namEunGeori = d
-        yj.dochakBoda(w)   // 2.92.0 목적지 50미터 안 2분이면 도착을 여쭘
+        // 2.143.0 점지도를 따라 걷는 동안에는 위성으로 도착을 여쭙지 않음(위성과 이별)
+        if !JeomEngine.shared.georeoJung { yj.dochakBoda(w) }   // 2.92.0 목적지 50미터 안 2분이면 도착을 여쭘
         jeomChaBoda(w)   // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 탈것 구간이 없는 점지도를 걷다 차를 타셨는가
         // 2.10.0 점지도를 따라 걷는 동안(도착 뒤 포함)과 점지도로 걸을지 여쭙는 동안에는 점지도 엔진이 안내를 맡음
         // 2.12.0 점지도로 닿은 뒤에는 이 엔진이 다시 맡음(차를 타시거나 다시 걸으실 때 조용하지 않게)
@@ -1304,6 +1319,7 @@ final class AnnaeEngine: ObservableObject {
     private var ttMok: (Double, Double)?
     private var ttBatneun = false
     private var ttMotTtae = Date.distantPast
+    private var ttDasiTtae: [Date] = []   // 2.143.0 다시 길을 찾은 때
     private var ttBeoseo = 0
     private var ttYego = -1
     private var ttMalTtae = Date.distantPast
@@ -1352,12 +1368,49 @@ final class AnnaeEngine: ObservableObject {
         guard ttI < ttAn.count else { return "" }
         let a = ttAn[ttI]
         let d = WichiEngine.geori(w.lat, w.lon, a.lat, a.lon)
-        let s = sigye(w, a.lat, a.lon)
-        return "\(gm(d)) 앞에서 \(dolgiMal(a.sign, jigeum: false))." + (s == 0 ? "" : " 그쪽은 \(s)시 방향입니다.")
+        // 2.143.0 꺾는 곳까지 곧은 방향이 아니라, 지금 자리에서 길을 따라 15미터 앞 자리의 방향(굽은 길에서 숲·담장 쪽을 가리키지 않게)
+        let q = ttApJeom(w)
+        let s = sigye(w, q.0, q.1)
+        return "\(gm(d)) 앞에서 \(dolgiMal(a.sign, jigeum: false))." + (s == 0 || s == 12 ? "" : " 지금 길은 \(s)시 방향입니다.")
+    }
+
+    /// 2.143.0 받은 길 위에서 지금 자리와 가장 가까운 곳을 찾아 길을 따라 15미터 앞 자리 — 길이 없으면 다음 꺾는 곳
+    private func ttApJeom(_ w: Wichi) -> (Double, Double) {
+        guard ttPts.count >= 2 else {
+            if ttI < ttAn.count { return (ttAn[ttI].lat, ttAn[ttI].lon) }
+            return (w.lat, w.lon)
+        }
+        let kx = 111320 * cos(w.lat * .pi / 180), ky = 110540.0
+        var bi = 0, bt = 0.0, bd = Double.greatestFiniteMagnitude
+        for i in 0..<(ttPts.count - 1) {
+            let ax = (ttPts[i].1 - w.lon) * kx, ay = (ttPts[i].0 - w.lat) * ky
+            let bx = (ttPts[i + 1].1 - w.lon) * kx, by = (ttPts[i + 1].0 - w.lat) * ky
+            let dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy
+            var t = l2 > 0 ? -(ax * dx + ay * dy) / l2 : 0
+            t = max(0, min(1, t))
+            let px = ax + t * dx, py = ay + t * dy
+            let dd = (px * px + py * py).squareRoot()
+            if dd < bd { bd = dd; bi = i; bt = t }
+        }
+        var namEun = 15.0
+        var la = ttPts[bi].0 + (ttPts[bi + 1].0 - ttPts[bi].0) * bt
+        var lo = ttPts[bi].1 + (ttPts[bi + 1].1 - ttPts[bi].1) * bt
+        var k = bi + 1
+        while k < ttPts.count {
+            let g = WichiEngine.geori(la, lo, ttPts[k].0, ttPts[k].1)
+            if g >= namEun {
+                let r = g > 0 ? namEun / g : 0
+                return (la + (ttPts[k].0 - la) * r, lo + (ttPts[k].1 - lo) * r)
+            }
+            namEun -= g
+            la = ttPts[k].0; lo = ttPts[k].1
+            k += 1
+        }
+        return (la, lo)
     }
 
     private var ttTongsinMot = 0
-    private func ttBatgi(_ w: Wichi, _ lat: Double, _ lon: Double, apMal: String) {
+    private func ttBatgi(_ w: Wichi, _ lat: Double, _ lon: Double, apMal: String, joyong: Bool = false) {
         guard !ttBatneun, Date().timeIntervalSince(ttMotTtae) > 20 else { return }
         ttBatneun = true
         let q = ["slat": String(format: "%.6f", w.lat), "slon": String(format: "%.6f", w.lon),
@@ -1372,7 +1425,7 @@ final class AnnaeEngine: ObservableObject {
                     // 2.105.0 (261024-I59) 통신이 막혀 걷는 길을 잇달아 못 받으면 한 번 말씀드림(10-24 월드컵경기장 앞 20분 동안 21번 말없이 실패)
                     if o == nil {
                         self.ttTongsinMot += 1
-                        if self.ttTongsinMot == 3 { self.malHagi("통신이 원활하지 않아 걸을 수 있는 길을 받지 못하고 있습니다. 목적지 방향으로 안내합니다.") }
+                        if self.ttTongsinMot == 3 { self.malHagi("통신이 원활하지 않아 걸을 수 있는 길을 받지 못하고 있습니다. 곧은 방향은 사람이 다니는 길이 아니어서 알려 드리지 않습니다. 통신이 돌아오면 길로 안내하겠습니다.") }
                     }
                     return
                 }
@@ -1397,7 +1450,7 @@ final class AnnaeEngine: ObservableObject {
                 self.ttMalTtae = Date()
                 let jeon = Chatgi.su(o["geori"]) ?? 0
                 guard let w2 = WichiEngine.shared.jigeum else { return }
-                self.malHagi(apMal + "걸을 수 있는 길로 안내합니다. 길 따라 \(self.gm(jeon)). " + self.ttDaeumMal(w2))
+                if !joyong { self.malHagi(apMal + "걸을 수 있는 길로 안내합니다. 길 따라 \(self.gm(jeon)). " + self.ttDaeumMal(w2)) }
                 Girok.shared.namgi("gil_ttara", ["m": Int(jeon), "an": self.ttAn.count])
             }
         }
@@ -1409,14 +1462,34 @@ final class AnnaeEngine: ObservableObject {
         if ttAn.isEmpty { ttBatgi(w, lat, lon, apMal: ""); return false }
         let now = Date()
         // 길에서 크게 벗어나면 그 자리에서 다시 찾기(세 번 잇달아 벗어났을 때만 — 위성 흔들림에 흔들리지 않게)
-        if ttGeori(w.lat, w.lon) > max(25, w.ochae * 1.5) { ttBeoseo += 1 } else { ttBeoseo = 0 }
+        // 2.143.0 (261126 남산) 길찾기 지도에 없는 산책로를 걸으시면 30초마다 「다시 길을 찾았습니다」를 되풀이하던 일 —
+        //   3분 안에 두 번 넘게 다시 찾았으면 벗어남 잣대를 50미터로 넓히고, 다시 찾을 때 말하지 않음
+        ttDasiTtae = ttDasiTtae.filter { now.timeIntervalSince($0) < 180 }
+        let jaju = ttDasiTtae.count >= 2
+        if ttGeori(w.lat, w.lon) > max(jaju ? 50 : 25, w.ochae * 1.5) { ttBeoseo += 1 } else { ttBeoseo = 0 }
         if ttBeoseo >= 3 {
             ttJiugi()
             ttMotTtae = .distantPast
-            ttBatgi(w, lat, lon, apMal: "길에서 벗어나신 것 같아 지금 자리에서 다시 길을 찾았습니다. ")
+            ttDasiTtae.append(now)
+            Girok.shared.namgi("gil_dasi_chajeum", ["jaju": jaju])
+            ttBatgi(w, lat, lon, apMal: jaju ? "" : "길에서 벗어나신 것 같아 지금 자리에서 다시 길을 찾았습니다. ", joyong: jaju)
             return true
         }
-        guard ttI < ttAn.count else { return false }
+        // 2.143.0 마지막 꺾는 곳을 지나도 목적지까지는 받은 길을 따라 이끎(곧은 방향으로 돌아가지 않음)
+        guard ttI < ttAn.count else {
+            if now.timeIntervalSince(ttMalTtae) >= 20 && now.timeIntervalSince(majimakMal) >= 6 {
+                ttMalTtae = now
+                let q = ttApJeom(w)
+                let s = sigye(w, q.0, q.1)
+                if s == 12 || s == 11 || s == 1 {
+                    if Seoljeong.shared.hwaksinEum { SoriEngine.shared.sori(.hwaksin) }
+                } else if s != 0 {
+                    malHagi("길은 \(s)시 방향입니다.")
+                    Jindong.banghyang(s)
+                }
+            }
+            return true
+        }
         // 2.52.0 건널목·계단 미리 알림(꺾는 곳보다 먼저)
         if let m = guganAllim(w) {
             ttMalTtae = now
@@ -1444,7 +1517,8 @@ final class AnnaeEngine: ObservableObject {
         // 걷는 중 — 다음 꺾는 곳 쪽이 맞으면 확신음, 틀어졌으면 방향(20초에 한 번)
         if now.timeIntervalSince(ttMalTtae) >= 20 && now.timeIntervalSince(majimakMal) >= 6 {
             ttMalTtae = now
-            let s = sigye(w, a.lat, a.lon)
+            let q = ttApJeom(w)   // 2.143.0 길을 따라 15미터 앞 자리
+            let s = sigye(w, q.0, q.1)
             if s == 12 || s == 11 || s == 1 {
                 if Seoljeong.shared.hwaksinEum { SoriEngine.shared.sori(.hwaksin) }
             } else if s != 0 {
@@ -1476,60 +1550,42 @@ final class AnnaeEngine: ObservableObject {
         // 2.48.0 마지막 스무 미터는 걸음 수와 시 방향으로 좁혀 말함
         if !jungan && magakAnnae(w, d, lat, lon, mok) { return }
         // 2.47.0 걸을 수 있는 길을 받았으면 그 길로 이끎(다음 꺾는 곳을 겨눔)
+        // 2.143.0 위성으로 걷는 동안에도 1분마다 점지도를 다시 찾음 — 잡히면 곧바로 여쭘(점지도 먼저, 이사장님 11-26)
+        if !jungan { jeomDasiChatgi(w, y) }
         if ttaraAnnae(w, lat, lon) { neagoriBoda(w); return }
-        let s = sigye(w, lat, lon)
-        let now = Date()
-        let jinan = now.timeIntervalSince(majimakMal)
         neagoriBoda(w)
-        if majimakGeoriMal == nil {
-            malHagi("\(mok)까지 \(gm(d))\(Annae.sigyeMal(s)).")
-            Jindong.banghyang(s)
-            majimakGeoriMal = d
-            majimakSigye = s
-            return
+        // 2.143.0 (261126 이사장님 지시 「직선으로 거리를 재고 방향을 주장해서 사람이 다니는 길이 아니고 직선길만 주장」) 곧은 방향 안내를 없앰.
+        //   걸을 수 있는 길을 받기 전·못 받는 동안에는 목적지 쪽 곧은 방향을 말하지 않고, 길을 찾는 중이라는 것만 1분에 한 번 알림.
+        //   목적지 20미터 안의 마지막 좁히기(magakAnnae)만 시 방향을 씀
+        let now = Date()
+        if !ttBatneun && now.timeIntervalSince(gilChatneunMalTtae) >= 60 && now.timeIntervalSince(majimakMal) >= 8 {
+            gilChatneunMalTtae = now
+            Girok.shared.namgi("gil_chatneun_jung", ["m": Int(WichiEngine.geori(w.lat, w.lon, lat, lon))])
+            malHagi("사람이 다닐 수 있는 길을 찾고 있습니다. 찾는 대로 그 길로 안내하겠습니다. 흰지팡이로 지금 길을 따라 천천히 가 주십시오.", .jeongbo)
         }
-        if !gotMal && d <= 40 {
-            gotMal = true
-            malHagi("곧 도착합니다. \(mok)까지 \(gm(d))\(Annae.sigyeMal(s)).")
-            majimakGeoriMal = d
-            majimakSigye = s
-            return
-        }
-        let st = Seoljeong.shared
-        // 2.9.0 얼마나 자세히 — 자세히 그대로, 보통 1.5배, 짧게 2배 간격으로 / 되풀이 사이 시간(기본 6초 → 지금과 같은 10초)
-        let bae: Double = st.malSang >= 2 ? 1 : (st.malSang == 1 ? 1.5 : 2)
-        let gan: Double = (d > 300 ? 100 : (d > 100 ? 50 : 20)) * bae
-        let doepul = Double(st.doepul)
-        if let m = majimakGeoriMal {
-            if m - d >= gan && jinan >= doepul + 4 {
-                malHagi("\(mok)까지 \(gm(d))\(Annae.sigyeMal(s)).")
-                majimakGeoriMal = d
-                majimakSigye = s
-                return
-            }
-            if d - m >= 30 && jinan >= doepul + 4 {
-                malHagi("목적지에서 멀어지고 있습니다. \(mok) 쪽은\(s == 0 ? "" : " \(s)시 방향"), \(gm(d)).", .annae)
-                Jindong.banghyang(s)
-                majimakGeoriMal = d
-                majimakSigye = s
-                return
-            }
-        }
-        if s != 0 && majimakSigye != 0 && Annae.sigyeCha(s, majimakSigye) >= 2 && jinan >= doepul + 2 {
-            malHagi("\(mok) 쪽은 \(s)시 방향입니다.")
-            Jindong.banghyang(s)
-            majimakSigye = s
-            return
-        }
-        // 걷는 중 입 다물지 않기 — 제대로 가면 25초마다 확신음, 틀어졌으면 방향
-        if jinan >= 25 && now.timeIntervalSince(hwaksinTtae) >= 25 {
-            hwaksinTtae = now
-            if s == 12 || s == 11 || s == 1 {
-                if st.hwaksinEum { SoriEngine.shared.sori(.hwaksin) }   // 2.9.0 설정에서 끔
-            } else if s != 0 {
-                malHagi("\(mok) 쪽은 \(s)시 방향입니다.")
-                Jindong.banghyang(s)
-                majimakSigye = s
+    }
+
+    /// 2.143.0 곧은 방향 대신 길을 찾는 중이라는 말 — 1분에 한 번
+    private var gilChatneunMalTtae = Date.distantPast
+    /// 2.143.0 위성으로 걷는 중 점지도 다시 찾기 — 1분마다, 고르지 않고 위성으로 걷겠다 하신 목적지는 다시 여쭙지 않음
+    private var jeomDasiTtae = Date.distantPast
+    private var jeomDasiChatneun = false
+    var jeomGeojeolMok: String?
+
+    private func jeomDasiChatgi(_ w: Wichi, _ y: Yeojeong) {
+        let now = Date()
+        guard !jeomDasiChatneun, now.timeIntervalSince(jeomDasiTtae) >= 60, w.ochae <= 50 else { return }
+        let jm = JeomEngine.shared
+        guard !jm.georeoJung, jm.muleum == nil, !jm.bulleoneun, jeomGeojeolMok != y.mokjeok.ireum else { return }
+        jeomDasiTtae = now
+        jeomDasiChatneun = true
+        let mok = Jangso(ireum: y.mokjeok.ireum, juso: y.mokjeok.juso, lat: y.mokjeok.lat, lon: y.mokjeok.lon)
+        Task {
+            let hb = await Jeomjido.matneunGilDeul(w, mok)
+            await MainActor.run {
+                self.jeomDasiChatneun = false
+                guard let hb = hb, !hb.isEmpty, self.yj.jigeum?.mokjeok.ireum == mok.ireum else { return }
+                JeomEngine.shared.wiseongJungMutgi(mok, hb)
             }
         }
     }

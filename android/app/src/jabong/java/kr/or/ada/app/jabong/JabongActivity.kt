@@ -92,6 +92,7 @@ class JabongActivity : AppCompatActivity() {
         JabongBonche.sijak(this)
         JbMadang.sijak(this); JbMadang.mokrokBatgi(); JbMadang.cheotGilSalpigi()   // 2.23.0 교육 마당
         Wichi.sijak(this)
+        kr.or.ada.app.gilnun.SinhogiEngine.sijak(this)   // 2.41.0 (261126 이사장님 지시 「두 앱 모두 항상 음향신호기를 울리는 것을 기본으로」) 음향신호기 자동 울리기 — 처음부터 켜짐(길눈과 같음)
         kr.or.ada.app.gilnun.JeonhwaGamsi.sijak(this)   // 2.15.0 전화가 오거나 걸면 자봉 안내 말도 멈춤(길눈과 같음, 이사장님 지시)
 
         bburi = FrameLayout(this).apply { setBackgroundColor(Color.WHITE) }
@@ -209,12 +210,13 @@ class JabongActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume(); Wichi.wiseongDolligi(); deopgaeMatchugi(); Ollim.dorawatda(this)
+        kr.or.ada.app.gilnun.SinhogiEngine.dwiKyeogi(false); kr.or.ada.app.gilnun.SinhogiEngine.saerogochim()   // 2.41.0 음향신호기 앞 살피기
         baeteoriHaruHanbeon()
         if (JbMadang.bakkwim) { JbMadang.bakkwim = false; dasiGeurigi() }   // 2.23.0 동영상을 다 보고 돌아오면 다 보심 표시
         // 2.36.0 (261029-A32, 이사장님 승인 2026-10-29 「1」) 홈페이지 파일로 깔린 분께 구글 시험 참가(테스터 되기)를 한 번 여쭘 — 그리는 중에는 묻지 않음
         window.decorView.postDelayed({ if (!isFinishing) kr.or.ada.app.gilnun.TesteoDoegi.salpigi(this, "자봉") { Geurigi.sangtae != Geurigi.Sangtae.SWIM } }, 9000)
     }   // 2.12.0 돌아오면 새 판 살피기
-    override fun onPause() { super.onPause(); JabongBonche.jeojang() }
+    override fun onPause() { super.onPause(); JabongBonche.jeojang(); kr.or.ada.app.gilnun.SinhogiEngine.dwiKyeogi(true) }   // 2.41.0 화면이 꺼지면 음향신호기 뒤 살피기로
 
     override fun onDestroy() {
         Geurigi.bakkwim = null
@@ -239,6 +241,8 @@ class JabongActivity : AppCompatActivity() {
         val p = arrayListOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
         if (Build.VERSION.SDK_INT >= 29) p.add(Manifest.permission.ACTIVITY_RECOGNITION)
         if (Build.VERSION.SDK_INT >= 33) p.add(Manifest.permission.POST_NOTIFICATIONS)
+        // 2.41.0 음향신호기 자동 울리기 — 근처 기기(블루투스) 허락도 함께
+        if (Seoljeong.sinhogiJadong) for (b in kr.or.ada.app.gilnun.SinhogiEngine.pilyoHeorak()) if (b !in p) p.add(b)
         val an = p.filter { !heorakItda(it) }
         if (an.isNotEmpty()) ActivityCompat.requestPermissions(this, an.toTypedArray(), 7)
     }
@@ -253,6 +257,35 @@ class JabongActivity : AppCompatActivity() {
         if (ap != null) { tonghwaDwi = { ap(); f() }; return }
         tonghwaDwi = f
         ActivityCompat.requestPermissions(this, an.toTypedArray(), 10)
+    }
+
+    // MARK: 2.41.0 음향신호기(261126 이사장님 지시, 길눈 GilnunActivity.sinhogiHagi 와 같음)
+    private var sinhogiDwi: (() -> Unit)? = null
+
+    /** 음향신호기를 손으로 쓰기 전에 — 허락이 없으면 여쭙고, 블루투스가 꺼져 있으면 켜기 창을 엶. 다 되면 il */
+    fun sinhogiHagi(il: () -> Unit) {
+        val se = kr.or.ada.app.gilnun.SinhogiEngine
+        if (!se.giginItda) { Sori.mal("이 폰은 블루투스를 쓸 수 없습니다."); return }
+        if (!se.heorakItda) {
+            val an = se.pilyoHeorak().filter { !heorakItda(it) }
+            if (an.isNotEmpty()) {
+                sinhogiDwi = il
+                Sori.mal("음향신호기를 찾으려면 " + (if (Build.VERSION.SDK_INT >= 31) "근처 기기" else "위치") + " 허락이 필요합니다. 허용을 눌러 주십시오.")
+                ActivityCompat.requestPermissions(this, an.toTypedArray(), 8)
+                return
+            }
+        }
+        if (!se.kyeojim) {
+            Sori.mal("폰의 블루투스가 꺼져 있습니다. 블루투스 켜기 창을 엽니다. 허용을 누르시면 이어서 울려 드립니다.")
+            se.kyeojimyeonHagi(il)
+            try { startActivity(Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE)) } catch (e: Exception) {
+                try { startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) } catch (e2: Exception) {
+                    Sori.mal("블루투스 설정을 열지 못했습니다. 화면 위에서 아래로 쓸어내려 빠른 설정에서 블루투스를 켜 주십시오.")
+                }
+            }
+            return
+        }
+        il()
     }
 
     /** 말로 표시 — 마이크 허락 */
@@ -294,6 +327,14 @@ class JabongActivity : AppCompatActivity() {
         Girok.namgi("jb_heorak", gyeolgwa)
         if (requestCode == 10) { val f = tonghwaDwi; tonghwaDwi = null; f?.invoke(); return }
         if (requestCode == 9) { val f = maikDwi; maikDwi = null; f?.invoke(heorakItda(Manifest.permission.RECORD_AUDIO)); return }
+        if (requestCode == 8) {
+            // 2.41.0 음향신호기를 손으로 울리려다 여쭌 허락
+            val f = sinhogiDwi; sinhogiDwi = null
+            kr.or.ada.app.gilnun.SinhogiEngine.saerogochim()
+            if (kr.or.ada.app.gilnun.SinhogiEngine.heorakItda) { if (f != null) sinhogiHagi(f) } else Sori.mal(kr.or.ada.app.gilnun.SinhogiEngine.heorakMal)
+            return
+        }
+        kr.or.ada.app.gilnun.SinhogiEngine.saerogochim()   // 2.41.0 처음 허락을 받으면 음향신호기 살피기를 다시
         Wichi.wiseongDolligi()
         if (!Wichi.heorakItda) Sori.mal("점지도를 그리려면 위치 허락이 필요합니다. 폰 설정의 앱, 자봉, 권한에서 위치를 허용해 주십시오.")
         if (!Wichi.georeumHeorak) Sori.mal("걸음을 세려면 신체 활동 허락이 필요합니다. 폰 설정의 앱, 자봉, 권한에서 신체 활동을 허용해 주십시오.")
@@ -599,6 +640,9 @@ class BongsaTab : JbHwamyeon("그리기") {
             else -> Geurigi.bowan?.takeIf { Geurigi.butak == null }?.let { "점지도 그리기 — 보완 길 ${it.second}에서 ${it.third}까지" } ?: "점지도 그리기"   // 2.22.0 보완하기
         }) { t.yeolgi(GeurigiHwamyeon()) }
         t.danchu("지금 상태 듣기") { Sori.mal(jigeumSangtae()) }
+        // 2.41.0 (261126 이사장님 지시 「두 앱 모두 항상 음향신호기를 울리는 것을 기본으로」) — 둘레 음향신호기는 저절로 울리고, 손으로도
+        t.danchu("음향신호기 울리기 — 신호 안내") { t.sinhogiHagi { kr.or.ada.app.gilnun.SinhogiEngine.ulligi(2) } }
+        t.danchu("음향신호기 울리기 — 위치 안내") { t.sinhogiHagi { kr.or.ada.app.gilnun.SinhogiEngine.ulligi(1) } }
         t.danchu(if (Seoljeong.bopokJaem && Seoljeong.bopok > 0.2) "내 보폭 다시 재기 — 지금 ${(Seoljeong.bopok * 100).roundToInt()}센티미터" else "내 보폭 재기 — 점지도를 그리기 전에 한 번") { t.yeolgi(BopokHwamyeon()) }
         if (JbBowan.mok.isNotEmpty()) t.danchu("보완 부탁 ${JbBowan.mok.size}건 — ${JbBowan.BUTAK}") { t.tabGo(3) }   // 2.13.0 보완 부탁이 있으면 한 줄
         if (JbMadang.cheotGil && 2 !in JbMadang.bon) t.danchu("더 잘 그리고 싶으시면 — 2편 점지도 그리기 동영상 보기") { JbMadang.teulgi(t, 2) }   // 2.23.0 첫 길을 올리신 뒤
@@ -874,6 +918,7 @@ class GeurigiHwamyeon : JbHwamyeon("점지도 그리기") {
             t.maikHeorak { ok -> if (ok) Geurigi.malloPyosi() else Sori.mal("말로 표시하려면 마이크와 음성 인식 허락이 필요합니다.") }
         }
         t.danchu("다 걸었습니다") { Geurigi.kkeut() }
+        t.danchu("음향신호기 울리기 — 신호 안내") { t.sinhogiHagi { kr.or.ada.app.gilnun.SinhogiEngine.ulligi(2) } }   // 2.41.0 건널목 앞에서 바로
         bk.geurigi(t)   // 2.9.0
         t.pyeolchigi("다른 표시와 도구", pyeolchim) { pyeolchim = !pyeolchim }
         if (pyeolchim) {
@@ -1318,6 +1363,7 @@ class DoumalHwamyeon : JbHwamyeon("도움말") {
         /** 아이폰 JabongDoumalView 와 같은 항목 — 안드로이드에서 다른 대목(뒤로 동작, 알림 칸, 배터리)만 고쳐 씀 */
         val DOUMAL = listOf(
             // 2.39.0 (261126, 이사장님 지시 「철저히 지켜서」, 아이폰 자봉 2.38.0과 같음) 맨 위에
+            "음향신호기 울리기 — 늘 켜져 있습니다" to "자봉도 길눈처럼 둘레의 음향신호기를 늘 살피고, 가까이 오면 저절로 울립니다. 처음부터 켜져 있습니다. 건널목 앞에서 바로 울리시려면 첫 화면이나 점지도 그리기 화면의 음향신호기 울리기 — 신호 안내를 누르십시오. 신호기가 있는 곳을 소리로 찾으시려면 첫 화면의 음향신호기 울리기 — 위치 안내를 누르십시오. 처음 한 번 근처 기기 허락을 여쭙고, 블루투스가 꺼져 있으면 켜기 창을 띄웁니다.",
             "안내 말 멈추기" to "자봉이 말하는 중에 화면을 만지시면 하던 말이 곧바로 멈춥니다. 화면낭독기를 쓰시면 손가락으로 다른 줄을 만지실 때 멈추고, 화면낭독기 없이 쓰시면 화면 아무 곳이나 누르실 때 멈춥니다. 위험을 알리는 경고는 멈추지 않습니다. 협회 점검에서 고칠 곳이 나와도 앱이 처음부터 끝까지 줄줄이 읽지 않고, 가짓수와 앞의 몇 가지만 말씀드립니다. 나머지는 그린 길 목록에서 하나씩 보실 수 있습니다.",
             "그리던 길 이어 그리기" to "그리는 중에 전화가 오거나 앱이 꺼져도 그리던 길은 폰에 남아 있습니다. 앱을 다시 여시면 「그리던 길이 남아 있습니다」라고 말로 알려 드립니다. 그리기 화면에서 다시 걷기를 누르시면 이어 그리고, 다 걸었습니다를 누르시면 여기까지로 마칩니다.",
             // 2.27.0 (261018-A23, 이사장님 승인 2026-10-18 「3」) 동영상 강의

@@ -346,7 +346,13 @@ data class JeomMokjeok(val ireum: String, val juso: String, val lat: Double, val
 }
 
 /** 2.7.0 점지도로 걸을지 여쭐 때 — 아이폰 JeomMuleum(안드로이드 b1 Annae.kt 의 한 점지도짜리 JeomMuleum 과 이름이 겹치지 않게 따로) */
-data class JeomYeojjum(val mok: JeomMokjeok, val julMal: String, val gugan: List<JeomGugan>)
+data class JeomYeojjum(val mok: JeomMokjeok, val julMal: String, val gugan: List<JeomGugan>,
+                       val hubo: List<JeomHubo> = emptyList())   // 2.109.0 맞는 점지도가 여럿이면 등급 높은 것부터
+
+/** 2.109.0 (261126 이사장님 지시 「A등급부터 C등급까지 소개하고 제공」) 걸어가실 곳에 맞는 점지도 후보 하나 — 아이폰 JeomHubo */
+data class JeomHubo(val mal: String, val gugan: List<JeomGugan>, val deunggeup: String, val geori: Double) {
+    val deungMal: String get() = (if (deunggeup.isEmpty()) "등급 매기기 전 " else "${deunggeup}급 ") + mal + (if (geori > 0) ", ${Jeomjido.geoMal(geori)}" else "")
+}
 
 /** 2.7.0 걸음 오차 재기 목록 한 줄 */
 data class JaegiJul(val id: Int, val mal: String)
@@ -389,6 +395,52 @@ object Jeomjido {
         Tongsin.json("jeom.php", mapOf("a" to "get", "id" to id), 20000) { o ->
             kkeut(o?.let { JeomGil.batgi(it) })
         }
+    }
+
+    // MARK: 2.109.0 맞는 점지도 후보 모두(아이폰 matneunGilDeul)
+
+    /** 등급 높은 것부터(A·B·C·등급 없음), 같으면 목적지에 가까운 것부터 세 개까지. 통신이 막히면 두 번 더 물음 — 끝내 못 받으면 null, 없으면 빈 목록 */
+    fun matneunGilDeul(meLa: Double, meLo: Double, mok: JeomMokjeok, kkeut: (List<JeomHubo>?) -> Unit) {
+        fun mutgi(beon: Int) {
+            gakkaun(meLa, meLo) { r0 ->
+                if (r0 == null) {
+                    if (beon < 2) { mainH.postDelayed({ mutgi(beon + 1) }, 1500); return@gakkaun }
+                    Girok.namgi("jeom_hubo_tongsin")
+                    kkeut(null); return@gakkaun
+                }
+                val l = ArrayList<Pair<JeomHubo, Double>>()
+                val bon = HashSet<String>()
+                fun neoki(id: String, title: String, from: String, to: String, dist: Double, deung: String, eo: Double,
+                          slat: Double, slon: Double, elat: Double, elon: Double, nae: Boolean) {
+                    if (eo > 50 || bon.contains(id)) return
+                    val ap = Wichi.geori(mok.lat, mok.lon, elat, elon)
+                    val dw = Wichi.geori(mok.lat, mok.lon, slat, slon)
+                    val dwit: Boolean
+                    val kk: Double
+                    if (ap <= 80 && (dw > 80 || ap <= dw)) { dwit = false; kk = ap } else if (dw <= 80) { dwit = true; kk = dw } else return
+                    bon.add(id)
+                    val naeM = if (nae) "나만의 점지도" else "점지도"
+                    val nm = if (dwit) "${to}에서 ${from}까지 되돌아가는 $naeM" else (if (title.isEmpty()) "${from}에서 ${to}까지 $naeM" else "$title $naeM")
+                    l.add(Pair(JeomHubo(nm, listOf(JeomGugan(id, dwit)), deung.uppercase(Locale.US), dist), kk))
+                }
+                for (m in r0) {
+                    val eo = if (m.near >= 0) m.near else Wichi.geori(meLa, meLo, m.slat, m.slon)
+                    neoki(m.id, m.title, m.from, m.to, m.dist, m.deunggeup, eo, m.slat, m.slon, m.elat, m.elon, false)
+                }
+                for (g in NaeGil.mokrok) {
+                    if (g.pts.size < 3) continue
+                    val st = g.pts.first(); val e = g.pts.last()
+                    val jari = g.pts.minOfOrNull { Wichi.geori(meLa, meLo, it.lat, it.lon) } ?: 1e9
+                    neoki(g.id, g.title, g.from, g.to, g.dist, "", jari, st.lat, st.lon, e.lat, e.lon, true)
+                }
+                fun sun(d: String) = when (d) { "A" -> 0; "B" -> 1; "C" -> 2; else -> 3 }
+                l.sortWith(compareBy<Pair<JeomHubo, Double>>({ sun(it.first.deunggeup) }, { it.second }))
+                if (l.isNotEmpty()) { kkeut(l.take(3).map { it.first }); return@gakkaun }
+                // 한 점지도로 닿지 않으면 협회가 이어 둔 길
+                matneunGil(meLa, meLo, mok) { m -> kkeut(if (m != null) listOf(JeomHubo(m.first, m.second, "", 0.0)) else emptyList()) }
+            }
+        }
+        mutgi(0)
     }
 
     // MARK: 2.7.0 걸어가실 곳에 맞는 점지도(아이폰 matneunGil)

@@ -16,12 +16,26 @@ struct JeomMuleumPan: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Button("점지도로 걷기 — 권합니다. \(m.julMal)") {
-                jeom.muleumDap(jeom: true)
+            // 2.143.0 (261126 이사장님 지시) 맞는 점지도가 여럿이면 등급 높은 것부터 하나씩 단추로
+            if m.hubo.count > 1 {
+                ForEach(Array(m.hubo.enumerated()), id: \.offset) { i, h in
+                    if i == 0 {
+                        Button("점지도로 걷기 — 권합니다. 첫째, \(h.deungMal)") { jeom.muleumGoreugi(0) }
+                            .buttonStyle(KeunDanchu())
+                            .accessibilityFocused(chojeom)
+                    } else {
+                        Button("점지도로 걷기 — \(i == 1 ? "둘째" : "셋째"), \(h.deungMal)") { jeom.muleumGoreugi(i) }
+                            .buttonStyle(KeunDanchu())
+                    }
+                }
+            } else {
+                Button("점지도로 걷기 — 권합니다. \(m.julMal)") {
+                    jeom.muleumDap(jeom: true)
+                }
+                .buttonStyle(KeunDanchu())
+                .accessibilityFocused(chojeom)
             }
-            .buttonStyle(KeunDanchu())
-            .accessibilityFocused(chojeom)
-            Button("위성으로 걷기 — \(m.mok.ireum)까지 방향 따라") { jeom.muleumDap(jeom: false) }
+            Button("위성으로 걷기 — 사람이 다니는 길을 찾아 \(m.mok.ireum)까지") { jeom.muleumDap(jeom: false) }
                 .buttonStyle(KeunDanchu())
         }
     }

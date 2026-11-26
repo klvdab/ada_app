@@ -182,7 +182,8 @@ object YeojeongEngine {
         jm.yeojeongDochak = { danggyeBakkugi(Danggye.DOCHAK) }
         jm.yeojeongKkeut = { kkeut() }
         jm.yeojeongMok = { jigeum?.let { y -> JeomMokjeok(y.mokjeok.ireum, y.mokjeok.juso, y.mokjeok.lat, y.mokjeok.lon) } }
-        jm.wiseongGeotgi = { m -> if (m != null) AnnaeEngine.georeoGagi(Jangso(m.ireum, m.juso, m.lat, m.lon)) else AnnaeEngine.georeoGagi() }
+        // 2.109.0 점지도 엔진이 점지도를 살핀 뒤 위성으로 넘길 때만 쓰므로 관문을 다시 지나지 않음
+        jm.wiseongGeotgi = { m -> if (m != null) AnnaeEngine.georeoGagi(Jangso(m.ireum, m.juso, m.lat, m.lon), true) else AnnaeEngine.georeoGagi(true) }
         jm.neagoriBakkeseo = { w -> AnnaeEngine.neagoriBakkeseo(w) }
     }
 

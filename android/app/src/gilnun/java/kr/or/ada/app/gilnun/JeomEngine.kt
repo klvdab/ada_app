@@ -87,7 +87,7 @@ object JeomEngine {
     var muleum: JeomYeojjum? = null
         private set
     private val muleumJakeop = Runnable {
-        if (muleum != null) { Sori.mal("고르지 않으셔서 점지도로 걷습니다."); muleumDap(true) }
+        if (muleum != null) { Sori.mal("고르지 않으셔서 첫째 점지도로 걷습니다."); muleumDap(true) }
     }
     // 2.7.0 여러 점지도 이어 걷기
     var ieum: List<JeomGugan> = emptyList()
@@ -322,7 +322,9 @@ object JeomEngine {
 
     // MARK: 2.7.0 걸어가기 — 점지도가 있으면 한 번 여쭘(이사장님 결정 나2, 점지도를 먼저 권함)
 
-    /** 걸어가실 곳에 맞는 점지도가 있으면 여쭙고(mutgi 에 여쭐 말), 없으면 곧장 위성으로 걷는 안내(mutgi 에 null) */
+    /** 걸어가실 곳에 맞는 점지도가 있으면 여쭙고(mutgi 에 여쭐 말), 없으면 곧장 위성으로 걷는 안내(mutgi 에 null)
+     *  2.109.0 (261126 이사장님 지시, 아이폰 2.144.0과 같음) 맞는 점지도를 모두(A·B·C급) 소개하고 고르게 함.
+     *  통신이 막혀 확인하지 못했으면 「없다」로 여기지 않고 알린 뒤 위성으로 걷는 동안 1분마다 다시 찾음 */
     fun georeoGagiBoda(c: Context, j: JeomMokjeok, mutgi: (String?) -> Unit) {
         junbi(c)
         // 새 목적지면 걷던 점지도를 먼저 끔 — 옛 길이 계속 말하고 새 목적지를 덮어쓰던 것(아이폰 2.12.6)
@@ -330,16 +332,60 @@ object JeomEngine {
         val sd = sedae
         val w = Wichi.jigeum
         if (w == null) { mutgi(null); wiseongGeotgi?.invoke(j); return }
-        Jeomjido.matneunGil(w.lat, w.lon, j) { m ->
-            if (sd != sedae) return@matneunGil
-            if (m == null) { mutgi(null); wiseongGeotgi?.invoke(j); return@matneunGil }
-            yeojeongJeonghagi?.invoke(j)
-            muleum = JeomYeojjum(j, m.first, m.second)
-            byeonhwa?.invoke()
-            mutgi("이 길에는 ${m.first}가 있습니다. 점지도로 걸을까요, 위성으로 걸을까요? 점지도가 더 정확합니다. 네 하시면 점지도로 걷습니다. 20초 안에 고르지 않으시면 점지도로 걷습니다.")
-            main.removeCallbacks(muleumJakeop)
-            main.postDelayed(muleumJakeop, 20000)
+        Girok.namgi("jeom_meonjeo", mapOf("mok" to j.ireum))
+        AnnaeEngine.jeomGeojeolMok = null
+        Jeomjido.matneunGilDeul(w.lat, w.lon, j) { hb ->
+            main.post {
+                if (sd != sedae) return@post
+                if (hb == null) {
+                    mutgi("통신이 원활하지 않아 점지도가 있는지 아직 확인하지 못했습니다. 우선 걸을 수 있는 길로 안내하고, 점지도를 계속 찾다가 찾으면 바로 알려 드리겠습니다.")
+                    wiseongGeotgi?.invoke(j); return@post
+                }
+                if (hb.isEmpty()) { mutgi(null); wiseongGeotgi?.invoke(j); return@post }
+                yeojeongJeonghagi?.invoke(j)
+                mutgi(huboMuleum(j, hb))
+            }
         }
+    }
+
+    /** 2.109.0 위성으로 걷는 중에 점지도를 찾았을 때 — 여정은 그대로 두고 여쭘 */
+    fun wiseongJungMutgi(j: JeomMokjeok, hb: List<JeomHubo>) {
+        if (gil != null || muleum != null || bulleoneun || hb.isEmpty()) return
+        Girok.namgi("jeom_jungan_chajeum", mapOf("su" to hb.size, "cheot" to hb[0].deunggeup))
+        YeojeongMal.jeomMureumAllim("점지도를 찾았습니다. 여기서부터는 점지도로 걷는 것을 권합니다. " + huboMuleum(j, hb))
+    }
+
+    /** 2.109.0 후보를 담고 여쭐 말을 만듦 — 20초 안에 고르지 않으시면 첫째(가장 높은 등급)로 */
+    private fun huboMuleum(j: JeomMokjeok, hb: List<JeomHubo>): String {
+        val cheot = hb[0]
+        muleum = JeomYeojjum(j, cheot.deungMal, cheot.gugan, hb)
+        Girok.namgi("jeom_hubo", mapOf("su" to hb.size, "deung" to hb.joinToString(",") { if (it.deunggeup.isEmpty()) "-" else it.deunggeup }))
+        byeonhwa?.invoke()
+        var q: String
+        if (hb.size == 1) {
+            q = "이 길에는 점지도가 있습니다. ${cheot.deungMal}입니다. 점지도로 걸을까요, 위성으로 걸을까요? 점지도가 더 정확합니다. 네 하시면 점지도로 걷습니다."
+        } else {
+            val beonho = listOf("첫째", "둘째", "셋째")
+            q = "이 길에는 점지도가 ${hb.size}개 있습니다. "
+            hb.forEachIndexed { i, h -> q += "${beonho[i]}, ${h.deungMal}. " }
+            q += "몇째 점지도로 걸을까요? 등급이나 차례를 말씀하시거나 화면 맨 위 단추를 누르십시오. 네 하시면 첫째로 걷습니다."
+        }
+        q += " 20초 안에 고르지 않으시면 첫째 점지도로 걷습니다."
+        main.removeCallbacks(muleumJakeop)
+        main.postDelayed(muleumJakeop, 20000)
+        return q
+    }
+
+    /** 2.109.0 여러 점지도 가운데 하나를 고름(0부터) */
+    fun muleumGoreugi(i: Int) {
+        val m = muleum ?: return
+        val hb = if (m.hubo.isEmpty()) listOf(JeomHubo(m.julMal, m.gugan, "", 0.0)) else m.hubo
+        val k = i.coerceIn(0, hb.size - 1)
+        muleumJiugi()
+        Girok.namgi("jeom_hubo_goreum", mapOf("i" to k, "deung" to hb[k].deunggeup))
+        val c = ctx
+        if (c != null) ieumGeotgi(c, hb[k].gugan, m.mok)
+        byeonhwa?.invoke()
     }
 
     /** 2.48.0 (261015-A36, 이사장님 승인 2026-10-15 「1」) 차에서 내린 뒤 맞는 점지도가 있으면 여쭙지 않고 곧장 따라 걷기(문까지, 아이폰 2.77.0과 같음) */
@@ -356,7 +402,12 @@ object JeomEngine {
         val m = muleum ?: return
         muleumJiugi()
         val c = ctx
-        if (jeom && c != null) ieumGeotgi(c, m.gugan, m.mok) else wiseongGeotgi?.invoke(m.mok)
+        if (jeom && c != null) ieumGeotgi(c, m.gugan, m.mok)
+        else {
+            Girok.namgi("jeom_wiseong_goreum")
+            AnnaeEngine.jeomGeojeolMok = m.mok.ireum   // 2.109.0 위성으로 걷겠다 하신 목적지는 걷는 중에 다시 여쭙지 않음
+            wiseongGeotgi?.invoke(m.mok)
+        }
         byeonhwa?.invoke()
     }
 
@@ -395,7 +446,7 @@ object JeomEngine {
                     val mk = ieumMok ?: mok
                     ieum = emptyList(); ieumIdx = 0; ieumMok = null
                     ieogaJiugi()
-                    mal("길을 불러오지 못했습니다. 위성 안내로 이어 갑니다.")
+                    mal("길을 불러오지 못했습니다. 걸을 수 있는 길로 이어 안내하고, 점지도를 계속 찾겠습니다.")
                     ws(mk)
                 } else {
                     mal("길을 불러오지 못했습니다. 통신을 확인해 주십시오.")
@@ -670,6 +721,9 @@ object JeomEngine {
 
     // MARK: 자리 받기
 
+    /** 2.109.0 점지도 끝 30미터 안에서 위성 문 안내로 넘어갈까 — 이사장님 지시로 넘어가지 않음 */
+    private val MUN_WISEONG = false
+
     private fun wichiBatda(w: Jari) {
         if (gil == null || dochakHam) return
         if (w.georeumChu) return   // 위치 엔진이 곧게 이어 셈한 자리는 쓰지 않고, 점지도 위로 걸음을 셈(아래 jikim)
@@ -682,6 +736,10 @@ object JeomEngine {
             bareunSijak = 0L
         }
         if (geoMode && w.ochae > 25) return   // 걸음으로 가는 동안 흐린 위성은 받지 않음
+        // 2.109.0 (261126 이사장님 지시 「점지도를 한 번 따라가기 시작하면 그때부터는 위성과는 이별」, 아이폰 2.144.0과 같음)
+        //   첫 자리를 잡은 뒤에는 위성을 쓰지 않음 — 위성 바로잡기·위성 사거리 알림·흔들릴 때 위성으로 넘어가기를 모두 하지 않음.
+        //   점지도 안의 탈것 구간을 타고 가는 동안만 내릴 곳을 알려고 위성을 씀
+        if (!firstFix && tagiJung == null) return
         // 2.35.0 걸음으로 나아가는 동안 위성은 바로잡기만 — 앞뒤 10미터(오차 1.5배)나 옆 10미터(오차 2배) 넘는 어긋남이 네 번 거듭될 때만
         val jj = S.jin
         if (georeumUseon && jj != null) {
@@ -792,7 +850,8 @@ object JeomEngine {
         val MU = mun
         if (MU != null) {
             val dm = Wichi.geori(la, lo, MU.lat, MU.lon)
-            if (!munOn && rest < 30) {
+            // 2.109.0 점지도를 따라 걷는 동안에는 끝에서 위성 문 안내로 넘어가지 않음(위성과 이별) — 점지도 끝이 곧 도착
+            if (MUN_WISEONG && !munOn && rest < 30) {
                 munOn = true; munT = now; munSijakT = now; munGakkaum = dm
                 munMalGeoreum = S.stepSu; munOchaMal = false   // 2.102.0
                 S.gyeol = ""; S.yeop = 0.0
@@ -902,7 +961,8 @@ object JeomEngine {
             S.hwakMalT = now
             mal("점지도 확인이 어렵습니다. 멈추고 주변을 확인하십시오.", MalGeup.GYEONGGO)
         }
-        if (now - jariTtae > 5000 && !georeumSalanna) {
+        // 2.109.0 위성을 쓰지 않으므로 자리는 걸음으로만 옴 — 서 계실 때는 이 말을 하지 않고, 걸으시는데 자리가 오지 않을 때만
+        if (now - jariTtae > 5000 && !georeumSalanna && now - S.stepT < 5000) {
             if (now - S.wdMal >= 5000) {
                 S.wdMal = now; S.sinho = now
                 mal("점지도 확인이 어렵습니다. 멈추고 주변을 확인하십시오.", MalGeup.GYEONGGO)
@@ -919,7 +979,9 @@ object JeomEngine {
         if (now - malT < 5000) { S.sinho = max(S.sinho, malT); return }
         // 2.102.0 문을 찾는 동안에는 「제자리에 계십니다」를 5초마다 되풀이하지 않음(문 안내가 맡음)
         if (munOn) return
-        if (now - S.sinho >= 5000 && now - S.wdMal >= 5000) {
+        // 2.109.0 (261126 「쉼 없이 떠들어」) 서 계실 때 「제자리에 계십니다」는 15초에 한 번, 걸으실 때 「안내 중입니다」는 그대로 5초
+        val swimGan = if (S.gamyeon) 5000 else 15000
+        if (now - S.sinho >= swimGan && now - S.wdMal >= swimGan) {
             S.wdMal = now; S.sinho = now
             val r = S.rest
             val t = if (r != null) "남은 거리 ${georiMal(r)}." else sangMal
@@ -1102,9 +1164,50 @@ object JeomEngine {
             }
         }
         S.heundeulSu = 0
+        // 2.109.0 방향 맞춤(아이폰 2.144.0과 같음) — 굽은 길에서 걸음 셈이 어긋나 「3시 방향으로 17걸음 벗어났습니다」가 쌓이던 일(11-26 남산).
+        //   네 걸음 잇달아 25도 넘게 어긋나면 앞뒤 15~20미터 안에서 몸이 향한 쪽과 맞는 점지도 구간을 찾아 그 자리로 맞춤(위성 없이)
+        if (abs(df) >= 25) {
+            majchumSu += 1
+            val j0 = S.jin
+            val s2 = if (majchumSu >= 4 && j0 != null) majchumChatgi(j0, h - S.dolrim) else null
+            if (s2 != null && j0 != null) {
+                majchumSu = 0
+                Girok.namgi("jeom_banghyang_majchum", mapOf("jin" to j0.toInt(), "s" to s2.toInt(), "yeop" to Math.round(S.yeop * 10) / 10.0))
+                S.jin = s2
+                S.yeop = 0.0; S.gyeolgwa.clear(); hdJul.clear()
+                if (S.gyeol == "beoseo" || S.gyeol == "heundeul") { S.gyeol = "baro"; eum(EumJong.DORAOM) }
+                dwiNeolge = true
+                val q = jeomAt(s2)
+                onMove(q.first, q.second, 0.0)
+                return
+            }
+        } else {
+            majchumSu = 0
+        }
         S.yeop += bocok * sin(df * RAD)
         pandan()
         georeumNaagagi()
+    }
+
+    /** 2.109.0 방향 맞춤 — 걸어 나간 거리 j 둘레(뒤 15미터·앞 20미터)에서 몸이 향한 쪽(h)과 20도 안으로 맞는 점지도 구간, 가장 가까운 자리 */
+    private var majchumSu = 0
+    private fun majchumChatgi(j: Double, h: Double): Double? {
+        val last = nu.lastOrNull() ?: return null
+        if (last <= 10) return null
+        var best: Double? = null
+        var bd = 1e9
+        var s = max(2.0, j - 15)
+        while (s <= min(last - 3, j + 20)) {
+            val a = jeomAt(s - 2); val b = jeomAt(s + 3)
+            val bg = Jeomjido.bangwi(a.first, a.second, b.first, b.second)
+            if (abs(chai(h, bg)) < 20) {
+                val d = abs(s - j) - (if (s > j) 0.5 else 0.0)
+                if (d < bd) { bd = d; best = s }
+            }
+            s += 1.0
+        }
+        val b = best ?: return null
+        return if (abs(b - j) >= 2) b else null
     }
 
     /** 2.35.0 한 걸음 — 점지도 위를 내 보폭만큼 앞으로(돌아서 걸으면 뒤로). 점지도 거리가 그린 이 걸음으로 셈한 것이므로
@@ -1217,6 +1320,11 @@ object JeomEngine {
             return
         }
         val n = max(1, Jeomjido.bannol(abs(S.yeop) / bocok).toInt())
+        // 2.109.0 다섯 걸음 넘게 벗어난 것으로 셈하면 걸음 수를 늘어놓지 않음(걸음 셈이 어긋난 것일 수 있음)
+        if (n > 5) {
+            mal(apm + (if (oreun) "3시 방향으로 " else "9시 방향으로 ") + "다섯 걸음 넘게 벗어났습니다. 멈추고 " + bangM + "으로 천천히 옮기며 지팡이로 길을 찾으십시오.", MalGeup.GYEONGGO)
+            return
+        }
         val gm = georeumSu(n)
         mal(apm + (if (oreun) "3시 방향으로 " else "9시 방향으로 ") + gm + " 벗어났습니다. " + bangM + "으로 " + gm + " 옮기십시오.", MalGeup.GYEONGGO)
     }
@@ -1271,7 +1379,7 @@ object JeomEngine {
             if (!S.pokgiMal && now - S.sijakT > 15000 && j != null && j0 != null && abs(j - j0) >= 8) {
                 S.pokgiMal = true
                 val kkadak = if (S.jumeoni) "폰이 향한 쪽이 자꾸 바뀌어" else (if (S.stepSu == 0) "걸음 감지를 쓸 수 없어" else (if (nachimban == null) "나침반을 쓸 수 없어" else "걸음 감지가 끊겨"))
-                mal("$kkadak 지금은 좌우 한 걸음 벗어남을 알려 드릴 수 없습니다. 위성으로 크게 벗어날 때만 알려 드립니다. 폰을 가슴 앞에 세워 들어 주시면 한 걸음 안내로 돌아갑니다.", MalGeup.GYEONGGO)   // 2.35.0 솔직하게
+                mal("$kkadak 지금은 좌우 한 걸음 벗어남을 알려 드릴 수 없습니다. 위성은 쓰지 않고 걸음 수로만 점지도 위를 나아갑니다. 폰을 가슴 앞에 세워 들어 주시면 한 걸음 안내로 돌아갑니다.", MalGeup.GYEONGGO)   // 2.35.0 솔직하게
                 Girok.namgi("jeom_wiseongsem", mapOf("k" to kkadak))
             }
             val beoseo = g > max(8.0, ac * 1.2)
@@ -1540,6 +1648,7 @@ object JeomEngine {
         get() {
             val n = nachimban
             if (n != null) return (n - S.dolrim + 720) % 360   // 폰을 돌려 넣으신 만큼 바로잡음
+            if (gil != null) return null   // 2.109.0 점지도를 따라 걷는 동안에는 위성이 잰 걷는 쪽을 쓰지 않음
             val w = Wichi.jigeum
             if (w != null && w.banghyang >= 0 && w.sokdo > 0.3) return w.banghyang
             return null
@@ -2338,7 +2447,8 @@ object JeomEngine {
         var h = Jeomjido.bannol(d / 30).toInt()
         if (h <= 0) h += 12
         if (h > 12) h -= 12
-        if (abs(d) > 150) h = 6
+        // 2.109.0 (261126 이사장님 「6시 방향 같은 맞지 않는 말은 쓰지 않는다」) 뒤는 「뒤쪽」으로
+        if (abs(d) > 150 || h == 6) return "뒤쪽"
         return "${h}시 방향"
     }
 

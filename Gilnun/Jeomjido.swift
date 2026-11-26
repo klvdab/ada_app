@@ -238,6 +238,16 @@ struct JeomMok: Identifiable, Hashable {
     }
 }
 
+/// 2.143.0 걸어가실 곳에 맞는 점지도 후보 하나 — 등급(A·B·C, 없으면 빈 글자)
+struct JeomHubo: Hashable {
+    let mal: String
+    let gugan: [JeomGugan]
+    let deunggeup: String
+    let geori: Double
+    /// 등급을 붙인 이름 — 「A급 남산 산책로 B코스에서 국립극장까지 점지도」
+    var deungMal: String { (deunggeup.isEmpty ? "등급 매기기 전 " : "\(deunggeup)급 ") + mal + (geori > 0 ? ", \(Annae.geoMal(geori))" : "") }
+}
+
 /// 이어진 길 한 줄(2.11.0)
 struct JeomIeum: Identifiable {
     let from: String
@@ -276,6 +286,55 @@ enum Jeomjido {
         if id.hasPrefix("nae_") { return NaeGil.shared.chatgi(id) }
         guard let o = await Nas.get("jeom.php", [("a", "get"), ("id", id)]) else { return nil }
         return JeomGil.batgi(o)
+    }
+
+    /// 2.143.0 (261126 이사장님 지시 「점지도가 있으면 A급부터 C급까지 소개하고 제공」) 맞는 점지도 후보 — 등급 높은 것부터(A·B·C·등급 없음), 같은 등급이면 목적지에 가까운 것부터, 세 개까지.
+    ///   통신이 막혀 가까운 점지도를 받지 못하면 두 번 더 물어봄(못 받은 것을 「점지도 없음」으로 여기지 않게). 끝내 못 받으면 nil
+    static func matneunGilDeul(_ me: Wichi, _ mok: Jangso) async -> [JeomHubo]? {
+        var r: [JeomMok]? = nil
+        for i in 0..<3 {
+            r = await gakkaun(me.lat, me.lon)
+            if r != nil { break }
+            if i < 2 { try? await Task.sleep(nanoseconds: 1_500_000_000) }
+        }
+        guard let rr = r else {
+            Girok.shared.namgi("jeom_hubo_tongsin", [:])
+            return nil
+        }
+        var l: [(JeomHubo, Double)] = []
+        var bon = Set<String>()
+        for m in rr {
+            let eo = m.near >= 0 ? m.near : WichiEngine.geori(me.lat, me.lon, m.slat, m.slon)
+            guard eo <= 50 else { continue }
+            let ap = WichiEngine.geori(mok.lat, mok.lon, m.elat, m.elon)
+            let dw = WichiEngine.geori(mok.lat, mok.lon, m.slat, m.slon)
+            let dwit: Bool
+            let kkeut: Double
+            if ap <= 80 && (dw > 80 || ap <= dw) { dwit = false; kkeut = ap } else if dw <= 80 { dwit = true; kkeut = dw } else { continue }
+            guard !bon.contains(m.id) else { continue }
+            bon.insert(m.id)
+            let nm = dwit ? "\(m.to)에서 \(m.from)까지 되돌아가는 점지도" : (m.title.isEmpty ? "\(m.from)에서 \(m.to)까지 점지도" : "\(m.title) 점지도")
+            l.append((JeomHubo(mal: nm, gugan: [JeomGugan(id: m.id, dwit: dwit)], deunggeup: m.deunggeup.uppercased(), geori: m.dist), kkeut))
+        }
+        for g in NaeGil.shared.mokrok where g.pts.count >= 3 {
+            guard let s = g.pts.first, let e = g.pts.last, !bon.contains(g.id) else { continue }
+            let jari = g.pts.map { WichiEngine.geori(me.lat, me.lon, $0.lat, $0.lon) }.min() ?? 1e9
+            guard jari <= 50 else { continue }
+            let ap = WichiEngine.geori(mok.lat, mok.lon, e.lat, e.lon)
+            let dw = WichiEngine.geori(mok.lat, mok.lon, s.lat, s.lon)
+            let dwit: Bool
+            let kkeut: Double
+            if ap <= 80 && (dw > 80 || ap <= dw) { dwit = false; kkeut = ap } else if dw <= 80 { dwit = true; kkeut = dw } else { continue }
+            bon.insert(g.id)
+            let nm = dwit ? "\(g.to)에서 \(g.from)까지 되돌아가는 나만의 점지도" : (g.title.isEmpty ? "\(g.from)에서 \(g.to)까지 나만의 점지도" : "\(g.title) 나만의 점지도")
+            l.append((JeomHubo(mal: nm, gugan: [JeomGugan(id: g.id, dwit: dwit)], deunggeup: "", geori: g.dist), kkeut))
+        }
+        func sun(_ d: String) -> Int { d == "A" ? 0 : (d == "B" ? 1 : (d == "C" ? 2 : 3)) }
+        l.sort { sun($0.0.deunggeup) != sun($1.0.deunggeup) ? sun($0.0.deunggeup) < sun($1.0.deunggeup) : $0.1 < $1.1 }
+        if !l.isEmpty { return Array(l.prefix(3).map { $0.0 }) }
+        // 한 점지도로 닿지 않으면 협회가 이어 둔 길
+        if let m = await matneunGil(me, mok) { return [JeomHubo(mal: m.0, gugan: m.1, deunggeup: "", geori: 0)] }
+        return []
     }
 
     /// 걸어가실 곳에 맞는 점지도 — 시작이 가까이(50미터 안) 있고 끝이 목적지 가까이(80미터 안)인 길. 거꾸로 걸어도 맞으면 되돌아가기로.

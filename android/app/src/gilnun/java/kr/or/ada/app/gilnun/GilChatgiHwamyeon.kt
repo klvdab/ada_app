@@ -95,8 +95,16 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
         // ④ 지금 차례
         when {
             mu != null -> {
-                cheot = t.danchu("점지도로 걷기 — 권합니다. ${mu.julMal}") { JeomEngine.muleumDap(true) }
-                t.danchu("위성으로 걷기 — ${mu.mok.ireum}까지 방향 따라") { JeomEngine.muleumDap(false) }
+                // 2.109.0 (261126 이사장님 지시) 맞는 점지도가 여럿이면 등급 높은 것부터 하나씩 단추로
+                if (mu.hubo.size > 1) {
+                    mu.hubo.forEachIndexed { i, h ->
+                        val bt = t.danchu("점지도로 걷기 — " + (if (i == 0) "권합니다. 첫째" else if (i == 1) "둘째" else "셋째") + ", ${h.deungMal}") { JeomEngine.muleumGoreugi(i) }
+                        if (i == 0) cheot = bt
+                    }
+                } else {
+                    cheot = t.danchu("점지도로 걷기 — 권합니다. ${mu.julMal}") { JeomEngine.muleumDap(true) }
+                }
+                t.danchu("위성으로 걷기 — 사람이 다니는 길을 찾아 ${mu.mok.ireum}까지") { JeomEngine.muleumDap(false) }
             }
             jm.bulleoneun -> {
                 cheot = t.danchu("점지도를 불러오는 중입니다 — 그만두기") { JeomEngine.geuman() }   // 2.49.0 아이폰과 같게

@@ -42,6 +42,12 @@ final class MalHagi: ObservableObject {
     /// 2.60.0 "○○에 전화할까요?"라고 여쭌 콜
     private var kolDaegi: KolBeonho?
     private var mureum: Mureum = .eopseum
+    /// 2.143.0 점지도 먼저 — 말로 하기 밖(걷기 관문·걷는 중 다시 찾기)에서 점지도를 여쭐 때도 「네」를 점지도로 알아듣게
+    func jeomMureumAllim(_ q: String) {
+        mureum = .jeom
+        mureumTtae = Date()
+        SoriEngine.shared.mal(q, .annae)
+    }
     /// 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) 새로 여쭐 때마다 차 부르기의 묵은 물음(다음 수단에 걸까요·복지카드 메일)을 거둠
     ///   — 10분 전 「다음 수단에 걸까요」가 뒤에 여쭌 「목적지를 변경하실 건가요?」의 「네」를 가로채 다른 콜에 걸던 일
     private var mureumTtae = Date.distantPast {
@@ -1223,6 +1229,25 @@ final class MalHagi: ObservableObject {
                 dap("위성으로 걷습니다.", false)
                 jm.muleumDap(jeom: false)
                 return
+            }
+            // 2.143.0 여러 점지도 가운데 고르기 — 「A급」「에이급」「둘째」「두 번째」「2번」
+            if jm.muleum?.hubo.count ?? 0 > 1 {
+                let hb = jm.muleum?.hubo ?? []
+                var k: Int?
+                let deung: [(String, [String])] = [("A", ["a급", "에이급", "에이 급", "a 급"]), ("B", ["b급", "비급", "비 급", "b 급"]), ("C", ["c급", "씨급", "시급", "씨 급", "c 급"])]
+                let zz = z.lowercased()
+                for (d, ms) in deung where ms.contains(where: { zz.contains($0) }) { k = hb.firstIndex { $0.deunggeup == d } }
+                if k == nil {
+                    if zz.contains("셋째") || zz.contains("세 번째") || zz.contains("세번째") || zz.contains("3번") { k = 2 }
+                    else if zz.contains("둘째") || zz.contains("두 번째") || zz.contains("두번째") || zz.contains("2번") { k = 1 }
+                    else if zz.contains("첫째") || zz.contains("첫 번째") || zz.contains("첫번째") || zz.contains("1번") { k = 0 }
+                }
+                if let k = k, k < hb.count {
+                    mureum = .eopseum
+                    dap("\(hb[k].deunggeup.isEmpty ? "" : hb[k].deunggeup + "급 ")점지도로 걷습니다.", false)
+                    jm.muleumGoreugi(k)
+                    return
+                }
             }
             if z.contains("점지도") || (mureum == .jeom && ye0 && !ani0 && z.count <= 10) {
                 mureum = .eopseum

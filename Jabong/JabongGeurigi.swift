@@ -1434,6 +1434,8 @@ struct GeurigiView: View {
         Button(g.malDeutneun ? "말로 표시 — 듣는 중" : "말로 표시 — 누르고 계단 시작처럼 말씀하십시오") { g.malloPyosi() }
             .buttonStyle(KeunDanchu())
         Button("다 걸었습니다") { g.kkeut() }.buttonStyle(KeunDanchu())
+        // 2.40.0 (261126 이사장님 지시) 음향신호기 울리기 — 건널목 앞에서 바로(둘레 신호기는 저절로도 울림)
+        Button("음향신호기 울리기 — 신호 안내") { SinhogiEngine.shared.ulligi(2) }.buttonStyle(KeunDanchu())
         DisclosureGroup("볼거리 표시 — 팽나무·동상처럼 찾아갈 것 남기기", isExpanded: $bgPyeol) { bolgeoriKan }.font(.title3)   // 2.9.0
         DisclosureGroup("다른 표시와 도구 펼치기") {
             VStack(alignment: .leading, spacing: 12) {
