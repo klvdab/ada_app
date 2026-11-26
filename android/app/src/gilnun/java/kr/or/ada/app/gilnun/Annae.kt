@@ -463,6 +463,17 @@ object AnnaeEngine {
         malHagi("여정을 끝냈습니다.")
     }
 
+    /** 2.107.0 (261126, 이사장님 승인 「첫단계부터 끝까지 꼼꼼하게 해보자」, 아이폰 2.142.0과 같음) 여정 계획의 비행기 차례 — 공항까지의 안내를 말없이 끝내고 쉼 */
+    fun gyehoekSwim() {
+        jeomKkeut()
+        JihacheolEngine.meomchugi()
+        yj.kkeut()
+        TalgeotGamji.saeroSijak()
+        yj.talgeotChoGihwa()
+        namEunGeori = null
+        dasiSijak()
+    }
+
     // MARK: 2.73.0 (261024-A61, 이사장님 지시 2026-10-24, 아이폰 2.105.0과 같음) 타신 역 여쭙기·「여기는 ○○역이야」·「틀렸어」
 
     private var jihaGilEopseumTtae = 0L

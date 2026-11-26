@@ -314,6 +314,18 @@ object YeojeongMal {
         }
         val mk = Mokjeok(j.ireum, j.lat, j.lon, j.juso)
         val a = hwalseong()
+        // 2.107.0 (261126, 이사장님 승인 「첫단계부터 끝까지 꼼꼼하게 해보자」, 아이폰 2.142.0과 같음) 탈것을 말씀하지 않으셨고 타고 가는 중이 아닌데,
+        //   길을 물으셨거나 30킬로미터 넘게 멀거나 바다 건너 섬이면 — 무엇을 타고 갈지 여쭙지 않고 길눈이 가장 알맞은 길을 짜서 여쭘
+        if (tg0 == null && !taneunJung && d != null) {
+            val mureoNa = System.currentTimeMillis() - GilGyehoek.gilMureumTtae < 120_000L
+            val sm = Seom.chatgi(j)
+            val seomGa = sm != null && !Seom.anIn(sm, Wichi.jigeum)
+            val jageunSeomGa = GilGyehoek.jejuInga(j.lat, j.lon) && d > 1200
+            if ((mureoNa && d > 1200) || d > 30_000 || seomGa || (jageunSeomGa && mureoNa)) {
+                GilGyehoek.gilMureumTtae = 0L
+                if (MalHagi.gyehoekJean(j, dap, apMal)) return
+            }
+        }
         if (tg == null) {
             yj.jeonghagi(mk)
             a?.cheotHwamyeonEuro(null)

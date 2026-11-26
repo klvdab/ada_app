@@ -36,7 +36,9 @@ final class MalHagi: ObservableObject {
     @Published private(set) var dapMal = ""
 
     // 2.61.0 (261009-I15, 이사장님 승인 2026-10-09) neomgilkka — 긴급통화 「자원봉사자와 현장영상해설사에게 요청할까요?」
-    private enum Mureum { case eopseum, mokjeok, bangsik, chaYocheong, kol, galrae, hoching, hubo, jeom, eumakBiseut, kolHwagin, neomgilkka, tanYeok }
+    private enum Mureum { case eopseum, mokjeok, bangsik, chaYocheong, kol, galrae, hoching, hubo, jeom, eumakBiseut, kolHwagin, neomgilkka, tanYeok, gyehoek }
+    /// 2.142.0 (261126, 이사장님 승인 「첫단계부터 끝까지 꼼꼼하게 해보자」) 「○○ 가는 길 알려 줘」처럼 길을 물으신 때 — 2분 안에 정한 곳은 가까워도 여정 계획을 짬
+    private var gilMureumTtae = Date.distantPast
     /// 2.60.0 "○○에 전화할까요?"라고 여쭌 콜
     private var kolDaegi: KolBeonho?
     private var mureum: Mureum = .eopseum
@@ -1507,6 +1509,50 @@ final class MalHagi: ObservableObject {
                 AnnaeEngine.shared.tanYeokDap(yeok, dap, mureumDap: true)
                 return
             }
+        case .gyehoek:
+            // 2.142.0 (261126) 「이 길로 안내할까요?」의 대답 — 네·다른 길·배로·아니요
+            let gg = GilGyehoek.shared
+            if ye && !ani && jjalbeun, let gu = gg.hwakjeong() {
+                mureum = .eopseum
+                guganSijak(gu, ap: "네, 이 길로 안내합니다. ")
+                return
+            }
+            if (z.contains("다른곳") || z.contains("다른데")) && hubo.count > huboI + 1 {
+                // 가실 곳이 다른 곳이면 다음 후보 곳으로(길이 아니라 곳을 바꾸심)
+                gg.geuman("dareun_got")
+                mureum = .hubo
+                daeumHubo(dap)
+                return
+            }
+            if z.contains("다른길") || z.contains("다른방법") || z.contains("다른거") || z.contains("다른코스") {
+                if let g2 = gg.dareunGil() {
+                    mureumTtae = Date()
+                    dap(GilGyehoek.jeanMal(g2, cheot: false) + "이 길로 안내할까요?", true)
+                } else {
+                    mureum = .bangsik
+                    mureumTtae = Date()
+                    gg.geuman("hubo_eopseum")
+                    dap("더 짤 수 있는 길이 없습니다. \(ho), 걸어서, 차로, 지하철로, 버스로 가운데 어떻게 가실까요?", true)
+                }
+                return
+            }
+            let talMal: [(String, String)] = [("비행기", "bihaenggi"), ("배로", "bae"), ("배타고", "bae"), ("기차", "gicha"), ("케이티엑스", "gicha"), ("ktx", "gicha"), ("KTX", "gicha")]
+            if z.count <= 14, let tm = talMal.first(where: { z.contains($0.0) }) {
+                if let g2 = gg.talgeotGil(tm.1) {
+                    mureumTtae = Date()
+                    dap(GilGyehoek.jeanMal(g2, cheot: false) + "이 길로 안내할까요?", true)
+                } else {
+                    dap("\(GilGyehoek.talMal(tm.1)) 가는 길은 짜지 못했습니다. 이 길로 안내할까요? 다른 길을 원하시면 다른 길이라고 말씀해 주십시오.", true)
+                }
+                return
+            }
+            if ani && jjalbeun {
+                gg.geuman("ani")
+                mureum = .bangsik
+                mureumTtae = Date()
+                dap("알겠습니다. \(ho), 걸어서, 차로, 지하철로, 버스로 가운데 어떻게 가실까요?", true)
+                return
+            }
         case .mokjeok, .eopseum, .jeom:
             break
         }
@@ -1615,8 +1661,52 @@ final class MalHagi: ObservableObject {
             return
         }
 
+        // 5-3-1. 2.142.0 (261126, 이사장님 승인 「첫단계부터 끝까지 꼼꼼하게 해보자」) 여정 계획을 따라가는 중의 말 — 다음 차례·남은 차례·계획 그만
+        if GilGyehoek.shared.jigeum != nil && z.count <= 16 {
+            if ["다음차례", "다음차례로", "다음차례로가자", "다음차례로넘겨", "다음차례야", "다음으로넘겨"].contains(z) {
+                mureum = .eopseum
+                if let n = GilGyehoek.shared.daeum("malhagi") { guganSijak(n, ap: "") }
+                else { dap("마지막 차례였습니다. 여정 계획을 마칩니다.", false) }
+                return
+            }
+            if z.contains("남은차례") || z.contains("여정계획") && !z.contains("그만") && !z.contains("취소") || z.contains("계획다시") || z.contains("계획알려") {
+                mureum = .eopseum
+                dap(GilGyehoek.shared.namEunMal(), false)
+                return
+            }
+            if z.contains("계획그만") || z.contains("계획취소") || z.contains("계획멈춰") || z.contains("계획끝") {
+                mureum = .eopseum
+                GilGyehoek.shared.geuman("malhagi")
+                dap("여정 계획을 그만둡니다. 지금 하던 안내는 그대로 이어 갑니다.", false)
+                return
+            }
+        }
+        // 5-3-2. 2.142.0 길을 묻는 말 — 「우도 가는 길 알려 줘」, 「우도 어떻게 가」, 「우도 가려면 뭐 타야 돼」, 「우도까지 얼마나 걸려」.
+        //   가실 곳 말을 떼어 곳을 찾고(아래 7과 같은 길), 정하시면 여정 계획을 짬. 가실 곳 말 없이 「교통편 알려 줘」면 지금 가시는 곳으로 짬
+        var tMok = t
+        if let gq = GilGyehoek.gilMureum(t) {
+            let gz = MalSajeon.ttuk(gq)
+            // 지금 가시는 곳을 두고 묻는 말(「집까지 얼마나 걸려」)은 지금처럼 남은 길로 대답
+            let jigeumGot = y.map { yy -> Bool in let mz = MalSajeon.ttuk(yy.mokjeok.ireum); return !gz.isEmpty && (mz.contains(gz) || gz.contains(mz)) } ?? false
+            let gyotongMal = ["교통편", "뭐타", "뭘타", "무엇을타", "차편", "코스", "여정짜"].contains { z.contains($0) }
+            if jigeumGot {
+                // 지금 가시는 곳의 교통편을 물으시면 그곳으로 여정 계획, 아니면 그대로 아래로(남은 길 대답)
+                if gyotongMal, let yy = y, let w = WichiEngine.shared.jigeum,
+                   WichiEngine.geori(w.lat, w.lon, yy.mokjeok.lat, yy.mokjeok.lon) > 1200,
+                   gyehoekJean(Jangso(ireum: yy.mokjeok.ireum, juso: yy.mokjeok.juso, lat: yy.mokjeok.lat, lon: yy.mokjeok.lon), dap, apMal: "") { return }
+            } else if gz.count >= 2 && !MalHagi.geunyangMal(gz) {
+                gilMureumTtae = Date()
+                tMok = gq + " 가자"
+                Girok.shared.namgi("gil_mureum", ["mok": String(gq.prefix(30))])
+            } else if gyotongMal, let yy = y, let w = WichiEngine.shared.jigeum,
+                      WichiEngine.geori(w.lat, w.lon, yy.mokjeok.lat, yy.mokjeok.lon) > 1200 {
+                Girok.shared.namgi("gil_mureum", ["mok": "", "yeojeong": String(yy.mokjeok.ireum.prefix(30))])
+                if gyehoekJean(Jangso(ireum: yy.mokjeok.ireum, juso: yy.mokjeok.juso, lat: yy.mokjeok.lat, lon: yy.mokjeok.lon), dap, apMal: "") { return }
+            }
+        }
+
         // 6. 목적지 말을 떼어 보고, 가자는 말이 없으면 명령부터 살핌
-        let (q0, gagiMal, roTtem) = sajeon.mokjeokMal(t)
+        let (q0, gagiMal, roTtem) = sajeon.mokjeokMal(tMok)
         let tg = talgeotChatgi(alts)
         var q = MalHagi.talgeotTteokgi(q0)
         // "서울역까지 버스로 가자"처럼 한 번 더 뗌(두 자 넘는 것만)
@@ -2508,6 +2598,63 @@ final class MalHagi: ObservableObject {
         return nil
     }
 
+    /// 2.142.0 (261126, 이사장님 승인 「첫단계부터 끝까지 꼼꼼하게 해보자」) 여정 계획을 짜서 여쭘 — 짜지 못하면 false
+    private func gyehoekJean(_ j: Jangso, _ dap: @escaping (String, Bool) -> Void, apMal: String) -> Bool {
+        guard let w = WichiEngine.shared.jigeum else { return false }
+        let l = GilGyehoek.jjagi(w.lat, w.lon, j)
+        guard let cheot = l.first else { return false }
+        GilGyehoek.shared.jeanHagi(l)
+        mok = j
+        mokTtae = Date()
+        YeojeongEngine.shared.jeonghagi(Mokjeok(ireum: j.ireum, lat: j.lat, lon: j.lon, juso: j.juso))
+        GilGil.shared.cheotHwamyeon()
+        mureum = .gyehoek
+        mureumTtae = Date()
+        dap(apMal + GilGyehoek.jeanMal(cheot, cheot: true) + "이 길로 안내할까요?" + (l.count > 1 ? " 다른 길을 원하시면 다른 길이라고 말씀해 주십시오." : ""), true)
+        return true
+    }
+
+    /// 2.142.0 여정 계획의 한 차례를 시작 — 그 차례의 탈것 안내(걷기·지하철·버스·차·기차·배)를 그대로 씀. 비행기는 알리기만 함
+    func guganSijak(_ gu: Gugan, ap: String) {
+        guard let g = GilGyehoek.shared.jigeum else { return }
+        let mal = ap + GilGyehoek.guganMal(gu, g.i, g.gugan.count)
+        let dap: (String, Bool) -> Void = { [weak self] t, m in self?.dapHagi(t, m) }
+        if gu.tal == "bihaenggi" {
+            AnnaeEngine.shared.gyehoekSwim()
+            dapHagi(mal, false)
+            return
+        }
+        let tg: Talgeot
+        switch gu.tal {
+        case "georeum": tg = .georeum
+        case "jihacheol": tg = .jihacheol
+        case "beoseu": tg = .beoseu
+        case "gicha": tg = .gicha
+        case "bae": tg = .seonbak
+        default: tg = .cha
+        }
+        let jari = Jangso(ireum: gu.mok, juso: "", lat: gu.lat, lon: gu.lon)
+        let sijak: (Jangso) -> Void = { [weak self] j in
+            guard let self = self else { return }
+            if tg == .gicha || tg == .seonbak {
+                // 기차·배는 타는 곳에서 바로 그 탈것 안 안내로(차를 요청할까요를 여쭙지 않음)
+                AnnaeEngine.shared.talgeotRoGagi(j, tg)
+                self.dapHagi(mal + "\(tg.ireum)에 타시면 안내를 이어 갑니다.", false)
+                return
+            }
+            self.gagi(j, tg, dap, apMal: mal)
+        }
+        // 갈아타는 곳(역·공항·항구)은 이름으로 다시 찾아 바른 자리로 — 표에 적은 자리에서 3킬로미터 안의 것만
+        if gu.majimak { sijak(jari); return }
+        Task {
+            let r = await Chatgi.jangso(gu.mok)
+            await MainActor.run {
+                let j = r?.first(where: { WichiEngine.geori($0.lat, $0.lon, gu.lat, gu.lon) < 3000 })
+                sijak(j.map { Jangso(ireum: gu.mok, juso: $0.juso, lat: $0.lat, lon: $0.lon) } ?? jari)
+            }
+        }
+    }
+
     private func gagi(_ j: Jangso, _ tg0: Talgeot?, _ dap: @escaping (String, Bool) -> Void, apMal: String = "") {
         mok = j
         mokTtae = Date()
@@ -2529,6 +2676,17 @@ final class MalHagi: ObservableObject {
             }
         }
         let mk = Mokjeok(ireum: j.ireum, lat: j.lat, lon: j.lon, juso: j.juso)
+        // 2.142.0 (261126, 이사장님 승인 「첫단계부터 끝까지 꼼꼼하게 해보자」) 탈것을 말씀하지 않으셨고 타고 가는 중이 아닌데, 길을 물으셨거나
+        //   30킬로미터 넘게 멀거나 바다 건너 섬이면 — 무엇을 타고 갈지 여쭙지 않고 길눈이 가장 알맞은 길을 짜서 여쭘
+        if tg0 == nil && !taneunJung, let dd = d {
+            let mureoNa = Date().timeIntervalSince(gilMureumTtae) < 120
+            let seomGa = Seom.chatgi(j).map { !Seom.anIn($0, WichiEngine.shared.jigeum) } ?? false
+            let jageunSeomGa = GilGyehoek.jejuInga(j.lat, j.lon) && dd > 1200
+            if (mureoNa && dd > 1200) || dd > 30_000 || seomGa || (jageunSeomGa && mureoNa) {
+                gilMureumTtae = .distantPast
+                if gyehoekJean(j, dap, apMal: apMal) { return }
+            }
+        }
         guard let g = tg else {
             yj.jeonghagi(mk)
             GilGil.shared.cheotHwamyeon()
@@ -3222,6 +3380,16 @@ final class MalHagi: ObservableObject {
             guard let r = r, let h = r.first else {
                 await MainActor.run { self.motChatgiDap(t, q2, false, dap) }
                 return
+            }
+            // 2.142.0 (261126, 이사장님 승인 「첫단계부터 끝까지 꼼꼼하게 해보자」) 30킬로미터 넘게 멀거나 바다 건너 섬이면 차·걸음 시간 대신 여정 계획(차례마다 걸리는 시간)으로
+            if let w = wj {
+                let dd = WichiEngine.geori(w.lat, w.lon, h.lat, h.lon)
+                let seomGa = Seom.chatgi(h).map { !Seom.anIn($0, w) } ?? false
+                let jageun = GilGyehoek.jejuInga(h.lat, h.lon) && GilGyehoek.jejuInga(w.lat, w.lon) == false
+                if dd > 30_000 || seomGa || jageun {
+                    let ok = await MainActor.run { self.gyehoekJean(h, dap, apMal: "") }
+                    if ok { return }
+                }
             }
             var ap = ""
             if let w = wj {

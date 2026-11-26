@@ -162,6 +162,7 @@ final class AnnaeEngine: ObservableObject {
         TabGil.shared.tab = 0
         GilGil.shared.cheotHwamyeon()
         Girok.shared.namgi("haneunil_meomchum", [:])
+        GilGyehoek.shared.geuman("haneunil_meomchum")   // 2.142.0 하던 일 멈춤은 여정 계획도 멈춤
         SoriEngine.shared.mal("하던 일을 멈췄습니다. 어디로 가실까요?")
     }
 
@@ -421,6 +422,17 @@ final class AnnaeEngine: ObservableObject {
         namEunGeori = nil
         dasiSijak()
         malHagi("여정을 끝냈습니다.")
+    }
+
+    /// 2.142.0 (261126, 이사장님 승인 「첫단계부터 끝까지 꼼꼼하게 해보자」) 여정 계획의 비행기 차례 — 공항까지의 안내를 말없이 끝내고 쉼(내리는 공항 둘레에서 여정 계획이 다음 차례를 시작)
+    func gyehoekSwim() {
+        JeomEngine.shared.yeojeongKkeut()
+        JihacheolEngine.shared.meomchugi()
+        yj.kkeut()
+        TalgeotGamji.shared.saeroSijak()
+        yj.talgeotChoGihwa()
+        namEunGeori = nil
+        dasiSijak()
     }
 
     // MARK: 2.105.0 (261024-I59, 이사장님 지시 2026-10-24) 타신 역 여쭙기·「여기는 ○○역이야」·「틀렸어」

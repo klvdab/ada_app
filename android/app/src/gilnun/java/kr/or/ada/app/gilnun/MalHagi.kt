@@ -171,8 +171,10 @@ object MalHagi {
     fun sijak(c: Context) {
         ctx = c.applicationContext
         GeonuiEngine.junbi(c)   // 2.106.0 (261126) 건의와 소감 말하기
+        GilGyehoek.junbi(c)   // 2.107.0 (261126) 여정 계획
         if (sijakham) return
         sijakham = true
+        AnnaeEngine.meomchumHooks.add { GilGyehoek.geuman("haneunil_meomchum") }   // 2.107.0 하던 일 멈춤은 여정 계획도 멈춤
         AnnaeEngine.meomchumHooks.add { mureumChoGihwa() }   // 2.7.0 묶음 b1 — 하던 일 멈추기 때 묻던 말도 비움
         AnnaeEngine.meomchumHooks.add { MalgilEngine.geuman(false) }   // 2.7.0 묶음 b2 — 하던 일 멈추기 때 말로 그린 길 안내도 말없이 멈춤
         MalgilEngine.mokJunbi(c)   // 2.64.0 (261017-A52) 「집에 가자」·「사무실 가자」
@@ -846,6 +848,8 @@ object MalHagi {
         val ye = hd == HwaginDap.YE
         val ani = hd == HwaginDap.ANI
         val majimak = majimakMureum(now)
+        // 2.107.0 (261126, 이사장님 승인 「첫단계부터 끝까지 꼼꼼하게 해보자」, 아이폰 2.142.0과 같음) 「이 길로 안내할까요?」의 대답
+        if (GilGyehoek.jeanJung != null && gyehoekDap(z, ye, ani, dap)) return
         // 2.7.0 묶음 b1 — 여정이 있을 때의 여정 끝·도착, "점지도로 걸을까요"의 대답(아이폰 1번·1-2번·muleum)
         if (YeojeongMal.meonjeo(alts, z, dap, majimak == "jeom", majimak == "cha")) { mureumChoGihwa(); return }
         // 1. 여정 끝·도착 — "도착", "다 왔어"를 가실 곳 이름으로 찾지 않고 따라 걷기를 마침(아이폰 2.12.7)
@@ -1183,8 +1187,47 @@ object MalHagi {
             return
         }
 
+        // 5-8. 2.107.0 (261126, 아이폰 2.142.0과 같음) 여정 계획을 따라가는 중의 말 — 다음 차례·남은 차례·계획 그만
+        if (GilGyehoek.jigeum != null && z.length <= 16) {
+            if (z in setOf("다음차례", "다음차례로", "다음차례로가자", "다음차례로넘겨", "다음차례야", "다음으로넘겨")) {
+                val n = GilGyehoek.daeum("malhagi")
+                if (n != null) { dap("", false); gyehoekGuganSijak(n, "") } else dap("마지막 차례였습니다. 여정 계획을 마칩니다.", false)
+                return
+            }
+            if (z.contains("남은차례") || (z.contains("여정계획") && !z.contains("그만") && !z.contains("취소")) || z.contains("계획다시") || z.contains("계획알려")) {
+                dap(GilGyehoek.namEunMal(), false)
+                return
+            }
+            if (z.contains("계획그만") || z.contains("계획취소") || z.contains("계획멈춰") || z.contains("계획끝")) {
+                GilGyehoek.geuman("malhagi")
+                dap("여정 계획을 그만둡니다. 지금 하던 안내는 그대로 이어 갑니다.", false)
+                return
+            }
+        }
+        // 5-9. 2.107.0 길을 묻는 말 — 「우도 가는 길 알려 줘」, 「우도 어떻게 가」, 「우도 가려면 뭐 타야 돼」. 가실 곳 말 없이 「교통편 알려 줘」면 지금 가시는 곳으로
+        var tMok = t
+        val gq = GilGyehoek.gilMureum(t)
+        if (gq != null) {
+            val gz = MalSajeon.ttuk(gq)
+            val yy = YeojeongEngine.jigeum
+            val jigeumGot = yy != null && gz.isNotEmpty() && MalSajeon.ttuk(yy.mokjeok.ireum).let { mz -> mz.contains(gz) || gz.contains(mz) }
+            val gyotongMal = listOf("교통편", "뭐타", "뭘타", "무엇을타", "차편", "코스", "여정짜").any { z.contains(it) }
+            val w = Wichi.jigeum
+            val meon = yy != null && w != null && Wichi.geori(w.lat, w.lon, yy.mokjeok.lat, yy.mokjeok.lon) > 1200
+            if (jigeumGot || (gz.length < 2 && gyotongMal)) {
+                if (gyotongMal && meon && yy != null) {
+                    Girok.namgi("gil_mureum", mapOf("mok" to "", "yeojeong" to yy.mokjeok.ireum.take(30)))
+                    if (gyehoekJean(Jangso(yy.mokjeok.ireum, yy.mokjeok.juso, yy.mokjeok.lat, yy.mokjeok.lon), dap, "")) return
+                }
+            } else if (gz.length >= 2 && !geunyangMal(gz)) {
+                GilGyehoek.gilMureumTtae = System.currentTimeMillis()
+                tMok = "$gq 가자"
+                Girok.namgi("gil_mureum", mapOf("mok" to gq.take(30)))
+            }
+        }
+
         // 6. 가실 곳 말을 떼어 보고, 가자는 말이 없으면 명령부터 살핌
-        val (q0, gagiMal, roTtem) = s.mokjeokMal(t)
+        val (q0, gagiMal, roTtem) = s.mokjeokMal(tMok)
         var q = talgeotTteokgi(q0)
         val (q2, g2, _) = s.mokjeokMal(q)
         if (g2 && MalSajeon.ttuk(q2).length >= 2) q = q2
@@ -1780,6 +1823,92 @@ object MalHagi {
         dap(mal, true)
     }
 
+    /** 2.107.0 (261126, 이사장님 승인 「첫단계부터 끝까지 꼼꼼하게 해보자」, 아이폰 2.142.0과 같음) 여정 계획을 짜서 여쭘 — 짜지 못하면 false */
+    fun gyehoekJean(j: Jangso, dap: (String, Boolean) -> Unit, apMal: String): Boolean {
+        val w = Wichi.jigeum ?: return false
+        val l = GilGyehoek.jjagi(w.lat, w.lon, j)
+        val cheot = l.firstOrNull() ?: return false
+        GilGyehoek.jeanHagi(l)
+        hwaginBiugi()
+        YeojeongMal.mureumBiugi()
+        YeojeongEngine.jeonghagi(Mokjeok(j.ireum, j.lat, j.lon, j.juso))
+        hwalseong?.get()?.cheotHwamyeonEuro(null)
+        dap(apMal + GilGyehoek.jeanMal(cheot, true) + "이 길로 안내할까요?" + (if (l.size > 1) " 다른 길을 원하시면 다른 길이라고 말씀해 주십시오." else ""), true)
+        return true
+    }
+
+    /** 2.107.0 「이 길로 안내할까요?」의 대답 — 네·다른 길·배로·아니요. 받았으면 true */
+    private fun gyehoekDap(z: String, ye: Boolean, ani: Boolean, dap: (String, Boolean) -> Unit): Boolean {
+        val jjalbeun = z.length <= 10
+        if (ye && !ani && jjalbeun) {
+            val gu = GilGyehoek.hwakjeong() ?: return false
+            dap("", false)
+            gyehoekGuganSijak(gu, "네, 이 길로 안내합니다. ")
+            return true
+        }
+        if (z.contains("다른길") || z.contains("다른방법") || z.contains("다른거") || z.contains("다른코스")) {
+            val g2 = GilGyehoek.dareunGil()
+            if (g2 != null) dap(GilGyehoek.jeanMal(g2, false) + "이 길로 안내할까요?", true)
+            else {
+                GilGyehoek.geuman("hubo_eopseum")
+                YeojeongMal.bangsikDasiYeojjum()
+                dap("더 짤 수 있는 길이 없습니다. ${Seoljeong.ho}, 걸어서, 차로, 지하철로, 버스로 가운데 어떻게 가실까요?", true)
+            }
+            return true
+        }
+        val talMal = listOf("비행기" to "bihaenggi", "배로" to "bae", "배타고" to "bae", "기차" to "gicha", "케이티엑스" to "gicha", "ktx" to "gicha")
+        val tm = if (z.length <= 14) talMal.firstOrNull { z.lowercase().contains(it.first) } else null
+        if (tm != null) {
+            val g2 = GilGyehoek.talgeotGil(tm.second)
+            if (g2 != null) dap(GilGyehoek.jeanMal(g2, false) + "이 길로 안내할까요?", true)
+            else dap("${GilGyehoek.talMal(tm.second)} 가는 길은 짜지 못했습니다. 이 길로 안내할까요? 다른 길을 원하시면 다른 길이라고 말씀해 주십시오.", true)
+            return true
+        }
+        if (ani && jjalbeun) {
+            GilGyehoek.geuman("ani")
+            YeojeongMal.bangsikDasiYeojjum()
+            dap("알겠습니다. ${Seoljeong.ho}, 걸어서, 차로, 지하철로, 버스로 가운데 어떻게 가실까요?", true)
+            return true
+        }
+        return false
+    }
+
+    /** 2.107.0 여정 계획의 한 차례를 시작 — 그 차례의 탈것 안내를 그대로 씀. 비행기는 알리기만 함 */
+    fun gyehoekGuganSijak(gu: Gugan, ap: String) {
+        main.post {
+            val g = GilGyehoek.jigeum ?: return@post
+            val mal = ap + GilGyehoek.guganMal(gu, g.i, g.gugan.size)
+            val dap: (String, Boolean) -> Unit = { m, b -> main.post { sedae += 1; dapHagi(sedae, m, b) } }
+            if (gu.tal == "bihaenggi") {
+                AnnaeEngine.gyehoekSwim()
+                dap(mal, false)
+                return@post
+            }
+            val tg = when (gu.tal) {
+                "georeum" -> Talgeot.GEOREUM; "jihacheol" -> Talgeot.JIHACHEOL; "beoseu" -> Talgeot.BEOSEU
+                "gicha" -> Talgeot.GICHA; "bae" -> Talgeot.SEONBAK; else -> Talgeot.CHA
+            }
+            val sijak = { j: Jangso ->
+                main.post {
+                    if (tg == Talgeot.GICHA || tg == Talgeot.SEONBAK) {
+                        AnnaeEngine.talgeotRoGagi(j, tg)
+                        dap(mal + "${tg.ireum}에 타시면 안내를 이어 갑니다.", false)
+                    } else {
+                        YeojeongMal.gagi(j, tg, dap, mal)
+                    }
+                }
+                Unit
+            }
+            val jari = Jangso(gu.mok, "", gu.lat, gu.lon)
+            if (gu.majimak) { sijak(jari); return@post }
+            // 갈아타는 곳(역·공항·항구)은 이름으로 다시 찾아 바른 자리로 — 표에 적은 자리에서 3킬로미터 안의 것만
+            Chatgi.jangso(gu.mok) { r ->
+                val h = r?.firstOrNull { Wichi.geori(it.lat, it.lon, gu.lat, gu.lon) < 3000 }
+                sijak(if (h != null) Jangso(gu.mok, h.juso, h.lat, h.lon) else jari)
+            }
+        }
+    }
+
     private fun daeumHubo(dap: (String, Boolean) -> Unit) {
         huboI += 1
         if (huboI < hubo.size) {
@@ -1938,6 +2067,17 @@ object MalHagi {
         Chatgi.jangso(q) { r ->
             val h = r?.firstOrNull()
             if (h == null) { main.post { motChatgiDap(t, q, true, dap) }; return@jangso }
+            // 2.107.0 (261126, 아이폰 2.142.0과 같음) 30킬로미터 넘게 멀거나 바다 건너 섬이면 차·걸음 시간 대신 여정 계획(차례마다 걸리는 시간)으로
+            if (w != null) {
+                val dd = Wichi.geori(w.lat, w.lon, h.lat, h.lon)
+                val sm = Seom.chatgi(h)
+                val seomGa = sm != null && !Seom.anIn(sm, w)
+                val jageun = GilGyehoek.jejuInga(h.lat, h.lon) && !GilGyehoek.jejuInga(w.lat, w.lon)
+                if (dd > 30_000 || seomGa || jageun) {
+                    main.post { if (!gyehoekJean(h, dap, "")) mokjeokMutgi(h, null, "", dap) }
+                    return@jangso
+                }
+            }
             val mutgi = { ap: String -> main.post { mokjeokMutgi(h, null, ap, dap) }; Unit }
             if (w == null) { mutgi("아직 위치를 잡는 중이라 ${h.ireum}까지 걸리는 시간을 셈하지 못했습니다. "); return@jangso }
             val f = { v: Double -> String.format(java.util.Locale.US, "%.6f", v) }

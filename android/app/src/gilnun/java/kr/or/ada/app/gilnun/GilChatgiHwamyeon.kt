@@ -284,6 +284,23 @@ class GilChatgiSae : Hwamyeon("길 찾기") {
     /** 여정 머리 — 지금 차례 한 줄과 그 차례의 큰 단추를 한 자리에(아이폰 YeojeongPan) */
     private fun yeojeongPan(t: GilnunActivity, yj: Yeojeong) {
         val a = AnnaeEngine
+        // 2.107.0 (261126, 이사장님 승인 「첫단계부터 끝까지 꼼꼼하게 해보자」, 아이폰 2.142.0과 같음) 여정 계획을 따라가는 중이면 지금 차례와 남은 차례
+        GilGyehoek.jigeum?.let { gp ->
+            val k = minOf(gp.i, gp.gugan.size - 1)
+            t.danchu("여정 계획 — ${gp.mokjeok}까지 ${gp.gugan.size}차례 가운데 ${GilGyehoek.chasu[minOf(gp.i, 7)]} 차례: ${GilGyehoek.talMal(gp.gugan[k].tal)} ${gp.gugan[k].mok}까지. 누르시면 남은 차례를 말씀드립니다") {
+                Sori.mal(GilGyehoek.namEunMal())
+            }
+            if (gp.i + 1 < gp.gugan.size) {
+                val n = gp.gugan[gp.i + 1]
+                t.danchu("다음 차례로 넘기기 — ${GilGyehoek.talMal(n.tal)} ${n.mok}까지") {
+                    GilGyehoek.daeum("danchu")?.let { MalHagi.gyehoekGuganSijak(it, "") }
+                }
+            }
+            t.danchu("여정 계획 그만 — 지금 하던 안내는 그대로") {
+                GilGyehoek.geuman("danchu")
+                Sori.mal("여정 계획을 그만둡니다.")
+            }
+        }
         val mok = yj.mokjeok.ireum
         val b = yj.beoseu
         val g = yj.jiha
@@ -467,6 +484,23 @@ class MokjeokHwamyeon(private val j: Jangso) : Hwamyeon(j.ireum) {
         // 2.63.0 (261017-A51, 이사장님 승인 2026-10-17) 섬이면 육지 교통편을 내놓지 않고 타는 공항·항구를(웹 길눈 seom.js에서 옮김, 아이폰과 같음)
         val w = Wichi.jigeum
         val sm = Seom.chatgi(j)?.takeIf { !Seom.anIn(it, w) }
+        // 2.107.0 (261126, 이사장님 승인 「첫단계부터 끝까지 꼼꼼하게 해보자」, 아이폰 2.142.0과 같음) 먼 곳·섬이면 길눈이 짠 가장 알맞은 길을 맨 위에
+        if (w != null && (Wichi.geori(w.lat, w.lon, j.lat, j.lon) > 30_000 || sm != null)) {
+            GilGyehoek.jjagi(w.lat, w.lon, j).firstOrNull()?.let { gp ->
+                t.danchu("길눈이 짠 길 — ${GilGyehoek.galraeMal(gp)}로, 모두 ${gp.gugan.size}차례, 대략 ${GilGyehoek.bunMal(gp.chong)}. 누르시면 이 길로 안내 시작") {
+                    Jeulgyeo.sseum(j)
+                    GilGyehoek.jeanHagi(listOf(gp))
+                    GilGyehoek.hwakjeong()?.let { gu ->
+                        t.cheotHwamyeonEuro(null)
+                        MalHagi.gyehoekGuganSijak(gu, GilGyehoek.jeanMal(gp, true))
+                    }
+                }
+                gp.gugan.forEachIndexed { k, u ->
+                    t.geul("${GilGyehoek.chasu[minOf(k, 7)]}, ${GilGyehoek.talMal(u.tal)} ${u.mok}까지 대략 ${GilGyehoek.bunMal(u.bun)}")
+                }
+                t.geul("걸리는 시간은 보통 때의 어림입니다.")
+            }
+        }
         if (sm != null) {
             t.geul(Seom.malGoreugi(sm, w), true)
             for ((g, m) in Seom.taneungot(sm, w, true).take(3))

@@ -246,6 +246,7 @@ struct YeojeongPan: View {
     @ObservedObject private var a = AnnaeEngine.shared
     @ObservedObject private var jikimi = TalgeotJikimi.shared   // 2.64.0 내리셨는지 여쭙기
     @ObservedObject private var yje = YeojeongEngine.shared   // 2.90.0 탈것 목록 펼침
+    @ObservedObject private var gy = GilGyehoek.shared   // 2.142.0 여정 계획
 
     private var mok: String { yj.mokjeok.ireum }
     /// 2.65.0 (261012-I19, 이사장님 지시 2026-10-12) 「무엇을 타고 계신가요」 대답 단추 — 차와 걷기를 맨 앞에
@@ -270,6 +271,10 @@ struct YeojeongPan: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            // 2.142.0 (261126, 이사장님 승인 「첫단계부터 끝까지 꼼꼼하게 해보자」) 여정 계획을 따라가는 중이면 맨 위에 지금 차례와 남은 차례
+            if let gp = gy.jigeum {
+                GyehoekKan(g: gp)
+            }
             if let b = yj.beoseu, yj.danggye == .taneunGotKkaji {
                 beoseuDanchu(b)
             } else if let g = yj.jiha, yj.danggye == .taneunGotKkaji || yj.danggye == .taneunJung {
@@ -487,6 +492,27 @@ struct MokjeokView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
+                // 2.142.0 (261126, 이사장님 승인 「첫단계부터 끝까지 꼼꼼하게 해보자」) 먼 곳·섬이면 길눈이 짠 가장 알맞은 길을 맨 위에
+                if let gp = gyehoekGil {
+                    Button("길눈이 짠 길 — \(GilGyehoek.galraeMal(gp))로, 모두 \(gp.gugan.count)차례, 대략 \(GilGyehoek.bunMal(gp.chong)). 누르시면 이 길로 안내 시작") {
+                        jeul.sseum(j)
+                        GilGyehoek.shared.jeanHagi([gp])
+                        if let gu = GilGyehoek.shared.hwakjeong() {
+                            GilGil.shared.cheotHwamyeon()
+                            MalHagi.shared.guganSijak(gu, ap: GilGyehoek.jeanMal(gp, cheot: true))
+                        }
+                    }
+                    .buttonStyle(KeunDanchu())
+                    DisclosureGroup("길눈이 짠 길의 차례 펼치기") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(Array(gp.gugan.enumerated()), id: \.offset) { e in
+                                Text("\(GilGyehoek.chasu[min(e.offset, 7)]), \(GilGyehoek.talMal(e.element.tal)) \(e.element.mok)까지 대략 \(GilGyehoek.bunMal(e.element.bun))").font(.title3)
+                            }
+                            Text("걸리는 시간은 보통 때의 어림입니다.").font(.title3)
+                        }
+                    }
+                    .font(.title3)
+                }
                 // 2.93.0 (261017-I47, 이사장님 승인 2026-10-17) 섬이면 육지 교통편을 내놓지 않고 타는 공항·항구를(웹 길눈 seom.js에서 옮김)
                 if let sm = seom {
                     Text(Seom.malGoreugi(sm, WichiEngine.shared.jigeum)).font(.title3)
@@ -566,6 +592,14 @@ struct MokjeokView: View {
     private var geoMal: String {
         guard let w = WichiEngine.shared.jigeum else { return "" }
         return ", 여기서 " + Annae.geoMal(WichiEngine.geori(w.lat, w.lon, j.lat, j.lon))
+    }
+
+    /// 2.142.0 30킬로미터 넘게 멀거나 바다 건너 섬이면 길눈이 짠 가장 알맞은 길
+    private var gyehoekGil: Gyehoek? {
+        guard let w = WichiEngine.shared.jigeum else { return nil }
+        let d = WichiEngine.geori(w.lat, w.lon, j.lat, j.lon)
+        guard d > 30_000 || seom != nil else { return nil }
+        return GilGyehoek.jjagi(w.lat, w.lon, j).first
     }
 
     // MARK: 2.93.0 (261017-I47) 섬·지하철 고장·먼 곳·바람
@@ -696,6 +730,31 @@ struct JeulgyeoView: View {
                 }
                 SoriEngine.shared.mal(allim)
             }
+        }
+    }
+}
+
+
+/// 2.142.0 (261126, 이사장님 승인 「첫단계부터 끝까지 꼼꼼하게 해보자」) 여정 계획 칸 — 지금 차례, 남은 차례, 다음 차례로, 그만
+struct GyehoekKan: View {
+    let g: Gyehoek
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button("여정 계획 — \(g.mokjeok)까지 \(g.gugan.count)차례 가운데 \(GilGyehoek.chasu[min(g.i, 7)]) 차례: \(GilGyehoek.talMal(g.gugan[min(g.i, g.gugan.count - 1)].tal)) \(g.gugan[min(g.i, g.gugan.count - 1)].mok)까지. 누르시면 남은 차례를 말씀드립니다") {
+                SoriEngine.shared.mal(GilGyehoek.shared.namEunMal())
+            }
+            .buttonStyle(KeunDanchu())
+            if g.i + 1 < g.gugan.count {
+                Button("다음 차례로 넘기기 — \(GilGyehoek.talMal(g.gugan[g.i + 1].tal)) \(g.gugan[g.i + 1].mok)까지") {
+                    if let n = GilGyehoek.shared.daeum("danchu") { MalHagi.shared.guganSijak(n, ap: "") }
+                }
+                .buttonStyle(KeunDanchu())
+            }
+            Button("여정 계획 그만 — 지금 하던 안내는 그대로") {
+                GilGyehoek.shared.geuman("danchu")
+                SoriEngine.shared.mal("여정 계획을 그만둡니다.")
+            }
+            .buttonStyle(KeunDanchu())
         }
     }
 }
