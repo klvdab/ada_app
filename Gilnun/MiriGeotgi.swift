@@ -35,7 +35,7 @@ enum MiriGeotgi {
     }
 
     static func jungyo(_ nm: String) -> Bool {
-        nm.range(of: "꺾임|굽은 길 시작|계단|횡단보도|건널목|오름턱|내림턱|엘리베이터|에스컬레이터|문|입구|개찰구|되돌아가는 곳|낙상", options: .regularExpression) != nil
+        nm.range(of: "꺾임|굽은 길 시작|계단|횡단보도|건널목|오름턱|내림턱|오르막|내리막|엘리베이터|에스컬레이터|문|입구|개찰구|되돌아가는 곳|낙상", options: .regularExpression) != nil
     }
 
     static func pyoMal(_ p: JeomPyo, _ kilyi: Double?) -> String {
@@ -60,6 +60,8 @@ enum MiriGeotgi {
         }
         if nm.contains("오름턱") { return "올라서는 턱입니다. 발을 올리십시오." }
         if nm.contains("내림턱") { return "내려서는 턱입니다. 발을 내리십시오." }
+        if nm == "오르막" { return "여기서부터 오르막입니다." }
+        if nm == "내리막" { return "여기서부터 내리막입니다." }
         if nm.contains("점자블록 끊김") { return "여기서 점자블록이 끊깁니다." }
         if nm.contains("점자블록 있음") { return "여기서부터 점자블록이 있습니다." }
         if nm.contains("점자블록 다시 이어짐") { return "여기서 점자블록이 다시 이어집니다." }

@@ -35,7 +35,7 @@ object MiriGeotgi {
     }
 
     fun jungyo(nm: String): Boolean =
-        Regex("꺾임|굽은 길 시작|계단|횡단보도|건널목|오름턱|내림턱|엘리베이터|에스컬레이터|문|입구|개찰구|되돌아가는 곳|낙상").containsMatchIn(nm)
+        Regex("꺾임|굽은 길 시작|계단|횡단보도|건널목|오름턱|내림턱|오르막|내리막|엘리베이터|에스컬레이터|문|입구|개찰구|되돌아가는 곳|낙상").containsMatchIn(nm)
 
     fun pyoMal(p: JeomPyo, kilyi: Double?): String {
         val nm = p.ireum
@@ -58,6 +58,8 @@ object MiriGeotgi {
             }
             nm.contains("오름턱") -> "올라서는 턱입니다. 발을 올리십시오."
             nm.contains("내림턱") -> "내려서는 턱입니다. 발을 내리십시오."
+            nm == "오르막" -> "여기서부터 오르막입니다."
+            nm == "내리막" -> "여기서부터 내리막입니다."
             nm.contains("점자블록 끊김") -> "여기서 점자블록이 끊깁니다."
             nm.contains("점자블록 있음") -> "여기서부터 점자블록이 있습니다."
             nm.contains("점자블록 다시 이어짐") -> "여기서 점자블록이 다시 이어집니다."

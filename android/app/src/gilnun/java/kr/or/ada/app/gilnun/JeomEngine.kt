@@ -1616,6 +1616,8 @@ object JeomEngine {
         if (nm.contains("계단")) return "계단입니다"
         if (nm.contains("오름턱")) return "올라서는 턱입니다"
         if (nm.contains("내림턱")) return "내려서는 턱입니다"
+        if (nm == "오르막") return "오르막입니다"
+        if (nm == "내리막") return "내리막입니다"
         if (nm.contains("점자블록 끊김")) return "점자블록이 끊깁니다"
         if (nm.contains("점자블록 있음")) return "점자블록이 있습니다"
         if (nm.contains("점자블록 다시 이어짐")) return "점자블록이 다시 이어집니다"
@@ -1711,6 +1713,8 @@ object JeomEngine {
         if (nm.contains("계단")) { val c = p.p.cnt ?: 0; return "계단 시작입니다." + (if (c > 0) " ${c}칸입니다." else "") }
         if (nm.contains("오름턱")) return "지금 올라서는 턱입니다."
         if (nm.contains("내림턱")) return "지금 내려서는 턱입니다."
+        if (nm == "오르막") return "여기서부터 오르막입니다."
+        if (nm == "내리막") return "여기서부터 내리막입니다. 천천히 가십시오."
         if (nm.contains("점자블록 끊김")) return "여기서 점자블록이 끊깁니다. 지팡이로 길을 확인하며 가십시오."
         if (nm.contains("점자블록 있음")) return "여기서부터 점자블록이 있습니다. 발밑으로 따라가셔도 됩니다."
         if (nm.contains("점자블록 다시 이어짐")) return "여기서 점자블록이 다시 이어집니다."
