@@ -64,6 +64,8 @@ final class MalHagi: ObservableObject {
     private var choegeunMal: [String] = []
     private var daehwaGirok: [[String]] = []
     private var bureumDolgo = false
+    /// 2.142.0 (261126, 이사장님 승인 「네」) 대답을 기다리는 동안 연 부름 귀인가 — 대답이 나오면 이 귀를 내려놓고, 대답 뒤 새로 엶
+    private var araboYeolrim = false
     private var bureumYeyak = false
     private var bureumSilpae = 0   // 2.12.0 뒤에서 부름 기다리기를 거듭 못 열면 앱으로 돌아올 때까지 쉼
     private var ijeonMal = ""
@@ -752,6 +754,15 @@ final class MalHagi: ObservableObject {
 
     private func dapHagi(_ t: String, _ mutneun: Bool) {
         sangtae = .swim
+        // 2.142.0 (261126, 이사장님 승인 「네」) 기다리는 동안 연 부름 귀를 대답 앞에서 내려놓음 —
+        //   11-26 12시 48분 말벗 대답 뒤 그 귀가 열린 것으로 남아 대답 뒤 「길눈아」 귀를 새로 열지 못하고 51초 동안 부르셔도 듣지 않던 일(「몇 번을 불러야 답을 하니」)
+        if araboYeolrim {
+            araboYeolrim = false
+            if bureumDolgo {
+                bureumDolgo = false
+                Girok.shared.namgi("arabo_gwi_naeryeom", [:])
+            }
+        }
         if !t.isEmpty { dapMal = t }
         // 2.85.0 / 2.55.0 (261016-I39 / 261016-A43, 이사장님 승인 2026-10-16) 할 말이 없는 대답(그만·하던 일 멈춰·음악 틀기처럼 엔진이 스스로 말하는 명령)이면
         //   「네」 하고 다시 듣지 않음(안드로이드 MalHagi.kt dapHagi 와 같음) — 그만이라 하셨는데 다시 듣거나 막 나온 음악 위로 마이크를 열던 일
@@ -909,6 +920,7 @@ final class MalHagi: ObservableObject {
             self?.bureumDasi(0.3)
         })
         bureumDolgo = ok
+        araboYeolrim = ok
         Girok.shared.namgi("bureum_yeolgi", ["ok": ok, "arabo": true])
     }
 
@@ -1574,6 +1586,22 @@ final class MalHagi: ObservableObject {
         }
         // 5-3. 2.141.0 (261126) 「이따가 가자」, 「조금 후에 갈게」 — 지금 떠나지 않으신다는 말. 곳 이름으로 찾지 않음
         //   (11-26 새벽 「이따가 가자」를 「이따가다」라는 251킬로미터 밖 곳으로 찾아 걷기 안내를 시작했던 일)
+        // 5-2-1. 2.142.0 (261126, 이사장님 승인 「네」) 「언제 나왔어」 — 판을 여쭌 뒤이거나 판·버전이 든 말이면 이번 판이 나온 날을 말씀드림
+        //   (11-26 12시 48분 「버전이 어떻게 돼」 다음 「언제 나왔어」를 말벗으로 보냈던 일)
+        if MalHagi.panNalMal(z, dapMal) {
+            mureum = .eopseum
+            Girok.shared.namgi("malhagi_pannal", [:])
+            dap("지금 쓰시는 길눈 \(Pan.pan)판은 \(MalHagi.bildNal(Pan.bild))에 나왔습니다.", false)
+            return
+        }
+        // 5-2-2. 2.142.0 (261126, 이사장님 승인 「네」) 「안내 잘했어」, 「어때 잘 안내한 것 같아」 — 길눈이 바로 고맙다고 하고 건의하는 길을 알려 드림
+        //   (11-26 1시 1분 말로 그린 길을 마치신 뒤 세 번 하신 소감이 말벗으로 갔다가 대답하지 못했던 일)
+        if MalHagi.sogamMal(z) {
+            mureum = .eopseum
+            Girok.shared.namgi("malhagi_sogam", ["mal": String((alts.first ?? "").prefix(40))])
+            dap("고맙습니다. 도움이 되었다니 기쁩니다. 소감이나 고칠 점이 있으시면 길눈아, 건의할게라고 말씀해 주십시오. 협회로 보내 드립니다.", false)
+            return
+        }
         if MalHagi.najungMal(z) {
             mureum = .eopseum
             Girok.shared.namgi("malhagi_najung", ["mal": String((alts.first ?? "").prefix(40))])
@@ -2853,6 +2881,29 @@ final class MalHagi: ObservableObject {
     static func panMal(_ z: String) -> Bool {
         guard z.count <= 16 else { return false }
         return z.contains("버전") || z.contains("몇판") || z.contains("판번호") || z.contains("몇번째판")
+    }
+
+    /// 2.142.0 (261126) 이번 판이 언제 나왔느냐는 말 — 판·버전이 들었거나, 바로 앞에 판을 말씀드렸을 때만
+    static func panNalMal(_ z: String, _ apDap: String) -> Bool {
+        guard z.count <= 16 else { return false }
+        let eonje = z.contains("언제나왔") || z.contains("언제나온") || z.contains("언제만들") || z.contains("언제새로") || z.contains("언제바뀌")
+        guard eonje else { return false }
+        return z.contains("버전") || z.contains("판") || z.contains("길눈") || apDap.hasPrefix("지금 쓰시는 길눈은")
+    }
+
+    /// 2.142.0 짓기 번호(261126-I96)에서 나온 날(2026년 11월 26일)
+    static func bildNal(_ b: String) -> String {
+        let d = Array(b.prefix(6))
+        guard d.count == 6, d.allSatisfy({ $0.isNumber }), let y = Int(String(d[0...1])), let m = Int(String(d[2...3])), let dd = Int(String(d[4...5])) else { return "최근" }
+        return "20\(String(format: "%02d", y))년 \(m)월 \(dd)일"
+    }
+
+    /// 2.142.0 (261126) 길눈 안내에 대한 소감·칭찬(「안내 잘했어」, 「수고했어」, 「잘 안내한 것 같아」) — 고마워·됐어는 그만하자는 말로 따로 다룸
+    static func sogamMal(_ z: String) -> Bool {
+        guard z.count <= 20, !z.contains("건의") else { return false }
+        if z.contains("잘안내") || z.contains("안내잘") || z.contains("안내를잘") || z.contains("길잘찾") || z.contains("잘데려") { return true }
+        let k = ["잘했어", "잘했다", "잘했네", "잘했어요", "수고했어", "수고했다", "수고했어요", "수고많았어", "잘하네", "잘한다", "최고야", "훌륭해", "멋지다", "멋져"]
+        return k.contains { z == $0 || z == "길눈아" + $0 || z == "길눈" + $0 }
     }
 
     /// 2.141.0 (261126) 지금 떠나지 않으신다는 말(이따가·조금 후에·나중에 + 가자·갈게)

@@ -24,9 +24,9 @@ import java.util.concurrent.Executors
 /** 판번호와 고친 기록 — 고칠 때마다 맨 위에 더함 */
 object Pan {
     /** 2.100.0 (261125, 대클) 판 번호는 설치된 앱의 versionName 을 읽음(panIlgi) — 2.99.0 때 이 글자를 고치지 않아 2.98.0으로 나오던 일 */
-    var pan = "2.106.0"
+    var pan = "2.107.0"
         private set
-    const val bild = "261126-A96"
+    const val bild = "261126-A97"
     fun panIlgi(c: android.content.Context) {
         try { c.packageManager.getPackageInfo(c.packageName, 0).versionName?.let { if (it.isNotEmpty()) pan = it } } catch (e: Exception) {}
     }
@@ -34,6 +34,10 @@ object Pan {
     class Gochim(val pan: String, val bild: String, val nal: String, val naeyong: List<String>)
 
     val girok = listOf(
+        Gochim("2.107.0", "261126-A97", "2026-11-26", listOf(
+            "★「안내 잘했어」, 「수고했어」, 「어때 잘 안내한 것 같아」 같은 소감에 길눈이 바로 고맙다고 하고, 건의는 「길눈아, 건의할게」로 하시면 된다고 알려 드림(아이폰 11-26 1시 1분 소감에 대답하지 못했던 일, 아이폰 2.142.0과 같음)",
+            "「버전」 다음 「언제 나왔어」, 「이번 판 언제 나왔어」에 지금 판이 나온 날을 말씀드림"
+        )),
         Gochim("2.106.0", "261126-A96", "2026-11-26", listOf(
             "★건의와 소감 말하기 — 「길눈아, 건의할게」·「소감 말할게」라고 하시고 그냥 말로 말씀하시면 받아 적어 읽어 드리고, 네 하시면 협회로 보냄. 누가(내 이름, 처음 한 번 여쭘)·어디서(시·구까지만)·어떤 폰·어떤 판·언제·하던 일과 바로 앞 기록을 함께 남김(이사장님 11-26 「이번 판에 꼭 넣어서 통과 받고 앱 공개하자」)",
             "★「이따가 가자」, 「조금 후에 갈게」, 「나중에 가자」는 곳 이름으로 찾지 않고 「네, 가실 때 다시 불러 주십시오」로 대답함. 막 시작한 말로 그린 길이 돌고 있으면 멈춤(아이폰 2.141.0과 같음, 이사장님 「우선 길눈을 손보자」)",

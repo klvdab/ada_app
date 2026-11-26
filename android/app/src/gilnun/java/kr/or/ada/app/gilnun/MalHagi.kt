@@ -1159,6 +1159,18 @@ object MalHagi {
             dap("지금 쓰시는 길눈은 ${Pan.pan}판입니다.", false)
             return
         }
+        // 5-6-1. 2.107.0 (261126, 이사장님 승인 「네」, 아이폰 2.142.0과 같음) 「언제 나왔어」 — 판을 여쭌 뒤이거나 판·버전이 든 말이면 이번 판이 나온 날
+        if (panNalMal(z, dapMal)) {
+            Girok.namgi("malhagi_pannal")
+            dap("지금 쓰시는 길눈 ${Pan.pan}판은 ${bildNal(Pan.bild)}에 나왔습니다.", false)
+            return
+        }
+        // 5-6-2. 2.107.0 (261126, 아이폰 2.142.0과 같음) 「안내 잘했어」, 「어때 잘 안내한 것 같아」 — 바로 고맙다고 하고 건의하는 길을 알려 드림
+        if (sogamMal(z)) {
+            Girok.namgi("malhagi_sogam", mapOf("mal" to (alts.firstOrNull() ?: "").take(40)))
+            dap("고맙습니다. 도움이 되었다니 기쁩니다. 소감이나 고칠 점이 있으시면 길눈아, 건의할게라고 말씀해 주십시오. 협회로 보내 드립니다.", false)
+            return
+        }
         // 5-7. 2.106.0 (261126, 아이폰 2.141.0과 같음) 「이따가 가자」, 「조금 후에 갈게」 — 곳 이름으로 찾지 않음, 막 시작한 말로 그린 길은 멈춤
         if (najungMal(z)) {
             Girok.namgi("malhagi_najung", mapOf("mal" to (alts.firstOrNull() ?: "").take(40)))
@@ -2132,6 +2144,29 @@ object MalHagi {
     fun kolChwisoMal(z: String) = (z.contains("콜") || z.contains("택시")) && z.contains("취소") && z.length <= 12
 
     /** 2.106.0 (261126, 아이폰 2.141.0과 같음) 판 번호를 묻는 말 */
+    /** 2.107.0 (261126) 이번 판이 언제 나왔느냐는 말 — 판·버전이 들었거나 바로 앞에 판을 말씀드렸을 때만 */
+    fun panNalMal(z: String, apDap: String): Boolean {
+        if (z.length > 16) return false
+        val eonje = listOf("언제나왔", "언제나온", "언제만들", "언제새로", "언제바뀌").any { z.contains(it) }
+        if (!eonje) return false
+        return z.contains("버전") || z.contains("판") || z.contains("길눈") || apDap.startsWith("지금 쓰시는 길눈은")
+    }
+
+    /** 2.107.0 짓기 번호(261126-A97)에서 나온 날(2026년 11월 26일) */
+    fun bildNal(b: String): String {
+        val d = b.take(6)
+        if (d.length != 6 || !d.all { it.isDigit() }) return "최근"
+        return "20${d.substring(0, 2)}년 ${d.substring(2, 4).toInt()}월 ${d.substring(4, 6).toInt()}일"
+    }
+
+    /** 2.107.0 (261126) 길눈 안내에 대한 소감·칭찬 — 고마워·됐어는 그만하자는 말로 따로 다룸 */
+    fun sogamMal(z: String): Boolean {
+        if (z.length > 20 || z.contains("건의")) return false
+        if (listOf("잘안내", "안내잘", "안내를잘", "길잘찾", "잘데려").any { z.contains(it) }) return true
+        val k = listOf("잘했어", "잘했다", "잘했네", "잘했어요", "수고했어", "수고했다", "수고했어요", "수고많았어", "잘하네", "잘한다", "최고야", "훌륭해", "멋지다", "멋져")
+        return k.any { z == it || z == "길눈아$it" || z == "길눈$it" }
+    }
+
     fun panMal(z: String): Boolean = z.length <= 16 && (z.contains("버전") || z.contains("몇판") || z.contains("판번호") || z.contains("몇번째판"))
 
     /** 2.106.0 (261126, 아이폰 2.141.0과 같음) 지금 떠나지 않으신다는 말(이따가·조금 후에·나중에 + 가자·갈게) */

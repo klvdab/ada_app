@@ -12,13 +12,18 @@ struct Gochim: Identifiable {
 enum Pan {
     /// 2.135.0 (261125, 대클) 판 번호는 앱에 새겨진 번호(설계도 MARKETING_VERSION)를 그대로 읽음 —
     ///   2.134.0 때 이 글자를 고치지 않아 설정 화면·기록에 2.133.0으로 나왔던 일(이사장님 11-25 「테스트플라이트에서 받았는데 왜 이전 버전이라 하는지」)
-    static var pan: String { (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "2.141.0" }
-    static let bild = "261126-I95"
+    static var pan: String { (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "2.142.0" }
+    static let bild = "261126-I96"
     /// 앱스토어에 올라간 짓기 번호(연월일시분)
     static var appBild: String {
         (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
     }
     static let girok: [Gochim] = [
+        Gochim(pan: "2.142.0", bild: "261126-I96", nal: "2026-11-26", naeyong: [
+            "★말벗이 대답한 뒤 「길눈아」를 다시 듣지 않던 일을 고침 — 기다리는 동안 연 귀가 열린 채 남아 대답 뒤 새로 열지 못했음(11-26 12시 48분 51초 동안 부르셔도 듣지 않음, 「몇 번을 불러야 답을 하니」)",
+            "★「안내 잘했어」, 「수고했어」, 「어때 잘 안내한 것 같아」 같은 소감에 길눈이 바로 고맙다고 하고, 건의는 「길눈아, 건의할게」로 하시면 된다고 알려 드림(11-26 1시 1분 말로 그린 길을 마치신 뒤 세 번 하신 소감에 대답하지 못했던 일)",
+            "「버전」 다음 「언제 나왔어」, 「이번 판 언제 나왔어」에 지금 판이 나온 날을 말씀드림"
+        ]),
         Gochim(pan: "2.141.0", bild: "261126-I95", nal: "2026-11-26", naeyong: [
             "★건의와 소감 말하기 — 「길눈아, 건의할게」·「소감 말할게」라고 하시고 그냥 말로 말씀하시면 받아 적어 읽어 드리고, 네 하시면 협회로 보냄. 누가(내 이름, 처음 한 번 여쭘)·어디서(시·구까지만)·어떤 폰·어떤 판·언제·하던 일과 바로 앞 기록을 함께 남김(이사장님 11-26 「이번 판에 꼭 넣어서 통과 받고 앱 공개하자」)",
             "★가실 곳을 여쭌 뒤라도 묻는 말(니가 할 수 있는 게 뭐야, 뭐야 이게, 어떻게 돼 같은 말)은 곳 이름으로 찾지 않고 말벗에게 물음(11-26 새벽 한 번 못 찾은 뒤 2분 동안 모든 물음이 「찾지 못했습니다」로 끝났던 일, 이사장님 「우선 길눈을 손보자」)",
