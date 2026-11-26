@@ -500,7 +500,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
             if l.isEmpty {
                 if !s.gorgi.isEmpty { s.gorgi = [] }   // 2.12.2 10초마다 같은 빈 목록을 다시 넣어 화면을 다시 그리던 것(보이스오버 방해)을 막음
                 s.inetDaegiKyeogi()   // 2.12.1
-                s.bakkum(ap + "지금 나가는 현장영상해설이 없습니다. 방송이 열리거나 행사장에 들어서시면 저절로 들려 드립니다." + ((s.waeNatmal.isEmpty || s.waeNatmal == "wifi_eopseum") ? "" : " 행사장이시면, " + s.waeMal), malhal: true)
+                s.bakkum(ap + "지금 나가는 현장영상해설이 없습니다. 방송이 열리거나 행사장에 들어서시면 저절로 들려 드립니다. 그동안 첫 화면의 라디오와 화면해설방송 듣기로 다른 방송을 들으실 수 있습니다." + ((s.waeNatmal.isEmpty || s.waeNatmal == "wifi_eopseum") ? "" : " 행사장이시면, " + s.waeMal), malhal: true)
             } else if l.count == 1 {
                 s.inetDaegiKkeugi()   // 2.12.1
                 s.inteonetGoreum(l[0], apMal: ap)

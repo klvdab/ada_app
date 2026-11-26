@@ -40,6 +40,10 @@ import java.net.URLDecoder
 
 class WebHwamyeon : Activity() {
     companion object {
+        // 2.13.0 라디오 화면이 「현장영상해설 방송이 열렸다」며 첫 화면(bfb.html?lvdgo=deut)으로 가려 하면 앱 첫 화면으로 돌아가 해설을 들려 드림
+        var haeseolYeollim = false
+        var akkaId = ""
+        var akkaNm = ""
         // 누리집 화면이 스스로 붙이는 뒤로·첫 화면 단추(누리집 대문으로 감)를 감춤 — 낭독기에도 안 읽힘
         // 2.5.0 앱 안에서는 누리집의 「앱으로 더 편하게 듣기」(#btnAp·#apBox)도 감춤 — 이미 앱이므로
         const val GAMCHUGI = "(function(){var s=document.createElement('style');s.textContent='.dwiro-btn,#btnDwi1,#btnDwi2,#homeBtn,#btnAp,#apBox{display:none!important}';(document.head||document.documentElement).appendChild(s);})();"
@@ -153,6 +157,17 @@ class WebHwamyeon : Activity() {
             settings.userAgentString = settings.userAgentString + " LVDBangsong/2.3.0"
             webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView?, url: String?) { view?.evaluateJavascript(GAMCHUGI, null) }
+                override fun shouldOverrideUrlLoading(view: WebView?, req: android.webkit.WebResourceRequest?): Boolean {
+                    val u = req?.url ?: return false
+                    if ((u.path ?: "").endsWith("/bfb/bfb.html") && u.getQueryParameter("lvdgo") == "deut") {
+                        akkaId = u.getQueryParameter("akka") ?: ""
+                        akkaNm = u.getQueryParameter("akkanm") ?: ""
+                        haeseolYeollim = true
+                        finish()
+                        return true
+                    }
+                    return false
+                }
             }
             webChromeClient = WebChromeClient()
             setDownloadListener { url, _, cd, mime, n -> mutgoBatgi(url, cd, mime, n) }

@@ -54,6 +54,11 @@ struct WebPan: UIViewRepresentable {
         w.isOpaque = false
         w.navigationDelegate = context.coordinator
         context.coordinator.web = w
+        // 2.14.0 (261126 이사장님 지시 「웹과 앱을 동일하게」) 라디오와 화면해설방송 화면은 방송사 주소를 열어야 하므로 막기를 붙이지 않음
+        if juso.contains("/bfblive/chae.html") {
+            if let u = URL(string: juso) { w.load(URLRequest(url: u, cachePolicy: .reloadIgnoringLocalCacheData)) }
+            return w
+        }
         BangsongsaMakgi.butigi(w) { if let u = URL(string: juso) { w.load(URLRequest(url: u, cachePolicy: .reloadIgnoringLocalCacheData)) } }   // 2.12.2 (261116) 폰 저장본 말고 늘 새 화면   // 261109 방송사 채널 막기
         return w
     }
@@ -72,6 +77,17 @@ final class Batgi: NSObject, WKNavigationDelegate, WKDownloadDelegate {
         var v = s?.windows.first(where: { $0.isKeyWindow })?.rootViewController
         while let p = v?.presentedViewController { v = p }
         return v
+    }
+    /// 2.14.0 라디오 화면이 「현장영상해설 방송이 열렸다」며 첫 화면(bfb.html?lvdgo=deut)으로 가려 하면 — 누리집 대문으로 가지 않고 앱 듣기로 돌아감
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        guard let u = navigationAction.request.url, u.path.hasSuffix("/bfb/bfb.html"),
+              let q = URLComponents(url: u, resolvingAgainstBaseURL: false)?.queryItems,
+              q.first(where: { $0.name == "lvdgo" })?.value == "deut" else { decisionHandler(.allow); return }
+        decisionHandler(.cancel)
+        let id = q.first(where: { $0.name == "akka" })?.value ?? ""
+        let nm = q.first(where: { $0.name == "akkanm" })?.value ?? ""
+        if !id.isEmpty { UserDefaults.standard.set(id, forKey: "bfb_akka_id"); UserDefaults.standard.set(nm, forKey: "bfb_akka_nm") }
+        DispatchQueue.main.async { NotificationCenter.default.post(name: .init("lvdHaeseolYeollim"), object: nil) }
     }
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
         guard let h = navigationResponse.response as? HTTPURLResponse,

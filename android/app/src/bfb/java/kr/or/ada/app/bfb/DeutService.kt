@@ -613,7 +613,7 @@ class DeutService : Service() {
             l.isEmpty() -> {
                 inetBium = true   // 2.11.1
                 if (Deut.gorgi.isNotEmpty()) { Deut.gorgi = emptyList(); Deut.allyeo() }
-                Deut.bakkum(ap + "지금 나가는 현장영상해설이 없습니다. 방송이 열리거나 행사장에 들어서시면 저절로 들려 드립니다." + (if (Deut.waeNatmal == "wifi_eopseum" || Deut.waeNatmal == "") "" else " 행사장이시면, " + Deut.waeMal), true)
+                Deut.bakkum(ap + "지금 나가는 현장영상해설이 없습니다. 방송이 열리거나 행사장에 들어서시면 저절로 들려 드립니다. 그동안 첫 화면의 라디오와 화면해설방송 듣기로 다른 방송을 들으실 수 있습니다." + (if (Deut.waeNatmal == "wifi_eopseum" || Deut.waeNatmal == "") "" else " 행사장이시면, " + Deut.waeMal), true)
             }
             l.size == 1 -> { Deut.gorgi = emptyList(); Deut.jemok = l[0].jemok; bogiDugi(l[0]); inteonetMal(l[0], ap); return l[0].sid }
             else -> if (ap.isNotEmpty() || Deut.gorgi.map { it.sid } != l.map { it.sid }) {
