@@ -20,6 +20,18 @@
     <!-- 0.8.9(261124-L32) 플레이 「세로 화면만」 경고 — 태블릿·크롬북에서도 설치되게 세로 화면을 필수로 하지 않음(대클) -->
     <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
 
+    <!-- 0.9.0(261127-L33) 음악 듣기 — 안드로이드 11부터는 열어 줄 음원 앱을 여기 적어야 깔렸는지 알 수 있음(도클) -->
+    <queries>
+        <package android:name="com.iloen.melon" />
+        <package android:name="com.ktmusic.geniemusic" />
+        <package android:name="skplanet.musicmate" />
+        <package android:name="com.naver.vibe" />
+        <package android:name="com.neowiz.android.bugs" />
+        <package android:name="com.google.android.apps.youtube.music" />
+        <package android:name="com.spotify.music" />
+        <package android:name="com.apple.android.music" />
+    </queries>
+
     <application>
         <activity android:name="kr.or.ada.app.MainActivity" tools:node="remove" />
         <activity

@@ -49,6 +49,7 @@ enum Route: Hashable {
     case gsMok(String, String, Bool)      // 0.8.4 게시판 목록(판, 이름, 쓸 수 있나)
     case gsBogi(String, String, String)   // 0.8.4 글 보기(판, 이름, 글 번호)
     case bongsa(String)                   // 0.8.9 봉사자 방·손끝편지(도서관 웹 화면 안 길)
+    case eumak                            // 0.9.0 음악 듣기(음원 서비스 앱 열기)
 }
 
 final class Nav: ObservableObject {
@@ -139,6 +140,7 @@ extension View {
             case .gsMok(let b, let t, let w): GsMokView(b: b, ttl: t, sseugi: w).dwiro()
             case .gsBogi(let b, let t, let id): GsBogiView(b: b, ttl: t, gid: id).dwiro()
             case .bongsa(let g): BongsaView(gil: g).dwiro()
+            case .eumak: EumakView().dwiro()
             }
         }
     }
