@@ -26,9 +26,13 @@ class HyeophoeLogo(c: Context, private val jeom: Int = Color.rgb(247, 231, 180))
         val ox = (width - 205 * s) / 2; val oy = (height - 162 * s) / 2
         fun x(v: Float): Float = ox + v * s
         fun y(v: Float): Float = oy + v * s
-        pt.color = jeom
-        for ((a, b) in listOf(33.9f to 28.5f, 33.9f to 46.7f, 33.9f to 65f, 88.8f to 28.5f, 88.8f to 46.7f, 88.7f to 65f, 107.9f to 65f, 148.6f to 28.6f, 167.6f to 28.5f, 167.6f to 46.8f))
+        // 261126 점자 점을 점 자리마다 여섯 색으로(1 빨강·2 주황·3 노랑·4 초록·5 파랑·6 보라 — 점자 교육 여섯 색과 같음, 이사장님 승인 「1」·「네」)
+        val yeoseot = intArrayOf(Color.rgb(215, 22, 24), Color.rgb(251, 140, 0), Color.rgb(244, 199, 32), Color.rgb(59, 179, 93), Color.rgb(30, 136, 229), Color.rgb(176, 91, 214))
+        val jari = intArrayOf(1, 2, 3, 1, 2, 3, 6, 1, 4, 5)
+        listOf(33.9f to 28.5f, 33.9f to 46.7f, 33.9f to 65f, 88.8f to 28.5f, 88.8f to 46.7f, 88.7f to 65f, 107.9f to 65f, 148.6f to 28.6f, 167.6f to 28.5f, 167.6f to 46.8f).forEachIndexed { k, (a, b) ->
+            pt.color = yeoseot[jari[k] - 1]
             cv.drawCircle(x(a), y(b), 8.4f * s, pt)
+        }
         pt.color = Color.rgb(215, 22, 24)
         cv.drawPath(Path().apply { moveTo(x(26f), y(80f)); lineTo(x(37f), y(80f)); lineTo(x(37f), y(131f)); lineTo(x(67f), y(131f)); lineTo(x(67f), y(142f)); lineTo(x(26f), y(142f)); close() }, pt)
         pt.color = Color.rgb(244, 199, 32)

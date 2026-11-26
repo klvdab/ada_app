@@ -50,9 +50,12 @@ struct LogoView: View {
             let ox = (size.width - 205 * s) / 2, oy = (size.height - 162 * s) / 2
             func P(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: ox + x * s, y: oy + y * s) }
             let dots: [(CGFloat, CGFloat)] = [(33.9,28.5),(33.9,46.7),(33.9,65.0),(88.8,28.5),(88.8,46.7),(88.7,65.0),(107.9,65.0),(148.6,28.6),(167.6,28.5),(167.6,46.8)]
-            for (x, y) in dots {
+            // 261126 점자 점을 점 자리마다 여섯 색으로(1 빨강·2 주황·3 노랑·4 초록·5 파랑·6 보라 — 점자 교육 여섯 색과 같음, 이사장님 승인 「1」·「네」)
+            let jari = [1, 2, 3, 1, 2, 3, 6, 1, 4, 5]
+            let yeoseot = [Color(red: 0.843, green: 0.086, blue: 0.094), Color(red: 0.984, green: 0.549, blue: 0.0), Color(red: 0.957, green: 0.780, blue: 0.125), Color(red: 0.231, green: 0.702, blue: 0.365), Color(red: 0.118, green: 0.533, blue: 0.898), Color(red: 0.690, green: 0.357, blue: 0.839)]
+            for (k, (x, y)) in dots.enumerated() {
                 let r = 8.4 * s, c = P(x, y)
-                cx.fill(Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)), with: .color(jeomSaek))
+                cx.fill(Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)), with: .color(yeoseot[jari[k] - 1]))
             }
             var l = Path(); l.move(to: P(26,80)); l.addLine(to: P(37,80)); l.addLine(to: P(37,131)); l.addLine(to: P(67,131)); l.addLine(to: P(67,142)); l.addLine(to: P(26,142)); l.closeSubpath()
             cx.fill(l, with: .color(Saek.ppalgang))
