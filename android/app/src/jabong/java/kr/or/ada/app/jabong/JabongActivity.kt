@@ -120,6 +120,17 @@ class JabongActivity : AppCompatActivity() {
         bburi.addView(bon, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         bburi.addView(deopgae, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         setContentView(bburi)
+        // 2.39.0 (261126, 이사장님 지시 「자봉 음성 안내도 길눈에서와 같이 화면을 터치하면 멈출 수 있도록 반드시」)
+        //   화면을 만지시면(톡백 커서가 옮겨 가면) 자봉이 하던 말을 곧바로 멈춤 — 앱이 스스로 커서를 옮긴 1초 안은 빼고, 경고는 끊지 않음(길눈 2.101.0과 같음)
+        bburi.accessibilityDelegate = object : View.AccessibilityDelegate() {
+            override fun onRequestSendAccessibilityEvent(host: ViewGroup, child: View, event: AccessibilityEvent): Boolean {
+                if (event.eventType == AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED &&
+                    System.currentTimeMillis() - jaChojeomTtae > 1000) {
+                    kr.or.ada.app.gilnun.Sori.teochiMeomchum()
+                }
+                return super.onRequestSendAccessibilityEvent(host, child, event)
+            }
+        }
         // 2.22.0 아래 탭 네 개가 폰 아래 조작 막대(내비게이션 바)에 가리지 않게 그 높이만큼 위로(직원 시험 뒤 이사장님 지시 2026-10-14)
         //   안드로이드 15부터 앱 화면이 막대 밑까지 깔려(목표 SDK 35) 맨 아래 탭 줄이 가려졌음. 위 상태 막대·글자판도 같은 방법으로 비킴
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(bburi) { v, ins ->
@@ -317,9 +328,18 @@ class JabongActivity : AppCompatActivity() {
     /** 방금 누른 단추가 다시 그린 화면에 없으면 커서를 이 줄에(바뀐 알림 줄) */
     fun gibon(v: View) { gibonJul = v }
 
+    // 2.39.0 앱이 스스로 커서를 옮긴 때 — 이 1초 안의 커서 옮김은 「만지심」으로 치지 않음
+    private var jaChojeomTtae = 0L
+    // 2.39.0 톡백을 쓰지 않는 봉사자도 화면을 누르면 하던 말이 곧바로 멈춤
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        if (ev.actionMasked == android.view.MotionEvent.ACTION_DOWN) kr.or.ada.app.gilnun.Sori.teochiMeomchum()
+        return super.dispatchTouchEvent(ev)
+    }
+
     private fun omgigi(v: View) {
         v.post {
             if (!v.isAttachedToWindow) return@post
+            jaChojeomTtae = System.currentTimeMillis()
             v.requestFocus()
             v.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null)
             v.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED)
@@ -1297,6 +1317,9 @@ class DoumalHwamyeon : JbHwamyeon("도움말") {
     companion object {
         /** 아이폰 JabongDoumalView 와 같은 항목 — 안드로이드에서 다른 대목(뒤로 동작, 알림 칸, 배터리)만 고쳐 씀 */
         val DOUMAL = listOf(
+            // 2.39.0 (261126, 이사장님 지시 「철저히 지켜서」, 아이폰 자봉 2.38.0과 같음) 맨 위에
+            "안내 말 멈추기" to "자봉이 말하는 중에 화면을 만지시면 하던 말이 곧바로 멈춥니다. 화면낭독기를 쓰시면 손가락으로 다른 줄을 만지실 때 멈추고, 화면낭독기 없이 쓰시면 화면 아무 곳이나 누르실 때 멈춥니다. 위험을 알리는 경고는 멈추지 않습니다. 협회 점검에서 고칠 곳이 나와도 앱이 처음부터 끝까지 줄줄이 읽지 않고, 가짓수와 앞의 몇 가지만 말씀드립니다. 나머지는 그린 길 목록에서 하나씩 보실 수 있습니다.",
+            "그리던 길 이어 그리기" to "그리는 중에 전화가 오거나 앱이 꺼져도 그리던 길은 폰에 남아 있습니다. 앱을 다시 여시면 「그리던 길이 남아 있습니다」라고 말로 알려 드립니다. 그리기 화면에서 다시 걷기를 누르시면 이어 그리고, 다 걸었습니다를 누르시면 여기까지로 마칩니다.",
             // 2.27.0 (261018-A23, 이사장님 승인 2026-10-18 「3」) 동영상 강의
             "동영상 강의 — 자봉 사용법 21편" to "도움말 맨 위의 동영상 강의를 누르시면 자봉 안드로이드 사용법 21편의 차례가 다섯 편씩 나오고, 편 이름을 누르시면 앱 안에서 바로 틀어 드립니다. 로그인이나 가입은 필요 없습니다. 틀면 뒤로, 재생과 멈춤, 10초 뒤로, 10초 앞으로, 다음 편 단추가 있고, 한 편을 다 보시면 다음 편 이름을 알려 드립니다. 도움말 한 항목을 펼치시면 내용 아래에 그 기능의 동영상 강의 보기 단추가 있는 것도 있습니다. 교육 마당의 짧은 동영상 네 편과 달리 기능마다 자세히 다룹니다. 같은 강의는 협회 홈페이지 온라인강좌에서도 누구나 보실 수 있습니다. 어느 편을 몇 번 틀었는지는 이름 없이 협회로 보내 강의를 고치는 데 씁니다.",
             "처음 등록" to "자봉 앱을 처음 여시면 한 번만 등록합니다. 이름, 연락처, 네 자리 숫자만 적고 등록 마치기를 누르시면 1분이면 끝납니다. 1365 아이디는 나중에 내 기록 탭에서 넣으시면 됩니다. 칸이 비었거나 맞지 않으면 무엇이 모자란지 말로 알려 드립니다. 등록을 마치면 큰 박수와 함께 환영 화면에서 자봉 번호를 알려 드리고, 첫 길 그려 보기를 누르시면 그리기 탭으로 갑니다. 처음 그리실 때는 그리기 화면에 세 가지만 알려 드립니다. 보폭부터 재기, 문 앞에서 시작하기, 꺾이는 그 자리에서 꺾임 누르기입니다. 첫 점지도를 올리시면 큰 박수로 축하드리고, 그리기 탭에 더 잘 그리고 싶으시면 2편 동영상 보기 단추가 나옵니다. 웹 자봉에서 이미 등록하셨으면 자봉 번호와 네 자리 숫자로 이어서 쓰십시오.",   // 2.23.0

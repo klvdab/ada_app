@@ -236,6 +236,15 @@ final class SoriEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate,
     }
 
     /// 줄에 선 말을 모두 거두고 지금 말도 멈춤(경고는 남김)
+    /// 자봉 2.38.0 (261126, 이사장님 지시) 보이스오버를 쓰지 않는 분이 화면을 누르셔도 하던 말과 줄에 선 말을 곧바로 멈춤
+    /// 보이스오버 커서가 옮겨 갈 때와 같은 잣대 — 말이 막 들어오거나 막 시작한 1.5초 안은 빼고. 길눈은 부르지 않음(자봉만 씀)
+    func manjimMeomchum() {
+        let gakkai = min(Date().timeIntervalSince(malDeureonTtae), Date().timeIntervalSince(malSijakTtae))
+        guard (malJung || !jul.isEmpty) && gakkai > 1.5 else { return }
+        Girok.shared.namgi("teochi_meomchum", ["mal": String(hanunMal.prefix(20)), "jul": jul.count, "nureum": true])
+        modu_geodugi()
+    }
+
     func modu_geodugi() {
         DispatchQueue.main.async {
             self.jul.removeAll { $0.geup != .gyeonggo }

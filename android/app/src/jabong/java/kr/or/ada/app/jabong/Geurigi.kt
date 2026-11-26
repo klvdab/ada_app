@@ -182,6 +182,10 @@ object Geurigi {
                     sijakMs = (g.optDouble("sijak_unix", System.currentTimeMillis() / 1000.0) * 1000).toLong()
                     sangtae = Sangtae.MEOMCHUM
                     allim = "그리던 길이 남아 있습니다. 다시 걷기를 누르시면 이어 그리고, 다 걸었습니다를 누르시면 여기까지로 마칩니다."
+                    // 2.39.0 (261126, 이사장님이 전화 뒤 그리던 길이 사라진 줄 아셨음) 남은 길을 글로만 두지 않고 말로도 알림
+                    val m = allim
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ Sori.mal(m, MalGeup.ANNAE) }, 3000)
+                    Girok.namgi("jb_iieo_namum", mapOf("jari" to pts.length()))
                 }
             }
         } catch (e: Exception) {}
@@ -1003,7 +1007,7 @@ object Geurigi {
         val heum = r.optJSONArray("heum") ?: JSONArray()
         val mals = JSONArray(); val saeks = JSONArray(); var ppal = 0
         for (i in 0 until heum.length()) { val h = heum.optJSONObject(i) ?: continue; val m = h.optString("mal"); if (m.isNotEmpty()) { mals.put(m); saeks.put(h.optString("saek", "빨강")) }; if (h.optString("saek") == "빨강") ppal++ }
-        val malMok = (0 until mals.length()).joinToString(" ") { mals.optString(it) }
+        val malMok = JbBowan.jjalgeMal((0 until mals.length()).map { mals.optString(it) })   // 2.39.0 (261126, 이사장님 지시) 고칠 곳을 끝없이 읽지 않음 — 가짓수와 앞의 두 가지만
         if (r.optBoolean("olim", false)) {
             o.put("olim", true); o.put("seobeoId", r.optString("id")); if (mals.length() > 0) { o.put("heum", mals); o.put("heumSaek", saeks) } else { o.remove("heum"); o.remove("heumSaek") }
             mokJeojang()

@@ -82,11 +82,21 @@ object JbBowan {
     }
 
     /** 고칠 곳 말로 듣기 — 몇 걸음째, 무엇, 어떻게 */
+    /** 2.39.0 (261126, 이사장님 지시 — 「몇 걸음이 비었다」가 끝없이 나와 멈출 수 없었음) 올린 뒤 알림에 고칠 곳은 가짓수와 앞의 두 가지만 */
+    fun jjalgeMal(mals: List<String>): String {
+        if (mals.isEmpty()) return ""
+        val ap = mals.take(2).joinToString(" ")
+        return if (mals.size <= 2) ap else "고칠 곳은 모두 ${mals.size}가지입니다. $ap 나머지는 그린 길 목록에서 하나씩 보실 수 있습니다."
+    }
+
     fun malHagi(g: JSONObject) {
         Sori.meomchugi()
         Sori.mal(ireum(g) + ". " + g.optString("mal", BUTAK))
         val h = g.optJSONArray("heum")
-        for (i in 0 until (h?.length() ?: 0)) { val x = h?.optJSONObject(i) ?: continue; Sori.mal("${i + 1}. ${x.optString("saek", "빨강")}. ${x.optString("mal")}") }
+        // 2.39.0 (261126, 이사장님 지시) 고칠 곳을 끝없이 줄줄이 읽지 않음 — 앞의 세 가지만 말하고 나머지는 화면에서 하나씩
+        val su = h?.length() ?: 0
+        for (i in 0 until minOf(su, 3)) { val x = h?.optJSONObject(i) ?: continue; Sori.mal("${i + 1}. ${x.optString("saek", "빨강")}. ${x.optString("mal")}") }
+        if (su > 3) Sori.mal("나머지 ${su - 3}가지는 이 화면 목록에서 하나씩 보실 수 있습니다.")
     }
 
     /** 고칠 곳 한 줄 — 빛깔 띠와 「빨강 —」 글자(톡백으로도 빛깔을 들음), 빨강은 깜박임 */

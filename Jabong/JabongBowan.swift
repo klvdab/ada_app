@@ -75,7 +75,16 @@ final class JbBowan: ObservableObject {
     static func malHagi(_ g: BwGil) {
         SoriEngine.shared.modu_geodugi()
         SoriEngine.shared.mal("\(g.ireum). " + (g.mal ?? JbBowan.butak))
-        for (i, h) in g.heum.enumerated() { SoriEngine.shared.mal("\(i + 1). \(h.saek). \(h.mal)") }
+        // 2.38.0 (261126, 이사장님 지시) 고칠 곳을 끝없이 줄줄이 읽지 않음 — 앞의 세 가지만 말하고 나머지는 화면에서 하나씩
+        for (i, h) in g.heum.prefix(3).enumerated() { SoriEngine.shared.mal("\(i + 1). \(h.saek). \(h.mal)") }
+        if g.heum.count > 3 { SoriEngine.shared.mal("나머지 \(g.heum.count - 3)가지는 이 화면 목록에서 하나씩 보실 수 있습니다.") }
+    }
+
+    /// 2.38.0 (261126, 이사장님 지시 — 「몇 걸음이 비었다」가 끝없이 나와 멈출 수 없었음) 올린 뒤 알림에 고칠 곳은 가짓수와 앞의 두 가지만
+    static func jjalgeMal(_ mals: [String]) -> String {
+        guard !mals.isEmpty else { return "" }
+        let ap = mals.prefix(2).joined(separator: " ")
+        return mals.count <= 2 ? ap : "고칠 곳은 모두 \(mals.count)가지입니다. " + ap + " 나머지는 그린 길 목록에서 하나씩 보실 수 있습니다."
     }
 
     /// 2026-10-13 → 10월 13일

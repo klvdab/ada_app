@@ -259,6 +259,10 @@ final class JeomGeurigi: ObservableObject {
             gil = g
             sangtae = .meomchum
             allim = "그리던 길이 남아 있습니다. 다시 걷기를 누르시면 이어 그리고, 다 걸었습니다를 누르시면 여기까지로 마칩니다."
+            // 2.38.0 (261126, 이사장님이 전화 뒤 그리던 길이 사라진 줄 아셨음) 남은 길을 글로만 두지 않고 말로도 알림
+            let m = allim
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { SoriEngine.shared.mal(m, .annae) }
+            Girok.shared.namgi("jb_iieo_namum", ["id": g.id, "jari": g.pts.count])
         }
         NotificationCenter.default.publisher(for: JabongBonche.jeojangHal)
             .receive(on: DispatchQueue.main)
@@ -1209,10 +1213,10 @@ final class JeomGeurigi: ObservableObject {
             if bowanPilyo {   // 2.18.0 받기는 했지만 손볼 곳이 있음 — 보완 목록에도 올라가 누구든 이어서 보완
                 Task { await JbBowan.shared.bulleo(gangje: true) }
                 Girok.shared.namgi("jb_olim_bowan", ["id": id, "seobeo": geurinGil[i].seobeoId ?? ""])
-                alrigi(cheotMal + dgMal + "올렸습니다. 고맙습니다. 다만 협회 점검에서 손볼 곳이 나와 보완 목록에도 올렸습니다. 그린 분이나 다른 봉사자 누구든 이어서 보완할 수 있습니다. " + mals.joined(separator: " "))
+                alrigi(cheotMal + dgMal + "올렸습니다. 고맙습니다. 다만 협회 점검에서 손볼 곳이 나와 보완 목록에도 올렸습니다. 그린 분이나 다른 봉사자 누구든 이어서 보완할 수 있습니다. " + JbBowan.jjalgeMal(mals))
                 return
             }
-            alrigi(cheotMal + dgMal + "올렸습니다. 협회 점검을 통과해 길눈에 실렸습니다. 고맙습니다." + (bm > 0 ? " 보완 부탁 \(bm)건이 보완 완료되었습니다." : "") + (mals.isEmpty ? "" : " 다음에 손보시면 좋을 곳도 알려 드립니다. " + mals.joined(separator: " ")))
+            alrigi(cheotMal + dgMal + "올렸습니다. 협회 점검을 통과해 길눈에 실렸습니다. 고맙습니다." + (bm > 0 ? " 보완 부탁 \(bm)건이 보완 완료되었습니다." : "") + (mals.isEmpty ? "" : " 다음에 손보시면 좋을 곳도 알려 드립니다. " + JbBowan.jjalgeMal(mals)))
         } else {
             geurinGil[i].heum = mals
             geurinGil[i].heumSaek = saeks
@@ -1220,7 +1224,7 @@ final class JeomGeurigi: ObservableObject {
             Task { await JbBowan.shared.bulleo(gangje: true) }   // 2.13.0 보완 부탁 목록을 새로
             let ppal = heum.filter { ($0["saek"] as? String) == "빨강" }.count
             Girok.shared.namgi("jb_olim_heum", ["id": id, "su": ppal])
-            alrigi(JbBowan.butak + " 협회 점검에서 고칠 곳이 \(max(ppal, 1))가지 나와 아직 올리지 않았습니다. " + mals.joined(separator: " ")
+            alrigi(JbBowan.butak + " 협회 점검에서 고칠 곳이 \(max(ppal, 1))가지 나와 아직 올리지 않았습니다. " + JbBowan.jjalgeMal(mals)
                    + " 이름이 빠진 것은 이 화면에서 바로 넣고 다시 올리시면 되고, 걸음이나 표시가 빠진 구간은 다시 걸어 새로 그려 주십시오."
                    + " 처음엔 누구나 그렇습니다. 요령은 내 기록 탭 교육 마당의 \(JbMadang.doumPyeon(mals))편 동영상에 짧게 담겨 있습니다.")   // 2.22.0
         }
