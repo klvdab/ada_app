@@ -41,6 +41,7 @@ object MalgilEngine : SensorEventListener {
     private var ddo = false
     private var gidaeHeading: Double? = null
     private var bangMal = 0L
+    private var bangEotgeum = 0
     private var majimak = ""
 
     private var ctx: Context? = null
@@ -240,6 +241,7 @@ object MalgilEngine : SensorEventListener {
 
     private fun dangye(i: Int) {
         if (!geotneun || i >= S.size) return
+        bangEotgeum = 0
         if (si >= 0 && si < S.size) Girok.namgi("malgil_neomeogam", mapOf("i" to si + 1, "geol" to geol, "n" to S[si].n))   // 2.106.0 (261126) 단계마다 기록
         si = i; geol = 0; ddo = false
         val k = S[i]
@@ -280,8 +282,11 @@ object MalgilEngine : SensorEventListener {
             }
             val h = Wichi.hapBang
             val gd = gidaeHeading
-            if (gd != null && h >= 0 && geol >= 3 && geol % 2 == 1 && abs(DoeEngine.chai(h, gd)) > 75 &&
+            // 2.107.0 (261126, 아이폰 점심 「오는 길」 시험 — 3분 반에 방향 알림 일곱 번) 두 번 이어서 어긋나야 알리고, 차례의 마지막 세 걸음 안에서는 알리지 않음
+            if (gd != null && h >= 0 && geol >= 3 && geol % 2 == 1) bangEotgeum = if (abs(DoeEngine.chai(h, gd)) > 75) bangEotgeum + 1 else 0
+            if (gd != null && h >= 0 && geol >= 3 && geol % 2 == 1 && bangEotgeum >= 2 && geol <= k.n - 3 &&
                 System.currentTimeMillis() - bangMal > 8000) {
+                bangEotgeum = 0
                 bangMal = System.currentTimeMillis()
                 // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 어느 쪽으로 돌아 서실지 시계 방향으로 덧붙임(되짚어 나가기와 같은 셈)
                 val s = Jeomjido.sigyeBanghyang(h, gd)

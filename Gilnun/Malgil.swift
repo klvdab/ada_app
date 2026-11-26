@@ -38,6 +38,8 @@ final class MalgilEngine: ObservableObject {
     private var ddo = false
     private var gidaeHeading: Double?
     private var bangMal = Date.distantPast
+    /// 방향이 어긋나게 잰 횟수(이어서) — 건물 안 나침반 흔들림에 한 번 재고 바로 멈추시게 하지 않으려고 두 번 이어서 어긋나야 알림
+    private var bangEotgeum = 0
     private var majimak = ""
 
     private let mm = CMMotionManager()
@@ -201,6 +203,7 @@ final class MalgilEngine: ObservableObject {
 
     private func dangye(_ i: Int) {
         guard geotneun, i < S.count else { return }
+        bangEotgeum = 0
         if si >= 0 && si < S.count { Girok.shared.namgi("malgil_neomeogam", ["i": si + 1, "geol": geol, "n": S[si].n]) }
         si = i; geol = 0; ddo = false
         let k = S[i]
@@ -240,8 +243,14 @@ final class MalgilEngine: ObservableObject {
                 mal("세 걸음 뒤, " + dm)
             }
             let h = WichiEngine.shared.nachimban
-            if let gd = gidaeHeading, h >= 0, geol >= 3, geol % 2 == 1, abs(DoeEngine.chai(h, gd)) > 75,
+            // 2.142.0 (261126, 점심 「오는 길」 시험 — 3분 반에 「방향이 다릅니다. 멈추십시오」 일곱 번, 그중 둘은 차례 마지막 걸음과 같은 때)
+            //   두 번 이어서 어긋나야 알리고, 차례의 마지막 세 걸음 안에서는 알리지 않음
+            if let gd = gidaeHeading, h >= 0, geol >= 3, geol % 2 == 1 {
+                bangEotgeum = abs(DoeEngine.chai(h, gd)) > 75 ? bangEotgeum + 1 : 0
+            }
+            if let gd = gidaeHeading, h >= 0, geol >= 3, geol % 2 == 1, bangEotgeum >= 2, geol <= k.n - 3,
                Date().timeIntervalSince(bangMal) > 8 {
+                bangEotgeum = 0
                 bangMal = Date()
                 // 2.87.0 / 2.57.0 (261016-I41 / 261016-A45, 이사장님 승인 2026-10-16) 어느 쪽으로 돌아 서실지 시계 방향으로 덧붙임(되짚어 나가기와 같은 셈)
                 let s = WichiEngine.sigyeBanghyang(jeongmyeon: h, mokpyo: gd)
