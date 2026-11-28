@@ -532,7 +532,7 @@ class BangsongActivity : Activity() {
                         if (o.optString("jong") != "live" && o.optString("jong") != "bangsong") continue
                         if (o.optString("sid").isEmpty() || o.optInt("maji", 0) > 30) continue
                         if (o.optBoolean("sori", false)) sb.add(o.optString("sid"))
-                        m.add(Deut.InteonetBang(o.optString("sid"), o.optString("title"), o.optString("who"), o.optInt("cho"), o.optBoolean("hls", false) || o.optBoolean("yeongsang", false)))
+                        m.add(Deut.InteonetBang(o.optString("sid"), o.optString("title"), o.optString("who"), o.optInt("cho"), o.optBoolean("hls", false)))   // 2.13.1 영상 묶음(hls)이 실제로 있을 때만 영상 방송으로 — 없으면 소리부터, 준비되면 저절로 영상 화면
                     }
                     Deut.soriBang = sb; l = m
                 }
