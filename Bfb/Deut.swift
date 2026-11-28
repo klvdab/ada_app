@@ -483,7 +483,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
             let rows = ((j["rows"] as? [[String: Any]]) ?? []).filter { ["live", "bangsong"].contains($0["jong"] as? String ?? "") && Deut.majiCho($0) <= 30 }
             Deut.soriBang = Set(rows.filter { $0["sori"] as? Bool ?? false }.compactMap { $0["sid"] as? String })   // 2.13.0
             let l = rows.map { InteonetBang(id: $0["sid"] as? String ?? "", jemok: $0["title"] as? String ?? "", who: $0["who"] as? String ?? "", cho: $0["cho"] as? Int ?? 0,
-                                            yeongsang: ($0["hls"] as? Bool ?? false) || ($0["yeongsang"] as? Bool ?? false)) }.filter { !$0.id.isEmpty }
+                                            yeongsang: ($0["hls"] as? Bool ?? false)) }.filter { !$0.id.isEmpty }   // 2.14.1 영상 묶음(hls)이 실제로 있을 때만 영상 방송으로 — 없으면 소리부터 틀고, 준비되면 저절로 영상 화면(11-27 이어서 방송에서 영상 화면이 비고 소리도 안 나던 일)
             // 2.12.1 듣던 방송이 새 방으로 이어졌으면(같은 현장영상해설사·같은 제목) 곧바로 붙음. 15초 기다려도 없으면 그제야 끝났다고 알림
             var ap = ""
             if let k = s.kkeunBang {
@@ -547,7 +547,7 @@ final class Deut: NSObject, ObservableObject, URLSessionDataDelegate {
             let rows = ((j["rows"] as? [[String: Any]]) ?? []).filter { ["live", "bangsong"].contains($0["jong"] as? String ?? "") && Deut.majiCho($0) <= 30 }
             for r in rows where r["sori"] as? Bool ?? false { if let id = r["sid"] as? String { Deut.soriBang.insert(id) } }
             let l = rows.map { InteonetBang(id: $0["sid"] as? String ?? "", jemok: $0["title"] as? String ?? "", who: $0["who"] as? String ?? "", cho: $0["cho"] as? Int ?? 0,
-                                            yeongsang: ($0["hls"] as? Bool ?? false) || ($0["yeongsang"] as? Bool ?? false)) }.filter { !$0.id.isEmpty }
+                                            yeongsang: ($0["hls"] as? Bool ?? false)) }.filter { !$0.id.isEmpty }   // 2.14.1 영상 묶음(hls)이 실제로 있을 때만 영상 방송으로 — 없으면 소리부터 틀고, 준비되면 저절로 영상 화면(11-27 이어서 방송에서 영상 화면이 비고 소리도 안 나던 일)
             let yet = Set(s.jigeumMok.map { $0.id })
             if l.map({ $0.id + ($0.yeongsang ? "v" : "") }) != s.jigeumMok.map({ $0.id + ($0.yeongsang ? "v" : "") }) { s.jigeumMok = l }
             kkeut(l.filter { !yet.contains($0.id) })
